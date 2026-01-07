@@ -333,35 +333,58 @@ def fetch_threat_feed():
     global _threat_status
     try:
         _threat_status['last_attempt'] = time.time()
-        if not os.path.exists(THREAT_FEED_URL_PATH):
+        
+        # Support multiple feeds from threat-feeds.txt
+        urls = []
+        feeds_file = '/root/threat-feeds.txt'
+        if os.path.exists(feeds_file):
+            with open(feeds_file, 'r') as f:
+                urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        elif os.path.exists(THREAT_FEED_URL_PATH):
+            with open(THREAT_FEED_URL_PATH, 'r') as f:
+                url = f.read().strip()
+                if url:
+                    urls = [url]
+        
+        if not urls:
             _threat_status['status'] = 'missing'
             return
-        with open(THREAT_FEED_URL_PATH,'r') as f:
-            url = f.read().strip()
-        if not url:
-            _threat_status['status'] = 'missing'
-            return
-        r = requests.get(url, timeout=25)
-        if r.status_code != 200:
-            _threat_status['status'] = 'error'
-            _threat_status['error'] = f"HTTP {r.status_code}"
-            return
-        data = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
-        if not data:
+        
+        all_ips = set()
+        errors = []
+        
+        for url in urls:
+            try:
+                r = requests.get(url, timeout=25)
+                if r.status_code != 200:
+                    feed_name = url.split('/')[-2] if '/' in url else 'feed'
+                    errors.append(f'{feed_name}: HTTP {r.status_code}')
+                    continue
+                ips = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
+                all_ips.update(ips)
+            except Exception as e:
+                feed_name = url.split('/')[-2] if '/' in url else 'feed'
+                errors.append(f'{feed_name}: {str(e)[:30]}')
+        
+        if not all_ips:
             _threat_status['status'] = 'empty'
             _threat_status['size'] = 0
+            _threat_status['error'] = '; '.join(errors) if errors else None
             return
+        
         tmp_path = THREATLIST_PATH + '.tmp'
-        with open(tmp_path,'w') as f:
-            f.write('\n'.join(data))
+        with open(tmp_path, 'w') as f:
+            f.write('\n'.join(sorted(all_ips)))
         os.replace(tmp_path, THREATLIST_PATH)
+        
         _threat_status['last_ok'] = time.time()
-        _threat_status['size'] = len(data)
+        _threat_status['size'] = len(all_ips)
         _threat_status['status'] = 'ok'
-        _threat_status['error'] = None
+        _threat_status['error'] = '; '.join(errors) if errors else None
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
+
 
 def get_feed_label():
     try:
