@@ -60,12 +60,6 @@ _threat_cache = {"data": set(), "mtime": 0}
 _alert_sent_ts = 0
 _alert_history = deque(maxlen=50)
 
-_spark_cache = {"src": {"labels": [], "data": {}, "ts": 0}, "dst": {"labels": [], "data": {}, "ts": 0}}
-_spark_cache_ttl = 600  # seconds
-_spark_bucket_minutes = 180
-_spark_bucket_count = 8
-_spark_lock = threading.Lock()
-
 _alert_type_ts = {}
 _alert_day_counts = defaultdict(int)
 ALERT_TYPE_MIN_INTERVAL = {'threat_ip': 120, 'suspicious_port': 300, 'large_transfer': 300, 'default': 300}
@@ -81,8 +75,6 @@ _metric_nfdump_calls = 0
 _metric_stats_cache_hits = 0
 _metric_bw_cache_hits = 0
 _metric_conv_cache_hits = 0
-_metric_spark_hits = 0
-_metric_spark_misses = 0
 _metric_http_429 = 0
 
 class NfdumpProcessor:
@@ -907,76 +899,6 @@ def api_alerts_history():
     return jsonify(list(_alert_history))
 
 
-def build_spark(kind, metric='bytes'):
-    kind = "dst" if kind == "dst" else "src"
-    now = datetime.now()
-    labels = []
-    buckets = []
-
-    def fetch_spark_bucket(idx):
-        end = now - timedelta(minutes=idx*_spark_bucket_minutes)
-        start = end - timedelta(minutes=_spark_bucket_minutes)
-        tf = f"{start.strftime('%Y/%m/%d.%H:%M:%S')}-{end.strftime('%Y/%m/%d.%H:%M:%S')}"
-        label = end.strftime("%H:%M")
-        output = run_nfdump(["-s", f"{kind}ip/bytes/flows", "-n", "100"], tf)
-        rows = parse_csv(output)
-        bucket = {}
-        for r in rows:
-            key = r.get("key")
-            if key:
-                val = r.get('flows') if metric == 'flows' else r.get("bytes", 0)
-                bucket[key] = bucket.get(key, 0) + val
-        return label, bucket
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        results = list(executor.map(fetch_spark_bucket, range(_spark_bucket_count-1, -1, -1)))
-
-    for label, bucket in results:
-        labels.append(label)
-        buckets.append(bucket)
-    data = {}
-    for i, bucket in enumerate(buckets):
-        for ip, val in bucket.items():
-            data.setdefault(ip, [0]*_spark_bucket_count)
-            data[ip][i] = val
-    return labels, data
-
-
-
-def get_sparklines(ip_list, kind="src", metric='bytes'):
-    global _metric_spark_hits, _metric_spark_misses
-    if not ip_list:
-        return [], {}
-    kind = "dst" if kind == "dst" else "src"
-    metric = 'flows' if metric == 'flows' else 'bytes'
-    now = time.time()
-    with _spark_lock:
-        cache = _spark_cache[kind]
-        if now - cache.get("ts", 0) < _spark_cache_ttl and cache.get('metric','bytes') == metric and all(ip in cache.get("data", {}) for ip in ip_list):
-            _metric_spark_hits += 1
-            return cache.get("labels", []), {ip: cache["data"].get(ip, [0]*_spark_bucket_count) for ip in ip_list}
-    labels, data_full = build_spark(kind, metric)
-    with _spark_lock:
-        _spark_cache[kind] = {"labels": labels, "data": data_full, "ts": time.time(), 'metric': metric}
-        _metric_spark_misses += 1
-    return labels, {ip: data_full.get(ip, [0]*_spark_bucket_count) for ip in ip_list}
-
-
-
-@app.route("/api/sparklines", methods=['POST'])
-@throttle(10,20)
-def api_sparklines():
-    payload = request.get_json(force=True, silent=True) or {}
-    ips = payload.get('ips', [])
-    kind = payload.get('kind', 'src')
-    metric = payload.get('metric', 'bytes')
-    if not isinstance(ips, list):
-        ips = []
-    ips = [ip for ip in ips if ip]
-    labels, data = get_sparklines(ips, kind, metric)
-    return jsonify({"labels": labels, "data": data, "metric": metric})
-
-
 def read_alert_log(days=7):
     out = []
     cutoff = datetime.utcnow() - timedelta(days=days)
@@ -1047,8 +969,6 @@ def metrics():
         f"netflow_stats_cache_hits_total {_metric_stats_cache_hits}",
         f"netflow_bw_cache_hits_total {_metric_bw_cache_hits}",
         f"netflow_conversations_cache_hits_total {_metric_conv_cache_hits}",
-        f"netflow_spark_cache_hits_total {_metric_spark_hits}",
-        f"netflow_spark_cache_misses_total {_metric_spark_misses}",
         f"netflow_rate_limited_total {_metric_http_429}",
         f"threat_feed_size {_threat_status.get('size',0)}",
     ]
@@ -1107,8 +1027,6 @@ tr:hover{background:var(--border);cursor:pointer}
 .close-modal:hover{color:var(--danger)}
 .ip-clickable{cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
 .ip-clickable:hover{color:var(--accent)}
-.spark{width:120px;height:30px;}
-.sparkline-cell{text-align:center;min-width:130px;}
 .select-sm{padding:6px 8px;font-size:0.85em;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:12px;background:var(--card);border:1px solid var(--border);font-size:0.8em}.pill.ok{color:#10b981;border-color:#10b981}.pill.warn{color:#f59e0b;border-color:#f59e0b}.pill.err{color:#ef4444;border-color:#ef4444}
 </style>
@@ -1128,10 +1046,6 @@ tr:hover{background:var(--border);cursor:pointer}
 <option value="30000" selected>Auto: 30s</option>
 <option value="60000">Auto: 60s</option>
 <option value="120000">Auto: 120s</option>
-</select>
-<select id="sparkMetric" class="select-sm" onchange="changeSparkMetric()">
-<option value="bytes" selected>Trend: Bytes</option>
-<option value="flows">Trend: Flows</option>
 </select>
 <button id="pauseBtn" onclick="togglePause()">Pause</button>
 <button onclick="toggleTheme()">Toggle Theme</button>
@@ -1166,11 +1080,11 @@ tr:hover{background:var(--border);cursor:pointer}
 
 <div class="grid">
 <div class="card collapsible" id="cardSources"><div class="card-header" onclick="toggleCard(this)"><h2>🔝 Top Sources</h2></div><div class="card-body">
-<table id="topSources"><thead><tr><th>IP</th><th>Traffic</th><th>24h</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
+<table id="topSources"><thead><tr><th>IP</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="2" class="loading">Loading...</td></tr></tbody></table>
 </div></div>
 
 <div class="card collapsible" id="cardDests"><div class="card-header" onclick="toggleCard(this)"><h2>🎯 Top Destinations</h2></div><div class="card-body">
-<table id="topDests"><thead><tr><th>IP</th><th>Traffic</th><th>24h</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
+<table id="topDests"><thead><tr><th>IP</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="2" class="loading">Loading...</td></tr></tbody></table>
 </div></div>
 
 <div class="card collapsible" id="cardPorts"><div class="card-header" onclick="toggleCard(this)"><h2>🔌 Top Ports</h2></div><div class="card-body">
@@ -1212,12 +1126,9 @@ tr:hover{background:var(--border);cursor:pointer}
 let chart=null,currentTheme='green';
 let refreshMs=parseInt(localStorage.getItem('refreshMs')||30000);
 let timer=null; let paused=false;
-let sparkMetric=localStorage.getItem('sparkMetric')||'bytes';
 let collapsedCards=new Set(JSON.parse(localStorage.getItem('collapsedCards')||'[]'));
 let limited=false;
 let lastLimitedTs=0;
-const SPARK_TTL=600000;
-const sparkCache={src:{ts:0,labels:[],data:{},metric:'bytes'},dst:{ts:0,labels:[],data:{},metric:'bytes'}};
 
 if(localStorage.getItem('theme')){
     currentTheme=localStorage.getItem('theme');
@@ -1236,12 +1147,6 @@ function togglePause(){
     const btn=document.getElementById('pauseBtn');
     if(paused){ if(timer) clearInterval(timer); btn.textContent='Resume'; document.getElementById('lastUpdate').textContent='Paused'; }
     else { btn.textContent='Pause'; update(); schedule(); }
-}
-
-function changeSparkMetric(){
-    sparkMetric=document.getElementById('sparkMetric').value;
-    localStorage.setItem('sparkMetric', sparkMetric);
-    update();
 }
 
 function changeTimeRange(){
@@ -1365,42 +1270,7 @@ function applyCollapsed(){
 function loadStoredUI(){
     const tr=localStorage.getItem('timeRange');
     if(tr){const sel=document.getElementById('timeRange'); if(sel && sel.querySelector(`option[value="${tr}"]`)) sel.value=tr;}
-    const sm=localStorage.getItem('sparkMetric');
-    if(sm){const sel=document.getElementById('sparkMetric'); if(sel && sel.querySelector(`option[value="${sm}"]`)) sel.value=sm; sparkMetric=sm;}
     applyCollapsed();
-}
-
-function renderSparkline(arr, labels, metric){
-    if(!arr || !arr.length) return '<span class=\"region\" style=\"opacity:0.5\">-</span>';
-    const max = Math.max(...arr);
-    if(max <= 0) return '<span class=\"region\" style=\"opacity:0.5\">-</span>';
-    const w=110, h=30;
-    const step = arr.length>1 ? w/(arr.length-1) : w;
-    const points = arr.map((v,i)=>`${(i*step).toFixed(1)},${(h - (v/max)*h).toFixed(1)}`).join(' ');
-    let title='';
-    if(labels && labels.length===arr.length){
-        const fmt = metric==='flows'? (x=>`${x} flows`) : (x=>{
-            if(x>=1024**3) return (x/1024**3).toFixed(2)+' GB';
-            if(x>=1024**2) return (x/1024**2).toFixed(2)+' MB';
-            if(x>=1024) return (x/1024).toFixed(2)+' KB';
-            return x+' B';
-        });
-        title = labels.map((l,idx)=>`${l}: ${fmt(arr[idx]||0)}`).join('\\n');
-    }
-    return `<svg class=\"spark\" viewBox=\"0 0 ${w} ${h}\" preserveAspectRatio=\"none\"><title>${title}</title><polyline fill=\"none\" stroke=\"var(--accent)\" stroke-width=\"2\" points=\"${points}\" /></svg>`;
-}
-
-async function fetchSparks(kind, ips){
-    ips = Array.from(new Set(ips||[]));
-    if(!ips.length) return {labels:[], data:{}};
-    const cache = sparkCache[kind];
-    const now = Date.now();
-    if(now - cache.ts < SPARK_TTL && cache.metric===sparkMetric && ips.every(ip=>cache.data[ip])){
-        return {labels: cache.labels, data: Object.fromEntries(ips.map(ip=>[ip, cache.data[ip]||[]]))};
-    }
-    const d = await fetchJson('/api/sparklines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips, kind, metric:sparkMetric})},1,400);
-    sparkCache[kind] = {ts: now, labels: d.labels||[], data: d.data||{}, metric: sparkMetric};
-    return {labels: d.labels||[], data: d.data||{}};
 }
 
 async function showIPDetail(ip){
@@ -1477,26 +1347,17 @@ updateFeedStatus(ov.threat_status);
 
 const fmt=b=>b>=1024**3?(b/1024**3).toFixed(2)+' GB':b>=1024**2?(b/1024**2).toFixed(2)+' MB':b>=1024?(b/1024).toFixed(2)+' KB':b+' B';
 
-function formatIPRow(i, kind, sparkMap, sparkLabels){
+function formatIPRow(i){
     const flag=i.flag?`<span class="flag">${i.flag}</span>`:'';
     const city=i.city?` <span class="region">${i.city}</span>`:'';
     const asn=i.asn?` <span class="region">ASN ${i.asn} ${i.asn_org||''}</span>`:'';
     const threat=i.threat?'<span class="badge threat">THREAT</span>':'';
-    const spark = renderSparkline(sparkMap && sparkMap[i.key], sparkLabels, sparkMetric);
-    return `<tr onclick=\"showIPDetail('${i.key}')\"><td><strong class="ip-clickable">${i.key}</strong> ${flag} <span class="badge ${i.internal?'internal':'external'}">${i.region}</span>${city}${asn}${i.hostname?`<span class="hostname">${i.hostname}</span>`:''} ${threat}</td><td><span class="badge">${fmt(i.bytes)}</span></td><td class="sparkline-cell">${spark}</td></tr>`;
+    return `<tr onclick=\"showIPDetail('${i.key}')\"><td><strong class="ip-clickable">${i.key}</strong> ${flag} <span class="badge ${i.internal?'internal':'external'}">${i.region}</span>${city}${asn}${i.hostname?`<span class="hostname">${i.hostname}</span>`:''} ${threat}</td><td><span class="badge">${fmt(i.bytes)}</span></td></tr>`;
 }
 
-const srcIps = ov.top_sources.slice(0,12).map(i=>i.key);
-const dstIps = ov.top_destinations.slice(0,12).map(i=>i.key);
-const [sparkSrc, sparkDst] = await Promise.all([fetchSparks('src', srcIps), fetchSparks('dst', dstIps)]);
-const sparkSrcData = (sparkSrc && sparkSrc.data) || {};
-const sparkDstData = (sparkDst && sparkDst.data) || {};
-const sparkSrcLabels = (sparkSrc && sparkSrc.labels) || [];
-const sparkDstLabels = (sparkDst && sparkDst.labels) || [];
+document.getElementById('topSources').getElementsByTagName('tbody')[0].innerHTML=ov.top_sources.slice(0,12).map(i=>formatIPRow(i)).join('');
 
-document.getElementById('topSources').getElementsByTagName('tbody')[0].innerHTML=ov.top_sources.slice(0,12).map(i=>formatIPRow(i,'src',sparkSrcData,sparkSrcLabels)).join('');
-
-document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=ov.top_destinations.slice(0,12).map(i=>formatIPRow(i,'dst',sparkDstData,sparkDstLabels)).join('');
+document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=ov.top_destinations.slice(0,12).map(i=>formatIPRow(i)).join('');
 
 document.getElementById('topPorts').getElementsByTagName('tbody')[0].innerHTML=ov.top_ports.slice(0,12).map(i=>`<tr><td><strong>${i.key}</strong></td><td>${i.service}</td><td><span class="badge ${i.suspicious?'suspicious':''}">${fmt(i.bytes)}</span></td></tr>`).join('');
 
