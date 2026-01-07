@@ -57,6 +57,13 @@ _geo_cache = {}
 _geo_cache_ttl = 900  # 15 min
 
 _threat_cache = {"data": set(), "mtime": 0}
+
+# Cache for individual bandwidth 5-min intervals
+_bw_interval_cache = {}
+# Global executor for nfdump calls to limit system load
+MAX_WORKERS = 16
+_nfdump_executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS)
+
 _alert_sent_ts = 0
 _alert_history = deque(maxlen=50)
 
@@ -222,66 +229,63 @@ def run_nfdump(args, tf=None):
 
 def parse_csv(output):
     results = []
-    lines = output.strip().split("\n")
+    if not output:
+        return []
+
+    lines = output.strip().splitlines()
     if not lines:
         return []
 
     # Dynamic header parsing
     header = lines[0].lower().split(",")
-    try:
-        idx_key = -1
-        idx_flows = -1
-        idx_packets = -1
-        idx_bytes = -1
+    idx_key, idx_flows, idx_packets, idx_bytes = -1, -1, -1, -1
 
-        # Heuristics for column names
-        for i, col in enumerate(header):
-            c = col.strip()
-            if c in ('val', 'ip', 'port', 'proto', 'sysid'):
-                if idx_key == -1: idx_key = i
-            elif 'flows' in c and '%' not in c: idx_flows = i
-            elif 'packets' in c and '%' not in c: idx_packets = i
-            elif 'bytes' in c and '%' not in c: idx_bytes = i
-            # fallback for 'pkt' 'byt' abbreviations if full names not found
-            if 'pkt' in c and '%' not in c and idx_packets == -1: idx_packets = i
-            if 'byt' in c and '%' not in c and idx_bytes == -1: idx_bytes = i
-            if 'fl' in c and '%' not in c and idx_flows == -1: idx_flows = i
+    # Heuristics for column names
+    for i, col in enumerate(header):
+        c = col.strip()
+        if idx_key == -1 and c in ('val', 'ip', 'port', 'proto', 'sysid'):
+            idx_key = i
+        elif idx_flows == -1 and ('flows' in c or ('fl' in c and '%' not in c)) and '%' not in c:
+            idx_flows = i
+        elif idx_packets == -1 and ('packets' in c or ('pkt' in c and '%' not in c)) and '%' not in c:
+            idx_packets = i
+        elif idx_bytes == -1 and ('bytes' in c or ('byt' in c and '%' not in c)) and '%' not in c:
+            idx_bytes = i
 
-        # Fallback to hardcoded defaults if detection fails
-        if idx_key == -1: idx_key = 4
-        if idx_flows == -1: idx_flows = 5
-        if idx_packets == -1: idx_packets = 7
-        if idx_bytes == -1: idx_bytes = 9
+    # Fallback to hardcoded defaults if detection fails
+    if idx_key == -1: idx_key = 4
+    if idx_flows == -1: idx_flows = 5
+    if idx_packets == -1: idx_packets = 7
+    if idx_bytes == -1: idx_bytes = 9
 
-    except Exception:
-        # Fallback
-        idx_key, idx_flows, idx_packets, idx_bytes = 4, 5, 7, 9
+    # Determine max index needed
+    max_idx = max(idx_key, idx_flows, idx_packets, idx_bytes)
 
     for line in lines[1:]:
         if not line: continue
         parts = line.split(",")
-        if len(parts) <= max(idx_key, idx_flows, idx_packets, idx_bytes): continue
+        if len(parts) <= max_idx: continue
         try:
             key = parts[idx_key]
-            if not key or "/" in key or key == "any": continue
+            # Fast skip invalid keys
+            if not key or key == "any" or "/" in key: continue
 
             # nfdump sometimes outputs floats for stats
             bytes_val = int(float(parts[idx_bytes]))
-            flows_val = int(float(parts[idx_flows]))
-            packets_val = int(float(parts[idx_packets]))
 
             if bytes_val > 0:
+                flows_val = int(float(parts[idx_flows]))
+                packets_val = int(float(parts[idx_packets]))
                 results.append({"key":key,"bytes":bytes_val,"flows":flows_val,"packets":packets_val})
-        except Exception:
+        except (ValueError, IndexError):
             continue
     return results
 
 def get_traffic_direction(ip, tf):
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        f_out = executor.submit(run_nfdump, ["-a",f"src ip {ip}","-s","srcip/bytes","-n","1"], tf)
-        f_in = executor.submit(run_nfdump, ["-a",f"dst ip {ip}","-s","dstip/bytes","-n","1"], tf)
-        out_parsed = parse_csv(f_out.result())
-        in_parsed = parse_csv(f_in.result())
+    f_out = _nfdump_executor.submit(run_nfdump, ["-a",f"src ip {ip}","-s","srcip/bytes","-n","1"], tf)
+    f_in = _nfdump_executor.submit(run_nfdump, ["-a",f"dst ip {ip}","-s","dstip/bytes","-n","1"], tf)
+    out_parsed = parse_csv(f_out.result())
+    in_parsed = parse_csv(f_in.result())
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     return {"upload": upload, "download": download, "ratio": round(upload/download, 2) if download > 0 else 0}
@@ -310,58 +314,35 @@ def fetch_threat_feed():
     global _threat_status
     try:
         _threat_status['last_attempt'] = time.time()
-        
-        # Support multiple feeds from threat-feeds.txt
-        urls = []
-        feeds_file = '/root/threat-feeds.txt'
-        if os.path.exists(feeds_file):
-            with open(feeds_file, 'r') as f:
-                urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-        elif os.path.exists(THREAT_FEED_URL_PATH):
-            with open(THREAT_FEED_URL_PATH, 'r') as f:
-                url = f.read().strip()
-                if url:
-                    urls = [url]
-        
-        if not urls:
+        if not os.path.exists(THREAT_FEED_URL_PATH):
             _threat_status['status'] = 'missing'
             return
-        
-        all_ips = set()
-        errors = []
-        
-        for url in urls:
-            try:
-                r = requests.get(url, timeout=25)
-                if r.status_code != 200:
-                    feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                    errors.append(f'{feed_name}: HTTP {r.status_code}')
-                    continue
-                ips = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
-                all_ips.update(ips)
-            except Exception as e:
-                feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                errors.append(f'{feed_name}: {str(e)[:30]}')
-        
-        if not all_ips:
+        with open(THREAT_FEED_URL_PATH,'r') as f:
+            url = f.read().strip()
+        if not url:
+            _threat_status['status'] = 'missing'
+            return
+        r = requests.get(url, timeout=25)
+        if r.status_code != 200:
+            _threat_status['status'] = 'error'
+            _threat_status['error'] = f"HTTP {r.status_code}"
+            return
+        data = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
+        if not data:
             _threat_status['status'] = 'empty'
             _threat_status['size'] = 0
-            _threat_status['error'] = '; '.join(errors) if errors else None
             return
-        
         tmp_path = THREATLIST_PATH + '.tmp'
-        with open(tmp_path, 'w') as f:
-            f.write('\n'.join(sorted(all_ips)))
+        with open(tmp_path,'w') as f:
+            f.write('\n'.join(data))
         os.replace(tmp_path, THREATLIST_PATH)
-        
         _threat_status['last_ok'] = time.time()
-        _threat_status['size'] = len(all_ips)
+        _threat_status['size'] = len(data)
         _threat_status['status'] = 'ok'
-        _threat_status['error'] = '; '.join(errors) if errors else None
+        _threat_status['error'] = None
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
-
 
 def get_feed_label():
     try:
@@ -600,16 +581,16 @@ def api_overview():
     whitelist = load_list(THREAT_WHITELIST)
     feed_label = get_feed_label()
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        f_src = executor.submit(run_nfdump, ["-s","srcip/bytes/flows/packets","-n","20"], tf)
-        f_dst = executor.submit(run_nfdump, ["-s","dstip/bytes/flows/packets","-n","20"], tf)
-        f_prt = executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","20"], tf)
-        f_pro = executor.submit(run_nfdump, ["-s","proto/bytes/flows/packets","-n","10"], tf)
+    # Use global executor
+    f_src = _nfdump_executor.submit(run_nfdump, ["-s","srcip/bytes/flows/packets","-n","20"], tf)
+    f_dst = _nfdump_executor.submit(run_nfdump, ["-s","dstip/bytes/flows/packets","-n","20"], tf)
+    f_prt = _nfdump_executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","20"], tf)
+    f_pro = _nfdump_executor.submit(run_nfdump, ["-s","proto/bytes/flows/packets","-n","10"], tf)
 
-        sources = parse_csv(f_src.result())
-        dests = parse_csv(f_dst.result())
-        ports = parse_csv(f_prt.result())
-        protos_raw = parse_csv(f_pro.result())
+    sources = parse_csv(f_src.result())
+    dests = parse_csv(f_dst.result())
+    ports = parse_csv(f_prt.result())
+    protos_raw = parse_csv(f_pro.result())
 
     seen = set(); protos = []
     for p in protos_raw:
@@ -630,11 +611,11 @@ def api_overview():
     ips_to_resolve = {i["key"] for i in sources[:8]} | {i["key"] for i in dests[:8]}
     resolved = {}
     if ips_to_resolve:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_ip = {executor.submit(resolve_ip, ip): ip for ip in ips_to_resolve}
-            for future in concurrent.futures.as_completed(future_to_ip):
-                ip = future_to_ip[future]
-                resolved[ip] = future.result()
+        # Use global executor for DNS resolution too
+        future_to_ip = {_nfdump_executor.submit(resolve_ip, ip): ip for ip in ips_to_resolve}
+        for future in concurrent.futures.as_completed(future_to_ip):
+            ip = future_to_ip[future]
+            resolved[ip] = future.result()
 
     asn_stats = defaultdict(lambda: {"bytes":0, "flows":0, "as_org": "Unknown"})
     country_stats = defaultdict(lambda: {"bytes":0, "flows":0, "code": "XX", "flag": ""})
@@ -743,42 +724,83 @@ def api_overview():
 @app.route("/api/bandwidth")
 @throttle(10,20)
 def api_bandwidth():
-    now_ts = time.time()
-    with _cache_lock:
-        if _bandwidth_cache["data"] and now_ts - _bandwidth_cache["ts"] < 60:
-            global _metric_bw_cache_hits
-            _metric_bw_cache_hits += 1
-            return jsonify(_bandwidth_cache["data"])
-    now = datetime.now().replace(second=0, microsecond=0)
-    labels, bw, flows = [], [], []
-    try:
-        def fetch_interval(i):
-            et = now - timedelta(minutes=i*5); st = et - timedelta(minutes=5)
+    # Optimization: Use fixed 5-minute intervals (aligned to clock)
+    # This allows caching past intervals indefinitely.
+
+    now = datetime.now()
+    # Align to next 5-minute boundary to determine current unfinished bucket
+    # e.g. 12:03 -> next is 12:05. Current bucket is 12:00-12:05
+    minute_aligned = (now.minute // 5) * 5 + 5
+    ref_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minute_aligned)
+
+    # We want 12 buckets ending at ref_time
+    # i=0: ref_time-5m to ref_time (Current bucket)
+    # i=1: ref_time-10m to ref_time-5m
+
+    intervals_to_fetch = []
+    cached_results = {}
+
+    # Identify which intervals are missing from cache
+    for i in range(12):
+        et = ref_time - timedelta(minutes=i*5)
+        st = et - timedelta(minutes=5)
+
+        # Cache key based on start/end
+        key = f"{st.strftime('%Y%m%d%H%M')}-{et.strftime('%Y%m%d%H%M')}"
+
+        # Check if this interval is in the past (completed)
+        is_past = et < now
+
+        with _cache_lock:
+            cached = _bw_interval_cache.get(key)
+            # If cached and (it's a past interval OR it's a current interval cached <60s ago)
+            if cached and (is_past or (time.time() - cached['ts'] < 60)):
+                cached_results[i] = cached['data']
+                continue
+
+        intervals_to_fetch.append((i, st, et, key, is_past))
+
+    # Fetch missing intervals
+    if intervals_to_fetch:
+        def fetch_one(args):
+            i, st, et, key, is_past = args
             tf = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
-            label = et.strftime("%H:%M")
             out = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf)
-            return label, parse_csv(out)
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            results = list(executor.map(fetch_interval, range(11,-1,-1)))
-
-        for label, stats in results:
-            labels.append(label)
+            stats = parse_csv(out)
+            # Process stats immediately
+            b_val, f_val = 0, 0
             if stats:
-                total_b = sum(s["bytes"] for s in stats); total_f = sum(s["flows"] for s in stats)
-                bw.append(round((total_b*8)/(300*1_000_000),2)); flows.append(round(total_f/300,2))
-            else:
-                bw.append(0); flows.append(0)
+                total_b = sum(s["bytes"] for s in stats)
+                total_f = sum(s["flows"] for s in stats)
+                b_val = round((total_b*8)/(300*1_000_000),2)
+                f_val = round(total_f/300,2)
 
-        data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"}
-        with _cache_lock:
-            _bandwidth_cache["data"] = data; _bandwidth_cache["ts"] = now_ts
-        return jsonify(data)
-    except Exception:
-        with _cache_lock:
-            if _bandwidth_cache.get("data"):
-                return jsonify(_bandwidth_cache["data"])
-        return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
+            result_data = {"label": et.strftime("%H:%M"), "bw": b_val, "flows": f_val}
+            return (i, key, result_data, is_past)
+
+        futures = []
+        for args in intervals_to_fetch:
+            futures.append(_nfdump_executor.submit(fetch_one, args))
+
+        for f in concurrent.futures.as_completed(futures):
+            try:
+                i, key, data, is_past = f.result()
+                cached_results[i] = data
+                # Update cache
+                with _cache_lock:
+                    _bw_interval_cache[key] = {"data": data, "ts": time.time()}
+            except Exception:
+                pass
+
+    # Assemble response (reverse order: oldest to newest)
+    labels, bw, flows = [], [], []
+    for i in range(11, -1, -1):
+        res = cached_results.get(i, {"label": "", "bw": 0, "flows": 0})
+        labels.append(res["label"])
+        bw.append(res["bw"])
+        flows.append(res["flows"])
+
+    return jsonify({"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"})
 
 @app.route("/api/conversations")
 @throttle(10,30)
@@ -792,11 +814,10 @@ def api_conversations():
     now = datetime.now().replace(second=0, microsecond=0)
     tf = f"{(now-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
     try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            f_src = executor.submit(run_nfdump, ["-s","srcip/bytes","-n","15"], tf)
-            f_dst = executor.submit(run_nfdump, ["-s","dstip/bytes","-n","15"], tf)
-            src_data = parse_csv(f_src.result())
-            dst_data = parse_csv(f_dst.result())
+        f_src = _nfdump_executor.submit(run_nfdump, ["-s","srcip/bytes","-n","15"], tf)
+        f_dst = _nfdump_executor.submit(run_nfdump, ["-s","dstip/bytes","-n","15"], tf)
+        src_data = parse_csv(f_src.result())
+        dst_data = parse_csv(f_dst.result())
 
         convs = []
         for i, src in enumerate(src_data[:15]):
@@ -828,18 +849,18 @@ def api_ip_detail(ip):
     dt = datetime.now()
     tf = f"{(dt-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{dt.strftime('%Y/%m/%d.%H:%M:%S')}"
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        f_dir = executor.submit(get_traffic_direction, ip, tf)
-        f_src = executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf)
-        f_dst = executor.submit(run_nfdump, ["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf)
-        f_pro = executor.submit(run_nfdump, ["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf)
-        f_dns = executor.submit(resolve_ip, ip)
+    # Use global executor
+    f_dir = _nfdump_executor.submit(get_traffic_direction, ip, tf)
+    f_src = _nfdump_executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf)
+    f_dst = _nfdump_executor.submit(run_nfdump, ["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf)
+    f_pro = _nfdump_executor.submit(run_nfdump, ["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf)
+    f_dns = _nfdump_executor.submit(resolve_ip, ip)
 
-        direction = f_dir.result()
-        src_ports = parse_csv(f_src.result())
-        dst_ports = parse_csv(f_dst.result())
-        protocols = parse_csv(f_pro.result())
-        hostname = f_dns.result()
+    direction = f_dir.result()
+    src_ports = parse_csv(f_src.result())
+    dst_ports = parse_csv(f_dst.result())
+    protocols = parse_csv(f_pro.result())
+    hostname = f_dns.result()
     for p in protocols:
         try:
             proto = int(p["key"]); p["proto_name"] = PROTOS.get(proto, f"Proto-{p['key']}")
