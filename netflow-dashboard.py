@@ -698,7 +698,7 @@ def api_overview():
         pass
 
     data = {
-        "top_sources":sources[:15],"top_destinations":dests[:15],
+        "top_sources":sources[:10],"top_destinations":dests[:10],
         "sources_internal":sources_int[:10],"sources_external":sources_ext[:10],
         "dests_internal":dests_int[:10],"dests_external":dests_ext[:10],
         "top_ports":ports[:15],"protocols":protos[:6],
@@ -1355,9 +1355,9 @@ function formatIPRow(i){
     return `<tr onclick=\"showIPDetail('${i.key}')\"><td><strong class="ip-clickable">${i.key}</strong> ${flag} <span class="badge ${i.internal?'internal':'external'}">${i.region}</span>${city}${asn}${i.hostname?`<span class="hostname">${i.hostname}</span>`:''} ${threat}</td><td><span class="badge">${fmt(i.bytes)}</span></td></tr>`;
 }
 
-document.getElementById('topSources').getElementsByTagName('tbody')[0].innerHTML=ov.top_sources.slice(0,12).map(i=>formatIPRow(i)).join('');
+document.getElementById('topSources').getElementsByTagName('tbody')[0].innerHTML=ov.top_sources.slice(0,10).map(i=>formatIPRow(i)).join('');
 
-document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=ov.top_destinations.slice(0,12).map(i=>formatIPRow(i)).join('');
+document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=ov.top_destinations.slice(0,10).map(i=>formatIPRow(i)).join('');
 
 document.getElementById('topPorts').getElementsByTagName('tbody')[0].innerHTML=ov.top_ports.slice(0,12).map(i=>`<tr><td><strong>${i.key}</strong></td><td>${i.service}</td><td><span class="badge ${i.suspicious?'suspicious':''}">${fmt(i.bytes)}</span></td></tr>`).join('');
 
