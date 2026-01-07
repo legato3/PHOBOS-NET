@@ -8,6 +8,8 @@ import threading
 import concurrent.futures
 import requests
 import maxminddb
+import socket
+from file_cache import load_file_cached, _json_loader, _list_loader
 
 app = Flask(__name__)
 
@@ -152,18 +154,21 @@ def throttle(max_calls=5, time_window=10):
     return decorator
 
 def resolve_ip(ip):
-    return None
     now = time.time()
     if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < 300:
         return _dns_cache[ip]
     try:
-        r = subprocess.run(["host","-W","1",ip,DNS_SERVER], capture_output=True, text=True, timeout=1)
-        if r.returncode == 0 and "pointer" in r.stdout:
-            h = r.stdout.split("pointer")[1].strip().rstrip(".")
-            _dns_cache[ip] = h; _dns_ttl[ip] = now; return h
+        # Use socket.gethostbyaddr which is standard and more efficient than subprocess
+        # We assume standard resolver configuration
+        h, _, _ = socket.gethostbyaddr(ip)
+        _dns_cache[ip] = h
+        _dns_ttl[ip] = now
+        return h
     except Exception:
         pass
-    _dns_cache[ip] = None; _dns_ttl[ip] = now; return None
+    _dns_cache[ip] = None
+    _dns_ttl[ip] = now
+    return None
 
 def run_nfdump(args, tf=None):
     global _metric_nfdump_calls
@@ -207,11 +212,7 @@ def get_traffic_direction(ip, tf):
     return {"upload": upload, "download": download, "ratio": round(upload/download, 2) if download > 0 else 0}
 
 def load_list(path):
-    try:
-        with open(path,"r") as f:
-            return set(line.strip() for line in f if line.strip() and not line.startswith('#'))
-    except FileNotFoundError:
-        return set()
+    return load_file_cached(path, _list_loader, default=set())
 
 
 def load_threatlist():
@@ -338,26 +339,14 @@ def fmt_bytes(b):
 
 
 def load_smtp_cfg():
-    if not os.path.exists(SMTP_CFG_PATH):
-        return None
-    try:
-        with open(SMTP_CFG_PATH,'r') as f:
-            cfg = json.load(f)
-        return cfg
-    except Exception:
-        return None
-
+    return load_file_cached(SMTP_CFG_PATH, _json_loader, default=None)
 
 def load_notify_cfg():
     default = {"email": True, "webhook": True, "mute_until": 0}
-    if not os.path.exists(NOTIFY_CFG_PATH):
+    cfg = load_file_cached(NOTIFY_CFG_PATH, _json_loader, default=default)
+    if cfg is default:
         return default
-    try:
-        with open(NOTIFY_CFG_PATH,'r') as f:
-            cfg = json.load(f)
-        return {"email": bool(cfg.get("email", True)), "webhook": bool(cfg.get("webhook", True)), "mute_until": float(cfg.get("mute_until", 0) or 0)}
-    except Exception:
-        return default
+    return {"email": bool(cfg.get("email", True)), "webhook": bool(cfg.get("webhook", True)), "mute_until": float(cfg.get("mute_until", 0) or 0)}
 
 
 def save_notify_cfg(cfg):
@@ -534,8 +523,18 @@ def api_overview():
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
 
+    # Pre-resolve DNS for top items in parallel
+    ips_to_resolve = {i["key"] for i in sources[:8]} | {i["key"] for i in dests[:8]}
+    resolved = {}
+    if ips_to_resolve:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_ip = {executor.submit(resolve_ip, ip): ip for ip in ips_to_resolve}
+            for future in concurrent.futures.as_completed(future_to_ip):
+                ip = future_to_ip[future]
+                resolved[ip] = future.result()
+
     for i in sources[:8]:
-        i["hostname"] = resolve_ip(i["key"])
+        i["hostname"] = resolved.get(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
         geo = lookup_geo(i["key"])
@@ -544,7 +543,7 @@ def api_overview():
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
 
     for i in dests[:8]:
-        i["hostname"] = resolve_ip(i["key"])
+        i["hostname"] = resolved.get(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
         geo = lookup_geo(i["key"])
@@ -686,11 +685,13 @@ def api_ip_detail(ip):
         f_src = executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf)
         f_dst = executor.submit(run_nfdump, ["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf)
         f_pro = executor.submit(run_nfdump, ["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf)
+        f_dns = executor.submit(resolve_ip, ip)
 
         direction = f_dir.result()
         src_ports = parse_csv(f_src.result())
         dst_ports = parse_csv(f_dst.result())
         protocols = parse_csv(f_pro.result())
+        hostname = f_dns.result()
     for p in protocols:
         try:
             proto = int(p["key"]); p["proto_name"] = PROTOS.get(proto, f"Proto-{p['key']}")
@@ -704,7 +705,7 @@ def api_ip_detail(ip):
     geo = lookup_geo(ip)
     data = {
         "ip": ip,
-        "hostname": resolve_ip(ip),
+        "hostname": hostname,
         "region": get_region(ip),
         "internal": is_internal(ip),
         "geo": geo,
