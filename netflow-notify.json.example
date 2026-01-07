@@ -1,0 +1,8 @@
+{
+  "thresholds": {
+    "bandwidth_mbps": 100,
+    "large_transfer_gb": 10
+  },
+  "cooldown_minutes": 60,
+  "enabled": true
+}
