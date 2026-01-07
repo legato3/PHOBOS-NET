@@ -85,6 +85,28 @@ _metric_spark_hits = 0
 _metric_spark_misses = 0
 _metric_http_429 = 0
 
+class NfdumpProcessor:
+    @staticmethod
+    def run(args, tf=None):
+        global _metric_nfdump_calls
+        _metric_nfdump_calls += 1
+        cmd = ["nfdump","-R","/var/cache/nfdump","-q","-o","csv"]
+        if tf: cmd.extend(["-t",tf])
+        cmd.extend(args)
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+            return r.stdout if r.returncode == 0 else ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def parse_csv(output):
+        # Implementation moved from global scope
+        return parse_csv(output) # We will reuse the global function or move it here.
+        # For least diff, we can just alias or wrap.
+        # But to be clean, let's keep the global function for now as it's used by legacy code if any,
+        # or better, replace the global usages.
+
 MMDB_CITY = "/root/GeoLite2-City.mmdb"
 MMDB_ASN = "/root/GeoLite2-ASN.mmdb"
 THREATLIST_PATH = "/root/threat-ips.txt"
@@ -204,30 +226,58 @@ def resolve_ip(ip):
     return None
 
 def run_nfdump(args, tf=None):
-    global _metric_nfdump_calls
-    _metric_nfdump_calls += 1
-    cmd = ["nfdump","-R","/var/cache/nfdump","-q","-o","csv"]
-    if tf: cmd.extend(["-t",tf])
-    cmd.extend(args)
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
-        return r.stdout if r.returncode == 0 else ""
-    except Exception:
-        return ""
+    return NfdumpProcessor.run(args, tf)
 
 def parse_csv(output):
     results = []
     lines = output.strip().split("\n")
+    if not lines:
+        return []
+
+    # Dynamic header parsing
+    header = lines[0].lower().split(",")
+    try:
+        idx_key = -1
+        idx_flows = -1
+        idx_packets = -1
+        idx_bytes = -1
+
+        # Heuristics for column names
+        for i, col in enumerate(header):
+            c = col.strip()
+            if c in ('val', 'ip', 'port', 'proto', 'sysid'):
+                if idx_key == -1: idx_key = i
+            elif 'flows' in c and '%' not in c: idx_flows = i
+            elif 'packets' in c and '%' not in c: idx_packets = i
+            elif 'bytes' in c and '%' not in c: idx_bytes = i
+            # fallback for 'pkt' 'byt' abbreviations if full names not found
+            if 'pkt' in c and '%' not in c and idx_packets == -1: idx_packets = i
+            if 'byt' in c and '%' not in c and idx_bytes == -1: idx_bytes = i
+            if 'fl' in c and '%' not in c and idx_flows == -1: idx_flows = i
+
+        # Fallback to hardcoded defaults if detection fails
+        if idx_key == -1: idx_key = 4
+        if idx_flows == -1: idx_flows = 5
+        if idx_packets == -1: idx_packets = 7
+        if idx_bytes == -1: idx_bytes = 9
+
+    except Exception:
+        # Fallback
+        idx_key, idx_flows, idx_packets, idx_bytes = 4, 5, 7, 9
+
     for line in lines[1:]:
         if not line: continue
         parts = line.split(",")
-        if len(parts) < 14: continue
+        if len(parts) <= max(idx_key, idx_flows, idx_packets, idx_bytes): continue
         try:
-            key = parts[4]
+            key = parts[idx_key]
             if not key or "/" in key or key == "any": continue
-            bytes_val = int(float(parts[9]))
-            flows_val = int(float(parts[5]))
-            packets_val = int(float(parts[7]))
+
+            # nfdump sometimes outputs floats for stats
+            bytes_val = int(float(parts[idx_bytes]))
+            flows_val = int(float(parts[idx_flows]))
+            packets_val = int(float(parts[idx_packets]))
+
             if bytes_val > 0:
                 results.append({"key":key,"bytes":bytes_val,"flows":flows_val,"packets":packets_val})
         except Exception:
@@ -560,7 +610,8 @@ def api_overview():
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
 
-    # Pre-resolve DNS for top items in parallel
+    # Enrich all sources and dests to compute ASN/Country stats
+    # We resolve DNS only for top 8 to save time, but GeoIP is fast so we do it for all.
     ips_to_resolve = {i["key"] for i in sources[:8]} | {i["key"] for i in dests[:8]}
     resolved = {}
     if ips_to_resolve:
@@ -570,23 +621,65 @@ def api_overview():
                 ip = future_to_ip[future]
                 resolved[ip] = future.result()
 
-    for i in sources[:8]:
-        i["hostname"] = resolved.get(i["key"])
-        i["region"] = get_region(i["key"])
+    asn_stats = defaultdict(lambda: {"bytes":0, "flows":0, "as_org": "Unknown"})
+    country_stats = defaultdict(lambda: {"bytes":0, "flows":0, "code": "XX", "flag": ""})
+
+    for i in sources:
         i["internal"] = is_internal(i["key"])
+        i["region"] = get_region(i["key"])
+        i["hostname"] = resolved.get(i["key"]) if i["key"] in resolved else None
+
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+
+            # Aggregation
+            if not i["internal"]:
+                asn_num = geo.get("asn")
+                if asn_num:
+                    k = f"AS{asn_num}"
+                    asn_stats[k]["bytes"] += i["bytes"]
+                    asn_stats[k]["flows"] += i["flows"]
+                    asn_stats[k]["as_org"] = geo.get("asn_org") or k
+
+                iso = geo.get("country_iso")
+                if iso:
+                    country_stats[iso]["bytes"] += i["bytes"]
+                    country_stats[iso]["flows"] += i["flows"]
+                    country_stats[iso]["code"] = iso
+                    country_stats[iso]["flag"] = geo.get("flag")
+                    country_stats[iso]["name"] = geo.get("country")
+
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
 
-    for i in dests[:8]:
-        i["hostname"] = resolved.get(i["key"])
-        i["region"] = get_region(i["key"])
+    for i in dests:
         i["internal"] = is_internal(i["key"])
+        i["region"] = get_region(i["key"])
+        i["hostname"] = resolved.get(i["key"]) if i["key"] in resolved else None
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+
+            if not i["internal"]:
+                asn_num = geo.get("asn")
+                if asn_num:
+                    k = f"AS{asn_num}"
+                    asn_stats[k]["bytes"] += i["bytes"]
+                    asn_stats[k]["flows"] += i["flows"]
+                    asn_stats[k]["as_org"] = geo.get("asn_org") or k
+
+                iso = geo.get("country_iso")
+                if iso:
+                    country_stats[iso]["bytes"] += i["bytes"]
+                    country_stats[iso]["flows"] += i["flows"]
+                    country_stats[iso]["code"] = iso
+                    country_stats[iso]["flag"] = geo.get("flag")
+                    country_stats[iso]["name"] = geo.get("country")
+
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
+
+    top_asns = sorted([{"asn":k, **v} for k,v in asn_stats.items()], key=lambda x: x["bytes"], reverse=True)[:10]
+    top_countries = sorted([{"iso":k, **v} for k,v in country_stats.items()], key=lambda x: x["bytes"], reverse=True)[:10]
 
     for i in ports:
         try:
@@ -617,6 +710,8 @@ def api_overview():
         "sources_internal":sources_int[:10],"sources_external":sources_ext[:10],
         "dests_internal":dests_int[:10],"dests_external":dests_ext[:10],
         "top_ports":ports[:15],"protocols":protos[:6],
+        "top_asns": top_asns,
+        "top_countries": top_countries,
         "alerts":alerts[:10],
         "totals":{"bytes":tot_b,"flows":tot_f,"packets":tot_p,"bytes_fmt":fmt_bytes(tot_b),"avg_packet_size":int(tot_b/tot_p) if tot_p > 0 else 0},
         "time_range":time_range,
@@ -1085,6 +1180,14 @@ tr:hover{background:var(--border);cursor:pointer}
 <div class="card collapsible" id="cardProtocols"><div class="card-header" onclick="toggleCard(this)"><h2>📡 Protocols</h2></div><div class="card-body">
 <table id="protocols"><thead><tr><th>Protocol</th><th>Traffic</th><th>Flows</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
 </div></div>
+
+<div class="card collapsible" id="cardCountries"><div class="card-header" onclick="toggleCard(this)"><h2>🌍 Top Countries</h2></div><div class="card-body">
+<table id="topCountries"><thead><tr><th>Country</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="2" class="loading">Loading...</td></tr></tbody></table>
+</div></div>
+
+<div class="card collapsible" id="cardASNs"><div class="card-header" onclick="toggleCard(this)"><h2>🏢 Top ASNs</h2></div><div class="card-body">
+<table id="topASNs"><thead><tr><th>ASN</th><th>Org</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
+</div></div>
 </div>
 
 <div class="card wide-card collapsible" id="cardConversations"><div class="card-header" onclick="toggleCard(this)"><h2>💬 Top Conversations</h2></div><div class="card-body">
@@ -1398,6 +1501,14 @@ document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=o
 document.getElementById('topPorts').getElementsByTagName('tbody')[0].innerHTML=ov.top_ports.slice(0,12).map(i=>`<tr><td><strong>${i.key}</strong></td><td>${i.service}</td><td><span class="badge ${i.suspicious?'suspicious':''}">${fmt(i.bytes)}</span></td></tr>`).join('');
 
 document.getElementById('protocols').getElementsByTagName('tbody')[0].innerHTML=ov.protocols.slice(0,6).map(i=>`<tr><td><strong>${i.proto_name}</strong></td><td>${fmt(i.bytes)}</td><td>${i.flows.toLocaleString()}</td></tr>`).join('');
+
+if(ov.top_countries){
+    document.getElementById('topCountries').getElementsByTagName('tbody')[0].innerHTML=ov.top_countries.map(i=>`<tr><td><span class="flag">${i.flag}</span> ${i.name}</td><td><span class="badge">${fmt(i.bytes)}</span></td></tr>`).join('') || '<tr><td colspan="2">No external traffic</td></tr>';
+}
+
+if(ov.top_asns){
+    document.getElementById('topASNs').getElementsByTagName('tbody')[0].innerHTML=ov.top_asns.map(i=>`<tr><td>${i.asn}</td><td>${i.as_org}</td><td><span class="badge">${fmt(i.bytes)}</span></td></tr>`).join('') || '<tr><td colspan="3">No external traffic</td></tr>';
+}
 
 document.getElementById('conversations').getElementsByTagName('tbody')[0].innerHTML=conversations.length?conversations.map(i=>`<tr><td onclick="showIPDetail('${i.src}')"><strong class="ip-clickable">${i.src}</strong><span class="region">${i.src_region}</span></td><td><span class="arrow">→</span></td><td onclick="showIPDetail('${i.dst}')"><strong class="ip-clickable">${i.dst}</strong><span class="region">${i.dst_region}</span></td><td><span class="badge">${i.bytes_fmt}</span></td></tr>`).join(''):'<tr><td colspan="4" class="loading">No data</td></tr>';
 
