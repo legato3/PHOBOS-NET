@@ -1,0 +1,25 @@
+# Sensitive files
+netflow-smtp.json
+netflow-webhook.url
+netflow-notify.json
+threat-whitelist.txt
+
+# GeoIP databases
+*.mmdb
+
+# Logs
+*.log
+
+# Downloaded threat feeds
+threat-ips.txt
+threat-feed.url
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# IDEs
+.vscode/
+.idea/
+*.swp
