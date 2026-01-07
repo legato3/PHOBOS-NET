@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict, deque
 from functools import wraps
 import threading
+import concurrent.futures
 import requests
 import maxminddb
 
@@ -196,10 +197,11 @@ def parse_csv(output):
     return results
 
 def get_traffic_direction(ip, tf):
-    out = run_nfdump(["-a",f"src ip {ip}","-s","srcip/bytes","-n","1"], tf)
-    in_data = run_nfdump(["-a",f"dst ip {ip}","-s","dstip/bytes","-n","1"], tf)
-    out_parsed = parse_csv(out)
-    in_parsed = parse_csv(in_data)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        f_out = executor.submit(run_nfdump, ["-a",f"src ip {ip}","-s","srcip/bytes","-n","1"], tf)
+        f_in = executor.submit(run_nfdump, ["-a",f"dst ip {ip}","-s","dstip/bytes","-n","1"], tf)
+        out_parsed = parse_csv(f_out.result())
+        in_parsed = parse_csv(f_in.result())
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     return {"upload": upload, "download": download, "ratio": round(upload/download, 2) if download > 0 else 0}
@@ -507,10 +509,16 @@ def api_overview():
     whitelist = load_list(THREAT_WHITELIST)
     feed_label = get_feed_label()
 
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
-    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
-    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        f_src = executor.submit(run_nfdump, ["-s","srcip/bytes/flows/packets","-n","20"], tf)
+        f_dst = executor.submit(run_nfdump, ["-s","dstip/bytes/flows/packets","-n","20"], tf)
+        f_prt = executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","20"], tf)
+        f_pro = executor.submit(run_nfdump, ["-s","proto/bytes/flows/packets","-n","10"], tf)
+
+        sources = parse_csv(f_src.result())
+        dests = parse_csv(f_dst.result())
+        ports = parse_csv(f_prt.result())
+        protos_raw = parse_csv(f_pro.result())
 
     seen = set(); protos = []
     for p in protos_raw:
@@ -597,17 +605,24 @@ def api_bandwidth():
             return jsonify(_bandwidth_cache["data"])
     now = datetime.now(); labels, bw, flows = [], [], []
     try:
-        for i in range(11,-1,-1):
+        def fetch_interval(i):
             et = now - timedelta(minutes=i*5); st = et - timedelta(minutes=5)
             tf = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
-            labels.append(et.strftime("%H:%M"))
-            output = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf)
-            stats = parse_csv(output)
+            label = et.strftime("%H:%M")
+            out = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf)
+            return label, parse_csv(out)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = list(executor.map(fetch_interval, range(11,-1,-1)))
+
+        for label, stats in results:
+            labels.append(label)
             if stats:
                 total_b = sum(s["bytes"] for s in stats); total_f = sum(s["flows"] for s in stats)
                 bw.append(round((total_b*8)/(300*1_000_000),2)); flows.append(round(total_f/300,2))
             else:
                 bw.append(0); flows.append(0)
+
         data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"}
         with _cache_lock:
             _bandwidth_cache["data"] = data; _bandwidth_cache["ts"] = now_ts
@@ -630,8 +645,12 @@ def api_conversations():
     now = datetime.now()
     tf = f"{(now-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
     try:
-        src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","15"], tf))
-        dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","15"], tf))
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            f_src = executor.submit(run_nfdump, ["-s","srcip/bytes","-n","15"], tf)
+            f_dst = executor.submit(run_nfdump, ["-s","dstip/bytes","-n","15"], tf)
+            src_data = parse_csv(f_src.result())
+            dst_data = parse_csv(f_dst.result())
+
         convs = []
         for i, src in enumerate(src_data[:15]):
             if i < len(dst_data):
@@ -661,10 +680,17 @@ def api_ip_detail(ip):
         return jsonify(_ip_detail_cache[ip]['data'])
     dt = datetime.now()
     tf = f"{(dt-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{dt.strftime('%Y/%m/%d.%H:%M:%S')}"
-    direction = get_traffic_direction(ip, tf)
-    src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf))
-    dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf))
-    protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf))
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        f_dir = executor.submit(get_traffic_direction, ip, tf)
+        f_src = executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf)
+        f_dst = executor.submit(run_nfdump, ["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf)
+        f_pro = executor.submit(run_nfdump, ["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf)
+
+        direction = f_dir.result()
+        src_ports = parse_csv(f_src.result())
+        dst_ports = parse_csv(f_dst.result())
+        protocols = parse_csv(f_pro.result())
     for p in protocols:
         try:
             proto = int(p["key"]); p["proto_name"] = PROTOS.get(proto, f"Proto-{p['key']}")
@@ -752,11 +778,12 @@ def build_spark(kind, metric='bytes'):
     now = datetime.now()
     labels = []
     buckets = []
-    for idx in range(_spark_bucket_count-1, -1, -1):
+
+    def fetch_spark_bucket(idx):
         end = now - timedelta(minutes=idx*_spark_bucket_minutes)
         start = end - timedelta(minutes=_spark_bucket_minutes)
         tf = f"{start.strftime('%Y/%m/%d.%H:%M:%S')}-{end.strftime('%Y/%m/%d.%H:%M:%S')}"
-        labels.append(end.strftime("%H:%M"))
+        label = end.strftime("%H:%M")
         output = run_nfdump(["-s", f"{kind}ip/bytes/flows", "-n", "100"], tf)
         rows = parse_csv(output)
         bucket = {}
@@ -765,6 +792,13 @@ def build_spark(kind, metric='bytes'):
             if key:
                 val = r.get('flows') if metric == 'flows' else r.get("bytes", 0)
                 bucket[key] = bucket.get(key, 0) + val
+        return label, bucket
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(fetch_spark_bucket, range(_spark_bucket_count-1, -1, -1)))
+
+    for label, bucket in results:
+        labels.append(label)
         buckets.append(bucket)
     data = {}
     for i, bucket in enumerate(buckets):
