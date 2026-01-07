@@ -46,7 +46,7 @@ def compress_response(response):
     return response
 
 # ------------------ Globals & caches ------------------
-_cache_lock = threading.Lock()
+_cache_lock = threading.RLock()
 _stats_cache = {"data": None, "ts": 0}
 _bandwidth_cache = {"data": None, "ts": 0}
 _conversations_cache = {"data": None, "ts": 0}
@@ -62,7 +62,14 @@ _threat_cache = {"data": set(), "mtime": 0}
 _bw_interval_cache = {}
 # Global executor for nfdump calls to limit system load
 MAX_WORKERS = 16
+DNS_WORKERS = 32
 _nfdump_executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS)
+_dns_executor = concurrent.futures.ThreadPoolExecutor(max_workers=DNS_WORKERS)
+
+# Futures for in-flight bandwidth queries to prevent thundering herd
+_bw_futures = {}
+# Cache for CSV header parsing
+_csv_header_cache = {}
 
 _alert_sent_ts = 0
 _alert_history = deque(maxlen=50)
@@ -124,12 +131,13 @@ PORTS = {20:"FTP-DATA",21:"FTP",22:"SSH",23:"Telnet",25:"SMTP",53:"DNS",80:"HTTP
 PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
 INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
+INTERNAL_NETS_TUPLE = tuple(INTERNAL_NETS)
 
 DNS_SERVER = "192.168.0.1"
 # ------------------ Helpers ------------------
 
 def is_internal(ip):
-    return any(ip.startswith(net) for net in INTERNAL_NETS)
+    return ip.startswith(INTERNAL_NETS_TUPLE)
 
 def get_region(ip):
     if is_internal(ip): return "🏠 Local"
@@ -236,30 +244,41 @@ def parse_csv(output):
     if not lines:
         return []
 
-    # Dynamic header parsing
-    header = lines[0].lower().split(",")
-    idx_key, idx_flows, idx_packets, idx_bytes = -1, -1, -1, -1
+    # Dynamic header parsing with caching
+    header_line = lines[0]
+    indices = _csv_header_cache.get(header_line)
 
-    # Heuristics for column names
-    for i, col in enumerate(header):
-        c = col.strip()
-        if idx_key == -1 and c in ('val', 'ip', 'port', 'proto', 'sysid'):
-            idx_key = i
-        elif idx_flows == -1 and ('flows' in c or ('fl' in c and '%' not in c)) and '%' not in c:
-            idx_flows = i
-        elif idx_packets == -1 and ('packets' in c or ('pkt' in c and '%' not in c)) and '%' not in c:
-            idx_packets = i
-        elif idx_bytes == -1 and ('bytes' in c or ('byt' in c and '%' not in c)) and '%' not in c:
-            idx_bytes = i
+    if indices:
+        idx_key, idx_flows, idx_packets, idx_bytes, max_idx = indices
+    else:
+        header = header_line.lower().split(",")
+        idx_key, idx_flows, idx_packets, idx_bytes = -1, -1, -1, -1
 
-    # Fallback to hardcoded defaults if detection fails
-    if idx_key == -1: idx_key = 4
-    if idx_flows == -1: idx_flows = 5
-    if idx_packets == -1: idx_packets = 7
-    if idx_bytes == -1: idx_bytes = 9
+        # Heuristics for column names
+        for i, col in enumerate(header):
+            c = col.strip()
+            if idx_key == -1 and c in ('val', 'ip', 'port', 'proto', 'sysid'):
+                idx_key = i
+            elif idx_flows == -1 and ('flows' in c or ('fl' in c and '%' not in c)) and '%' not in c:
+                idx_flows = i
+            elif idx_packets == -1 and ('packets' in c or ('pkt' in c and '%' not in c)) and '%' not in c:
+                idx_packets = i
+            elif idx_bytes == -1 and ('bytes' in c or ('byt' in c and '%' not in c)) and '%' not in c:
+                idx_bytes = i
 
-    # Determine max index needed
-    max_idx = max(idx_key, idx_flows, idx_packets, idx_bytes)
+        # Fallback to hardcoded defaults if detection fails
+        if idx_key == -1: idx_key = 4
+        if idx_flows == -1: idx_flows = 5
+        if idx_packets == -1: idx_packets = 7
+        if idx_bytes == -1: idx_bytes = 9
+
+        # Determine max index needed
+        max_idx = max(idx_key, idx_flows, idx_packets, idx_bytes)
+
+        # Cache the result
+        if len(_csv_header_cache) > 100: # Simple limit
+            _csv_header_cache.clear()
+        _csv_header_cache[header_line] = (idx_key, idx_flows, idx_packets, idx_bytes, max_idx)
 
     for line in lines[1:]:
         if not line: continue
@@ -314,58 +333,35 @@ def fetch_threat_feed():
     global _threat_status
     try:
         _threat_status['last_attempt'] = time.time()
-        
-        # Support multiple feeds from threat-feeds.txt
-        urls = []
-        feeds_file = '/root/threat-feeds.txt'
-        if os.path.exists(feeds_file):
-            with open(feeds_file, 'r') as f:
-                urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-        elif os.path.exists(THREAT_FEED_URL_PATH):
-            with open(THREAT_FEED_URL_PATH, 'r') as f:
-                url = f.read().strip()
-                if url:
-                    urls = [url]
-        
-        if not urls:
+        if not os.path.exists(THREAT_FEED_URL_PATH):
             _threat_status['status'] = 'missing'
             return
-        
-        all_ips = set()
-        errors = []
-        
-        for url in urls:
-            try:
-                r = requests.get(url, timeout=25)
-                if r.status_code != 200:
-                    feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                    errors.append(f'{feed_name}: HTTP {r.status_code}')
-                    continue
-                ips = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
-                all_ips.update(ips)
-            except Exception as e:
-                feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                errors.append(f'{feed_name}: {str(e)[:30]}')
-        
-        if not all_ips:
+        with open(THREAT_FEED_URL_PATH,'r') as f:
+            url = f.read().strip()
+        if not url:
+            _threat_status['status'] = 'missing'
+            return
+        r = requests.get(url, timeout=25)
+        if r.status_code != 200:
+            _threat_status['status'] = 'error'
+            _threat_status['error'] = f"HTTP {r.status_code}"
+            return
+        data = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
+        if not data:
             _threat_status['status'] = 'empty'
             _threat_status['size'] = 0
-            _threat_status['error'] = '; '.join(errors) if errors else None
             return
-        
         tmp_path = THREATLIST_PATH + '.tmp'
-        with open(tmp_path, 'w') as f:
-            f.write('\n'.join(sorted(all_ips)))
+        with open(tmp_path,'w') as f:
+            f.write('\n'.join(data))
         os.replace(tmp_path, THREATLIST_PATH)
-        
         _threat_status['last_ok'] = time.time()
-        _threat_status['size'] = len(all_ips)
+        _threat_status['size'] = len(data)
         _threat_status['status'] = 'ok'
-        _threat_status['error'] = '; '.join(errors) if errors else None
+        _threat_status['error'] = None
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
-
 
 def get_feed_label():
     try:
@@ -634,8 +630,8 @@ def api_overview():
     ips_to_resolve = {i["key"] for i in sources[:8]} | {i["key"] for i in dests[:8]}
     resolved = {}
     if ips_to_resolve:
-        # Use global executor for DNS resolution too
-        future_to_ip = {_nfdump_executor.submit(resolve_ip, ip): ip for ip in ips_to_resolve}
+        # Use dedicated executor for DNS resolution
+        future_to_ip = {_dns_executor.submit(resolve_ip, ip): ip for ip in ips_to_resolve}
         for future in concurrent.futures.as_completed(future_to_ip):
             ip = future_to_ip[future]
             resolved[ip] = future.result()
@@ -781,6 +777,23 @@ def api_bandwidth():
                 cached_results[i] = cached['data']
                 continue
 
+            # Check if there is already a pending future for this key
+            pending = _bw_futures.get(key)
+            if pending:
+                # Add to futures list to wait for, but associate with current loop index 'i'
+                # We can't easily attach 'i' to the existing future without wrapping it,
+                # but we can just wait for it and use its result if we structure the result correctly.
+                # However, futures list below expects to yield (i, key, data, is_past).
+                # The pending future already returns that structure.
+                # We just need to make sure we handle the index 'i' correctly if it was different?
+                # Actually, the key uniquely identifies the time range. 'i' is just the position in the current response list.
+                # The pending future returns 'i' from the *original* request context.
+                # If we rely on that 'i', it might be wrong for *this* request (though likely same if aligned).
+                # To be safe, we wrap it or handle it.
+                # But since we use fixed 12 intervals from ref_time, and ref_time is aligned to 5m,
+                # 'i' corresponds to the same time range for everyone seeing the same 'ref_time'.
+                pass # Logic below handles it
+
         intervals_to_fetch.append((i, st, et, key, is_past))
 
     # Fetch missing intervals
@@ -799,15 +812,33 @@ def api_bandwidth():
                 f_val = round(total_f/300,2)
 
             result_data = {"label": et.strftime("%H:%M"), "bw": b_val, "flows": f_val}
-            return (i, key, result_data, is_past)
+            return (key, result_data, is_past)
 
-        futures = []
+        futures_map = {} # future -> i
+
         for args in intervals_to_fetch:
-            futures.append(_nfdump_executor.submit(fetch_one, args))
+            i, st, et, key, is_past = args
+            with _cache_lock:
+                # Check pending again under lock
+                if key in _bw_futures:
+                    f = _bw_futures[key]
+                else:
+                    f = _nfdump_executor.submit(fetch_one, args)
+                    _bw_futures[key] = f
 
-        for f in concurrent.futures.as_completed(futures):
+                    # Remove from _bw_futures when done
+                    def cleanup(ft):
+                        with _cache_lock:
+                            if _bw_futures.get(key) == ft:
+                                del _bw_futures[key]
+                    f.add_done_callback(cleanup)
+
+            futures_map[f] = i
+
+        for f in concurrent.futures.as_completed(futures_map.keys()):
             try:
-                i, key, data, is_past = f.result()
+                key, data, is_past = f.result()
+                i = futures_map[f]
                 cached_results[i] = data
                 # Update cache
                 with _cache_lock:
@@ -877,7 +908,7 @@ def api_ip_detail(ip):
     f_src = _nfdump_executor.submit(run_nfdump, ["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf)
     f_dst = _nfdump_executor.submit(run_nfdump, ["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf)
     f_pro = _nfdump_executor.submit(run_nfdump, ["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf)
-    f_dns = _nfdump_executor.submit(resolve_ip, ip)
+    f_dns = _dns_executor.submit(resolve_ip, ip)
 
     direction = f_dir.result()
     src_ports = parse_csv(f_src.result())
