@@ -9,9 +9,41 @@ import concurrent.futures
 import requests
 import maxminddb
 import socket
+import gzip
+from io import BytesIO
 from file_cache import load_file_cached, _json_loader, _list_loader
 
 app = Flask(__name__)
+
+@app.after_request
+def compress_response(response):
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    if 'gzip' not in accept_encoding.lower():
+        return response
+
+    if response.direct_passthrough:
+        return response
+
+    content = response.get_data()
+    if len(content) < 500:
+        return response
+
+    if 'Content-Encoding' in response.headers:
+        return response
+
+    gzip_buffer = BytesIO()
+    with gzip.GzipFile(mode='wb', fileobj=gzip_buffer) as gzip_file:
+        gzip_file.write(content)
+
+    compressed_content = gzip_buffer.getvalue()
+    response.set_data(compressed_content)
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Length'] = len(compressed_content)
+
+    return response
 
 # ------------------ Globals & caches ------------------
 _cache_lock = threading.Lock()
@@ -65,6 +97,7 @@ NOTIFY_CFG_PATH = "/root/netflow-notify.json"
 mmdb_city = None
 mmdb_asn = None
 _threat_thread_started = False
+_webhook_session = requests.Session()
 
 PORTS = {20:"FTP-DATA",21:"FTP",22:"SSH",23:"Telnet",25:"SMTP",53:"DNS",80:"HTTP",110:"POP3",143:"IMAP",443:"HTTPS",465:"SMTPS",587:"SMTP",993:"IMAPS",995:"POP3S",3306:"MySQL",5432:"PostgreSQL",6379:"Redis",8080:"HTTP-Alt",8443:"HTTPS-Alt",3389:"RDP",5900:"VNC",27017:"MongoDB",1194:"OpenVPN",51820:"WireGuard"}
 PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
@@ -414,7 +447,7 @@ def send_webhook(alerts):
         if not url:
             return
         payload = {"ts": datetime.utcnow().isoformat()+'Z', "alerts": alerts}
-        requests.post(url, json=payload, timeout=3)
+        _webhook_session.post(url, json=payload, timeout=3)
     except Exception:
         pass
 
@@ -482,14 +515,18 @@ def api_overview():
     start_threat_thread()
     now_ts = time.time()
     time_range = request.args.get('range', '1h')
+
+    # Align time to minute for better caching
+    now = datetime.now().replace(second=0, microsecond=0)
+    minute_ts = int(now.timestamp())
+
     with _cache_lock:
-        cache_key = f"{time_range}_{int(now_ts/30)}"
+        cache_key = f"{time_range}_{minute_ts}"
         if _stats_cache.get("key") == cache_key and _stats_cache["data"]:
             global _metric_stats_cache_hits
             _metric_stats_cache_hits += 1
             return jsonify(_stats_cache["data"])
 
-    now = datetime.now()
     hours = {"15m":0.25,"30m":0.5,"1h":1,"6h":6,"24h":24}.get(time_range, 1)
     past = now - timedelta(hours=hours)
     tf = f"{past.strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
@@ -598,11 +635,12 @@ def api_overview():
 def api_bandwidth():
     now_ts = time.time()
     with _cache_lock:
-        if _bandwidth_cache["data"] and now_ts - _bandwidth_cache["ts"] < 5:
+        if _bandwidth_cache["data"] and now_ts - _bandwidth_cache["ts"] < 60:
             global _metric_bw_cache_hits
             _metric_bw_cache_hits += 1
             return jsonify(_bandwidth_cache["data"])
-    now = datetime.now(); labels, bw, flows = [], [], []
+    now = datetime.now().replace(second=0, microsecond=0)
+    labels, bw, flows = [], [], []
     try:
         def fetch_interval(i):
             et = now - timedelta(minutes=i*5); st = et - timedelta(minutes=5)
@@ -637,11 +675,11 @@ def api_bandwidth():
 def api_conversations():
     now_ts = time.time()
     with _cache_lock:
-        if _conversations_cache["data"] and now_ts - _conversations_cache["ts"] < 5:
+        if _conversations_cache["data"] and now_ts - _conversations_cache["ts"] < 60:
             global _metric_conv_cache_hits
             _metric_conv_cache_hits += 1
             return jsonify(_conversations_cache["data"])
-    now = datetime.now()
+    now = datetime.now().replace(second=0, microsecond=0)
     tf = f"{(now-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
