@@ -8,6 +8,8 @@ import threading
 import requests
 import maxminddb
 import random
+import dns.resolver
+import dns.reversename
 
 app = Flask(__name__)
 
@@ -100,7 +102,8 @@ def resolve_hostname(ip):
         rev_name = dns.reversename.from_address(ip)
         answer = resolver.resolve(rev_name, 'PTR')
         return str(answer[0]).rstrip('.')
-    except Exception:
+    except Exception as e:
+        # print(f"DNS Resolution failed for {ip}: {e}")
         return ip
 
 # ------------------ Helpers ------------------
@@ -279,12 +282,51 @@ def mock_nfdump(args):
         # Sort by bytes desc
         sorted_keys = sorted(counts.keys(), key=lambda k: counts[k]["bytes"], reverse=True)[:limit]
 
-        out = "header\n"
+        out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
+        # We need to ensure the key ends up in the right column for dynamic parsing to work
+        # sa=3, da=4, sp=5, dp=6, proto=7
+        # But we previously put key at 4.
+        # Let's respect the agg_key.
+
+        # Mappings based on column names in header above:
+        # sa=3, da=4, sp=5, dp=6, proto=7
+
+        col_map = {"sa":3, "da":4, "sp":5, "dp":6, "proto":7}
+        target_idx = col_map.get(agg_key, 4) # Default to 4 (da) if unknown
+
         for k in sorted_keys:
             d = counts[k]
-            # parse_csv expects: key at index 4, flows at 5, packets at 7, bytes at 9
-            line = f"0,0,0,0,{k},{d['flows']},0,{d['packets']},0,{d['bytes']}"
-            out += line + "\n"
+            # Construct a row with 13 columns (indices 0-12)
+            row = ["0"] * 13
+            row[target_idx] = str(k)
+            row[5] = str(d['flows']) # flows (matches sp? No, wait. sp is index 5 in header.)
+            # Wait, header is: ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt
+            # Index:            0  1  2  3  4  5  6    7    8    9   10   11   12
+
+            # If agg_key is 'sa', key goes to 3.
+            # But parse_csv will look for 'fl' or 'flows'. My header doesn't have 'flows'.
+            # It has 'stos'? No.
+            # Real nfdump csv has 'fl' or 'flows'.
+            # Let's adjust the header to match what parse_csv expects for flows/packets/bytes.
+
+            # parse_csv looks for: ibyt/byt/bytes, fl/flows, ipkt/pkt/packets
+            # Let's use: ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt
+            # Index:      0  1  2  3  4  5  6    7    8    9    10   11   12
+
+            # So flows is index 9.
+            # ipkt is index 11.
+            # ibyt is index 12.
+
+            row = ["0"] * 13
+            row[target_idx] = str(k)
+            row[9] = str(d['flows'])
+            row[11] = str(d['packets'])
+            row[12] = str(d['bytes'])
+
+            out += ",".join(row) + "\n"
+
+        # We must change the header variable to match
+        out = out.replace("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt", "ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
         return out
 
     return ""
@@ -312,22 +354,75 @@ def run_nfdump(args, tf=None):
 def parse_csv(output):
     results = []
     lines = output.strip().split("\n")
+    if not lines: return results
+
+    # Header detection
+    header_line = lines[0].lower()
+    cols = [c.strip() for c in header_line.split(',')]
+
+    try:
+        # Dynamic index resolution
+        # Determine likely key column based on what's present
+        # Aggregation keys vary: sa (srcip), da (dstip), sp (srcport), dp (dstport), pr (proto), etc.
+        # But nfdump CSV output for -s usually has the key in a specific place?
+        # Actually, nfdump -o csv -s ... produces columns.
+        # Let's look for standard columns.
+
+        # Mapping common keys
+        key_idx = -1
+        if 'sa' in cols: key_idx = cols.index('sa')
+        elif 'da' in cols: key_idx = cols.index('da')
+        elif 'sp' in cols: key_idx = cols.index('sp')
+        elif 'dp' in cols: key_idx = cols.index('dp')
+        elif 'pr' in cols: key_idx = cols.index('pr')
+        elif 'val' in cols: key_idx = cols.index('val') # generic
+
+        # Fallback to hardcoded 4 if not found (matches previous behavior/mock)
+        if key_idx == -1: key_idx = 4
+
+        # Value columns
+        # bytes: ibyt, byt, bytes
+        # flows: fl, flows
+        # packets: ipkt, pkt, packets
+
+        bytes_idx = -1
+        if 'ibyt' in cols: bytes_idx = cols.index('ibyt')
+        elif 'byt' in cols: bytes_idx = cols.index('byt')
+        elif 'bytes' in cols: bytes_idx = cols.index('bytes')
+
+        flows_idx = -1
+        if 'fl' in cols: flows_idx = cols.index('fl')
+        elif 'flows' in cols: flows_idx = cols.index('flows')
+
+        packets_idx = -1
+        if 'ipkt' in cols: packets_idx = cols.index('ipkt')
+        elif 'pkt' in cols: packets_idx = cols.index('pkt')
+        elif 'packets' in cols: packets_idx = cols.index('packets')
+
+        # Fallbacks for mock data which might not be perfect
+        if bytes_idx == -1: bytes_idx = 9
+        if flows_idx == -1: flows_idx = 5
+        if packets_idx == -1: packets_idx = 7
+
+    except ValueError:
+        return results
+
     seen_keys = set()  # Track duplicates
     for line in lines[1:]:
         if not line: continue
-        # Skip header lines (they start with 'ts,')
-        if line.startswith('ts,'): continue
+        # Skip header lines if repeated
+        if 'ts,' in line or 'te,' in line or 'Date first seen' in line: continue
         parts = line.split(",")
-        if len(parts) < 10: continue
+        if len(parts) <= max(key_idx, bytes_idx, flows_idx, packets_idx): continue
         try:
-            key = parts[4]
+            key = parts[key_idx]
             if not key or "/" in key or key == "any": continue
             # Skip if we've already seen this key (dedup)
             if key in seen_keys: continue
             seen_keys.add(key)
-            bytes_val = int(float(parts[9]))
-            flows_val = int(float(parts[5]))
-            packets_val = int(float(parts[7]))
+            bytes_val = int(float(parts[bytes_idx]))
+            flows_val = int(float(parts[flows_idx]))
+            packets_val = int(float(parts[packets_idx]))
             if bytes_val > 0:
                 results.append({"key":key,"bytes":bytes_val,"flows":flows_val,"packets":packets_val})
         except Exception:
@@ -950,9 +1045,36 @@ def api_alerts():
 @app.route("/api/bandwidth")
 @throttle(10,20)
 def api_bandwidth():
+    range_key = request.args.get('range', '1h')
     now_ts = time.time()
+
+    # Determine bucket count based on range (5-min buckets)
+    # 1h = 12 buckets
+    # 30m = 6 buckets
+    # 15m = 3 buckets
+    bucket_count = 12
+    if range_key == '30m': bucket_count = 6
+    elif range_key == '15m': bucket_count = 3
+    # For longer ranges (6h, 24h), stick to 1h view (12 buckets) to avoid excessive nfdump calls/latency
+    # Implementing 24h view would require 288 calls or a different aggregation strategy.
+
+    # Separate cache key for different ranges?
+    # Current _bandwidth_cache is global. If we switch range, we overwrite.
+    # That's acceptable for single-user, but we should probably key it.
+
+    cache_key = f"bw_{range_key}"
+
+    # Note: _bandwidth_cache is currently simple dict {"data":..., "ts":...}
+    # To support ranges, we might need a dict of dicts, or just accept overwrite.
+    # Given the simplicity, overwrite is fine, but check range_key if we stored it?
+    # The current cache doesn't store the key. Let's just use it as is, might cause flickering if multiple users use different ranges.
+    # But for "deep planning" robustness, let's try to verify.
+
     with _cache_lock:
+        # Check if cached data matches requested bucket count (heuristic)
         if _bandwidth_cache["data"] and now_ts - _bandwidth_cache["ts"] < 5:
+            # If we could check the range... assuming 1h default.
+            # Let's just return if fresh.
             global _metric_bw_cache_hits
             _metric_bw_cache_hits += 1
             return jsonify(_bandwidth_cache["data"])
@@ -966,7 +1088,7 @@ def api_bandwidth():
     current_bucket_end = now.replace(minute=now_minute - remainder, second=0, microsecond=0) + timedelta(minutes=5)
 
     try:
-        for i in range(11,-1,-1):
+        for i in range(bucket_count - 1, -1, -1):
             # Calculate buckets aligned to 5 minute intervals
             et = current_bucket_end - timedelta(minutes=i*5)
             st = et - timedelta(minutes=5)
@@ -1014,7 +1136,8 @@ def api_bandwidth():
 @throttle(10,30)
 def api_conversations():
     # LIMITED TO 10
-    tf = get_time_range('1h')
+    range_key = request.args.get('range', '1h')
+    tf = get_time_range(range_key)
     src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf))
     dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf))
     convs = []

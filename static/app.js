@@ -179,7 +179,7 @@ document.addEventListener('alpine:init', () => {
         async fetchConversations() {
             this.conversations.loading = true;
             try {
-                const res = await fetch(`/api/conversations`);
+                const res = await fetch(`/api/conversations?range=${this.timeRange}`);
                 if(res.ok) this.conversations = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.conversations.loading = false; }
         },
@@ -220,7 +220,7 @@ document.addEventListener('alpine:init', () => {
         async fetchBandwidth() {
             this.bandwidth.loading = true;
             try {
-                const res = await fetch(`/api/bandwidth`);
+                const res = await fetch(`/api/bandwidth?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
                     this.bandwidth = { ...data, loading: false };
