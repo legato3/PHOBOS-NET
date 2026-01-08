@@ -24,8 +24,10 @@ _stats_flags_cache = {"data": None, "ts": 0, "key": None}
 _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
 
+_mock_data_cache = {"mtime": 0, "rows": []}
 
 _bandwidth_cache = {"data": None, "ts": 0}
+_bandwidth_history_cache = {}
 _conversations_cache = {"data": None, "ts": 0}
 _request_times = defaultdict(list)
 _throttle_lock = threading.Lock()
@@ -51,6 +53,9 @@ ALERT_LOG = '/root/netflow-alerts.log'
 
 _ip_detail_cache = {}
 _ip_detail_ttl = 180  # seconds
+
+_common_data_cache = {}
+_common_data_lock = threading.Lock()
 
 _threat_status = {'last_attempt':0,'last_ok':0,'size':0,'status':'unknown','error':None}
 
@@ -190,25 +195,32 @@ def resolve_ip(ip):
 def mock_nfdump(args):
     # args is list like ["-s", "srcip/bytes/flows/packets", "-n", "20"]
     # We parse the CSV and Aggregate
+    global _mock_data_cache
+    rows = []
     try:
-        rows = []
-        with open(SAMPLE_DATA_PATH, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                parts = line.strip().split(',')
-                if len(parts) > 12:
-                    # CSV Format derived from sample:
-                    # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
-                    try:
-                        row = {
-                            "ts": parts[0], "te": parts[1], "td": float(parts[2]),
-                            "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
-                            "proto": parts[7], "flg": parts[8],
-                            "pkts": int(parts[11]), "bytes": int(parts[12])
-                        }
-                        rows.append(row)
-                    except:
-                        pass
+        mtime = os.path.getmtime(SAMPLE_DATA_PATH)
+        if mtime != _mock_data_cache["mtime"]:
+            new_rows = []
+            with open(SAMPLE_DATA_PATH, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    parts = line.strip().split(',')
+                    if len(parts) > 12:
+                        # CSV Format derived from sample:
+                        # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
+                        try:
+                            row = {
+                                "ts": parts[0], "te": parts[1], "td": float(parts[2]),
+                                "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
+                                "proto": parts[7], "flg": parts[8],
+                                "pkts": int(parts[11]), "bytes": int(parts[12])
+                            }
+                            new_rows.append(row)
+                        except:
+                            pass
+            _mock_data_cache["rows"] = new_rows
+            _mock_data_cache["mtime"] = mtime
+        rows = _mock_data_cache["rows"]
     except Exception as e:
         print(f"Mock error: {e}")
         return ""
@@ -531,6 +543,40 @@ def get_time_range(range_key):
     return f"{past.strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
 
 
+def get_common_nfdump_data(query_type, range_key):
+    # Shared data fetcher
+    # types: "sources", "ports", "dests", "protos"
+    # sources -> limit 50
+    # ports -> limit 20
+    # dests -> limit 20 (bumped from 10)
+    # protos -> limit 20 (bumped from 10)
+
+    now = time.time()
+    cache_key = f"{query_type}:{range_key}"
+
+    with _common_data_lock:
+        if cache_key in _common_data_cache:
+            entry = _common_data_cache[cache_key]
+            if now - entry["ts"] < 60:
+                return entry["data"]
+
+    tf = get_time_range(range_key)
+    data = []
+
+    if query_type == "sources":
+        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf))
+    elif query_type == "ports":
+        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
+    elif query_type == "dests":
+        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
+    elif query_type == "protos":
+        data = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf))
+
+    with _common_data_lock:
+        _common_data_cache[cache_key] = {"data": data, "ts": now}
+
+    return data
+
 @app.route("/api/stats/summary")
 @throttle(5, 10)
 def api_stats_summary():
@@ -540,8 +586,9 @@ def api_stats_summary():
         if _stats_summary_cache["data"] and _stats_summary_cache["key"] == range_key and now - _stats_summary_cache["ts"] < 60:
             return jsonify(_stats_summary_cache["data"])
 
-    tf = get_time_range(range_key)
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    # Reuse shared sources fetch (top 50)
+    sources = get_common_nfdump_data("sources", range_key)
+
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
@@ -572,10 +619,11 @@ def api_stats_sources():
         if _stats_sources_cache["data"] and _stats_sources_cache["key"] == range_key and now - _stats_sources_cache["ts"] < 60:
             return jsonify(_stats_sources_cache["data"])
 
-    tf = get_time_range(range_key)
+    # Use shared data (top 50)
+    full_sources = get_common_nfdump_data("sources", range_key)
 
-    # LIMITED TO 10
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","10"], tf))
+    # Return top 10
+    sources = full_sources[:10]
 
     # Enrich
     for i in sources:
@@ -604,10 +652,9 @@ def api_stats_destinations():
         if _stats_dests_cache["data"] and _stats_dests_cache["key"] == range_key and now - _stats_dests_cache["ts"] < 60:
             return jsonify(_stats_dests_cache["data"])
 
-    tf = get_time_range(range_key)
-
-    # LIMITED TO 10
-    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","10"], tf))
+    # Use shared data (top 20)
+    full_dests = get_common_nfdump_data("dests", range_key)
+    dests = full_dests[:10]
 
     for i in dests:
         i["hostname"] = resolve_ip(i["key"])
@@ -635,9 +682,9 @@ def api_stats_ports():
         if _stats_ports_cache["data"] and _stats_ports_cache["key"] == range_key and now - _stats_ports_cache["ts"] < 60:
             return jsonify(_stats_ports_cache["data"])
 
-    tf = get_time_range(range_key)
-    # LIMITED TO 10
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10"], tf))
+    # Use shared data (top 20)
+    full_ports = get_common_nfdump_data("ports", range_key)
+    ports = full_ports[:10]
 
     for i in ports:
         try:
@@ -743,9 +790,8 @@ def api_stats_asns():
         if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and now - _stats_asns_cache["ts"] < 60:
             return jsonify(_stats_asns_cache["data"])
 
-    tf = get_time_range(range_key)
-    # Re-use top sources logic but aggregate in python
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf))
+    # Re-use top sources logic but aggregate in python (uses shared top 50)
+    sources = get_common_nfdump_data("sources", range_key)
 
     asn_counts = Counter()
 
@@ -831,13 +877,13 @@ def api_alerts():
         if _stats_alerts_cache["data"] and _stats_alerts_cache["key"] == range_key and now - _stats_alerts_cache["ts"] < 60:
             return jsonify(_stats_alerts_cache["data"])
 
-    tf = get_time_range(range_key)
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
 
-    # Run analysis
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
+    # Run analysis (using shared data)
+    # Alerts logic uses top 20 sources/ports, which are covered by sources (top 50) and ports (top 20)
+    sources = get_common_nfdump_data("sources", range_key)[:20]
+    ports = get_common_nfdump_data("ports", range_key)
 
     alerts = detect_anomalies(ports, sources, threat_set, whitelist)
     send_notifications([a for a in alerts if a.get("severity") in ("critical","high")])
@@ -862,19 +908,52 @@ def api_bandwidth():
             global _metric_bw_cache_hits
             _metric_bw_cache_hits += 1
             return jsonify(_bandwidth_cache["data"])
-    now = datetime.now(); labels, bw, flows = [], [], []
+
+    now = datetime.now()
+    labels, bw, flows = [], [], []
+
+    # Round down to nearest 5 minutes
+    now_minute = now.minute
+    remainder = now_minute % 5
+    current_bucket_end = now.replace(minute=now_minute - remainder, second=0, microsecond=0) + timedelta(minutes=5)
+
     try:
         for i in range(11,-1,-1):
-            et = now - timedelta(minutes=i*5); st = et - timedelta(minutes=5)
-            tf = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
+            # Calculate buckets aligned to 5 minute intervals
+            et = current_bucket_end - timedelta(minutes=i*5)
+            st = et - timedelta(minutes=5)
+
+            tf_key = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
             labels.append(et.strftime("%H:%M"))
-            output = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf)
-            stats = parse_csv(output)
-            if stats:
-                total_b = sum(s["bytes"] for s in stats); total_f = sum(s["flows"] for s in stats)
-                bw.append(round((total_b*8)/(300*1_000_000),2)); flows.append(round(total_f/300,2))
+
+            # Check history cache for completed intervals
+            # An interval is completed if its end time is in the past
+            is_completed = et <= now
+            cached = None
+            if is_completed:
+                cached = _bandwidth_history_cache.get(tf_key)
+
+            if cached:
+                bw.append(cached["bw"])
+                flows.append(cached["flows"])
             else:
-                bw.append(0); flows.append(0)
+                # Compute
+                output = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf_key)
+                stats = parse_csv(output)
+                val_bw, val_flows = 0, 0
+                if stats:
+                    total_b = sum(s["bytes"] for s in stats)
+                    total_f = sum(s["flows"] for s in stats)
+                    val_bw = round((total_b*8)/(300*1_000_000),2)
+                    val_flows = round(total_f/300,2)
+
+                bw.append(val_bw)
+                flows.append(val_flows)
+
+                # Store in history if completed
+                if is_completed:
+                    _bandwidth_history_cache[tf_key] = {"bw": val_bw, "flows": val_flows}
+
         data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"}
         with _cache_lock:
             _bandwidth_cache["data"] = data
