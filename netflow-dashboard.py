@@ -86,7 +86,23 @@ PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
 INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
 
-DNS_SERVER = "192.168.0.1"
+DNS_SERVER = "192.168.0.6"
+
+def resolve_hostname(ip):
+    """Resolve IP to hostname using configured DNS_SERVER."""
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.nameservers = [DNS_SERVER]
+        resolver.timeout = 1
+        resolver.lifetime = 1
+        
+        # Reverse DNS lookup
+        rev_name = dns.reversename.from_address(ip)
+        answer = resolver.resolve(rev_name, 'PTR')
+        return str(answer[0]).rstrip('.')
+    except Exception:
+        return ip
+
 # ------------------ Helpers ------------------
 
 def is_internal(ip):

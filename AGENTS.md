@@ -74,6 +74,14 @@ One IP per line, comments start with #:
 - **Key Feature**: Multi-feed support via `/root/threat-feeds.txt`
 - **Critical**: Uses set() for deduplication, graceful error handling
 
+
+#### resolve_hostname()
+- **Purpose**: DNS resolution using configured DNS_SERVER
+- **Implementation**: Uses dnspython for direct queries (not system resolver)
+- **Configuration**: DNS_SERVER variable (default: 192.168.0.6)
+- **Timeout**: 1 second for fast responses
+- **Fallback**: Returns IP if DNS fails
+
 #### parse_csv()
 - **Purpose**: Parse nfdump CSV with dynamic column detection
 - **Critical**: ALWAYS check for header row, column order varies
@@ -156,6 +164,7 @@ Use `sample_data/` directory:
 ## 🔗 Key External Dependencies
 
 - **nfdump**: CLI tool, output format can change between versions
+- **dnspython**: DNS resolution library (apt install python3-dnspython)
 - **MaxMind GeoIP**: Database location `/usr/share/GeoIP/*.mmdb`
 - **Threat Feeds**: External URLs, may be temporarily unavailable
 - **Flask**: Development mode only (use gunicorn for production)

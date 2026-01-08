@@ -46,7 +46,7 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 ### Software Dependencies
 ```bash
 apt-get update
-apt-get install -y nfdump python3 python3-pip git
+apt-get install -y nfdump python3 python3-pip python3-dnspython git
 ```
 
 ### Python Packages
