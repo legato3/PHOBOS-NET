@@ -1,172 +1,125 @@
-# PROX_NFDUMP - NetFlow Analytics Dashboard
+# PROX_NFDUMP
 
-Real-time network traffic monitoring dashboard for Proxmox LXC using nfdump and Flask.
+NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic monitoring using nfdump, Flask, GeoIP, and threat intelligence.
 
-## Overview
+## 🚀 Features
 
-This dashboard provides real-time visualization of NetFlow data captured from network traffic. It's designed to run in **Proxmox LXC 122** (PROX-NFDUMP) and displays:
+### Real-Time Monitoring
+- **Live Dashboard** with Alpine.js and Cyberpunk Glassmorphism theme
+- **Bandwidth Analytics** with 5-minute granular caching
+- **Top 10 Lists**: Sources, Destinations, Protocols, Ports
+- **Geo-Location**: Country and ASN tracking
+- **TCP Flags Widget**: Detailed protocol analysis
+- **Duration Widget**: Flow timing information
 
-- **Real-time bandwidth monitoring** with historical graphs
-- **Top traffic sources and destinations** with DNS and GeoIP resolution
-- **Protocol distribution analysis** (TCP, UDP, ICMP, etc.)
-- **Port and service usage statistics**
-- **Active network conversations** between hosts
-- **Threat detection** using IP reputation feeds
-- **Email/webhook alerts** for suspicious activity
+### Threat Intelligence
+- **Multi-Feed Support**: Aggregate IPs from multiple threat feeds
+  - Emerging Threats Compromised IPs (~500)
+  - CINS Score Bad Actors (~15K)
+  - Blocklist.de Attack Sources (~23K)
+  - FeodoTracker Malware C2 (monitored)
+- **Automatic Deduplication**: Set-based IP merging (~38K unique IPs)
+- **Per-Feed Error Handling**: Continues if individual feeds fail
+- **Real-Time Matching**: Alerts on threat IP detection
 
-## Features
+### Performance Optimizations
+- **60-second Server-Side Caching**: All stats endpoints
+- **Granular Bandwidth Caching**: Efficient historical data
+- **nfdump Call Consolidation**: Reduced redundant queries
+- **Parallel Processing**: ThreadPoolExecutor for concurrent operations
+- **Request Coalescing**: Prevents thundering herd problems
 
-- 🚀 **Optimized Performance**: Aggressive caching and rate limiting to minimize CPU usage
-- 📊 **Interactive Charts**: Real-time bandwidth and flow rate visualization using Chart.js
-- 🔍 **DNS Resolution**: Automatic hostname resolution with caching
-- 🌍 **GeoIP Lookup**: Country/city/ASN detection using MaxMind GeoLite2 databases
-- 🎯 **Service Detection**: Automatic identification of common network services
-- 🛡️ **Threat Intelligence**: Integration with IP threat feeds
-- 📧 **Alerting**: Email and webhook notifications for suspicious activity
-- 🔄 **Auto-refresh**: Dashboard updates every 30 seconds
-- 🎨 **Modern UI**: Responsive design with gradient styling
+### UI/UX
+- **Notification Center**: Bell icon with dropdown alerts
+- **Alert Dismissal**: Client-side using localStorage  
+- **Grouped Alerts**: By severity (Critical, High, Medium, Low)
+- **Dark Glass Theme**: Neon accents with condensed tables
+- **Actions Menu**: Integrated controls
 
-## Requirements
+## 📋 Requirements
 
-- Debian/Ubuntu Linux (tested on Debian in Proxmox LXC)
-- nfdump (for NetFlow data processing)
-- Python 3.7+
-- Flask
-- maxminddb (for GeoIP)
-- requests (for threat feeds)
-- Network traffic mirrored to the container
+### System
+- Proxmox LXC container
+- Debian/Ubuntu-based Linux
+- Network access for NetFlow data collection
 
-## Installation
-
-### 1. Install Dependencies
-
+### Software Dependencies
 ```bash
 apt-get update
 apt-get install -y nfdump python3 python3-pip git
+```
+
+### Python Packages
+```bash
 pip3 install flask maxminddb requests
 ```
 
-### 2. Setup nfdump Data Collection
-
-Ensure nfdump is collecting NetFlow data to `/var/cache/nfdump`:
-
+### GeoIP Databases
 ```bash
-mkdir -p /var/cache/nfdump
-# Configure your NetFlow collector (e.g., nfcapd, softflowd, etc.)
+mkdir -p /usr/share/GeoIP
+cd /usr/share/GeoIP
+wget https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
+wget https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb
+wget https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb
 ```
 
-### 3. Download GeoIP Databases
+## 🔧 Installation
 
-Download MaxMind GeoLite2 databases:
-
+### 1. Clone Repository
 ```bash
 cd /root
-# Download GeoLite2-City.mmdb and GeoLite2-ASN.mmdb from MaxMind
-# Place them in /root/
-```
-
-### 4. Deploy the Dashboard
-
-```bash
-# Clone this repository
 git clone https://github.com/legato3/PROX_NFDUMP.git
 cd PROX_NFDUMP
+```
 
-# Copy files to /root
+### 2. Deploy Files
+```bash
 cp netflow-dashboard.py /root/
-chmod +x /root/netflow-dashboard.py
-
-# Optional: Configure SMTP for email alerts
-cp netflow-smtp.json.example /root/netflow-smtp.json
-# Edit with your SMTP settings
+cp threat-feeds.txt /root/
+cp -r static templates /root/
 ```
 
-### 5. Run the Dashboard
+### 3. Configure Threat Feeds (Optional)
+Edit `/root/threat-feeds.txt` to customize threat intelligence sources.
 
-**Manual Start:**
+### 4. Install Systemd Service
 ```bash
-python3 /root/netflow-dashboard.py
-```
-
-**Systemd Service (recommended):**
-```bash
-cat > /etc/systemd/system/netflow-dashboard.service << 'EOL'
-[Unit]
-Description=NetFlow Analytics Dashboard
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root
-ExecStart=/usr/bin/python3 /root/netflow-dashboard.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOL
-
+cp netflow-dashboard.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable netflow-dashboard
-systemctl start netflow-dashboard
+systemctl enable netflow-dashboard.service
+systemctl start netflow-dashboard.service
 ```
 
-**Access the dashboard:**
-Open your browser to `http://<LXC-IP>:8080`
+## 🌐 Access
 
-## Configuration
+Dashboard: `http://<LXC-IP>:8080`
 
-### DNS Server
-The dashboard uses DNS server for reverse lookups. Default is `192.168.0.1`. Modify in the code:
+## 📊 Key API Endpoints
 
-```python
-DNS_SERVER = "192.168.0.1"
-```
+- `/api/stats/summary` - Overview statistics
+- `/api/stats/sources` - Top source IPs
+- `/api/stats/destinations` - Top destination IPs  
+- `/api/bandwidth` - Bandwidth time series
+- `/api/alerts_history` - Historical alerts
 
-### Email Alerts (netflow-smtp.json)
-```json
-{
-  "host": "smtp.gmail.com",
-  "port": 587,
-  "user": "your-email@gmail.com",
-  "password": "your-app-password",
-  "from": "your-email@gmail.com",
-  "to": ["recipient@gmail.com"],
-  "use_tls": true
-}
-```
+## 🔍 Sample Data
 
-**Note:** For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833).
+The `sample_data/` directory contains real NetFlow examples and format documentation to help AI agents understand data structures.
 
-### Threat Intelligence
-Create `/root/threat-feed.url` with a URL to an IP threat feed:
+## 🎯 Recent Updates
 
-```
-https://example.com/threat-feed.txt
-```
+### v2.0 - January 2026
+- **Notification Center**: Header-based alert dropdown
+- **CPU Optimization**: Granular caching, nfdump consolidation
+- **Multi-Feed Support**: Aggregate ~38K threat IPs from 4 sources
+- **Performance**: 60s caching, parallel processing
+- **UI Modernization**: Alpine.js, Cyberpunk theme
+- **New Widgets**: TCP Flags, ASN, Duration analysis
 
-The dashboard will download and check IPs against this list.
+## 🤝 Contributing
 
-## API Endpoints
+See `sample_data/README.md` for data format documentation.
 
-- `GET /` - Main dashboard UI
-- `GET /api/overview` - Traffic statistics (cached 30s)
-- `GET /api/bandwidth` - Bandwidth time series (cached 60s)
-- `GET /api/conversations` - Top network conversations (cached 60s)
-- `GET /api/ip-detail/<ip>` - Detailed info about specific IP
-- `GET /api/sparklines` - Sparkline data for trending
-- `GET /api/metrics` - Dashboard performance metrics
-- `GET /api/alerts` - Recent security alerts
+## 🔗 Repository
 
-All API endpoints include rate limiting to prevent abuse.
-
-## License
-
-MIT License - Feel free to modify and distribute.
-
-## Credits
-
-Developed for Proxmox homelab network monitoring in LXC 122 (PROX-NFDUMP).
-
-Co-Authored-By: Warp <agent@warp.dev>
+https://github.com/legato3/PROX_NFDUMP
