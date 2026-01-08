@@ -1141,6 +1141,8 @@ def api_conversations():
         if i < len(dst_data):
             convs.append({
                 "src":src["key"],"dst":dst_data[i]["key"],
+                "src_hostname": resolve_ip(src["key"]),
+                "dst_hostname": resolve_ip(dst_data[i]["key"]),
                 "bytes":src["bytes"],"bytes_fmt":fmt_bytes(src["bytes"]),
                 "src_region":get_region(src["key"]),
                 "dst_region":get_region(dst_data[i]["key"])

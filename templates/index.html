@@ -371,11 +371,13 @@
                             <td @click="openIPModal(conv.src)">
                                 <strong class="text-cyan" x-text="conv.src"></strong>
                                 <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.src_region"></div>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-show="conv.src_hostname" x-text="conv.src_hostname"></div>
                             </td>
                             <td style="text-align:center; color:var(--text-muted)">➜</td>
                             <td @click="openIPModal(conv.dst)">
                                 <strong class="text-purple" x-text="conv.dst"></strong>
                                 <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.dst_region"></div>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-show="conv.dst_hostname" x-text="conv.dst_hostname"></div>
                             </td>
                             <td>
                                 <strong class="text-green" x-text="conv.bytes_fmt"></strong>
