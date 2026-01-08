@@ -18,6 +18,11 @@ document.addEventListener('alpine:init', () => {
         bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
         conversations: { conversations: [], loading: true },
 
+        // New Features Stores
+        flags: { flags: [], loading: true },
+        asns: { asns: [], loading: true },
+        durations: { durations: [], loading: true },
+
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
@@ -28,7 +33,8 @@ document.addEventListener('alpine:init', () => {
         ipDetails: null,
         ipLoading: false,
 
-        chartInstance: null,
+        bwChartInstance: null,
+        flagsChartInstance: null,
 
         init() {
             console.log('Neural Link Established.');
@@ -61,8 +67,8 @@ document.addEventListener('alpine:init', () => {
             this.lastUpdate = new Date().toLocaleTimeString();
 
             // Parallel Requests
-            this.fetchSummary(); // Contains notify/threat status too usually, but split now.
-            this.fetchBandwidth(); // Updates chart
+            this.fetchSummary();
+            this.fetchBandwidth();
             this.fetchSources();
             this.fetchDestinations();
             this.fetchPorts();
@@ -70,7 +76,11 @@ document.addEventListener('alpine:init', () => {
             this.fetchAlerts();
             this.fetchConversations();
 
-            // Also refresh notify status occasionally
+            // New Features
+            this.fetchFlags();
+            this.fetchASNs();
+            this.fetchDurations();
+
             this.loadNotifyStatus();
         },
 
@@ -141,8 +151,41 @@ document.addEventListener('alpine:init', () => {
         async fetchConversations() {
             this.conversations.loading = true;
             try {
-                const res = await fetch(`/api/conversations`); // Uses fixed 1h usually
+                const res = await fetch(`/api/conversations`);
                 if(res.ok) this.conversations = { ...(await res.json()), loading: false };
+            } catch(e) { console.error(e); }
+        },
+
+        async fetchFlags() {
+            this.flags.loading = true;
+            try {
+                const res = await fetch(`/api/stats/flags?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.flags = { ...data, loading: false };
+                    this.updateFlagsChart(data.flags);
+                }
+            } catch(e) { console.error(e); }
+        },
+
+        async fetchASNs() {
+            this.asns.loading = true;
+            try {
+                const res = await fetch(`/api/stats/asns?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    // Calc max for bar chart
+                    const max = Math.max(...data.asns.map(a => a.bytes));
+                    this.asns = { ...data, maxBytes: max, loading: false };
+                }
+            } catch(e) { console.error(e); }
+        },
+
+        async fetchDurations() {
+            this.durations.loading = true;
+            try {
+                const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
+                if(res.ok) this.durations = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); }
         },
 
@@ -153,27 +196,26 @@ document.addEventListener('alpine:init', () => {
                 if(res.ok) {
                     const data = await res.json();
                     this.bandwidth = { ...data, loading: false };
-                    this.updateChart(data);
+                    this.updateBwChart(data);
                 }
             } catch(e) { console.error(e); }
         },
 
-        updateChart(data) {
+        updateBwChart(data) {
             const ctx = document.getElementById('bwChart');
             if (!ctx) return;
 
-            // Cyberpunk Colors
-            const colorArea = 'rgba(0, 243, 255, 0.2)'; // Cyan transparent
-            const colorLine = '#00f3ff'; // Neon Cyan
-            const colorFlows = '#bc13fe'; // Neon Purple
+            const colorArea = 'rgba(0, 243, 255, 0.2)';
+            const colorLine = '#00f3ff';
+            const colorFlows = '#bc13fe';
 
-            if (this.chartInstance) {
-                this.chartInstance.data.labels = data.labels;
-                this.chartInstance.data.datasets[0].data = data.bandwidth;
-                this.chartInstance.data.datasets[1].data = data.flows;
-                this.chartInstance.update();
+            if (this.bwChartInstance) {
+                this.bwChartInstance.data.labels = data.labels;
+                this.bwChartInstance.data.datasets[0].data = data.bandwidth;
+                this.bwChartInstance.data.datasets[1].data = data.flows;
+                this.bwChartInstance.update();
             } else {
-                this.chartInstance = new Chart(ctx, {
+                this.bwChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: data.labels,
@@ -184,7 +226,7 @@ document.addEventListener('alpine:init', () => {
                                 borderColor: colorLine,
                                 backgroundColor: colorArea,
                                 borderWidth: 2,
-                                fill: true, // Filled area
+                                fill: true,
                                 tension: 0.4,
                                 yAxisID: 'y'
                             },
@@ -192,7 +234,7 @@ document.addEventListener('alpine:init', () => {
                                 label: 'Flows/s',
                                 data: data.flows,
                                 borderColor: colorFlows,
-                                backgroundColor: 'transparent', // Keep flows as line
+                                backgroundColor: 'transparent',
                                 borderWidth: 2,
                                 tension: 0.4,
                                 yAxisID: 'y1'
@@ -203,9 +245,7 @@ document.addEventListener('alpine:init', () => {
                         responsive: true,
                         maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { labels: { color: '#e0e0e0' } }
-                        },
+                        plugins: { legend: { labels: { color: '#e0e0e0' } } },
                         scales: {
                             y: {
                                 type: 'linear',
@@ -231,6 +271,41 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        updateFlagsChart(flagsData) {
+            const ctx = document.getElementById('flagsChart');
+            if (!ctx || !flagsData) return;
+
+            const labels = flagsData.map(f => f.flag);
+            const data = flagsData.map(f => f.count);
+            // Cyberpunk palette
+            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
+
+            if (this.flagsChartInstance) {
+                this.flagsChartInstance.data.labels = labels;
+                this.flagsChartInstance.data.datasets[0].data = data;
+                this.flagsChartInstance.update();
+            } else {
+                this.flagsChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
+                        }
+                    }
+                });
+            }
+        },
+
         // --- Controls Logic ---
 
         async loadNotifyStatus() {
@@ -238,7 +313,6 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch('/api/notify_status');
                 if (res.ok) {
                     const d = await res.json();
-                    // d = { email: bool, webhook: bool, mute_until: float }
                     const now = Date.now() / 1000;
                     this.notify = {
                         email: d.email,
@@ -274,13 +348,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         async sendTestAlert() {
-             fetch('/api/test_alert').then(r=>r.json()).then(()=>alert('Test alert sent')).catch(console.error);
+             fetch('/api/test_alert').then(r=>r.json()).then(()=> {
+                 // Trigger refresh immediately to show it
+                 this.fetchAlerts();
+             }).catch(console.error);
         },
 
         async refreshFeed() {
              fetch('/api/threat_refresh', {method:'POST'}).then(r=>r.json()).then(d => {
                  if(d.threat_status) this.threatStatus = d.threat_status;
-                 alert('Feed refresh: ' + d.status);
              }).catch(console.error);
         },
 
@@ -317,7 +393,6 @@ document.addEventListener('alpine:init', () => {
         },
 
         applyFilter(ip) {
-            // "Filter" by focusing on this IP's details
             this.openIPModal(ip);
         }
     }))

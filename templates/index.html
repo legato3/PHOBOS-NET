@@ -19,6 +19,19 @@
         <div class="loader">Initializing Neural Link...</div>
     </div>
 
+    <!-- Alert HUD -->
+    <div class="alert-hud" x-show="alerts.alerts && alerts.alerts.length > 0">
+        <template x-for="alert in alerts.alerts" :key="alert.msg">
+            <div class="alert-toast" :class="alert.severity">
+                <div class="alert-header">
+                    <span x-text="alert.severity"></span>
+                    <span x-text="alert.feed || 'System'"></span>
+                </div>
+                <div class="alert-msg" x-text="alert.msg"></div>
+            </div>
+        </template>
+    </div>
+
     <div class="container" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
 
         <!-- Header -->
@@ -68,16 +81,6 @@
             </div>
         </div>
 
-        <!-- Alerts Section -->
-        <div x-show="alerts.alerts && alerts.alerts.length > 0" class="grid wide-card">
-            <template x-for="alert in alerts.alerts" :key="alert.msg">
-                <div class="alert-item" :class="alert.severity">
-                    <strong x-text="alert.severity.toUpperCase()"></strong>: <span x-text="alert.msg"></span>
-                    <span style="opacity:0.6; font-size:0.8em" x-text="'(' + (alert.feed || 'local') + ')'"></span>
-                </div>
-            </template>
-        </div>
-
         <!-- Summary Stats -->
         <div class="grid">
             <div class="card stat-box">
@@ -102,6 +105,63 @@
             </h2>
             <div class="chart-wrapper">
                 <canvas id="bwChart"></canvas>
+            </div>
+        </div>
+
+        <!-- New Analytics Row -->
+        <div class="grid">
+            <!-- TCP Flags -->
+            <div class="card">
+                <h2>
+                    <span>🏳️ TCP Flags</span>
+                    <div class="spinner" x-show="flags.loading"></div>
+                </h2>
+                <div class="chart-wrapper-small">
+                    <canvas id="flagsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top ASNs -->
+            <div class="card">
+                <h2>
+                    <span>🏢 Top ASNs</span>
+                    <div class="spinner" x-show="asns.loading"></div>
+                </h2>
+                <div style="margin-top:10px; overflow-y:auto; max-height:200px;">
+                    <template x-for="asn in asns.asns" :key="asn.asn">
+                        <div class="asn-row">
+                            <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
+                            <div class="asn-bar-container">
+                                <div class="asn-bar" :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'"></div>
+                            </div>
+                            <div class="asn-val" x-text="asn.bytes_fmt"></div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Longest Durations -->
+            <div class="card">
+                <h2>
+                    <span>⏱️ Long Flows</span>
+                    <div class="spinner" x-show="durations.loading"></div>
+                </h2>
+                <table>
+                    <thead><tr><th>Src</th><th>Dst</th><th>Dur</th></tr></thead>
+                    <tbody>
+                        <template x-for="f in durations.durations" :key="f.src+f.dst+f.proto">
+                            <tr>
+                                <td>
+                                    <div class="text-cyan" style="font-size:0.9em" x-text="f.src"></div>
+                                </td>
+                                <td>
+                                    <div class="text-purple" style="font-size:0.9em" x-text="f.dst"></div>
+                                </td>
+                                <td class="text-green" style="font-weight:bold; font-size:0.9em" x-text="f.duration_fmt"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
             </div>
         </div>
 
