@@ -8,6 +8,8 @@ import threading
 import requests
 import maxminddb
 import random
+import dns.resolver
+import dns.reversename
 
 app = Flask(__name__)
 
@@ -100,7 +102,8 @@ def resolve_hostname(ip):
         rev_name = dns.reversename.from_address(ip)
         answer = resolver.resolve(rev_name, 'PTR')
         return str(answer[0]).rstrip('.')
-    except Exception:
+    except Exception as e:
+        # print(f"DNS Resolution failed for {ip}: {e}")
         return ip
 
 # ------------------ Helpers ------------------
@@ -1014,7 +1017,8 @@ def api_bandwidth():
 @throttle(10,30)
 def api_conversations():
     # LIMITED TO 10
-    tf = get_time_range('1h')
+    range_key = request.args.get('range', '1h')
+    tf = get_time_range(range_key)
     src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf))
     dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf))
     convs = []
