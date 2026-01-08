@@ -309,7 +309,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
     alerts = []
     seen = set()
     threat_set = threat_set - whitelist
-    for item in ports_data[:15]:
+    for item in ports_data[:25]:
         try:
             port = int(item["key"])
             if port in SUSPICIOUS_PORTS:
@@ -320,13 +320,13 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                     seen.add(alert_key)
         except Exception:
             pass
-    for item in sources_data[:10]:
+    for item in sources_data[:15]:
         if item["bytes"] > 2*1024**3:
             alert_key = f"large_{item['key']}"
             if alert_key not in seen:
                 alerts.append({"type":"large_transfer","msg":f"📊 Large transfer from {item['key']}: {fmt_bytes(item['bytes'])}","severity":"medium","feed":"local"})
                 seen.add(alert_key)
-                if len(alerts) >= 8:
+                if len(alerts) >= 10:
                     break
         if item["key"] in threat_set:
             alert_key = f"threat_{item['key']}"
@@ -572,10 +572,10 @@ def api_stats_sources():
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
 
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","30"], tf))
 
     # Enrich
-    for i in sources[:12]:
+    for i in sources[:25]:
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
@@ -585,7 +585,7 @@ def api_stats_sources():
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
 
     data = {
-        "sources": sources[:15]
+        "sources": sources[:25]
     }
 
     with _cache_lock:
@@ -609,10 +609,10 @@ def api_stats_destinations():
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
 
-    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
+    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","30"], tf))
 
     # Enrich
-    for i in dests[:12]:
+    for i in dests[:25]:
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
@@ -622,7 +622,7 @@ def api_stats_destinations():
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
 
     data = {
-        "destinations": dests[:15]
+        "destinations": dests[:25]
     }
 
     with _cache_lock:
@@ -643,7 +643,7 @@ def api_stats_ports():
             return jsonify(_stats_ports_cache["data"])
 
     tf = get_time_range(range_key)
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
+    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","30"], tf))
 
     for i in ports:
         try:
@@ -653,7 +653,7 @@ def api_stats_ports():
         except Exception:
             i["service"] = "Unknown"; i["suspicious"] = False
 
-    data = {"ports": ports[:15]}
+    data = {"ports": ports[:25]}
 
     with _cache_lock:
         _stats_ports_cache["data"] = data
@@ -672,7 +672,7 @@ def api_stats_protocols():
             return jsonify(_stats_protocols_cache["data"])
 
     tf = get_time_range(range_key)
-    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
+    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","15"], tf))
 
     seen = set(); protos = []
     for p in protos_raw:
@@ -686,7 +686,7 @@ def api_stats_protocols():
         except Exception:
             i["proto_name"] = i["key"]
 
-    data = {"protocols": protos[:6]}
+    data = {"protocols": protos[:10]}
 
     with _cache_lock:
         _stats_protocols_cache["data"] = data
@@ -784,10 +784,10 @@ def api_conversations():
     now = datetime.now()
     tf = f"{(now-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
     try:
-        src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","15"], tf))
-        dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","15"], tf))
+        src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","25"], tf))
+        dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","25"], tf))
         convs = []
-        for i, src in enumerate(src_data[:15]):
+        for i, src in enumerate(src_data[:25]):
             if i < len(dst_data):
                 convs.append({
                     "src":src["key"],"dst":dst_data[i]["key"],

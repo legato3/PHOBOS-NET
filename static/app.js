@@ -314,6 +314,11 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) this.ipDetails = await res.json();
             } catch(e) { console.error(e); }
             this.ipLoading = false;
+        },
+
+        applyFilter(ip) {
+            // "Filter" by focusing on this IP's details
+            this.openIPModal(ip);
         }
     }))
 });
