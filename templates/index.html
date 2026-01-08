@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>NetFlow Analytics</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- External Libs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="antialiased" x-data="dashboard">
+
+    <!-- Loading Overlay -->
+    <div class="loading-screen" x-show="!initDone" style="display:none" :style="!initDone ? 'display:flex' : 'display:none'">
+        <div class="loader">Initializing Neural Link...</div>
+    </div>
+
+    <div class="container" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></div>
+            <div class="controls">
+                <select x-model="timeRange">
+                    <option value="15m">Last 15m</option>
+                    <option value="30m">Last 30m</option>
+                    <option value="1h">Last 1h</option>
+                    <option value="6h">Last 6h</option>
+                    <option value="24h">Last 24h</option>
+                </select>
+
+                <input type="text" x-model="searchQuery" placeholder="Search IP..." class="search-box">
+
+                <select x-model="refreshInterval">
+                    <option value="10000">10s</option>
+                    <option value="30000">30s</option>
+                    <option value="60000">60s</option>
+                </select>
+
+                <button @click="togglePause()" :class="{ 'active': paused }" x-text="paused ? 'Resumed' : 'Pause'"></button>
+
+                 <!-- Dropdown for Actions -->
+                 <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
+                    <button @click="open = !open">Actions ▼</button>
+                    <div class="dropdown-menu" x-show="open" style="display:none">
+                        <a @click="exportCSV()">Export CSV</a>
+                        <a @click="exportJSON()">Export JSON</a>
+                        <a @click="exportAlerts('csv')">Export Alerts (CSV)</a>
+                        <a @click="sendTestAlert()">Send Test Alert</a>
+                        <a @click="refreshFeed()">Refresh Threat Feed</a>
+                        <div class="divider"></div>
+                        <a @click="toggleNotify('email')" x-text="'Email: ' + (notify.email ? 'ON' : 'OFF')"></a>
+                        <a @click="toggleNotify('webhook')" x-text="'Webhook: ' + (notify.webhook ? 'ON' : 'OFF')"></a>
+                        <a @click="muteAlerts()" x-text="notify.muted ? 'Unmute' : 'Mute 1h'"></a>
+                    </div>
+                </div>
+
+                <div style="font-size:0.8em; color:var(--text-muted); margin-left:10px;">
+                    <span x-show="threatStatus.status" :class="'pill ' + (threatStatus.status === 'ok' ? 'ok' : 'err')" x-text="threatStatus.status === 'ok' ? 'Feed OK' : 'Feed Error'"></span>
+                    <span x-text="lastUpdate"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Section -->
+        <div x-show="alerts.alerts && alerts.alerts.length > 0" class="grid wide-card">
+            <template x-for="alert in alerts.alerts" :key="alert.msg">
+                <div class="alert-item" :class="alert.severity">
+                    <strong x-text="alert.severity.toUpperCase()"></strong>: <span x-text="alert.msg"></span>
+                    <span style="opacity:0.6; font-size:0.8em" x-text="'(' + (alert.feed || 'local') + ')'"></span>
+                </div>
+            </template>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid">
+            <div class="card stat-box">
+                <div class="value" x-text="summary.totals.bytes_fmt">...</div>
+                <div class="label">Total Traffic</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
+                <div class="label">Total Flows</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
+                <div class="label">Avg Packet Size</div>
+            </div>
+        </div>
+
+        <!-- Bandwidth Chart -->
+        <div class="card wide-card">
+            <h2>
+                <span>📊 Bandwidth & Flow Rate</span>
+                <div class="spinner" x-show="bandwidth.loading"></div>
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="bwChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Grid for Top Stats -->
+        <div class="grid">
+
+            <!-- Top Sources -->
+            <div class="card">
+                <h2>
+                    <span>🔝 Top Sources</span>
+                    <div class="spinner" x-show="sources.loading"></div>
+                </h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in filteredSources" :key="item.key">
+                            <tr @click="openIPModal(item.key)">
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <span x-text="item.flag" class="flag"></span>
+                                        <strong class="text-cyan" x-text="item.key"></strong>
+                                    </div>
+                                    <div style="font-size:0.85em; color:var(--text-muted)">
+                                        <span x-text="item.region"></span>
+                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    </div>
+                                    <div style="margin-top:2px;">
+                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Destinations -->
+            <div class="card">
+                 <h2>
+                    <span>🎯 Top Destinations</span>
+                    <div class="spinner" x-show="destinations.loading"></div>
+                </h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in filteredDestinations" :key="item.key">
+                            <tr @click="openIPModal(item.key)">
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <span x-text="item.flag" class="flag"></span>
+                                        <strong class="text-purple" x-text="item.key"></strong>
+                                    </div>
+                                    <div style="font-size:0.85em; color:var(--text-muted)">
+                                        <span x-text="item.region"></span>
+                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    </div>
+                                     <div style="margin-top:2px;">
+                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Ports -->
+            <div class="card">
+                <h2>
+                    <span>🔌 Top Ports</span>
+                    <div class="spinner" x-show="ports.loading"></div>
+                </h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in ports.ports" :key="item.key">
+                            <tr>
+                                <td>
+                                    <strong class="text-cyan" x-text="item.key"></strong>
+                                    <div style="font-size:0.9em; color:var(--text-muted)" x-text="item.service"></div>
+                                </td>
+                                <td>
+                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+             <!-- Protocols -->
+            <div class="card">
+                <h2>
+                    <span>📡 Protocols</span>
+                    <div class="spinner" x-show="protocols.loading"></div>
+                </h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Stats</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in protocols.protocols" :key="item.key">
+                            <tr>
+                                <td>
+                                    <strong class="text-cyan" x-text="item.proto_name"></strong>
+                                </td>
+                                <td>
+                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(item.flows).toLocaleString() + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+        <!-- Conversations -->
+        <div class="card wide-card">
+            <h2>
+                <span>💬 Recent Conversations</span>
+                <div class="spinner" x-show="conversations.loading"></div>
+            </h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Source</th>
+                        <th></th>
+                        <th>Destination</th>
+                        <th>Traffic</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst">
+                        <tr>
+                            <td @click="openIPModal(conv.src)">
+                                <strong class="text-cyan" x-text="conv.src"></strong>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.src_region"></div>
+                            </td>
+                            <td style="text-align:center; color:var(--text-muted)">➜</td>
+                            <td @click="openIPModal(conv.dst)">
+                                <strong class="text-purple" x-text="conv.dst"></strong>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.dst_region"></div>
+                            </td>
+                            <td>
+                                <strong class="text-green" x-text="conv.bytes_fmt"></strong>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- IP Detail Modal -->
+    <div class="modal" x-show="modalOpen" style="display:none" :style="modalOpen ? 'display:flex' : 'display:none'" @click.self="modalOpen = false">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0">IP Details: <span class="text-cyan" x-text="selectedIP"></span></h2>
+                <button @click="modalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)">×</button>
+            </div>
+
+            <div x-show="ipLoading" class="spinner" style="margin: 0 auto;"></div>
+
+            <div x-show="!ipLoading && ipDetails">
+                <div class="grid">
+                    <div class="card">
+                        <p><strong>Hostname:</strong> <span x-text="ipDetails?.hostname || 'N/A'"></span></p>
+                        <p><strong>Region:</strong> <span x-text="ipDetails?.region"></span> <span x-text="ipDetails?.geo?.city"></span></p>
+                        <p><strong>ASN:</strong> <span x-text="ipDetails?.geo?.asn"></span> <span x-text="ipDetails?.geo?.asn_org"></span></p>
+                    </div>
+                    <div class="card">
+                         <p>⬆️ Upload: <strong class="text-green" x-text="fmtBytes(ipDetails?.direction?.upload || 0)"></strong></p>
+                         <p>⬇️ Download: <strong class="text-green" x-text="fmtBytes(ipDetails?.direction?.download || 0)"></strong></p>
+                    </div>
+                </div>
+
+                <h3>Ports & Protocols</h3>
+                <div class="grid">
+                     <div class="card">
+                        <h4>Src Ports</h4>
+                        <template x-for="p in ipDetails?.src_ports">
+                            <div style="font-size:0.9em; margin-bottom:4px;">
+                                <span class="text-cyan" x-text="p.key"></span> (<span x-text="p.service"></span>): <span x-text="fmtBytes(p.bytes)"></span>
+                            </div>
+                        </template>
+                     </div>
+                     <div class="card">
+                        <h4>Dst Ports</h4>
+                         <template x-for="p in ipDetails?.dst_ports">
+                            <div style="font-size:0.9em; margin-bottom:4px;">
+                                <span class="text-purple" x-text="p.key"></span> (<span x-text="p.service"></span>): <span x-text="fmtBytes(p.bytes)"></span>
+                            </div>
+                        </template>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Logic -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

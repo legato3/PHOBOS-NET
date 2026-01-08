@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template, jsonify, request
 import subprocess, time, os, json, smtplib
 from email.message import EmailMessage
 from datetime import datetime, timedelta
@@ -12,7 +12,15 @@ app = Flask(__name__)
 
 # ------------------ Globals & caches ------------------
 _cache_lock = threading.Lock()
-_stats_cache = {"data": None, "ts": 0}
+# Caches for new endpoints
+_stats_summary_cache = {"data": None, "ts": 0, "key": None}
+_stats_sources_cache = {"data": None, "ts": 0, "key": None}
+_stats_dests_cache = {"data": None, "ts": 0, "key": None}
+_stats_ports_cache = {"data": None, "ts": 0, "key": None}
+_stats_protocols_cache = {"data": None, "ts": 0, "key": None}
+_stats_alerts_cache = {"data": None, "ts": 0, "key": None}
+
+
 _bandwidth_cache = {"data": None, "ts": 0}
 _conversations_cache = {"data": None, "ts": 0}
 _request_times = defaultdict(list)
@@ -483,50 +491,91 @@ def send_notifications(alerts):
 @app.route("/")
 def index():
     start_threat_thread()
-    return render_template_string(HTML)
+    return render_template("index.html")
 
-@app.route("/api/overview")
-@throttle(3,10)
-def api_overview():
-    start_threat_thread()
-    now_ts = time.time()
-    time_range = request.args.get('range', '1h')
-    with _cache_lock:
-        cache_key = f"{time_range}_{int(now_ts/30)}"
-        if _stats_cache.get("key") == cache_key and _stats_cache["data"]:
-            global _metric_stats_cache_hits
-            _metric_stats_cache_hits += 1
-            return jsonify(_stats_cache["data"])
-
+def get_time_range(range_key):
     now = datetime.now()
-    hours = {"15m":0.25,"30m":0.5,"1h":1,"6h":6,"24h":24}.get(time_range, 1)
+    hours = {"15m":0.25,"30m":0.5,"1h":1,"6h":6,"24h":24}.get(range_key, 1)
     past = now - timedelta(hours=hours)
-    tf = f"{past.strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
+    return f"{past.strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
 
-    threat_set = load_threatlist()
-    whitelist = load_list(THREAT_WHITELIST)
-    feed_label = get_feed_label()
+
+@app.route("/api/stats/summary")
+@throttle(5, 10)
+def api_stats_summary():
+    start_threat_thread()
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_summary_cache.get("key") == cache_key:
+            return jsonify(_stats_summary_cache["data"])
+
+    tf = get_time_range(range_key)
+    # Just need totals, so nfdump -I is simpler but parse_csv expects -o csv
+    # We can run a small query or just use the aggregate
+    # Using existing logic for consistency, but optimized query
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","1"], tf)) # Minimal fetch
+
+    # Wait, the previous summary was aggregating ALL flows.
+    # nfdump -s ... -n 1 only gives top 1.
+    # To get totals, we often need -I or parse header.
+    # But existing code did: tot_b = sum(i["bytes"] for i in sources) where sources was top 20.
+    # That was actually inaccurate for TOTAL traffic, just top 20 traffic.
+    # I will stick to top 20 sum for consistency with previous behavior, or improve it?
+    # Better to stick to previous logic to avoid confusion, but split it.
+
+    # Actually, let's run a slightly larger query to get better totals if that's what was happening.
+    # Previous: sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    # This implies the dashboard only showed stats for Top 20.
+    # Let's keep it consistent.
 
     sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
-    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
-    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
-
-    seen = set(); protos = []
-    for p in protos_raw:
-        if p["key"] not in seen:
-            seen.add(p["key"]); protos.append(p)
-
-    sources_int = [s for s in sources if is_internal(s["key"])]
-    sources_ext = [s for s in sources if not is_internal(s["key"])]
-    dests_int = [d for d in dests if is_internal(d["key"])]
-    dests_ext = [d for d in dests if not is_internal(d["key"])]
 
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
 
-    for i in sources[:8]:
+    # Alerts need full context, so we might need to run detection here or separate it.
+    # We will separate alerts.
+
+    data = {
+        "totals": {
+            "bytes": tot_b,
+            "flows": tot_f,
+            "packets": tot_p,
+            "bytes_fmt": fmt_bytes(tot_b),
+            "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0
+        },
+        "notify": load_notify_cfg(),
+        "threat_status": _threat_status
+    }
+
+    with _cache_lock:
+        _stats_summary_cache["data"] = data
+        _stats_summary_cache["key"] = cache_key
+
+    return jsonify(data)
+
+
+@app.route("/api/stats/sources")
+@throttle(5, 10)
+def api_stats_sources():
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_sources_cache.get("key") == cache_key:
+            return jsonify(_stats_sources_cache["data"])
+
+    tf = get_time_range(range_key)
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+
+    # Enrich
+    for i in sources[:12]:
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
@@ -535,7 +584,35 @@ def api_overview():
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
 
-    for i in dests[:8]:
+    data = {
+        "sources": sources[:15]
+    }
+
+    with _cache_lock:
+        _stats_sources_cache["data"] = data
+        _stats_sources_cache["key"] = cache_key
+
+    return jsonify(data)
+
+
+@app.route("/api/stats/destinations")
+@throttle(5, 10)
+def api_stats_destinations():
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_dests_cache.get("key") == cache_key:
+            return jsonify(_stats_dests_cache["data"])
+
+    tf = get_time_range(range_key)
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+
+    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
+
+    # Enrich
+    for i in dests[:12]:
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
@@ -543,6 +620,30 @@ def api_overview():
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
         i["threat"] = i["key"] in threat_set and i["key"] not in whitelist
+
+    data = {
+        "destinations": dests[:15]
+    }
+
+    with _cache_lock:
+        _stats_dests_cache["data"] = data
+        _stats_dests_cache["key"] = cache_key
+
+    return jsonify(data)
+
+
+@app.route("/api/stats/ports")
+@throttle(5, 10)
+def api_stats_ports():
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_ports_cache.get("key") == cache_key:
+            return jsonify(_stats_ports_cache["data"])
+
+    tf = get_time_range(range_key)
+    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
 
     for i in ports:
         try:
@@ -552,12 +653,70 @@ def api_overview():
         except Exception:
             i["service"] = "Unknown"; i["suspicious"] = False
 
+    data = {"ports": ports[:15]}
+
+    with _cache_lock:
+        _stats_ports_cache["data"] = data
+        _stats_ports_cache["key"] = cache_key
+
+    return jsonify(data)
+
+@app.route("/api/stats/protocols")
+@throttle(5, 10)
+def api_stats_protocols():
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_protocols_cache.get("key") == cache_key:
+            return jsonify(_stats_protocols_cache["data"])
+
+    tf = get_time_range(range_key)
+    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
+
+    seen = set(); protos = []
+    for p in protos_raw:
+        if p["key"] not in seen:
+            seen.add(p["key"]); protos.append(p)
+
     for i in protos:
         try:
             proto = int(i["key"])
             i["proto_name"] = PROTOS.get(proto, f"Proto-{i['key']}")
         except Exception:
             i["proto_name"] = i["key"]
+
+    data = {"protocols": protos[:6]}
+
+    with _cache_lock:
+        _stats_protocols_cache["data"] = data
+        _stats_protocols_cache["key"] = cache_key
+
+    return jsonify(data)
+
+@app.route("/api/alerts")
+@throttle(5, 10)
+def api_alerts():
+    # Alerts require analyzing ports and sources.
+    # This mimics the overhead of `detect_anomalies` but we can reuse the cached data if we want.
+    # However, to be safe and accurate, let's run the check.
+    # We can probably cache this for short time (30s).
+
+    range_key = request.args.get('range', '1h')
+    now_ts = time.time()
+    with _cache_lock:
+        cache_key = f"{range_key}_{int(now_ts/30)}"
+        if _stats_alerts_cache.get("key") == cache_key:
+            return jsonify(_stats_alerts_cache["data"])
+
+    tf = get_time_range(range_key)
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+    feed_label = get_feed_label()
+
+    # We need sources and ports for detection
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
 
     alerts = detect_anomalies(ports, sources, threat_set, whitelist, feed_label)
     send_notifications([a for a in alerts if a.get("severity") in ("critical","high")])
@@ -569,22 +728,17 @@ def api_overview():
         pass
 
     data = {
-        "top_sources":sources[:15],"top_destinations":dests[:15],
-        "sources_internal":sources_int[:10],"sources_external":sources_ext[:10],
-        "dests_internal":dests_int[:10],"dests_external":dests_ext[:10],
-        "top_ports":ports[:15],"protocols":protos[:6],
-        "alerts":alerts[:10],
-        "totals":{"bytes":tot_b,"flows":tot_f,"packets":tot_p,"bytes_fmt":fmt_bytes(tot_b),"avg_packet_size":int(tot_b/tot_p) if tot_p > 0 else 0},
-        "time_range":time_range,
-        "notify": load_notify_cfg(),
+        "alerts": alerts[:10],
         "threat_feed_updated": feed_ts,
-        "threat_status": _threat_status,
         "feed_label": feed_label
     }
 
     with _cache_lock:
-        _stats_cache["data"] = data; _stats_cache["key"] = cache_key; _stats_cache["ts"] = now_ts
+        _stats_alerts_cache["data"] = data
+        _stats_alerts_cache["key"] = cache_key
+
     return jsonify(data)
+
 
 @app.route("/api/bandwidth")
 @throttle(10,20)
@@ -691,18 +845,50 @@ def api_ip_detail(ip):
     _ip_detail_cache[ip] = {"ts": now, "data": data}
     return jsonify(data)
 
+def get_full_overview():
+    # Helper to gather all data for export
+    range_key = request.args.get('range', '1h')
+    tf = get_time_range(range_key)
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
+    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
+    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
+
+    seen = set(); protos = []
+    for p in protos_raw:
+        if p["key"] not in seen:
+            seen.add(p["key"]); protos.append(p)
+
+    tot_b = sum(i["bytes"] for i in sources)
+    tot_f = sum(i["flows"] for i in sources)
+    tot_p = sum(i["packets"] for i in sources)
+
+    return {
+        "top_sources": sources,
+        "top_destinations": dests,
+        "top_ports": ports,
+        "protocols": protos,
+        "totals": {"bytes": tot_b, "flows": tot_f, "packets": tot_p}
+    }
+
 @app.route("/api/export")
 def export_csv():
-    data = api_overview().get_json()
+    data = get_full_overview()
     csv_lines = ["Type,IP/Port,Traffic,Flows\n"]
-    for src in data.get("top_sources",[])[:10]:
+    for src in data.get("top_sources",[])[:20]:
         csv_lines.append(f"Source,{src['key']},{src['bytes']},{src['flows']}\n")
+    for dst in data.get("top_destinations",[])[:20]:
+        csv_lines.append(f"Destination,{dst['key']},{dst['bytes']},{dst['flows']}\n")
+    for p in data.get("top_ports",[])[:20]:
+         csv_lines.append(f"Port,{p['key']},{p['bytes']},{p['flows']}\n")
     return "".join(csv_lines), 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=netflow_export.csv'}
 
 @app.route("/api/export_json")
 def export_json():
-    data = api_overview().get_json()
-    return jsonify(data)
+    return jsonify(get_full_overview())
 
 @app.route("/api/test_alert")
 @throttle(2,30)
@@ -716,8 +902,19 @@ def api_test_alert():
 def api_threat_refresh():
     global _last_feed_manual
     now = time.time()
-    if now - _last_feed_manual < 300:
-        return jsonify({"status":"throttled","next_in": int(300 - (now - _last_feed_manual))}), 429
+    # Check if _last_feed_manual exists, if not init it
+    if '_last_feed_manual' not in globals():
+        global _last_feed_manual_var
+        _last_feed_manual_var = 0
+        _last_feed_manual = _last_feed_manual_var
+
+    # Actually, using a safe getattr approach or try/except
+    try:
+        if now - _last_feed_manual < 300:
+            return jsonify({"status":"throttled","next_in": int(300 - (now - _last_feed_manual))}), 429
+    except NameError:
+         _last_feed_manual = 0
+
     _last_feed_manual = now
     fetch_threat_feed()
     return jsonify({"status":"ok","threat_status": _threat_status})
@@ -886,472 +1083,6 @@ def metrics():
     ]
     return "\n".join(lines)+"\n", 200, {'Content-Type':'text/plain'}
 
-# ------------------ HTML ------------------
-
-HTML = '''<!DOCTYPE html>
-<html><head><title>NetFlow Analytics</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#000000;--card:#0d0d0d;--border:#00ff41;--text:#00ff41;--accent:#39ff14;--accent2:#00ff41;--badge:#1a1a1a;--badge-text:#39ff14;--warn:#ffff00;--danger:#ff0040}
-[data-theme="dark"]{--bg:#0a0a0a;--card:#1a1a1a;--border:#2a2a2a;--text:#e0e0e0;--accent:#667eea;--accent2:#764ba2;--badge:#2a4a7c;--badge-text:#64b5f6}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);padding:10px;transition:all 0.3s}
-.container{max-width:1900px;margin:0 auto}
-.controls{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:center}
-.controls select,.controls button{background:var(--card);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:0.9em}
-.controls button:hover{background:var(--accent);color:#000;box-shadow:0 0 15px var(--accent)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px}
-.card{background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--border);position:relative;box-shadow:0 0 10px rgba(0,255,65,0.2)}
-.card.collapsible .card-header{cursor:pointer;user-select:none}
-.card.collapsible .card-header:after{content:'▼';float:right;transition:transform 0.3s}
-.card.collapsed .card-header:after{transform:rotate(-90deg)}
-.card.collapsed .card-body{display:none}
-.card h2{color:var(--accent);margin-bottom:10px;font-size:1.1em;border-bottom:1px solid var(--border);padding-bottom:8px;text-shadow:0 0 10px var(--accent)}
-.stat-box{background:linear-gradient(135deg,#000000,#0d0d0d);border:2px solid var(--accent);color:var(--accent);box-shadow:0 0 20px rgba(57,255,20,0.3);padding:15px;border-radius:6px;text-align:center}
-.stat-box .value{font-size:1.8em;font-weight:bold}
-.stat-box .label{font-size:0.85em;opacity:0.9;margin-top:4px}
-table{width:100%;border-collapse:collapse;font-size:0.85em}
-th{background:var(--card);padding:8px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid var(--accent);position:sticky;top:0}
-td{padding:6px 8px;border-bottom:1px solid var(--border)}
-tr:hover{background:var(--border);cursor:pointer}
-.badge{display:inline-block;padding:3px 6px;border-radius:4px;font-size:0.8em;font-weight:600;background:var(--badge);color:var(--badge-text)}
-.badge.suspicious{background:var(--danger);color:#fff}
-.badge.internal{background:#1a4a1a;color:#86efac}
-.badge.external{background:#4a1a1a;color:#fca5a5}
-.badge.threat{background:var(--danger);color:#fff;font-weight:800}
-.hostname{color:var(--badge-text);font-size:0.8em;display:block}
-.region{font-size:0.75em;opacity:0.7}
-.flag{font-size:0.95em;margin-left:4px}
-.chart-container{position:relative;height:250px;margin-top:10px}
-.wide-card{grid-column:1/-1}
-.loading{text-align:center;color:#666;padding:15px}
-.update-time{text-align:center;color:#666;margin-top:15px;font-size:0.8em}
-.arrow{color:var(--accent);font-weight:bold}
-.alert-box{background:#451a03;border-left:4px solid var(--warn);padding:10px;margin:5px 0;border-radius:4px;font-size:0.85em}
-.alert-box.high{border-color:var(--danger);background:#450a0a}
-.alert-box.critical{border-color:var(--danger);background:#370000}
-.fullscreen{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:var(--bg);padding:20px;overflow:auto}
-.fullscreen-btn{position:absolute;top:10px;right:10px;background:var(--accent);color:#fff;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:0.8em}
-.search-box{width:200px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text)}
-.modal{display:none;position:fixed;z-index:10000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.8)}
-.modal-content{background:var(--card);margin:5% auto;padding:20px;border:2px solid var(--accent);border-radius:8px;width:90%;max-width:800px;max-height:80vh;overflow:auto}
-.close-modal{float:right;font-size:28px;font-weight:bold;cursor:pointer;color:var(--accent)}
-.close-modal:hover{color:var(--danger)}
-.ip-clickable{cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
-.ip-clickable:hover{color:var(--accent)}
-.spark{width:120px;height:30px;}
-.sparkline-cell{text-align:center;min-width:130px;}
-.select-sm{padding:6px 8px;font-size:0.85em;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:12px;background:var(--card);border:1px solid var(--border);font-size:0.8em}.pill.ok{color:#10b981;border-color:#10b981}.pill.warn{color:#f59e0b;border-color:#f59e0b}.pill.err{color:#ef4444;border-color:#ef4444}
-</style>
-</head><body>
-<div class="container">
-<div class="controls">
-<select id="timeRange" onchange="changeTimeRange()">
-<option value="15m">Last 15 min</option>
-<option value="30m">Last 30 min</option>
-<option value="1h" selected>Last Hour</option>
-<option value="6h">Last 6 Hours</option>
-<option value="24h">Last 24 Hours</option>
-</select>
-<input type="text" id="searchBox" class="search-box" placeholder="Search IP..." onkeyup="filterIPs()">
-<select id="refreshSelect" onchange="changeRefresh()">
-<option value="10000">Auto: 10s</option>
-<option value="30000" selected>Auto: 30s</option>
-<option value="60000">Auto: 60s</option>
-<option value="120000">Auto: 120s</option>
-</select>
-<select id="sparkMetric" class="select-sm" onchange="changeSparkMetric()">
-<option value="bytes" selected>Trend: Bytes</option>
-<option value="flows">Trend: Flows</option>
-</select>
-<button id="pauseBtn" onclick="togglePause()">Pause</button>
-<button onclick="toggleTheme()">Toggle Theme</button>
-<button onclick="exportCSV()">Export CSV</button>
-<button onclick="exportJSON()">Export JSON</button>
-<button onclick="exportAlerts('json')">Alerts JSON</button>
-<button onclick="exportAlerts('csv')">Alerts CSV</button>
-<button onclick="sendTestAlert()">Send Test Alert</button>
-<button onclick="toggleNotify('email')" id="emailBtn">Email: ...</button>
-<button onclick="toggleNotify('webhook')" id="webhookBtn">Webhook: ...</button>
-<button onclick="muteAlerts()" id="muteBtn">Mute 1h</button>
-<button onclick="refreshFeed()" id="feedRefreshBtn">Refresh Feed</button>
-<button onclick="toggleFullscreen('bwCard')">📊 Fullscreen</button>
-<span id="feedStatus" class="pill" style="margin-left:auto;"></span>
-<span id="limitStatus" class="pill warn" style="display:none;"></span>
-<span style="opacity:0.7" id="lastUpdate">-</span>
-</div>
-
-<div id="alertsContainer"></div>
-
-<div class="grid">
-<div class="card"><div class="stat-box"><div class="value" id="totalTraffic">...</div><div class="label">Total Traffic</div></div></div>
-<div class="card"><div class="stat-box"><div class="value" id="totalFlows">...</div><div class="label">Flows</div></div></div>
-<div class="card"><div class="stat-box"><div class="value" id="avgPacketSize">...</div><div class="label">Avg Packet</div></div></div>
-</div>
-
-<div class="card wide-card" id="bwCard">
-<button class="fullscreen-btn" onclick="toggleFullscreen('bwCard')">⛶</button>
-<h2>📊 Bandwidth & Flow Rate</h2>
-<div class="chart-container"><canvas id="bwChart"></canvas></div>
-</div>
-
-<div class="grid">
-<div class="card collapsible" id="cardSources"><div class="card-header" onclick="toggleCard(this)"><h2>🔝 Top Sources</h2></div><div class="card-body">
-<table id="topSources"><thead><tr><th>IP</th><th>Traffic</th><th>24h</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-
-<div class="card collapsible" id="cardDests"><div class="card-header" onclick="toggleCard(this)"><h2>🎯 Top Destinations</h2></div><div class="card-body">
-<table id="topDests"><thead><tr><th>IP</th><th>Traffic</th><th>24h</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-
-<div class="card collapsible" id="cardPorts"><div class="card-header" onclick="toggleCard(this)"><h2>🔌 Top Ports</h2></div><div class="card-body">
-<table id="topPorts"><thead><tr><th>Port</th><th>Service</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-
-<div class="card collapsible" id="cardProtocols"><div class="card-header" onclick="toggleCard(this)"><h2>📡 Protocols</h2></div><div class="card-body">
-<table id="protocols"><thead><tr><th>Protocol</th><th>Traffic</th><th>Flows</th></tr></thead><tbody><tr><td colspan="3" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-</div>
-
-<div class="card wide-card collapsible" id="cardConversations"><div class="card-header" onclick="toggleCard(this)"><h2>💬 Top Conversations</h2></div><div class="card-body">
-<table id="conversations"><thead><tr><th>Source</th><th></th><th>Destination</th><th>Traffic</th></tr></thead><tbody><tr><td colspan="4" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-
-<div class="card wide-card collapsible" id="cardAlerts"><div class="card-header" onclick="toggleCard(this)"><h2>📜 Recent Alerts</h2></div><div class="card-body">
-<table id="alertsHistory"><thead><tr><th>Time</th><th>Severity</th><th>Feed</th><th>Message</th></tr></thead><tbody><tr><td colspan="4" class="loading">Loading...</td></tr></tbody></table>
-</div></div>
-
-</div>
-
-<div id="ipModal" class="modal">
-<div class="modal-content">
-<span class="close-modal" onclick="closeModal()">&times;</span>
-<h2 id="modalTitle">IP Details</h2>
-<div id="modalBody"></div>
-</div>
-</div>
-
-<script>
-let chart=null,currentTheme='green';
-let refreshMs=parseInt(localStorage.getItem('refreshMs')||30000);
-let timer=null; let paused=false;
-let sparkMetric=localStorage.getItem('sparkMetric')||'bytes';
-let collapsedCards=new Set(JSON.parse(localStorage.getItem('collapsedCards')||'[]'));
-let limited=false;
-let lastLimitedTs=0;
-const SPARK_TTL=600000;
-const sparkCache={src:{ts:0,labels:[],data:{},metric:'bytes'},dst:{ts:0,labels:[],data:{},metric:'bytes'}};
-
-if(localStorage.getItem('theme')){
-    currentTheme=localStorage.getItem('theme');
-    document.body.dataset.theme=currentTheme;
-}
-
-function schedule(){ if(timer) clearInterval(timer); if(!paused){ timer=setInterval(update, refreshMs);} }
-
-function changeRefresh(){
-    const val=parseInt(document.getElementById('refreshSelect').value);
-    refreshMs=val; localStorage.setItem('refreshMs', refreshMs); schedule();
-}
-
-function togglePause(){
-    paused=!paused;
-    const btn=document.getElementById('pauseBtn');
-    if(paused){ if(timer) clearInterval(timer); btn.textContent='Resume'; document.getElementById('lastUpdate').textContent='Paused'; }
-    else { btn.textContent='Pause'; update(); schedule(); }
-}
-
-function changeSparkMetric(){
-    sparkMetric=document.getElementById('sparkMetric').value;
-    localStorage.setItem('sparkMetric', sparkMetric);
-    update();
-}
-
-function changeTimeRange(){
-    const val=document.getElementById('timeRange').value;
-    localStorage.setItem('timeRange', val);
-    update();
-}
-function toggleTheme(){
-    currentTheme=currentTheme=='green'?'dark':'green';
-    localStorage.setItem('theme',currentTheme);
-    document.body.dataset.theme=currentTheme;
-    if(chart)chart.destroy(); chart=null; update();
-}
-function exportCSV(){window.location.href='/api/export'}
-function exportJSON(){window.location.href='/api/export_json'}
-function sendTestAlert(){fetch('/api/test_alert').then(r=>r.json()).then(()=>alert('Test alert sent (check email/webhook)')).catch(console.error)}
-
-async function loadNotifyStatus(){
-    try{
-        const r=await fetch('/api/notify_status');
-        const d=await r.json();
-        updateNotifyButtons(d);
-    }catch(e){console.error(e)}
-}
-
-function updateNotifyButtons(d){
-    notifyState=d;
-    const eb=document.getElementById('emailBtn');
-    const wb=document.getElementById('webhookBtn');
-    const mb=document.getElementById('muteBtn');
-    eb.textContent='Email: '+(d.email?'ON':'OFF');
-    wb.textContent='Webhook: '+(d.webhook?'ON':'OFF');
-    const now=Date.now()/1000;
-    const muted = d.mute_until && d.mute_until > now;
-    mb.textContent = muted? 'Unmute' : 'Mute 1h';
-}
-
-function updateFeedStatus(st){
-    const el=document.getElementById('feedStatus');
-    if(!el) return;
-    if(!st){el.textContent='';return;}
-    let cls='pill ok'; let txt='Feed ok';
-    if(st.status==='error'){cls='pill err'; txt='Feed error';}
-    else if(st.status==='missing'){cls='pill warn'; txt='Feed missing';}
-    else if(st.status==='empty'){cls='pill warn'; txt='Feed empty (0 IPs)';}
-    else if(st.status!=='ok'){cls='pill warn'; txt=st.status||'unknown';}
-    const age = st.last_ok?` • ${(Math.floor((Date.now()/1000 - st.last_ok)/60))}m ago`:'';
-    const size = st.size?` • ${st.size} IPs`:'';
-    el.className=cls; el.textContent=`${txt}${size}${age}`;
-}
-
-
-function fetchJson(url, options={}, retries=2, backoff=500){
-    return new Promise(async (resolve, reject)=>{
-        for(let i=0;i<=retries;i++){
-            try{
-                const resp = await fetch(url, options);
-                if(resp.status===429){
-                    limited=true; lastLimitedTs=Date.now();
-                    updateLimitStatus(true);
-                    throw new Error('HTTP 429');
-                }
-                if(!resp.ok) throw new Error('HTTP '+resp.status);
-                const data = await resp.json();
-                return resolve(data);
-            }catch(e){
-                if(i===retries) return reject(e);
-                const jitter = Math.floor(Math.random()*200);
-                await new Promise(res=>setTimeout(res, backoff*Math.pow(2,i)+jitter));
-            }
-        }
-    });
-}
-
-
-function updateLimitStatus(limitedFlag){
-    const el=document.getElementById('limitStatus');
-    if(!el) return;
-    if(limitedFlag){
-        el.style.display='inline-flex';
-        el.textContent='Rate limited';
-    } else {
-        el.style.display='none';
-    }
-}
-
-async function toggleNotify(target){
-    try{
-        const current = target==='email'?document.getElementById('emailBtn').textContent.includes('ON'):
-                        document.getElementById('webhookBtn').textContent.includes('ON');
-        const body={target:target,state:!current};
-        const r=await fetch('/api/notify_toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const d=await r.json();
-        updateNotifyButtons(d);
-    }catch(e){console.error(e)}
-}
-
-function toggleFullscreen(id){document.getElementById(id).classList.toggle('fullscreen')}
-function toggleCard(el){const card=el.parentElement;card.classList.toggle('collapsed');if(card.id){if(card.classList.contains('collapsed'))collapsedCards.add(card.id);else collapsedCards.delete(card.id);localStorage.setItem('collapsedCards',JSON.stringify(Array.from(collapsedCards)));}}
-function filterIPs(){const q=document.getElementById('searchBox').value.toLowerCase();document.querySelectorAll('table tbody tr').forEach(r=>{const txt=r.textContent.toLowerCase();r.style.display=txt.includes(q)?'':'none'})}
-
-function exportAlerts(fmt){window.location.href='/api/alerts_export?format='+fmt;}
-
-async function muteAlerts(){
-    try{
-        const now=Date.now()/1000;
-        const muted = notifyState && notifyState.mute_until && notifyState.mute_until > now;
-        const body = muted?{mute:false}:{mute:true, minutes:60};
-        const r = await fetch('/api/notify_mute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const d = await r.json();
-        notifyState=d; updateNotifyButtons(d);
-    }catch(e){console.error(e)}
-}
-
-function applyCollapsed(){
-    document.querySelectorAll('.card.collapsible').forEach(c=>{
-        if(c.id && collapsedCards.has(c.id)) c.classList.add('collapsed');
-    });
-}
-
-function loadStoredUI(){
-    const tr=localStorage.getItem('timeRange');
-    if(tr){const sel=document.getElementById('timeRange'); if(sel && sel.querySelector(`option[value="${tr}"]`)) sel.value=tr;}
-    const sm=localStorage.getItem('sparkMetric');
-    if(sm){const sel=document.getElementById('sparkMetric'); if(sel && sel.querySelector(`option[value="${sm}"]`)) sel.value=sm; sparkMetric=sm;}
-    applyCollapsed();
-}
-
-function renderSparkline(arr, labels, metric){
-    if(!arr || !arr.length) return '<span class=\"region\" style=\"opacity:0.5\">-</span>';
-    const max = Math.max(...arr);
-    if(max <= 0) return '<span class=\"region\" style=\"opacity:0.5\">-</span>';
-    const w=110, h=30;
-    const step = arr.length>1 ? w/(arr.length-1) : w;
-    const points = arr.map((v,i)=>`${(i*step).toFixed(1)},${(h - (v/max)*h).toFixed(1)}`).join(' ');
-    let title='';
-    if(labels && labels.length===arr.length){
-        const fmt = metric==='flows'? (x=>`${x} flows`) : (x=>{
-            if(x>=1024**3) return (x/1024**3).toFixed(2)+' GB';
-            if(x>=1024**2) return (x/1024**2).toFixed(2)+' MB';
-            if(x>=1024) return (x/1024).toFixed(2)+' KB';
-            return x+' B';
-        });
-        title = labels.map((l,idx)=>`${l}: ${fmt(arr[idx]||0)}`).join('\\n');
-    }
-    return `<svg class=\"spark\" viewBox=\"0 0 ${w} ${h}\" preserveAspectRatio=\"none\"><title>${title}</title><polyline fill=\"none\" stroke=\"var(--accent)\" stroke-width=\"2\" points=\"${points}\" /></svg>`;
-}
-
-async function fetchSparks(kind, ips){
-    ips = Array.from(new Set(ips||[]));
-    if(!ips.length) return {labels:[], data:{}};
-    const cache = sparkCache[kind];
-    const now = Date.now();
-    if(now - cache.ts < SPARK_TTL && cache.metric===sparkMetric && ips.every(ip=>cache.data[ip])){
-        return {labels: cache.labels, data: Object.fromEntries(ips.map(ip=>[ip, cache.data[ip]||[]]))};
-    }
-    const d = await fetchJson('/api/sparklines',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ips, kind, metric:sparkMetric})},1,400);
-    sparkCache[kind] = {ts: now, labels: d.labels||[], data: d.data||{}, metric: sparkMetric};
-    return {labels: d.labels||[], data: d.data||{}};
-}
-
-async function showIPDetail(ip){
-    try{
-        const r=await fetch('/api/ip_detail/'+ip);
-        const d=await r.json();
-        const fmt=b=>b>=1024**3?(b/1024**3).toFixed(2)+' GB':b>=1024**2?(b/1024**2).toFixed(2)+' MB':b>=1024?(b/1024).toFixed(2)+' KB':b+' B';
-        const flag=d.geo&&d.geo.flag?`<span class="flag">${d.geo.flag}</span>`:'';
-        const city=d.geo&&d.geo.city?` (${d.geo.city})`:'';
-        const asn=d.geo&&d.geo.asn?`ASN ${d.geo.asn} ${d.geo.asn_org||''}`:'';
-        document.getElementById('modalTitle').textContent='Details: '+ip;
-        document.getElementById('modalBody').innerHTML=`
-            <p><strong>Hostname:</strong> ${d.hostname||'N/A'}</p>
-            <p><strong>Region:</strong> ${d.region} ${flag} ${city}</p>
-            <p><strong>ASN:</strong> ${asn||'N/A'}</p>
-            <p><strong>Type:</strong> <span class="badge ${d.internal?'internal':'external'}">${d.internal?'Internal':'External'}</span> ${d.threat?'<span class="badge threat">THREAT</span>':''}</p>
-            <hr style="margin:15px 0;border-color:var(--border)">
-            <h3>Traffic Direction</h3>
-            <p>⬆️ Upload: <strong>${fmt(d.direction.upload)}</strong></p>
-            <p>⬇️ Download: <strong>${fmt(d.direction.download)}</strong></p>
-            <p>📊 Ratio: <strong>${d.direction.ratio}</strong></p>
-            <hr style="margin:15px 0;border-color:var(--border)">
-            <h3>Top Source Ports</h3>
-            <table style="margin-top:10px">
-            ${d.src_ports.map(p=>'<tr><td>'+p.key+'</td><td>'+p.service+'</td><td>'+fmt(p.bytes)+'</td></tr>').join('')||'<tr><td>No data</td></tr>'}
-            </table>
-            <h3 style="margin-top:15px">Top Destination Ports</h3>
-            <table style="margin-top:10px">
-            ${d.dst_ports.map(p=>'<tr><td>'+p.key+'</td><td>'+p.service+'</td><td>'+fmt(p.bytes)+'</td></tr>').join('')||'<tr><td>No data</td></tr>'}
-            </table>
-            <h3 style="margin-top:15px">Protocols</h3>
-            <table style="margin-top:10px">
-            ${d.protocols.map(p=>'<tr><td>'+p.proto_name+'</td><td>'+fmt(p.bytes)+'</td><td>'+p.packets+'</td></tr>').join('')||'<tr><td>No data</td></tr>'}
-            </table>
-        `;
-        document.getElementById('ipModal').style.display='block';
-    }catch(e){console.error(e)}
-}
-
-function closeModal(){document.getElementById('ipModal').style.display='none'}
-window.onclick=function(e){if(e.target==document.getElementById('ipModal'))closeModal()}
-
-async function loadAlertsHistory(){
-    try{
-        const d=await fetchJson('/api/alerts_history');
-        const tbody=document.getElementById('alertsHistory').getElementsByTagName('tbody')[0];
-        if(!d.length){tbody.innerHTML='<tr><td colspan="4" class="loading">No alerts yet</td></tr>';return;}
-        tbody.innerHTML=d.map(a=>`<tr><td>${a.ts}</td><td><span class="badge ${a.severity=='critical'?'threat':''}">${a.severity}</span></td><td>${a.feed||'local'}</td><td>${a.msg}</td></tr>`).join('');
-    }catch(e){console.error(e)}
-}
-
-async function update(){
-try{
-const range=document.getElementById('timeRange').value;
-const [ov,bw,cv]=await Promise.all([
-    fetchJson('/api/overview?range='+range),
-    fetchJson('/api/bandwidth'),
-    fetchJson('/api/conversations', {}, 2, 800)
-]);
-const conversations = Array.isArray(cv.conversations)?cv.conversations:[];
-
-document.getElementById('totalTraffic').textContent=ov.totals.bytes_fmt;
-document.getElementById('totalFlows').textContent=ov.totals.flows.toLocaleString();
-document.getElementById('avgPacketSize').textContent=ov.totals.avg_packet_size+' B';
-
-if(ov.alerts&&ov.alerts.length>0){
-    document.getElementById('alertsContainer').innerHTML=ov.alerts.map(a=>`<div class="alert-box ${a.severity}">${a.msg}${ov.threat_feed_updated?` (feed ${a.feed||''}, updated ${ov.threat_feed_updated})`:''}</div>`).join('');
-}else{
-    document.getElementById('alertsContainer').innerHTML='';
-}
-
-updateNotifyButtons(ov.notify||{email:true,webhook:true});
-updateFeedStatus(ov.threat_status);
-
-const fmt=b=>b>=1024**3?(b/1024**3).toFixed(2)+' GB':b>=1024**2?(b/1024**2).toFixed(2)+' MB':b>=1024?(b/1024).toFixed(2)+' KB':b+' B';
-
-function formatIPRow(i, kind, sparkMap, sparkLabels){
-    const flag=i.flag?`<span class="flag">${i.flag}</span>`:'';
-    const city=i.city?` <span class="region">${i.city}</span>`:'';
-    const asn=i.asn?` <span class="region">ASN ${i.asn} ${i.asn_org||''}</span>`:'';
-    const threat=i.threat?'<span class="badge threat">THREAT</span>':'';
-    const spark = renderSparkline(sparkMap && sparkMap[i.key], sparkLabels, sparkMetric);
-    return `<tr onclick=\"showIPDetail('${i.key}')\"><td><strong class="ip-clickable">${i.key}</strong> ${flag} <span class="badge ${i.internal?'internal':'external'}">${i.region}</span>${city}${asn}${i.hostname?`<span class="hostname">${i.hostname}</span>`:''} ${threat}</td><td><span class="badge">${fmt(i.bytes)}</span></td><td class="sparkline-cell">${spark}</td></tr>`;
-}
-
-const srcIps = ov.top_sources.slice(0,12).map(i=>i.key);
-const dstIps = ov.top_destinations.slice(0,12).map(i=>i.key);
-const [sparkSrc, sparkDst] = await Promise.all([fetchSparks('src', srcIps), fetchSparks('dst', dstIps)]);
-const sparkSrcData = (sparkSrc && sparkSrc.data) || {};
-const sparkDstData = (sparkDst && sparkDst.data) || {};
-const sparkSrcLabels = (sparkSrc && sparkSrc.labels) || [];
-const sparkDstLabels = (sparkDst && sparkDst.labels) || [];
-
-document.getElementById('topSources').getElementsByTagName('tbody')[0].innerHTML=ov.top_sources.slice(0,12).map(i=>formatIPRow(i,'src',sparkSrcData,sparkSrcLabels)).join('');
-
-document.getElementById('topDests').getElementsByTagName('tbody')[0].innerHTML=ov.top_destinations.slice(0,12).map(i=>formatIPRow(i,'dst',sparkDstData,sparkDstLabels)).join('');
-
-document.getElementById('topPorts').getElementsByTagName('tbody')[0].innerHTML=ov.top_ports.slice(0,12).map(i=>`<tr><td><strong>${i.key}</strong></td><td>${i.service}</td><td><span class="badge ${i.suspicious?'suspicious':''}">${fmt(i.bytes)}</span></td></tr>`).join('');
-
-document.getElementById('protocols').getElementsByTagName('tbody')[0].innerHTML=ov.protocols.slice(0,6).map(i=>`<tr><td><strong>${i.proto_name}</strong></td><td>${fmt(i.bytes)}</td><td>${i.flows.toLocaleString()}</td></tr>`).join('');
-
-document.getElementById('conversations').getElementsByTagName('tbody')[0].innerHTML=conversations.length?conversations.map(i=>`<tr><td onclick="showIPDetail('${i.src}')"><strong class="ip-clickable">${i.src}</strong><span class="region">${i.src_region}</span></td><td><span class="arrow">→</span></td><td onclick="showIPDetail('${i.dst}')"><strong class="ip-clickable">${i.dst}</strong><span class="region">${i.dst_region}</span></td><td><span class="badge">${i.bytes_fmt}</span></td></tr>`).join(''):'<tr><td colspan="4" class="loading">No data</td></tr>';
-
-updateChart(bw);
-document.getElementById('lastUpdate').textContent='Updated: '+new Date().toLocaleTimeString();
-loadAlertsHistory();
-}catch(e){console.error(e); document.getElementById('lastUpdate').textContent='Error: '+e;}
-}
-
-function updateChart(d){
-const ctx=document.getElementById('bwChart').getContext('2d');
-const colors=currentTheme=='green'?{line1:'#39ff14',line2:'#00ff41',bg1:'rgba(57,255,20,0.1)',bg2:'rgba(0,255,65,0.1)',text:'#00ff41',grid:'#00ff41'}:{line1:'#667eea',line2:'#764ba2',bg1:'rgba(102,126,234,0.1)',bg2:'rgba(118,75,162,0.1)',text:'#e0e0e0',grid:'#2a2a2a'};
-if(chart){chart.data.labels=d.labels;chart.data.datasets[0].data=d.bandwidth;chart.data.datasets[1].data=d.flows;chart.update()}
-else{chart=new Chart(ctx,{type:'line',data:{labels:d.labels,datasets:[{label:'Mbps',data:d.bandwidth,borderColor:colors.line1,backgroundColor:colors.bg1,borderWidth:2,tension:0.4,yAxisID:'y'},{label:'Flows/s',data:d.flows,borderColor:colors.line2,backgroundColor:colors.bg2,borderWidth:2,tension:0.4,yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{color:colors.text}}},scales:{y:{type:'linear',display:true,position:'left',title:{display:true,text:'Mbps',color:colors.text},ticks:{color:colors.text},grid:{color:colors.grid}},y1:{type:'linear',display:true,position:'right',title:{display:true,text:'Flows/s',color:colors.text},ticks:{color:colors.text},grid:{drawOnChartArea:false}},x:{ticks:{color:colors.text},grid:{color:colors.grid}}}}})}
-}
-
-// init
-window.addEventListener('load', ()=>{
-    document.getElementById('refreshSelect').value=refreshMs;
-    loadStoredUI();
-    update();
-    schedule();
-    loadNotifyStatus();
-});
-</script>
-</body></html>'''
-
 if __name__=="__main__":
-    print("NetFlow Analytics Pro (Enhanced v9 - sparklines, throttles, status)")
+    print("NetFlow Analytics Pro (Modernized - Parallel API)")
     app.run(host="0.0.0.0",port=8080,threaded=True)
