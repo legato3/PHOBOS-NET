@@ -1,0 +1,24 @@
+# Sample Threat Intelligence Feed
+# Format: One IP address per line
+# Lines starting with # are comments and will be ignored
+# This represents what the dashboard downloads and uses for threat detection
+
+# Botnet C2 Servers
+185.220.101.42
+192.42.116.28
+45.141.215.103
+
+# Compromised Hosts
+103.149.27.179
+91.107.147.22
+185.234.219.246
+
+# Malicious Activity
+194.165.16.82
+89.248.168.35
+141.98.252.15
+
+# Known Attack Sources
+103.204.167.14
+185.220.102.8
+192.42.116.16
