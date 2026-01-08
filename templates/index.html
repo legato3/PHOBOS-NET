@@ -176,7 +176,7 @@
                 <table>
                     <thead><tr><th>Src</th><th>Dst</th><th>Dur</th></tr></thead>
                     <tbody>
-                        <template x-for="f in durations.durations" :key="f.src+f.dst+f.proto">
+                        <template x-for="(f, index) in durations.durations" :key="index">
                             <tr>
                                 <td>
                                     <div class="text-cyan" style="font-size:0.9em" x-text="f.src"></div>
@@ -209,7 +209,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in filteredSources" :key="item.key">
+                        <template x-for="(item, index) in filteredSources" :key="index">
                             <tr @click="openIPModal(item.key)">
                                 <td>
                                     <div style="display:flex; align-items:center; gap:5px;">
@@ -229,7 +229,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
                                 </td>
                             </tr>
@@ -252,7 +252,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in filteredDestinations" :key="item.key">
+                        <template x-for="(item, index) in filteredDestinations" :key="index">
                             <tr @click="openIPModal(item.key)">
                                 <td>
                                     <div style="display:flex; align-items:center; gap:5px;">
@@ -272,7 +272,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
                                 </td>
                             </tr>
@@ -295,14 +295,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in ports.ports" :key="item.key">
+                        <template x-for="(item, index) in ports.ports" :key="index">
                             <tr>
                                 <td>
                                     <strong class="text-cyan" x-text="item.key"></strong>
                                     <div style="font-size:0.9em; color:var(--text-muted)" x-text="item.service"></div>
                                 </td>
                                 <td>
-                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
                                 </td>
                             </tr>
@@ -325,13 +325,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in protocols.protocols" :key="item.key">
+                        <template x-for="(item, index) in protocols.protocols" :key="index">
                             <tr>
                                 <td>
                                     <strong class="text-cyan" x-text="item.proto_name"></strong>
                                 </td>
                                 <td>
-                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(item.flows).toLocaleString() + ' flows'"></div>
                                 </td>
                             </tr>

@@ -160,7 +160,7 @@ def lookup_geo(ip):
     _geo_cache[ip] = {'ts': now, 'data': res if res else None}
     return _geo_cache[ip]['data']
 
-def throttle(max_calls=5, time_window=10):
+def throttle(max_calls=20, time_window=10):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -586,9 +586,8 @@ def api_stats_summary():
         if _stats_summary_cache["data"] and _stats_summary_cache["key"] == range_key and now - _stats_summary_cache["ts"] < 60:
             return jsonify(_stats_summary_cache["data"])
 
-    # Reuse shared sources fetch (top 50)
-    sources = get_common_nfdump_data("sources", range_key)
-
+    tf = get_time_range(range_key)
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
@@ -619,6 +618,8 @@ def api_stats_sources():
         if _stats_sources_cache["data"] and _stats_sources_cache["key"] == range_key and now - _stats_sources_cache["ts"] < 60:
             return jsonify(_stats_sources_cache["data"])
 
+    tf = get_time_range(range_key)
+
     # Use shared data (top 50)
     full_sources = get_common_nfdump_data("sources", range_key)
 
@@ -630,6 +631,7 @@ def api_stats_sources():
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
+        i["bytes_fmt"] = fmt_bytes(i["bytes"])
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
@@ -652,6 +654,8 @@ def api_stats_destinations():
         if _stats_dests_cache["data"] and _stats_dests_cache["key"] == range_key and now - _stats_dests_cache["ts"] < 60:
             return jsonify(_stats_dests_cache["data"])
 
+    tf = get_time_range(range_key)
+
     # Use shared data (top 20)
     full_dests = get_common_nfdump_data("dests", range_key)
     dests = full_dests[:10]
@@ -660,6 +664,7 @@ def api_stats_destinations():
         i["hostname"] = resolve_ip(i["key"])
         i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
+        i["bytes_fmt"] = fmt_bytes(i["bytes"])
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
@@ -682,11 +687,12 @@ def api_stats_ports():
         if _stats_ports_cache["data"] and _stats_ports_cache["key"] == range_key and now - _stats_ports_cache["ts"] < 60:
             return jsonify(_stats_ports_cache["data"])
 
-    # Use shared data (top 20)
-    full_ports = get_common_nfdump_data("ports", range_key)
-    ports = full_ports[:10]
+    tf = get_time_range(range_key)
+    # LIMITED TO 10
+    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10"], tf))
 
     for i in ports:
+        i["bytes_fmt"] = fmt_bytes(i["bytes"])
         try:
             port = int(i["key"])
             i["service"] = PORTS.get(port, "Unknown")
@@ -716,6 +722,7 @@ def api_stats_protocols():
     protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
 
     for i in protos_raw:
+        i["bytes_fmt"] = fmt_bytes(i["bytes"])
         try:
             proto = int(i["key"]) if i["key"].isdigit() else 0
             i["proto_name"] = PROTOS.get(proto, i["key"])
@@ -790,8 +797,9 @@ def api_stats_asns():
         if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and now - _stats_asns_cache["ts"] < 60:
             return jsonify(_stats_asns_cache["data"])
 
-    # Re-use top sources logic but aggregate in python (uses shared top 50)
-    sources = get_common_nfdump_data("sources", range_key)
+    tf = get_time_range(range_key)
+    # Re-use top sources logic but aggregate in python
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf))
 
     asn_counts = Counter()
 
@@ -877,6 +885,7 @@ def api_alerts():
         if _stats_alerts_cache["data"] and _stats_alerts_cache["key"] == range_key and now - _stats_alerts_cache["ts"] < 60:
             return jsonify(_stats_alerts_cache["data"])
 
+    tf = get_time_range(range_key)
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
 
