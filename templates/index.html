@@ -19,25 +19,52 @@
         <div class="loader">Initializing Neural Link...</div>
     </div>
 
-    <!-- Alert HUD -->
-    <div class="alert-hud" x-show="alerts.alerts && alerts.alerts.length > 0">
-        <template x-for="alert in alerts.alerts" :key="alert.msg">
-            <div class="alert-toast" :class="alert.severity">
-                <div class="alert-header">
-                    <span x-text="alert.severity"></span>
-                    <span x-text="alert.feed || 'System'"></span>
-                </div>
-                <div class="alert-msg" x-text="alert.msg"></div>
-            </div>
-        </template>
-    </div>
-
     <div class="container" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
 
         <!-- Header -->
         <div class="header">
             <div class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></div>
             <div class="controls">
+                <!-- Notification Center -->
+                <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
+                    <button @click="open = !open" class="icon-btn" title="Notifications" style="position: relative;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        <span x-show="activeAlerts.length > 0" class="badge-dot"></span>
+                    </button>
+                    <div class="dropdown-menu notification-menu" x-show="open" style="display:none; width: 400px; max-height: 80vh; overflow-y: auto;">
+                        <div style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: var(--text-main);">
+                            NOTIFICATIONS (<span x-text="activeAlerts.length"></span>)
+                        </div>
+
+                        <template x-if="activeAlerts.length === 0">
+                            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                                No new alerts.
+                            </div>
+                        </template>
+
+                        <template x-for="(group, severity) in groupedAlerts" :key="severity">
+                            <div class="alert-group">
+                                <div class="alert-group-header" :class="severity.toLowerCase()">
+                                    <span x-text="severity"></span>
+                                </div>
+                                <template x-for="alert in group" :key="alert.msg">
+                                    <div class="alert-item" :class="alert.severity">
+                                        <div style="flex-grow: 1;">
+                                            <div class="alert-meta">
+                                                <span x-text="alert.feed || 'System'"></span>
+                                            </div>
+                                            <div class="alert-msg" x-text="alert.msg"></div>
+                                        </div>
+                                        <button @click.stop="dismissAlert(alert.msg)" class="icon-btn-small" title="Dismiss" style="color: var(--text-muted);">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
                 <select x-model="timeRange">
                     <option value="15m">Last 15m</option>
                     <option value="30m">Last 30m</option>
@@ -149,7 +176,7 @@
                 <table>
                     <thead><tr><th>Src</th><th>Dst</th><th>Dur</th></tr></thead>
                     <tbody>
-                        <template x-for="f in durations.durations" :key="f.src+f.dst+f.proto">
+                        <template x-for="(f, index) in durations.durations" :key="index">
                             <tr>
                                 <td>
                                     <div class="text-cyan" style="font-size:0.9em" x-text="f.src"></div>
@@ -182,7 +209,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in filteredSources" :key="item.key">
+                        <template x-for="(item, index) in filteredSources" :key="index">
                             <tr @click="openIPModal(item.key)">
                                 <td>
                                     <div style="display:flex; align-items:center; gap:5px;">
@@ -202,7 +229,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
                                 </td>
                             </tr>
@@ -225,7 +252,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in filteredDestinations" :key="item.key">
+                        <template x-for="(item, index) in filteredDestinations" :key="index">
                             <tr @click="openIPModal(item.key)">
                                 <td>
                                     <div style="display:flex; align-items:center; gap:5px;">
@@ -245,7 +272,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
                                 </td>
                             </tr>
@@ -268,14 +295,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in ports.ports" :key="item.key">
+                        <template x-for="(item, index) in ports.ports" :key="index">
                             <tr>
                                 <td>
                                     <strong class="text-cyan" x-text="item.key"></strong>
                                     <div style="font-size:0.9em; color:var(--text-muted)" x-text="item.service"></div>
                                 </td>
                                 <td>
-                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
                                 </td>
                             </tr>
@@ -298,13 +325,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="item in protocols.protocols" :key="item.key">
+                        <template x-for="(item, index) in protocols.protocols" :key="index">
                             <tr>
                                 <td>
                                     <strong class="text-cyan" x-text="item.proto_name"></strong>
                                 </td>
                                 <td>
-                                    <div class="text-green" x-text="fmtBytes(item.bytes)"></div>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
                                     <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(item.flows).toLocaleString() + ' flows'"></div>
                                 </td>
                             </tr>

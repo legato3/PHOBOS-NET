@@ -26,6 +26,7 @@ document.addEventListener('alpine:init', () => {
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
+        dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
 
         // Modal
         modalOpen: false,
@@ -50,6 +51,33 @@ document.addEventListener('alpine:init', () => {
             this.$watch('refreshInterval', () => {
                  this.startTimer();
             });
+        },
+
+        get activeAlerts() {
+            if (!this.alerts.alerts) return [];
+            return this.alerts.alerts.filter(a => !this.dismissedAlerts.has(a.msg));
+        },
+
+        get groupedAlerts() {
+            const groups = {};
+            const order = ['critical', 'high', 'medium', 'low', 'info'];
+
+            // Sort active alerts by order then group
+            const sorted = this.activeAlerts.sort((a,b) => {
+                return order.indexOf(a.severity) - order.indexOf(b.severity);
+            });
+
+            sorted.forEach(a => {
+                const s = a.severity.toUpperCase();
+                if(!groups[s]) groups[s] = [];
+                groups[s].push(a);
+            });
+            return groups;
+        },
+
+        dismissAlert(msg) {
+            this.dismissedAlerts.add(msg);
+            localStorage.setItem('dismissedAlerts', JSON.stringify([...this.dismissedAlerts]));
         },
 
         startTimer() {
@@ -105,7 +133,7 @@ document.addEventListener('alpine:init', () => {
                     this.summary = { ...data, loading: false };
                     if(data.threat_status) this.threatStatus = data.threat_status;
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.summary.loading = false; }
         },
 
         async fetchSources() {
@@ -113,7 +141,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/sources?range=${this.timeRange}`);
                 if(res.ok) this.sources = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.sources.loading = false; }
         },
 
         async fetchDestinations() {
@@ -121,7 +149,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/destinations?range=${this.timeRange}`);
                 if(res.ok) this.destinations = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.destinations.loading = false; }
         },
 
         async fetchPorts() {
@@ -129,7 +157,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/ports?range=${this.timeRange}`);
                 if(res.ok) this.ports = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.ports.loading = false; }
         },
 
         async fetchProtocols() {
@@ -137,7 +165,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/protocols?range=${this.timeRange}`);
                 if(res.ok) this.protocols = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.protocols.loading = false; }
         },
 
         async fetchAlerts() {
@@ -145,7 +173,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/alerts?range=${this.timeRange}`);
                 if(res.ok) this.alerts = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.alerts.loading = false; }
         },
 
         async fetchConversations() {
@@ -153,7 +181,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/conversations`);
                 if(res.ok) this.conversations = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.conversations.loading = false; }
         },
 
         async fetchFlags() {
@@ -165,7 +193,7 @@ document.addEventListener('alpine:init', () => {
                     this.flags = { ...data, loading: false };
                     this.updateFlagsChart(data.flags);
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.flags.loading = false; }
         },
 
         async fetchASNs() {
@@ -178,7 +206,7 @@ document.addEventListener('alpine:init', () => {
                     const max = Math.max(...data.asns.map(a => a.bytes));
                     this.asns = { ...data, maxBytes: max, loading: false };
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.asns.loading = false; }
         },
 
         async fetchDurations() {
@@ -186,7 +214,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
                 if(res.ok) this.durations = { ...(await res.json()), loading: false };
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.durations.loading = false; }
         },
 
         async fetchBandwidth() {
@@ -198,7 +226,7 @@ document.addEventListener('alpine:init', () => {
                     this.bandwidth = { ...data, loading: false };
                     this.updateBwChart(data);
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); } finally { this.bandwidth.loading = false; }
         },
 
         updateBwChart(data) {
