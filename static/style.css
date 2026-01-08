@@ -282,19 +282,57 @@ tr:hover td {
 }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* Alerts */
-.alert-item {
-    background: rgba(255, 0, 0, 0.1);
-    border-left: 3px solid var(--neon-red);
-    padding: 8px 12px;
-    margin-bottom: 5px;
-    font-size: 0.9em;
+/* Alert HUD (Modernized) */
+.alert-hud {
+    position: fixed;
+    top: 80px; right: 20px;
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Allow clicks through empty space */
+}
+
+.alert-toast {
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid var(--neon-cyan);
+    border-radius: 6px;
+    padding: 12px 15px;
+    color: #e0e0e0;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    animation: slideIn 0.3s ease-out;
+}
+
+.alert-toast.critical { border-left-color: var(--neon-red); background: rgba(40, 10, 10, 0.9); }
+.alert-toast.high { border-left-color: orange; }
+.alert-toast.medium { border-left-color: yellow; }
+
+.alert-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
-.alert-item.critical { background: rgba(255, 0, 60, 0.15); border-color: var(--neon-red); }
-.alert-item.high { background: rgba(255, 165, 0, 0.15); border-color: orange; }
+
+.alert-msg {
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 
 /* Dropdown */
 .dropdown-menu {
@@ -382,4 +420,45 @@ tr:hover td {
     position: relative;
     height: 300px;
     width: 100%;
+}
+
+.chart-wrapper-small {
+    position: relative;
+    height: 200px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* ASN Bars */
+.asn-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+.asn-name {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.asn-bar-container {
+    flex-grow: 1;
+    background: rgba(255,255,255,0.1);
+    height: 6px;
+    border-radius: 3px;
+    margin: 0 10px;
+    overflow: hidden;
+}
+.asn-bar {
+    height: 100%;
+    background: var(--neon-purple);
+    border-radius: 3px;
+}
+.asn-val {
+    width: 60px;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 0.85em;
 }
