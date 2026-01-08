@@ -8,6 +8,8 @@ import threading
 import requests
 import maxminddb
 import random
+import dns.resolver
+import dns.reversename
 
 app = Flask(__name__)
 
@@ -1014,7 +1016,8 @@ def api_bandwidth():
 @throttle(10,30)
 def api_conversations():
     # LIMITED TO 10
-    tf = get_time_range('1h')
+    range_key = request.args.get('range', '1h')
+    tf = get_time_range(range_key)
     src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf))
     dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf))
     convs = []
@@ -1022,6 +1025,8 @@ def api_conversations():
         if i < len(dst_data):
             convs.append({
                 "src":src["key"],"dst":dst_data[i]["key"],
+                "src_hostname": resolve_ip(src["key"]),
+                "dst_hostname": resolve_ip(dst_data[i]["key"]),
                 "bytes":src["bytes"],"bytes_fmt":fmt_bytes(src["bytes"]),
                 "src_region":get_region(src["key"]),
                 "dst_region":get_region(dst_data[i]["key"])
