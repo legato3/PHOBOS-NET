@@ -95,8 +95,8 @@ def resolve_hostname(ip):
     try:
         resolver = dns.resolver.Resolver()
         resolver.nameservers = [DNS_SERVER]
-        resolver.timeout = 1
-        resolver.lifetime = 1
+        resolver.timeout = 2
+        resolver.lifetime = 2
         
         # Reverse DNS lookup
         rev_name = dns.reversename.from_address(ip)
@@ -337,7 +337,8 @@ def run_nfdump(args, tf=None):
 
     # Try running actual nfdump first
     try:
-        cmd = ["nfdump","-R","/var/cache/nfdump","-q","-o","csv"]
+        # Note: Removed -q to ensure CSV header is printed for dynamic parsing
+        cmd = ["nfdump","-R","/var/cache/nfdump","-o","csv"]
         if tf: cmd.extend(["-t",tf])
         cmd.extend(args)
         # Check if nfdump exists
@@ -400,9 +401,11 @@ def parse_csv(output):
         elif 'packets' in cols: packets_idx = cols.index('packets')
 
         # Fallbacks for mock data which might not be perfect
-        if bytes_idx == -1: bytes_idx = 9
-        if flows_idx == -1: flows_idx = 5
-        if packets_idx == -1: packets_idx = 7
+        # Updated fallbacks to match standard nfdump CSV (sa=3, da=4, sp=5, dp=6, proto=7, ... ibyt=12)
+        if key_idx == -1: key_idx = 3 # Default to srcip (sa) if undetermined
+        if bytes_idx == -1: bytes_idx = 12
+        if flows_idx == -1: flows_idx = 9 # flows usually earlier than bytes? No, standard is fwd status? No, flows usually around 9-11
+        if packets_idx == -1: packets_idx = 11
 
     except ValueError:
         return results
@@ -1064,17 +1067,9 @@ def api_bandwidth():
 
     cache_key = f"bw_{range_key}"
 
-    # Note: _bandwidth_cache is currently simple dict {"data":..., "ts":...}
-    # To support ranges, we might need a dict of dicts, or just accept overwrite.
-    # Given the simplicity, overwrite is fine, but check range_key if we stored it?
-    # The current cache doesn't store the key. Let's just use it as is, might cause flickering if multiple users use different ranges.
-    # But for "deep planning" robustness, let's try to verify.
-
+    # Check cache with range key validation
     with _cache_lock:
-        # Check if cached data matches requested bucket count (heuristic)
-        if _bandwidth_cache["data"] and now_ts - _bandwidth_cache["ts"] < 5:
-            # If we could check the range... assuming 1h default.
-            # Let's just return if fresh.
+        if _bandwidth_cache.get("data") and _bandwidth_cache.get("key") == cache_key and now_ts - _bandwidth_cache.get("ts", 0) < 5:
             global _metric_bw_cache_hits
             _metric_bw_cache_hits += 1
             return jsonify(_bandwidth_cache["data"])
@@ -1128,6 +1123,7 @@ def api_bandwidth():
         with _cache_lock:
             _bandwidth_cache["data"] = data
             _bandwidth_cache["ts"] = now_ts
+            _bandwidth_cache["key"] = cache_key
         return jsonify(data)
     except Exception:
         return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
