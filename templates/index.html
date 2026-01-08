@@ -162,7 +162,7 @@
                     <span>🏢 Top ASNs</span>
                     <div class="spinner" x-show="asns.loading"></div>
                 </h2>
-                <div style="margin-top:10px; overflow-y:auto; max-height:200px;">
+                <div style="margin-top:10px;">
                     <template x-for="asn in asns.asns" :key="asn.asn">
                         <div class="asn-row">
                             <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
