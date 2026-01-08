@@ -194,13 +194,15 @@ def throttle(max_calls=20, time_window=10):
     return decorator
 
 def resolve_ip(ip):
-    return None
     now = time.time()
     if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < 300:
         return _dns_cache[ip]
     try:
-        # Standard resolve disabled for speed, but placeholder here
-        pass
+        hostname = resolve_hostname(ip)
+        if hostname != ip:  # DNS lookup succeeded
+            _dns_cache[ip] = hostname
+            _dns_ttl[ip] = now
+            return hostname
     except Exception:
         pass
     _dns_cache[ip] = None
@@ -310,13 +312,19 @@ def run_nfdump(args, tf=None):
 def parse_csv(output):
     results = []
     lines = output.strip().split("\n")
+    seen_keys = set()  # Track duplicates
     for line in lines[1:]:
         if not line: continue
+        # Skip header lines (they start with 'ts,')
+        if line.startswith('ts,'): continue
         parts = line.split(",")
         if len(parts) < 10: continue
         try:
             key = parts[4]
             if not key or "/" in key or key == "any": continue
+            # Skip if we've already seen this key (dedup)
+            if key in seen_keys: continue
+            seen_keys.add(key)
             bytes_val = int(float(parts[9]))
             flows_val = int(float(parts[5]))
             packets_val = int(float(parts[7]))
@@ -562,10 +570,11 @@ def get_time_range(range_key):
 def get_common_nfdump_data(query_type, range_key):
     # Shared data fetcher
     # types: "sources", "ports", "dests", "protos"
-    # sources -> limit 50
-    # ports -> limit 20
-    # dests -> limit 20 (bumped from 10)
-    # protos -> limit 20 (bumped from 10)
+    # Fetches 100 items, sorts by bytes descending, displays top 10
+    # sources -> fetch 100, display 10
+    # ports -> fetch 100, display 10
+    # dests -> fetch 100, display 10
+    # protos -> fetch 20 (not sorted)
 
     now = time.time()
     cache_key = f"{query_type}:{range_key}"
@@ -580,11 +589,17 @@ def get_common_nfdump_data(query_type, range_key):
     data = []
 
     if query_type == "sources":
-        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf))
+        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf))
+        # Sort by bytes descending
+        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "ports":
-        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","20"], tf))
+        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf))
+        # Sort by bytes descending
+        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "dests":
-        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","20"], tf))
+        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf))
+        # Sort by bytes descending
+        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "protos":
         data = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf))
 
@@ -704,8 +719,9 @@ def api_stats_ports():
             return jsonify(_stats_ports_cache["data"])
 
     tf = get_time_range(range_key)
-    # LIMITED TO 10
-    ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10"], tf))
+    # Use shared data (top 100, sorted by bytes)
+    full_ports = get_common_nfdump_data("ports", range_key)
+    ports = full_ports[:10]
 
     for i in ports:
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
@@ -864,10 +880,17 @@ def api_stats_durations():
             # Fallback indices
             sa_idx, da_idx, pr_idx, td_idx, ibyt_idx = 3, 4, 7, 2, 12
 
+        seen_flows = set()  # Deduplicate flows
         for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue  # Skip empty lines and headers
             parts = line.split(',')
             if len(parts) > max(sa_idx, da_idx, td_idx):
                 try:
+                    # Create unique key for deduplication
+                    flow_key = (parts[sa_idx], parts[da_idx], parts[pr_idx], parts[td_idx])
+                    if flow_key in seen_flows: continue
+                    seen_flows.add(flow_key)
+                    
                     rows.append({
                         "src": parts[sa_idx], "dst": parts[da_idx],
                         "proto": parts[pr_idx],
