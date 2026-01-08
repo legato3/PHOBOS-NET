@@ -26,6 +26,7 @@ document.addEventListener('alpine:init', () => {
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
+        dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
 
         // Modal
         modalOpen: false,
@@ -50,6 +51,33 @@ document.addEventListener('alpine:init', () => {
             this.$watch('refreshInterval', () => {
                  this.startTimer();
             });
+        },
+
+        get activeAlerts() {
+            if (!this.alerts.alerts) return [];
+            return this.alerts.alerts.filter(a => !this.dismissedAlerts.has(a.msg));
+        },
+
+        get groupedAlerts() {
+            const groups = {};
+            const order = ['critical', 'high', 'medium', 'low', 'info'];
+
+            // Sort active alerts by order then group
+            const sorted = this.activeAlerts.sort((a,b) => {
+                return order.indexOf(a.severity) - order.indexOf(b.severity);
+            });
+
+            sorted.forEach(a => {
+                const s = a.severity.toUpperCase();
+                if(!groups[s]) groups[s] = [];
+                groups[s].push(a);
+            });
+            return groups;
+        },
+
+        dismissAlert(msg) {
+            this.dismissedAlerts.add(msg);
+            localStorage.setItem('dismissedAlerts', JSON.stringify([...this.dismissedAlerts]));
         },
 
         startTimer() {
