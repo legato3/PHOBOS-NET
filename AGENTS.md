@@ -86,6 +86,13 @@ One IP per line, comments start with #:
 - **Purpose**: Parse nfdump CSV with dynamic column detection
 - **Critical**: ALWAYS check for header row, column order varies
 - **Common Mistake**: Hardcoding column indices breaks
+- **Deduplication**: Skips duplicate headers and keys (nfdump can return duplicates)
+
+#### get_common_nfdump_data()
+- **Purpose**: Fetch and cache traffic statistics
+- **Strategy**: Fetch 100 entries, sort by bytes, display top 10
+- **Why**: nfdump's `-n` flag limits early in aggregation, misses data
+- **Sorting**: Always sort by bytes descending for accurate top results
 
 #### API Routes with Caching
 - **Pattern**: All `/api/stats/*` endpoints use 60-second cache
