@@ -22,6 +22,7 @@ document.addEventListener('alpine:init', () => {
         flags: { flags: [], loading: true },
         asns: { asns: [], loading: true },
         durations: { durations: [], loading: true },
+        packetSizes: { labels: [], data: [], loading: true },
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -36,6 +37,7 @@ document.addEventListener('alpine:init', () => {
 
         bwChartInstance: null,
         flagsChartInstance: null,
+        pktSizeChartInstance: null,
 
         init() {
             console.log('Neural Link Established.');
@@ -108,6 +110,7 @@ document.addEventListener('alpine:init', () => {
             this.fetchFlags();
             this.fetchASNs();
             this.fetchDurations();
+            this.fetchPacketSizes();
 
             this.loadNotifyStatus();
         },
@@ -292,6 +295,63 @@ document.addEventListener('alpine:init', () => {
                             x: {
                                 grid: { color: '#333' },
                                 ticks: { color: '#888' }
+                            }
+                        }
+                    }
+                });
+            }
+        },
+
+        async fetchPacketSizes() {
+            this.packetSizes.loading = true;
+            try {
+                const res = await fetch(`/api/stats/packet_sizes?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.packetSizes = { ...data, loading: false };
+                    this.updatePktSizeChart(data);
+                }
+            } catch(e) { console.error(e); } finally { this.packetSizes.loading = false; }
+        },
+
+        updatePktSizeChart(data) {
+            const ctx = document.getElementById('pktSizeChart');
+            if (!ctx) return;
+
+            // Cyberpunk palette
+            const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
+
+            if (this.pktSizeChartInstance) {
+                this.pktSizeChartInstance.data.labels = data.labels;
+                this.pktSizeChartInstance.data.datasets[0].data = data.data;
+                this.pktSizeChartInstance.update();
+            } else {
+                this.pktSizeChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Flows',
+                            data: data.data,
+                            backgroundColor: colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal bar
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: '#333' },
+                                ticks: { color: '#888' }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { color: '#e0e0e0', font: { size: 10 } }
                             }
                         }
                     }
