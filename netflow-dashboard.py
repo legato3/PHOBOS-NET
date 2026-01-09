@@ -26,6 +26,7 @@ _lock_flags = threading.Lock()
 _lock_asns = threading.Lock()
 _lock_durations = threading.Lock()
 _lock_bandwidth = threading.Lock()
+_cache_lock = threading.Lock()  # generic small cache lock (e.g., packet sizes)
 # Caches for new endpoints
 _stats_summary_cache = {"data": None, "ts": 0, "key": None}
 _stats_sources_cache = {"data": None, "ts": 0, "key": None}
