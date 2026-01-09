@@ -11,6 +11,7 @@ import maxminddb
 import random
 import dns.resolver
 import dns.reversename
+import sqlite3
 
 app = Flask(__name__)
 
@@ -99,6 +100,11 @@ SMTP_CFG_PATH = os.getenv("SMTP_CFG_PATH", "/root/netflow-smtp.json")
 NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/root/netflow-notify.json")
 THRESHOLDS_CFG_PATH = os.getenv("THRESHOLDS_CFG_PATH", "/root/netflow-thresholds.json")
 SAMPLE_DATA_PATH = "sample_data/nfdump_flows.csv"
+
+# Trends storage (SQLite) for 5-minute rollups
+TRENDS_DB_PATH = os.getenv("TRENDS_DB_PATH", "netflow-trends.sqlite")
+_trends_db_lock = threading.Lock()
+_trends_thread_started = False
 
 mmdb_city = None
 mmdb_asn = None
@@ -797,6 +803,7 @@ def send_notifications(alerts):
 @app.route("/")
 def index():
     start_threat_thread()
+    start_trends_thread()
     return render_template("index.html")
 
 def get_time_range(range_key):
@@ -1233,6 +1240,94 @@ def api_stats_packet_sizes():
         return jsonify({"labels":[], "data":[]})
 
 
+# ===== Trends (5-minute rollups stored in SQLite) =====
+
+def _trends_db_connect():
+    conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    return conn
+
+def _trends_db_init():
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS traffic_rollups (
+                    bucket_end INTEGER PRIMARY KEY,
+                    bytes INTEGER NOT NULL,
+                    flows INTEGER NOT NULL
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_traffic_rollups_bucket ON traffic_rollups(bucket_end);")
+            conn.commit()
+        finally:
+            conn.close()
+
+def _get_bucket_end(dt=None):
+    dt = dt or datetime.now()
+    # Align to nearest 5 minutes upper boundary
+    remainder = dt.minute % 5
+    current_bucket_end = dt.replace(minute=dt.minute - remainder, second=0, microsecond=0) + timedelta(minutes=5)
+    return current_bucket_end
+
+def _ensure_rollup_for_bucket(bucket_end_dt):
+    """Ensure we have a rollup for the given completed bucket end (datetime)."""
+    bucket_end_ts = int(bucket_end_dt.timestamp())
+    # Check if exists
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute("SELECT 1 FROM traffic_rollups WHERE bucket_end=?", (bucket_end_ts,))
+            row = cur.fetchone()
+            if row:
+                return
+        finally:
+            conn.close()
+
+    # Compute using nfdump over the 5-min interval ending at bucket_end_dt
+    st = bucket_end_dt - timedelta(minutes=5)
+    tf_key = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{bucket_end_dt.strftime('%Y/%m/%d.%H:%M:%S')}"
+
+    output = run_nfdump(["-s","proto/bytes/flows","-n","100"], tf_key)
+    stats = parse_csv(output, expected_key='proto')
+    total_b = sum(s.get("bytes", 0) for s in stats)
+    total_f = sum(s.get("flows", 0) for s in stats)
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            conn.execute("INSERT OR REPLACE INTO traffic_rollups(bucket_end, bytes, flows) VALUES (?,?,?)",
+                        (bucket_end_ts, int(total_b), int(total_f)))
+            conn.commit()
+        finally:
+            conn.close()
+
+def start_trends_thread():
+    global _trends_thread_started
+    if _trends_thread_started:
+        return
+    _trends_thread_started = True
+    _trends_db_init()
+
+    def loop():
+        while True:
+            try:
+                # Work on the last completed bucket (avoid partial current)
+                now_dt = datetime.now()
+                current_end = _get_bucket_end(now_dt)
+                last_completed_end = current_end - timedelta(minutes=5)
+                _ensure_rollup_for_bucket(last_completed_end)
+            except Exception:
+                pass
+            time.sleep(30)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
 @app.route("/api/alerts")
 @throttle(5, 10)
 def api_alerts():
@@ -1280,8 +1375,8 @@ def api_bandwidth():
     bucket_count = 12
     if range_key == '30m': bucket_count = 6
     elif range_key == '15m': bucket_count = 3
-    # For longer ranges (6h, 24h), stick to 1h view (12 buckets) to avoid excessive nfdump calls/latency
-    # Implementing 24h view would require 288 calls or a different aggregation strategy.
+    elif range_key == '6h': bucket_count = 72
+    elif range_key == '24h': bucket_count = 288
 
     # Separate cache key for different ranges?
     # Current _bandwidth_cache is global. If we switch range, we overwrite.
@@ -1299,53 +1394,66 @@ def api_bandwidth():
     now = datetime.now()
     labels, bw, flows = [], [], []
 
-    # Round down to nearest 5 minutes
-    now_minute = now.minute
-    remainder = now_minute % 5
-    current_bucket_end = now.replace(minute=now_minute - remainder, second=0, microsecond=0) + timedelta(minutes=5)
+    # Use trends DB for completed buckets; compute only incomplete current if needed
+    _trends_db_init()
+    current_bucket_end = _get_bucket_end(now)
 
     try:
-        for i in range(bucket_count - 1, -1, -1):
-            # Calculate buckets aligned to 5 minute intervals
+        # Fetch required completed buckets from DB in one query
+        end_needed = current_bucket_end  # may include current incomplete bucket
+        start_needed = end_needed - timedelta(minutes=5*bucket_count)
+        start_ts = int((start_needed).timestamp())
+        end_ts = int((end_needed).timestamp())
+
+        with _trends_db_lock:
+            conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+            try:
+                cur = conn.execute(
+                    "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                    (start_ts, end_ts)
+                )
+                rows = cur.fetchall()
+            finally:
+                conn.close()
+
+        # Build a mapping for quick lookup
+        by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
+
+        for i in range(bucket_count, 0, -1):
             et = current_bucket_end - timedelta(minutes=i*5)
-            st = et - timedelta(minutes=5)
-
-            tf_key = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
+            et_ts = int(et.timestamp())
             labels.append(et.strftime("%H:%M"))
-
-            # Check history cache for completed intervals
-            # An interval is completed if its end time is in the past
-            is_completed = et <= now
-            cached = None
-            if is_completed:
-                cached = _bandwidth_history_cache.get(tf_key)
-
-            if cached:
-                bw.append(cached["bw"])
-                flows.append(cached["flows"])
+            rec = by_end.get(et_ts)
+            if rec:
+                total_b = rec["bytes"]
+                total_f = rec["flows"]
+                val_bw = round((total_b*8)/(300*1_000_000),2)
+                val_flows = round(total_f/300,2)
             else:
-                # Compute
-                output = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf_key)
-                stats = parse_csv(output, expected_key='proto')
-                val_bw, val_flows = 0, 0
-                if stats:
-                    total_b = sum(s["bytes"] for s in stats)
-                    total_f = sum(s["flows"] for s in stats)
-                    val_bw = round((total_b*8)/(300*1_000_000),2)
-                    val_flows = round(total_f/300,2)
+                # If missing and it's not in the future, attempt on-demand fill once
+                if et < now:
+                    _ensure_rollup_for_bucket(et)
+                    with _trends_db_lock:
+                        conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                        try:
+                            cur = conn.execute("SELECT bytes, flows FROM traffic_rollups WHERE bucket_end=?", (et_ts,))
+                            row = cur.fetchone()
+                        finally:
+                            conn.close()
+                    if row:
+                        total_b, total_f = row[0], row[1]
+                        val_bw = round((total_b*8)/(300*1_000_000),2)
+                        val_flows = round(total_f/300,2)
+                    else:
+                        val_bw = 0
+                        val_flows = 0
+                else:
+                    # future/incomplete bucket
+                    val_bw = 0
+                    val_flows = 0
 
-                bw.append(val_bw)
-                flows.append(val_flows)
-
-                # Store in history if completed
-                if is_completed:
-                    _bandwidth_history_cache[tf_key] = {"bw": val_bw, "flows": val_flows}
-
-        # Prune bandwidth history to limit memory growth (keep last 500 intervals)
-        if len(_bandwidth_history_cache) > 500:
-            keys = sorted(_bandwidth_history_cache.keys())
-            for k in keys[:-500]:
-                _bandwidth_history_cache.pop(k, None)
+            bw.append(val_bw)
+            flows.append(val_flows)
 
         data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
         with _lock_bandwidth:
