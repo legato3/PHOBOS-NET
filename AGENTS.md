@@ -186,6 +186,40 @@ Use `sample_data/` directory:
 6. **Dynamic parsing** - Never hardcode CSV column positions
 7. **Graceful degradation** - UI should work even if some APIs fail
 
+## 🔥 SNMP Firewall Monitoring
+
+### Overview
+- Polls OPNsense firewall (192.168.0.1) via SNMP community "Phoboshomesnmp_3"
+- Displays real-time firewall health metrics on dashboard
+- 30-second cache with thread-safe locking
+- Auto-formats uptime for readability
+
+### Metrics Collected
+| Metric | OID | Description |
+|--------|-----|-------------|
+| CPU Load 1min | `.1.3.6.1.4.1.2021.10.1.3.1` | 1-minute load average |
+| CPU Load 5min | `.1.3.6.1.4.1.2021.10.1.3.2` | 5-minute load average |
+| Memory Total | `.1.3.6.1.4.1.2021.4.5.0` | Total memory (KB) |
+| Memory Available | `.1.3.6.1.4.1.2021.4.6.0` | Available memory (KB) |
+| System Uptime | `.1.3.6.1.2.1.1.3.0` | System uptime timeticks |
+
+### Dashboard Widgets
+- **CPU Usage**: Shows percentage (derived from load average) + 1-min load
+- **Memory**: Shows percentage + used/total in human-readable format
+- **Uptime**: Formatted as "17h 44m" instead of raw "0:17:44:05.92"
+- **5min Load**: Shows 5-minute load average for trend analysis
+
+### API Endpoint
+```
+GET /api/stats/firewall?range={timerange}
+```
+Returns JSON with firewall health metrics including formatted uptime.
+
+### Dependencies
+```bash
+apt-get install snmp python3-pysnmp4
+```
+
 ## 🎨 UI/UX Guidelines
 
 ### Cyberpunk Theme
@@ -232,6 +266,6 @@ Use `sample_data/` directory:
 
 ---
 
-**Last Updated**: January 2026 (v2.0)  
+**Last Updated**: January 9, 2026 (v2.1)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

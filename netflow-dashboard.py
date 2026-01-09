@@ -36,8 +36,11 @@ _stats_alerts_cache = {"data": None, "ts": 0, "key": None}
 _stats_flags_cache = {"data": None, "ts": 0, "key": None}
 _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
+_stats_pkts_cache = {"data": None, "ts": 0, "key": None}
 
-_mock_data_cache = {"mtime": 0, "rows": []}
+_mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
+# Lock for thread-safe access to mock data cache (performance optimization)
+_mock_lock = threading.Lock()
 
 _bandwidth_cache = {"data": None, "ts": 0}
 _bandwidth_history_cache = {}
@@ -257,34 +260,43 @@ def mock_nfdump(args):
     # args is list like ["-s", "srcip/bytes/flows/packets", "-n", "20"]
     # We parse the CSV and Aggregate
     global _mock_data_cache
-    rows = []
-    try:
-        mtime = os.path.getmtime(SAMPLE_DATA_PATH)
-        if mtime != _mock_data_cache["mtime"]:
-            new_rows = []
-            with open(SAMPLE_DATA_PATH, 'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    parts = line.strip().split(',')
-                    if len(parts) > 12:
-                        # CSV Format derived from sample:
-                        # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
-                        try:
-                            row = {
-                                "ts": parts[0], "te": parts[1], "td": float(parts[2]),
-                                "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
-                                "proto": parts[7], "flg": parts[8],
-                                "pkts": int(parts[11]), "bytes": int(parts[12])
-                            }
-                            new_rows.append(row)
-                        except:
-                            pass
-            _mock_data_cache["rows"] = new_rows
-            _mock_data_cache["mtime"] = mtime
-        rows = _mock_data_cache["rows"]
-    except Exception as e:
-        print(f"Mock error: {e}")
-        return ""
+
+    with _mock_lock:
+        # Optimization: Cache output based on args to avoid re-aggregating same data
+        # This speeds up repeated calls (e.g. bandwidth API loops) significantly
+        cache_key = tuple(args)
+        if "output_cache" in _mock_data_cache and cache_key in _mock_data_cache["output_cache"]:
+            return _mock_data_cache["output_cache"][cache_key]
+
+        rows = []
+        try:
+            mtime = os.path.getmtime(SAMPLE_DATA_PATH)
+            if mtime != _mock_data_cache["mtime"]:
+                new_rows = []
+                with open(SAMPLE_DATA_PATH, 'r') as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        parts = line.strip().split(',')
+                        if len(parts) > 12:
+                            # CSV Format derived from sample:
+                            # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
+                            try:
+                                row = {
+                                    "ts": parts[0], "te": parts[1], "td": float(parts[2]),
+                                    "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
+                                    "proto": parts[7], "flg": parts[8],
+                                    "pkts": int(parts[11]), "bytes": int(parts[12])
+                                }
+                                new_rows.append(row)
+                            except:
+                                pass
+                _mock_data_cache["rows"] = new_rows
+                _mock_data_cache["mtime"] = mtime
+                _mock_data_cache["output_cache"] = {} # Invalidate output cache
+            rows = _mock_data_cache["rows"]
+        except Exception as e:
+            print(f"Mock error: {e}")
+            return ""
 
     # Check aggregation
     agg_key = None
@@ -302,6 +314,8 @@ def mock_nfdump(args):
         try: limit = int(args[idx])
         except: pass
 
+    out = ""
+
     # If asking for raw flows with limit (alerts detection usage)
     if not agg_key and "-n" in args and not "-s" in args:
          out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
@@ -309,6 +323,10 @@ def mock_nfdump(args):
              # Reconstruct line
              line = f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}"
              out += line + "\n"
+
+         with _mock_lock:
+             if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
+             _mock_data_cache["output_cache"][cache_key] = out
          return out
 
     if agg_key:
@@ -367,6 +385,10 @@ def mock_nfdump(args):
 
         # We must change the header variable to match
         out = out.replace("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt", "ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
+
+        with _mock_lock:
+             if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
+             _mock_data_cache["output_cache"][cache_key] = out
         return out
 
     return ""
@@ -1091,6 +1113,67 @@ def api_stats_durations():
     except Exception as e:
         return jsonify({"durations": []})
 
+@app.route("/api/stats/packet_sizes")
+@throttle(5, 10)
+def api_stats_packet_sizes():
+    # New Feature: Packet Size Distribution
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    with _cache_lock:
+        if _stats_pkts_cache["data"] and _stats_pkts_cache["key"] == range_key and now - _stats_pkts_cache["ts"] < 60:
+            return jsonify(_stats_pkts_cache["data"])
+
+    tf = get_time_range(range_key)
+    # Get raw flows (limit 2000 for better stats)
+    output = run_nfdump(["-n", "2000"], tf)
+
+    # Buckets
+    dist = {
+        "Tiny (<64B)": 0,
+        "Small (64-511B)": 0,
+        "Medium (512-1023B)": 0,
+        "Large (1024-1513B)": 0,
+        "Jumbo (>1513B)": 0
+    }
+
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except:
+             # Fallback
+            ibyt_idx, ipkt_idx = 12, 11
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(ibyt_idx, ipkt_idx):
+                try:
+                    b = int(parts[ibyt_idx])
+                    p = int(parts[ipkt_idx])
+                    if p > 0:
+                        avg = b / p
+                        if avg < 64: dist["Tiny (<64B)"] += 1
+                        elif avg < 512: dist["Small (64-511B)"] += 1
+                        elif avg < 1024: dist["Medium (512-1023B)"] += 1
+                        elif avg <= 1514: dist["Large (1024-1513B)"] += 1
+                        else: dist["Jumbo (>1513B)"] += 1
+                except: pass
+
+        data = {
+            "labels": list(dist.keys()),
+            "data": list(dist.values())
+        }
+        with _cache_lock:
+            _stats_pkts_cache["data"] = data
+            _stats_pkts_cache["ts"] = now
+            _stats_pkts_cache["key"] = range_key
+        return jsonify(data)
+    except Exception:
+        return jsonify({"labels":[], "data":[]})
+
 
 @app.route("/api/alerts")
 @throttle(5, 10)
@@ -1221,18 +1304,80 @@ def api_conversations():
     # LIMITED TO 10
     range_key = request.args.get('range', '1h')
     tf = get_time_range(range_key)
-    src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf), expected_key='sa')
-    dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf), expected_key='da')
+
+    # Fetch raw flows to get actual conversation partners
+    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
+    output = run_nfdump(["-O", "bytes", "-n", "100"], tf)
+
     convs = []
-    for i, src in enumerate(src_data):
-        if i < len(dst_data):
+    try:
+        rows = []
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ts_idx = header.index('ts')
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+            dp_idx = header.index('dp')
+            pr_idx = header.index('proto')
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except:
+             # Fallback indices (based on mock/nfdump std)
+            sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
+
+        seen_flows = set()
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+                try:
+                    src = parts[sa_idx]
+                    dst = parts[da_idx]
+                    # Simple dedup based on src/dst/bytes (not perfect but avoids exact dups)
+                    flow_key = (src, dst, parts[pr_idx], parts[dp_idx])
+                    if flow_key in seen_flows: continue
+                    seen_flows.add(flow_key)
+
+                    rows.append({
+                        "src": src, "dst": dst,
+                        "dst_port": parts[dp_idx],
+                        "proto": parts[pr_idx],
+                        "bytes": int(parts[ibyt_idx]),
+                        "packets": int(parts[ipkt_idx]) if len(parts) > ipkt_idx else 0
+                    })
+                except: pass
+
+        # Sort by bytes descending
+        rows.sort(key=lambda x: x['bytes'], reverse=True)
+        top_rows = rows[:10]
+
+        for r in top_rows:
+            # Map Proto
+            proto_val = r['proto']
+            if proto_val.isdigit():
+                 r['proto_name'] = PROTOS.get(int(proto_val), proto_val)
+            else:
+                 r['proto_name'] = proto_val
+
+            # Map Service
+            try:
+                port = int(r['dst_port'])
+                r['service'] = PORTS.get(port, str(port))
+            except:
+                r['service'] = r['dst_port']
+
             convs.append({
-                "src":src["key"],"dst":dst_data[i]["key"],
-                "src_hostname": resolve_ip(src["key"]),
-                "dst_hostname": resolve_ip(dst_data[i]["key"]),
-                "bytes":src["bytes"],"bytes_fmt":fmt_bytes(src["bytes"]),
-                "src_region":get_region(src["key"]),
-                "dst_region":get_region(dst_data[i]["key"])
+                "src": r['src'], "dst": r['dst'],
+                "src_hostname": resolve_ip(r['src']),
+                "dst_hostname": resolve_ip(r['dst']),
+                "bytes": r['bytes'], "bytes_fmt": fmt_bytes(r['bytes']),
+                "src_region": get_region(r['src']),
+                "dst_region": get_region(r['dst']),
+                "proto": r['proto_name'],
+                "port": r['dst_port'],
+                "service": r['service'],
+                "packets": r['packets']
             })
     data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
     return jsonify(data)
@@ -1327,6 +1472,141 @@ def api_notify_mute():
     cfg['mute_until'] = time.time() + 3600 if mute else 0
     save_notify_cfg(cfg)
     return jsonify(cfg)
+
+
+# ===== SNMP Integration =====
+import subprocess
+import time
+import threading
+
+# SNMP Configuration
+SNMP_HOST = "192.168.0.1"
+SNMP_COMMUNITY = "Phoboshomesnmp_3"
+
+# SNMP OIDs
+SNMP_OIDS = {
+    "cpu_load_1min": ".1.3.6.1.4.1.2021.10.1.3.1",
+    "cpu_load_5min": ".1.3.6.1.4.1.2021.10.1.3.2",
+    "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
+    "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
+    "mem_buffer": ".1.3.6.1.4.1.2021.4.11.0",       # Buffer memory KB
+    "mem_cached": ".1.3.6.1.4.1.2021.4.15.0",       # Cached memory KB
+    "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
+    "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
+    "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
+    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
+    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
+    "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
+    "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
+    "wan_in": ".1.3.6.1.2.1.31.1.1.1.6.1",         # igc0 in
+    "wan_out": ".1.3.6.1.2.1.31.1.1.1.10.1",       # igc0 out
+    "lan_in": ".1.3.6.1.2.1.31.1.1.1.6.2",         # igc1 in
+    "lan_out": ".1.3.6.1.2.1.31.1.1.1.10.2",       # igc1 out
+    "disk_read": ".1.3.6.1.4.1.2021.13.15.1.1.12.2", # nda0 read bytes
+    "disk_write": ".1.3.6.1.4.1.2021.13.15.1.1.13.2", # nda0 write bytes
+    "udp_in": ".1.3.6.1.2.1.7.1.0",                # udpInDatagrams
+    "udp_out": ".1.3.6.1.2.1.7.4.0",               # udpOutDatagrams
+}
+
+_snmp_cache = {"data": None, "ts": 0}
+_snmp_cache_lock = threading.Lock()
+
+
+def format_uptime(uptime_str):
+    """Convert uptime from 0:17:42:05.92 to readable format"""
+    try:
+        parts = uptime_str.split(":")
+        if len(parts) >= 3:
+            days = int(parts[0])
+            hours = int(parts[1])
+            minutes = int(parts[2].split(".")[0])
+            
+            result = []
+            if days > 0:
+                result.append(f"{days}d")
+            if hours > 0:
+                result.append(f"{hours}h")
+            if minutes > 0:
+                result.append(f"{minutes}m")
+            
+            return " ".join(result) if result else "0m"
+    except:
+        return uptime_str
+    return uptime_str
+
+def get_snmp_data():
+    """Fetch SNMP data from OPNsense firewall"""
+    now = time.time()
+    
+    with _snmp_cache_lock:
+        if _snmp_cache["data"] and now - _snmp_cache["ts"] < 30:
+            return _snmp_cache["data"]
+    
+    try:
+        result = {}
+        oids = " ".join(SNMP_OIDS.values())
+        cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {oids}"
+        
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        values = output.strip().split("\n")
+        
+        oid_keys = list(SNMP_OIDS.keys())
+        for i, value in enumerate(values):
+            if i < len(oid_keys):
+                key = oid_keys[i]
+                clean_val = value.strip().strip("\"")
+                
+                if key.startswith("cpu_load"):
+                    result[key] = float(clean_val)
+                elif key.startswith("mem_") or key in ("tcp_conns", "proc_count", "tcp_fails", "tcp_retrans", "wan_in", "wan_out", "lan_in", "lan_out", "disk_read", "disk_write", "udp_in", "udp_out"):
+                    # Handle Counter64 prefix if present
+                    if "Counter64:" in clean_val:
+                        clean_val = clean_val.split(":")[-1].strip()
+                    # Handle Counter32 prefix if present
+                    if "Counter32:" in clean_val:
+                        clean_val = clean_val.split(":")[-1].strip()
+                    try:
+                        result[key] = int(clean_val)
+                    except:
+                        result[key] = 0
+                else:
+                    result[key] = clean_val
+        
+        if "mem_total" in result and "mem_avail" in result:
+            # FreeBSD memory calculation: total - available - buffer - cached
+            # Using OID .15 (memShared/Cached ~3GB) gives better accuracy
+            # This should be close to OPNsense's Active+Wired memory calculation
+            # Expected: ~60-65% vs OPNsense ~55-60%
+            mem_buffer = result.get("mem_buffer", 0)
+            mem_cached = result.get("mem_cached", 0)
+            mem_used = result["mem_total"] - result["mem_avail"] - mem_buffer - mem_cached
+            result["mem_used"] = mem_used
+            result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1)
+        
+        if "cpu_load_1min" in result:
+            result["cpu_percent"] = min(round((result["cpu_load_1min"] / 4.0) * 100, 1), 100)
+        
+        # Format uptime for readability
+        if "sys_uptime" in result:
+            result["sys_uptime_formatted"] = format_uptime(result["sys_uptime"])
+        
+        with _snmp_cache_lock:
+            _snmp_cache["data"] = result
+            _snmp_cache["ts"] = now
+        
+        return result
+        
+    except Exception as e:
+        print(f"SNMP Error: {e}")
+        return {}
+
+
+@app.route("/api/stats/firewall")
+@throttle(5, 10)
+def api_stats_firewall():
+    """Firewall health stats from SNMP"""
+    data = get_snmp_data()
+    return jsonify({"firewall": data})
 
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")

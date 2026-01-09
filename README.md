@@ -11,6 +11,7 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 - **Geo-Location**: Country and ASN tracking
 - **TCP Flags Widget**: Detailed protocol analysis
 - **Duration Widget**: Flow timing information
+- **SNMP Firewall Monitoring**: Real-time OPNsense health metrics (CPU, Memory, Uptime, Load)
 
 ### Threat Intelligence
 - **Multi-Feed Support**: Aggregate IPs from multiple threat feeds
@@ -46,7 +47,7 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 ### Software Dependencies
 ```bash
 apt-get update
-apt-get install -y nfdump python3 python3-pip python3-dnspython git
+apt-get install -y nfdump python3 python3-pip python3-dnspython git snmp python3-pysnmp4
 ```
 
 ### Python Packages
@@ -100,6 +101,7 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/stats/sources` - Top source IPs
 - `/api/stats/destinations` - Top destination IPs  
 - `/api/bandwidth` - Bandwidth time series
+- `/api/stats/firewall` - Firewall health metrics (SNMP)
 - `/api/alerts_history` - Historical alerts
 
 ## 🔍 Sample Data
@@ -107,6 +109,12 @@ Dashboard: `http://<LXC-IP>:8080`
 The `sample_data/` directory contains real NetFlow examples and format documentation to help AI agents understand data structures.
 
 ## 🎯 Recent Updates
+
+### v2.1 - January 9, 2026
+- **SNMP Firewall Monitoring**: Integrated OPNsense health metrics
+- **Firewall Dashboard Widgets**: CPU, Memory, Uptime, Load Average
+- **Auto-Formatted Uptime**: Human-readable display (e.g., "17h 44m")
+- **30-Second SNMP Cache**: Optimized polling with thread-safe locking
 
 ### v2.0 - January 2026
 - **Notification Center**: Header-based alert dropdown

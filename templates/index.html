@@ -27,7 +27,7 @@
             <div class="controls">
                 <!-- Notification Center -->
                 <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
-                    <button @click="open = !open" class="icon-btn" title="Notifications" style="position: relative;">
+                    <button @click="open = !open" class="icon-btn" title="Notifications" aria-label="Toggle notifications" style="position: relative;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                         <span x-show="activeAlerts.length > 0" class="badge-dot"></span>
                     </button>
@@ -55,7 +55,7 @@
                                             </div>
                                             <div class="alert-msg truncate" x-text="alert.msg" :title="alert.msg"></div>
                                         </div>
-                                        <button @click.stop="dismissAlert(alert.msg)" class="icon-btn-small" title="Dismiss" style="color: var(--text-muted);">
+                                        <button @click.stop="dismissAlert(alert.msg)" class="icon-btn-small" title="Dismiss" aria-label="Dismiss alert" style="color: var(--text-muted);">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                         </button>
                                     </div>
@@ -85,7 +85,7 @@
 
                  <!-- Dropdown for Actions -->
                  <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
-                    <button @click="open = !open" class="icon-btn" title="Actions">
+                    <button @click="open = !open" class="icon-btn" title="Actions" aria-label="Open actions menu">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     </button>
                     <div class="dropdown-menu" x-show="open" style="display:none">
@@ -121,6 +121,106 @@
             <div class="card stat-box">
                 <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
                 <div class="label">Avg Packet Size</div>
+            </div>
+        </div>
+
+        <!-- Firewall Health -->
+        <div class="grid">
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
+                <div class="label">🔥 CPU Usage</div>
+                <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
+                <div class="label">💾 Memory</div>
+                <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
+                <div class="label">⏱️ Uptime</div>
+                <div class="sublabel">192.168.0.1</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
+                <div class="label">📊 5min Load</div>
+                <div class="sublabel">OPNsense</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
+                <div class="label">🔌 Active Conns</div>
+                <div class="sublabel">TCP</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.proc_count || '--'">--</div>
+                <div class="label">⚙️ Processes</div>
+                <div class="sublabel">System</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value">
+                    <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
+                    <span style="color:var(--text-muted); font-size:0.5em">|</span>
+                    <span :class="firewall.if_lan_status == '1' ? 'text-green' : 'text-red'">LAN</span>
+                </div>
+                <div class="label">Interfaces</div>
+                <div class="sublabel">Status</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.8em">
+                    <span class="text-red" x-text="firewall.tcp_fails || 0"></span>
+                    <span style="color:var(--text-muted); font-size:0.6em">/</span>
+                    <span class="text-purple" x-text="firewall.tcp_retrans || 0"></span>
+                </div>
+                <div class="label">TCP Errors</div>
+                <div class="sublabel">Fails / Retrans</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.2em">
+                    <div style="margin-bottom:2px">
+                        <span class="text-cyan">IN:</span> <span x-text="fmtBytes(firewall.wan_in)"></span>
+                    </div>
+                    <div>
+                        <span class="text-purple">OUT:</span> <span x-text="fmtBytes(firewall.wan_out)"></span>
+                    </div>
+                </div>
+                <div class="label">WAN Traffic</div>
+                <div class="sublabel">Total</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.2em">
+                    <div style="margin-bottom:2px">
+                        <span class="text-cyan">IN:</span> <span x-text="fmtBytes(firewall.lan_in)"></span>
+                    </div>
+                    <div>
+                        <span class="text-purple">OUT:</span> <span x-text="fmtBytes(firewall.lan_out)"></span>
+                    </div>
+                </div>
+                <div class="label">LAN Traffic</div>
+                <div class="sublabel">Total</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.2em">
+                    <div style="margin-bottom:2px">
+                        <span class="text-green">R:</span> <span x-text="fmtBytes(firewall.disk_read)"></span>
+                    </div>
+                    <div>
+                        <span class="text-red">W:</span> <span x-text="fmtBytes(firewall.disk_write)"></span>
+                    </div>
+                </div>
+                <div class="label">Disk I/O</div>
+                <div class="sublabel">System</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.2em">
+                    <div style="margin-bottom:2px">
+                        <span class="text-cyan">IN:</span> <span x-text="Number(firewall.udp_in).toLocaleString()"></span>
+                    </div>
+                    <div>
+                        <span class="text-purple">OUT:</span> <span x-text="Number(firewall.udp_out).toLocaleString()"></span>
+                    </div>
+                </div>
+                <div class="label">UDP Stats</div>
+                <div class="sublabel">Datagrams</div>
             </div>
         </div>
 
@@ -198,6 +298,17 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Packet Size Distribution -->
+            <div class="card">
+                <h2>
+                    <span>📦 Packet Sizes</span>
+                    <div class="spinner" x-show="packetSizes.loading"></div>
+                </h2>
+                <div class="chart-wrapper-small">
+                    <canvas id="pktSizeChart"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Grid for Top Stats -->
@@ -223,7 +334,7 @@
                                     <div style="display:flex; align-items:center; gap:5px; min-width:0;">
                                         <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
                                         <strong class="text-cyan" x-text="item.key" style="flex-shrink:0;"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" style="flex-shrink:0;">
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
@@ -266,7 +377,7 @@
                                     <div style="display:flex; align-items:center; gap:5px;">
                                         <span x-text="item.flag" class="flag"></span>
                                         <strong class="text-purple" x-text="item.key"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details">
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
@@ -359,14 +470,15 @@
             <table style="table-layout: fixed; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width: 42%;">Source</th>
+                        <th style="width: 35%;">Source</th>
                         <th style="width: 4%;"></th>
-                        <th style="width: 42%;">Destination</th>
-                        <th style="width: 12%;">Traffic</th>
+                        <th style="width: 35%;">Destination</th>
+                        <th style="width: 13%;">App</th>
+                        <th style="width: 13%;">Traffic</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst">
+                    <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst + conv.port">
                         <tr>
                             <td @click="openIPModal(conv.src)" style="overflow: hidden;">
                                 <strong class="text-cyan truncate" x-text="conv.src"></strong>
@@ -380,7 +492,12 @@
                                 <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-show="conv.dst_hostname" x-text="conv.dst_hostname" :title="conv.dst_hostname"></div>
                             </td>
                             <td>
+                                <div style="font-size:0.9em"><strong x-text="conv.proto"></strong>/<span x-text="conv.port"></span></div>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-text="conv.service" :title="conv.service"></div>
+                            </td>
+                            <td>
                                 <strong class="text-green" x-text="conv.bytes_fmt"></strong>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(conv.packets).toLocaleString() + ' pkts'"></div>
                             </td>
                         </tr>
                     </template>
@@ -395,7 +512,7 @@
         <div class="modal-content">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h2 style="margin:0">IP Details: <span class="text-cyan" x-text="selectedIP"></span></h2>
-                <button @click="modalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)">×</button>
+                <button @click="modalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close details">×</button>
             </div>
 
             <div x-show="ipLoading" class="spinner" style="margin: 0 auto;"></div>
