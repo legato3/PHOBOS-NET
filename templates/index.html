@@ -49,11 +49,11 @@
                                 </div>
                                 <template x-for="alert in group" :key="alert.msg">
                                     <div class="alert-item" :class="alert.severity">
-                                        <div style="flex-grow: 1;">
+                                        <div style="flex-grow: 1; min-width: 0;">
                                             <div class="alert-meta">
                                                 <span x-text="alert.feed || 'System'"></span>
                                             </div>
-                                            <div class="alert-msg" x-text="alert.msg"></div>
+                                            <div class="alert-msg truncate" x-text="alert.msg" :title="alert.msg"></div>
                                         </div>
                                         <button @click.stop="dismissAlert(alert.msg)" class="icon-btn-small" title="Dismiss" style="color: var(--text-muted);">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -295,19 +295,19 @@
                     <span>🔌 Top Ports</span>
                     <div class="spinner" x-show="ports.loading"></div>
                 </h2>
-                <table>
+                <table style="table-layout: fixed; width: 100%;">
                     <thead>
                         <tr>
-                            <th>Port</th>
-                            <th>Traffic</th>
+                            <th style="width: 70%;">Port</th>
+                            <th style="width: 30%;">Traffic</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in ports.ports" :key="index">
                             <tr>
-                                <td>
+                                <td style="overflow: hidden;">
                                     <strong class="text-cyan" x-text="item.key"></strong>
-                                    <div style="font-size:0.9em; color:var(--text-muted)" x-text="item.service"></div>
+                                    <div class="truncate" style="font-size:0.9em; color:var(--text-muted)" x-text="item.service" :title="item.service"></div>
                                 </td>
                                 <td>
                                     <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
@@ -356,28 +356,28 @@
                 <span>💬 Recent Conversations</span>
                 <div class="spinner" x-show="conversations.loading"></div>
             </h2>
-            <table>
+            <table style="table-layout: fixed; width: 100%;">
                 <thead>
                     <tr>
-                        <th>Source</th>
-                        <th></th>
-                        <th>Destination</th>
-                        <th>Traffic</th>
+                        <th style="width: 42%;">Source</th>
+                        <th style="width: 4%;"></th>
+                        <th style="width: 42%;">Destination</th>
+                        <th style="width: 12%;">Traffic</th>
                     </tr>
                 </thead>
                 <tbody>
                     <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst">
                         <tr>
-                            <td @click="openIPModal(conv.src)">
-                                <strong class="text-cyan" x-text="conv.src"></strong>
-                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.src_region"></div>
-                                <div style="font-size:0.8em; color:var(--text-muted)" x-show="conv.src_hostname" x-text="conv.src_hostname"></div>
+                            <td @click="openIPModal(conv.src)" style="overflow: hidden;">
+                                <strong class="text-cyan truncate" x-text="conv.src"></strong>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-text="conv.src_region"></div>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-show="conv.src_hostname" x-text="conv.src_hostname" :title="conv.src_hostname"></div>
                             </td>
                             <td style="text-align:center; color:var(--text-muted)">➜</td>
-                            <td @click="openIPModal(conv.dst)">
-                                <strong class="text-purple" x-text="conv.dst"></strong>
-                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="conv.dst_region"></div>
-                                <div style="font-size:0.8em; color:var(--text-muted)" x-show="conv.dst_hostname" x-text="conv.dst_hostname"></div>
+                            <td @click="openIPModal(conv.dst)" style="overflow: hidden;">
+                                <strong class="text-purple truncate" x-text="conv.dst"></strong>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-text="conv.dst_region"></div>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-show="conv.dst_hostname" x-text="conv.dst_hostname" :title="conv.dst_hostname"></div>
                             </td>
                             <td>
                                 <strong class="text-green" x-text="conv.bytes_fmt"></strong>
