@@ -1379,6 +1379,8 @@ def api_conversations():
                 "service": r['service'],
                 "packets": r['packets']
             })
+    except:
+        pass  # Parsing error
     data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
     return jsonify(data)
 
