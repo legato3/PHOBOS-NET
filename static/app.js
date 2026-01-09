@@ -38,6 +38,7 @@ document.addEventListener('alpine:init', () => {
         // New Features Stores
         flags: { flags: [], loading: true },
         asns: { asns: [], loading: true },
+        countries: { labels: [], bytes: [], loading: true },
         durations: { durations: [], loading: true },
         packetSizes: { labels: [], data: [], loading: true },
 
@@ -193,6 +194,7 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.fetchFlags(), 0);
                 setTimeout(() => this.fetchASNs(), 150);
                 setTimeout(() => this.fetchDurations(), 300);
+                setTimeout(() => this.fetchCountries(), 375);
                 setTimeout(() => this.fetchPacketSizes(), 450);
             }
 
@@ -338,6 +340,18 @@ document.addEventListener('alpine:init', () => {
             } catch(e) { console.error(e); } finally { this.asns.loading = false; }
         },
 
+        async fetchCountries() {
+            this.countries.loading = true;
+            try {
+                const res = await fetch(`/api/stats/countries?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.countries = { ...data, loading: false };
+                    this.updateCountriesChart(data);
+                }
+            } catch(e) { console.error(e); } finally { this.countries.loading = false; }
+        },
+
         async fetchDurations() {
             this.durations.loading = true;
             try {
@@ -479,6 +493,41 @@ document.addEventListener('alpine:init', () => {
                                 grid: { display: false },
                                 ticks: { color: '#e0e0e0', font: { size: 10 } }
                             }
+                        }
+                    }
+                });
+            }
+        },
+
+        updateCountriesChart(data) {
+            const ctx = document.getElementById('countriesChart');
+            if (!ctx || !data) return;
+            const labels = data.labels || [];
+            const values = data.bytes || [];
+            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
+            if (this.countriesChartInstance) {
+                this.countriesChartInstance.data.labels = labels;
+                this.countriesChartInstance.data.datasets[0].data = values;
+                this.countriesChartInstance.update();
+            } else {
+                this.countriesChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Bytes',
+                            data: values,
+                            backgroundColor: colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                            y: { ticks: { color: '#888' }, grid: { color: '#333' } }
                         }
                     }
                 });

@@ -28,6 +28,7 @@ _lock_asns = threading.Lock()
 _lock_durations = threading.Lock()
 _lock_bandwidth = threading.Lock()
 _lock_conversations = threading.Lock()
+_lock_countries = threading.Lock()
 _cache_lock = threading.Lock()  # generic small cache lock (e.g., packet sizes)
 # Caches for new endpoints
 _stats_summary_cache = {"data": None, "ts": 0, "key": None}
@@ -40,6 +41,7 @@ _stats_flags_cache = {"data": None, "ts": 0, "key": None}
 _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
 _stats_pkts_cache = {"data": None, "ts": 0, "key": None}
+_stats_countries_cache = {"data": None, "ts": 0, "key": None}
 
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 # Lock for thread-safe access to mock data cache (performance optimization)
@@ -1242,6 +1244,45 @@ def api_stats_packet_sizes():
         return jsonify({"labels":[], "data":[]})
 
 
+@app.route("/api/stats/countries")
+@throttle(5, 10)
+def api_stats_countries():
+    """Top countries by bytes using top sources and destinations (cached per 60s window)."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _lock_countries:
+        if _stats_countries_cache["data"] and _stats_countries_cache["key"] == range_key and _stats_countries_cache.get("win") == win:
+            return jsonify(_stats_countries_cache["data"])
+
+    # Reuse shared data to avoid extra nfdump
+    sources = get_common_nfdump_data("sources", range_key)[:100]
+    dests = get_common_nfdump_data("dests", range_key)[:100]
+
+    country_bytes = Counter()
+    for item in sources + dests:
+        ip = item.get("key")
+        b = item.get("bytes", 0)
+        geo = lookup_geo(ip) or {}
+        iso = geo.get('country_iso') or '??'
+        name = geo.get('country') or 'Unknown'
+        key = f"{name} ({iso})" if iso != '??' else 'Unknown'
+        country_bytes[key] += b
+
+    top = country_bytes.most_common(10)
+    data = {
+        "labels": [k for k,_ in top],
+        "bytes": [v for _,v in top],
+        "bytes_fmt": [fmt_bytes(v) for _,v in top]
+    }
+    with _lock_countries:
+        _stats_countries_cache["data"] = data
+        _stats_countries_cache["ts"] = now
+        _stats_countries_cache["key"] = range_key
+        _stats_countries_cache["win"] = win
+    return jsonify(data)
+
+
 # ===== Trends (5-minute rollups stored in SQLite) =====
 
 def _trends_db_connect():
@@ -1465,6 +1506,7 @@ def api_bandwidth():
     elif range_key == '15m': bucket_count = 3
     elif range_key == '6h': bucket_count = 72
     elif range_key == '24h': bucket_count = 288
+    elif range_key == '7d': bucket_count = 7*24*12
 
     # Separate cache key for different ranges?
     # Current _bandwidth_cache is global. If we switch range, we overwrite.
@@ -1987,13 +2029,19 @@ def get_snmp_data():
             mem_cached = result.get("mem_cached", 0)
             mem_used = result["mem_total"] - result["mem_avail"] - mem_buffer - mem_cached
             result["mem_used"] = mem_used
-            result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1)
+            try:
+                result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1) if result["mem_total"] > 0 else 0
+            except Exception:
+                result["mem_percent"] = 0
 
         # Swap usage
         if result.get("swap_total") not in (None, 0) and "swap_avail" in result:
             swap_used = max(result["swap_total"] - result["swap_avail"], 0)
             result["swap_used"] = swap_used
-            result["swap_percent"] = round((swap_used / max(result["swap_total"], 1)) * 100, 1)
+            try:
+                result["swap_percent"] = round((swap_used / result.get("swap_total", 1)) * 100, 1) if result.get("swap_total", 0) > 0 else 0
+            except Exception:
+                result["swap_percent"] = 0
         
         if "cpu_load_1min" in result:
             result["cpu_percent"] = min(round((result["cpu_load_1min"] / 4.0) * 100, 1), 100)

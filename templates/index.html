@@ -71,6 +71,7 @@
                     <option value="1h">Last 1h</option>
                     <option value="6h">Last 6h</option>
                     <option value="24h">Last 24h</option>
+                    <option value="7d">Last 7d</option>
                 </select>
 
                 <input type="text" x-model="searchQuery" placeholder="Search IP..." class="search-box">
@@ -393,6 +394,17 @@
                             <div class="asn-val" x-text="asn.bytes_fmt"></div>
                         </div>
                     </template>
+                </div>
+            </div>
+
+            <!-- Top Countries -->
+            <div class="card">
+                <h2>
+                    <span>🌍 Top Countries</span>
+                    <div class="spinner" x-show="countries.loading"></div>
+                </h2>
+                <div class="chart-wrapper-small">
+                    <canvas id="countriesChart"></canvas>
                 </div>
             </div>
 
