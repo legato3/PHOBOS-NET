@@ -624,49 +624,51 @@
                 </table>
             </div>
 
-            <!-- Top Services -->
+            <!-- Top Malicious Ports -->
             <div class="card">
                 <h2>
-                    <span>🧭 Top Services</span>
-                    <div class="spinner" x-show="services.loading"></div>
+                    <span>🔒 Top Malicious Ports</span>
+                    <div class="spinner" x-show="maliciousPorts.loading"></div>
                 </h2>
+                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;">
+                    Ports most frequently seen in threat feeds or marked suspicious
+                </div>
                 <table>
-                    <thead><tr><th>Service</th><th>Traffic</th></tr></thead>
+                    <thead><tr><th>Port</th><th>Traffic / Hits</th></tr></thead>
                     <tbody>
-                        <template x-for="(s, i) in services.services" :key="s.name + i">
+                        <template x-for="(p, i) in maliciousPorts.ports" :key="p.port + i">
                             <tr>
-                                <td><strong class="text-cyan" x-text="s.name"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="s.proto"></div></td>
-                                <td><strong class="text-green" x-text="s.bytes_fmt || fmtBytes(s.bytes)"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="s.flows + ' flows'"></div></td>
+                                <td><strong class="text-cyan" x-text="p.port"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="p.service || ''"></div></td>
+                                <td><strong class="text-green" x-text="p.bytes_fmt || fmtBytes(p.bytes || 0)"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="(p.hits || p.flows || 0) + ' hits'"></div></td>
                             </tr>
                         </template>
-                        <template x-if="!services.services || services.services.length===0">
-                            <tr><td colspan="2" style="color:var(--text-muted); text-align:center">No service data</td></tr>
+                        <template x-if="!maliciousPorts.ports || maliciousPorts.ports.length===0">
+                            <tr><td colspan="2" style="color:var(--text-muted); text-align:center">No malicious port data</td></tr>
                         </template>
                     </tbody>
                 </table>
             </div>
 
-            <!-- Top Connectors -->
+            <!-- Blocklist Match Rate -->
             <div class="card">
                 <h2>
-                    <span>🔗 Top Connectors</span>
-                    <div class="spinner" x-show="conns.loading"></div>
+                    <span>🛡️ Blocklist Match Rate</span>
+                    <div class="spinner" x-show="blocklist.loading"></div>
                 </h2>
-                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;">IPs with most concurrent connections</div>
-                <table>
-                    <thead><tr><th>IP</th><th>Conns</th></tr></thead>
-                    <tbody>
-                        <template x-for="(c, i) in conns.items" :key="c.ip + i">
-                            <tr>
-                                <td><strong class="text-cyan" x-text="c.ip"></strong></td>
-                                <td><strong class="text-green" x-text="c.conns"></strong></td>
-                            </tr>
-                        </template>
-                        <template x-if="!conns.items || conns.items.length === 0">
-                            <tr><td colspan="2" style="color:var(--text-muted); text-align:center">No connection data</td></tr>
-                        </template>
-                    </tbody>
-                </table>
+                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;">Rate of flows matching blocklists / feeds</div>
+                <div style="height:120px; margin-bottom:8px;">
+                    <canvas id="blocklistChart"></canvas>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center; justify-content:flex-start;">
+                    <div>
+                        <div class="value" style="font-size:1.4em; color:var(--neon-green);" x-text="(blocklist.current_rate != null) ? (blocklist.current_rate + '%') : '--'"></div>
+                        <div class="label">Current Match Rate</div>
+                    </div>
+                    <div>
+                        <div style="font-size:1.1em; color:var(--text-muted);" x-text="(blocklist.total_matches || 0) + ' matches'"></div>
+                        <div class="label">Total Matches</div>
+                    </div>
+                </div>
             </div>
 
         </div>

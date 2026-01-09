@@ -31,9 +31,9 @@ document.addEventListener('alpine:init', () => {
         destinations: { destinations: [], loading: true },
         ports: { ports: [], loading: true },
         protocols: { protocols: [], loading: true },
-        services: { services: [], loading: true },
+        maliciousPorts: { ports: [], loading: true },
         threats: { hits: [], loading: true },
-        conns: { items: [], loading: true },
+        blocklist: { series: [], current_rate: null, total_matches: 0, loading: true },
         alerts: { alerts: [], loading: true },
         bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
         conversations: { conversations: [], loading: true },
@@ -184,9 +184,9 @@ document.addEventListener('alpine:init', () => {
             this.fetchDestinations();
             this.fetchPorts();
             this.fetchProtocols();
-            this.fetchServices();
+            this.fetchMaliciousPorts();
             this.fetchThreats();
-            this.fetchConnCounts();
+            this.fetchBlocklistRate();
             this.fetchAlerts();
             if (!this.firewallStreamActive) this.fetchFirewall();
 
@@ -309,29 +309,27 @@ document.addEventListener('alpine:init', () => {
             } catch(e) { console.error(e); } finally { this.protocols.loading = false; }
         },
 
-        // ----- New widget fetchers -----
-        async fetchServices() {
-            this.services.loading = true;
+        // ----- New widget fetchers (Option B: threat-focused) -----
+        async fetchMaliciousPorts() {
+            this.maliciousPorts.loading = true;
             try {
-                const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
+                const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`);
                 if (res.ok) {
-                    const d = await res.json();
-                    // Expect { services: [ { name, bytes, flows, proto } ] }
-                    this.services = { ...(d), loading: false };
+                    this.maliciousPorts = { ...(await res.json()), loading: false };
                     return;
                 }
             } catch (e) { /* ignore and fallback */ }
-            finally { this.services.loading = false; }
+            finally { this.maliciousPorts.loading = false; }
 
-            // Fallback: derive services from ports list if backend missing
-            const fallback = (this.ports.ports || []).slice(0, 10).map(p => ({
-                name: p.service || ('port ' + (p.key || '?')),
-                proto: p.proto || '',
+            // Fallback: filter existing ports for suspicious flag
+            const fallback = (this.ports.ports || []).filter(p => p.suspicious || p.threat).slice(0, 20).map(p => ({
+                port: p.key || 'n/a',
+                service: p.service || '',
                 bytes: p.bytes || 0,
                 bytes_fmt: p.bytes_fmt || this.fmtBytes(p.bytes || 0),
-                flows: p.flows || 0
+                hits: p.hits || p.flows || 0
             }));
-            this.services.services = fallback;
+            this.maliciousPorts.ports = fallback;
         },
 
         async fetchThreats() {
@@ -355,23 +353,45 @@ document.addEventListener('alpine:init', () => {
             this.threats.hits = arr;
         },
 
-        async fetchConnCounts() {
-            this.conns.loading = true;
+        async fetchBlocklistRate() {
+            this.blocklist.loading = true;
             try {
-                const res = await fetch(`/api/stats/connections?range=${this.timeRange}`);
+                const res = await fetch(`/api/stats/blocklist_rate?range=${this.timeRange}`);
                 if (res.ok) {
-                    this.conns = { ...(await res.json()), loading: false };
+                    const d = await res.json();
+                    // expect { series: [{ts, rate}], current_rate: number, total_matches: number }
+                    this.blocklist = { ...d, loading: false };
+                    this.updateBlocklistChart(d.series || []);
                     return;
                 }
             } catch (e) { /* ignore */ }
-            finally { this.conns.loading = false; }
+            finally { this.blocklist.loading = false; }
 
-            // Fallback: aggregate connection-like counts from sources/destinations
-            const map = new Map();
-            (this.sources.sources || []).forEach(s => map.set(s.key, (map.get(s.key) || 0) + (s.conns || s.flows || 0)));
-            (this.destinations.destinations || []).forEach(d => map.set(d.key, (map.get(d.key) || 0) + (d.conns || d.flows || 0)));
-            const arr = Array.from(map.entries()).map(([ip, c]) => ({ ip, conns: c })).sort((a, b) => b.conns - a.conns).slice(0, 10);
-            this.conns.items = arr;
+            // Fallback: approximate from threats list length
+            const now = Date.now();
+            const rate = (this.threats.hits || []).length ? Math.min(100, ((this.threats.hits || []).length / Math.max(1, 10)) * 10).toFixed(1) : 0;
+            this.blocklist.current_rate = rate;
+            this.blocklist.total_matches = (this.threats.hits || []).reduce((s, t) => s + (t.hits || 1), 0);
+            this.updateBlocklistChart([]);
+        },
+
+        updateBlocklistChart(series) {
+            const ctx = document.getElementById('blocklistChart');
+            if (!ctx) return;
+            const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
+            const values = (series || []).map(s => s.rate || 0);
+            const color = '#ff003c';
+            if (this.blocklistChartInstance) {
+                this.blocklistChartInstance.data.labels = labels;
+                this.blocklistChartInstance.data.datasets[0].data = values;
+                this.blocklistChartInstance.update();
+            } else {
+                this.blocklistChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets: [{ label: 'Match %', data: values, borderColor: color, backgroundColor: 'rgba(255,0,60,0.12)', fill: true, tension: 0.3 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888' }, grid: { color: '#333' } }, y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100 } } }
+                });
+            }
         },
 
         async fetchAlerts() {
