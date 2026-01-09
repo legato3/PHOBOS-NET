@@ -359,14 +359,15 @@
             <table style="table-layout: fixed; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width: 42%;">Source</th>
+                        <th style="width: 35%;">Source</th>
                         <th style="width: 4%;"></th>
-                        <th style="width: 42%;">Destination</th>
-                        <th style="width: 12%;">Traffic</th>
+                        <th style="width: 35%;">Destination</th>
+                        <th style="width: 13%;">App</th>
+                        <th style="width: 13%;">Traffic</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst">
+                    <template x-for="conv in conversations.conversations" :key="conv.src + conv.dst + conv.port">
                         <tr>
                             <td @click="openIPModal(conv.src)" style="overflow: hidden;">
                                 <strong class="text-cyan truncate" x-text="conv.src"></strong>
@@ -380,7 +381,12 @@
                                 <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-show="conv.dst_hostname" x-text="conv.dst_hostname" :title="conv.dst_hostname"></div>
                             </td>
                             <td>
+                                <div style="font-size:0.9em"><strong x-text="conv.proto"></strong>/<span x-text="conv.port"></span></div>
+                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)" x-text="conv.service" :title="conv.service"></div>
+                            </td>
+                            <td>
                                 <strong class="text-green" x-text="conv.bytes_fmt"></strong>
+                                <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(conv.packets).toLocaleString() + ' pkts'"></div>
                             </td>
                         </tr>
                     </template>
