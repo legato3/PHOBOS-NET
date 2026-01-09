@@ -1160,19 +1160,86 @@ def api_conversations():
     # LIMITED TO 10
     range_key = request.args.get('range', '1h')
     tf = get_time_range(range_key)
-    src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf), expected_key='sa')
-    dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf), expected_key='da')
+
+    # Fetch raw flows to get actual conversation partners
+    # Fetch 100 to sort in python (nfdump mock might not sort by bytes)
+    output = run_nfdump(["-n", "100"], tf)
+
     convs = []
-    for i, src in enumerate(src_data):
-        if i < len(dst_data):
+    try:
+        rows = []
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ts_idx = header.index('ts')
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+            dp_idx = header.index('dp')
+            pr_idx = header.index('proto')
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except:
+             # Fallback indices (based on mock/nfdump std)
+            sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
+
+        seen_flows = set()
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+                try:
+                    src = parts[sa_idx]
+                    dst = parts[da_idx]
+                    # Simple dedup based on src/dst/bytes (not perfect but avoids exact dups)
+                    flow_key = (src, dst, parts[pr_idx], parts[dp_idx])
+                    if flow_key in seen_flows: continue
+                    seen_flows.add(flow_key)
+
+                    rows.append({
+                        "src": src, "dst": dst,
+                        "dst_port": parts[dp_idx],
+                        "proto": parts[pr_idx],
+                        "bytes": int(parts[ibyt_idx]),
+                        "packets": int(parts[ipkt_idx]) if len(parts) > ipkt_idx else 0
+                    })
+                except: pass
+
+        # Sort by bytes descending
+        rows.sort(key=lambda x: x['bytes'], reverse=True)
+        top_rows = rows[:10]
+
+        for r in top_rows:
+            # Map Proto
+            proto_val = r['proto']
+            if proto_val.isdigit():
+                 r['proto_name'] = PROTOS.get(int(proto_val), proto_val)
+            else:
+                 r['proto_name'] = proto_val
+
+            # Map Service
+            try:
+                port = int(r['dst_port'])
+                r['service'] = PORTS.get(port, str(port))
+            except:
+                r['service'] = r['dst_port']
+
             convs.append({
-                "src":src["key"],"dst":dst_data[i]["key"],
-                "src_hostname": resolve_ip(src["key"]),
-                "dst_hostname": resolve_ip(dst_data[i]["key"]),
-                "bytes":src["bytes"],"bytes_fmt":fmt_bytes(src["bytes"]),
-                "src_region":get_region(src["key"]),
-                "dst_region":get_region(dst_data[i]["key"])
+                "src": r['src'], "dst": r['dst'],
+                "src_hostname": resolve_ip(r['src']),
+                "dst_hostname": resolve_ip(r['dst']),
+                "bytes": r['bytes'], "bytes_fmt": fmt_bytes(r['bytes']),
+                "src_region": get_region(r['src']),
+                "dst_region": get_region(r['dst']),
+                "proto": r['proto_name'],
+                "port": r['dst_port'],
+                "service": r['service'],
+                "packets": r['packets']
             })
+
+    except Exception as e:
+        print(f"Error parsing conversations: {e}")
+        pass
+
     data = {"conversations":convs, "generated_at": datetime.utcnow().isoformat()+"Z"}
     return jsonify(data)
 
