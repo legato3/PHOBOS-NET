@@ -266,6 +266,14 @@ tr:hover td {
 }
 
 /* Helpers */
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+}
+
 .text-cyan { color: var(--neon-cyan); }
 .text-purple { color: var(--neon-purple); }
 .text-green { color: var(--neon-green); }
