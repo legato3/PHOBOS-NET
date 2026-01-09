@@ -280,7 +280,7 @@
                 <div class="value" style="font-size:1.2em">
                     <div><span class="text-green">Opens</span>: <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(2) + '/s'"></span></div>
                     <div>
-                        <span class="text-red">Resets</span>:
+                        <span>Resets</span>:
                         <span :style="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit ? 'color: var(--neon-red)' : ((firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn ? 'color: orange' : '')" x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2) + '/s'"></span>
                         <span class="badge threat" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit">ALERT</span>
                         <span class="badge suspicious" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn && (firewall.tcp_estab_resets_s||0)<thresholds.resets_crit">WARN</span>
@@ -298,7 +298,7 @@
                         <span class="badge suspicious" x-show="(((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0))>=thresholds.ip_err_warn) && (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0))<thresholds.ip_err_crit)">WARN</span>
                     </div>
                     <div>
-                        <span class="text-red">ICMP Err</span>:
+                        <span>ICMP Err</span>:
                         <span :style="(firewall.icmp_in_errors_s||0)>=thresholds.icmp_err_crit ? 'color: var(--neon-red)' : ((firewall.icmp_in_errors_s||0)>=thresholds.icmp_err_warn ? 'color: orange' : '')" x-text="(firewall.icmp_in_errors_s ?? 0).toFixed(2) + '/s'"></span>
                         <span class="badge threat" x-show="(firewall.icmp_in_errors_s||0)>=thresholds.icmp_err_crit">ALERT</span>
                         <span class="badge suspicious" x-show="(firewall.icmp_in_errors_s||0)>=thresholds.icmp_err_warn && (firewall.icmp_in_errors_s||0)<thresholds.icmp_err_crit">WARN</span>
