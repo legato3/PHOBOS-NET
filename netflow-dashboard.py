@@ -1419,6 +1419,14 @@ SNMP_OIDS = {
     "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
     "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
     "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
+    "wan_in": ".1.3.6.1.2.1.31.1.1.1.6.1",         # igc0 in
+    "wan_out": ".1.3.6.1.2.1.31.1.1.1.10.1",       # igc0 out
+    "lan_in": ".1.3.6.1.2.1.31.1.1.1.6.2",         # igc1 in
+    "lan_out": ".1.3.6.1.2.1.31.1.1.1.10.2",       # igc1 out
+    "disk_read": ".1.3.6.1.4.1.2021.13.15.1.1.12.2", # nda0 read bytes
+    "disk_write": ".1.3.6.1.4.1.2021.13.15.1.1.13.2", # nda0 write bytes
+    "udp_in": ".1.3.6.1.2.1.7.1.0",                # udpInDatagrams
+    "udp_out": ".1.3.6.1.2.1.7.4.0",               # udpOutDatagrams
 }
 
 _snmp_cache = {"data": None, "ts": 0}
@@ -1471,8 +1479,17 @@ def get_snmp_data():
                 
                 if key.startswith("cpu_load"):
                     result[key] = float(clean_val)
-                elif key.startswith("mem_"):
-                    result[key] = int(clean_val)
+                elif key.startswith("mem_") or key in ("tcp_conns", "proc_count", "tcp_fails", "tcp_retrans", "wan_in", "wan_out", "lan_in", "lan_out", "disk_read", "disk_write", "udp_in", "udp_out"):
+                    # Handle Counter64 prefix if present
+                    if "Counter64:" in clean_val:
+                        clean_val = clean_val.split(":")[-1].strip()
+                    # Handle Counter32 prefix if present
+                    if "Counter32:" in clean_val:
+                        clean_val = clean_val.split(":")[-1].strip()
+                    try:
+                        result[key] = int(clean_val)
+                    except:
+                        result[key] = 0
                 else:
                     result[key] = clean_val
         
