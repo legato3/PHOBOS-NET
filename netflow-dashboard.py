@@ -26,6 +26,7 @@ _stats_alerts_cache = {"data": None, "ts": 0, "key": None}
 _stats_flags_cache = {"data": None, "ts": 0, "key": None}
 _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
+_stats_pkts_cache = {"data": None, "ts": 0, "key": None}
 
 _mock_data_cache = {"mtime": 0, "rows": []}
 
@@ -1038,6 +1039,67 @@ def api_stats_durations():
     except Exception as e:
         return jsonify({"durations": []})
 
+@app.route("/api/stats/packet_sizes")
+@throttle(5, 10)
+def api_stats_packet_sizes():
+    # New Feature: Packet Size Distribution
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    with _cache_lock:
+        if _stats_pkts_cache["data"] and _stats_pkts_cache["key"] == range_key and now - _stats_pkts_cache["ts"] < 60:
+            return jsonify(_stats_pkts_cache["data"])
+
+    tf = get_time_range(range_key)
+    # Get raw flows (limit 2000 for better stats)
+    output = run_nfdump(["-n", "2000"], tf)
+
+    # Buckets
+    dist = {
+        "Tiny (<64B)": 0,
+        "Small (64-511B)": 0,
+        "Medium (512-1023B)": 0,
+        "Large (1024-1513B)": 0,
+        "Jumbo (>1513B)": 0
+    }
+
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except:
+             # Fallback
+            ibyt_idx, ipkt_idx = 12, 11
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(ibyt_idx, ipkt_idx):
+                try:
+                    b = int(parts[ibyt_idx])
+                    p = int(parts[ipkt_idx])
+                    if p > 0:
+                        avg = b / p
+                        if avg < 64: dist["Tiny (<64B)"] += 1
+                        elif avg < 512: dist["Small (64-511B)"] += 1
+                        elif avg < 1024: dist["Medium (512-1023B)"] += 1
+                        elif avg <= 1514: dist["Large (1024-1513B)"] += 1
+                        else: dist["Jumbo (>1513B)"] += 1
+                except: pass
+
+        data = {
+            "labels": list(dist.keys()),
+            "data": list(dist.values())
+        }
+        with _cache_lock:
+            _stats_pkts_cache["data"] = data
+            _stats_pkts_cache["ts"] = now
+            _stats_pkts_cache["key"] = range_key
+        return jsonify(data)
+    except Exception:
+        return jsonify({"labels":[], "data":[]})
+
 
 @app.route("/api/alerts")
 @throttle(5, 10)
@@ -1162,8 +1224,8 @@ def api_conversations():
     tf = get_time_range(range_key)
 
     # Fetch raw flows to get actual conversation partners
-    # Fetch 100 to sort in python (nfdump mock might not sort by bytes)
-    output = run_nfdump(["-n", "100"], tf)
+    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
+    output = run_nfdump(["-O", "bytes", "-n", "100"], tf)
 
     convs = []
     try:

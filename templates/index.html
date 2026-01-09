@@ -198,6 +198,17 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Packet Size Distribution -->
+            <div class="card">
+                <h2>
+                    <span>📦 Packet Sizes</span>
+                    <div class="spinner" x-show="packetSizes.loading"></div>
+                </h2>
+                <div class="chart-wrapper-small">
+                    <canvas id="pktSizeChart"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Grid for Top Stats -->
