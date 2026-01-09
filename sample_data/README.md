@@ -1,6 +1,6 @@
 # Sample Data
 
-This directory contains sample data to help understand the dashboard's data formats.
+This directory contains sample data to help understand the dashboard's data formats, including NetFlow flows, nfdump statistics, threat feeds, and SNMP firewall metrics.
 
 ## Files
 
@@ -31,6 +31,27 @@ Sample threat intelligence feed format:
 - One IP address per line
 - Comments start with #
 - Used for matching against flow data to detect threats
+### snmp_example.md
+Comprehensive documentation for SNMP firewall monitoring:
+- SNMP OIDs used for CPU, memory, and uptime metrics
+- Sample SNMP walk/get outputs from OPNsense firewall
+- API response format with field descriptions
+- Uptime format conversion examples
+- Caching strategy and error handling
+- Testing commands for SNMP connectivity
+
+**Usage in dashboard:**
+- `/api/stats/firewall` endpoint returns firewall health metrics
+- Dashboard displays CPU usage, memory, uptime, and load average widgets
+- 30-second caching reduces SNMP polling overhead
+
+### snmp_api_response.json
+Real API response from `/api/stats/firewall` endpoint showing:
+- CPU load averages (1min, 5min)
+- Memory usage (total, available, used, percentage)
+- System uptime (raw and formatted)
+- All values collected via SNMP from OPNsense firewall at 192.168.0.1
+
 
 ## Data Flow
 
