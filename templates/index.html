@@ -125,6 +125,17 @@
             </div>
         </div>
 
+        <!-- Bandwidth Chart (moved up for overview before firewall details) -->
+        <div class="card wide-card">
+            <h2>
+                <span>📊 Bandwidth & Flow Rate</span>
+                <div class="spinner" x-show="bandwidth.loading"></div>
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="bwChart"></canvas>
+            </div>
+        </div>
+
         <!-- Firewall Health -->
         <div style="font-size:0.75em; color: var(--text-muted); margin: 4px 4px 0 4px;">
             Legend: <span style="color: orange">orange</span> = warning, <span style="color: var(--neon-red)">red</span> = critical.
@@ -133,20 +144,11 @@
             IP/ICMP/IF errs ≥ <span x-text="thresholds.ip_err_warn"></span>/<span x-text="thresholds.ip_err_crit"></span> s⁻¹.
         </div>
         <div class="grid" data-reorder="true" data-grid-id="firewall">
+            <!-- System -->
             <div class="card stat-box">
                 <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
                 <div class="label">🔥 CPU Usage</div>
                 <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
-                <div class="label">💾 Memory</div>
-                <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
-                <div class="label">⏱️ Uptime</div>
-                <div class="sublabel">192.168.0.1</div>
             </div>
             <div class="card stat-box">
                 <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
@@ -154,15 +156,32 @@
                 <div class="sublabel">OPNsense</div>
             </div>
             <div class="card stat-box">
-                <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
-                <div class="label">🔌 Active Conns</div>
-                <div class="sublabel">TCP</div>
+                <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
+                <div class="label">💾 Memory</div>
+                <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.6em" x-text="firewall.swap_percent != null ? firewall.swap_percent + '%' : '--'"></div>
+                <div class="label">Swap Usage</div>
+                <div class="sublabel" x-text="(firewall.swap_used!=null && firewall.swap_total!=null) ? (fmtBytes(firewall.swap_used*1024) + ' / ' + fmtBytes(firewall.swap_total*1024)) : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
+                <div class="label">⏱️ Uptime</div>
+                <div class="sublabel">192.168.0.1</div>
             </div>
             <div class="card stat-box">
                 <div class="value" x-text="firewall.proc_count || '--'">--</div>
                 <div class="label">⚙️ Processes</div>
                 <div class="sublabel">System</div>
             </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
+                <div class="label">🔌 Active Conns</div>
+                <div class="sublabel">TCP</div>
+            </div>
+
+            <!-- Interfaces & Traffic -->
             <div class="card stat-box">
                 <div class="value">
                     <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
@@ -172,14 +191,29 @@
                 <div class="label">Interfaces</div>
                 <div class="sublabel">Status</div>
             </div>
-            <div class="card stat-box">
-                <div class="value" style="font-size:1.8em">
-                    <span class="text-red" x-text="firewall.tcp_fails || 0"></span>
-                    <span style="color:var(--text-muted); font-size:0.6em">/</span>
-                    <span class="text-purple" x-text="firewall.tcp_retrans || 0"></span>
+            <div class="card stat-box" title="WAN throughput and link utilization based on ifHCIn/OutOctets and ifHighSpeed">
+                <div class="value" style="font-size:1.1em">
+                    <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.wan_rx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
+                    <div><span class="text-purple">⬆️</span> <span x-text="(firewall.wan_tx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
                 </div>
-                <div class="label">TCP Errors</div>
-                <div class="sublabel">Fails / Retrans</div>
+                <div class="label">WAN Rate</div>
+                <div class="sublabel" :style="firewall.wan_util_percent>=thresholds.util_crit ? 'color: var(--neon-red)' : (firewall.wan_util_percent>=thresholds.util_warn ? 'color: orange' : '')" :title="'Link: ' + (firewall.wan_speed_mbps||0) + ' Mbps'">
+                    <span x-text="firewall.wan_util_percent != null ? ('Util ' + firewall.wan_util_percent + '%') : ''"></span>
+                    <span class="badge threat" x-show="firewall.wan_util_percent>=thresholds.util_crit">HOT</span>
+                    <span class="badge suspicious" x-show="firewall.wan_util_percent>=thresholds.util_warn && firewall.wan_util_percent<thresholds.util_crit">WARM</span>
+                </div>
+            </div>
+            <div class="card stat-box" title="LAN throughput and link utilization">
+                <div class="value" style="font-size:1.1em">
+                    <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.lan_rx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
+                    <div><span class="text-purple">⬆️</span> <span x-text="(firewall.lan_tx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
+                </div>
+                <div class="label">LAN Rate</div>
+                <div class="sublabel" :style="firewall.lan_util_percent>=thresholds.util_crit ? 'color: var(--neon-red)' : (firewall.lan_util_percent>=thresholds.util_warn ? 'color: orange' : '')" :title="'Link: ' + (firewall.lan_speed_mbps||0) + ' Mbps'">
+                    <span x-text="firewall.lan_util_percent != null ? ('Util ' + firewall.lan_util_percent + '%') : ''"></span>
+                    <span class="badge threat" x-show="firewall.lan_util_percent>=thresholds.util_crit">HOT</span>
+                    <span class="badge suspicious" x-show="firewall.lan_util_percent>=thresholds.util_warn && firewall.lan_util_percent<thresholds.util_crit">WARM</span>
+                </div>
             </div>
             <div class="card stat-box">
                 <div class="value" style="font-size:1.2em">
@@ -217,46 +251,47 @@
                 <div class="label">Disk I/O</div>
                 <div class="sublabel">System</div>
             </div>
-            <div class="card stat-box">
+
+            <!-- Reliability & Errors -->
+            <div class="card stat-box" title="TCP active opens and established resets per second">
                 <div class="value" style="font-size:1.2em">
-                    <div style="margin-bottom:2px">
-                        <span class="text-cyan">IN:</span> <span x-text="Number(firewall.udp_in).toLocaleString()"></span>
+                    <div><span class="text-green">Opens</span>: <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(2) + '/s'"></span></div>
+                    <div>
+                        <span>Resets</span>:
+                        <span :style="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit ? 'color: var(--neon-red)' : ((firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn ? 'color: orange' : '')" x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2) + '/s'"></span>
+                        <span class="badge threat" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit">ALERT</span>
+                        <span class="badge suspicious" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn && (firewall.tcp_estab_resets_s||0)<thresholds.resets_crit">WARN</span>
+                    </div>
+                </div>
+                <div class="label">TCP Activity</div>
+                <div class="sublabel" x-text="'Conns: ' + (firewall.tcp_conns || 0)"></div>
+            </div>
+            <div class="card stat-box" title="TCP failures and retransmissions per second">
+                <div class="value" style="font-size:1.2em">
+                    <div>
+                        <span>Fails/s</span>:
+                        <span :style="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_crit ? 'color: var(--neon-red)' : ((firewall.tcp_fails_s||0)>=thresholds.tcp_fails_warn ? 'color: orange' : '')" x-text="(firewall.tcp_fails_s||0).toFixed(2)"></span>
+                        <span class="badge threat" x-show="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_crit">ALERT</span>
+                        <span class="badge suspicious" x-show="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_warn && (firewall.tcp_fails_s||0)<thresholds.tcp_fails_crit">WARN</span>
                     </div>
                     <div>
-                        <span class="text-purple">OUT:</span> <span x-text="Number(firewall.udp_out).toLocaleString()"></span>
+                        <span>Retrans/s</span>:
+                        <span :style="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_crit ? 'color: var(--neon-red)' : ((firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_warn ? 'color: orange' : '')" x-text="(firewall.tcp_retrans_s||0).toFixed(2)"></span>
+                        <span class="badge threat" x-show="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_crit">ALERT</span>
+                        <span class="badge suspicious" x-show="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_warn && (firewall.tcp_retrans_s||0)<thresholds.tcp_retrans_crit">WARN</span>
                     </div>
                 </div>
-                <div class="label">UDP Stats</div>
-                <div class="sublabel">Datagrams</div>
-            </div>
-            <div class="card stat-box" title="WAN throughput and link utilization based on ifHCIn/OutOctets and ifHighSpeed">
-                <div class="value" style="font-size:1.1em">
-                    <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.wan_rx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
-                    <div><span class="text-purple">⬆️</span> <span x-text="(firewall.wan_tx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
-                </div>
-                <div class="label">WAN Rate</div>
-                <div class="sublabel" :style="firewall.wan_util_percent>=thresholds.util_crit ? 'color: var(--neon-red)' : (firewall.wan_util_percent>=thresholds.util_warn ? 'color: orange' : '')" :title="'Link: ' + (firewall.wan_speed_mbps||0) + ' Mbps'">
-                    <span x-text="firewall.wan_util_percent != null ? ('Util ' + firewall.wan_util_percent + '%') : ''"></span>
-                    <span class="badge threat" x-show="firewall.wan_util_percent>=thresholds.util_crit">HOT</span>
-                    <span class="badge suspicious" x-show="firewall.wan_util_percent>=thresholds.util_warn && firewall.wan_util_percent<thresholds.util_crit">WARM</span>
-                </div>
-            </div>
-            <div class="card stat-box" title="LAN throughput and link utilization">
-                <div class="value" style="font-size:1.1em">
-                    <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.lan_rx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
-                    <div><span class="text-purple">⬆️</span> <span x-text="(firewall.lan_tx_mbps ?? 0).toFixed(2) + ' Mbps'"></span></div>
-                </div>
-                <div class="label">LAN Rate</div>
-                <div class="sublabel" :style="firewall.lan_util_percent>=thresholds.util_crit ? 'color: var(--neon-red)' : (firewall.lan_util_percent>=thresholds.util_warn ? 'color: orange' : '')" :title="'Link: ' + (firewall.lan_speed_mbps||0) + ' Mbps'">
-                    <span x-text="firewall.lan_util_percent != null ? ('Util ' + firewall.lan_util_percent + '%') : ''"></span>
-                    <span class="badge threat" x-show="firewall.lan_util_percent>=thresholds.util_crit">HOT</span>
-                    <span class="badge suspicious" x-show="firewall.lan_util_percent>=thresholds.util_warn && firewall.lan_util_percent<thresholds.util_crit">WARM</span>
-                </div>
+                <div class="label">TCP Reliability</div>
+                <div class="sublabel">Attempt fails / retrans</div>
             </div>
             <div class="card stat-box">
-                <div class="value" style="font-size:1.6em" x-text="firewall.swap_percent != null ? firewall.swap_percent + '%' : '--'"></div>
-                <div class="label">Swap Usage</div>
-                <div class="sublabel" x-text="(firewall.swap_used!=null && firewall.swap_total!=null) ? (fmtBytes(firewall.swap_used*1024) + ' / ' + fmtBytes(firewall.swap_total*1024)) : ''"></div>
+                <div class="value" style="font-size:1.8em">
+                    <span class="text-red" x-text="firewall.tcp_fails || 0"></span>
+                    <span style="color:var(--text-muted); font-size:0.6em">/</span>
+                    <span class="text-purple" x-text="firewall.tcp_retrans || 0"></span>
+                </div>
+                <div class="label">TCP Errors</div>
+                <div class="sublabel">Fails / Retrans</div>
             </div>
             <div class="card stat-box" title="Interface errors and discards per second (sum of in/out)">
                 <div class="value" style="font-size:1.1em">
@@ -275,19 +310,6 @@
                 </div>
                 <div class="label">Interface Errors</div>
                 <div class="sublabel">Rates (E/s, D/s)</div>
-            </div>
-            <div class="card stat-box" title="TCP active opens and established resets per second">
-                <div class="value" style="font-size:1.2em">
-                    <div><span class="text-green">Opens</span>: <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(2) + '/s'"></span></div>
-                    <div>
-                        <span>Resets</span>:
-                        <span :style="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit ? 'color: var(--neon-red)' : ((firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn ? 'color: orange' : '')" x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2) + '/s'"></span>
-                        <span class="badge threat" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_crit">ALERT</span>
-                        <span class="badge suspicious" x-show="(firewall.tcp_estab_resets_s||0)>=thresholds.resets_warn && (firewall.tcp_estab_resets_s||0)<thresholds.resets_crit">WARN</span>
-                    </div>
-                </div>
-                <div class="label">TCP Activity</div>
-                <div class="sublabel" x-text="'Conns: ' + (firewall.tcp_conns || 0)"></div>
             </div>
             <div class="card stat-box" title="IP receive path errors and ICMP input errors per second">
                 <div class="value" style="font-size:1.2em">
@@ -308,27 +330,7 @@
                 <div class="sublabel">Recv path</div>
             </div>
 
-            <!-- New: TCP Reliability -->
-            <div class="card stat-box" title="TCP failures and retransmissions per second">
-                <div class="value" style="font-size:1.2em">
-                    <div>
-                        <span>Fails/s</span>:
-                        <span :style="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_crit ? 'color: var(--neon-red)' : ((firewall.tcp_fails_s||0)>=thresholds.tcp_fails_warn ? 'color: orange' : '')" x-text="(firewall.tcp_fails_s||0).toFixed(2)"></span>
-                        <span class="badge threat" x-show="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_crit">ALERT</span>
-                        <span class="badge suspicious" x-show="(firewall.tcp_fails_s||0)>=thresholds.tcp_fails_warn && (firewall.tcp_fails_s||0)<thresholds.tcp_fails_crit">WARN</span>
-                    </div>
-                    <div>
-                        <span>Retrans/s</span>:
-                        <span :style="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_crit ? 'color: var(--neon-red)' : ((firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_warn ? 'color: orange' : '')" x-text="(firewall.tcp_retrans_s||0).toFixed(2)"></span>
-                        <span class="badge threat" x-show="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_crit">ALERT</span>
-                        <span class="badge suspicious" x-show="(firewall.tcp_retrans_s||0)>=thresholds.tcp_retrans_warn && (firewall.tcp_retrans_s||0)<thresholds.tcp_retrans_crit">WARN</span>
-                    </div>
-                </div>
-                <div class="label">TCP Reliability</div>
-                <div class="sublabel">Attempt fails / retrans</div>
-            </div>
-
-            <!-- New: UDP Rate -->
+            <!-- Misc -->
             <div class="card stat-box" title="UDP datagram rate in/out per second">
                 <div class="value" style="font-size:1.2em">
                     <div><span class="text-cyan">IN/s:</span> <span x-text="(firewall.udp_in_s||0).toFixed(2)"></span></div>
@@ -337,18 +339,21 @@
                 <div class="label">UDP Rate</div>
                 <div class="sublabel">Datagrams per second</div>
             </div>
-        </div>
-
-        <!-- Bandwidth Chart -->
-        <div class="card wide-card">
-            <h2>
-                <span>📊 Bandwidth & Flow Rate</span>
-                <div class="spinner" x-show="bandwidth.loading"></div>
-            </h2>
-            <div class="chart-wrapper">
-                <canvas id="bwChart"></canvas>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.2em">
+                    <div style="margin-bottom:2px">
+                        <span class="text-cyan">IN:</span> <span x-text="Number(firewall.udp_in).toLocaleString()"></span>
+                    </div>
+                    <div>
+                        <span class="text-purple">OUT:</span> <span x-text="Number(firewall.udp_out).toLocaleString()"></span>
+                    </div>
+                </div>
+                <div class="label">UDP Stats</div>
+                <div class="sublabel">Datagrams</div>
             </div>
         </div>
+
+        
 
         <!-- New Analytics Row -->
         <div class="grid" data-reorder="true" data-grid-id="analytics">
