@@ -598,6 +598,77 @@
                 </table>
             </div>
 
+            <!-- Threat Detections -->
+            <div class="card">
+                <h2>
+                    <span>🚨 Threat Detections</span>
+                    <div class="spinner" x-show="threats.loading"></div>
+                </h2>
+                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;">
+                    Recent matched threat feeds and counts
+                </div>
+                <table>
+                    <thead><tr><th>IP</th><th>Type</th><th>Hits</th></tr></thead>
+                    <tbody>
+                        <template x-for="(t, idx) in threats.hits" :key="t.ip + idx">
+                            <tr>
+                                <td><strong class="text-cyan" x-text="t.ip"></strong></td>
+                                <td style="color:var(--text-muted)" x-text="t.type || 'feed'"></td>
+                                <td><strong class="text-green" x-text="t.hits"></strong></td>
+                            </tr>
+                        </template>
+                        <template x-if="!threats.hits || threats.hits.length === 0">
+                            <tr><td colspan="3" style="color:var(--text-muted); text-align:center">No recent detections</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Services -->
+            <div class="card">
+                <h2>
+                    <span>🧭 Top Services</span>
+                    <div class="spinner" x-show="services.loading"></div>
+                </h2>
+                <table>
+                    <thead><tr><th>Service</th><th>Traffic</th></tr></thead>
+                    <tbody>
+                        <template x-for="(s, i) in services.services" :key="s.name + i">
+                            <tr>
+                                <td><strong class="text-cyan" x-text="s.name"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="s.proto"></div></td>
+                                <td><strong class="text-green" x-text="s.bytes_fmt || fmtBytes(s.bytes)"></strong><div style="font-size:0.8em; color:var(--text-muted)" x-text="s.flows + ' flows'"></div></td>
+                            </tr>
+                        </template>
+                        <template x-if="!services.services || services.services.length===0">
+                            <tr><td colspan="2" style="color:var(--text-muted); text-align:center">No service data</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Connectors -->
+            <div class="card">
+                <h2>
+                    <span>🔗 Top Connectors</span>
+                    <div class="spinner" x-show="conns.loading"></div>
+                </h2>
+                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;">IPs with most concurrent connections</div>
+                <table>
+                    <thead><tr><th>IP</th><th>Conns</th></tr></thead>
+                    <tbody>
+                        <template x-for="(c, i) in conns.items" :key="c.ip + i">
+                            <tr>
+                                <td><strong class="text-cyan" x-text="c.ip"></strong></td>
+                                <td><strong class="text-green" x-text="c.conns"></strong></td>
+                            </tr>
+                        </template>
+                        <template x-if="!conns.items || conns.items.length === 0">
+                            <tr><td colspan="2" style="color:var(--text-muted); text-align:center">No connection data</td></tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
         </div>
 
         <!-- Conversations -->

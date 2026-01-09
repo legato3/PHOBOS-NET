@@ -31,6 +31,9 @@ document.addEventListener('alpine:init', () => {
         destinations: { destinations: [], loading: true },
         ports: { ports: [], loading: true },
         protocols: { protocols: [], loading: true },
+        services: { services: [], loading: true },
+        threats: { hits: [], loading: true },
+        conns: { items: [], loading: true },
         alerts: { alerts: [], loading: true },
         bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
         conversations: { conversations: [], loading: true },
@@ -181,6 +184,9 @@ document.addEventListener('alpine:init', () => {
             this.fetchDestinations();
             this.fetchPorts();
             this.fetchProtocols();
+            this.fetchServices();
+            this.fetchThreats();
+            this.fetchConnCounts();
             this.fetchAlerts();
             if (!this.firewallStreamActive) this.fetchFirewall();
 
@@ -301,6 +307,71 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/protocols?range=${this.timeRange}`);
                 if(res.ok) this.protocols = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.protocols.loading = false; }
+        },
+
+        // ----- New widget fetchers -----
+        async fetchServices() {
+            this.services.loading = true;
+            try {
+                const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
+                if (res.ok) {
+                    const d = await res.json();
+                    // Expect { services: [ { name, bytes, flows, proto } ] }
+                    this.services = { ...(d), loading: false };
+                    return;
+                }
+            } catch (e) { /* ignore and fallback */ }
+            finally { this.services.loading = false; }
+
+            // Fallback: derive services from ports list if backend missing
+            const fallback = (this.ports.ports || []).slice(0, 10).map(p => ({
+                name: p.service || ('port ' + (p.key || '?')),
+                proto: p.proto || '',
+                bytes: p.bytes || 0,
+                bytes_fmt: p.bytes_fmt || this.fmtBytes(p.bytes || 0),
+                flows: p.flows || 0
+            }));
+            this.services.services = fallback;
+        },
+
+        async fetchThreats() {
+            this.threats.loading = true;
+            try {
+                const res = await fetch(`/api/stats/threats?range=${this.timeRange}`);
+                if (res.ok) {
+                    const d = await res.json();
+                    this.threats = { ...(d), loading: false };
+                    return;
+                }
+            } catch (e) { /* ignore and fallback */ }
+            finally { this.threats.loading = false; }
+
+            // Fallback use alerts store to populate some rows
+            const arr = (this.alerts.alerts || []).filter(a => a.type === 'threat' || a.threat || a.feed).slice(0, 10).map(a => ({
+                ip: a.ip || a.src || a.dst || a.key || 'n/a',
+                type: a.feed || a.type || 'feed',
+                hits: a.count || 1
+            }));
+            this.threats.hits = arr;
+        },
+
+        async fetchConnCounts() {
+            this.conns.loading = true;
+            try {
+                const res = await fetch(`/api/stats/connections?range=${this.timeRange}`);
+                if (res.ok) {
+                    this.conns = { ...(await res.json()), loading: false };
+                    return;
+                }
+            } catch (e) { /* ignore */ }
+            finally { this.conns.loading = false; }
+
+            // Fallback: aggregate connection-like counts from sources/destinations
+            const map = new Map();
+            (this.sources.sources || []).forEach(s => map.set(s.key, (map.get(s.key) || 0) + (s.conns || s.flows || 0)));
+            (this.destinations.destinations || []).forEach(d => map.set(d.key, (map.get(d.key) || 0) + (d.conns || d.flows || 0)));
+            const arr = Array.from(map.entries()).map(([ip, c]) => ({ ip, conns: c })).sort((a, b) => b.conns - a.conns).slice(0, 10);
+            this.conns.items = arr;
         },
 
         async fetchAlerts() {
