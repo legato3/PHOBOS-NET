@@ -67,6 +67,10 @@ document.addEventListener('alpine:init', () => {
         bwChartInstance: null,
         flagsChartInstance: null,
         pktSizeChartInstance: null,
+            trendModalOpen: false,
+            trendIP: null,
+            trendKind: 'source',
+            trendChartInstance: null,
 
         init() {
             console.log('Neural Link Established.');
@@ -277,8 +281,9 @@ document.addEventListener('alpine:init', () => {
                         const data = JSON.parse(evt.data);
                         if (data && data.firewall) {
                             this.firewall = { ...data.firewall, loading: false };
-                        }
-                    } catch (e) { console.error(e); }
+                this.renderSparklines('source');
+                this.renderSparklines('dest');
+                this.loadNotifyStatus();
                 };
                 es.onerror = () => {
                     // Mark inactive and retry later
@@ -804,6 +809,73 @@ document.addEventListener('alpine:init', () => {
                 if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
             }
             ctx.stroke();
+
+                // Click to open trend modal
+                if (!canvas._trendBound) {
+                    canvas.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const ip = canvas.getAttribute('data-ip');
+                        const kind = canvas.getAttribute('data-kind') || 'source';
+                        if (ip) this.openTrendModal(kind, ip);
+                    });
+                    canvas._trendBound = true;
+                }
         }
+
+            openTrendModal(kind, ip) {
+                this.trendKind = kind;
+                this.trendIP = ip;
+                this.trendModalOpen = true;
+                this.$nextTick(() => this.fetchIpTrend());
+            }
+
+            async fetchIpTrend() {
+                try {
+                    const range = this.timeRange === '15m' ? '6h' : this.timeRange; // ensure enough buckets for spark
+                    const url = this.trendKind === 'source' ? `/api/trends/source/${this.trendIP}?range=${range}` : `/api/trends/dest/${this.trendIP}?range=${range}`;
+                    const res = await fetch(url);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    this.updateTrendChart(data);
+                } catch(e) { console.error(e); }
+            }
+
+            updateTrendChart(data) {
+                const ctx = document.getElementById('ipTrendChart');
+                if (!ctx || !data) return;
+                const labels = data.labels || [];
+                const values = data.bytes || [];
+                const lineColor = '#00f3ff';
+                if (this.trendChartInstance) {
+                    this.trendChartInstance.data.labels = labels;
+                    this.trendChartInstance.data.datasets[0].data = values;
+                    this.trendChartInstance.update();
+                } else {
+                    this.trendChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: 'Bytes (per 5 min)',
+                                data: values,
+                                borderColor: lineColor,
+                                backgroundColor: 'rgba(0,243,255,0.15)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: '#e0e0e0' } } },
+                            scales: {
+                                x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                                y: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                            }
+                        }
+                    });
+                }
+            }
     }))
 });

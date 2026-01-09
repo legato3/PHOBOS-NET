@@ -692,6 +692,19 @@
         </div>
     </div>
 
+    <!-- IP Trend Modal -->
+    <div class="modal" x-show="trendModalOpen" style="display:none" :style="trendModalOpen ? 'display:flex' : 'display:none'" @click.self="trendModalOpen = false">
+        <div class="modal-content" style="max-width: 760px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0">Trend: <span class="text-cyan" x-text="trendIP"></span> <span style="color:var(--text-muted); font-size:0.7em" x-text="'(' + (trendKind==='source' ? 'Source' : 'Destination') + ')' "></span></h2>
+                <button @click="trendModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close trend">×</button>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="ipTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Thresholds Modal -->
     <div class="modal" x-show="thresholdsModalOpen" style="display:none" :style="thresholdsModalOpen ? 'display:flex' : 'display:none'" @click.self="thresholdsModalOpen = false">
         <div class="modal-content" style="max-width: 700px;">
