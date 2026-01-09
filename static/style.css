@@ -483,3 +483,9 @@ tr:hover td {
     white-space: nowrap;
     display: block;
 }
+
+/* Force table cells to respect column widths and enable truncation */
+table[style*="table-layout:fixed"] td:first-child {
+    max-width: 0;
+    overflow: hidden;
+}
