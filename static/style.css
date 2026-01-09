@@ -476,21 +476,10 @@ tr:hover td {
 }
 
 /* Truncate long hostnames to prevent overflow */
-table td div {
+.hostname-line {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-/* Allow wrapping for the main IP/badge container */
-table td > div {
-    white-space: normal;
-}
-
-/* But specifically truncate hostname lines */
-table td div[style*="font-size:0.85em"] {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: block;
 }
