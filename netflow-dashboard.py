@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import subprocess, time, os, json, smtplib
 from email.message import EmailMessage
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
 from functools import wraps
 import threading
@@ -91,7 +91,11 @@ PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
 INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
 
-DNS_SERVER = "192.168.0.6"
+# Allow override via environment variable, default per project docs
+DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
+
+# Cache nfdump availability to avoid repeated shell lookups
+_has_nfdump = None
 
 def resolve_hostname(ip):
     """Resolve IP to hostname using configured DNS_SERVER."""
@@ -351,8 +355,11 @@ def run_nfdump(args, tf=None):
         cmd = ["nfdump","-R","/var/cache/nfdump","-o","csv"]
         if tf: cmd.extend(["-t",tf])
         cmd.extend(args)
-        # Check if nfdump exists
-        if subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+        # Check if nfdump exists (cached)
+        global _has_nfdump
+        if _has_nfdump is None:
+            _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+        if _has_nfdump:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
@@ -657,7 +664,7 @@ def send_webhook(alerts):
 
 def record_history(alerts):
     if not alerts: return
-    ts = datetime.utcnow().isoformat()+'Z'
+    ts = datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
     for a in alerts:
         entry = {"ts": ts, "msg": a.get('msg'), "severity": a.get('severity','info')}
         _alert_history.appendleft(entry)
@@ -1147,7 +1154,13 @@ def api_bandwidth():
                 if is_completed:
                     _bandwidth_history_cache[tf_key] = {"bw": val_bw, "flows": val_flows}
 
-        data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"}
+        # Prune bandwidth history to limit memory growth (keep last 500 intervals)
+        if len(_bandwidth_history_cache) > 500:
+            keys = sorted(_bandwidth_history_cache.keys())
+            for k in keys[:-500]:
+                _bandwidth_history_cache.pop(k, None)
+
+        data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
         with _cache_lock:
             _bandwidth_cache["data"] = data
             _bandwidth_cache["ts"] = now_ts
@@ -1175,7 +1188,7 @@ def api_conversations():
                 "src_region":get_region(src["key"]),
                 "dst_region":get_region(dst_data[i]["key"])
             })
-    data = {"conversations":convs, "generated_at": datetime.utcnow().isoformat()+"Z"}
+    data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
     return jsonify(data)
 
 @app.route("/api/ip_detail/<ip>")
