@@ -212,6 +212,12 @@ h2 {
     letter-spacing: 1px;
     margin-top: 5px;
 }
+.stat-box .sublabel {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin-top: 3px;
+    opacity: 0.8;
+}
 
 /* Table Density & Polish */
 table {

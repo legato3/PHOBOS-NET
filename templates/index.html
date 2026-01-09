@@ -124,6 +124,30 @@
             </div>
         </div>
 
+        <!-- Firewall Health -->
+        <div class="grid">
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
+                <div class="label">🔥 CPU Usage</div>
+                <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
+                <div class="label">💾 Memory</div>
+                <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
+                <div class="label">⏱️ Uptime</div>
+                <div class="sublabel">192.168.0.1</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
+                <div class="label">📊 5min Load</div>
+                <div class="sublabel">OPNsense</div>
+            </div>
+        </div>
+
         <!-- Bandwidth Chart -->
         <div class="card wide-card">
             <h2>

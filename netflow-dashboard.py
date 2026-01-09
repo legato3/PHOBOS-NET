@@ -1396,6 +1396,110 @@ def api_notify_mute():
     save_notify_cfg(cfg)
     return jsonify(cfg)
 
+
+# ===== SNMP Integration =====
+import subprocess
+import time
+import threading
+
+# SNMP Configuration
+SNMP_HOST = "192.168.0.1"
+SNMP_COMMUNITY = "Phoboshomesnmp_3"
+
+# SNMP OIDs
+SNMP_OIDS = {
+    "cpu_load_1min": ".1.3.6.1.4.1.2021.10.1.3.1",
+    "cpu_load_5min": ".1.3.6.1.4.1.2021.10.1.3.2",
+    "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
+    "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
+    "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
+}
+
+_snmp_cache = {"data": None, "ts": 0}
+_snmp_cache_lock = threading.Lock()
+
+
+def format_uptime(uptime_str):
+    """Convert uptime from 0:17:42:05.92 to readable format"""
+    try:
+        parts = uptime_str.split(":")
+        if len(parts) >= 3:
+            days = int(parts[0])
+            hours = int(parts[1])
+            minutes = int(parts[2].split(".")[0])
+            
+            result = []
+            if days > 0:
+                result.append(f"{days}d")
+            if hours > 0:
+                result.append(f"{hours}h")
+            if minutes > 0:
+                result.append(f"{minutes}m")
+            
+            return " ".join(result) if result else "0m"
+    except:
+        return uptime_str
+    return uptime_str
+
+def get_snmp_data():
+    """Fetch SNMP data from OPNsense firewall"""
+    now = time.time()
+    
+    with _snmp_cache_lock:
+        if _snmp_cache["data"] and now - _snmp_cache["ts"] < 30:
+            return _snmp_cache["data"]
+    
+    try:
+        result = {}
+        oids = " ".join(SNMP_OIDS.values())
+        cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {oids}"
+        
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        values = output.strip().split("\n")
+        
+        oid_keys = list(SNMP_OIDS.keys())
+        for i, value in enumerate(values):
+            if i < len(oid_keys):
+                key = oid_keys[i]
+                clean_val = value.strip().strip("\"")
+                
+                if key.startswith("cpu_load"):
+                    result[key] = float(clean_val)
+                elif key.startswith("mem_"):
+                    result[key] = int(clean_val)
+                else:
+                    result[key] = clean_val
+        
+        if "mem_total" in result and "mem_avail" in result:
+            mem_used = result["mem_total"] - result["mem_avail"]
+            result["mem_used"] = mem_used
+            result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1)
+        
+        if "cpu_load_1min" in result:
+            result["cpu_percent"] = min(round((result["cpu_load_1min"] / 4.0) * 100, 1), 100)
+        
+        # Format uptime for readability
+        if "sys_uptime" in result:
+            result["sys_uptime_formatted"] = format_uptime(result["sys_uptime"])
+        
+        with _snmp_cache_lock:
+            _snmp_cache["data"] = result
+            _snmp_cache["ts"] = now
+        
+        return result
+        
+    except Exception as e:
+        print(f"SNMP Error: {e}")
+        return {}
+
+
+@app.route("/api/stats/firewall")
+@throttle(5, 10)
+def api_stats_firewall():
+    """Firewall health stats from SNMP"""
+    data = get_snmp_data()
+    return jsonify({"firewall": data})
+
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
     app.run(host="0.0.0.0",port=8080,threaded=True)

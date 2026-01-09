@@ -1,6 +1,8 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('dashboard', () => ({
         initDone: false,
+
+        firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false },
         timeRange: '1h',
         refreshInterval: 30000,
         refreshTimer: null,
@@ -105,6 +107,7 @@ document.addEventListener('alpine:init', () => {
             this.fetchProtocols();
             this.fetchAlerts();
             this.fetchConversations();
+                this.fetchFirewall();
 
             // New Features
             this.fetchFlags();
@@ -161,6 +164,15 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/ports?range=${this.timeRange}`);
                 if(res.ok) this.ports = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.ports.loading = false; }
+        },
+
+
+        async fetchFirewall() {
+            this.firewall.loading = true;
+            try {
+                const res = await fetch(`/api/stats/firewall?range=${this.timeRange}`);
+                if(res.ok) this.firewall = { ...(await res.json()).firewall, loading: false };
+            } catch(e) { console.error(e); } finally { this.firewall.loading = false; }
         },
 
         async fetchProtocols() {
