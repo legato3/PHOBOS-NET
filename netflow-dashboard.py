@@ -109,6 +109,7 @@ _trends_thread_started = False
 mmdb_city = None
 mmdb_asn = None
 _threat_thread_started = False
+_agg_thread_started = False
 
 PORTS = {20:"FTP-DATA",21:"FTP",22:"SSH",23:"Telnet",25:"SMTP",53:"DNS",80:"HTTP",110:"POP3",143:"IMAP",443:"HTTPS",465:"SMTPS",587:"SMTP",993:"IMAPS",995:"POP3S",3306:"MySQL",5432:"PostgreSQL",6379:"Redis",8080:"HTTP-Alt",8443:"HTTPS-Alt",3389:"RDP",5900:"VNC",27017:"MongoDB",1194:"OpenVPN",51820:"WireGuard"}
 PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
@@ -804,6 +805,7 @@ def send_notifications(alerts):
 def index():
     start_threat_thread()
     start_trends_thread()
+    start_agg_thread()
     return render_template("index.html")
 
 def get_time_range(range_key):
@@ -1305,6 +1307,56 @@ def _ensure_rollup_for_bucket(bucket_end_dt):
         finally:
             conn.close()
 
+    # Also compute top sources and destinations for this bucket (top 10)
+    try:
+        src_out = run_nfdump(["-s", "srcip/bytes/flows", "-n", "10"], tf_key)
+        dst_out = run_nfdump(["-s", "dstip/bytes/flows", "-n", "10"], tf_key)
+        top_src = parse_csv(src_out, expected_key='sa')
+        top_dst = parse_csv(dst_out, expected_key='da')
+
+        with _trends_db_lock:
+            conn = _trends_db_connect()
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS top_sources (
+                        bucket_end INTEGER,
+                        ip TEXT,
+                        bytes INTEGER NOT NULL,
+                        flows INTEGER NOT NULL,
+                        PRIMARY KEY(bucket_end, ip)
+                    );
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS top_dests (
+                        bucket_end INTEGER,
+                        ip TEXT,
+                        bytes INTEGER NOT NULL,
+                        flows INTEGER NOT NULL,
+                        PRIMARY KEY(bucket_end, ip)
+                    );
+                    """
+                )
+                if top_src:
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO top_sources(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)",
+                        [(bucket_end_ts, r.get("key"), int(r.get("bytes",0)), int(r.get("flows",0))) for r in top_src]
+                    )
+                if top_dst:
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO top_dests(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)",
+                        [(bucket_end_ts, r.get("key"), int(r.get("bytes",0)), int(r.get("flows",0))) for r in top_dst]
+                    )
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_top_sources_end ON top_sources(bucket_end)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_top_dests_end ON top_dests(bucket_end)")
+                conn.commit()
+            finally:
+                conn.close()
+    except Exception:
+        pass
+
 def start_trends_thread():
     global _trends_thread_started
     if _trends_thread_started:
@@ -1323,6 +1375,42 @@ def start_trends_thread():
             except Exception:
                 pass
             time.sleep(30)
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
+def start_agg_thread():
+    """Background aggregator to precompute common nfdump data for 1h range every 60s."""
+    global _agg_thread_started
+    if _agg_thread_started:
+        return
+    _agg_thread_started = True
+
+    def loop():
+        while True:
+            try:
+                range_key = '1h'
+                tf = get_time_range(range_key)
+                now_ts = time.time()
+                win = int(now_ts // 60)
+
+                sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
+                sources.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
+                ports.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
+                dests.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                protos = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
+
+                with _common_data_lock:
+                    _common_data_cache[f"sources:{range_key}:{win}"] = {"data": sources, "ts": now_ts, "win": win}
+                    _common_data_cache[f"ports:{range_key}:{win}"] = {"data": ports, "ts": now_ts, "win": win}
+                    _common_data_cache[f"dests:{range_key}:{win}"] = {"data": dests, "ts": now_ts, "win": win}
+                    _common_data_cache[f"protos:{range_key}:{win}"] = {"data": protos, "ts": now_ts, "win": win}
+            except Exception:
+                pass
+            time.sleep(60)
 
     t = threading.Thread(target=loop, daemon=True)
     t.start()
@@ -1595,6 +1683,60 @@ def api_ip_detail(ip):
     }
     return jsonify(data)
 
+
+@app.route("/api/trends/source/<ip>")
+def api_trends_source(ip):
+    """Return 5-min rollup trend for a source IP over the requested range (default 24h)."""
+    range_key = request.args.get('range', '24h')
+    now = datetime.now()
+    minutes = {'15m': 15, '30m': 30, '1h': 60, '6h': 360, '24h': 1440}.get(range_key, 1440)
+    end_dt = _get_bucket_end(now)
+    start_dt = end_dt - timedelta(minutes=minutes)
+    start_ts = int(start_dt.timestamp())
+    end_ts = int(end_dt.timestamp())
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                "SELECT bucket_end, bytes, flows FROM top_sources WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                (ip, start_ts, end_ts)
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
+    bytes_arr = [r[1] for r in rows]
+    flows_arr = [r[2] for r in rows]
+    return jsonify({"labels": labels, "bytes": bytes_arr, "flows": flows_arr})
+
+
+@app.route("/api/trends/dest/<ip>")
+def api_trends_dest(ip):
+    """Return 5-min rollup trend for a destination IP over the requested range (default 24h)."""
+    range_key = request.args.get('range', '24h')
+    now = datetime.now()
+    minutes = {'15m': 15, '30m': 30, '1h': 60, '6h': 360, '24h': 1440}.get(range_key, 1440)
+    end_dt = _get_bucket_end(now)
+    start_dt = end_dt - timedelta(minutes=minutes)
+    start_ts = int(start_dt.timestamp())
+    end_ts = int(end_dt.timestamp())
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                "SELECT bucket_end, bytes, flows FROM top_dests WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                (ip, start_ts, end_ts)
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
+    bytes_arr = [r[1] for r in rows]
+    flows_arr = [r[2] for r in rows]
+    return jsonify({"labels": labels, "bytes": bytes_arr, "flows": flows_arr})
+
 @app.route("/api/export")
 def export_csv():
     # Use Summary logic but return raw text
@@ -1660,6 +1802,39 @@ def api_thresholds():
     data = request.get_json(force=True, silent=True) or {}
     saved = save_thresholds(data)
     return jsonify(saved)
+
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus-style metrics for basic instrumentation."""
+    lines = []
+    def add_metric(name, value, help_text=None, mtype='gauge'):
+        if help_text:
+            lines.append(f"# HELP {name} {help_text}")
+        if mtype:
+            lines.append(f"# TYPE {name} {mtype}")
+        lines.append(f"{name} {value}")
+
+    add_metric('netflow_nfdump_calls_total', _metric_nfdump_calls, 'Total number of nfdump calls', 'counter')
+    add_metric('netflow_stats_cache_hits_total', _metric_stats_cache_hits, 'Cache hits for stats endpoints', 'counter')
+    add_metric('netflow_bw_cache_hits_total', _metric_bw_cache_hits, 'Cache hits for bandwidth endpoint', 'counter')
+    add_metric('netflow_conv_cache_hits_total', _metric_conv_cache_hits, 'Cache hits for conversations endpoint', 'counter')
+    add_metric('netflow_spark_cache_hits_total', _metric_spark_hits, 'Sparkline cache hits', 'counter')
+    add_metric('netflow_spark_cache_misses_total', _metric_spark_misses, 'Sparkline cache misses', 'counter')
+    add_metric('netflow_http_429_total', _metric_http_429, 'HTTP 429 rate-limit responses', 'counter')
+    # Cache sizes
+    add_metric('netflow_common_cache_size', len(_common_data_cache))
+    add_metric('netflow_dns_cache_size', len(_dns_cache))
+    add_metric('netflow_geo_cache_size', len(_geo_cache))
+    add_metric('netflow_bandwidth_history_size', len(_bandwidth_history_cache))
+    # Threads status
+    add_metric('netflow_threat_thread_started', 1 if _threat_thread_started else 0)
+    add_metric('netflow_snmp_thread_started', 1 if _snmp_thread_started else 0)
+    add_metric('netflow_trends_thread_started', 1 if _trends_thread_started else 0)
+    add_metric('netflow_agg_thread_started', 1 if _agg_thread_started else 0)
+
+    body = "\n".join(lines) + "\n"
+    return Response(body, mimetype='text/plain; version=0.0.4')
 
 
 # ===== SNMP Integration =====
