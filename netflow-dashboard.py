@@ -1412,6 +1412,8 @@ SNMP_OIDS = {
     "cpu_load_5min": ".1.3.6.1.4.1.2021.10.1.3.2",
     "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
     "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
+    "mem_buffer": ".1.3.6.1.4.1.2021.4.11.0",       # Buffer memory KB
+    "mem_cached": ".1.3.6.1.4.1.2021.4.15.0",       # Cached memory KB
     "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
     "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
     "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
@@ -1494,7 +1496,13 @@ def get_snmp_data():
                     result[key] = clean_val
         
         if "mem_total" in result and "mem_avail" in result:
-            mem_used = result["mem_total"] - result["mem_avail"]
+            # FreeBSD memory calculation: total - available - buffer - cached
+            # Using OID .15 (memShared/Cached ~3GB) gives better accuracy
+            # This should be close to OPNsense's Active+Wired memory calculation
+            # Expected: ~60-65% vs OPNsense ~55-60%
+            mem_buffer = result.get("mem_buffer", 0)
+            mem_cached = result.get("mem_cached", 0)
+            mem_used = result["mem_total"] - result["mem_avail"] - mem_buffer - mem_cached
             result["mem_used"] = mem_used
             result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1)
         
