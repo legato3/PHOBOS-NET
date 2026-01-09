@@ -209,25 +209,25 @@
                     <span>🔝 Top Sources</span>
                     <div class="spinner" x-show="sources.loading"></div>
                 </h2>
-                <table>
+                <table style="table-layout:fixed; width:100%;">
                     <thead>
                         <tr>
-                            <th>IP</th>
-                            <th>Traffic</th>
+                            <th style="width:70%;">IP</th>
+                            <th style="width:30%;">Traffic</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredSources" :key="index">
                             <tr @click="openIPModal(item.key)">
-                                <td>
-                                    <div style="display:flex; align-items:center; gap:5px;">
-                                        <span x-text="item.flag" class="flag"></span>
-                                        <strong class="text-cyan" x-text="item.key"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details">
+                                <td style="max-width:0; overflow:hidden;">
+                                    <div style="display:flex; align-items:center; gap:5px; min-width:0;">
+                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
+                                        <strong class="text-cyan" x-text="item.key" style="flex-shrink:0;"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" style="flex-shrink:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted)">
+                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">
                                         <span x-text="item.region"></span>
                                         <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
                                     </div>
@@ -252,11 +252,11 @@
                     <span>🎯 Top Destinations</span>
                     <div class="spinner" x-show="destinations.loading"></div>
                 </h2>
-                <table>
+                <table style="table-layout:fixed; width:100%;">
                     <thead>
                         <tr>
-                            <th>IP</th>
-                            <th>Traffic</th>
+                            <th style="width:70%;">IP</th>
+                            <th style="width:30%;">Traffic</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -270,7 +270,7 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted)">
+                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                                         <span x-text="item.region"></span>
                                         <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
                                     </div>

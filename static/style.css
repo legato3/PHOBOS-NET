@@ -474,3 +474,18 @@ tr:hover td {
     color: var(--text-muted);
     font-size: 0.85em;
 }
+
+/* Truncate long hostnames to prevent overflow */
+.hostname-line {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+/* Force table cells to respect column widths and enable truncation */
+table[style*="table-layout:fixed"] td:first-child {
+    max-width: 0;
+    overflow: hidden;
+}

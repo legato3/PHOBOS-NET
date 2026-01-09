@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict, deque, Counter
 from functools import wraps
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import requests
 import maxminddb
 import random
@@ -58,6 +59,8 @@ _ip_detail_ttl = 180  # seconds
 
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
+
+_dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
 
 _threat_status = {'last_attempt':0,'last_ok':0,'size':0,'status':'unknown','error':None}
 
@@ -196,21 +199,27 @@ def throttle(max_calls=20, time_window=10):
         return wrapper
     return decorator
 
+def resolve_task(ip):
+    try:
+        hostname = resolve_hostname(ip)
+        if hostname != ip:
+            _dns_cache[ip] = hostname
+            _dns_ttl[ip] = time.time()
+    except Exception:
+        pass
+
 def resolve_ip(ip):
     now = time.time()
     if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < 300:
         return _dns_cache[ip]
-    try:
-        hostname = resolve_hostname(ip)
-        if hostname != ip:  # DNS lookup succeeded
-            _dns_cache[ip] = hostname
-            _dns_ttl[ip] = now
-            return hostname
-    except Exception:
-        pass
-    _dns_cache[ip] = None
-    _dns_ttl[ip] = now
-    return None
+
+    # Not in cache or expired, trigger background resolution
+    if ip not in _dns_cache: # Only trigger if not present at all to avoid spamming
+        _dns_cache[ip] = None # Set placeholder
+        _dns_ttl[ip] = now
+        _dns_resolver_executor.submit(resolve_task, ip)
+
+    return _dns_cache.get(ip) or ip # Return IP if not resolved yet
 
 # ------------------ Mock Nfdump ------------------
 def mock_nfdump(args):
@@ -352,7 +361,7 @@ def run_nfdump(args, tf=None):
     # Fallback to Mock
     return mock_nfdump(args)
 
-def parse_csv(output):
+def parse_csv(output, expected_key=None):
     results = []
     lines = output.strip().split("\n")
     if not lines: return results
@@ -371,12 +380,29 @@ def parse_csv(output):
 
         # Mapping common keys
         key_idx = -1
-        if 'sa' in cols: key_idx = cols.index('sa')
-        elif 'da' in cols: key_idx = cols.index('da')
-        elif 'sp' in cols: key_idx = cols.index('sp')
-        elif 'dp' in cols: key_idx = cols.index('dp')
-        elif 'pr' in cols: key_idx = cols.index('pr')
-        elif 'val' in cols: key_idx = cols.index('val') # generic
+
+        # Priority check for expected key
+        # NOTE: nfdump -s (aggregation) uses "val" column for the key, not sa/da/dp/etc
+        if expected_key:
+            # First check for "val" which is used in aggregation mode
+            if 'val' in cols:
+                key_idx = cols.index('val')
+            elif expected_key in cols:
+                key_idx = cols.index(expected_key)
+            elif expected_key == 'proto' and 'pr' in cols:
+                key_idx = cols.index('pr')
+            elif expected_key == 'proto' and 'proto' in cols:
+                key_idx = cols.index('proto')
+
+        if key_idx == -1:
+            # Check for aggregation output first
+            if 'val' in cols: key_idx = cols.index('val')
+            elif 'sa' in cols: key_idx = cols.index('sa')
+            elif 'da' in cols: key_idx = cols.index('da')
+            elif 'sp' in cols: key_idx = cols.index('sp')
+            elif 'dp' in cols: key_idx = cols.index('dp')
+            elif 'pr' in cols: key_idx = cols.index('pr')
+            elif 'proto' in cols: key_idx = cols.index('proto')
 
         # Fallback to hardcoded 4 if not found (matches previous behavior/mock)
         if key_idx == -1: key_idx = 4
@@ -435,8 +461,8 @@ def parse_csv(output):
 def get_traffic_direction(ip, tf):
     out = run_nfdump(["-a",f"src ip {ip}","-s","srcip/bytes","-n","1"], tf)
     in_data = run_nfdump(["-a",f"dst ip {ip}","-s","dstip/bytes","-n","1"], tf)
-    out_parsed = parse_csv(out)
-    in_parsed = parse_csv(in_data)
+    out_parsed = parse_csv(out, expected_key='sa')
+    in_parsed = parse_csv(in_data, expected_key='da')
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     return {"upload": upload, "download": download, "ratio": round(upload/download, 2) if download > 0 else 0}
@@ -687,19 +713,19 @@ def get_common_nfdump_data(query_type, range_key):
     data = []
 
     if query_type == "sources":
-        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf))
+        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
         # Sort by bytes descending
         data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "ports":
-        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf))
+        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
         # Sort by bytes descending
         data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "dests":
-        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf))
+        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
         # Sort by bytes descending
         data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "protos":
-        data = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf))
+        data = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
 
     with _common_data_lock:
         _common_data_cache[cache_key] = {"data": data, "ts": now}
@@ -716,7 +742,7 @@ def api_stats_summary():
             return jsonify(_stats_summary_cache["data"])
 
     tf = get_time_range(range_key)
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf), expected_key='sa')
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
@@ -849,7 +875,7 @@ def api_stats_protocols():
 
     tf = get_time_range(range_key)
     # LIMITED TO 10
-    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf))
+    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf), expected_key='proto')
 
     for i in protos_raw:
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
@@ -929,7 +955,7 @@ def api_stats_asns():
 
     tf = get_time_range(range_key)
     # Re-use top sources logic but aggregate in python
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf))
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf), expected_key='sa')
 
     asn_counts = Counter()
 
@@ -1104,7 +1130,7 @@ def api_bandwidth():
             else:
                 # Compute
                 output = run_nfdump(["-s","proto/bytes/flows","-n","1"], tf_key)
-                stats = parse_csv(output)
+                stats = parse_csv(output, expected_key='proto')
                 val_bw, val_flows = 0, 0
                 if stats:
                     total_b = sum(s["bytes"] for s in stats)
@@ -1134,8 +1160,8 @@ def api_conversations():
     # LIMITED TO 10
     range_key = request.args.get('range', '1h')
     tf = get_time_range(range_key)
-    src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf))
-    dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf))
+    src_data = parse_csv(run_nfdump(["-s","srcip/bytes","-n","10"], tf), expected_key='sa')
+    dst_data = parse_csv(run_nfdump(["-s","dstip/bytes","-n","10"], tf), expected_key='da')
     convs = []
     for i, src in enumerate(src_data):
         if i < len(dst_data):
@@ -1157,9 +1183,9 @@ def api_ip_detail(ip):
     dt = datetime.now()
     tf = f"{(dt-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{dt.strftime('%Y/%m/%d.%H:%M:%S')}"
     direction = get_traffic_direction(ip, tf)
-    src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf))
-    dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf))
-    protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf))
+    src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf), expected_key='dp')
+    dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf), expected_key='sp')
+    protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf), expected_key='proto')
 
     # Enrich
     for p in protocols:
@@ -1188,7 +1214,7 @@ def export_csv():
     # Use Summary logic but return raw text
     range_key = request.args.get('range', '1h')
     tf = get_time_range(range_key)
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf))
+    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf), expected_key='sa')
     csv = "IP,Bytes,Flows\n" + "\n".join([f"{s['key']},{s['bytes']},{s['flows']}" for s in sources])
     return csv, 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=netflow_export.csv'}
 
