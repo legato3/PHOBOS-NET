@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import subprocess, time, os, json, smtplib
 from email.message import EmailMessage
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
 from functools import wraps
 import threading
@@ -15,7 +15,17 @@ import dns.reversename
 app = Flask(__name__)
 
 # ------------------ Globals & caches ------------------
-_cache_lock = threading.Lock()
+# Granular locks per endpoint to reduce contention
+_lock_summary = threading.Lock()
+_lock_sources = threading.Lock()
+_lock_dests = threading.Lock()
+_lock_ports = threading.Lock()
+_lock_protocols = threading.Lock()
+_lock_alerts = threading.Lock()
+_lock_flags = threading.Lock()
+_lock_asns = threading.Lock()
+_lock_durations = threading.Lock()
+_lock_bandwidth = threading.Lock()
 # Caches for new endpoints
 _stats_summary_cache = {"data": None, "ts": 0, "key": None}
 _stats_sources_cache = {"data": None, "ts": 0, "key": None}
@@ -40,6 +50,7 @@ _throttle_lock = threading.Lock()
 _dns_cache, _dns_ttl = {}, {}
 _geo_cache = {}
 _geo_cache_ttl = 900  # 15 min
+GEO_CACHE_MAX = 2000
 
 _threat_cache = {"data": set(), "mtime": 0}
 _alert_sent_ts = 0
@@ -64,6 +75,7 @@ _common_data_cache = {}
 _common_data_lock = threading.Lock()
 
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
+DNS_CACHE_MAX = 5000
 
 _threat_status = {'last_attempt':0,'last_ok':0,'size':0,'status':'unknown','error':None}
 
@@ -94,7 +106,11 @@ PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
 INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
 
-DNS_SERVER = "192.168.0.6"
+# Allow override via environment variable, default per project docs
+DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
+
+# Cache nfdump availability to avoid repeated shell lookups
+_has_nfdump = None
 
 def resolve_hostname(ip):
     """Resolve IP to hostname using configured DNS_SERVER."""
@@ -183,6 +199,13 @@ def lookup_geo(ip):
         res['asn'] = 1000 + (seed % 5000)
 
     _geo_cache[ip] = {'ts': now, 'data': res if res else None}
+    # LRU-style prune by timestamp if too big
+    if len(_geo_cache) > GEO_CACHE_MAX:
+        # Drop oldest 5% to reduce churn
+        drop = max(1, GEO_CACHE_MAX // 20)
+        oldest = sorted(_geo_cache.items(), key=lambda kv: kv[1]['ts'])[:drop]
+        for k, _ in oldest:
+            _geo_cache.pop(k, None)
     return _geo_cache[ip]['data']
 
 def throttle(max_calls=20, time_window=10):
@@ -208,6 +231,13 @@ def resolve_task(ip):
         if hostname != ip:
             _dns_cache[ip] = hostname
             _dns_ttl[ip] = time.time()
+            # Bound DNS cache size
+            if len(_dns_cache) > DNS_CACHE_MAX:
+                # prune oldest by ttl
+                items = sorted(_dns_ttl.items(), key=lambda kv: kv[1])
+                for k, _ in items[: max(1, DNS_CACHE_MAX // 20)]:
+                    _dns_cache.pop(k, None)
+                    _dns_ttl.pop(k, None)
     except Exception:
         pass
 
@@ -373,8 +403,11 @@ def run_nfdump(args, tf=None):
         cmd = ["nfdump","-R","/var/cache/nfdump","-o","csv"]
         if tf: cmd.extend(["-t",tf])
         cmd.extend(args)
-        # Check if nfdump exists
-        if subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+        # Check if nfdump exists (cached)
+        global _has_nfdump
+        if _has_nfdump is None:
+            _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+        if _has_nfdump:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
@@ -679,7 +712,7 @@ def send_webhook(alerts):
 
 def record_history(alerts):
     if not alerts: return
-    ts = datetime.utcnow().isoformat()+'Z'
+    ts = datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
     for a in alerts:
         entry = {"ts": ts, "msg": a.get('msg'), "severity": a.get('severity','info')}
         _alert_history.appendleft(entry)
@@ -727,11 +760,13 @@ def get_common_nfdump_data(query_type, range_key):
     now = time.time()
     cache_key = f"{query_type}:{range_key}"
 
+    # Align to 60s window
+    win = int(now // 60)
+    cache_key = f"{query_type}:{range_key}:{win}"
     with _common_data_lock:
-        if cache_key in _common_data_cache:
-            entry = _common_data_cache[cache_key]
-            if now - entry["ts"] < 60:
-                return entry["data"]
+        entry = _common_data_cache.get(cache_key)
+        if entry:
+            return entry["data"]
 
     tf = get_time_range(range_key)
     data = []
@@ -752,7 +787,7 @@ def get_common_nfdump_data(query_type, range_key):
         data = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
 
     with _common_data_lock:
-        _common_data_cache[cache_key] = {"data": data, "ts": now}
+        _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
 
     return data
 
@@ -761,8 +796,9 @@ def get_common_nfdump_data(query_type, range_key):
 def api_stats_summary():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_summary_cache["data"] and _stats_summary_cache["key"] == range_key and now - _stats_summary_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_summary:
+        if _stats_summary_cache["data"] and _stats_summary_cache.get("key") == range_key and _stats_summary_cache.get("win") == win:
             return jsonify(_stats_summary_cache["data"])
 
     tf = get_time_range(range_key)
@@ -781,10 +817,11 @@ def api_stats_summary():
         "notify": load_notify_cfg(),
         "threat_status": _threat_status
     }
-    with _cache_lock:
+    with _lock_summary:
         _stats_summary_cache["data"] = data
         _stats_summary_cache["ts"] = now
         _stats_summary_cache["key"] = range_key
+        _stats_summary_cache["win"] = win
     return jsonify(data)
 
 
@@ -793,8 +830,9 @@ def api_stats_summary():
 def api_stats_sources():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_sources_cache["data"] and _stats_sources_cache["key"] == range_key and now - _stats_sources_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_sources:
+        if _stats_sources_cache["data"] and _stats_sources_cache["key"] == range_key and _stats_sources_cache.get("win") == win:
             return jsonify(_stats_sources_cache["data"])
 
     tf = get_time_range(range_key)
@@ -817,10 +855,11 @@ def api_stats_sources():
         i["threat"] = False
 
     data = {"sources": sources}
-    with _cache_lock:
+    with _lock_sources:
         _stats_sources_cache["data"] = data
         _stats_sources_cache["ts"] = now
         _stats_sources_cache["key"] = range_key
+        _stats_sources_cache["win"] = win
     return jsonify(data)
 
 
@@ -829,8 +868,9 @@ def api_stats_sources():
 def api_stats_destinations():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_dests_cache["data"] and _stats_dests_cache["key"] == range_key and now - _stats_dests_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_dests:
+        if _stats_dests_cache["data"] and _stats_dests_cache["key"] == range_key and _stats_dests_cache.get("win") == win:
             return jsonify(_stats_dests_cache["data"])
 
     tf = get_time_range(range_key)
@@ -850,10 +890,11 @@ def api_stats_destinations():
         i["threat"] = False
 
     data = {"destinations": dests}
-    with _cache_lock:
+    with _lock_dests:
         _stats_dests_cache["data"] = data
         _stats_dests_cache["ts"] = now
         _stats_dests_cache["key"] = range_key
+        _stats_dests_cache["win"] = win
     return jsonify(data)
 
 
@@ -862,8 +903,9 @@ def api_stats_destinations():
 def api_stats_ports():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_ports_cache["data"] and _stats_ports_cache["key"] == range_key and now - _stats_ports_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_ports:
+        if _stats_ports_cache["data"] and _stats_ports_cache["key"] == range_key and _stats_ports_cache.get("win") == win:
             return jsonify(_stats_ports_cache["data"])
 
     tf = get_time_range(range_key)
@@ -882,10 +924,11 @@ def api_stats_ports():
             i["suspicious"] = False
 
     data = {"ports": ports}
-    with _cache_lock:
+    with _lock_ports:
         _stats_ports_cache["data"] = data
         _stats_ports_cache["ts"] = now
         _stats_ports_cache["key"] = range_key
+        _stats_ports_cache["win"] = win
     return jsonify(data)
 
 @app.route("/api/stats/protocols")
@@ -893,8 +936,9 @@ def api_stats_ports():
 def api_stats_protocols():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_protocols_cache["data"] and _stats_protocols_cache["key"] == range_key and now - _stats_protocols_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_protocols:
+        if _stats_protocols_cache["data"] and _stats_protocols_cache["key"] == range_key and _stats_protocols_cache.get("win") == win:
             return jsonify(_stats_protocols_cache["data"])
 
     tf = get_time_range(range_key)
@@ -910,10 +954,11 @@ def api_stats_protocols():
             i["proto_name"] = i["key"]
 
     data = {"protocols": protos_raw}
-    with _cache_lock:
+    with _lock_protocols:
         _stats_protocols_cache["data"] = data
         _stats_protocols_cache["ts"] = now
         _stats_protocols_cache["key"] = range_key
+        _stats_protocols_cache["win"] = win
     return jsonify(data)
 
 @app.route("/api/stats/flags")
@@ -923,8 +968,9 @@ def api_stats_flags():
     # Parse raw flows using nfdump
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_flags_cache["data"] and _stats_flags_cache["key"] == range_key and now - _stats_flags_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_flags:
+        if _stats_flags_cache["data"] and _stats_flags_cache["key"] == range_key and _stats_flags_cache.get("win") == win:
             return jsonify(_stats_flags_cache["data"])
 
     tf = get_time_range(range_key)
@@ -959,10 +1005,11 @@ def api_stats_flags():
 
         top = [{"flag": k, "count": v} for k,v in clean_counts.most_common(5)]
         data = {"flags": top}
-        with _cache_lock:
+        with _lock_flags:
             _stats_flags_cache["data"] = data
             _stats_flags_cache["ts"] = now
             _stats_flags_cache["key"] = range_key
+            _stats_flags_cache["win"] = win
         return jsonify(data)
     except Exception as e:
         return jsonify({"flags": []})
@@ -973,8 +1020,9 @@ def api_stats_asns():
     # New Feature: Top ASNs
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and now - _stats_asns_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_asns:
+        if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and _stats_asns_cache.get("win") == win:
             return jsonify(_stats_asns_cache["data"])
 
     tf = get_time_range(range_key)
@@ -992,10 +1040,11 @@ def api_stats_asns():
 
     top = [{"asn": k, "bytes": v, "bytes_fmt": fmt_bytes(v)} for k,v in asn_counts.most_common(10)]
     data = {"asns": top}
-    with _cache_lock:
+    with _lock_asns:
         _stats_asns_cache["data"] = data
         _stats_asns_cache["ts"] = now
         _stats_asns_cache["key"] = range_key
+        _stats_asns_cache["win"] = win
     return jsonify(data)
 
 @app.route("/api/stats/durations")
@@ -1004,8 +1053,9 @@ def api_stats_durations():
     # New Feature: Longest Duration Flows
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_durations_cache["data"] and _stats_durations_cache["key"] == range_key and now - _stats_durations_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_durations:
+        if _stats_durations_cache["data"] and _stats_durations_cache["key"] == range_key and _stats_durations_cache.get("win") == win:
             return jsonify(_stats_durations_cache["data"])
 
     tf = get_time_range(range_key)
@@ -1054,10 +1104,11 @@ def api_stats_durations():
             f['duration_fmt'] = f"{f['duration']:.2f}s"
 
         data = {"durations": sorted_flows}
-        with _cache_lock:
+        with _lock_durations:
             _stats_durations_cache["data"] = data
             _stats_durations_cache["ts"] = now
             _stats_durations_cache["key"] = range_key
+            _stats_durations_cache["win"] = win
         return jsonify(data)
     except Exception as e:
         return jsonify({"durations": []})
@@ -1129,8 +1180,9 @@ def api_stats_packet_sizes():
 def api_alerts():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    with _cache_lock:
-        if _stats_alerts_cache["data"] and _stats_alerts_cache["key"] == range_key and now - _stats_alerts_cache["ts"] < 60:
+    win = int(now // 60)
+    with _lock_alerts:
+        if _stats_alerts_cache["data"] and _stats_alerts_cache["key"] == range_key and _stats_alerts_cache.get("win") == win:
             return jsonify(_stats_alerts_cache["data"])
 
     tf = get_time_range(range_key)
@@ -1149,10 +1201,11 @@ def api_alerts():
         "alerts": alerts, # Not limited to 10
         "feed_label": get_feed_label()
     }
-    with _cache_lock:
+    with _lock_alerts:
         _stats_alerts_cache["data"] = data
         _stats_alerts_cache["ts"] = now
         _stats_alerts_cache["key"] = range_key
+        _stats_alerts_cache["win"] = win
     return jsonify(data)
 
 
@@ -1179,7 +1232,7 @@ def api_bandwidth():
     cache_key = f"bw_{range_key}"
 
     # Check cache with range key validation
-    with _cache_lock:
+    with _lock_bandwidth:
         if _bandwidth_cache.get("data") and _bandwidth_cache.get("key") == cache_key and now_ts - _bandwidth_cache.get("ts", 0) < 5:
             global _metric_bw_cache_hits
             _metric_bw_cache_hits += 1
@@ -1230,8 +1283,14 @@ def api_bandwidth():
                 if is_completed:
                     _bandwidth_history_cache[tf_key] = {"bw": val_bw, "flows": val_flows}
 
-        data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.utcnow().isoformat()+"Z"}
-        with _cache_lock:
+        # Prune bandwidth history to limit memory growth (keep last 500 intervals)
+        if len(_bandwidth_history_cache) > 500:
+            keys = sorted(_bandwidth_history_cache.keys())
+            for k in keys[:-500]:
+                _bandwidth_history_cache.pop(k, None)
+
+        data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
+        with _lock_bandwidth:
             _bandwidth_cache["data"] = data
             _bandwidth_cache["ts"] = now_ts
             _bandwidth_cache["key"] = cache_key
@@ -1320,12 +1379,7 @@ def api_conversations():
                 "service": r['service'],
                 "packets": r['packets']
             })
-
-    except Exception as e:
-        print(f"Error parsing conversations: {e}")
-        pass
-
-    data = {"conversations":convs, "generated_at": datetime.utcnow().isoformat()+"Z"}
+    data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
     return jsonify(data)
 
 @app.route("/api/ip_detail/<ip>")
