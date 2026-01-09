@@ -3,6 +3,8 @@ document.addEventListener('alpine:init', () => {
         initDone: false,
 
         firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false },
+        firewallStreamActive: false,
+        firewallES: null,
         timeRange: '1h',
         refreshInterval: 30000,
         refreshTimer: null,
@@ -61,6 +63,9 @@ document.addEventListener('alpine:init', () => {
             // Initialize drag-and-drop after DOM paints
             this.$nextTick(() => this.setupDragAndDrop());
             this.startTimer();
+
+            // Start real-time firewall stream (SSE) if supported
+            this.startFirewallStream();
 
             // Watchers
             this.$watch('timeRange', () => {
@@ -147,7 +152,9 @@ document.addEventListener('alpine:init', () => {
             this.fetchProtocols();
             this.fetchAlerts();
             this.fetchConversations();
+            if (!this.firewallStreamActive) {
                 this.fetchFirewall();
+            }
 
             // New Features
             this.fetchFlags();
@@ -213,6 +220,32 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/firewall?range=${this.timeRange}`);
                 if(res.ok) this.firewall = { ...(await res.json()).firewall, loading: false };
             } catch(e) { console.error(e); } finally { this.firewall.loading = false; }
+        },
+
+        startFirewallStream() {
+            try {
+                if (!('EventSource' in window)) return;
+                if (this.firewallES) return;
+                const es = new EventSource('/api/stats/firewall/stream');
+                this.firewallES = es;
+                es.onopen = () => { this.firewallStreamActive = true; };
+                es.onmessage = (evt) => {
+                    try {
+                        const data = JSON.parse(evt.data);
+                        if (data && data.firewall) {
+                            this.firewall = { ...data.firewall, loading: false };
+                        }
+                    } catch (e) { console.error(e); }
+                };
+                es.onerror = () => {
+                    // Mark inactive and retry later
+                    this.firewallStreamActive = false;
+                    try { es.close(); } catch(_){}
+                    this.firewallES = null;
+                    // Retry after a delay
+                    setTimeout(() => this.startFirewallStream(), 5000);
+                };
+            } catch(e) { console.error(e); }
         },
 
         async fetchProtocols() {

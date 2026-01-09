@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 import subprocess, time, os, json, smtplib
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
@@ -1605,6 +1605,11 @@ _snmp_cache = {"data": None, "ts": 0}
 _snmp_cache_lock = threading.Lock()
 _snmp_prev_sample = {"ts": 0, "wan_in": 0, "wan_out": 0, "lan_in": 0, "lan_out": 0}
 
+# Real-time SNMP polling controls
+SNMP_POLL_INTERVAL = float(os.getenv("SNMP_POLL_INTERVAL", "2"))  # seconds
+SNMP_CACHE_TTL = float(os.getenv("SNMP_CACHE_TTL", str(max(1.0, SNMP_POLL_INTERVAL))))
+_snmp_thread_started = False
+
 
 def format_uptime(uptime_str):
     """Convert uptime from 0:17:42:05.92 to readable format"""
@@ -1633,7 +1638,7 @@ def get_snmp_data():
     now = time.time()
     
     with _snmp_cache_lock:
-        if _snmp_cache["data"] and now - _snmp_cache["ts"] < 30:
+        if _snmp_cache["data"] and now - _snmp_cache["ts"] < SNMP_CACHE_TTL:
             return _snmp_cache["data"]
     
     try:
@@ -1785,12 +1790,53 @@ def get_snmp_data():
         return {}
 
 
+def start_snmp_thread():
+    """Start background SNMP polling to enable near real-time updates."""
+    global _snmp_thread_started
+    if _snmp_thread_started:
+        return
+    _snmp_thread_started = True
+
+    def loop():
+        while True:
+            try:
+                # This will update the cache and compute deltas
+                get_snmp_data()
+            except Exception:
+                pass
+            time.sleep(max(0.2, SNMP_POLL_INTERVAL))
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
 @app.route("/api/stats/firewall")
 @throttle(5, 10)
 def api_stats_firewall():
     """Firewall health stats from SNMP"""
+    start_snmp_thread()
     data = get_snmp_data()
     return jsonify({"firewall": data})
+
+
+@app.route("/api/stats/firewall/stream")
+def api_stats_firewall_stream():
+    """Server-Sent Events stream for near real-time firewall stats."""
+    start_snmp_thread()
+
+    def event_stream():
+        last_ts = 0
+        while True:
+            with _snmp_cache_lock:
+                data = _snmp_cache.get("data")
+                ts = _snmp_cache.get("ts", 0)
+            if ts and ts != last_ts and data is not None:
+                payload = json.dumps({"firewall": data})
+                yield f"data: {payload}\n\n"
+                last_ts = ts
+            time.sleep(max(0.2, SNMP_POLL_INTERVAL / 2.0))
+
+    return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
