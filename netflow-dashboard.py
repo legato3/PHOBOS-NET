@@ -382,19 +382,27 @@ def parse_csv(output, expected_key=None):
         key_idx = -1
 
         # Priority check for expected key
+        # NOTE: nfdump -s (aggregation) uses "val" column for the key, not sa/da/dp/etc
         if expected_key:
-            if expected_key in cols: key_idx = cols.index(expected_key)
-            elif expected_key == 'proto' and 'pr' in cols: key_idx = cols.index('pr')
-            elif expected_key == 'proto' and 'proto' in cols: key_idx = cols.index('proto')
+            # First check for "val" which is used in aggregation mode
+            if 'val' in cols:
+                key_idx = cols.index('val')
+            elif expected_key in cols:
+                key_idx = cols.index(expected_key)
+            elif expected_key == 'proto' and 'pr' in cols:
+                key_idx = cols.index('pr')
+            elif expected_key == 'proto' and 'proto' in cols:
+                key_idx = cols.index('proto')
 
         if key_idx == -1:
-            if 'sa' in cols: key_idx = cols.index('sa')
+            # Check for aggregation output first
+            if 'val' in cols: key_idx = cols.index('val')
+            elif 'sa' in cols: key_idx = cols.index('sa')
             elif 'da' in cols: key_idx = cols.index('da')
             elif 'sp' in cols: key_idx = cols.index('sp')
             elif 'dp' in cols: key_idx = cols.index('dp')
             elif 'pr' in cols: key_idx = cols.index('pr')
             elif 'proto' in cols: key_idx = cols.index('proto')
-            elif 'val' in cols: key_idx = cols.index('val') # generic
 
         # Fallback to hardcoded 4 if not found (matches previous behavior/mock)
         if key_idx == -1: key_idx = 4
