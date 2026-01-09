@@ -146,6 +146,34 @@
                 <div class="label">📊 5min Load</div>
                 <div class="sublabel">OPNsense</div>
             </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
+                <div class="label">🔌 Active Conns</div>
+                <div class="sublabel">TCP</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" x-text="firewall.proc_count || '--'">--</div>
+                <div class="label">⚙️ Processes</div>
+                <div class="sublabel">System</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value">
+                    <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
+                    <span style="color:var(--text-muted); font-size:0.5em">|</span>
+                    <span :class="firewall.if_lan_status == '1' ? 'text-green' : 'text-red'">LAN</span>
+                </div>
+                <div class="label">Interfaces</div>
+                <div class="sublabel">Status</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value" style="font-size:1.8em">
+                    <span class="text-red" x-text="firewall.tcp_fails || 0"></span>
+                    <span style="color:var(--text-muted); font-size:0.6em">/</span>
+                    <span class="text-purple" x-text="firewall.tcp_retrans || 0"></span>
+                </div>
+                <div class="label">TCP Errors</div>
+                <div class="sublabel">Fails / Retrans</div>
+            </div>
         </div>
 
         <!-- Bandwidth Chart -->
