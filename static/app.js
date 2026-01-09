@@ -30,6 +30,17 @@ document.addEventListener('alpine:init', () => {
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
         dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
+        // Thresholds (editable)
+        thresholds: {
+            util_warn: 70, util_crit: 90,
+            resets_warn: 0.1, resets_crit: 1.0,
+            ip_err_warn: 0.1, ip_err_crit: 1.0,
+            icmp_err_warn: 0.1, icmp_err_crit: 1.0,
+            if_err_warn: 0.1, if_err_crit: 1.0,
+            tcp_fails_warn: 0.5, tcp_fails_crit: 2.0,
+            tcp_retrans_warn: 1.0, tcp_retrans_crit: 5.0
+        },
+        thresholdsModalOpen: false,
 
         // Modal
         modalOpen: false,
@@ -46,6 +57,7 @@ document.addEventListener('alpine:init', () => {
             this.initDone = true;
             this.loadAll();
             this.loadNotifyStatus();
+            this.loadThresholds();
             this.startTimer();
 
             // Watchers
@@ -93,6 +105,32 @@ document.addEventListener('alpine:init', () => {
 
         togglePause() {
             this.paused = !this.paused;
+        },
+
+        openThresholds() { this.thresholdsModalOpen = true; },
+
+        async loadThresholds() {
+            try {
+                const res = await fetch('/api/thresholds');
+                if (res.ok) {
+                    const t = await res.json();
+                    this.thresholds = { ...this.thresholds, ...t };
+                }
+            } catch(e) { console.error(e); }
+        },
+
+        async saveThresholds() {
+            try {
+                const res = await fetch('/api/thresholds', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.thresholds)
+                });
+                if (res.ok) {
+                    const t = await res.json();
+                    this.thresholds = { ...this.thresholds, ...t };
+                    this.thresholdsModalOpen = false;
+                }
+            } catch(e) { console.error(e); }
         },
 
         async loadAll() {

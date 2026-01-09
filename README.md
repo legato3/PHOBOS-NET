@@ -103,12 +103,20 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/bandwidth` - Bandwidth time series
 - `/api/stats/firewall` - Firewall health metrics (SNMP)
 - `/api/alerts_history` - Historical alerts
+- `/api/thresholds` - GET current alert thresholds / POST to update
 
 ## 🔍 Sample Data
 
 The `sample_data/` directory contains real NetFlow examples and format documentation to help AI agents understand data structures.
 
 ## 🎯 Recent Updates
+
+### v2.2 - January 9, 2026
+- Advanced SNMP widgets: real-time WAN/LAN Mbps, utilization, swap usage
+- Interface error/discard rates with WARN/ALERT highlighting
+- TCP reliability (fails/s, retrans/s) and UDP rate widgets
+- User-editable thresholds with persistence (`/api/thresholds` + modal)
+- Env var overrides for SNMP and config paths
 
 ### v2.1 - January 9, 2026
 - **SNMP Firewall Monitoring**: Integrated OPNsense health metrics
@@ -131,3 +139,27 @@ See `sample_data/README.md` for data format documentation.
 ## 🔗 Repository
 
 https://github.com/legato3/PROX_NFDUMP
+
+## ⚙️ Environment Variables
+
+The dashboard supports configuration via environment variables:
+
+- `SNMP_HOST` (default: 192.168.0.1)
+- `SNMP_COMMUNITY` (default: Phoboshomesnmp_3)
+- `DNS_SERVER` (default: 192.168.0.6)
+- `SMTP_CFG_PATH` (default: /root/netflow-smtp.json)
+- `NOTIFY_CFG_PATH` (default: /root/netflow-notify.json)
+- `THRESHOLDS_CFG_PATH` (default: /root/netflow-thresholds.json)
+
+Thresholds API payload example (POST /api/thresholds):
+```json
+{
+  "util_warn": 70, "util_crit": 90,
+  "resets_warn": 0.1, "resets_crit": 1.0,
+  "ip_err_warn": 0.1, "ip_err_crit": 1.0,
+  "icmp_err_warn": 0.1, "icmp_err_crit": 1.0,
+  "if_err_warn": 0.1, "if_err_crit": 1.0,
+  "tcp_fails_warn": 0.5, "tcp_fails_crit": 2.0,
+  "tcp_retrans_warn": 1.0, "tcp_retrans_crit": 5.0
+}
+```

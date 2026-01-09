@@ -94,8 +94,9 @@ THREATLIST_PATH = "/root/threat-ips.txt"
 THREAT_FEED_URL_PATH = "/root/threat-feed.url"
 THREAT_WHITELIST = "/root/threat-whitelist.txt"
 WEBHOOK_PATH = "/root/netflow-webhook.url"
-SMTP_CFG_PATH = "/root/netflow-smtp.json"
-NOTIFY_CFG_PATH = "/root/netflow-notify.json"
+SMTP_CFG_PATH = os.getenv("SMTP_CFG_PATH", "/root/netflow-smtp.json")
+NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/root/netflow-notify.json")
+THRESHOLDS_CFG_PATH = os.getenv("THRESHOLDS_CFG_PATH", "/root/netflow-thresholds.json")
 SAMPLE_DATA_PATH = "sample_data/nfdump_flows.csv"
 
 mmdb_city = None
@@ -693,6 +694,61 @@ def save_notify_cfg(cfg):
         payload = {"email": bool(cfg.get('email', True)), "webhook": bool(cfg.get('webhook', True)), "mute_until": float(cfg.get('mute_until', 0) or 0)}
         with open(NOTIFY_CFG_PATH,'w') as f: json.dump(payload, f)
     except: pass
+
+# Thresholds config
+DEFAULT_THRESHOLDS = {
+    "util_warn": 70,
+    "util_crit": 90,
+    "resets_warn": 0.1,
+    "resets_crit": 1.0,
+    "ip_err_warn": 0.1,
+    "ip_err_crit": 1.0,
+    "icmp_err_warn": 0.1,
+    "icmp_err_crit": 1.0,
+    "if_err_warn": 0.1,
+    "if_err_crit": 1.0,
+    "tcp_fails_warn": 0.5,
+    "tcp_fails_crit": 2.0,
+    "tcp_retrans_warn": 1.0,
+    "tcp_retrans_crit": 5.0
+}
+
+def load_thresholds():
+    data = DEFAULT_THRESHOLDS.copy()
+    if os.path.exists(THRESHOLDS_CFG_PATH):
+        try:
+            with open(THRESHOLDS_CFG_PATH, 'r') as f:
+                file_cfg = json.load(f)
+                for k,v in file_cfg.items():
+                    try:
+                        # cast to float for rates, int for util
+                        if k.startswith('util_'):
+                            data[k] = int(v)
+                        else:
+                            data[k] = float(v)
+                    except:
+                        pass
+        except:
+            pass
+    return data
+
+def save_thresholds(cfg):
+    try:
+        data = load_thresholds()
+        for k in DEFAULT_THRESHOLDS.keys():
+            if k in cfg:
+                try:
+                    if k.startswith('util_'):
+                        data[k] = int(cfg[k])
+                    else:
+                        data[k] = float(cfg[k])
+                except:
+                    pass
+        with open(THRESHOLDS_CFG_PATH,'w') as f:
+            json.dump(data, f)
+        return data
+    except:
+        return load_thresholds()
 
 def send_email(alerts):
     notify = load_notify_cfg()
@@ -1476,15 +1532,23 @@ def api_notify_mute():
     save_notify_cfg(cfg)
     return jsonify(cfg)
 
+@app.route('/api/thresholds', methods=['GET', 'POST'])
+def api_thresholds():
+    if request.method == 'GET':
+        return jsonify(load_thresholds())
+    data = request.get_json(force=True, silent=True) or {}
+    saved = save_thresholds(data)
+    return jsonify(saved)
+
 
 # ===== SNMP Integration =====
 import subprocess
 import time
 import threading
 
-# SNMP Configuration
-SNMP_HOST = "192.168.0.1"
-SNMP_COMMUNITY = "Phoboshomesnmp_3"
+# SNMP Configuration (override with env vars)
+SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
+SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "Phoboshomesnmp_3")
 
 # SNMP OIDs
 SNMP_OIDS = {
@@ -1494,17 +1558,43 @@ SNMP_OIDS = {
     "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
     "mem_buffer": ".1.3.6.1.4.1.2021.4.11.0",       # Buffer memory KB
     "mem_cached": ".1.3.6.1.4.1.2021.4.15.0",       # Cached memory KB
+    # Swap
+    "swap_total": ".1.3.6.1.4.1.2021.4.3.0",       # Total swap KB
+    "swap_avail": ".1.3.6.1.4.1.2021.4.4.0",       # Available swap KB
     "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
     "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
+    "tcp_active_opens": ".1.3.6.1.2.1.6.5.0",      # tcpActiveOpens
+    "tcp_estab_resets": ".1.3.6.1.2.1.6.8.0",      # tcpEstabResets
     "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
     "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
     "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
     "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
     "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
+    # IP stack
+    "ip_in_discards": ".1.3.6.1.2.1.4.8.0",        # ipInDiscards
+    "ip_in_hdr_errors": ".1.3.6.1.2.1.4.4.0",      # ipInHdrErrors
+    "ip_in_addr_errors": ".1.3.6.1.2.1.4.5.0",     # ipInAddrErrors
+    "ip_forw_datagrams": ".1.3.6.1.2.1.4.6.0",     # ipForwDatagrams
+    "ip_in_delivers": ".1.3.6.1.2.1.4.9.0",        # ipInDelivers
+    "ip_out_requests": ".1.3.6.1.2.1.4.10.0",      # ipOutRequests
+    # ICMP
+    "icmp_in_errors": ".1.3.6.1.2.1.5.2.0",        # icmpInErrors
     "wan_in": ".1.3.6.1.2.1.31.1.1.1.6.1",         # igc0 in
     "wan_out": ".1.3.6.1.2.1.31.1.1.1.10.1",       # igc0 out
     "lan_in": ".1.3.6.1.2.1.31.1.1.1.6.2",         # igc1 in
     "lan_out": ".1.3.6.1.2.1.31.1.1.1.10.2",       # igc1 out
+    # Interface speeds (Mbps)
+    "wan_speed": ".1.3.6.1.2.1.31.1.1.1.15.1",     # ifHighSpeed WAN
+    "lan_speed": ".1.3.6.1.2.1.31.1.1.1.15.2",     # ifHighSpeed LAN
+    # Interface errors/discards (32-bit but fine for error counters)
+    "wan_in_err": ".1.3.6.1.2.1.2.2.1.14.1",
+    "wan_out_err": ".1.3.6.1.2.1.2.2.1.20.1",
+    "wan_in_disc": ".1.3.6.1.2.1.2.2.1.13.1",
+    "wan_out_disc": ".1.3.6.1.2.1.2.2.1.19.1",
+    "lan_in_err": ".1.3.6.1.2.1.2.2.1.14.2",
+    "lan_out_err": ".1.3.6.1.2.1.2.2.1.20.2",
+    "lan_in_disc": ".1.3.6.1.2.1.2.2.1.13.2",
+    "lan_out_disc": ".1.3.6.1.2.1.2.2.1.19.2",
     "disk_read": ".1.3.6.1.4.1.2021.13.15.1.1.12.2", # nda0 read bytes
     "disk_write": ".1.3.6.1.4.1.2021.13.15.1.1.13.2", # nda0 write bytes
     "udp_in": ".1.3.6.1.2.1.7.1.0",                # udpInDatagrams
@@ -1513,6 +1603,7 @@ SNMP_OIDS = {
 
 _snmp_cache = {"data": None, "ts": 0}
 _snmp_cache_lock = threading.Lock()
+_snmp_prev_sample = {"ts": 0, "wan_in": 0, "wan_out": 0, "lan_in": 0, "lan_out": 0}
 
 
 def format_uptime(uptime_str):
@@ -1561,7 +1652,18 @@ def get_snmp_data():
                 
                 if key.startswith("cpu_load"):
                     result[key] = float(clean_val)
-                elif key.startswith("mem_") or key in ("tcp_conns", "proc_count", "tcp_fails", "tcp_retrans", "wan_in", "wan_out", "lan_in", "lan_out", "disk_read", "disk_write", "udp_in", "udp_out"):
+                elif key.startswith("mem_") or key.startswith("swap_") or key in (
+                    "tcp_conns", "tcp_active_opens", "tcp_estab_resets",
+                    "proc_count",
+                    "tcp_fails", "tcp_retrans",
+                    "ip_in_discards", "ip_in_hdr_errors", "ip_in_addr_errors", "ip_forw_datagrams", "ip_in_delivers", "ip_out_requests",
+                    "icmp_in_errors",
+                    "wan_in", "wan_out", "lan_in", "lan_out",
+                    "wan_speed", "lan_speed",
+                    "wan_in_err", "wan_out_err", "wan_in_disc", "wan_out_disc",
+                    "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc",
+                    "disk_read", "disk_write", "udp_in", "udp_out"
+                ):
                     # Handle Counter64 prefix if present
                     if "Counter64:" in clean_val:
                         clean_val = clean_val.split(":")[-1].strip()
@@ -1585,10 +1687,89 @@ def get_snmp_data():
             mem_used = result["mem_total"] - result["mem_avail"] - mem_buffer - mem_cached
             result["mem_used"] = mem_used
             result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1)
+
+        # Swap usage
+        if result.get("swap_total") not in (None, 0) and "swap_avail" in result:
+            swap_used = max(result["swap_total"] - result["swap_avail"], 0)
+            result["swap_used"] = swap_used
+            result["swap_percent"] = round((swap_used / max(result["swap_total"], 1)) * 100, 1)
         
         if "cpu_load_1min" in result:
             result["cpu_percent"] = min(round((result["cpu_load_1min"] / 4.0) * 100, 1), 100)
         
+        # Interface speeds (Mbps)
+        if "wan_speed" in result:
+            result["wan_speed_mbps"] = int(result.get("wan_speed", 0))
+        if "lan_speed" in result:
+            result["lan_speed_mbps"] = int(result.get("lan_speed", 0))
+
+        # Compute interface rates (Mbps) using 64-bit counters and previous sample
+        global _snmp_prev_sample
+        prev_ts = _snmp_prev_sample.get("ts", 0)
+        if prev_ts > 0:
+            dt = max(1.0, now - prev_ts)
+            for prefix in ("wan", "lan"):
+                in_key = f"{prefix}_in"
+                out_key = f"{prefix}_out"
+                if in_key in result and out_key in result:
+                    prev_in = _snmp_prev_sample.get(in_key, 0)
+                    prev_out = _snmp_prev_sample.get(out_key, 0)
+                    d_in = result[in_key] - prev_in
+                    d_out = result[out_key] - prev_out
+                    # Guard against wrap or reset
+                    if d_in < 0: d_in = 0
+                    if d_out < 0: d_out = 0
+                    rx_mbps = (d_in * 8.0) / (dt * 1_000_000)
+                    tx_mbps = (d_out * 8.0) / (dt * 1_000_000)
+                    result[f"{prefix}_rx_mbps"] = round(rx_mbps, 2)
+                    result[f"{prefix}_tx_mbps"] = round(tx_mbps, 2)
+                    # Utilization if speed known
+                    spd = result.get(f"{prefix}_speed_mbps") or result.get(f"{prefix}_speed")
+                    if spd and spd > 0:
+                        util = ((rx_mbps + tx_mbps) / (spd)) * 100.0
+                        result[f"{prefix}_util_percent"] = round(util, 1)
+
+            # Generic counter rates (/s) for selected counters
+            rate_keys = [
+                "tcp_active_opens", "tcp_estab_resets",
+                "tcp_fails", "tcp_retrans",
+                "ip_in_discards", "ip_in_hdr_errors", "ip_in_addr_errors",
+                "ip_forw_datagrams", "ip_in_delivers", "ip_out_requests",
+                "icmp_in_errors",
+                "udp_in", "udp_out",
+                # Interface errors/discards (compute deltas for /s)
+                "wan_in_err", "wan_out_err", "wan_in_disc", "wan_out_disc",
+                "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc"
+            ]
+            for k in rate_keys:
+                if k in result:
+                    prev_v = _snmp_prev_sample.get(k, result[k])
+                    d = result[k] - prev_v
+                    if d < 0: d = 0
+                    result[f"{k}_s"] = round(d / dt, 2)
+        # Update previous sample
+        _snmp_prev_sample = {
+            "ts": now,
+            "wan_in": result.get("wan_in", 0),
+            "wan_out": result.get("wan_out", 0),
+            "lan_in": result.get("lan_in", 0),
+            "lan_out": result.get("lan_out", 0),
+            # Persist counter snapshots for rate calc next tick
+            "tcp_active_opens": result.get("tcp_active_opens", 0),
+            "tcp_estab_resets": result.get("tcp_estab_resets", 0),
+            "tcp_fails": result.get("tcp_fails", 0),
+            "tcp_retrans": result.get("tcp_retrans", 0),
+            "ip_in_discards": result.get("ip_in_discards", 0),
+            "ip_in_hdr_errors": result.get("ip_in_hdr_errors", 0),
+            "ip_in_addr_errors": result.get("ip_in_addr_errors", 0),
+            "ip_forw_datagrams": result.get("ip_forw_datagrams", 0),
+            "ip_in_delivers": result.get("ip_in_delivers", 0),
+            "ip_out_requests": result.get("ip_out_requests", 0),
+            "icmp_in_errors": result.get("icmp_in_errors", 0),
+            "udp_in": result.get("udp_in", 0),
+            "udp_out": result.get("udp_out", 0),
+        }
+
         # Format uptime for readability
         if "sys_uptime" in result:
             result["sys_uptime_formatted"] = format_uptime(result["sys_uptime"])
