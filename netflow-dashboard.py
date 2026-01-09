@@ -1413,6 +1413,12 @@ SNMP_OIDS = {
     "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
     "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
     "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
+    "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
+    "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
+    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
+    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
+    "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
+    "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
 }
 
 _snmp_cache = {"data": None, "ts": 0}
