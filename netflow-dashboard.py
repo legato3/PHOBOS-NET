@@ -26,6 +26,7 @@ _lock_flags = threading.Lock()
 _lock_asns = threading.Lock()
 _lock_durations = threading.Lock()
 _lock_bandwidth = threading.Lock()
+_lock_conversations = threading.Lock()
 _cache_lock = threading.Lock()  # generic small cache lock (e.g., packet sizes)
 # Caches for new endpoints
 _stats_summary_cache = {"data": None, "ts": 0, "key": None}
@@ -1360,6 +1361,13 @@ def api_bandwidth():
 def api_conversations():
     # LIMITED TO 10
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _lock_conversations:
+        if _conversations_cache.get("data") and _conversations_cache.get("key") == range_key and _conversations_cache.get("win") == win:
+            global _metric_conv_cache_hits
+            _metric_conv_cache_hits += 1
+            return jsonify(_conversations_cache["data"])
     tf = get_time_range(range_key)
 
     # Fetch raw flows to get actual conversation partners
@@ -1439,6 +1447,11 @@ def api_conversations():
     except:
         pass  # Parsing error
     data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
+    with _lock_conversations:
+        _conversations_cache["data"] = data
+        _conversations_cache["ts"] = now
+        _conversations_cache["key"] = range_key
+        _conversations_cache["win"] = win
     return jsonify(data)
 
 @app.route("/api/ip_detail/<ip>")

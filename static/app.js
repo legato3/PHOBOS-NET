@@ -12,6 +12,12 @@ document.addEventListener('alpine:init', () => {
         lastUpdate: '-',
         searchQuery: '',
 
+        // Fetch cadence control
+        lastHeavyFetch: 0,
+        heavyTTL: 60000, // 60s for heavy widgets
+        lastMediumFetch: 0,
+        mediumTTL: 30000, // 30s for conversations
+
         // Data Stores
         summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
         sources: { sources: [], loading: true },
@@ -144,6 +150,7 @@ document.addEventListener('alpine:init', () => {
             this.lastUpdate = new Date().toLocaleTimeString();
 
             // Parallel Requests
+            // Light endpoints (frequent)
             this.fetchSummary();
             this.fetchBandwidth();
             this.fetchSources();
@@ -151,16 +158,24 @@ document.addEventListener('alpine:init', () => {
             this.fetchPorts();
             this.fetchProtocols();
             this.fetchAlerts();
-            this.fetchConversations();
-            if (!this.firewallStreamActive) {
-                this.fetchFirewall();
+            if (!this.firewallStreamActive) this.fetchFirewall();
+
+            // Medium endpoint cadence (e.g., conversations)
+            const now = Date.now();
+            if (now - this.lastMediumFetch > this.mediumTTL) {
+                this.lastMediumFetch = now;
+                this.fetchConversations();
             }
 
             // New Features
-            this.fetchFlags();
-            this.fetchASNs();
-            this.fetchDurations();
-            this.fetchPacketSizes();
+            if (now - this.lastHeavyFetch > this.heavyTTL) {
+                this.lastHeavyFetch = now;
+                // Stagger heavy calls slightly to avoid spikes
+                setTimeout(() => this.fetchFlags(), 0);
+                setTimeout(() => this.fetchASNs(), 150);
+                setTimeout(() => this.fetchDurations(), 300);
+                setTimeout(() => this.fetchPacketSizes(), 450);
+            }
 
             this.loadNotifyStatus();
         },
