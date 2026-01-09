@@ -150,6 +150,9 @@ button.active {
     flex-direction: column;
     min-height: 200px; /* consistent height */
 }
+/* Draggable affordance */
+.card[draggable="true"] { cursor: move; }
+.card.dragging { opacity: 0.7; box-shadow: 0 0 0 2px var(--neon-cyan) inset; }
 
 /* Glow accent on corners */
 .card::before {

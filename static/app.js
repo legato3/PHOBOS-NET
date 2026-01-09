@@ -58,6 +58,8 @@ document.addEventListener('alpine:init', () => {
             this.loadAll();
             this.loadNotifyStatus();
             this.loadThresholds();
+            // Initialize drag-and-drop after DOM paints
+            this.$nextTick(() => this.setupDragAndDrop());
             this.startTimer();
 
             // Watchers
@@ -483,6 +485,103 @@ document.addEventListener('alpine:init', () => {
                 });
                 if(res.ok) this.loadNotifyStatus();
             } catch(e) { console.error(e); }
+        },
+
+        // ---- Drag & Drop Reordering ----
+        setupDragAndDrop() {
+            const grids = document.querySelectorAll('.grid[data-reorder="true"][data-grid-id]');
+            grids.forEach((grid) => {
+                const gridId = grid.getAttribute('data-grid-id');
+                // Apply saved order
+                this.applyGridOrder(grid, gridId);
+
+                grid.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    const afterEl = this.getCardAfterPosition(grid, e.clientY);
+                    const dragging = document.querySelector('.card.dragging');
+                    if (!dragging) return;
+                    if (afterEl == null) {
+                        grid.appendChild(dragging);
+                    } else {
+                        grid.insertBefore(dragging, afterEl);
+                    }
+                });
+
+                Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
+
+                const obs = new MutationObserver(() => {
+                    Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
+                });
+                obs.observe(grid, { childList: true });
+            });
+        },
+
+        makeCardDraggable(card, gridId) {
+            if (!(card instanceof HTMLElement) || card.classList.contains('wide-card')) return;
+            if (card.getAttribute('draggable') === 'true') return;
+            card.setAttribute('draggable', 'true');
+            if (!card.dataset.widgetId) card.dataset.widgetId = this.computeWidgetId(card, gridId);
+            card.addEventListener('dragstart', () => { card.classList.add('dragging'); });
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                const grid = card.closest('.grid[data-grid-id]');
+                if (grid) {
+                    const gid = grid.getAttribute('data-grid-id');
+                    this.saveGridOrder(grid, gid);
+                }
+            });
+        },
+
+        computeWidgetId(card, gridId) {
+            let txt = '';
+            const h2span = card.querySelector('h2 span');
+            if (h2span) txt = h2span.textContent.trim();
+            if (!txt) {
+                const label = card.querySelector('.label');
+                if (label) txt = label.textContent.trim();
+            }
+            if (!txt) txt = 'card';
+            txt = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            return gridId + ':' + txt;
+        },
+
+        saveGridOrder(grid, gridId) {
+            const ids = Array.from(grid.children)
+                .filter(el => el instanceof HTMLElement && !el.classList.contains('wide-card'))
+                .map(el => el.dataset.widgetId || '');
+            try { localStorage.setItem('gridOrder:' + gridId, JSON.stringify(ids)); } catch(e) { console.error(e); }
+        },
+
+        applyGridOrder(grid, gridId) {
+            try {
+                const raw = localStorage.getItem('gridOrder:' + gridId);
+                if (!raw) return;
+                const order = JSON.parse(raw);
+                const map = new Map();
+                Array.from(grid.children).forEach(el => {
+                    if (el instanceof HTMLElement) {
+                        if (!el.dataset.widgetId) el.dataset.widgetId = this.computeWidgetId(el, gridId);
+                        map.set(el.dataset.widgetId, el);
+                    }
+                });
+                order.forEach(id => {
+                    const el = map.get(id);
+                    if (el) grid.appendChild(el);
+                });
+            } catch(e) { console.error(e); }
+        },
+
+        getCardAfterPosition(grid, y) {
+            const cards = [...grid.querySelectorAll('.card[draggable="true"]:not(.dragging)')];
+            return cards.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
         },
 
         async sendTestAlert() {

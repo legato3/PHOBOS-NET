@@ -110,7 +110,7 @@
         </div>
 
         <!-- Summary Stats -->
-        <div class="grid">
+        <div class="grid" data-reorder="true" data-grid-id="summary">
             <div class="card stat-box">
                 <div class="value" x-text="summary.totals.bytes_fmt">...</div>
                 <div class="label">Total Traffic</div>
@@ -132,7 +132,7 @@
             TCP resets ≥ <span x-text="thresholds.resets_warn"></span>/<span x-text="thresholds.resets_crit"></span> s⁻¹,
             IP/ICMP/IF errs ≥ <span x-text="thresholds.ip_err_warn"></span>/<span x-text="thresholds.ip_err_crit"></span> s⁻¹.
         </div>
-        <div class="grid">
+        <div class="grid" data-reorder="true" data-grid-id="firewall">
             <div class="card stat-box">
                 <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
                 <div class="label">🔥 CPU Usage</div>
@@ -351,7 +351,7 @@
         </div>
 
         <!-- New Analytics Row -->
-        <div class="grid">
+        <div class="grid" data-reorder="true" data-grid-id="analytics">
             <!-- TCP Flags -->
             <div class="card">
                 <h2>
@@ -427,7 +427,7 @@
         </div>
 
         <!-- Grid for Top Stats -->
-        <div class="grid">
+        <div class="grid" data-reorder="true" data-grid-id="topstats">
 
             <!-- Top Sources -->
             <div class="card">
