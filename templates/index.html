@@ -95,6 +95,7 @@
                         <a @click="sendTestAlert()">Send Test Alert</a>
                         <a @click="refreshFeed()">Refresh Threat Feed</a>
                         <a @click="openThresholds()">Edit Thresholds</a>
+                        <a @click="lowPower = !lowPower" x-text="lowPower ? 'Low Power: ON' : 'Low Power: OFF'"></a>
                         <div class="divider"></div>
                         <a @click="toggleNotify('email')" x-text="'Email: ' + (notify.email ? 'ON' : 'OFF')"></a>
                         <a @click="toggleNotify('webhook')" x-text="'Webhook: ' + (notify.webhook ? 'ON' : 'OFF')"></a>
@@ -462,6 +463,9 @@
                                         <span x-text="item.region"></span>
                                         <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
                                     </div>
+                                    <div style="margin-top:4px;">
+                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="source"></canvas>
+                                    </div>
                                     <div style="margin-top:2px;">
                                          <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
                                          <span class="badge threat" x-show="item.threat">THREAT</span>
@@ -504,6 +508,9 @@
                                     <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                                         <span x-text="item.region"></span>
                                         <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    </div>
+                                    <div style="margin-top:4px;">
+                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="dest"></canvas>
                                     </div>
                                      <div style="margin-top:2px;">
                                          <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>

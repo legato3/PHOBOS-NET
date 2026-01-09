@@ -18,6 +18,13 @@ document.addEventListener('alpine:init', () => {
         lastMediumFetch: 0,
         mediumTTL: 30000, // 30s for conversations
 
+        // Low Power mode
+        lowPower: false,
+
+        // Sparkline cache
+        sparkCache: {}, // { key: { ts, labels, bytes } }
+        sparkTTL: 120000, // 2 minutes
+
         // Data Stores
         summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
         sources: { sources: [], loading: true },
@@ -79,6 +86,18 @@ document.addEventListener('alpine:init', () => {
             });
             this.$watch('refreshInterval', () => {
                  this.startTimer();
+            });
+            this.$watch('lowPower', (v) => {
+                if (v) {
+                    this.heavyTTL = 120000; // 120s
+                    this.mediumTTL = 60000;  // 60s
+                    this.refreshInterval = Math.max(this.refreshInterval, 60000);
+                } else {
+                    this.heavyTTL = 60000;
+                    this.mediumTTL = 30000;
+                    this.refreshInterval = Math.min(this.refreshInterval, 30000);
+                }
+                this.startTimer();
             });
         },
 
@@ -177,6 +196,10 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.fetchPacketSizes(), 450);
             }
 
+            // Render sparklines for top IPs (throttled via sparkTTL)
+            this.renderSparklines('source');
+            this.renderSparklines('dest');
+
             this.loadNotifyStatus();
         },
 
@@ -210,6 +233,8 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/sources?range=${this.timeRange}`);
                 if(res.ok) this.sources = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.sources.loading = false; }
+            // defer sparkline draw after DOM update
+            this.$nextTick(() => this.renderSparklines('source'));
         },
 
         async fetchDestinations() {
@@ -218,6 +243,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/destinations?range=${this.timeRange}`);
                 if(res.ok) this.destinations = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.destinations.loading = false; }
+            this.$nextTick(() => this.renderSparklines('dest'));
         },
 
         async fetchPorts() {
@@ -679,6 +705,56 @@ document.addEventListener('alpine:init', () => {
 
         applyFilter(ip) {
             this.openIPModal(ip);
+        }
+
+        // ----- Sparklines -----
+        async renderSparklines(kind) {
+            try {
+                const canvases = Array.from(document.querySelectorAll(`canvas.spark[data-kind="${kind}"]`));
+                if (!canvases.length) return;
+                const range = (this.timeRange === '24h') ? '24h' : (this.timeRange === '6h' ? '6h' : '6h');
+                for (const c of canvases) {
+                    const ip = c.getAttribute('data-ip');
+                    if (!ip) continue;
+                    const cacheKey = `${kind}:${ip}:${range}`;
+                    const now = Date.now();
+                    const cached = this.sparkCache[cacheKey];
+                    if (cached && (now - cached.ts) < this.sparkTTL) {
+                        this.drawSparkline(c, cached.bytes);
+                        continue;
+                    }
+                    // Fetch trend
+                    const url = kind === 'source' ? `/api/trends/source/${ip}?range=${range}` : `/api/trends/dest/${ip}?range=${range}`;
+                    fetch(url).then(r => r.json()).then(data => {
+                        const arr = Array.isArray(data.bytes) ? data.bytes : [];
+                        this.sparkCache[cacheKey] = { ts: now, bytes: arr };
+                        this.drawSparkline(c, arr);
+                    }).catch(()=>{});
+                }
+            } catch(e) { console.error(e); }
+        },
+
+        drawSparkline(canvas, values) {
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0,0,w,h);
+            if (!values || values.length === 0) return;
+            const max = Math.max(...values, 1);
+            const step = w / Math.max(values.length - 1, 1);
+            // Gradient neon line
+            const grad = ctx.createLinearGradient(0,0,w,0);
+            grad.addColorStop(0, '#00f3ff');
+            grad.addColorStop(1, '#bc13fe');
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let i=0;i<values.length;i++) {
+                const x = i * step;
+                const y = h - (values[i]/max) * (h-2) - 1;
+                if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            }
+            ctx.stroke();
         }
     }))
 });
