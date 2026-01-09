@@ -214,7 +214,8 @@ def resolve_task(ip):
 def resolve_ip(ip):
     now = time.time()
     if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < 300:
-        return _dns_cache[ip]
+        # If cached value is not yet resolved (None), fall back to IP string
+        return _dns_cache[ip] or ip
 
     # Not in cache or expired, trigger background resolution
     if ip not in _dns_cache: # Only trigger if not present at all to avoid spamming
@@ -452,8 +453,9 @@ def parse_csv(output, expected_key=None):
         # Updated fallbacks to match standard nfdump CSV (sa=3, da=4, sp=5, dp=6, proto=7, ... ibyt=12)
         if key_idx == -1: key_idx = 3 # Default to srcip (sa) if undetermined
         if bytes_idx == -1: bytes_idx = 12
-        if flows_idx == -1: flows_idx = 9 # flows usually earlier than bytes? No, standard is fwd status? No, flows usually around 9-11
-        if packets_idx == -1: packets_idx = 11
+        # If flow/packet columns are absent in aggregation, treat as 0 instead of guessing indexes
+        # flows_idx remains -1 when not present
+        # packets_idx remains -1 when not present
 
     except ValueError:
         return results
@@ -472,8 +474,8 @@ def parse_csv(output, expected_key=None):
             if key in seen_keys: continue
             seen_keys.add(key)
             bytes_val = int(float(parts[bytes_idx]))
-            flows_val = int(float(parts[flows_idx]))
-            packets_val = int(float(parts[packets_idx]))
+            flows_val = int(float(parts[flows_idx])) if flows_idx != -1 and len(parts) > flows_idx else 0
+            packets_val = int(float(parts[packets_idx])) if packets_idx != -1 and len(parts) > packets_idx else 0
             if bytes_val > 0:
                 results.append({"key":key,"bytes":bytes_val,"flows":flows_val,"packets":packets_val})
         except Exception:
