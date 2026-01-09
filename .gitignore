@@ -1,3 +1,5 @@
+ # Local SQLite databases
+*.sqlite
 # Sensitive files
 netflow-smtp.json
 netflow-webhook.url
