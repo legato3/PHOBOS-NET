@@ -28,7 +28,9 @@ _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
 _stats_pkts_cache = {"data": None, "ts": 0, "key": None}
 
-_mock_data_cache = {"mtime": 0, "rows": []}
+_mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
+# Lock for thread-safe access to mock data cache (performance optimization)
+_mock_lock = threading.Lock()
 
 _bandwidth_cache = {"data": None, "ts": 0}
 _bandwidth_history_cache = {}
@@ -227,34 +229,43 @@ def mock_nfdump(args):
     # args is list like ["-s", "srcip/bytes/flows/packets", "-n", "20"]
     # We parse the CSV and Aggregate
     global _mock_data_cache
-    rows = []
-    try:
-        mtime = os.path.getmtime(SAMPLE_DATA_PATH)
-        if mtime != _mock_data_cache["mtime"]:
-            new_rows = []
-            with open(SAMPLE_DATA_PATH, 'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    parts = line.strip().split(',')
-                    if len(parts) > 12:
-                        # CSV Format derived from sample:
-                        # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
-                        try:
-                            row = {
-                                "ts": parts[0], "te": parts[1], "td": float(parts[2]),
-                                "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
-                                "proto": parts[7], "flg": parts[8],
-                                "pkts": int(parts[11]), "bytes": int(parts[12])
-                            }
-                            new_rows.append(row)
-                        except:
-                            pass
-            _mock_data_cache["rows"] = new_rows
-            _mock_data_cache["mtime"] = mtime
-        rows = _mock_data_cache["rows"]
-    except Exception as e:
-        print(f"Mock error: {e}")
-        return ""
+
+    with _mock_lock:
+        # Optimization: Cache output based on args to avoid re-aggregating same data
+        # This speeds up repeated calls (e.g. bandwidth API loops) significantly
+        cache_key = tuple(args)
+        if "output_cache" in _mock_data_cache and cache_key in _mock_data_cache["output_cache"]:
+            return _mock_data_cache["output_cache"][cache_key]
+
+        rows = []
+        try:
+            mtime = os.path.getmtime(SAMPLE_DATA_PATH)
+            if mtime != _mock_data_cache["mtime"]:
+                new_rows = []
+                with open(SAMPLE_DATA_PATH, 'r') as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        parts = line.strip().split(',')
+                        if len(parts) > 12:
+                            # CSV Format derived from sample:
+                            # 0:ts, 1:te, 2:td, 3:sa, 4:da, 5:sp, 6:dp, 7:proto, 8:flg, 9:?, 10:?, 11:pkts, 12:bytes
+                            try:
+                                row = {
+                                    "ts": parts[0], "te": parts[1], "td": float(parts[2]),
+                                    "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
+                                    "proto": parts[7], "flg": parts[8],
+                                    "pkts": int(parts[11]), "bytes": int(parts[12])
+                                }
+                                new_rows.append(row)
+                            except:
+                                pass
+                _mock_data_cache["rows"] = new_rows
+                _mock_data_cache["mtime"] = mtime
+                _mock_data_cache["output_cache"] = {} # Invalidate output cache
+            rows = _mock_data_cache["rows"]
+        except Exception as e:
+            print(f"Mock error: {e}")
+            return ""
 
     # Check aggregation
     agg_key = None
@@ -272,6 +283,8 @@ def mock_nfdump(args):
         try: limit = int(args[idx])
         except: pass
 
+    out = ""
+
     # If asking for raw flows with limit (alerts detection usage)
     if not agg_key and "-n" in args and not "-s" in args:
          out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
@@ -279,6 +292,10 @@ def mock_nfdump(args):
              # Reconstruct line
              line = f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}"
              out += line + "\n"
+
+         with _mock_lock:
+             if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
+             _mock_data_cache["output_cache"][cache_key] = out
          return out
 
     if agg_key:
@@ -337,6 +354,10 @@ def mock_nfdump(args):
 
         # We must change the header variable to match
         out = out.replace("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt", "ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
+
+        with _mock_lock:
+             if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
+             _mock_data_cache["output_cache"][cache_key] = out
         return out
 
     return ""
