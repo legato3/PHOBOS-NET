@@ -59,9 +59,30 @@ GEO_CACHE_MAX = 2000
 
 _threat_cache = {"data": set(), "mtime": 0}
 _threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
+_threat_timeline = {}  # Maps IP -> {first_seen, last_seen, hit_count}
 _feed_status = {}  # Per-feed health tracking
 _alert_sent_ts = 0
-_alert_history = deque(maxlen=50)
+_alert_history = deque(maxlen=200)  # Increased for 24h history
+_alert_history_lock = threading.Lock()
+
+# Watchlist management
+WATCHLIST_PATH = "/root/watchlist.txt"
+_watchlist_cache = {"data": set(), "mtime": 0}
+
+# Security webhook for auto-blocking
+SECURITY_WEBHOOK_PATH = "/root/security-webhook.json"
+
+# MITRE ATT&CK mappings for threat categories
+MITRE_MAPPINGS = {
+    'C2': {'technique': 'T1071', 'tactic': 'Command and Control', 'name': 'Application Layer Protocol'},
+    'MALWARE': {'technique': 'T1105', 'tactic': 'Command and Control', 'name': 'Ingress Tool Transfer'},
+    'SCANNER': {'technique': 'T1595', 'tactic': 'Reconnaissance', 'name': 'Active Scanning'},
+    'BADACTOR': {'technique': 'T1190', 'tactic': 'Initial Access', 'name': 'Exploit Public-Facing Application'},
+    'COMPROMISED': {'technique': 'T1584', 'tactic': 'Resource Development', 'name': 'Compromise Infrastructure'},
+    'HIJACKED': {'technique': 'T1583', 'tactic': 'Resource Development', 'name': 'Acquire Infrastructure'},
+    'AGGREGATE': {'technique': 'T1071', 'tactic': 'Command and Control', 'name': 'Application Layer Protocol'},
+    'TOR': {'technique': 'T1090', 'tactic': 'Command and Control', 'name': 'Proxy'},
+}
 
 _spark_cache = {"src": {"labels": [], "data": {}, "ts": 0}, "dst": {"labels": [], "data": {}, "ts": 0}}
 _spark_cache_ttl = 600  # seconds
@@ -675,7 +696,181 @@ def fetch_threat_feed():
 
 def get_threat_info(ip):
     """Get threat category and feed name for an IP"""
-    return _threat_ip_to_feed.get(ip, {'category': 'UNKNOWN', 'feed': 'unknown'})
+    info = _threat_ip_to_feed.get(ip, {'category': 'UNKNOWN', 'feed': 'unknown'})
+    # Add MITRE ATT&CK mapping
+    mitre = MITRE_MAPPINGS.get(info.get('category', 'UNKNOWN'), {})
+    info['mitre_technique'] = mitre.get('technique', '')
+    info['mitre_tactic'] = mitre.get('tactic', '')
+    info['mitre_name'] = mitre.get('name', '')
+    return info
+
+
+def update_threat_timeline(ip):
+    """Track first/last seen timestamps for threat IPs"""
+    now = time.time()
+    if ip in _threat_timeline:
+        _threat_timeline[ip]['last_seen'] = now
+        _threat_timeline[ip]['hit_count'] += 1
+    else:
+        _threat_timeline[ip] = {
+            'first_seen': now,
+            'last_seen': now,
+            'hit_count': 1
+        }
+
+
+def get_threat_timeline(ip):
+    """Get timeline info for a threat IP"""
+    return _threat_timeline.get(ip, {'first_seen': 0, 'last_seen': 0, 'hit_count': 0})
+
+
+def load_watchlist():
+    """Load custom watchlist IPs"""
+    global _watchlist_cache
+    try:
+        if not os.path.exists(WATCHLIST_PATH):
+            return set()
+        mtime = os.path.getmtime(WATCHLIST_PATH)
+        if mtime != _watchlist_cache["mtime"]:
+            with open(WATCHLIST_PATH, "r") as f:
+                lines = [l.strip() for l in f if l.strip() and not l.startswith('#')]
+                _watchlist_cache["data"] = set(lines)
+                _watchlist_cache["mtime"] = mtime
+    except Exception:
+        pass
+    return _watchlist_cache["data"]
+
+
+def add_to_watchlist(ip):
+    """Add IP to watchlist"""
+    try:
+        watchlist = load_watchlist()
+        if ip in watchlist:
+            return False
+        with open(WATCHLIST_PATH, "a") as f:
+            f.write(f"\n{ip}")
+        _watchlist_cache["mtime"] = 0  # Force reload
+        return True
+    except Exception as e:
+        print(f"Error adding to watchlist: {e}")
+        return False
+
+
+def remove_from_watchlist(ip):
+    """Remove IP from watchlist"""
+    try:
+        watchlist = load_watchlist()
+        if ip not in watchlist:
+            return False
+        watchlist.discard(ip)
+        with open(WATCHLIST_PATH, "w") as f:
+            f.write('\n'.join(sorted(watchlist)))
+        _watchlist_cache["mtime"] = 0
+        return True
+    except Exception as e:
+        print(f"Error removing from watchlist: {e}")
+        return False
+
+
+def calculate_security_score():
+    """Calculate 0-100 security score based on current threat state"""
+    score = 100
+    reasons = []
+    
+    # Threat detections penalty (up to -40 points)
+    threat_count = len([ip for ip in _threat_timeline if time.time() - _threat_timeline[ip]['last_seen'] < 3600])
+    if threat_count > 0:
+        penalty = min(40, threat_count * 10)
+        score -= penalty
+        reasons.append(f"-{penalty}: {threat_count} active threats")
+    
+    # Feed health penalty (up to -20 points)
+    feeds_ok = sum(1 for f in _feed_status.values() if f.get('status') == 'ok')
+    feeds_total = len(_feed_status)
+    if feeds_total > 0:
+        feed_ratio = feeds_ok / feeds_total
+        if feed_ratio < 1.0:
+            penalty = int((1 - feed_ratio) * 20)
+            score -= penalty
+            reasons.append(f"-{penalty}: {feeds_total - feeds_ok} feeds down")
+    
+    # Blocklist coverage bonus (+10 if >50K IPs)
+    total_ips = _threat_status.get('size', 0)
+    if total_ips >= 50000:
+        score = min(100, score + 5)
+        reasons.append("+5: Good blocklist coverage")
+    elif total_ips < 10000:
+        score -= 5
+        reasons.append("-5: Low blocklist coverage")
+    
+    # Recent critical alerts penalty
+    now = time.time()
+    recent_critical = 0
+    with _alert_history_lock:
+        for alert in _alert_history:
+            if alert.get('severity') == 'critical' and now - alert.get('ts', 0) < 3600:
+                recent_critical += 1
+    if recent_critical > 0:
+        penalty = min(30, recent_critical * 5)
+        score -= penalty
+        reasons.append(f"-{penalty}: {recent_critical} critical alerts")
+    
+    # Clamp to 0-100
+    score = max(0, min(100, score))
+    
+    # Determine grade
+    if score >= 90:
+        grade = 'A'
+        status = 'excellent'
+    elif score >= 75:
+        grade = 'B'
+        status = 'good'
+    elif score >= 60:
+        grade = 'C'
+        status = 'fair'
+    elif score >= 40:
+        grade = 'D'
+        status = 'poor'
+    else:
+        grade = 'F'
+        status = 'critical'
+    
+    return {
+        'score': score,
+        'grade': grade,
+        'status': status,
+        'reasons': reasons,
+        'threats_active': threat_count if 'threat_count' in dir() else 0,
+        'feeds_ok': feeds_ok if 'feeds_ok' in dir() else 0,
+        'feeds_total': feeds_total if 'feeds_total' in dir() else 0,
+        'blocklist_ips': total_ips
+    }
+
+
+def send_security_webhook(threat_data):
+    """Send threat data to configured security webhook (for auto-blocking)"""
+    try:
+        if not os.path.exists(SECURITY_WEBHOOK_PATH):
+            return False
+        with open(SECURITY_WEBHOOK_PATH, 'r') as f:
+            config = json.load(f)
+        
+        url = config.get('url')
+        if not url:
+            return False
+        
+        headers = config.get('headers', {'Content-Type': 'application/json'})
+        payload = {
+            'source': 'netflow-dashboard',
+            'timestamp': time.time(),
+            'threat': threat_data
+        }
+        
+        requests.post(url, json=payload, headers=headers, timeout=5)
+        return True
+    except Exception as e:
+        print(f"Security webhook error: {e}")
+        return False
 
 
 def get_feed_label():
@@ -723,15 +918,60 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
         if item["key"] in threat_set:
             alert_key = f"threat_{item['key']}"
             if alert_key not in seen:
-                alerts.append({"type":"threat_ip","msg":f"🚨 {feed_label} match: {item['key']} ({fmt_bytes(item['bytes'])})","severity":"critical","feed":feed_label})
+                ip = item["key"]
+                info = get_threat_info(ip)
+                geo = lookup_geo(ip) or {}
+                alert = {
+                    "type": "threat_ip",
+                    "msg": f"🚨 {info.get('feed', feed_label)} match: {ip} ({fmt_bytes(item['bytes'])})",
+                    "severity": "critical",
+                    "feed": info.get('feed', feed_label),
+                    "ip": ip,
+                    "category": info.get('category', 'UNKNOWN'),
+                    "mitre": info.get('mitre_technique', ''),
+                    "country": geo.get('country_code', '--'),
+                    "bytes": item.get('bytes', 0),
+                    "ts": time.time()
+                }
+                alerts.append(alert)
+                seen.add(alert_key)
+                # Track timeline
+                update_threat_timeline(ip)
+                # Add to history
+                with _alert_history_lock:
+                    _alert_history.append(alert)
+                # Send to security webhook if configured
+                send_security_webhook(alert)
+
+        # Watchlist Check (custom watchlist)
+        watchlist = load_watchlist()
+        if item["key"] in watchlist:
+            alert_key = f"watchlist_{item['key']}"
+            if alert_key not in seen:
+                alerts.append({
+                    "type": "watchlist",
+                    "msg": f"👁️ Watchlist IP Activity: {item['key']}",
+                    "severity": "medium",
+                    "feed": "watchlist",
+                    "ip": item["key"],
+                    "ts": time.time()
+                })
                 seen.add(alert_key)
 
         # Test alert if 84.x.x.x (from sample, keeping this for UX demo)
-        if item["key"].startswith("84.192."):
-             alert_key = f"watchlist_{item['key']}"
+        elif item["key"].startswith("84.192."):
+             alert_key = f"demo_watchlist_{item['key']}"
              if alert_key not in seen:
-                 alerts.append({"type":"watchlist","msg":f"👁️ Watchlist IP Activity: {item['key']}","severity":"low","feed":"policy"})
+                 alerts.append({"type":"watchlist","msg":f"👁️ Demo Watchlist IP: {item['key']}","severity":"low","feed":"demo", "ts": time.time()})
                  seen.add(alert_key)
+
+    # Add all alerts to history
+    with _alert_history_lock:
+        for alert in alerts:
+            if 'ts' not in alert:
+                alert['ts'] = time.time()
+            if alert not in list(_alert_history):
+                _alert_history.append(alert)
 
     return alerts
 
@@ -1953,6 +2193,177 @@ def format_time_ago(ts):
         return f"{int(diff/3600)}h ago"
     else:
         return f"{int(diff/86400)}d ago"
+
+
+@app.route('/api/security/score')
+@throttle(5, 10)
+def api_security_score():
+    """Get current security score"""
+    return jsonify(calculate_security_score())
+
+
+@app.route('/api/security/alerts/history')
+@throttle(5, 10)
+def api_alert_history():
+    """Get alert history for past 24 hours"""
+    now = time.time()
+    cutoff = now - 86400  # 24 hours
+    
+    with _alert_history_lock:
+        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    
+    # Sort by timestamp descending
+    recent.sort(key=lambda x: x.get('ts', 0), reverse=True)
+    
+    # Format timestamps
+    for alert in recent:
+        ts = alert.get('ts', 0)
+        alert['time_ago'] = format_time_ago(ts)
+        alert['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts))
+    
+    # Group by hour for chart
+    hourly = defaultdict(int)
+    for alert in recent:
+        hour = time.strftime('%H:00', time.localtime(alert.get('ts', 0)))
+        hourly[hour] += 1
+    
+    return jsonify({
+        'alerts': recent[:100],
+        'total': len(recent),
+        'by_severity': {
+            'critical': sum(1 for a in recent if a.get('severity') == 'critical'),
+            'high': sum(1 for a in recent if a.get('severity') == 'high'),
+            'medium': sum(1 for a in recent if a.get('severity') == 'medium'),
+            'low': sum(1 for a in recent if a.get('severity') == 'low'),
+        },
+        'hourly': dict(hourly)
+    })
+
+
+@app.route('/api/security/threats/export')
+def api_export_threats():
+    """Export detected threats as JSON or CSV"""
+    fmt = request.args.get('format', 'json')
+    
+    # Get recent threats
+    now = time.time()
+    threats = []
+    for ip, timeline in _threat_timeline.items():
+        if now - timeline['last_seen'] < 86400:  # Last 24h
+            info = get_threat_info(ip)
+            geo = lookup_geo(ip) or {}
+            threats.append({
+                'ip': ip,
+                'category': info.get('category', 'UNKNOWN'),
+                'feed': info.get('feed', 'unknown'),
+                'mitre_technique': info.get('mitre_technique', ''),
+                'mitre_tactic': info.get('mitre_tactic', ''),
+                'country': geo.get('country_code', '--'),
+                'city': geo.get('city', ''),
+                'first_seen': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timeline['first_seen'])),
+                'last_seen': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timeline['last_seen'])),
+                'hit_count': timeline['hit_count']
+            })
+    
+    if fmt == 'csv':
+        import io
+        import csv
+        output = io.StringIO()
+        if threats:
+            writer = csv.DictWriter(output, fieldnames=threats[0].keys())
+            writer.writeheader()
+            writer.writerows(threats)
+        response = app.response_class(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=threats.csv'}
+        )
+        return response
+    
+    return jsonify({
+        'threats': threats,
+        'exported_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+        'total': len(threats)
+    })
+
+
+@app.route('/api/security/threats/by_country')
+@throttle(5, 10)
+def api_threats_by_country():
+    """Get threat counts grouped by country"""
+    country_stats = defaultdict(lambda: {'count': 0, 'ips': [], 'categories': defaultdict(int)})
+    
+    for ip, timeline in _threat_timeline.items():
+        if time.time() - timeline['last_seen'] < 86400:
+            geo = lookup_geo(ip) or {}
+            country = geo.get('country_code', 'XX')
+            country_name = geo.get('country', 'Unknown')
+            
+            country_stats[country]['count'] += 1
+            country_stats[country]['name'] = country_name
+            if len(country_stats[country]['ips']) < 5:
+                country_stats[country]['ips'].append(ip)
+            
+            info = get_threat_info(ip)
+            country_stats[country]['categories'][info.get('category', 'UNKNOWN')] += 1
+    
+    # Convert to list and sort
+    result = []
+    for code, data in country_stats.items():
+        result.append({
+            'country_code': code,
+            'country_name': data.get('name', 'Unknown'),
+            'threat_count': data['count'],
+            'sample_ips': data['ips'],
+            'categories': dict(data['categories'])
+        })
+    
+    result.sort(key=lambda x: x['threat_count'], reverse=True)
+    
+    return jsonify({
+        'countries': result[:20],
+        'total_countries': len(result)
+    })
+
+
+@app.route('/api/security/watchlist', methods=['GET'])
+@throttle(5, 10)
+def api_get_watchlist():
+    """Get current watchlist"""
+    watchlist = load_watchlist()
+    items = []
+    for ip in watchlist:
+        geo = lookup_geo(ip) or {}
+        items.append({
+            'ip': ip,
+            'country': geo.get('country_code', '--'),
+            'city': geo.get('city', '')
+        })
+    return jsonify({'watchlist': items, 'count': len(items)})
+
+
+@app.route('/api/security/watchlist', methods=['POST'])
+def api_add_watchlist():
+    """Add IP to watchlist"""
+    data = request.get_json(force=True, silent=True) or {}
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({'error': 'IP required'}), 400
+    
+    success = add_to_watchlist(ip)
+    return jsonify({'success': success, 'ip': ip})
+
+
+@app.route('/api/security/watchlist', methods=['DELETE'])
+def api_remove_watchlist():
+    """Remove IP from watchlist"""
+    data = request.get_json(force=True, silent=True) or {}
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({'error': 'IP required'}), 400
+    
+    success = remove_from_watchlist(ip)
+    return jsonify({'success': success, 'ip': ip})
 
 
 @app.route("/api/notify_status")

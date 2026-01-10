@@ -49,6 +49,15 @@ document.addEventListener('alpine:init', () => {
         durations: { durations: [], loading: true },
         packetSizes: { labels: [], data: [], loading: true },
         feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
+        
+        // Security Features
+        securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true },
+        alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
+        threatsByCountry: { countries: [], loading: true },
+        watchlist: { watchlist: [], count: 0, loading: true },
+        watchlistInput: '',
+        alertHistoryOpen: false,
+        watchlistModalOpen: false,
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -80,6 +89,9 @@ document.addEventListener('alpine:init', () => {
             maliciousPorts: 'Top Malicious Ports',
             blocklist: 'Blocklist Match Rate',
             feedHealth: 'Feed Health',
+            securityScore: 'Security Score',
+            alertHistory: 'Alert History',
+            threatsByCountry: 'Threats by Country',
             conversations: 'Recent Conversations'
         },
 
@@ -388,12 +400,16 @@ document.addEventListener('alpine:init', () => {
             this.fetchAlerts();
             if (!this.firewallStreamActive) this.fetchFirewall();
 
-            // Medium endpoint cadence (e.g., conversations, feed health)
+            // Medium endpoint cadence (e.g., conversations, feed health, security)
             const now = Date.now();
             if (now - this.lastMediumFetch > this.mediumTTL) {
                 this.lastMediumFetch = now;
                 this.fetchConversations();
                 this.fetchFeedHealth();
+                this.fetchSecurityScore();
+                this.fetchAlertHistory();
+                this.fetchThreatsByCountry();
+                this.fetchWatchlist();
             }
 
             // New Features
@@ -562,6 +578,87 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (e) { console.error('Feed health fetch error:', e); }
             finally { this.feedHealth.loading = false; }
+        },
+
+        async fetchSecurityScore() {
+            this.securityScore.loading = true;
+            try {
+                const res = await fetch('/api/security/score');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.securityScore = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Security score fetch error:', e); }
+            finally { this.securityScore.loading = false; }
+        },
+
+        async fetchAlertHistory() {
+            this.alertHistory.loading = true;
+            try {
+                const res = await fetch('/api/security/alerts/history');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.alertHistory = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Alert history fetch error:', e); }
+            finally { this.alertHistory.loading = false; }
+        },
+
+        async fetchThreatsByCountry() {
+            this.threatsByCountry.loading = true;
+            try {
+                const res = await fetch('/api/security/threats/by_country');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.threatsByCountry = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Threats by country fetch error:', e); }
+            finally { this.threatsByCountry.loading = false; }
+        },
+
+        async fetchWatchlist() {
+            this.watchlist.loading = true;
+            try {
+                const res = await fetch('/api/security/watchlist');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.watchlist = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Watchlist fetch error:', e); }
+            finally { this.watchlist.loading = false; }
+        },
+
+        async addToWatchlist(ip) {
+            if (!ip) ip = this.watchlistInput.trim();
+            if (!ip) return;
+            try {
+                const res = await fetch('/api/security/watchlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                if (res.ok) {
+                    this.watchlistInput = '';
+                    this.fetchWatchlist();
+                }
+            } catch (e) { console.error('Add to watchlist error:', e); }
+        },
+
+        async removeFromWatchlist(ip) {
+            try {
+                const res = await fetch('/api/security/watchlist', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                if (res.ok) {
+                    this.fetchWatchlist();
+                }
+            } catch (e) { console.error('Remove from watchlist error:', e); }
+        },
+
+        exportThreats(format) {
+            window.open(`/api/security/threats/export?format=${format}`, '_blank');
         },
 
         async fetchBlocklistRate() {
@@ -1069,6 +1166,9 @@ document.addEventListener('alpine:init', () => {
                 maliciousPorts: true,
                 blocklist: true,
                 feedHealth: true,
+                securityScore: true,
+                alertHistory: true,
+                threatsByCountry: true,
                 conversations: true
             };
             try {

@@ -636,8 +636,117 @@
                     <span class="security-stat">
                         <span x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span> IPs
                     </span>
+                    <span class="security-divider">·</span>
+                    <button class="btn-sm" @click="watchlistModalOpen = true" title="Manage Watchlist">👁️ Watchlist</button>
+                    <button class="btn-sm" @click="exportThreats('csv')" title="Export threats as CSV">📥 Export</button>
                 </div>
             </div>
+
+            <!-- Security Score Widget -->
+            <template x-if="isVisible('securityScore')">
+                <div class="card security-score-card" :class="{ 'widget-minimized': isMinimized('securityScore'), 'score-excellent': securityScore.grade === 'A', 'score-good': securityScore.grade === 'B', 'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade === 'D', 'score-critical': securityScore.grade === 'F' }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>🛡️ Security Score</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('securityScore')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('securityScore')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="securityScore.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="score-display" x-show="!isMinimized('securityScore')">
+                        <div class="score-gauge">
+                            <div class="score-circle" :style="'--score: ' + (securityScore.score || 0)">
+                                <span class="score-value" x-text="securityScore.score || 0"></span>
+                                <span class="score-grade" x-text="securityScore.grade || '-'"></span>
+                            </div>
+                        </div>
+                        <div class="score-details">
+                            <div class="score-status" x-text="securityScore.status || 'calculating...'"></div>
+                            <div class="score-reasons">
+                                <template x-for="reason in (securityScore.reasons || [])" :key="reason">
+                                    <div class="score-reason" x-text="reason"></div>
+                                </template>
+                            </div>
+                            <div class="score-stats">
+                                <span>🛡️ <span x-text="securityScore.blocklist_ips?.toLocaleString() || 0"></span> IPs in blocklist</span>
+                                <span>📡 <span x-text="securityScore.feeds_ok || 0"></span>/<span x-text="securityScore.feeds_total || 0"></span> feeds</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Alert History Widget -->
+            <template x-if="isVisible('alertHistory')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('alertHistory') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>📋 Alert History (24h)</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertHistory')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('alertHistory')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="alertHistory.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="alert-summary" x-show="!isMinimized('alertHistory')">
+                        <span class="alert-badge critical" x-show="alertHistory.by_severity?.critical > 0">🔴 <span x-text="alertHistory.by_severity?.critical || 0"></span> critical</span>
+                        <span class="alert-badge high" x-show="alertHistory.by_severity?.high > 0">🟠 <span x-text="alertHistory.by_severity?.high || 0"></span> high</span>
+                        <span class="alert-badge medium" x-show="alertHistory.by_severity?.medium > 0">🟡 <span x-text="alertHistory.by_severity?.medium || 0"></span> medium</span>
+                        <span class="alert-badge low" x-show="alertHistory.by_severity?.low > 0">🟢 <span x-text="alertHistory.by_severity?.low || 0"></span> low</span>
+                        <span style="color: var(--text-muted);">Total: <span x-text="alertHistory.total || 0"></span></span>
+                    </div>
+                    <table x-show="!isMinimized('alertHistory')">
+                        <thead><tr><th>Time</th><th>Type</th><th>Message</th><th>Severity</th></tr></thead>
+                        <tbody>
+                            <template x-for="(a, idx) in (alertHistory.alerts || []).slice(0, 10)" :key="idx">
+                                <tr>
+                                    <td style="font-size:0.85em; color:var(--text-muted); white-space:nowrap" x-text="a.time_ago"></td>
+                                    <td><span class="badge" :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()" x-text="a.type || 'alert'"></span></td>
+                                    <td style="font-size:0.9em; max-width:300px; overflow:hidden; text-overflow:ellipsis;" x-text="a.msg"></td>
+                                    <td><span :class="'severity-' + a.severity" x-text="a.severity"></span></td>
+                                </tr>
+                            </template>
+                            <template x-if="!alertHistory.alerts || alertHistory.alerts.length === 0">
+                                <tr><td colspan="4" style="color:var(--text-muted); text-align:center">✅ No alerts in past 24 hours</td></tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+            <!-- Threats by Country Widget -->
+            <template x-if="isVisible('threatsByCountry')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('threatsByCountry') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>🌍 Threats by Country</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('threatsByCountry')" :title="isMinimized('threatsByCountry') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatsByCountry')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatsByCountry')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="threatsByCountry.loading"></div>
+                        </div>
+                    </h2>
+                    <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('threatsByCountry')">
+                        <span x-text="threatsByCountry.total_countries || 0"></span> countries with threat activity
+                    </div>
+                    <div class="country-threat-list" x-show="!isMinimized('threatsByCountry')">
+                        <template x-for="(c, idx) in (threatsByCountry.countries || []).slice(0, 8)" :key="c.country_code">
+                            <div class="country-threat-item">
+                                <span class="country-flag" x-text="c.country_code"></span>
+                                <span class="country-name" x-text="c.country_name"></span>
+                                <span class="country-count" x-text="c.threat_count"></span>
+                            </div>
+                        </template>
+                        <template x-if="!threatsByCountry.countries || threatsByCountry.countries.length === 0">
+                            <div style="color:var(--text-muted); text-align:center; padding:12px;">✅ No threat activity by country</div>
+                        </template>
+                    </div>
+                </div>
+            </template>
 
             <!-- Threat Detections -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('threats') }">
@@ -954,6 +1063,44 @@
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
                 <button @click="thresholdsModalOpen=false">Cancel</button>
                 <button @click="saveThresholds()" style="background: var(--neon-cyan); color:#000; font-weight:bold;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watchlist Manager Modal -->
+    <div class="modal" x-show="watchlistModalOpen" style="display:none" :style="watchlistModalOpen ? 'display:flex' : 'display:none'" @click.self="watchlistModalOpen = false">
+        <div class="modal-content" style="max-width: 500px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0">👁️ IP Watchlist</h2>
+                <button @click="watchlistModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close watchlist modal">×</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">Monitor specific IPs for any network activity. Matches will appear in threat detections.</p>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <input type="text" x-model="watchlistInput" placeholder="Enter IP address (e.g., 192.168.1.100)" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-cyan); border-radius: 4px; color: #fff; font-family: monospace;">
+                <button @click="addToWatchlist()" :disabled="!watchlistInput" style="padding: 8px 16px;" title="Add IP to watchlist">➕ Add</button>
+            </div>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <template x-if="watchlist.watchlist && watchlist.watchlist.length > 0">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <template x-for="entry in watchlist.watchlist" :key="entry.ip">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,243,255,0.05); border: 1px solid rgba(0,243,255,0.1); border-radius: 4px;">
+                                <div>
+                                    <span style="font-family: monospace; color: var(--neon-yellow);" x-text="entry.ip"></span>
+                                    <span style="font-size: 0.8em; color: var(--text-muted); margin-left: 8px;" x-text="'added ' + entry.added_ago"></span>
+                                </div>
+                                <button @click="removeFromWatchlist(entry.ip)" style="background: rgba(255,0,60,0.2); border-color: var(--neon-red); color: var(--neon-red); padding: 4px 8px; font-size: 0.85em;" title="Remove from watchlist">🗑️</button>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="!watchlist.watchlist || watchlist.watchlist.length === 0">
+                    <div style="color: var(--text-muted); text-align: center; padding: 24px;">
+                        No IPs in watchlist. Add IPs above to monitor them.
+                    </div>
+                </template>
+            </div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,243,255,0.1); text-align: right;">
+                <span style="color: var(--text-muted); font-size: 0.85em;" x-text="(watchlist.count || 0) + ' IPs in watchlist'"></span>
             </div>
         </div>
     </div>

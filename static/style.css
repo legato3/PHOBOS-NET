@@ -1060,6 +1060,249 @@ body {
     color: var(--card-border);
 }
 
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    background: rgba(0, 243, 255, 0.1);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    color: var(--neon-cyan);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-sm:hover {
+    background: rgba(0, 243, 255, 0.2);
+    border-color: var(--neon-cyan);
+}
+
+/* ============================================
+   SECURITY SCORE WIDGET
+   ============================================ */
+.security-score-card {
+    border-left: 3px solid var(--neon-green);
+}
+
+.security-score-card.score-excellent {
+    border-left-color: var(--neon-green);
+}
+
+.security-score-card.score-good {
+    border-left-color: #7fff00;
+}
+
+.security-score-card.score-fair {
+    border-left-color: var(--neon-yellow);
+}
+
+.security-score-card.score-poor {
+    border-left-color: #ff9500;
+}
+
+.security-score-card.score-critical {
+    border-left-color: var(--neon-red);
+}
+
+.score-display {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.score-gauge {
+    flex-shrink: 0;
+}
+
+.score-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--neon-green) calc(var(--score, 0) * 1%),
+        rgba(255, 255, 255, 0.1) calc(var(--score, 0) * 1%)
+    );
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.score-circle::before {
+    content: '';
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: var(--card-bg);
+    border-radius: 50%;
+}
+
+.score-value {
+    position: relative;
+    font-size: 1.8em;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+
+.score-grade {
+    position: relative;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.score-details {
+    flex: 1;
+}
+
+.score-status {
+    font-size: 1.1em;
+    font-weight: 600;
+    text-transform: capitalize;
+    margin-bottom: 8px;
+}
+
+.score-excellent .score-status,
+.score-excellent .score-value { color: var(--neon-green); }
+
+.score-good .score-status,
+.score-good .score-value { color: #7fff00; }
+
+.score-fair .score-status,
+.score-fair .score-value { color: var(--neon-yellow); }
+
+.score-poor .score-status,
+.score-poor .score-value { color: #ff9500; }
+
+.score-critical .score-status,
+.score-critical .score-value { color: var(--neon-red); }
+
+.score-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.score-reason {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-left: 2px solid var(--neon-yellow);
+}
+
+.score-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   ALERT HISTORY WIDGET
+   ============================================ */
+.alert-summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.alert-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.alert-badge.critical {
+    background: rgba(255, 0, 60, 0.2);
+    color: var(--neon-red);
+}
+
+.alert-badge.high {
+    background: rgba(255, 149, 0, 0.2);
+    color: #ff9500;
+}
+
+.alert-badge.medium {
+    background: rgba(255, 204, 0, 0.2);
+    color: var(--neon-yellow);
+}
+
+.alert-badge.low {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--neon-green);
+}
+
+.severity-critical {
+    color: var(--neon-red);
+    font-weight: 600;
+}
+
+.severity-high {
+    color: #ff9500;
+    font-weight: 600;
+}
+
+.severity-medium {
+    color: var(--neon-yellow);
+}
+
+.severity-low {
+    color: var(--neon-green);
+}
+
+.severity-info {
+    color: var(--text-muted);
+}
+
+/* ============================================
+   THREATS BY COUNTRY WIDGET
+   ============================================ */
+.country-threat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.country-threat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.country-flag {
+    font-size: 0.85em;
+    padding: 2px 6px;
+    background: rgba(0, 243, 255, 0.1);
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--neon-cyan);
+}
+
+.country-name {
+    flex: 1;
+    font-size: 0.9em;
+}
+
+.country-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--neon-yellow);
+    padding: 2px 8px;
+    background: rgba(255, 204, 0, 0.1);
+    border-radius: 4px;
+}
+
 /* Text color utilities */
 .text-yellow {
     color: var(--neon-yellow, #ffcc00) !important;
