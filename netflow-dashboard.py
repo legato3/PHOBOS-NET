@@ -2895,7 +2895,7 @@ import re
 
 # Regex to parse OPNsense filterlog messages
 FILTERLOG_PATTERN = re.compile(
-    r'filterlog.*?:\s*'
+    r'filterlog.*?\]\s*'
     r'(?P<rule>\d+)?,'           # Rule number
     r'(?P<subrule>[^,]*),'       # Sub-rule
     r'(?P<anchor>[^,]*),'        # Anchor
