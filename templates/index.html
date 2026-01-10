@@ -215,6 +215,7 @@
         </div>
 
         <!-- Summary Stats -->
+        <section id="section-summary" class="scroll-section">
         <div class="grid" data-reorder="true" data-grid-id="summary">
             <div class="card stat-box">
                 <div class="value" x-text="summary.totals.bytes_fmt">...</div>
@@ -405,7 +406,10 @@
 
         
 
+        </section>
+
         <!-- Analytics Section -->
+        <section id="section-analytics" class="scroll-section">
         <div class="section-header">
             <span class="section-icon">📊</span>
             <h3>Analytics</h3>
@@ -719,7 +723,10 @@
         </div>
         </template>
 
+        </section>
+
         <!-- Top Stats Section -->
+        <section id="section-topstats" class="scroll-section">
         <div class="section-header">
             <span class="section-icon">🔝</span>
             <h3>Top Stats</h3>
@@ -1014,10 +1021,12 @@
 
         </div>
         </template>
+        </section>
 
         <!-- ============================================
              SECURITY CENTER
              ============================================ -->
+        <section id="section-security" class="scroll-section">
         <div class="security-center" x-data="{ securityCollapsed: false }">
             <!-- Security Center Header -->
             <div class="security-center-header" @click="securityCollapsed = !securityCollapsed">
@@ -1578,8 +1587,10 @@
                 </div> <!-- End security-grid -->
             </div> <!-- End security-center-content -->
         </div> <!-- End security-center -->
+        </section>
 
         <!-- Conversations -->
+        <section id="section-conversations" class="scroll-section">
         <template x-if="isVisible('conversations')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
             <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0;">
@@ -1636,8 +1647,28 @@
             </table>
         </div>
         </template>
+        </section>
 
     </div>
+
+    <!-- Scroll Spy Navigation -->
+    <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
+        <div class="scroll-spy-track">
+            <template x-for="section in sections" :key="section.id">
+                <a :href="'#' + section.id" 
+                   class="scroll-spy-item"
+                   :class="{ 'active': activeSection === section.id }"
+                   @click.prevent="scrollToSection(section.id)"
+                   :title="section.label">
+                    <span class="scroll-spy-dot"></span>
+                    <span class="scroll-spy-label" x-text="section.label"></span>
+                </a>
+            </template>
+        </div>
+        <div class="scroll-spy-progress">
+            <div class="scroll-spy-progress-bar" :style="'height: ' + scrollProgress + '%'"></div>
+        </div>
+    </nav>
 
     <!-- Expanded Table Modal -->
     <div class="modal" x-show="expandedModalOpen" style="display:none" :style="expandedModalOpen ? 'display:flex' : 'display:none'" @click.self="expandedModalOpen = false">
