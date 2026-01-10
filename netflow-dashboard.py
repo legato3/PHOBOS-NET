@@ -144,20 +144,22 @@ INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.2
 # Allow override via environment variable, default per project docs
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 
+# Global resolver instance to avoid re-initialization overhead (reading /etc/resolv.conf)
+_shared_resolver = dns.resolver.Resolver()
+_shared_resolver.nameservers = [DNS_SERVER]
+_shared_resolver.timeout = 2
+_shared_resolver.lifetime = 2
+
 # Cache nfdump availability to avoid repeated shell lookups
 _has_nfdump = None
 
 def resolve_hostname(ip):
     """Resolve IP to hostname using configured DNS_SERVER."""
     try:
-        resolver = dns.resolver.Resolver()
-        resolver.nameservers = [DNS_SERVER]
-        resolver.timeout = 2
-        resolver.lifetime = 2
-        
+        # Use shared resolver instance
         # Reverse DNS lookup
         rev_name = dns.reversename.from_address(ip)
-        answer = resolver.resolve(rev_name, 'PTR')
+        answer = _shared_resolver.resolve(rev_name, 'PTR')
         return str(answer[0]).rstrip('.')
     except Exception as e:
         # print(f"DNS Resolution failed for {ip}: {e}")
