@@ -1,9 +1,7 @@
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-            .then(reg => console.log('[SW] Registered:', reg.scope))
-            .catch(err => console.log('[SW] Registration failed:', err));
+        navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     });
 }
 
@@ -320,8 +318,6 @@ document.addEventListener('alpine:init', () => {
         apiLatencyHistory: [],
 
         init() {
-            console.log('Neural Link Established.');
-            console.log('[Init] vis-network available:', typeof vis !== 'undefined', 'vis.Network:', typeof vis !== 'undefined' && vis?.Network ? 'yes' : 'no');
             this.initDone = true;
             this.loadWidgetPreferences();
             this.loadCompactMode();
@@ -1432,8 +1428,6 @@ document.addEventListener('alpine:init', () => {
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
             const blocked = this.worldMapLayers.blocked ? (this.worldMap.blocked || []) : [];
             
-            console.log('[WorldMap] Rendering with sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length, 'blocked:', blocked.length);
-            
             const width = container.clientWidth || 1200;
             const height = Math.round(width * 0.5); // Maintain 2:1 aspect ratio for equirectangular
             
@@ -1540,7 +1534,6 @@ document.addEventListener('alpine:init', () => {
             
             svg += `</svg>`;
             container.innerHTML = svg;
-            console.log('[WorldMap] Rendered successfully with background image');
         },
 
         async fetchDurations() {
@@ -2299,12 +2292,9 @@ document.addEventListener('alpine:init', () => {
         },
 
         async openNetworkGraph() {
-            console.log('[Graph] openNetworkGraph called');
-            console.log('[Graph] vis available:', typeof vis !== 'undefined', 'vis.Network:', typeof vis !== 'undefined' && vis?.Network ? 'yes' : 'no');
             this.networkGraphOpen = true;
             // Wait for modal transition
             setTimeout(() => {
-                console.log('[Graph] Calling renderNetworkGraph after modal open');
                 this.renderNetworkGraph();
             }, 100);
         },
@@ -2312,13 +2302,11 @@ document.addEventListener('alpine:init', () => {
         async renderNetworkGraph() {
             const container = document.getElementById('network-graph-container');
             if (!container) {
-                console.error('[Graph] Container not found');
                 return;
             }
 
-            // Log container dimensions
+            // Get container dimensions
             const rect = container.getBoundingClientRect();
-            console.log('[Graph] Container dimensions:', rect.width, 'x', rect.height);
 
             // Check if vis library is loaded
             if (typeof vis === 'undefined' || !vis.Network) {
@@ -2329,7 +2317,6 @@ document.addEventListener('alpine:init', () => {
 
             // Ensure container has dimensions (vis-network needs explicit size)
             if (rect.height < 100) {
-                console.log('[Graph] Container too small, setting explicit height');
                 container.style.height = '70vh';
             }
 
@@ -2420,7 +2407,6 @@ document.addEventListener('alpine:init', () => {
 
                 container.innerHTML = ''; // clear spinner
                 
-                console.log('[Graph] Creating network with', data.nodes.length, 'nodes and', data.edges.length, 'edges');
                 this.networkGraphInstance = new vis.Network(container, data, options);
 
                 // Click handler
@@ -2430,8 +2416,6 @@ document.addEventListener('alpine:init', () => {
                         this.openIPModal(nodeId);
                     }
                 });
-                
-                console.log('[Graph] Network created successfully');
 
             } catch (e) {
                 console.error('[Graph] Error:', e);

@@ -12,8 +12,24 @@ import random
 import dns.resolver
 import dns.reversename
 import sqlite3
+import ipaddress
+import atexit
+import signal
+import socket as socket_module  # For socket.timeout in syslog receiver
 
 app = Flask(__name__)
+
+# ------------------ Constants ------------------
+CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
+CACHE_TTL_MEDIUM = 60       # 1 minute for most stats
+CACHE_TTL_LONG = 300        # 5 minutes for slow-changing data
+CACHE_TTL_THREAT = 900      # 15 minutes for threat feeds
+DEFAULT_TIMEOUT = 25        # subprocess timeout
+MAX_RESULTS = 100           # default limit for API results
+DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+
+# Graceful shutdown event
+_shutdown_event = threading.Event()
 
 # ------------------ Globals & caches ------------------
 # Granular locks per endpoint to reduce contention
@@ -507,6 +523,28 @@ def mock_nfdump(args):
 
     return ""
 
+def validate_ip(ip_str):
+    """Validate and sanitize IP address to prevent injection."""
+    if not ip_str:
+        return None
+    try:
+        # This will raise ValueError for invalid IPs
+        ip_obj = ipaddress.ip_address(ip_str.strip())
+        return str(ip_obj)
+    except ValueError:
+        return None
+
+def validate_filter(filter_str):
+    """Validate nfdump filter string for safety."""
+    if not filter_str:
+        return ""
+    # Allowlist of safe characters for nfdump filters
+    # Only allow: alphanumeric, spaces, dots, colons, and common operators
+    import re
+    if re.match(r'^[a-zA-Z0-9\s\.\:\-\_\>\<\=\!\(\)\[\]\/\,]+$', filter_str):
+        return filter_str
+    return ""
+
 def run_nfdump(args, tf=None):
     global _metric_nfdump_calls
     _metric_nfdump_calls += 1
@@ -522,7 +560,7 @@ def run_nfdump(args, tf=None):
         if _has_nfdump is None:
             _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
         if _has_nfdump:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
     except Exception:
@@ -1021,10 +1059,11 @@ def start_threat_thread():
         return
     _threat_thread_started = True
     def loop():
-        while True:
+        while not _shutdown_event.is_set():
             fetch_threat_feed()
-            time.sleep(900)
-    t = threading.Thread(target=loop, daemon=True)
+            # Use wait instead of sleep for faster shutdown
+            _shutdown_event.wait(timeout=CACHE_TTL_THREAT)
+    t = threading.Thread(target=loop, daemon=True, name='ThreatFeedThread')
     t.start()
 
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
@@ -2978,7 +3017,7 @@ def start_trends_thread():
     _trends_db_init()
 
     def loop():
-        while True:
+        while not _shutdown_event.is_set():
             try:
                 # Work on the last completed bucket (avoid partial current)
                 now_dt = datetime.now()
@@ -2987,9 +3026,9 @@ def start_trends_thread():
                 _ensure_rollup_for_bucket(last_completed_end)
             except Exception:
                 pass
-            time.sleep(30)
+            _shutdown_event.wait(timeout=CACHE_TTL_SHORT)
 
-    t = threading.Thread(target=loop, daemon=True)
+    t = threading.Thread(target=loop, daemon=True, name='TrendsThread')
     t.start()
 
 
@@ -3001,7 +3040,7 @@ def start_agg_thread():
     _agg_thread_started = True
 
     def loop():
-        while True:
+        while not _shutdown_event.is_set():
             try:
                 range_key = '1h'
                 tf = get_time_range(range_key)
@@ -3241,7 +3280,10 @@ def _syslog_receiver_loop():
         print(f"ERROR: Syslog bind failed: {e}")
         return
     
-    while True:
+    # Set socket timeout so we can check shutdown event
+    sock.settimeout(1.0)
+    
+    while not _shutdown_event.is_set():
         try:
             data, addr = sock.recvfrom(4096)
             
@@ -3263,18 +3305,19 @@ def _syslog_receiver_loop():
                 _insert_fw_log(parsed, line)
             else:
                 _syslog_stats["errors"] += 1
-                
+        except socket_module.timeout:
+            continue  # Normal timeout, check shutdown and continue
         except Exception as e:
             _syslog_stats["errors"] += 1
 
 def _syslog_maintenance_loop():
     """Periodic maintenance for firewall logs."""
-    while True:
+    while not _shutdown_event.is_set():
         try:
             _cleanup_old_fw_logs()
         except Exception:
             pass
-        time.sleep(3600)  # Run every hour
+        _shutdown_event.wait(timeout=3600)  # Run every hour
 
 def start_syslog_thread():
     """Start the syslog receiver and maintenance threads."""
@@ -5156,15 +5199,15 @@ def start_snmp_thread():
     _snmp_thread_started = True
 
     def loop():
-        while True:
+        while not _shutdown_event.is_set():
             try:
                 # This will update the cache and compute deltas
                 get_snmp_data()
             except Exception:
                 pass
-            time.sleep(max(0.2, SNMP_POLL_INTERVAL))
+            _shutdown_event.wait(timeout=max(0.2, SNMP_POLL_INTERVAL))
 
-    t = threading.Thread(target=loop, daemon=True)
+    t = threading.Thread(target=loop, daemon=True, name='SNMPPollerThread')
     t.start()
 
 
@@ -5197,7 +5240,7 @@ def api_stats_firewall_stream():
 
     def event_stream():
         last_ts = 0
-        while True:
+        while not _shutdown_event.is_set():
             with _snmp_cache_lock:
                 data = _snmp_cache.get("data")
                 ts = _snmp_cache.get("ts", 0)
@@ -5205,7 +5248,7 @@ def api_stats_firewall_stream():
                 payload = json.dumps({"firewall": data})
                 yield f"data: {payload}\n\n"
                 last_ts = ts
-            time.sleep(max(0.2, SNMP_POLL_INTERVAL / 2.0))
+            _shutdown_event.wait(timeout=max(0.2, SNMP_POLL_INTERVAL / 2.0))
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
@@ -5331,10 +5374,27 @@ def api_stats_blocklist_rate():
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
     
+    # Graceful shutdown handler
+    def shutdown_handler(signum=None, frame=None):
+        print("\n[Shutdown] Stopping background services...")
+        _shutdown_event.set()
+        # Give threads time to clean up
+        time.sleep(1)
+        print("[Shutdown] Complete.")
+    
+    # Register shutdown handlers
+    atexit.register(shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    signal.signal(signal.SIGINT, shutdown_handler)
+    
     # Start background services
     start_threat_thread()
     start_trends_thread()
     start_agg_thread()
     start_syslog_thread()  # OPNsense firewall log receiver
     
-    app.run(host="0.0.0.0",port=8080,threaded=True)
+    # Run Flask app
+    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    port = int(os.environ.get('FLASK_PORT', 8080))
+    print(f"Starting server on {host}:{port} (debug={DEBUG_MODE})")
+    app.run(host=host, port=port, threaded=True, debug=DEBUG_MODE)
