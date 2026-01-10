@@ -333,9 +333,10 @@ apt-get install snmp python3-pysnmp4
 - No authentication on dashboard (LXC internal only)
 - Threat feeds validated before use
 - DNS lookups timeout to prevent hanging
+- World map uses `load_threatlist()` to mark threat IPs geographically
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.6 - Analytics Enhancement)  
-**Maintained By**: Human + AI Collaboration (Warp/Jules)  
+**Last Updated**: January 10, 2026 (v2.7 - World Map Threat Integration Fix)  
+**Maintained By**: Human + AI Collaboration (Warp/Jules/Claude)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

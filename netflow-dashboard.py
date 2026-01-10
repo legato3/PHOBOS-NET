@@ -2110,11 +2110,9 @@ def api_stats_worldmap():
         sources = get_common_nfdump_data("sources", range_key)[:50]
         dests = get_common_nfdump_data("dests", range_key)[:50]
         
-        print(f"[WorldMap] Raw sources: {len(sources)}, dests: {len(dests)}")
-        
-        # Get threat IPs
+        # Get threat IPs from the loaded threat list
         start_threat_thread()
-        threat_set = set()  # TODO: Fix - _threat_ips not defined
+        threat_set = load_threatlist()
         
         source_points = []
         dest_points = []
@@ -2128,10 +2126,8 @@ def api_stats_worldmap():
         for item in sources:
             ip = item.get("key")
             if is_internal(ip): 
-                print(f"[WorldMap] Skip internal source: {ip}")
                 continue
             geo = lookup_geo(ip) or {}
-            print(f"[WorldMap] Source {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
             if geo.get('lat') and geo.get('lng'):
                 point = {
                     "ip": ip,
@@ -2157,10 +2153,8 @@ def api_stats_worldmap():
         for item in dests:
             ip = item.get("key")
             if is_internal(ip): 
-                print(f"[WorldMap] Skip internal dest: {ip}")
                 continue
             geo = lookup_geo(ip) or {}
-            print(f"[WorldMap] Dest {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
             if geo.get('lat') and geo.get('lng'):
                 point = {
                     "ip": ip,
@@ -2201,8 +2195,6 @@ def api_stats_worldmap():
                         threat_countries[iso] = {"name": geo.get('country'), "count": 0}
                     threat_countries[iso]["count"] += 1
         
-        print(f"[WorldMap] Final counts - sources: {len(source_points)}, dests: {len(dest_points)}, threats: {len(threat_points)}")
-        
         data = {
             "sources": source_points[:30],
             "destinations": dest_points[:30],
@@ -2218,10 +2210,9 @@ def api_stats_worldmap():
             }
         }
     except Exception as e:
-        print(f"[WorldMap] Error: {e}")
+        # Log error but return empty data structure to prevent API failure
         import traceback
         traceback.print_exc()
-        # Return empty data structure on error
         data = {
             "sources": [],
             "destinations": [],
