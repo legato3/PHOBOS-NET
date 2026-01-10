@@ -2105,117 +2105,137 @@ def api_stats_worldmap():
         if _worldmap_cache["data"] and _worldmap_cache["key"] == range_key and _worldmap_cache.get("win") == win:
             return jsonify(_worldmap_cache["data"])
 
-    # Get sources and destinations with geo data
-    sources = get_common_nfdump_data("sources", range_key)[:50]
-    dests = get_common_nfdump_data("dests", range_key)[:50]
-    
-    print(f"[WorldMap] Raw sources: {len(sources)}, dests: {len(dests)}")
-    
-    # Get threat IPs
-    start_threat_thread()
-    threat_set = set(_threat_ips)
-    
-    source_points = []
-    dest_points = []
-    threat_points = []
-    
-    # Country aggregations
-    source_countries = {}
-    dest_countries = {}
-    threat_countries = {}
-    
-    for item in sources:
-        ip = item.get("key")
-        if is_internal(ip): 
-            print(f"[WorldMap] Skip internal source: {ip}")
-            continue
-        geo = lookup_geo(ip) or {}
-        print(f"[WorldMap] Source {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
-        if geo.get('lat') and geo.get('lng'):
-            point = {
-                "ip": ip,
-                "lat": geo['lat'],
-                "lng": geo['lng'],
-                "bytes": item.get("bytes", 0),
-                "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
-                "country": geo.get('country', 'Unknown'),
-                "country_iso": geo.get('country_iso', '??'),
-                "city": geo.get('city'),
-                "is_threat": ip in threat_set
+    try:
+        # Get sources and destinations with geo data
+        sources = get_common_nfdump_data("sources", range_key)[:50]
+        dests = get_common_nfdump_data("dests", range_key)[:50]
+        
+        print(f"[WorldMap] Raw sources: {len(sources)}, dests: {len(dests)}")
+        
+        # Get threat IPs
+        start_threat_thread()
+        threat_set = set(_threat_ips)
+        
+        source_points = []
+        dest_points = []
+        threat_points = []
+        
+        # Country aggregations
+        source_countries = {}
+        dest_countries = {}
+        threat_countries = {}
+        
+        for item in sources:
+            ip = item.get("key")
+            if is_internal(ip): 
+                print(f"[WorldMap] Skip internal source: {ip}")
+                continue
+            geo = lookup_geo(ip) or {}
+            print(f"[WorldMap] Source {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
+            if geo.get('lat') and geo.get('lng'):
+                point = {
+                    "ip": ip,
+                    "lat": geo['lat'],
+                    "lng": geo['lng'],
+                    "bytes": item.get("bytes", 0),
+                    "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
+                    "country": geo.get('country', 'Unknown'),
+                    "country_iso": geo.get('country_iso', '??'),
+                    "city": geo.get('city'),
+                    "is_threat": ip in threat_set
+                }
+                source_points.append(point)
+                
+                # Aggregate by country
+                iso = geo.get('country_iso', '??')
+                if iso != '??':
+                    if iso not in source_countries:
+                        source_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
+                    source_countries[iso]["bytes"] += item.get("bytes", 0)
+                    source_countries[iso]["count"] += 1
+        
+        for item in dests:
+            ip = item.get("key")
+            if is_internal(ip): 
+                print(f"[WorldMap] Skip internal dest: {ip}")
+                continue
+            geo = lookup_geo(ip) or {}
+            print(f"[WorldMap] Dest {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
+            if geo.get('lat') and geo.get('lng'):
+                point = {
+                    "ip": ip,
+                    "lat": geo['lat'],
+                    "lng": geo['lng'],
+                    "bytes": item.get("bytes", 0),
+                    "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
+                    "country": geo.get('country', 'Unknown'),
+                    "country_iso": geo.get('country_iso', '??'),
+                    "city": geo.get('city'),
+                    "is_threat": ip in threat_set
+                }
+                dest_points.append(point)
+                
+                iso = geo.get('country_iso', '??')
+                if iso != '??':
+                    if iso not in dest_countries:
+                        dest_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
+                    dest_countries[iso]["bytes"] += item.get("bytes", 0)
+                    dest_countries[iso]["count"] += 1
+        
+        # Threat points with geo
+        for tip in list(threat_set)[:100]:
+            geo = lookup_geo(tip) or {}
+            if geo.get('lat') and geo.get('lng'):
+                threat_points.append({
+                    "ip": tip,
+                    "lat": geo['lat'],
+                    "lng": geo['lng'],
+                    "country": geo.get('country', 'Unknown'),
+                    "country_iso": geo.get('country_iso', '??'),
+                    "city": geo.get('city')
+                })
+                
+                iso = geo.get('country_iso', '??')
+                if iso != '??':
+                    if iso not in threat_countries:
+                        threat_countries[iso] = {"name": geo.get('country'), "count": 0}
+                    threat_countries[iso]["count"] += 1
+        
+        print(f"[WorldMap] Final counts - sources: {len(source_points)}, dests: {len(dest_points)}, threats: {len(threat_points)}")
+        
+        data = {
+            "sources": source_points[:30],
+            "destinations": dest_points[:30],
+            "threats": threat_points[:30],
+            "source_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
+            "dest_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
+            "threat_countries": [{"iso": k, **v} for k, v in sorted(threat_countries.items(), key=lambda x: x[1]["count"], reverse=True)[:10]],
+            "summary": {
+                "total_sources": len(source_points),
+                "total_destinations": len(dest_points),
+                "total_threats": len(threat_points),
+                "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys())))
             }
-            source_points.append(point)
-            
-            # Aggregate by country
-            iso = geo.get('country_iso', '??')
-            if iso != '??':
-                if iso not in source_countries:
-                    source_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
-                source_countries[iso]["bytes"] += item.get("bytes", 0)
-                source_countries[iso]["count"] += 1
-    
-    for item in dests:
-        ip = item.get("key")
-        if is_internal(ip): 
-            print(f"[WorldMap] Skip internal dest: {ip}")
-            continue
-        geo = lookup_geo(ip) or {}
-        print(f"[WorldMap] Dest {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
-        if geo.get('lat') and geo.get('lng'):
-            point = {
-                "ip": ip,
-                "lat": geo['lat'],
-                "lng": geo['lng'],
-                "bytes": item.get("bytes", 0),
-                "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
-                "country": geo.get('country', 'Unknown'),
-                "country_iso": geo.get('country_iso', '??'),
-                "city": geo.get('city'),
-                "is_threat": ip in threat_set
-            }
-            dest_points.append(point)
-            
-            iso = geo.get('country_iso', '??')
-            if iso != '??':
-                if iso not in dest_countries:
-                    dest_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
-                dest_countries[iso]["bytes"] += item.get("bytes", 0)
-                dest_countries[iso]["count"] += 1
-    
-    # Threat points with geo
-    for tip in list(threat_set)[:100]:
-        geo = lookup_geo(tip) or {}
-        if geo.get('lat') and geo.get('lng'):
-            threat_points.append({
-                "ip": tip,
-                "lat": geo['lat'],
-                "lng": geo['lng'],
-                "country": geo.get('country', 'Unknown'),
-                "country_iso": geo.get('country_iso', '??'),
-                "city": geo.get('city')
-            })
-            
-            iso = geo.get('country_iso', '??')
-            if iso != '??':
-                if iso not in threat_countries:
-                    threat_countries[iso] = {"name": geo.get('country'), "count": 0}
-                threat_countries[iso]["count"] += 1
-    
-    print(f"[WorldMap] Final counts - sources: {len(source_points)}, dests: {len(dest_points)}, threats: {len(threat_points)}")
-    
-    data = {
-        "sources": source_points[:30],
-        "destinations": dest_points[:30],
-        "threats": threat_points[:30],
-        "source_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
-        "dest_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
-        "threat_countries": [{"iso": k, **v} for k, v in sorted(threat_countries.items(), key=lambda x: x[1]["count"], reverse=True)[:10]],
-        "summary": {
-            "total_sources": len(source_points),
-            "total_destinations": len(dest_points),
-            "total_threats": len(threat_points),
-            "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys())))
         }
-    }
+    except Exception as e:
+        print(f"[WorldMap] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return empty data structure on error
+        data = {
+            "sources": [],
+            "destinations": [],
+            "threats": [],
+            "source_countries": [],
+            "dest_countries": [],
+            "threat_countries": [],
+            "summary": {
+                "total_sources": 0,
+                "total_destinations": 0,
+                "total_threats": 0,
+                "countries_reached": 0
+            }
+        }
     
     with _lock_worldmap:
         _worldmap_cache["data"] = data
