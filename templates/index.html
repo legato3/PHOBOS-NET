@@ -237,7 +237,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; margin: 0; gap: 8px;">
                     <span>📊 Bandwidth & Flow Rate</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -521,7 +521,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🏳️ TCP Flags</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flags') ? 'Expand ' + getWidgetLabel('flags') : 'Minimize ' + getWidgetLabel('flags')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flags')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flags')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -546,7 +546,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>⏱️ Long Flows</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('durations')" :title="isMinimized('durations') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('durations')" :title="isMinimized('durations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('durations') ? 'Expand ' + getWidgetLabel('durations') : 'Minimize ' + getWidgetLabel('durations')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('durations')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('durations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -604,7 +604,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>📦 Packet Sizes</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('packetSizes')" :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('packetSizes')" :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('packetSizes') ? 'Expand ' + getWidgetLabel('packetSizes') : 'Minimize ' + getWidgetLabel('packetSizes')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('packetSizes')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('packetSizes')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -621,7 +621,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>📡 Protocols</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('protocols')" :title="isMinimized('protocols') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('protocols')" :title="isMinimized('protocols') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protocols') ? 'Expand ' + getWidgetLabel('protocols') : 'Minimize ' + getWidgetLabel('protocols')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocols')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocols')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -657,7 +657,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>💡 Traffic Insights</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('insights')" :title="isMinimized('insights') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('insights')" :title="isMinimized('insights') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('insights') ? 'Expand ' + getWidgetLabel('insights') : 'Minimize ' + getWidgetLabel('insights')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('insights')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('insights')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -727,7 +727,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>📊 Flow Statistics</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flowStats') ? 'Expand ' + getWidgetLabel('flowStats') : 'Minimize ' + getWidgetLabel('flowStats')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowStats')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowStats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -776,7 +776,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🥧 Protocol Mix</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protoMix') ? 'Expand ' + getWidgetLabel('protoMix') : 'Minimize ' + getWidgetLabel('protoMix')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protoMix')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protoMix')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -793,7 +793,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🏥 Network Health</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('netHealth') ? 'Expand ' + getWidgetLabel('netHealth') : 'Minimize ' + getWidgetLabel('netHealth')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('netHealth')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('netHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -842,7 +842,7 @@
                         <button class="icon-btn-small" @click="openExpandedTable('sources')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('sources')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('sources')" :title="isMinimized('sources') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('sources')" :title="isMinimized('sources') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('sources')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('sources')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -897,7 +897,7 @@
                         <button class="icon-btn-small" @click="openExpandedTable('destinations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('destinations')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('destinations')" :title="isMinimized('destinations') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('destinations')" :title="isMinimized('destinations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('destinations')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('destinations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -952,7 +952,7 @@
                         <button class="icon-btn-small" @click="openExpandedTable('ports')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('ports')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('ports')" :title="isMinimized('ports') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('ports')" :title="isMinimized('ports') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('ports') ? 'Expand ' + getWidgetLabel('ports') : 'Minimize ' + getWidgetLabel('ports')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('ports')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('ports')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -988,7 +988,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🏢 Top ASNs</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('asns') ? 'Expand ' + getWidgetLabel('asns') : 'Minimize ' + getWidgetLabel('asns')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1014,7 +1014,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🌍 Top Countries</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('countries') ? 'Expand ' + getWidgetLabel('countries') : 'Minimize ' + getWidgetLabel('countries')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1031,7 +1031,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🔄 Top Talkers</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('talkers') ? 'Expand ' + getWidgetLabel('talkers') : 'Minimize ' + getWidgetLabel('talkers')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('talkers')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('talkers')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1063,7 +1063,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🌐 Top Services</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('services') ? 'Expand ' + getWidgetLabel('services') : 'Minimize ' + getWidgetLabel('services')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('services')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('services')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1089,7 +1089,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>⏰ Traffic by Hour</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('hourlyTraffic') ? 'Expand ' + getWidgetLabel('hourlyTraffic') : 'Minimize ' + getWidgetLabel('hourlyTraffic')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('hourlyTraffic')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('hourlyTraffic')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1171,7 +1171,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>🛡️ Security Score</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('securityScore') ? 'Expand ' + getWidgetLabel('securityScore') : 'Minimize ' + getWidgetLabel('securityScore')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('securityScore')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('securityScore')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1210,7 +1210,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>🔔 Alert History (24h)</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('alertHistory') ? 'Expand ' + getWidgetLabel('alertHistory') : 'Minimize ' + getWidgetLabel('alertHistory')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertHistory')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('alertHistory')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1272,7 +1272,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>🌍 Threats by Country</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('threatsByCountry')" :title="isMinimized('threatsByCountry') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('threatsByCountry')" :title="isMinimized('threatsByCountry') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threatsByCountry') ? 'Expand ' + getWidgetLabel('threatsByCountry') : 'Minimize ' + getWidgetLabel('threatsByCountry')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatsByCountry')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatsByCountry')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1309,7 +1309,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🚨 Threat Detections</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('threats')" :title="isMinimized('threats') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('threats')" :title="isMinimized('threats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threats') ? 'Expand ' + getWidgetLabel('threats') : 'Minimize ' + getWidgetLabel('threats')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threats')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1348,7 +1348,7 @@
                             <button class="icon-btn-small" @click="refreshFeed()" title="Refresh Feeds Now" style="color: var(--neon-green);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.5-6.3"/><path d="M21 3v6h-6"/></svg>
                             </button>
-                            <button class="icon-btn-small" @click="toggleMinimize('feedHealth')" :title="isMinimized('feedHealth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('feedHealth')" :title="isMinimized('feedHealth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('feedHealth') ? 'Expand ' + getWidgetLabel('feedHealth') : 'Minimize ' + getWidgetLabel('feedHealth')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('feedHealth')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('feedHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1401,7 +1401,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🔒 Top Malicious Ports</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('maliciousPorts')" :title="isMinimized('maliciousPorts') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('maliciousPorts')" :title="isMinimized('maliciousPorts') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('maliciousPorts') ? 'Expand ' + getWidgetLabel('maliciousPorts') : 'Minimize ' + getWidgetLabel('maliciousPorts')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('maliciousPorts')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('maliciousPorts')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1432,7 +1432,7 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🛡️ Blocklist Match Rate</span>
                     <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('blocklist')" :title="isMinimized('blocklist') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <button class="icon-btn-small" @click="toggleMinimize('blocklist')" :title="isMinimized('blocklist') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('blocklist') ? 'Expand ' + getWidgetLabel('blocklist') : 'Minimize ' + getWidgetLabel('blocklist')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('blocklist')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('blocklist')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
@@ -1461,7 +1461,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>📈 Threat Velocity</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('threatVelocity')" :title="isMinimized('threatVelocity') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('threatVelocity')" :title="isMinimized('threatVelocity') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threatVelocity') ? 'Expand ' + getWidgetLabel('threatVelocity') : 'Minimize ' + getWidgetLabel('threatVelocity')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatVelocity')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatVelocity')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1498,7 +1498,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>🎯 Top Threat IPs</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('topThreatIPs')" :title="isMinimized('topThreatIPs') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('topThreatIPs')" :title="isMinimized('topThreatIPs') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('topThreatIPs') ? 'Expand ' + getWidgetLabel('topThreatIPs') : 'Minimize ' + getWidgetLabel('topThreatIPs')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('topThreatIPs')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('topThreatIPs')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1538,7 +1538,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>⚠️ Network Risk Index</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('riskIndex')" :title="isMinimized('riskIndex') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('riskIndex')" :title="isMinimized('riskIndex') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('riskIndex') ? 'Expand ' + getWidgetLabel('riskIndex') : 'Minimize ' + getWidgetLabel('riskIndex')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('riskIndex')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('riskIndex')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1584,7 +1584,7 @@
                             <button class="icon-btn-small" @click="runDetection()" title="Run Detection Now" style="color: var(--neon-green);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                             </button>
-                            <button class="icon-btn-small" @click="toggleMinimize('attackTimeline')" :title="isMinimized('attackTimeline') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('attackTimeline')" :title="isMinimized('attackTimeline') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('attackTimeline') ? 'Expand ' + getWidgetLabel('attackTimeline') : 'Minimize ' + getWidgetLabel('attackTimeline')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('attackTimeline')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('attackTimeline')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1619,7 +1619,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>🎯 MITRE ATT&CK Coverage</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('mitreHeatmap')" :title="isMinimized('mitreHeatmap') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('mitreHeatmap')" :title="isMinimized('mitreHeatmap') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('mitreHeatmap') ? 'Expand ' + getWidgetLabel('mitreHeatmap') : 'Minimize ' + getWidgetLabel('mitreHeatmap')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('mitreHeatmap')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('mitreHeatmap')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1657,7 +1657,7 @@
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                         <span>⚡ Protocol Anomalies</span>
                         <div style="display: flex; gap: 4px;">
-                            <button class="icon-btn-small" @click="toggleMinimize('protocolAnomalies')" :title="isMinimized('protocolAnomalies') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('protocolAnomalies')" :title="isMinimized('protocolAnomalies') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protocolAnomalies') ? 'Expand ' + getWidgetLabel('protocolAnomalies') : 'Minimize ' + getWidgetLabel('protocolAnomalies')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocolAnomalies')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocolAnomalies')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -1700,7 +1700,7 @@
                     <button class="icon-btn-small" @click="openExpandedTable('conversations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('conversations')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                     </button>
-                    <button class="icon-btn-small" @click="toggleMinimize('conversations')" :title="isMinimized('conversations') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                    <button class="icon-btn-small" @click="toggleMinimize('conversations')" :title="isMinimized('conversations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('conversations') ? 'Expand ' + getWidgetLabel('conversations') : 'Minimize ' + getWidgetLabel('conversations')" style="color: var(--neon-cyan);">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('conversations')"><path d="M3 12h18M12 3v18"/></svg>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('conversations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>

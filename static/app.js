@@ -135,7 +135,11 @@ document.addEventListener('alpine:init', () => {
             hourlyTraffic: 'Traffic by Hour',
             flowStats: 'Flow Statistics',
             protoMix: 'Protocol Mix',
-            netHealth: 'Network Health'
+            netHealth: 'Network Health',
+            insights: 'Traffic Insights',
+            mitreHeatmap: 'MITRE ATT&CK Coverage',
+            protocolAnomalies: 'Protocol Anomalies',
+            attackTimeline: 'Attack Timeline'
         },
 
         // Thresholds (editable)
