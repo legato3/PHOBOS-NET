@@ -102,26 +102,81 @@
 
                  <!-- Dropdown for Actions -->
                  <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
-                    <button @click="open = !open" class="icon-btn" title="Actions" aria-label="Open actions menu">
+                    <button @click="open = !open" class="icon-btn" title="Settings & Actions" aria-label="Open settings menu">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     </button>
-                    <div class="dropdown-menu" x-show="open" style="display:none">
-                        <a @click="exportCSV()">Export CSV</a>
-                        <a @click="exportJSON()">Export JSON</a>
-                        <a @click="exportAlerts('csv')">Export Alerts (CSV)</a>
-                        <a @click="sendTestAlert()">Send Test Alert</a>
-                        <a @click="refreshFeed()">Refresh Threat Feed</a>
-                        <a @click="openThresholds()">Edit Thresholds</a>
-                        <a @click="openConfig()">⚙️ Configuration</a>
-                        <a @click="lowPower = !lowPower" x-text="lowPower ? 'Low Power: ON' : 'Low Power: OFF'"></a>
-                        <a @click="toggleCompactMode()" x-text="compactMode ? '📐 Compact: ON' : '📐 Compact: OFF'"></a>
-                        <div class="divider"></div>
-                        <a @click="toggleNotify('email')" x-text="'Email: ' + (notify.email ? 'ON' : 'OFF')"></a>
-                        <a @click="toggleNotify('webhook')" x-text="'Webhook: ' + (notify.webhook ? 'ON' : 'OFF')"></a>
-                        <a @click="muteAlerts()" x-text="notify.muted ? 'Unmute' : 'Mute 1h'"></a>
-                        <div class="divider"></div>
-                        <a @click="widgetManagerOpen = true">Customize Widgets</a>
-                        <a @click="resetWidgetPreferences()">Reset Widgets</a>
+                    <div class="dropdown-menu settings-panel" x-show="open" style="display:none">
+                        <!-- Export Section -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">📤 Export Data</div>
+                            <a @click="exportCSV(); open = false">
+                                <span class="settings-icon">📊</span> Export CSV
+                            </a>
+                            <a @click="exportJSON(); open = false">
+                                <span class="settings-icon">📋</span> Export JSON
+                            </a>
+                            <a @click="exportAlerts('csv'); open = false">
+                                <span class="settings-icon">⚠️</span> Export Alerts
+                            </a>
+                        </div>
+                        
+                        <!-- Alerts Section -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">🔔 Notifications</div>
+                            <a @click="toggleNotify('email')" class="settings-toggle">
+                                <span class="settings-icon">📧</span> Email Alerts
+                                <span class="toggle-pill" :class="notify.email ? 'on' : 'off'" x-text="notify.email ? 'ON' : 'OFF'"></span>
+                            </a>
+                            <a @click="toggleNotify('webhook')" class="settings-toggle">
+                                <span class="settings-icon">🔗</span> Webhook
+                                <span class="toggle-pill" :class="notify.webhook ? 'on' : 'off'" x-text="notify.webhook ? 'ON' : 'OFF'"></span>
+                            </a>
+                            <a @click="muteAlerts(); open = false">
+                                <span class="settings-icon" x-text="notify.muted ? '🔊' : '🔇'"></span>
+                                <span x-text="notify.muted ? 'Unmute Alerts' : 'Mute for 1 Hour'"></span>
+                            </a>
+                            <a @click="sendTestAlert(); open = false">
+                                <span class="settings-icon">🧪</span> Send Test Alert
+                            </a>
+                        </div>
+                        
+                        <!-- Display Section -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">🎨 Display</div>
+                            <a @click="toggleCompactMode()" class="settings-toggle">
+                                <span class="settings-icon">📐</span> Compact Mode
+                                <span class="toggle-pill" :class="compactMode ? 'on' : 'off'" x-text="compactMode ? 'ON' : 'OFF'"></span>
+                            </a>
+                            <a @click="lowPower = !lowPower" class="settings-toggle">
+                                <span class="settings-icon">🔋</span> Low Power
+                                <span class="toggle-pill" :class="lowPower ? 'on' : 'off'" x-text="lowPower ? 'ON' : 'OFF'"></span>
+                            </a>
+                            <a @click="widgetManagerOpen = true; open = false">
+                                <span class="settings-icon">🧩</span> Customize Widgets
+                            </a>
+                            <a @click="resetWidgetPreferences(); open = false">
+                                <span class="settings-icon">↩️</span> Reset Widgets
+                            </a>
+                        </div>
+                        
+                        <!-- System Section -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">⚙️ System</div>
+                            <a @click="refreshFeed(); open = false">
+                                <span class="settings-icon">🔄</span> Refresh Threat Feeds
+                            </a>
+                            <a @click="openThresholds(); open = false">
+                                <span class="settings-icon">📏</span> Alert Thresholds
+                            </a>
+                            <a @click="openConfig(); open = false">
+                                <span class="settings-icon">🛠️</span> Configuration
+                            </a>
+                        </div>
+                        
+                        <!-- Version Footer -->
+                        <div class="settings-footer">
+                            <span class="version-tag">NetFlow Analytics v2.8</span>
+                        </div>
                     </div>
                 </div>
 

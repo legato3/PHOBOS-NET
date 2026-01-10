@@ -378,29 +378,104 @@ tr:hover td {
 .dropdown-menu {
     position: absolute;
     top: 100%; right: 0;
-    background: rgba(15, 15, 20, 0.95);
+    background: rgba(15, 15, 20, 0.98);
     border: 1px solid var(--card-border);
-    backdrop-filter: blur(15px);
-    border-radius: 4px;
-    padding: 5px 0;
-    min-width: 160px;
+    backdrop-filter: blur(20px);
+    border-radius: 8px;
+    padding: 0;
+    min-width: 200px;
     z-index: 100;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    margin-top: 5px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0, 243, 255, 0.1);
+    margin-top: 8px;
+    overflow: hidden;
 }
+
+/* Settings Panel Specific */
+.dropdown-menu.settings-panel {
+    min-width: 240px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.settings-section {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-section:last-of-type {
+    border-bottom: none;
+}
+
+.settings-section-title {
+    font-size: 0.7em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 6px 14px 4px;
+    margin-bottom: 2px;
+}
+
 .dropdown-menu a {
-    display: block;
-    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
     color: var(--text-main);
     text-decoration: none;
-    font-size: 0.9em;
+    font-size: 0.85em;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.15s ease;
 }
 .dropdown-menu a:hover {
     background: rgba(0, 243, 255, 0.1);
     color: var(--neon-cyan);
 }
+
+.dropdown-menu a.settings-toggle {
+    justify-content: space-between;
+}
+
+.settings-icon {
+    font-size: 1em;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.toggle-pill {
+    font-size: 0.7em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.toggle-pill.on {
+    background: rgba(0, 255, 100, 0.2);
+    color: var(--neon-green);
+    border: 1px solid rgba(0, 255, 100, 0.3);
+}
+
+.toggle-pill.off {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-footer {
+    padding: 8px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.version-tag {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
 .dropdown-menu .divider {
     height: 1px;
     background: rgba(255,255,255,0.1);
