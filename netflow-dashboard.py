@@ -3938,7 +3938,7 @@ def api_malicious_ports():
             
             for row in cur.fetchall():
                 port = row['dst_port']
-                service = SUSPICIOUS_PORTS.get(port, get_service_name(port))
+                service = SUSPICIOUS_PORTS.get(port, 'Unknown')
                 port_data[port] = {
                     'port': port,
                     'service': service,
@@ -3991,7 +3991,7 @@ def api_malicious_ports():
                                             if port not in port_data:
                                                 port_data[port] = {
                                                     'port': port,
-                                                    'service': SUSPICIOUS_PORTS.get(port, get_service_name(port)),
+                                                    'service': SUSPICIOUS_PORTS.get(port, 'Unknown'),
                                                     'blocked': 0,
                                                     'unique_attackers': 0,
                                                     'netflow_bytes': 0,
@@ -4009,7 +4009,7 @@ def api_malicious_ports():
     ports = list(port_data.values())
     for p in ports:
         p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
-        p['bytes_fmt'] = format_bytes(p['netflow_bytes'])
+        # p['bytes_fmt'] = format_bytes(p['netflow_bytes'])  # TODO: implement format_bytes
     
     ports.sort(key=lambda x: x['total_score'], reverse=True)
     
