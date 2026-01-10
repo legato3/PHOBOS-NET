@@ -274,6 +274,31 @@ apt-get install snmp python3-pysnmp4
 - Perfect for single-page dashboards
 - Easy to understand and modify
 
+## � Widget Inventory
+
+### Analytics Section
+- **Summary Stats** - Total traffic, flows, avg packet size
+- **Bandwidth & Flow Rate** - Time-series chart
+- **Firewall Health** - CPU, MEM, Uptime from SNMP
+- **Top Sources/Destinations** - IP tables with geo, sparklines
+- **Top Ports** - Port traffic with service names
+- **Protocols** - Protocol breakdown
+- **TCP Flags** - Flag distribution chart
+- **Top ASNs** - Autonomous System traffic bars
+- **Traffic by Country** - Geographic distribution chart
+
+### Security Center (10 widgets)
+- **Security Score** - 0-100 gauge with grade
+- **Alert History (24h)** - Recent alerts by severity
+- **Threats by Country** - Geo breakdown of threats
+- **Threat Detections** - Active threat IP table
+- **Feed Health** - 3-column grid of feed status
+- **Top Malicious Ports** - Suspicious port activity
+- **Blocklist Match Rate** - Time-series chart
+- **Threat Velocity** - Threats/hr with trend
+- **Top Threat IPs** - Ranked threat IPs with hits
+- **Network Risk Index** - Risk meter with factors
+
 ## 🔐 Security Considerations
 
 - Threat intelligence updates every 15 minutes
@@ -284,6 +309,6 @@ apt-get install snmp python3-pysnmp4
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.2 - Mobile Responsive)  
+**Last Updated**: January 10, 2026 (v2.3 - New Widgets)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs
