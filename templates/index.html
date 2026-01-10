@@ -428,14 +428,14 @@
                 </div>
                 <div class="world-map-controls">
                     <div class="wm-layer-toggles">
-                        <button class="wm-toggle" :class="{ active: worldMapLayers.sources }" @click="worldMapLayers.sources = !worldMapLayers.sources" title="Toggle Sources">
-                            <span class="wm-toggle-dot sources"></span> Sources
+                        <button class="wm-toggle sources" :class="{ active: worldMapLayers.sources }" @click="worldMapLayers.sources = !worldMapLayers.sources" title="Toggle Sources">
+                            <span class="wm-toggle-dot"></span> Sources
                         </button>
-                        <button class="wm-toggle" :class="{ active: worldMapLayers.destinations }" @click="worldMapLayers.destinations = !worldMapLayers.destinations" title="Toggle Destinations">
-                            <span class="wm-toggle-dot destinations"></span> Destinations
+                        <button class="wm-toggle destinations" :class="{ active: worldMapLayers.destinations }" @click="worldMapLayers.destinations = !worldMapLayers.destinations" title="Toggle Destinations">
+                            <span class="wm-toggle-dot"></span> Destinations
                         </button>
-                        <button class="wm-toggle" :class="{ active: worldMapLayers.threats }" @click="worldMapLayers.threats = !worldMapLayers.threats" title="Toggle Threats">
-                            <span class="wm-toggle-dot threats"></span> Threats
+                        <button class="wm-toggle threats" :class="{ active: worldMapLayers.threats }" @click="worldMapLayers.threats = !worldMapLayers.threats" title="Toggle Threats">
+                            <span class="wm-toggle-dot"></span> Threats
                         </button>
                     </div>
                     <div class="spinner" x-show="worldMap.loading"></div>

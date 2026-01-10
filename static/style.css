@@ -4627,6 +4627,10 @@ body.compact-mode {
     background: currentColor;
 }
 
+.wm-toggle.sources .wm-toggle-dot { background: var(--neon-cyan); }
+.wm-toggle.destinations .wm-toggle-dot { background: var(--neon-purple); }
+.wm-toggle.threats .wm-toggle-dot { background: var(--neon-red); }
+
 .world-map-container {
     position: relative;
     width: 100%;

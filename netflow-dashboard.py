@@ -2109,6 +2109,8 @@ def api_stats_worldmap():
     sources = get_common_nfdump_data("sources", range_key)[:50]
     dests = get_common_nfdump_data("dests", range_key)[:50]
     
+    print(f"[WorldMap] Raw sources: {len(sources)}, dests: {len(dests)}")
+    
     # Get threat IPs
     start_threat_thread()
     threat_set = set(_threat_ips)
@@ -2124,8 +2126,11 @@ def api_stats_worldmap():
     
     for item in sources:
         ip = item.get("key")
-        if is_internal(ip): continue
+        if is_internal(ip): 
+            print(f"[WorldMap] Skip internal source: {ip}")
+            continue
         geo = lookup_geo(ip) or {}
+        print(f"[WorldMap] Source {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
         if geo.get('lat') and geo.get('lng'):
             point = {
                 "ip": ip,
@@ -2150,8 +2155,11 @@ def api_stats_worldmap():
     
     for item in dests:
         ip = item.get("key")
-        if is_internal(ip): continue
+        if is_internal(ip): 
+            print(f"[WorldMap] Skip internal dest: {ip}")
+            continue
         geo = lookup_geo(ip) or {}
+        print(f"[WorldMap] Dest {ip}: lat={geo.get('lat')}, lng={geo.get('lng')}, country={geo.get('country')}")
         if geo.get('lat') and geo.get('lng'):
             point = {
                 "ip": ip,
@@ -2191,6 +2199,8 @@ def api_stats_worldmap():
                 if iso not in threat_countries:
                     threat_countries[iso] = {"name": geo.get('country'), "count": 0}
                 threat_countries[iso]["count"] += 1
+    
+    print(f"[WorldMap] Final counts - sources: {len(source_points)}, dests: {len(dest_points)}, threats: {len(threat_points)}")
     
     data = {
         "sources": source_points[:30],

@@ -1192,19 +1192,27 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
+                    console.log('[WorldMap] API response:', data);
                     this.worldMap = { ...data, loading: false };
                     this.$nextTick(() => this.renderWorldMap());
+                } else {
+                    console.error('[WorldMap] API error:', res.status);
                 }
-            } catch(e) { console.error(e); } finally { this.worldMap.loading = false; }
+            } catch(e) { console.error('[WorldMap] Fetch error:', e); } finally { this.worldMap.loading = false; }
         },
 
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
-            if (!container) return;
+            if (!container) {
+                console.warn('[WorldMap] Container not found');
+                return;
+            }
             
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
+            
+            console.log('[WorldMap] Rendering - sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length);
             
             // Simple SVG world map with markers
             const width = container.clientWidth || 800;
