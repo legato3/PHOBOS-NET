@@ -138,6 +138,16 @@ TRENDS_DB_PATH = os.getenv("TRENDS_DB_PATH", "netflow-trends.sqlite")
 _trends_db_lock = threading.Lock()
 _trends_thread_started = False
 
+# Firewall syslog storage (SQLite) for 7-day retention
+FIREWALL_DB_PATH = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+_firewall_db_lock = threading.Lock()
+_syslog_thread_started = False
+_syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
+SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
+SYSLOG_BIND = os.getenv("SYSLOG_BIND", "0.0.0.0")
+FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")  # Only accept from this IP
+FIREWALL_RETENTION_DAYS = 7
+
 mmdb_city = None
 mmdb_asn = None
 _threat_thread_started = False
@@ -2878,6 +2888,436 @@ def start_agg_thread():
     t.start()
 
 
+# ===== Firewall Syslog Receiver (OPNsense filterlog) =====
+
+import socket
+import re
+
+# Regex to parse OPNsense filterlog messages
+FILTERLOG_PATTERN = re.compile(
+    r'filterlog.*?:\s*'
+    r'(?P<rule>\d+)?,'           # Rule number
+    r'(?P<subrule>[^,]*),'       # Sub-rule
+    r'(?P<anchor>[^,]*),'        # Anchor
+    r'(?P<tracker>[^,]*),'       # Tracker ID
+    r'(?P<iface>\w+),'           # Interface
+    r'(?P<reason>\w+),'          # Reason
+    r'(?P<action>\w+),'          # Action (pass/block/reject)
+    r'(?P<dir>\w+),'             # Direction (in/out)
+    r'(?P<ipver>\d),'            # IP version
+    r'[^,]*,'                    # TOS
+    r'[^,]*,'                    # ECN
+    r'(?P<ttl>\d+)?,'            # TTL
+    r'[^,]*,'                    # ID
+    r'[^,]*,'                    # Offset
+    r'[^,]*,'                    # Flags
+    r'(?P<proto_num>\d+)?,'      # Protocol number
+    r'(?P<proto>\w+)?,'          # Protocol name
+    r'(?P<length>\d+)?,'         # Packet length
+    r'(?P<src_ip>[\d\.]+),'      # Source IP
+    r'(?P<dst_ip>[\d\.]+),'      # Destination IP
+    r'(?P<src_port>\d+)?,'       # Source port
+    r'(?P<dst_port>\d+)?'        # Destination port
+)
+
+def _firewall_db_connect():
+    """Connect to firewall SQLite database."""
+    conn = sqlite3.connect(FIREWALL_DB_PATH, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    return conn
+
+def _firewall_db_init():
+    """Initialize firewall log database schema."""
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS fw_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL NOT NULL,
+                    timestamp_iso TEXT,
+                    action TEXT NOT NULL,
+                    direction TEXT,
+                    interface TEXT,
+                    src_ip TEXT NOT NULL,
+                    src_port INTEGER,
+                    dst_ip TEXT NOT NULL,
+                    dst_port INTEGER,
+                    proto TEXT,
+                    rule_id TEXT,
+                    length INTEGER,
+                    country_iso TEXT,
+                    is_threat INTEGER DEFAULT 0,
+                    raw_log TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_timestamp ON fw_logs(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_action ON fw_logs(action)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_src_ip ON fw_logs(src_ip)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_dst_port ON fw_logs(dst_port)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_action_ts ON fw_logs(action, timestamp)")
+            
+            # Hourly aggregates table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS fw_stats_hourly (
+                    hour_ts INTEGER PRIMARY KEY,
+                    blocks INTEGER DEFAULT 0,
+                    passes INTEGER DEFAULT 0,
+                    unique_blocked_ips INTEGER DEFAULT 0,
+                    top_blocked_port INTEGER,
+                    top_blocked_country TEXT
+                )
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+def _parse_filterlog(line: str) -> dict:
+    """Parse OPNsense filterlog syslog message."""
+    match = FILTERLOG_PATTERN.search(line)
+    if not match:
+        return None
+    
+    return {
+        'rule_id': match.group('rule'),
+        'interface': match.group('iface'),
+        'action': match.group('action'),
+        'direction': match.group('dir'),
+        'proto': match.group('proto'),
+        'length': int(match.group('length') or 0),
+        'src_ip': match.group('src_ip'),
+        'dst_ip': match.group('dst_ip'),
+        'src_port': int(match.group('src_port') or 0),
+        'dst_port': int(match.group('dst_port') or 0),
+    }
+
+def _insert_fw_log(parsed: dict, raw_log: str):
+    """Insert parsed firewall log into database with enrichment."""
+    now = time.time()
+    now_iso = datetime.fromtimestamp(now).isoformat()
+    
+    # Enrich with GeoIP
+    src_ip = parsed['src_ip']
+    country_iso = None
+    if not is_internal(src_ip):
+        geo = lookup_geo(src_ip)
+        if geo:
+            country_iso = geo.get('country_iso')
+    
+    # Check if threat
+    threat_set = load_threatlist()
+    is_threat = 1 if src_ip in threat_set else 0
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            conn.execute("""
+                INSERT INTO fw_logs (timestamp, timestamp_iso, action, direction, interface,
+                    src_ip, src_port, dst_ip, dst_port, proto, rule_id, length, country_iso, is_threat, raw_log)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],
+                  parsed['src_ip'], parsed['src_port'], parsed['dst_ip'], parsed['dst_port'],
+                  parsed['proto'], parsed['rule_id'], parsed['length'], country_iso, is_threat, raw_log[:500]))
+            conn.commit()
+        finally:
+            conn.close()
+
+def _cleanup_old_fw_logs():
+    """Remove firewall logs older than retention period."""
+    cutoff = time.time() - (FIREWALL_RETENTION_DAYS * 86400)
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            conn.execute("DELETE FROM fw_logs WHERE timestamp < ?", (cutoff,))
+            conn.execute("VACUUM")
+            conn.commit()
+        finally:
+            conn.close()
+
+def _syslog_receiver_loop():
+    """UDP syslog receiver loop."""
+    global _syslog_stats
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    try:
+        sock.bind((SYSLOG_BIND, SYSLOG_PORT))
+        print(f"Syslog receiver started on {SYSLOG_BIND}:{SYSLOG_PORT}")
+    except PermissionError:
+        print(f"ERROR: Cannot bind to port {SYSLOG_PORT} - need root or CAP_NET_BIND_SERVICE")
+        return
+    except Exception as e:
+        print(f"ERROR: Syslog bind failed: {e}")
+        return
+    
+    while True:
+        try:
+            data, addr = sock.recvfrom(4096)
+            
+            # Security: Only accept from firewall IP
+            if addr[0] != FIREWALL_IP and FIREWALL_IP != "0.0.0.0":
+                continue
+            
+            _syslog_stats["received"] += 1
+            line = data.decode('utf-8', errors='ignore')
+            
+            # Only process filterlog messages
+            if 'filterlog' not in line:
+                continue
+            
+            parsed = _parse_filterlog(line)
+            if parsed:
+                _syslog_stats["parsed"] += 1
+                _syslog_stats["last_log"] = time.time()
+                _insert_fw_log(parsed, line)
+            else:
+                _syslog_stats["errors"] += 1
+                
+        except Exception as e:
+            _syslog_stats["errors"] += 1
+
+def _syslog_maintenance_loop():
+    """Periodic maintenance for firewall logs."""
+    while True:
+        try:
+            _cleanup_old_fw_logs()
+        except Exception:
+            pass
+        time.sleep(3600)  # Run every hour
+
+def start_syslog_thread():
+    """Start the syslog receiver and maintenance threads."""
+    global _syslog_thread_started
+    if _syslog_thread_started:
+        return
+    _syslog_thread_started = True
+    _firewall_db_init()
+    
+    # Receiver thread
+    t1 = threading.Thread(target=_syslog_receiver_loop, daemon=True)
+    t1.start()
+    
+    # Maintenance thread
+    t2 = threading.Thread(target=_syslog_maintenance_loop, daemon=True)
+    t2.start()
+
+
+# ===== Firewall Log API Endpoints =====
+
+@app.route("/api/firewall/logs/stats")
+@throttle(5, 10)
+def api_firewall_logs_stats():
+    """Get firewall log statistics."""
+    range_key = request.args.get('range', '1h')
+    range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    cutoff = time.time() - range_seconds
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            # Total blocks and passes
+            cur = conn.execute("""
+                SELECT action, COUNT(*) as cnt FROM fw_logs 
+                WHERE timestamp > ? GROUP BY action
+            """, (cutoff,))
+            counts = {row[0]: row[1] for row in cur.fetchall()}
+            
+            blocks = counts.get('block', 0) + counts.get('reject', 0)
+            passes = counts.get('pass', 0)
+            
+            # Unique blocked IPs
+            cur = conn.execute("""
+                SELECT COUNT(DISTINCT src_ip) FROM fw_logs 
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+            """, (cutoff,))
+            unique_blocked = cur.fetchone()[0] or 0
+            
+            # Top blocked ports
+            cur = conn.execute("""
+                SELECT dst_port, COUNT(*) as cnt FROM fw_logs 
+                WHERE timestamp > ? AND action IN ('block', 'reject') AND dst_port > 0
+                GROUP BY dst_port ORDER BY cnt DESC LIMIT 10
+            """, (cutoff,))
+            top_ports = [{"port": row[0], "count": row[1], "service": PORTS.get(row[0], "Unknown")} for row in cur.fetchall()]
+            
+            # Top blocked countries
+            cur = conn.execute("""
+                SELECT country_iso, COUNT(*) as cnt FROM fw_logs 
+                WHERE timestamp > ? AND action IN ('block', 'reject') AND country_iso IS NOT NULL
+                GROUP BY country_iso ORDER BY cnt DESC LIMIT 10
+            """, (cutoff,))
+            top_countries = [{"iso": row[0], "count": row[1]} for row in cur.fetchall()]
+            
+            # Threat matches
+            cur = conn.execute("""
+                SELECT COUNT(*) FROM fw_logs 
+                WHERE timestamp > ? AND is_threat = 1
+            """, (cutoff,))
+            threat_hits = cur.fetchone()[0] or 0
+            
+        finally:
+            conn.close()
+    
+    hours = range_seconds / 3600
+    data = {
+        "blocks_total": blocks,
+        "blocks_per_hour": round(blocks / hours, 1) if hours > 0 else 0,
+        "passes_total": passes,
+        "unique_blocked_ips": unique_blocked,
+        "top_blocked_ports": top_ports,
+        "top_blocked_countries": top_countries,
+        "threat_hits": threat_hits,
+        "receiver_stats": _syslog_stats
+    }
+    return jsonify(data)
+
+
+@app.route("/api/firewall/logs/blocked")
+@throttle(5, 10)
+def api_firewall_logs_blocked():
+    """Get top blocked IPs."""
+    range_key = request.args.get('range', '1h')
+    limit = min(int(request.args.get('limit', 20)), 100)
+    range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    cutoff = time.time() - range_seconds
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            cur = conn.execute("""
+                SELECT src_ip, COUNT(*) as cnt, MAX(timestamp) as last_seen,
+                       GROUP_CONCAT(DISTINCT dst_port) as ports, 
+                       MAX(country_iso) as country, MAX(is_threat) as is_threat
+                FROM fw_logs 
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+                GROUP BY src_ip ORDER BY cnt DESC LIMIT ?
+            """, (cutoff, limit))
+            
+            blocked_ips = []
+            for row in cur.fetchall():
+                ports_str = row[3] or ""
+                ports_list = [int(p) for p in ports_str.split(',') if p.isdigit()][:5]
+                
+                ip = row[0]
+                geo = lookup_geo(ip)
+                
+                blocked_ips.append({
+                    "ip": ip,
+                    "count": row[1],
+                    "last_seen": datetime.fromtimestamp(row[2]).isoformat() if row[2] else None,
+                    "ports_targeted": ports_list,
+                    "country": geo.get('country') if geo else None,
+                    "country_iso": row[4],
+                    "flag": flag_from_iso(row[4]) if row[4] else "",
+                    "is_threat": bool(row[5]),
+                    "hostname": resolve_ip(ip)
+                })
+        finally:
+            conn.close()
+    
+    return jsonify({"blocked_ips": blocked_ips})
+
+
+@app.route("/api/firewall/logs/timeline")
+@throttle(5, 10)
+def api_firewall_logs_timeline():
+    """Get hourly timeline of blocks/passes."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 86400)
+    cutoff = time.time() - range_seconds
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            # Group by hour
+            cur = conn.execute("""
+                SELECT 
+                    CAST((timestamp / 3600) AS INTEGER) * 3600 as hour_ts,
+                    action,
+                    COUNT(*) as cnt
+                FROM fw_logs 
+                WHERE timestamp > ?
+                GROUP BY hour_ts, action
+                ORDER BY hour_ts
+            """, (cutoff,))
+            
+            hours_data = {}
+            for row in cur.fetchall():
+                hour_ts = row[0]
+                action = row[1]
+                count = row[2]
+                
+                if hour_ts not in hours_data:
+                    hours_data[hour_ts] = {"blocks": 0, "passes": 0}
+                
+                if action in ('block', 'reject'):
+                    hours_data[hour_ts]["blocks"] += count
+                elif action == 'pass':
+                    hours_data[hour_ts]["passes"] += count
+        finally:
+            conn.close()
+    
+    timeline = [
+        {
+            "hour": datetime.fromtimestamp(ts).isoformat(),
+            "hour_ts": ts,
+            "blocks": data["blocks"],
+            "passes": data["passes"]
+        }
+        for ts, data in sorted(hours_data.items())
+    ]
+    
+    return jsonify({"timeline": timeline})
+
+
+@app.route("/api/firewall/logs/recent")
+@throttle(5, 10)
+def api_firewall_logs_recent():
+    """Get most recent firewall log entries."""
+    limit = min(int(request.args.get('limit', 50)), 200)
+    action_filter = request.args.get('action')  # 'block', 'pass', or None for all
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            if action_filter:
+                cur = conn.execute("""
+                    SELECT timestamp_iso, action, direction, interface, src_ip, src_port, 
+                           dst_ip, dst_port, proto, country_iso, is_threat
+                    FROM fw_logs WHERE action = ? ORDER BY timestamp DESC LIMIT ?
+                """, (action_filter, limit))
+            else:
+                cur = conn.execute("""
+                    SELECT timestamp_iso, action, direction, interface, src_ip, src_port, 
+                           dst_ip, dst_port, proto, country_iso, is_threat
+                    FROM fw_logs ORDER BY timestamp DESC LIMIT ?
+                """, (limit,))
+            
+            logs = []
+            for row in cur.fetchall():
+                logs.append({
+                    "timestamp": row[0],
+                    "action": row[1],
+                    "direction": row[2],
+                    "interface": row[3],
+                    "src_ip": row[4],
+                    "src_port": row[5],
+                    "dst_ip": row[6],
+                    "dst_port": row[7],
+                    "proto": row[8],
+                    "country_iso": row[9],
+                    "flag": flag_from_iso(row[9]) if row[9] else "",
+                    "is_threat": bool(row[10]),
+                    "service": PORTS.get(row[7], "") if row[7] else ""
+                })
+        finally:
+            conn.close()
+    
+    return jsonify({"logs": logs, "receiver_stats": _syslog_stats})
+
+
 @app.route("/api/alerts")
 @throttle(5, 10)
 def api_alerts():
@@ -4429,4 +4869,11 @@ def api_stats_blocklist_rate():
 
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
+    
+    # Start background services
+    start_threat_thread()
+    start_trends_thread()
+    start_agg_thread()
+    start_syslog_thread()  # OPNsense firewall log receiver
+    
     app.run(host="0.0.0.0",port=8080,threaded=True)

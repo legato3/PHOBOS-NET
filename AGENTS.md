@@ -335,8 +335,56 @@ apt-get install snmp python3-pysnmp4
 - DNS lookups timeout to prevent hanging
 - World map uses `load_threatlist()` to mark threat IPs geographically
 
+## 🔥 Firewall Syslog Integration (NEW)
+
+### Overview
+The dashboard can receive and parse OPNsense firewall logs via syslog UDP, providing visibility into blocked connections.
+
+### Architecture
+```
+OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (firewall.db)
+```
+
+### Key Components
+- **Syslog Receiver**: `start_syslog_thread()` - UDP server on port 514
+- **Log Parser**: `_parse_filterlog()` - Parses OPNsense filterlog format
+- **Database**: `/root/firewall.db` - SQLite with 7-day retention
+- **APIs**: `/api/firewall/logs/*` - Stats, blocked IPs, timeline, recent logs
+
+### Configuration (Environment Variables)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FIREWALL_DB_PATH` | `/root/firewall.db` | SQLite database path |
+| `SYSLOG_PORT` | `514` | UDP port for syslog receiver |
+| `SYSLOG_BIND` | `0.0.0.0` | Interface to bind |
+| `FIREWALL_IP` | `192.168.0.1` | Only accept logs from this IP |
+
+### API Endpoints
+| Endpoint | Description |
+|----------|-------------|
+| `/api/firewall/logs/stats` | Block counts, top ports, top countries |
+| `/api/firewall/logs/blocked` | Top blocked IPs with enrichment |
+| `/api/firewall/logs/timeline` | Hourly blocks/passes chart data |
+| `/api/firewall/logs/recent` | Recent log entries |
+
+### OPNsense Setup
+1. Go to **System → Settings → Logging / Targets**
+2. Add target: UDP to 192.168.0.74:514
+3. Select **Applications**: `filter` (filterlog)
+4. Enable logging on firewall rules
+
+### Database Schema
+- `fw_logs`: Raw log entries with GeoIP enrichment
+- `fw_stats_hourly`: Pre-aggregated hourly stats
+- Automatic cleanup of logs > 7 days
+
+### For AI Agents
+- See `SYSLOG_INTEGRATION.md` for full design doc
+- Log parser regex: `FILTERLOG_PATTERN` in netflow-dashboard.py
+- Test with: `logger -n 192.168.0.74 -P 514 "test"`
+
 ---
 
-**Last Updated**: January 10, 2026 (v2.7 - World Map Threat Integration Fix)  
+**Last Updated**: January 10, 2026 (v2.8 - Firewall Syslog Integration)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules/Claude)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs
