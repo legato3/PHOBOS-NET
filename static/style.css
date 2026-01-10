@@ -520,3 +520,252 @@ table[style*="table-layout:fixed"] td:first-child {
 
 /* Slightly more compact rows for added widgets to fit the grid */
 .card table tbody tr td { padding-top: 6px; padding-bottom: 6px; }
+/* ============================================
+   SECTION HEADERS
+   ============================================ */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 30px 0 15px 0;
+    padding: 0 5px;
+}
+
+.section-header h3 {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--card-border), transparent);
+}
+
+.section-header .section-icon {
+    font-size: 1.1em;
+}
+
+/* ============================================
+   COLLAPSIBLE SUBSECTIONS (Firewall Groups)
+   ============================================ */
+.subsection {
+    margin-bottom: 15px;
+}
+
+.subsection-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+}
+
+.subsection-header:hover {
+    background: rgba(0, 243, 255, 0.05);
+    border-color: rgba(0, 243, 255, 0.3);
+}
+
+.subsection-header .subsection-title {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex: 1;
+}
+
+.subsection-header .subsection-icon {
+    color: var(--neon-cyan);
+    transition: transform 0.2s;
+}
+
+.subsection-header.collapsed .subsection-icon {
+    transform: rotate(-90deg);
+}
+
+.subsection-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+.subsection-content.collapsed {
+    display: none;
+}
+
+/* Smaller stat boxes for firewall subsections */
+.subsection .stat-box {
+    min-height: 70px;
+    padding: 8px;
+}
+
+.subsection .stat-box .value {
+    font-size: 1.4em;
+}
+
+/* ============================================
+   STATUS INDICATOR BORDERS
+   ============================================ */
+.stat-box.status-ok {
+    border-left: 3px solid var(--neon-green);
+}
+
+.stat-box.status-warning {
+    border-left: 3px solid orange;
+}
+
+.stat-box.status-critical {
+    border-left: 3px solid var(--neon-red);
+    animation: pulse-red 2s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 5px rgba(255, 0, 60, 0.2); }
+    50% { box-shadow: 0 0 15px rgba(255, 0, 60, 0.4); }
+}
+
+/* ============================================
+   STICKY STATUS BAR
+   ============================================ */
+.status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    background: rgba(10, 10, 10, 0.95);
+    border-top: 1px solid var(--card-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    padding: 0 20px;
+    z-index: 1000;
+    font-size: 0.75em;
+}
+
+.status-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+}
+
+.status-bar-item .label {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.status-bar-item .value {
+    color: var(--neon-green);
+    font-weight: 600;
+}
+
+.status-bar-item .value.warning {
+    color: orange;
+}
+
+.status-bar-item .value.critical {
+    color: var(--neon-red);
+}
+
+.status-bar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--neon-green);
+}
+
+.status-bar-dot.warning {
+    background: orange;
+}
+
+.status-bar-dot.disconnected {
+    background: var(--neon-red);
+}
+
+/* Add padding to body for status bar */
+body {
+    padding-bottom: 56px !important;
+}
+
+/* ============================================
+   MOBILE BREAKPOINT IMPROVEMENTS
+   ============================================ */
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .controls {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    
+    .section-header h3 {
+        font-size: 0.85em;
+    }
+    
+    .status-bar {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 8px 15px;
+        gap: 10px 20px;
+        justify-content: flex-start;
+    }
+    
+    .subsection-content {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .stat-box {
+        min-height: 80px;
+    }
+    
+    .stat-box .value {
+        font-size: 1.4em;
+    }
+    
+    .title {
+        font-size: 1.4em;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+        padding-bottom: 80px !important;
+    }
+    
+    .subsection-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .card {
+        padding: 12px;
+    }
+    
+    .status-bar {
+        justify-content: center;
+    }
+}
