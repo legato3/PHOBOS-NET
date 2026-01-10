@@ -1,0 +1,1 @@
+{"notify":{"email":true,"mute_until":0,"webhook":true},"threat_status":{"error":null,"feeds_ok":11,"feeds_total":11,"last_attempt":1768066166.157107,"last_ok":1768066170.2581732,"size":47239,"status":"ok"},"totals":{"avg_packet_size":964,"bytes":1095664661,"bytes_fmt":"1.02 GB","flows":35374,"packets":1136419}}
