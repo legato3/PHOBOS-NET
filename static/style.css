@@ -1659,6 +1659,115 @@ body {
 }
 
 /* ============================================
+   TOP CONVERSATIONS WIDGET
+   ============================================ */
+.conversation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.conversation-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(0, 243, 255, 0.1);
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+
+.conversation-item:hover {
+    background: rgba(0, 243, 255, 0.05);
+    border-color: rgba(0, 243, 255, 0.2);
+}
+
+.conv-endpoints {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    flex-wrap: wrap;
+}
+
+.conv-src, .conv-dst {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.conv-src span:first-child,
+.conv-dst span:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.conv-region {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.conv-arrow {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+.conv-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75em;
+}
+
+.conv-bytes {
+    margin-left: auto;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================
+   TRAFFIC INSIGHTS WIDGET
+   ============================================ */
+.insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.insight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+.insight-icon {
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+.insight-text {
+    color: var(--text-secondary);
+}
+
+.insight-text strong {
+    font-weight: 600;
+}
+
+/* ============================================
    THREAT VELOCITY WIDGET
    ============================================ */
 .velocity-display {

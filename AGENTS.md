@@ -274,7 +274,7 @@ apt-get install snmp python3-pysnmp4
 - Perfect for single-page dashboards
 - Easy to understand and modify
 
-## � Widget Inventory
+## 🎛️ Widget Inventory
 
 ### Analytics Section
 - **Summary Stats** - Total traffic, flows, avg packet size
@@ -285,14 +285,18 @@ apt-get install snmp python3-pysnmp4
 - **Protocols** - Protocol breakdown
 - **TCP Flags** - Flag distribution chart
 - **Top ASNs** - Autonomous System traffic bars
-- **Traffic by Country** - Geographic distribution chart
+- **Top Countries** - Geographic traffic distribution (pie chart)
+- **Longest Durations** - Long-running flows
+- **Packet Sizes** - Packet size distribution chart
+- **Top Conversations** - Heaviest traffic pairs (src → dst)
+- **Traffic Insights** - AI-generated insights about network behavior
 
 ### Security Center (10 widgets)
 - **Security Score** - 0-100 gauge with grade
 - **Alert History (24h)** - Recent alerts by severity
 - **Threats by Country** - Geo breakdown of threats
 - **Threat Detections** - Active threat IP table
-- **Feed Health** - 3-column grid of feed status
+- **Feed Health** - Compact 2-column feed status list
 - **Top Malicious Ports** - Suspicious port activity
 - **Blocklist Match Rate** - Time-series chart
 - **Threat Velocity** - Threats/hr with trend
