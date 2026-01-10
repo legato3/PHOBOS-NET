@@ -103,6 +103,7 @@
                         <a @click="refreshFeed()">Refresh Threat Feed</a>
                         <a @click="openThresholds()">Edit Thresholds</a>
                         <a @click="lowPower = !lowPower" x-text="lowPower ? 'Low Power: ON' : 'Low Power: OFF'"></a>
+                        <a @click="toggleCompactMode()" x-text="compactMode ? '📐 Compact: ON' : '📐 Compact: OFF'"></a>
                         <div class="divider"></div>
                         <a @click="toggleNotify('email')" x-text="'Email: ' + (notify.email ? 'ON' : 'OFF')"></a>
                         <a @click="toggleNotify('webhook')" x-text="'Webhook: ' + (notify.webhook ? 'ON' : 'OFF')"></a>

@@ -25,6 +25,9 @@ document.addEventListener('alpine:init', () => {
         // Low Power mode
         lowPower: false,
 
+        // Compact mode
+        compactMode: false,
+
         // Sparkline cache
         sparkCache: {}, // { key: { ts, labels, bytes } }
         sparkTTL: 120000, // 2 minutes
@@ -133,6 +136,7 @@ document.addEventListener('alpine:init', () => {
             console.log('Neural Link Established.');
             this.initDone = true;
             this.loadWidgetPreferences();
+            this.loadCompactMode();
             this.loadAll();
             this.loadNotifyStatus();
             this.loadThresholds();
@@ -155,6 +159,10 @@ document.addEventListener('alpine:init', () => {
             });
             this.$watch('refreshInterval', () => {
                  this.startTimer();
+            });
+            this.$watch('compactMode', (v) => {
+                document.body.classList.toggle('compact-mode', v);
+                localStorage.setItem('compactMode', v ? '1' : '0');
             });
             this.$watch('lowPower', (v) => {
                 if (v) {
@@ -1141,6 +1149,19 @@ document.addEventListener('alpine:init', () => {
              if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
              if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
              return bytes + ' B';
+        },
+
+        // Compact Mode
+        loadCompactMode() {
+            const saved = localStorage.getItem('compactMode');
+            this.compactMode = saved === '1';
+            if (this.compactMode) {
+                document.body.classList.add('compact-mode');
+            }
+        },
+
+        toggleCompactMode() {
+            this.compactMode = !this.compactMode;
         },
 
         // Widget Management Methods

@@ -1769,3 +1769,193 @@ body {
 .text-red {
     color: var(--neon-red) !important;
 }
+
+/* ============================================
+   COMPACT MODE
+   ============================================ */
+body.compact-mode {
+    padding: 10px;
+    font-size: 13px;
+}
+
+.compact-mode .container {
+    gap: 10px;
+}
+
+.compact-mode .card {
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.compact-mode .card h2 {
+    font-size: 0.95em;
+    margin-bottom: 8px;
+}
+
+.compact-mode .dashboard-grid {
+    gap: 10px;
+}
+
+.compact-mode table {
+    font-size: 0.85em;
+}
+
+.compact-mode table th,
+.compact-mode table td {
+    padding: 4px 8px;
+}
+
+.compact-mode .stat-card {
+    padding: 10px 12px;
+}
+
+.compact-mode .stat-card .value {
+    font-size: 1.4em;
+}
+
+.compact-mode .stat-card .label {
+    font-size: 0.7em;
+}
+
+.compact-mode .security-center {
+    margin-bottom: 10px;
+}
+
+.compact-mode .security-center-header {
+    padding: 10px 14px;
+    gap: 12px;
+}
+
+.compact-mode .security-center-title h2 {
+    font-size: 1.1em;
+}
+
+.compact-mode .security-center-content {
+    padding: 12px;
+}
+
+.compact-mode .security-grid {
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.compact-mode .sc-stat-value {
+    font-size: 1em;
+}
+
+.compact-mode .sc-stat-label {
+    font-size: 0.65em;
+}
+
+.compact-mode .feed-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+}
+
+.compact-mode .feed-card {
+    padding: 8px;
+}
+
+.compact-mode .feed-ips {
+    font-size: 1em;
+}
+
+.compact-mode .activity-item {
+    padding: 6px 8px;
+    gap: 8px;
+}
+
+.compact-mode .activity-msg {
+    font-size: 0.85em;
+}
+
+.compact-mode .alert-pills {
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.compact-mode .alert-pill {
+    padding: 2px 8px;
+    font-size: 0.75em;
+}
+
+.compact-mode .score-circle {
+    width: 80px;
+    height: 80px;
+}
+
+.compact-mode .score-circle::before {
+    width: 64px;
+    height: 64px;
+}
+
+.compact-mode .score-value {
+    font-size: 1.4em;
+}
+
+.compact-mode .score-display {
+    gap: 16px;
+}
+
+.compact-mode .score-status {
+    font-size: 1em;
+}
+
+.compact-mode .score-reason {
+    font-size: 0.8em;
+    padding: 3px 6px;
+}
+
+.compact-mode .country-threat-item {
+    padding: 6px 10px;
+}
+
+.compact-mode .section-header {
+    padding: 10px 14px;
+}
+
+.compact-mode .section-header h3 {
+    font-size: 1em;
+}
+
+.compact-mode .subsection-header {
+    padding: 8px 12px;
+    font-size: 0.9em;
+}
+
+.compact-mode .header {
+    padding: 10px 0;
+    margin-bottom: 10px;
+}
+
+.compact-mode .header h1 {
+    font-size: 1.5em;
+}
+
+.compact-mode .status-bar {
+    padding: 6px 12px;
+    font-size: 0.75em;
+}
+
+.compact-mode .blocklist-stats {
+    gap: 12px;
+}
+
+.compact-mode .blocklist-value {
+    font-size: 1.1em;
+}
+
+.compact-mode .wide-card {
+    padding: 12px;
+}
+
+/* Compact mode indicator */
+.compact-mode::after {
+    content: '📐';
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    font-size: 1.2em;
+    opacity: 0.3;
+    pointer-events: none;
+}
