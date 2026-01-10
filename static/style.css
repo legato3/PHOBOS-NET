@@ -756,6 +756,80 @@ table[style*="table-layout:fixed"] td:first-child {
     margin-bottom: 0;
 }
 
+/* Configuration Modal Styles */
+.config-modal {
+    text-align: left;
+}
+
+.config-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.config-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.config-section h3 {
+    color: var(--neon-cyan);
+    font-size: 0.95em;
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.config-row {
+    margin-bottom: 12px;
+}
+
+.config-row label {
+    display: block;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.config-row input {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    transition: border-color 0.2s;
+}
+
+.config-row input:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+}
+
+.config-row input[type="number"] {
+    width: 100px;
+}
+
+.config-row input[type="password"] {
+    letter-spacing: 2px;
+}
+
+.config-hint {
+    display: block;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+/* Toast notification animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* ============================================
    STICKY STATUS BAR
    ============================================ */

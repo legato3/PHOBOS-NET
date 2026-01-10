@@ -111,6 +111,7 @@
                         <a @click="sendTestAlert()">Send Test Alert</a>
                         <a @click="refreshFeed()">Refresh Threat Feed</a>
                         <a @click="openThresholds()">Edit Thresholds</a>
+                        <a @click="openConfig()">⚙️ Configuration</a>
                         <a @click="lowPower = !lowPower" x-text="lowPower ? 'Low Power: ON' : 'Low Power: OFF'"></a>
                         <a @click="toggleCompactMode()" x-text="compactMode ? '📐 Compact: ON' : '📐 Compact: OFF'"></a>
                         <div class="divider"></div>
@@ -586,7 +587,7 @@
                         <div class="spinner" x-show="destinations.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('destinations')">>
+                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('destinations')">
                     <thead>
                         <tr>
                             <th style="width:70%;">IP</th>
@@ -638,7 +639,7 @@
                         <div class="spinner" x-show="ports.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('ports')">>
+                <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('ports')">
                     <thead>
                         <tr>
                             <th style="width: 70%;">Port</th>
@@ -1362,6 +1363,90 @@
                     </template>
                 </div>
             </template>
+        </div>
+    </div>
+
+    <!-- Configuration Settings Modal -->
+    <div class="modal" x-show="configModalOpen" style="display:none" :style="configModalOpen ? 'display:flex' : 'display:none'" @click.self="configModalOpen = false">
+        <div class="modal-content config-modal" style="max-width: 600px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="margin:0">⚙️ Configuration Settings</h2>
+                <button @click="configModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close config modal">×</button>
+            </div>
+            
+            <div x-show="configLoading" style="text-align:center; padding:20px;">
+                <div class="spinner"></div>
+                <p style="color:var(--text-muted); margin-top:10px;">Loading configuration...</p>
+            </div>
+            
+            <div x-show="!configLoading" style="display:none" :style="!configLoading ? 'display:block' : 'display:none'">
+                <div class="config-section">
+                    <h3>🌐 Network</h3>
+                    <div class="config-row">
+                        <label>DNS Server</label>
+                        <input type="text" x-model="config.dns_server" placeholder="192.168.0.6">
+                        <span class="config-hint">Used for hostname resolution</span>
+                    </div>
+                    <div class="config-row">
+                        <label>Internal Networks</label>
+                        <input type="text" x-model="config.internal_networks" placeholder="192.168.0.0/16,10.0.0.0/8">
+                        <span class="config-hint">CIDR notation, comma-separated</span>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h3>📡 SNMP (Firewall Monitoring)</h3>
+                    <div class="config-row">
+                        <label>SNMP Host</label>
+                        <input type="text" x-model="config.snmp_host" placeholder="192.168.0.1">
+                        <span class="config-hint">OPNsense/pfSense firewall IP</span>
+                    </div>
+                    <div class="config-row">
+                        <label>SNMP Community</label>
+                        <input type="password" x-model="config.snmp_community" placeholder="public">
+                        <span class="config-hint">SNMP v2c community string</span>
+                    </div>
+                    <div class="config-row">
+                        <label>Poll Interval (sec)</label>
+                        <input type="number" x-model.number="config.snmp_poll_interval" min="1" max="60" step="1">
+                        <span class="config-hint">How often to poll SNMP (1-60s)</span>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <h3>📂 Paths</h3>
+                    <div class="config-row">
+                        <label>NetFlow Data Directory</label>
+                        <input type="text" x-model="config.nfdump_dir" placeholder="/var/cache/nfdump">
+                        <span class="config-hint">Where nfcapd stores flow data</span>
+                    </div>
+                    <div class="config-row">
+                        <label>GeoIP City Database</label>
+                        <input type="text" x-model="config.geoip_city_path" placeholder="/root/GeoLite2-City.mmdb">
+                        <span class="config-hint">MaxMind GeoLite2 City MMDB</span>
+                    </div>
+                    <div class="config-row">
+                        <label>GeoIP ASN Database</label>
+                        <input type="text" x-model="config.geoip_asn_path" placeholder="/root/GeoLite2-ASN.mmdb">
+                        <span class="config-hint">MaxMind GeoLite2 ASN MMDB</span>
+                    </div>
+                    <div class="config-row">
+                        <label>Threat Feeds File</label>
+                        <input type="text" x-model="config.threat_feeds_path" placeholder="/root/threat-feeds.txt">
+                        <span class="config-hint">List of threat feed URLs (one per line)</span>
+                    </div>
+                </div>
+                
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid var(--card-border);">
+                    <button @click="configModalOpen = false">Cancel</button>
+                    <button @click="saveConfig()" :disabled="configSaving" style="background: var(--neon-cyan); color:#000; font-weight:bold;">
+                        <span x-show="!configSaving">💾 Save Configuration</span>
+                        <span x-show="configSaving">Saving...</span>
+                    </button>
+                </div>
+                
+                <p style="color:var(--text-muted); font-size:0.8em; margin-top:12px; text-align:center;">⚠️ Some changes require a service restart to take full effect</p>
+            </div>
         </div>
     </div>
 

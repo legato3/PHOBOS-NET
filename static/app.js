@@ -119,6 +119,22 @@ document.addEventListener('alpine:init', () => {
         },
         thresholdsModalOpen: false,
 
+        // Configuration Settings Modal
+        configModalOpen: false,
+        configLoading: false,
+        configSaving: false,
+        config: {
+            dns_server: '',
+            snmp_host: '',
+            snmp_community: '',
+            snmp_poll_interval: 2,
+            nfdump_dir: '',
+            geoip_city_path: '',
+            geoip_asn_path: '',
+            threat_feeds_path: '',
+            internal_networks: ''
+        },
+
         // Firewall Detail Modal
         fwDetailOpen: false,
         fwDetailType: null,
@@ -497,6 +513,58 @@ document.addEventListener('alpine:init', () => {
                     this.thresholdsModalOpen = false;
                 }
             } catch(e) { console.error(e); }
+        },
+
+        // Configuration Settings
+        async openConfig() {
+            this.configModalOpen = true;
+            this.configLoading = true;
+            try {
+                const res = await fetch('/api/config');
+                if (res.ok) {
+                    const cfg = await res.json();
+                    this.config = { ...this.config, ...cfg };
+                }
+            } catch(e) { console.error('Failed to load config:', e); }
+            this.configLoading = false;
+        },
+
+        async saveConfig() {
+            this.configSaving = true;
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.config)
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.config) {
+                        this.config = { ...this.config, ...result.config };
+                    }
+                    this.configModalOpen = false;
+                    // Show success notification
+                    this.showToast('Configuration saved successfully', 'success');
+                } else {
+                    this.showToast('Failed to save configuration', 'error');
+                }
+            } catch(e) {
+                console.error('Failed to save config:', e);
+                this.showToast('Error saving configuration', 'error');
+            }
+            this.configSaving = false;
+        },
+
+        showToast(message, type = 'info') {
+            // Simple toast notification (could be enhanced)
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toast.style.cssText = 'position:fixed;bottom:60px;right:20px;padding:12px 20px;border-radius:6px;z-index:10000;animation:fadeIn 0.3s;';
+            toast.style.background = type === 'success' ? 'var(--neon-green)' : type === 'error' ? 'var(--neon-red)' : 'var(--neon-cyan)';
+            toast.style.color = '#000';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         },
 
         async loadAll() {

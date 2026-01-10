@@ -124,6 +124,7 @@ WEBHOOK_PATH = "/root/netflow-webhook.url"
 SMTP_CFG_PATH = os.getenv("SMTP_CFG_PATH", "/root/netflow-smtp.json")
 NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/root/netflow-notify.json")
 THRESHOLDS_CFG_PATH = os.getenv("THRESHOLDS_CFG_PATH", "/root/netflow-thresholds.json")
+CONFIG_PATH = os.getenv("CONFIG_PATH", "/root/netflow-config.json")
 SAMPLE_DATA_PATH = "sample_data/nfdump_flows.csv"
 
 # Trends storage (SQLite) for 5-minute rollups
@@ -2591,6 +2592,74 @@ def api_thresholds():
     data = request.get_json(force=True, silent=True) or {}
     saved = save_thresholds(data)
     return jsonify(saved)
+
+
+# ===== Configuration Settings =====
+def get_default_config():
+    """Return default configuration values."""
+    return {
+        'dns_server': '192.168.0.6',
+        'snmp_host': '192.168.0.1',
+        'snmp_community': 'public',
+        'snmp_poll_interval': 2.0,
+        'nfdump_dir': '/var/cache/nfdump',
+        'geoip_city_path': '/root/GeoLite2-City.mmdb',
+        'geoip_asn_path': '/root/GeoLite2-ASN.mmdb',
+        'threat_feeds_path': '/root/threat-feeds.txt',
+        'internal_networks': '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12'
+    }
+
+def load_config():
+    """Load configuration from file or return defaults."""
+    defaults = get_default_config()
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                saved = json.load(f)
+                # Merge with defaults (saved values override)
+                return {**defaults, **saved}
+        except Exception:
+            pass
+    return defaults
+
+def save_config(data):
+    """Save configuration to file."""
+    global DNS_SERVER, SNMP_HOST, SNMP_COMMUNITY, SNMP_POLL_INTERVAL, _shared_resolver
+    current = load_config()
+    # Only allow specific keys to be saved
+    allowed_keys = get_default_config().keys()
+    for k in allowed_keys:
+        if k in data:
+            current[k] = data[k]
+    try:
+        with open(CONFIG_PATH, 'w') as f:
+            json.dump(current, f, indent=2)
+        # Apply runtime updates where possible
+        if 'dns_server' in data and data['dns_server']:
+            DNS_SERVER = data['dns_server']
+            _shared_resolver.nameservers = [DNS_SERVER]
+        if 'snmp_host' in data:
+            globals()['SNMP_HOST'] = data['snmp_host']
+        if 'snmp_community' in data:
+            globals()['SNMP_COMMUNITY'] = data['snmp_community']
+        if 'snmp_poll_interval' in data:
+            globals()['SNMP_POLL_INTERVAL'] = float(data['snmp_poll_interval'])
+    except Exception as e:
+        print(f"Error saving config: {e}")
+    return current
+
+@app.route('/api/config', methods=['GET', 'POST'])
+def api_config():
+    """Get or update application configuration."""
+    if request.method == 'GET':
+        cfg = load_config()
+        # Mask sensitive values for display
+        if cfg.get('snmp_community'):
+            cfg['snmp_community_masked'] = '*' * len(cfg['snmp_community'])
+        return jsonify(cfg)
+    data = request.get_json(force=True, silent=True) or {}
+    saved = save_config(data)
+    return jsonify({'status': 'ok', 'config': saved})
 
 
 @app.route('/metrics')
