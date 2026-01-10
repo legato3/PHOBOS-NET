@@ -1598,19 +1598,33 @@ def api_stats_summary():
 @throttle(5, 10)
 def api_stats_sources():
     range_key = request.args.get('range', '1h')
+    try:
+        limit = int(request.args.get('limit', 10))
+    except:
+        limit = 10
+
+    # Cache key must include limit if we cache at this level.
+    # However, the current cache logic inside this function ignores 'limit' in the key check.
+    # To support variable limits correctly without rewriting the whole caching layer for this demo,
+    # we can bypass the function-level cache if limit > 10, or just use the common data cache (which has 100).
+    # Since get_common_nfdump_data returns 100, we can just slice from that.
+
+    # We will skip the function-level cache check if limit > 10 for now to ensure fresh data,
+    # OR we can update the cache key. Let's update the cache key.
+
+    cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
+
     with _lock_sources:
-        if _stats_sources_cache["data"] and _stats_sources_cache["key"] == range_key and _stats_sources_cache.get("win") == win:
+        if _stats_sources_cache["data"] and _stats_sources_cache.get("key") == cache_key_local and _stats_sources_cache.get("win") == win:
             return jsonify(_stats_sources_cache["data"])
 
-    tf = get_time_range(range_key)
-
-    # Use shared data (top 50)
+    # Use shared data (top 100)
     full_sources = get_common_nfdump_data("sources", range_key)
 
-    # Return top 10
-    sources = full_sources[:10]
+    # Return top N
+    sources = full_sources[:limit]
 
     # Enrich
     for i in sources:
@@ -1627,7 +1641,7 @@ def api_stats_sources():
     with _lock_sources:
         _stats_sources_cache["data"] = data
         _stats_sources_cache["ts"] = now
-        _stats_sources_cache["key"] = range_key
+        _stats_sources_cache["key"] = cache_key_local
         _stats_sources_cache["win"] = win
     return jsonify(data)
 
@@ -1636,17 +1650,21 @@ def api_stats_sources():
 @throttle(5, 10)
 def api_stats_destinations():
     range_key = request.args.get('range', '1h')
+    try:
+        limit = int(request.args.get('limit', 10))
+    except:
+        limit = 10
+
+    cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
     with _lock_dests:
-        if _stats_dests_cache["data"] and _stats_dests_cache["key"] == range_key and _stats_dests_cache.get("win") == win:
+        if _stats_dests_cache["data"] and _stats_dests_cache.get("key") == cache_key_local and _stats_dests_cache.get("win") == win:
             return jsonify(_stats_dests_cache["data"])
 
-    tf = get_time_range(range_key)
-
-    # Use shared data (top 20)
+    # Use shared data (top 100)
     full_dests = get_common_nfdump_data("dests", range_key)
-    dests = full_dests[:10]
+    dests = full_dests[:limit]
 
     for i in dests:
         i["hostname"] = resolve_ip(i["key"])
@@ -1662,7 +1680,7 @@ def api_stats_destinations():
     with _lock_dests:
         _stats_dests_cache["data"] = data
         _stats_dests_cache["ts"] = now
-        _stats_dests_cache["key"] = range_key
+        _stats_dests_cache["key"] = cache_key_local
         _stats_dests_cache["win"] = win
     return jsonify(data)
 
@@ -1671,16 +1689,21 @@ def api_stats_destinations():
 @throttle(5, 10)
 def api_stats_ports():
     range_key = request.args.get('range', '1h')
+    try:
+        limit = int(request.args.get('limit', 10))
+    except:
+        limit = 10
+
+    cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
     with _lock_ports:
-        if _stats_ports_cache["data"] and _stats_ports_cache["key"] == range_key and _stats_ports_cache.get("win") == win:
+        if _stats_ports_cache["data"] and _stats_ports_cache.get("key") == cache_key_local and _stats_ports_cache.get("win") == win:
             return jsonify(_stats_ports_cache["data"])
 
-    tf = get_time_range(range_key)
     # Use shared data (top 100, sorted by bytes)
     full_ports = get_common_nfdump_data("ports", range_key)
-    ports = full_ports[:10]
+    ports = full_ports[:limit]
 
     for i in ports:
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
@@ -1696,7 +1719,7 @@ def api_stats_ports():
     with _lock_ports:
         _stats_ports_cache["data"] = data
         _stats_ports_cache["ts"] = now
-        _stats_ports_cache["key"] = range_key
+        _stats_ports_cache["key"] = cache_key_local
         _stats_ports_cache["win"] = win
     return jsonify(data)
 
@@ -2298,12 +2321,17 @@ def api_bandwidth():
 @app.route("/api/conversations")
 @throttle(10,30)
 def api_conversations():
-    # LIMITED TO 10
     range_key = request.args.get('range', '1h')
+    try:
+        limit = int(request.args.get('limit', 10))
+    except:
+        limit = 10
+
+    cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
     with _lock_conversations:
-        if _conversations_cache.get("data") and _conversations_cache.get("key") == range_key and _conversations_cache.get("win") == win:
+        if _conversations_cache.get("data") and _conversations_cache.get("key") == cache_key_local and _conversations_cache.get("win") == win:
             global _metric_conv_cache_hits
             _metric_conv_cache_hits += 1
             return jsonify(_conversations_cache["data"])
@@ -2311,7 +2339,9 @@ def api_conversations():
 
     # Fetch raw flows to get actual conversation partners
     # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
-    output = run_nfdump(["-O", "bytes", "-n", "100"], tf)
+    # If limit > 100, we might need more data.
+    fetch_limit = str(max(100, limit))
+    output = run_nfdump(["-O", "bytes", "-n", fetch_limit], tf)
 
     convs = []
     try:
@@ -2354,7 +2384,7 @@ def api_conversations():
 
         # Sort by bytes descending
         rows.sort(key=lambda x: x['bytes'], reverse=True)
-        top_rows = rows[:10]
+        top_rows = rows[:limit]
 
         for r in top_rows:
             # Map Proto
@@ -2389,7 +2419,7 @@ def api_conversations():
     with _lock_conversations:
         _conversations_cache["data"] = data
         _conversations_cache["ts"] = now
-        _conversations_cache["key"] = range_key
+        _conversations_cache["key"] = cache_key_local
         _conversations_cache["win"] = win
     return jsonify(data)
 

@@ -249,6 +249,17 @@ document.addEventListener('alpine:init', () => {
         ipDetails: null,
         ipLoading: false,
 
+        // Expanded Data Modal
+        expandedModalOpen: false,
+        expandedTitle: '',
+        expandedColumns: [],
+        expandedData: [],
+        expandedLoading: false,
+
+        // Network Graph
+        networkGraphOpen: false,
+        networkGraphInstance: null,
+
         bwChartInstance: null,
         flagsChartInstance: null,
         pktSizeChartInstance: null,
@@ -410,6 +421,8 @@ document.addEventListener('alpine:init', () => {
                         this.trendModalOpen = false;
                         this.thresholdsModalOpen = false;
                         this.widgetManagerOpen = false;
+                        this.expandedModalOpen = false;
+                        this.networkGraphOpen = false;
                         this.closeFullscreenChart();
                         break;
                     case '?':
@@ -1627,6 +1640,189 @@ document.addEventListener('alpine:init', () => {
 
         applyFilter(ip) {
             this.openIPModal(ip);
+        },
+
+        // ----- Expanded Views & Graph -----
+
+        async openExpandedTable(type) {
+            this.expandedModalOpen = true;
+            this.expandedLoading = true;
+            this.expandedData = [];
+
+            const titles = {
+                'sources': 'Top 100 Sources',
+                'destinations': 'Top 100 Destinations',
+                'ports': 'Top 100 Ports',
+                'conversations': 'Recent Conversations (Top 100)'
+            };
+            this.expandedTitle = titles[type] || 'Expanded Data';
+
+            try {
+                let url = '';
+                let processRow = null;
+
+                if (type === 'sources') {
+                    url = `/api/stats/sources?range=${this.timeRange}&limit=100`;
+                    this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+                    processRow = (row) => [
+                        `<span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                        row.hostname || '-',
+                        row.region || '-',
+                        row.flows.toLocaleString(),
+                        row.bytes_fmt
+                    ];
+                } else if (type === 'destinations') {
+                    url = `/api/stats/destinations?range=${this.timeRange}&limit=100`;
+                    this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+                    processRow = (row) => [
+                        `<span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                        row.hostname || '-',
+                        row.region || '-',
+                        row.flows.toLocaleString(),
+                        row.bytes_fmt
+                    ];
+                } else if (type === 'ports') {
+                    url = `/api/stats/ports?range=${this.timeRange}&limit=100`;
+                    this.expandedColumns = ['Port', 'Service', 'Flows', 'Bytes'];
+                    processRow = (row) => [
+                        `<span class="text-cyan">${row.key}</span>`,
+                        row.service,
+                        (row.flows || 0).toLocaleString(),
+                        row.bytes_fmt
+                    ];
+                } else if (type === 'conversations') {
+                    url = `/api/conversations?range=${this.timeRange}&limit=100`;
+                    this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
+                    processRow = (row) => [
+                        `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,
+                        `<div class="truncate" style="max-width:200px" title="${row.dst_hostname || ''}"><span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.dst}')">${row.dst}</span></div>`,
+                        `${row.proto}/${row.port}`,
+                        row.service,
+                        row.packets.toLocaleString(),
+                        row.bytes_fmt
+                    ];
+                }
+
+                const res = await fetch(url);
+                if (res.ok) {
+                    const json = await res.json();
+                    const list = json[type] || json.conversations || [];
+                    this.expandedData = list.map(processRow);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.expandedLoading = false;
+            }
+        },
+
+        async openNetworkGraph() {
+            this.networkGraphOpen = true;
+            // Wait for modal transition
+            setTimeout(() => this.renderNetworkGraph(), 100);
+        },
+
+        async renderNetworkGraph() {
+            const container = document.getElementById('network-graph-container');
+            if (!container) return;
+
+            // Clear previous
+            container.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
+
+            try {
+                // Fetch top conversations
+                const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=100`);
+                if (!res.ok) throw new Error("Failed to fetch graph data");
+                const json = await res.json();
+                const convs = json.conversations || [];
+
+                // Nodes and Edges
+                const nodes = new Map();
+                const edges = [];
+
+                convs.forEach(c => {
+                    // Source Node
+                    if (!nodes.has(c.src)) {
+                        nodes.set(c.src, {
+                            id: c.src,
+                            label: c.src,
+                            title: c.src_hostname || c.src,
+                            group: 'source',
+                            value: 1 // base size
+                        });
+                    } else {
+                        nodes.get(c.src).value += 1;
+                        if(nodes.get(c.src).group === 'dest') nodes.get(c.src).group = 'both';
+                    }
+
+                    // Dest Node
+                    if (!nodes.has(c.dst)) {
+                        nodes.set(c.dst, {
+                            id: c.dst,
+                            label: c.dst,
+                            title: c.dst_hostname || c.dst,
+                            group: 'dest',
+                            value: 1
+                        });
+                    } else {
+                        nodes.get(c.dst).value += 1;
+                        if(nodes.get(c.dst).group === 'source') nodes.get(c.dst).group = 'both';
+                    }
+
+                    // Edge
+                    edges.push({
+                        from: c.src,
+                        to: c.dst,
+                        value: c.bytes, // thickness
+                        title: `${c.proto}/${c.port} (${c.bytes_fmt})`,
+                        color: { inherit: 'from' }
+                    });
+                });
+
+                const data = {
+                    nodes: Array.from(nodes.values()),
+                    edges: edges
+                };
+
+                const options = {
+                    nodes: {
+                        shape: 'dot',
+                        font: { color: '#e0e0e0', face: 'monospace' },
+                        scaling: { min: 10, max: 30 }
+                    },
+                    edges: {
+                        color: { color: '#333', highlight: '#00f3ff' },
+                        smooth: { type: 'continuous' }
+                    },
+                    groups: {
+                        source: { color: { background: '#00f3ff', border: '#00f3ff' } },
+                        dest: { color: { background: '#bc13fe', border: '#bc13fe' } },
+                        both: { color: { background: '#0aff0a', border: '#0aff0a' } }
+                    },
+                    physics: {
+                        stabilization: false,
+                        barnesHut: { gravitationalConstant: -8000, springConstant: 0.04, springLength: 95 }
+                    },
+                    interaction: { tooltipDelay: 200, hover: true }
+                };
+
+                container.innerHTML = ''; // clear spinner
+                this.networkGraphInstance = new vis.Network(container, data, options);
+
+                // Click handler
+                this.networkGraphInstance.on("click", (params) => {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        // Optional: Open IP details on click?
+                        // this.openIPModal(nodeId);
+                        // Just highlighting for now is enough
+                    }
+                });
+
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">Failed to load graph data</div>';
+            }
         },
 
         // ----- Sparklines -----
