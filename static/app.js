@@ -93,6 +93,7 @@ document.addEventListener('alpine:init', () => {
         attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
         mitreHeatmap: { techniques: [], by_tactic: {}, total_techniques: 0, loading: true },
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
+        recentBlocks: { blocks: [], total_1h: 0, loading: true },
         
         // Alert Filtering
         alertFilter: { severity: 'all', type: 'all' },
@@ -148,7 +149,8 @@ document.addEventListener('alpine:init', () => {
             insights: 'Traffic Insights',
             mitreHeatmap: 'MITRE ATT&CK Coverage',
             protocolAnomalies: 'Protocol Anomalies',
-            attackTimeline: 'Attack Timeline'
+            attackTimeline: 'Attack Timeline',
+            recentBlocks: 'Recent Firewall Blocks'
         },
 
         // Thresholds (editable)
@@ -296,8 +298,8 @@ document.addEventListener('alpine:init', () => {
         networkGraphInstance: null,
 
         // World Map
-        worldMap: { loading: false, sources: [], destinations: [], threats: [], source_countries: [], dest_countries: [], threat_countries: [], summary: null },
-        worldMapLayers: { sources: true, destinations: true, threats: true },
+        worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null },
+        worldMapLayers: { sources: true, destinations: true, threats: true, blocked: true },
 
         bwChartInstance: null,
         flagsChartInstance: null,
@@ -367,6 +369,7 @@ document.addEventListener('alpine:init', () => {
             this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
+            this.$watch('worldMapLayers.blocked', () => this.renderWorldMap());
             
             // Render empty map on init (grid/background)
             this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
@@ -744,6 +747,7 @@ document.addEventListener('alpine:init', () => {
                     this.fetchAttackTimeline();
                     this.fetchMitreHeatmap();
                     this.fetchProtocolAnomalies();
+                    this.fetchRecentBlocks();
                     this.fetchFeedHealth();
                     this.fetchWatchlist();
                     this.lastFetch.security = now;
@@ -810,6 +814,7 @@ document.addEventListener('alpine:init', () => {
                 this.fetchAttackTimeline();
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
+                this.fetchRecentBlocks();
                 this.fetchFeedHealth();
                 this.fetchWatchlist();
                 this.lastFetch.security = now;
@@ -1048,6 +1053,22 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (e) { console.error('Protocol anomalies fetch error:', e); }
             finally { this.protocolAnomalies.loading = false; }
+        },
+
+        async fetchRecentBlocks() {
+            this.recentBlocks.loading = true;
+            try {
+                const res = await fetch('/api/firewall/logs/recent?limit=10');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.recentBlocks = { 
+                        blocks: d.logs || [], 
+                        total_1h: d.total || 0, 
+                        loading: false 
+                    };
+                }
+            } catch (e) { console.error('Recent blocks fetch error:', e); }
+            finally { this.recentBlocks.loading = false; }
         },
 
         async runDetection() {
@@ -1409,14 +1430,21 @@ document.addEventListener('alpine:init', () => {
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
+            const blocked = this.worldMapLayers.blocked ? (this.worldMap.blocked || []) : [];
             
-            console.log('[WorldMap] Rendering with sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length);
+            console.log('[WorldMap] Rendering with sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length, 'blocked:', blocked.length);
             
             const width = container.clientWidth || 1200;
-            const height = 600;
+            const height = Math.round(width * 0.5); // Maintain 2:1 aspect ratio for equirectangular
             
-            // Convert lat/lng to x/y (Mercator projection)
+            // Convert lat/lng to x/y (Equirectangular/Plate Carrée projection)
+            // Standard world map bounds: lat -90 to 90, lng -180 to 180
             const latLngToXY = (lat, lng) => {
+                // Clamp values to valid ranges
+                lat = Math.max(-85, Math.min(85, lat));
+                lng = Math.max(-180, Math.min(180, lng));
+                
+                // Equirectangular projection
                 const x = ((lng + 180) / 360) * width;
                 const y = ((90 - lat) / 180) * height;
                 return { x, y };
@@ -1430,6 +1458,14 @@ document.addEventListener('alpine:init', () => {
                 <filter id="glow">
                     <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
                     <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+                <filter id="pulse">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
                         <feMergeNode in="coloredBlur"/>
                         <feMergeNode in="SourceGraphic"/>
                     </feMerge>
@@ -1470,18 +1506,37 @@ document.addEventListener('alpine:init', () => {
                 <title>⚠️ THREAT: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}</title>`;
             });
             
-            // Legend with better styling
-            const legendX = 20;
-            const legendY = height - 80;
-            svg += `<g filter="url(#glow)">
-                <rect x="${legendX}" y="${legendY}" width="200" height="70" fill="rgba(5,15,35,0.85)" stroke="rgba(0,243,255,0.5)" stroke-width="1.5" rx="4"/>
-                <circle cx="${legendX + 15}" cy="${legendY + 15}" r="4" fill="rgba(0,243,255,0.9)"/>
-                <text x="${legendX + 30}" y="${legendY + 19}" fill="rgba(0,243,255,0.9)" font-size="11" font-family="monospace">Sources</text>
-                <circle cx="${legendX + 15}" cy="${legendY + 35}" r="4" fill="rgba(188,19,254,0.9)"/>
-                <text x="${legendX + 30}" y="${legendY + 39}" fill="rgba(188,19,254,0.9)" font-size="11" font-family="monospace">Destinations</text>
-                <circle cx="${legendX + 15}" cy="${legendY + 55}" r="4" fill="rgba(255,0,60,0.9)"/>
-                <text x="${legendX + 30}" y="${legendY + 59}" fill="rgba(255,0,60,0.9)" font-size="11" font-family="monospace">Threats</text>
-            </g>`;
+            // Draw blocked IPs (green with pulse effect - draw last to be on top)
+            blocked.forEach(p => {
+                const { x, y } = latLngToXY(p.lat, p.lng);
+                const size = Math.min(14, Math.max(8, Math.log10(p.block_count + 1) * 4));
+                const isThreat = p.is_threat ? ' [THREAT]' : '';
+                svg += `<g filter="url(#pulse)">
+                    <circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,255,100,0.85)" stroke="#00ff64" stroke-width="3" opacity="0.95"/>
+                    <circle cx="${x}" cy="${y}" r="${size + 6}" fill="none" stroke="rgba(0,255,100,0.5)" stroke-width="2"/>
+                </g>
+                <title>🔥 BLOCKED: ${p.ip}${isThreat}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.block_count} blocks</title>`;
+            });
+            
+            // Legend - position at bottom left with percentage-based offset
+            const legendX = 15;
+            const legendY = Math.max(height - 100, 10);
+            const legendH = Math.min(90, height - 20);
+            
+            // Only show legend if there's enough space
+            if (height > 120) {
+                svg += `<g filter="url(#glow)">
+                    <rect x="${legendX}" y="${legendY}" width="150" height="${legendH}" fill="rgba(5,15,35,0.9)" stroke="rgba(0,243,255,0.4)" stroke-width="1" rx="4"/>
+                    <circle cx="${legendX + 12}" cy="${legendY + 14}" r="4" fill="rgba(0,243,255,0.9)"/>
+                    <text x="${legendX + 24}" y="${legendY + 17}" fill="rgba(0,243,255,0.9)" font-size="10" font-family="monospace">Sources</text>
+                    <circle cx="${legendX + 12}" cy="${legendY + 32}" r="4" fill="rgba(188,19,254,0.9)"/>
+                    <text x="${legendX + 24}" y="${legendY + 35}" fill="rgba(188,19,254,0.9)" font-size="10" font-family="monospace">Destinations</text>
+                    <circle cx="${legendX + 12}" cy="${legendY + 50}" r="4" fill="rgba(255,0,60,0.9)"/>
+                    <text x="${legendX + 24}" y="${legendY + 53}" fill="rgba(255,0,60,0.9)" font-size="10" font-family="monospace">Threats</text>
+                    <circle cx="${legendX + 12}" cy="${legendY + 68}" r="4" fill="rgba(0,255,100,0.9)"/>
+                    <text x="${legendX + 24}" y="${legendY + 71}" fill="rgba(0,255,100,0.9)" font-size="10" font-family="monospace">Blocked</text>
+                </g>`;
+            }
             
             svg += `</svg>`;
             container.innerHTML = svg;
@@ -2085,7 +2140,8 @@ document.addEventListener('alpine:init', () => {
                 threatVelocity: true,
                 topThreatIPs: true,
                 conversations: true,
-                worldmap: true
+                worldmap: true,
+                recentBlocks: true
             };
             try {
                 const saved = JSON.parse(localStorage.getItem('widgetVisibility') || '{}');

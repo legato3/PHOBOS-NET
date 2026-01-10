@@ -2288,17 +2288,65 @@ def api_stats_worldmap():
                         threat_countries[iso] = {"name": geo.get('country'), "count": 0}
                     threat_countries[iso]["count"] += 1
         
+        # Get blocked IPs from syslog with geo data
+        blocked_points = []
+        blocked_countries = {}
+        try:
+            db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+            if os.path.exists(db_path):
+                range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+                cutoff = int(time.time()) - range_seconds
+                conn = sqlite3.connect(db_path, timeout=5)
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT src_ip, COUNT(*) as cnt, country_iso, is_threat
+                    FROM fw_logs
+                    WHERE action = 'block' AND timestamp >= ?
+                    GROUP BY src_ip
+                    ORDER BY cnt DESC
+                    LIMIT 50
+                """, (cutoff,))
+                for row in cur.fetchall():
+                    ip = row[0]
+                    cnt = row[1]
+                    country_iso = row[2]
+                    is_threat = row[3]
+                    geo = lookup_geo(ip) or {}
+                    if geo.get('lat') and geo.get('lng'):
+                        blocked_points.append({
+                            "ip": ip,
+                            "lat": geo['lat'],
+                            "lng": geo['lng'],
+                            "country": geo.get('country', 'Unknown'),
+                            "country_iso": geo.get('country_iso', country_iso or '??'),
+                            "city": geo.get('city'),
+                            "block_count": cnt,
+                            "is_threat": bool(is_threat)
+                        })
+                        iso = geo.get('country_iso', '??')
+                        if iso != '??':
+                            if iso not in blocked_countries:
+                                blocked_countries[iso] = {"name": geo.get('country'), "count": 0, "blocks": 0}
+                            blocked_countries[iso]["count"] += 1
+                            blocked_countries[iso]["blocks"] += cnt
+                conn.close()
+        except:
+            pass
+        
         data = {
             "sources": source_points[:30],
             "destinations": dest_points[:30],
             "threats": threat_points[:30],
+            "blocked": blocked_points[:30],
             "source_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
             "dest_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
             "threat_countries": [{"iso": k, **v} for k, v in sorted(threat_countries.items(), key=lambda x: x[1]["count"], reverse=True)[:10]],
+            "blocked_countries": [{"iso": k, **v} for k, v in sorted(blocked_countries.items(), key=lambda x: x[1]["blocks"], reverse=True)[:10]],
             "summary": {
                 "total_sources": len(source_points),
                 "total_destinations": len(dest_points),
                 "total_threats": len(threat_points),
+                "total_blocked": len(blocked_points),
                 "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys())))
             }
         }
@@ -2310,13 +2358,16 @@ def api_stats_worldmap():
             "sources": [],
             "destinations": [],
             "threats": [],
+            "blocked": [],
             "source_countries": [],
             "dest_countries": [],
             "threat_countries": [],
+            "blocked_countries": [],
             "summary": {
                 "total_sources": 0,
                 "total_destinations": 0,
                 "total_threats": 0,
+                "total_blocked": 0,
                 "countries_reached": 0
             }
         }

@@ -477,6 +477,9 @@
                         <button class="wm-toggle threats" :class="{ active: worldMapLayers.threats }" @click="worldMapLayers.threats = !worldMapLayers.threats" title="Toggle Threats">
                             <span class="wm-toggle-dot"></span>
                         </button>
+                        <button class="wm-toggle blocked" :class="{ active: worldMapLayers.blocked }" @click="worldMapLayers.blocked = !worldMapLayers.blocked" title="Toggle Blocked">
+                            <span class="wm-toggle-dot"></span>
+                        </button>
                     </div>
                     <div class="spinner" x-show="worldMap.loading"></div>
                 </div>
@@ -498,6 +501,10 @@
                     <div class="wm-legend-item" x-show="worldMapLayers.threats">
                         <span class="wm-legend-dot threats"></span>
                         <span>Threat IPs</span>
+                    </div>
+                    <div class="wm-legend-item" x-show="worldMapLayers.blocked">
+                        <span class="wm-legend-dot blocked"></span>
+                        <span>🔥 FW Blocked</span>
                     </div>
                 </div>
             </div>
@@ -1293,22 +1300,21 @@
                         <span class="alert-badge low" x-show="alertHistory.by_severity?.low > 0">🟢 <span x-text="alertHistory.by_severity?.low || 0"></span> low</span>
                         <span style="color: var(--text-muted);">Total: <span x-text="alertHistory.total || 0"></span></span>
                     </div>
-                    <table x-show="!isMinimized('alertHistory')">
-                        <thead><tr><th>Time</th><th>Type</th><th>Message</th><th>Severity</th></tr></thead>
-                        <tbody>
-                            <template x-for="(a, idx) in filteredAlerts.slice(0, 10)" :key="idx">
-                                <tr>
-                                    <td style="font-size:0.85em; color:var(--text-muted); white-space:nowrap" x-text="a.time_ago"></td>
-                                    <td><span class="badge" :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()" x-text="a.type || 'alert'"></span></td>
-                                    <td style="font-size:0.9em; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="a.msg" x-text="a.msg"></td>
-                                    <td><span :class="'severity-' + a.severity" x-text="a.severity"></span></td>
-                                </tr>
-                            </template>
-                            <template x-if="filteredAlerts.length === 0">
-                                <tr><td colspan="4" style="color:var(--text-muted); text-align:center" x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? '🔍 No matching alerts' : '✅ No alerts in past 24 hours'"></td></tr>
-                            </template>
-                        </tbody>
-                    </table>
+                    <div class="alert-list" x-show="!isMinimized('alertHistory')">
+                        <template x-for="(a, idx) in filteredAlerts.slice(0, 10)" :key="idx">
+                            <div class="alert-row" :class="'severity-row-' + a.severity">
+                                <div class="alert-time" x-text="a.time_ago"></div>
+                                <div class="alert-info">
+                                    <span class="alert-type-badge" :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()" x-text="a.type || 'alert'"></span>
+                                    <span class="alert-msg" :title="a.msg" x-text="a.msg"></span>
+                                </div>
+                                <div class="alert-severity" :class="'sev-' + a.severity" x-text="a.severity"></div>
+                            </div>
+                        </template>
+                        <template x-if="filteredAlerts.length === 0">
+                            <div class="alert-empty" x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? '🔍 No matching alerts' : '✅ No alerts in past 24 hours'"></div>
+                        </template>
+                    </div>
                 </div>
             </template>
 
@@ -1441,20 +1447,19 @@
                             <span class="feed-stat-value text-muted" x-text="feedHealth.summary?.last_refresh || 'never'"></span>
                         </div>
                     </div>
-                    <!-- Feed List (Compact Table) -->
-                    <div class="feed-list-compact" x-show="!isMinimized('feedHealth')">
+                    <!-- Feed List (Full Width) -->
+                    <div class="feed-list-full" x-show="!isMinimized('feedHealth')">
                         <template x-for="(f, idx) in feedHealth.feeds" :key="f.name + idx">
-                            <div class="feed-row" :class="{ 'feed-error': f.status !== 'ok' }">
+                            <div class="feed-item" :class="{ 'feed-error': f.status !== 'ok' }">
                                 <span class="feed-status-dot" :class="f.status"></span>
-                                <span class="feed-name" x-text="f.name"></span>
-                                <span class="feed-ips" x-text="(f.ips || 0).toLocaleString()"></span>
-                                <span class="badge feed-cat" :class="'cat-' + (f.category || 'unknown').toLowerCase()" x-text="f.category"></span>
+                                <span class="feed-name-full" x-text="f.name" :title="f.name"></span>
+                                <span class="feed-ips-count" x-text="(f.ips || 0).toLocaleString()"></span>
+                                <span class="feed-category-tag" :class="'cat-' + (f.category || 'unknown').toLowerCase()" x-text="f.category"></span>
                             </div>
                         </template>
                         <template x-if="!feedHealth.feeds || feedHealth.feeds.length === 0">
-                            <div class="empty-state-compact">
-                                <span class="empty-icon">📡</span>
-                                <span>No feed data yet</span>
+                            <div class="feed-empty">
+                                <span>📡 No feed data yet</span>
                             </div>
                         </template>
                     </div>
@@ -1780,6 +1785,44 @@
                                     <span class="proto-name" x-text="proto.protocol"></span>
                                     <span class="proto-bytes" x-text="proto.bytes_fmt"></span>
                                     <span class="proto-deviation" :class="{ 'deviation-high': proto.deviation > 3, 'deviation-medium': proto.deviation > 1.5 }" x-text="proto.deviation + 'x'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Recent Firewall Blocks Widget -->
+            <template x-if="isVisible('recentBlocks')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }">
+                    <h3 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 10px 0;">
+                        <span>🔥 Recent Firewall Blocks</span>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green);" x-text="recentBlocks.total_1h + ' (1h)'"></span>
+                            <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('recentBlocks')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('recentBlocks')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="recentBlocks.loading"></div>
+                        </div>
+                    </h3>
+                    <div x-show="!isMinimized('recentBlocks')">
+                        <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="no-data">
+                            <span style="color: var(--text-secondary);">No recent blocks</span>
+                        </div>
+                        <div class="recent-blocks-list" x-show="recentBlocks.blocks.length > 0">
+                            <template x-for="block in recentBlocks.blocks.slice(0, 8)" :key="block.id || block.src_ip + block.timestamp">
+                                <div class="recent-block-item">
+                                    <div class="block-time" x-text="block.timestamp ? block.timestamp.split(' ')[1] || block.timestamp : ''"></div>
+                                    <div class="block-ip">
+                                        <span class="ip-addr" x-text="block.src_ip"></span>
+                                        <span class="block-arrow">→</span>
+                                        <span class="port-badge" x-text="':' + block.dst_port"></span>
+                                    </div>
+                                    <div class="block-geo">
+                                        <span x-text="block.country || '??'"></span>
+                                    </div>
+                                    <div class="block-proto" x-text="block.protocol || 'TCP'"></div>
                                 </div>
                             </template>
                         </div>
