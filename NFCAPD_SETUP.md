@@ -110,3 +110,35 @@ ps aux | grep nfcapd | grep -- '-y'
 ### 2026-01-03 - Initial Setup
 - Basic nfcapd configuration
 - Port 2055 collection
+
+
+## GeoIP Database Integration
+
+### Installed Databases
+Location: `/var/lib/GeoIP/` (symlinked to `/root/`)
+
+- **GeoLite2-Country.mmdb** (9.2 MB) - Country lookups
+- **GeoLite2-City.mmdb** (61 MB) - City-level geolocation  
+- **GeoLite2-ASN.mmdb** (11 MB) - Autonomous System lookups
+
+### Symlinks for Dashboard
+```bash
+/root/GeoLite2-City.mmdb -> /var/lib/GeoIP/GeoLite2-City.mmdb
+/root/GeoLite2-ASN.mmdb -> /var/lib/GeoIP/GeoLite2-ASN.mmdb
+```
+
+### Usage in Dashboard
+The dashboard uses `maxminddb` Python library to enrich IP data with:
+- Country flags and names
+- City-level geolocation
+- ASN identification (e.g., AS15169 GOOGLE)
+
+### Updating Databases
+Update monthly for accuracy:
+```bash
+cd /var/lib/GeoIP
+wget -q https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb -O GeoLite2-Country.mmdb
+wget -q https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb -O GeoLite2-City.mmdb
+wget -q https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb -O GeoLite2-ASN.mmdb
+systemctl restart netflow-dashboard
+```
