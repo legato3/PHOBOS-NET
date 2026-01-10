@@ -248,7 +248,18 @@ def lookup_geo(ip):
                 iso = country.get('iso_code')
                 name = country.get('names',{}).get('en')
                 city = rec.get('city',{}).get('names',{}).get('en')
-                res.update({"country": name, "country_iso": iso, "city": city, "flag": flag_from_iso(iso)})
+                # Get coordinates
+                location = rec.get('location', {})
+                lat = location.get('latitude')
+                lng = location.get('longitude')
+                res.update({
+                    "country": name, 
+                    "country_iso": iso, 
+                    "city": city, 
+                    "flag": flag_from_iso(iso),
+                    "lat": lat,
+                    "lng": lng
+                })
         except Exception:
             pass
     if asn_db:
@@ -2028,27 +2039,179 @@ def api_stats_countries():
     sources = get_common_nfdump_data("sources", range_key)[:100]
     dests = get_common_nfdump_data("dests", range_key)[:100]
 
-    country_bytes = Counter()
+    country_bytes = {}
     for item in sources + dests:
         ip = item.get("key")
         b = item.get("bytes", 0)
         geo = lookup_geo(ip) or {}
         iso = geo.get('country_iso') or '??'
         name = geo.get('country') or 'Unknown'
-        key = f"{name} ({iso})" if iso != '??' else 'Unknown'
-        country_bytes[key] += b
+        if iso not in country_bytes:
+            country_bytes[iso] = {"name": name, "iso": iso, "bytes": 0, "flows": 0}
+        country_bytes[iso]["bytes"] += b
+        country_bytes[iso]["flows"] += 1
 
-    top = country_bytes.most_common(10)
+    # Sort by bytes and get top entries
+    sorted_countries = sorted(country_bytes.values(), key=lambda x: x["bytes"], reverse=True)
+    top = sorted_countries[:15]
+    
+    # Format for chart (backwards compatible)
+    labels = [f"{c['name']} ({c['iso']})" if c['iso'] != '??' else 'Unknown' for c in top]
+    bytes_vals = [c['bytes'] for c in top]
+    
+    # Enhanced data for world map
+    map_data = []
+    total_bytes = sum(c['bytes'] for c in sorted_countries)
+    for c in sorted_countries:
+        if c['iso'] != '??':
+            map_data.append({
+                "iso": c['iso'],
+                "name": c['name'],
+                "bytes": c['bytes'],
+                "bytes_fmt": fmt_bytes(c['bytes']),
+                "flows": c['flows'],
+                "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
+            })
+
     data = {
-        "labels": [k for k,_ in top],
-        "bytes": [v for _,v in top],
-        "bytes_fmt": [fmt_bytes(v) for _,v in top]
+        "labels": labels,
+        "bytes": bytes_vals,
+        "bytes_fmt": [fmt_bytes(v) for v in bytes_vals],
+        "map_data": map_data,
+        "total_bytes": total_bytes,
+        "total_bytes_fmt": fmt_bytes(total_bytes),
+        "country_count": len([c for c in sorted_countries if c['iso'] != '??'])
     }
     with _lock_countries:
         _stats_countries_cache["data"] = data
         _stats_countries_cache["ts"] = now
         _stats_countries_cache["key"] = range_key
         _stats_countries_cache["win"] = win
+    return jsonify(data)
+
+
+# World Map cache
+_worldmap_cache = {"data": None, "ts": 0, "key": None, "win": None}
+_lock_worldmap = threading.Lock()
+
+@app.route("/api/stats/worldmap")
+@throttle(5, 10)
+def api_stats_worldmap():
+    """Geographic data for world map visualization with sources, destinations, and threats."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _lock_worldmap:
+        if _worldmap_cache["data"] and _worldmap_cache["key"] == range_key and _worldmap_cache.get("win") == win:
+            return jsonify(_worldmap_cache["data"])
+
+    # Get sources and destinations with geo data
+    sources = get_common_nfdump_data("sources", range_key)[:50]
+    dests = get_common_nfdump_data("dests", range_key)[:50]
+    
+    # Get threat IPs
+    start_threat_thread()
+    threat_set = set(_threat_ips)
+    
+    source_points = []
+    dest_points = []
+    threat_points = []
+    
+    # Country aggregations
+    source_countries = {}
+    dest_countries = {}
+    threat_countries = {}
+    
+    for item in sources:
+        ip = item.get("key")
+        if is_internal(ip): continue
+        geo = lookup_geo(ip) or {}
+        if geo.get('lat') and geo.get('lng'):
+            point = {
+                "ip": ip,
+                "lat": geo['lat'],
+                "lng": geo['lng'],
+                "bytes": item.get("bytes", 0),
+                "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
+                "country": geo.get('country', 'Unknown'),
+                "country_iso": geo.get('country_iso', '??'),
+                "city": geo.get('city'),
+                "is_threat": ip in threat_set
+            }
+            source_points.append(point)
+            
+            # Aggregate by country
+            iso = geo.get('country_iso', '??')
+            if iso != '??':
+                if iso not in source_countries:
+                    source_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
+                source_countries[iso]["bytes"] += item.get("bytes", 0)
+                source_countries[iso]["count"] += 1
+    
+    for item in dests:
+        ip = item.get("key")
+        if is_internal(ip): continue
+        geo = lookup_geo(ip) or {}
+        if geo.get('lat') and geo.get('lng'):
+            point = {
+                "ip": ip,
+                "lat": geo['lat'],
+                "lng": geo['lng'],
+                "bytes": item.get("bytes", 0),
+                "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
+                "country": geo.get('country', 'Unknown'),
+                "country_iso": geo.get('country_iso', '??'),
+                "city": geo.get('city'),
+                "is_threat": ip in threat_set
+            }
+            dest_points.append(point)
+            
+            iso = geo.get('country_iso', '??')
+            if iso != '??':
+                if iso not in dest_countries:
+                    dest_countries[iso] = {"name": geo.get('country'), "bytes": 0, "count": 0}
+                dest_countries[iso]["bytes"] += item.get("bytes", 0)
+                dest_countries[iso]["count"] += 1
+    
+    # Threat points with geo
+    for tip in list(threat_set)[:100]:
+        geo = lookup_geo(tip) or {}
+        if geo.get('lat') and geo.get('lng'):
+            threat_points.append({
+                "ip": tip,
+                "lat": geo['lat'],
+                "lng": geo['lng'],
+                "country": geo.get('country', 'Unknown'),
+                "country_iso": geo.get('country_iso', '??'),
+                "city": geo.get('city')
+            })
+            
+            iso = geo.get('country_iso', '??')
+            if iso != '??':
+                if iso not in threat_countries:
+                    threat_countries[iso] = {"name": geo.get('country'), "count": 0}
+                threat_countries[iso]["count"] += 1
+    
+    data = {
+        "sources": source_points[:30],
+        "destinations": dest_points[:30],
+        "threats": threat_points[:30],
+        "source_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
+        "dest_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
+        "threat_countries": [{"iso": k, **v} for k, v in sorted(threat_countries.items(), key=lambda x: x[1]["count"], reverse=True)[:10]],
+        "summary": {
+            "total_sources": len(source_points),
+            "total_destinations": len(dest_points),
+            "total_threats": len(threat_points),
+            "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys())))
+        }
+    }
+    
+    with _lock_worldmap:
+        _worldmap_cache["data"] = data
+        _worldmap_cache["ts"] = now
+        _worldmap_cache["key"] = range_key
+        _worldmap_cache["win"] = win
     return jsonify(data)
 
 

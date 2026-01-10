@@ -282,6 +282,10 @@ document.addEventListener('alpine:init', () => {
         networkGraphOpen: false,
         networkGraphInstance: null,
 
+        // World Map
+        worldMap: { loading: false, sources: [], destinations: [], threats: [], source_countries: [], dest_countries: [], threat_countries: [], summary: null },
+        worldMapLayers: { sources: true, destinations: true, threats: true },
+
         bwChartInstance: null,
         flagsChartInstance: null,
         pktSizeChartInstance: null,
@@ -345,6 +349,10 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.startTimer();
             });
+            // Watch for layer toggle changes to re-render map
+            this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
+            this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
+            this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
         },
 
         get activeAlerts() {
@@ -677,6 +685,7 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.fetchFlowStats(), 750);
                 setTimeout(() => this.fetchProtoMix(), 825);
                 setTimeout(() => this.fetchNetHealth(), 900);
+                setTimeout(() => this.fetchWorldMap(), 975);
             }
 
             // Render sparklines for top IPs (throttled via sparkTTL)
@@ -1175,6 +1184,86 @@ document.addEventListener('alpine:init', () => {
                     this.updateCountriesChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.countries.loading = false; }
+        },
+
+        async fetchWorldMap() {
+            this.worldMap.loading = true;
+            try {
+                const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.worldMap = { ...data, loading: false };
+                    this.$nextTick(() => this.renderWorldMap());
+                }
+            } catch(e) { console.error(e); } finally { this.worldMap.loading = false; }
+        },
+
+        renderWorldMap() {
+            const container = document.getElementById('world-map-svg');
+            if (!container) return;
+            
+            const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
+            const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
+            const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
+            
+            // Simple SVG world map with markers
+            const width = container.clientWidth || 800;
+            const height = Math.min(400, width * 0.5);
+            
+            // Convert lat/lng to x/y (simple Mercator projection)
+            const latLngToXY = (lat, lng) => {
+                const x = ((lng + 180) / 360) * width;
+                const y = ((90 - lat) / 180) * height;
+                return { x, y };
+            };
+            
+            // Build SVG
+            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+            
+            // Background with grid
+            svg += `<rect width="100%" height="100%" fill="rgba(0,0,0,0.3)"/>`;
+            
+            // Grid lines
+            for (let i = 0; i <= 6; i++) {
+                const y = (height / 6) * i;
+                svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="rgba(0,243,255,0.1)" stroke-width="0.5"/>`;
+            }
+            for (let i = 0; i <= 12; i++) {
+                const x = (width / 12) * i;
+                svg += `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(0,243,255,0.1)" stroke-width="0.5"/>`;
+            }
+            
+            // Equator
+            svg += `<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="rgba(0,243,255,0.2)" stroke-width="1"/>`;
+            
+            // Draw destinations first (purple)
+            dests.forEach(p => {
+                const { x, y } = latLngToXY(p.lat, p.lng);
+                const size = Math.min(12, Math.max(4, Math.log10(p.bytes + 1) * 2));
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.6)" stroke="#bc13fe" stroke-width="1">
+                    <title>${p.ip}\\n${p.city || ''}, ${p.country}\\n${p.bytes_fmt}</title>
+                </circle>`;
+            });
+            
+            // Draw sources (cyan)
+            sources.forEach(p => {
+                const { x, y } = latLngToXY(p.lat, p.lng);
+                const size = Math.min(12, Math.max(4, Math.log10(p.bytes + 1) * 2));
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.6)" stroke="#00f3ff" stroke-width="1">
+                    <title>${p.ip}\\n${p.city || ''}, ${p.country}\\n${p.bytes_fmt}</title>
+                </circle>`;
+            });
+            
+            // Draw threats (red, pulsing)
+            threats.forEach(p => {
+                const { x, y } = latLngToXY(p.lat, p.lng);
+                svg += `<circle cx="${x}" cy="${y}" r="6" fill="rgba(255,0,60,0.8)" stroke="#ff003c" stroke-width="2" class="threat-pulse">
+                    <title>⚠️ THREAT: ${p.ip}\\n${p.city || ''}, ${p.country}</title>
+                </circle>`;
+            });
+            
+            svg += `</svg>`;
+            container.innerHTML = svg;
         },
 
         async fetchDurations() {
@@ -1733,6 +1822,11 @@ document.addEventListener('alpine:init', () => {
              return bytes + ' B';
         },
 
+        flagFromIso(iso) {
+            if (!iso || iso.length !== 2) return '🌐';
+            return String.fromCodePoint(...[...iso.toUpperCase()].map(c => c.charCodeAt(0) + 127397));
+        },
+
         // Compact Mode
         loadCompactMode() {
             const saved = localStorage.getItem('compactMode');
@@ -2194,6 +2288,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('scrollSpy', () => ({
         sections: [
             { id: 'section-summary', label: 'Summary' },
+            { id: 'section-worldmap', label: 'World Map' },
             { id: 'section-analytics', label: 'Analytics' },
             { id: 'section-topstats', label: 'Top Stats' },
             { id: 'section-security', label: 'Security' },

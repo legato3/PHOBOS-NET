@@ -408,6 +408,104 @@
 
         </section>
 
+        <!-- World Map Section -->
+        <section id="section-worldmap" class="scroll-section">
+        <div class="section-header">
+            <span class="section-icon">🗺️</span>
+            <h3>Traffic World Map</h3>
+        </div>
+        
+        <div class="card wide-card world-map-card">
+            <div class="world-map-header">
+                <div class="world-map-title">
+                    <h2>🌍 Global Traffic Overview</h2>
+                    <div class="world-map-stats" x-show="worldMap.summary">
+                        <span class="wm-stat"><strong class="text-cyan" x-text="worldMap.summary?.countries_reached || 0"></strong> Countries</span>
+                        <span class="wm-stat"><strong class="text-green" x-text="worldMap.summary?.total_sources || 0"></strong> Sources</span>
+                        <span class="wm-stat"><strong class="text-purple" x-text="worldMap.summary?.total_destinations || 0"></strong> Destinations</span>
+                        <span class="wm-stat" x-show="worldMap.summary?.total_threats > 0"><strong class="text-red" x-text="worldMap.summary?.total_threats || 0"></strong> Threats</span>
+                    </div>
+                </div>
+                <div class="world-map-controls">
+                    <div class="wm-layer-toggles">
+                        <button class="wm-toggle" :class="{ active: worldMapLayers.sources }" @click="worldMapLayers.sources = !worldMapLayers.sources" title="Toggle Sources">
+                            <span class="wm-toggle-dot sources"></span> Sources
+                        </button>
+                        <button class="wm-toggle" :class="{ active: worldMapLayers.destinations }" @click="worldMapLayers.destinations = !worldMapLayers.destinations" title="Toggle Destinations">
+                            <span class="wm-toggle-dot destinations"></span> Destinations
+                        </button>
+                        <button class="wm-toggle" :class="{ active: worldMapLayers.threats }" @click="worldMapLayers.threats = !worldMapLayers.threats" title="Toggle Threats">
+                            <span class="wm-toggle-dot threats"></span> Threats
+                        </button>
+                    </div>
+                    <div class="spinner" x-show="worldMap.loading"></div>
+                </div>
+            </div>
+            
+            <div class="world-map-container">
+                <div id="world-map-svg" class="world-map-svg"></div>
+                
+                <!-- Map Legend -->
+                <div class="world-map-legend">
+                    <div class="wm-legend-item" x-show="worldMapLayers.sources">
+                        <span class="wm-legend-dot sources"></span>
+                        <span>Traffic Sources</span>
+                    </div>
+                    <div class="wm-legend-item" x-show="worldMapLayers.destinations">
+                        <span class="wm-legend-dot destinations"></span>
+                        <span>Traffic Destinations</span>
+                    </div>
+                    <div class="wm-legend-item" x-show="worldMapLayers.threats">
+                        <span class="wm-legend-dot threats"></span>
+                        <span>Threat IPs</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Country Stats Grid -->
+            <div class="world-map-countries">
+                <div class="wm-country-col">
+                    <h4>🔼 Top Source Countries</h4>
+                    <div class="wm-country-list">
+                        <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso">
+                            <div class="wm-country-item">
+                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
+                                <span class="wm-country-name" x-text="c.name"></span>
+                                <span class="wm-country-value text-cyan" x-text="c.bytes_fmt"></span>
+                            </div>
+                        </template>
+                        <div class="empty-state-compact" x-show="!worldMap.source_countries?.length">No data</div>
+                    </div>
+                </div>
+                <div class="wm-country-col">
+                    <h4>🔽 Top Destination Countries</h4>
+                    <div class="wm-country-list">
+                        <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso">
+                            <div class="wm-country-item">
+                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
+                                <span class="wm-country-name" x-text="c.name"></span>
+                                <span class="wm-country-value text-purple" x-text="c.bytes_fmt"></span>
+                            </div>
+                        </template>
+                        <div class="empty-state-compact" x-show="!worldMap.dest_countries?.length">No data</div>
+                    </div>
+                </div>
+                <div class="wm-country-col" x-show="worldMap.threat_countries?.length > 0">
+                    <h4>⚠️ Threat Origins</h4>
+                    <div class="wm-country-list">
+                        <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
+                            <div class="wm-country-item threat">
+                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
+                                <span class="wm-country-name" x-text="c.name"></span>
+                                <span class="wm-country-value text-red" x-text="c.count + ' IPs'"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </section>
+
         <!-- Analytics Section -->
         <section id="section-analytics" class="scroll-section">
         <div class="section-header">
