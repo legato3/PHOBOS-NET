@@ -3604,7 +3604,7 @@ body.compact-mode {
 /* Attack Timeline Widget */
 .timeline-summary {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     margin-bottom: 12px;
     flex-wrap: wrap;
 }
@@ -3613,37 +3613,45 @@ body.compact-mode {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.3);
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
-    min-width: 80px;
+    min-width: 70px;
 }
 
 .timeline-stat-value {
-    font-size: 1.4em;
+    font-size: 1.5em;
     font-weight: 700;
-    color: var(--accent-primary);
+    color: var(--neon-cyan);
 }
 
 .timeline-stat-label {
-    font-size: 0.75em;
+    font-size: 0.7em;
     color: var(--text-muted);
     text-transform: uppercase;
+    margin-top: 2px;
 }
 
-.timeline-stat.critical .timeline-stat-value { color: var(--danger); }
+.timeline-stat.critical .timeline-stat-value { color: var(--neon-red); }
 .timeline-stat.high .timeline-stat-value { color: #ff9800; }
-.timeline-stat.medium .timeline-stat-value { color: var(--warning); }
+.timeline-stat.medium .timeline-stat-value { color: yellow; }
 
 /* MITRE ATT&CK Heatmap Widget */
 .mitre-heatmap {
-    padding: 8px 0;
+    padding: 4px 0;
+}
+
+.mitre-summary {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
 }
 
 .mitre-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 6px;
+    gap: 8px;
 }
 
 .mitre-cell {
@@ -3651,7 +3659,7 @@ body.compact-mode {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 6px;
+    padding: 10px 8px;
     border-radius: 6px;
     text-align: center;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -3663,112 +3671,117 @@ body.compact-mode {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-.heat-high {
-    background: linear-gradient(145deg, rgba(255, 80, 80, 0.3), rgba(255, 0, 0, 0.15));
-    border: 1px solid rgba(255, 80, 80, 0.5);
+.mitre-id {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    font-family: 'Consolas', 'Monaco', monospace;
 }
+
+.mitre-count {
+    font-size: 1.2em;
+    font-weight: 700;
+    margin: 4px 0;
+}
+
+.mitre-tactic {
+    font-size: 0.65em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.heat-high {
+    background: linear-gradient(145deg, rgba(255, 0, 60, 0.3), rgba(255, 0, 0, 0.15));
+    border: 1px solid rgba(255, 0, 60, 0.5);
+}
+
+.heat-high .mitre-count { color: var(--neon-red); }
 
 .heat-medium {
     background: linear-gradient(145deg, rgba(255, 180, 0, 0.25), rgba(255, 150, 0, 0.1));
     border: 1px solid rgba(255, 180, 0, 0.4);
 }
 
+.heat-medium .mitre-count { color: yellow; }
+
 .heat-low {
-    background: linear-gradient(145deg, rgba(0, 255, 255, 0.15), rgba(0, 200, 200, 0.05));
-    border: 1px solid rgba(0, 255, 255, 0.3);
+    background: linear-gradient(145deg, rgba(0, 243, 255, 0.15), rgba(0, 200, 200, 0.05));
+    border: 1px solid rgba(0, 243, 255, 0.3);
 }
+
+.heat-low .mitre-count { color: var(--neon-cyan); }
 
 .heat-none {
     background: rgba(100, 100, 100, 0.1);
     border: 1px solid rgba(100, 100, 100, 0.2);
 }
 
-.mitre-technique-id {
-    font-size: 0.7em;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-}
-
-.mitre-technique-name {
-    font-size: 0.8em;
-    font-weight: 600;
-    color: var(--text-light);
-    margin-top: 2px;
-}
-
-.mitre-count {
-    font-size: 0.9em;
-    font-weight: 700;
-    margin-top: 4px;
-}
-
-.heat-high .mitre-count { color: var(--danger); }
-.heat-medium .mitre-count { color: var(--warning); }
-.heat-low .mitre-count { color: var(--accent-primary); }
+.heat-none .mitre-count { color: var(--text-muted); }
 
 /* Protocol Anomalies Widget */
+.anomaly-summary {
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+.anomaly-summary.has-anomalies {
+    background: rgba(255, 0, 60, 0.1);
+    border: 1px solid rgba(255, 0, 60, 0.3);
+}
+
 .protocol-anomaly-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .protocol-anomaly-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 12px;
     background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
+    border-radius: 6px;
     border-left: 3px solid var(--card-border);
 }
 
-.protocol-anomaly-item.deviation-high {
-    border-left-color: var(--danger);
-    background: rgba(255, 80, 80, 0.1);
+.protocol-anomaly-item.is-anomaly {
+    border-left-color: var(--neon-red);
+    background: rgba(255, 0, 60, 0.08);
 }
 
-.protocol-anomaly-item.deviation-medium {
-    border-left-color: var(--warning);
-    background: rgba(255, 180, 0, 0.1);
-}
-
-.protocol-anomaly-item.deviation-low {
-    border-left-color: var(--accent-primary);
-}
-
-.anomaly-protocol {
+.proto-name {
     font-weight: 700;
-    font-size: 0.95em;
-    min-width: 60px;
+    font-size: 0.9em;
+    min-width: 50px;
+    color: var(--neon-cyan);
 }
 
-.anomaly-details {
+.proto-bytes {
     flex: 1;
     font-size: 0.85em;
     color: var(--text-muted);
 }
 
-.anomaly-deviation {
+.proto-deviation {
     font-weight: 600;
     padding: 3px 8px;
     border-radius: 4px;
-    font-size: 0.85em;
+    font-size: 0.8em;
+    background: rgba(0, 243, 255, 0.15);
+    color: var(--neon-cyan);
 }
 
-.deviation-high .anomaly-deviation {
-    background: rgba(255, 80, 80, 0.2);
-    color: var(--danger);
+.proto-deviation.deviation-high {
+    background: rgba(255, 0, 60, 0.2);
+    color: var(--neon-red);
 }
 
-.deviation-medium .anomaly-deviation {
-    background: rgba(255, 180, 0, 0.2);
-    color: var(--warning);
-}
-
-.deviation-low .anomaly-deviation {
-    background: rgba(0, 255, 255, 0.15);
-    color: var(--accent-primary);
+.proto-deviation.deviation-medium {
+    background: rgba(255, 200, 0, 0.2);
+    color: yellow;
 }
 
 /* Run Detection Button */
@@ -3777,7 +3790,7 @@ body.compact-mode {
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: linear-gradient(145deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(145deg, var(--neon-cyan), var(--neon-purple));
     border: none;
     border-radius: 6px;
     color: var(--bg-dark);

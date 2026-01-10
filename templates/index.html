@@ -1179,10 +1179,20 @@
                     </h2>
                     <div x-show="!isMinimized('attackTimeline')">
                         <div class="timeline-summary">
-                            <span class="timeline-stat">📊 <span x-text="attackTimeline.total_24h || 0"></span> alerts</span>
-                            <span class="timeline-stat">🔥 Peak: <span x-text="attackTimeline.peak_hour || '--'"></span> (<span x-text="attackTimeline.peak_count || 0"></span>)</span>
+                            <div class="timeline-stat">
+                                <span class="timeline-stat-value" x-text="attackTimeline.total_24h || 0"></span>
+                                <span class="timeline-stat-label">Alerts</span>
+                            </div>
+                            <div class="timeline-stat">
+                                <span class="timeline-stat-value" x-text="attackTimeline.peak_hour || '--'"></span>
+                                <span class="timeline-stat-label">Peak Hour</span>
+                            </div>
+                            <div class="timeline-stat">
+                                <span class="timeline-stat-value" x-text="attackTimeline.peak_count || 0"></span>
+                                <span class="timeline-stat-label">Peak Count</span>
+                            </div>
                         </div>
-                        <div style="height: 120px;" class="chart-expandable" @click="openFullscreenChart('attackTimelineChart', 'Attack Timeline')" title="Click to expand">
+                        <div style="height: 140px;" class="chart-expandable" @click="openFullscreenChart('attackTimelineChart', 'Attack Timeline')" title="Click to expand">
                             <canvas id="attackTimelineChart"></canvas>
                         </div>
                     </div>
@@ -1203,8 +1213,8 @@
                         </div>
                     </h2>
                     <div class="mitre-heatmap" x-show="!isMinimized('mitreHeatmap')">
-                        <div class="mitre-summary">
-                            <span x-text="mitreHeatmap.total_techniques || 0"></span> techniques · <span x-text="mitreHeatmap.total_detections || 0"></span> detections
+                        <div class="mitre-summary" style="font-size:0.85em; color:var(--text-muted); margin-bottom:10px;">
+                            <span class="text-cyan" x-text="mitreHeatmap.total_techniques || 0"></span> techniques · <span class="text-cyan" x-text="mitreHeatmap.total_detections || 0"></span> detections
                         </div>
                         <template x-if="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                             <div class="mitre-grid">
