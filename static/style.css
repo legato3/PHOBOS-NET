@@ -636,6 +636,126 @@ table[style*="table-layout:fixed"] td:first-child {
     50% { box-shadow: 0 0 15px rgba(255, 0, 60, 0.4); }
 }
 
+/* Clickable Stat Box */
+.stat-box.clickable-stat {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.stat-box.clickable-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 255, 255, 0.2);
+    border-color: var(--neon-cyan);
+}
+
+.stat-box.clickable-stat:active {
+    transform: translateY(0);
+}
+
+/* Firewall Detail Modal */
+.fw-detail-modal {
+    text-align: left;
+}
+
+.fw-detail-desc {
+    color: var(--text-muted);
+    font-size: 0.95em;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.fw-detail-values h4,
+.fw-detail-thresholds h4,
+.fw-detail-tips h4 {
+    color: var(--neon-cyan);
+    font-size: 0.9em;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fw-values-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.fw-value-item {
+    background: rgba(0, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fw-field-name {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    text-transform: capitalize;
+}
+
+.fw-field-value {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--neon-cyan);
+    font-family: 'Courier New', monospace;
+}
+
+.fw-detail-thresholds {
+    margin-bottom: 16px;
+}
+
+.fw-threshold-row {
+    display: flex;
+    gap: 12px;
+}
+
+.status-warning-badge {
+    background: rgba(255, 165, 0, 0.15);
+    border: 1px solid orange;
+    color: orange;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.status-critical-badge {
+    background: rgba(255, 0, 60, 0.15);
+    border: 1px solid var(--neon-red);
+    color: var(--neon-red);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.fw-detail-tips {
+    background: rgba(255, 255, 0, 0.05);
+    border: 1px solid rgba(255, 255, 0, 0.2);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.fw-detail-tips ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.fw-detail-tips li {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.fw-detail-tips li:last-child {
+    margin-bottom: 0;
+}
+
 /* ============================================
    STICKY STATUS BAR
    ============================================ */

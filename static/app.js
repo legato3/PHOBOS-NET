@@ -119,6 +119,105 @@ document.addEventListener('alpine:init', () => {
         },
         thresholdsModalOpen: false,
 
+        // Firewall Detail Modal
+        fwDetailOpen: false,
+        fwDetailType: null,
+        fwDetails: {
+            cpu: {
+                title: '🔥 CPU Usage',
+                description: 'Shows the current CPU utilization of your OPNsense firewall. High CPU usage can indicate heavy traffic processing, active VPN connections, or IDS/IPS inspection.',
+                fields: ['cpu_percent', 'cpu_load_1min', 'cpu_load_5min'],
+                thresholds: { warning: 70, critical: 90 },
+                tips: ['Consider enabling hardware offloading if consistently high', 'Check for runaway processes in OPNsense shell', 'Review IDS/IPS rules if Suricata is enabled']
+            },
+            memory: {
+                title: '💾 Memory Usage',
+                description: 'RAM utilization on the firewall. OPNsense uses memory for state tables, caching, and services like Unbound DNS or Suricata.',
+                fields: ['mem_percent', 'mem_used', 'mem_total', 'swap_percent'],
+                thresholds: { warning: 70, critical: 90 },
+                tips: ['High memory with low swap is normal', 'Check state table size if memory is high', 'Consider adding RAM if swap usage is significant']
+            },
+            uptime: {
+                title: '⏱️ System Uptime',
+                description: 'How long the firewall has been running since last reboot. Longer uptimes indicate stability.',
+                fields: ['sys_uptime_formatted'],
+                tips: ['Schedule periodic maintenance reboots after updates', 'Unexpected reboots may indicate hardware issues']
+            },
+            interfaces: {
+                title: '🔌 Interface Status',
+                description: 'Shows whether WAN and LAN interfaces are up and operational. Down interfaces will appear red.',
+                fields: ['if_wan_status', 'if_lan_status'],
+                tips: ['Check cable connections if interface is down', 'Review interface assignments in OPNsense']
+            },
+            wan_traffic: {
+                title: '🌐 WAN Traffic',
+                description: 'Current throughput on your WAN (internet) interface in Megabits per second. Shows download (RX) and upload (TX) rates.',
+                fields: ['wan_rx_mbps', 'wan_tx_mbps', 'wan_in', 'wan_out'],
+                tips: ['Compare against your ISP plan speeds', 'Sustained high usage may need bandwidth management']
+            },
+            lan_traffic: {
+                title: '🏠 LAN Traffic',
+                description: 'Current throughput on your LAN interface. High LAN traffic with low WAN may indicate local file transfers.',
+                fields: ['lan_rx_mbps', 'lan_tx_mbps'],
+                tips: ['Gigabit LAN can handle ~125 MB/s', 'Check for broadcast storms if unusually high']
+            },
+            tcp_activity: {
+                title: '🔗 TCP Activity',
+                description: 'Active TCP connection opens and established connection resets. High resets may indicate connection issues or attacks.',
+                fields: ['tcp_active_opens_s', 'tcp_estab_resets_s', 'tcp_conns'],
+                thresholds: { warning: 5, critical: 20 },
+                tips: ['Some resets are normal (timeouts, closed connections)', 'Sudden spikes may indicate port scanning', 'Check firewall logs for blocked connections']
+            },
+            tcp_reliability: {
+                title: '📡 TCP Reliability',
+                description: 'TCP connection failures and retransmissions. High values indicate network congestion or packet loss.',
+                fields: ['tcp_fails_s', 'tcp_retrans_s'],
+                thresholds: { warning: 1, critical: 5 },
+                tips: ['Check for duplex mismatches on interfaces', 'High retrans may indicate congested links', 'Consider QoS if latency-sensitive apps are affected']
+            },
+            if_errors: {
+                title: '⚠️ Interface Errors',
+                description: 'Packet errors on WAN and LAN interfaces. Errors may indicate cable issues, duplex mismatches, or hardware problems.',
+                fields: ['wan_in_err_s', 'wan_out_err_s', 'lan_in_err_s', 'lan_out_err_s'],
+                thresholds: { warning: 0.1, critical: 1 },
+                tips: ['Check cable quality and connections', 'Verify auto-negotiation settings', 'Consider replacing network cables']
+            },
+            ip_errors: {
+                title: '🔢 IP/ICMP Errors',
+                description: 'IP header errors, address errors, and ICMP errors. These may indicate misconfigured clients or routing issues.',
+                fields: ['ip_in_hdr_errors_s', 'ip_in_addr_errors_s', 'ip_in_discards_s', 'icmp_in_errors_s'],
+                thresholds: { warning: 0.1, critical: 1 },
+                tips: ['Check for misconfigured DHCP clients', 'Review routing table for conflicts', 'ICMP errors often come from unreachable hosts']
+            },
+            disk_io: {
+                title: '💿 Disk I/O',
+                description: 'Disk read and write activity. High I/O may occur during logging, package updates, or if swap is being used.',
+                fields: ['disk_read', 'disk_write'],
+                tips: ['Consistent high I/O may indicate logging issues', 'Consider SSD if using HDD', 'Check for large log files']
+            }
+        },
+
+        openFwDetail(type) {
+            this.fwDetailType = type;
+            this.fwDetailOpen = true;
+        },
+
+        closeFwDetail() {
+            this.fwDetailOpen = false;
+            this.fwDetailType = null;
+        },
+
+        getFwValue(field) {
+            const val = this.firewall[field];
+            if (val === null || val === undefined) return '--';
+            if (field.includes('percent')) return val + '%';
+            if (field.includes('_s') || field.includes('_mbps')) return val.toFixed(2);
+            if (field === 'mem_used' || field === 'mem_total') return this.formatBytes(val * 1024);
+            if (field === 'wan_in' || field === 'wan_out' || field === 'disk_read' || field === 'disk_write') return this.fmtBytes(val);
+            if (field === 'if_wan_status' || field === 'if_lan_status') return val === '1' ? 'UP' : 'DOWN';
+            return val;
+        },
+
         // Modal
         modalOpen: false,
         selectedIP: null,
