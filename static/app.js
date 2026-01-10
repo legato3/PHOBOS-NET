@@ -285,6 +285,8 @@ document.addEventListener('alpine:init', () => {
         bwChartInstance: null,
         flagsChartInstance: null,
         pktSizeChartInstance: null,
+        hourlyChartInstance: null,
+        protoMixChartInstance: null,
         trendModalOpen: false,
         trendIP: null,
         trendKind: 'source',
@@ -511,6 +513,8 @@ document.addEventListener('alpine:init', () => {
                 case 'bwChart': return this.bwChartInstance;
                 case 'flagsChart': return this.flagsChartInstance;
                 case 'pktSizeChart': return this.pktSizeChartInstance;
+                case 'hourlyChart': return this.hourlyChartInstance;
+                case 'protoMixChart': return this.protoMixChartInstance;
                 case 'countriesChart': return this.countriesChartInstance;
                 case 'blocklistChart': return this.blocklistChartInstance;
                 default: return null;
@@ -1212,7 +1216,16 @@ document.addEventListener('alpine:init', () => {
         updateHourlyChart(data) {
             try {
                 const ctx = document.getElementById('hourlyChart');
-                if (!ctx || !data || !data.labels) return;
+                if (!ctx) {
+                    console.warn('[HourlyChart] Canvas element not found');
+                    return;
+                }
+                if (!data || !data.labels || data.labels.length === 0) {
+                    console.warn('[HourlyChart] No data available');
+                    return;
+                }
+                
+                console.log('[HourlyChart] Rendering with', data.labels.length, 'data points');
 
                 if (this.hourlyChartInstance) {
                     this.hourlyChartInstance.data.labels = data.labels;
