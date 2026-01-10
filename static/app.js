@@ -353,6 +353,9 @@ document.addEventListener('alpine:init', () => {
             this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
+            
+            // Render empty map on init (grid/background)
+            this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
         },
 
         get activeAlerts() {
@@ -696,15 +699,21 @@ document.addEventListener('alpine:init', () => {
         },
 
         get filteredSources() {
-             if(!this.searchQuery) return this.sources.sources;
-             const q = this.searchQuery.toLowerCase();
-             return this.sources.sources.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+             let list = this.sources.sources;
+             if(this.searchQuery) {
+                 const q = this.searchQuery.toLowerCase();
+                 list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+             }
+             return list.slice(0, 5);
         },
 
         get filteredDestinations() {
-             if(!this.searchQuery) return this.destinations.destinations;
-             const q = this.searchQuery.toLowerCase();
-             return this.destinations.destinations.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+             let list = this.destinations.destinations;
+             if(this.searchQuery) {
+                 const q = this.searchQuery.toLowerCase();
+                 list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+             }
+             return list.slice(0, 5);
         },
 
         async fetchSummary() {
@@ -1194,11 +1203,14 @@ document.addEventListener('alpine:init', () => {
                     const data = await res.json();
                     console.log('[WorldMap] API response:', data);
                     this.worldMap = { ...data, loading: false };
-                    this.$nextTick(() => this.renderWorldMap());
                 } else {
                     console.error('[WorldMap] API error:', res.status);
                 }
-            } catch(e) { console.error('[WorldMap] Fetch error:', e); } finally { this.worldMap.loading = false; }
+            } catch(e) { console.error('[WorldMap] Fetch error:', e); } finally { 
+                this.worldMap.loading = false;
+                // Always render map after fetch (even with no data to show grid)
+                this.$nextTick(() => this.renderWorldMap());
+            }
         },
 
         renderWorldMap() {
@@ -1226,10 +1238,10 @@ document.addEventListener('alpine:init', () => {
             };
             
             // Build SVG
-            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
             
             // Background with grid
-            svg += `<rect width="100%" height="100%" fill="rgba(0,0,0,0.3)"/>`;
+            svg += `<rect width="100%" height="100%" fill="rgba(0,20,40,0.5)"/>`;
             
             // Grid lines
             for (let i = 0; i <= 6; i++) {
@@ -1244,6 +1256,36 @@ document.addEventListener('alpine:init', () => {
             // Equator
             svg += `<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="rgba(0,243,255,0.2)" stroke-width="1"/>`;
             
+            // Prime Meridian
+            svg += `<line x1="${width/2}" y1="0" x2="${width/2}" y2="${height}" stroke="rgba(0,243,255,0.15)" stroke-width="1"/>`;
+            
+            // Simplified world map outline (continental shapes)
+            const worldPath = `
+                M${0.12*width},${0.22*height} Q${0.18*width},${0.18*height} ${0.25*width},${0.25*height} 
+                L${0.30*width},${0.38*height} L${0.25*width},${0.52*height} L${0.15*width},${0.65*height}
+                L${0.08*width},${0.85*height} L${0.20*width},${0.95*height}
+                M${0.35*width},${0.15*height} L${0.55*width},${0.12*height} L${0.48*width},${0.25*height}
+                L${0.42*width},${0.35*height} L${0.38*width},${0.55*height} L${0.52*width},${0.85*height}
+                M${0.55*width},${0.18*height} L${0.72*width},${0.15*height} L${0.75*width},${0.28*height}
+                L${0.68*width},${0.42*height} L${0.58*width},${0.38*height} L${0.55*width},${0.52*height}
+                M${0.72*width},${0.22*height} L${0.92*width},${0.25*height} L${0.95*width},${0.45*height}
+                L${0.88*width},${0.55*height} L${0.78*width},${0.48*height}
+                M${0.82*width},${0.65*height} L${0.95*width},${0.72*height} L${0.92*width},${0.88*height}
+                L${0.78*width},${0.92*height} L${0.75*width},${0.78*height}
+            `;
+            svg += `<path d="${worldPath}" fill="none" stroke="rgba(0,243,255,0.25)" stroke-width="1.5" stroke-linecap="round"/>`;
+            
+            // Add continent labels
+            const labels = [
+                { x: 0.18, y: 0.45, name: 'Americas' },
+                { x: 0.48, y: 0.32, name: 'Europe' },
+                { x: 0.52, y: 0.55, name: 'Africa' },
+                { x: 0.72, y: 0.35, name: 'Asia' },
+                { x: 0.85, y: 0.78, name: 'Oceania' }
+            ];
+            labels.forEach(l => {
+                svg += `<text x="${l.x*width}" y="${l.y*height}" fill="rgba(0,243,255,0.2)" font-size="10" text-anchor="middle">${l.name}</text>`;
+            });
             // Draw destinations first (purple)
             dests.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);

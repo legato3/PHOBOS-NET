@@ -571,7 +571,7 @@
                     </div>
                     <!-- Flow List -->
                     <div class="longflow-list">
-                        <template x-for="(f, index) in durations.durations" :key="index">
+                        <template x-for="(f, index) in durations.durations.slice(0, 5)" :key="index">
                             <div class="longflow-row">
                                 <div class="longflow-main">
                                     <div class="longflow-ips">
