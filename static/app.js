@@ -91,7 +91,8 @@ document.addEventListener('alpine:init', () => {
         attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
         mitreHeatmap: { techniques: [], by_tactic: {}, total_techniques: 0, loading: true },
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
-        recentBlocks: { blocks: [], total_1h: 0, loading: true },
+        recentBlocks: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 } },
+        recentBlocksView: 50,
         
         // Alert Filtering
         alertFilter: { severity: 'all', type: 'all' },
@@ -148,7 +149,7 @@ document.addEventListener('alpine:init', () => {
             mitreHeatmap: 'MITRE ATT&CK Coverage',
             protocolAnomalies: 'Protocol Anomalies',
             attackTimeline: 'Attack Timeline',
-            recentBlocks: 'Recent Firewall Blocks'
+            recentBlocks: 'Firewall Logs'
         },
 
         // Thresholds (editable)
@@ -1054,14 +1055,21 @@ document.addEventListener('alpine:init', () => {
         async fetchRecentBlocks() {
             this.recentBlocks.loading = true;
             try {
-                const res = await fetch('/api/firewall/logs/recent?limit=10');
+                const res = await fetch('/api/firewall/logs/recent?limit=1000');
                 if (res.ok) {
                     const d = await res.json();
+                    const logs = d.logs || [];
+                    const stats = d.stats || this.computeRecentBlockStats(logs);
+
                     this.recentBlocks = { 
-                        blocks: d.logs || [], 
-                        total_1h: d.total || 0, 
+                        blocks: logs, 
+                        stats,
+                        total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0, 
                         loading: false 
                     };
+
+                    const targetView = this.recentBlocksView || 50;
+                    this.recentBlocksView = Math.min(targetView, logs.length || targetView, 1000);
                 }
             } catch (e) { console.error('Recent blocks fetch error:', e); }
             finally { this.recentBlocks.loading = false; }
@@ -2084,6 +2092,54 @@ document.addEventListener('alpine:init', () => {
              if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
              if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
              return bytes + ' B';
+        },
+
+        computeRecentBlockStats(logs = []) {
+            const stats = {
+                total: logs.length,
+                actions: { block: 0, reject: 0, pass: 0 },
+                threats: 0,
+                unique_src: 0,
+                unique_dst: 0,
+                blocks_last_hour: 0,
+                passes_last_hour: 0
+            };
+
+            const cutoff = (Date.now() / 1000) - 3600;
+            const srcSet = new Set();
+            const dstSet = new Set();
+
+            logs.forEach((log) => {
+                const action = log.action;
+                const ts = log.timestamp_ts || 0;
+                if (stats.actions[action] !== undefined) stats.actions[action] += 1;
+                if (log.is_threat) stats.threats += 1;
+                if (log.src_ip) srcSet.add(log.src_ip);
+                if (log.dst_ip) dstSet.add(log.dst_ip);
+                if (ts >= cutoff) {
+                    if (action === 'pass') stats.passes_last_hour += 1;
+                    if (action === 'block' || action === 'reject') stats.blocks_last_hour += 1;
+                }
+            });
+
+            stats.unique_src = srcSet.size;
+            stats.unique_dst = dstSet.size;
+            return stats;
+        },
+
+        setRecentBlocksView(count) {
+            const safeCount = Math.max(10, count || 10);
+            const maxAvailable = this.recentBlocks?.blocks?.length || safeCount;
+            this.recentBlocksView = Math.min(safeCount, Math.min(1000, maxAvailable));
+        },
+
+        timeAgo(ts) {
+            if (!ts) return '';
+            const diff = Math.max(0, (Date.now() / 1000) - ts);
+            if (diff < 60) return `${Math.round(diff)}s ago`;
+            if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+            return `${Math.round(diff / 86400)}d ago`;
         },
 
         flagFromIso(iso) {

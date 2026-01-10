@@ -3512,49 +3512,100 @@ def api_firewall_logs_timeline():
 @app.route("/api/firewall/logs/recent")
 @throttle(5, 10)
 def api_firewall_logs_recent():
-    """Get most recent firewall log entries."""
-    limit = min(int(request.args.get('limit', 50)), 200)
+    """Get most recent firewall log entries (up to 1000)."""
+    limit = min(int(request.args.get('limit', 1000)), 1000)
     action_filter = request.args.get('action')  # 'block', 'pass', or None for all
-    
+    now = time.time()
+    cutoff_1h = now - 3600
+
     with _firewall_db_lock:
         conn = _firewall_db_connect()
         try:
             if action_filter:
                 cur = conn.execute("""
-                    SELECT timestamp_iso, action, direction, interface, src_ip, src_port, 
+                    SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port, 
                            dst_ip, dst_port, proto, country_iso, is_threat
                     FROM fw_logs WHERE action = ? ORDER BY timestamp DESC LIMIT ?
                 """, (action_filter, limit))
             else:
                 cur = conn.execute("""
-                    SELECT timestamp_iso, action, direction, interface, src_ip, src_port, 
+                    SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port, 
                            dst_ip, dst_port, proto, country_iso, is_threat
                     FROM fw_logs ORDER BY timestamp DESC LIMIT ?
                 """, (limit,))
             
             logs = []
+            action_counts = {"block": 0, "reject": 0, "pass": 0}
+            unique_src = set()
+            unique_dst = set()
+            threat_count = 0
+            blocks_last_hour = 0
+            passes_last_hour = 0
+            latest_ts = None
+
             for row in cur.fetchall():
+                ts = row[0]
+                ts_iso = row[1]
+                action = row[2]
+                direction = row[3]
+                iface = row[4]
+                src_ip = row[5]
+                src_port = row[6]
+                dst_ip = row[7]
+                dst_port = row[8]
+                proto = row[9]
+                country_iso = row[10]
+                is_threat = bool(row[11])
+
+                # Stats
+                if action in action_counts:
+                    action_counts[action] += 1
+                if is_threat:
+                    threat_count += 1
+                if ts and action in ('block', 'reject') and ts >= cutoff_1h:
+                    blocks_last_hour += 1
+                if ts and action == 'pass' and ts >= cutoff_1h:
+                    passes_last_hour += 1
+                if src_ip:
+                    unique_src.add(src_ip)
+                if dst_ip:
+                    unique_dst.add(dst_ip)
+                if ts and (latest_ts is None or ts > latest_ts):
+                    latest_ts = ts
+
                 logs.append({
-                    "timestamp": row[0],
-                    "action": row[1],
-                    "direction": row[2],
-                    "interface": row[3],
-                    "src_ip": row[4],
-                    "src_port": row[5],
-                    "dst_ip": row[6],
-                    "dst_port": row[7],
-                    "proto": row[8],
-                    "country_iso": row[9],
-                    "flag": flag_from_iso(row[9]) if row[9] else "",
-                    "is_threat": bool(row[10]),
-                    "service": PORTS.get(row[7], "") if row[7] else ""
+                    "timestamp": ts_iso,
+                    "timestamp_ts": ts,
+                    "action": action,
+                    "direction": direction,
+                    "interface": iface,
+                    "src_ip": src_ip,
+                    "src_port": src_port,
+                    "dst_ip": dst_ip,
+                    "dst_port": dst_port,
+                    "proto": proto,
+                    "country_iso": country_iso,
+                    "flag": flag_from_iso(country_iso) if country_iso else "",
+                    "is_threat": is_threat,
+                    "service": PORTS.get(dst_port, "") if dst_port else ""
                 })
         finally:
             conn.close()
     
+    stats = {
+        "total": len(logs),
+        "actions": action_counts,
+        "threats": threat_count,
+        "unique_src": len(unique_src),
+        "unique_dst": len(unique_dst),
+        "blocks_last_hour": blocks_last_hour,
+        "passes_last_hour": passes_last_hour,
+        "latest_ts": latest_ts
+    }
+
     with _syslog_stats_lock:
         receiver_stats = dict(_syslog_stats)
-    return jsonify({"logs": logs, "receiver_stats": receiver_stats})
+    return jsonify({"logs": logs, "stats": stats, "receiver_stats": receiver_stats})
 
 
 @app.route("/api/alerts")
