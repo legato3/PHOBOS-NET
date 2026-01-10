@@ -372,6 +372,7 @@
 
         <!-- New Analytics Row -->
         <template x-if="isVisible('analytics')">
+        <div class="grid" data-reorder="true" data-grid-id="analytics">
             <!-- TCP Flags -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('flags') }">
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
@@ -387,14 +388,13 @@
                 <div class="chart-wrapper-small" x-show="!isMinimized('flags')">
                     <canvas id="flagsChart"></canvas>
                 </div>
-                <div style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;">
+                <div style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;" x-show="!isMinimized('flags')">
                     <strong>Flags:</strong>
                     <span title="Acknowledge">AP=ACK+PSH</span> · 
                     <span title="Acknowledge">A=ACK</span> · 
                     <span title="ACK+PSH+SYN+FIN">APSF=ACK+PSH+SYN+FIN</span> · 
                     <span title="Reset">R=RST</span> · 
                     <span title="No flags">None</span>
-                </div>
                 </div>
             </div>
 
@@ -486,10 +486,12 @@
                     <canvas id="pktSizeChart"></canvas>
                 </div>
             </div>
+        </div>
         </template>
 
         <!-- Grid for Top Stats -->
         <template x-if="isVisible('topstats')">
+        <div class="grid" data-reorder="true" data-grid-id="topstats">
 
             <!-- Top Sources -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
@@ -503,7 +505,8 @@
                         <div class="spinner" x-show="sources.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('sources')">>
+                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('sources')">
+                    <thead>
                     <thead>
                         <tr>
                             <th style="width:70%;">IP</th>
@@ -757,8 +760,7 @@
                 </div>
             </div>
 
-        </template>
-
+        </div>
         <!-- Conversations -->
         <template x-if="isVisible('conversations')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
