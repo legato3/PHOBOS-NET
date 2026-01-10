@@ -8,6 +8,7 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('alpine:init', () => {
     Alpine.data('dashboard', () => ({
         initDone: false,
+        activeTab: 'overview',
 
         firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false, blocks_1h: 0, blocks_per_hour: 0, unique_blocked_ips: 0, threats_blocked: 0, syslog_active: false },
         firewallStreamActive: false,
@@ -296,6 +297,10 @@ document.addEventListener('alpine:init', () => {
         networkGraphOpen: false,
         networkGraphInstance: null,
 
+        // Conversation View (List/Sankey)
+        conversationView: 'list', // 'list' or 'sankey'
+        sankeyChartInstance: null,
+
         // World Map
         worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null },
         worldMapLayers: { sources: true, destinations: true, threats: true, blocked: true },
@@ -342,6 +347,13 @@ document.addEventListener('alpine:init', () => {
             // Watchers
             this.$watch('timeRange', () => {
                 this.loadAll();
+            });
+            this.$watch('activeTab', (val) => {
+                this.$nextTick(() => {
+                    this.loadTab(val);
+                    // Resize charts if needed when tab becomes visible
+                    window.dispatchEvent(new Event('resize'));
+                });
             });
             this.$watch('refreshInterval', () => {
                  this.startTimer();
@@ -1365,9 +1377,108 @@ document.addEventListener('alpine:init', () => {
         async fetchConversations() {
             this.conversations.loading = true;
             try {
-                const res = await fetch(`/api/conversations?range=${this.timeRange}`);
-                if(res.ok) this.conversations = { ...(await res.json()) };
+                // Fetch more for Sankey/Graph
+                const limit = this.conversationView === 'sankey' ? 50 : 10;
+                const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=${limit}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.conversations = { ...data };
+                    if (this.conversationView === 'sankey') {
+                        this.$nextTick(() => this.renderSankey());
+                    }
+                }
             } catch(e) { console.error(e); } finally { this.conversations.loading = false; }
+        },
+
+        toggleConversationView(view) {
+            this.conversationView = view;
+            if (view === 'sankey') {
+                this.fetchConversations(); // Re-fetch with higher limit
+            }
+        },
+
+        renderSankey() {
+            const ctx = document.getElementById('sankeyChart');
+            if (!ctx) return;
+
+            // Destroy existing
+            if (this.sankeyChartInstance) {
+                this.sankeyChartInstance.destroy();
+                this.sankeyChartInstance = null;
+            }
+
+            const raw = this.conversations.conversations || [];
+            if (raw.length === 0) return;
+
+            // Transform data: src -> service -> dst
+            // To reduce clutter, we can aggregate
+            // ChartJS Sankey expects: { from, to, flow }
+            const data = [];
+
+            // Limit to top flows to avoid messy graph
+            const top = raw.slice(0, 30);
+
+            top.forEach(c => {
+                const src = c.src; // IP
+                const dst = c.dst; // IP
+                const flow = c.bytes;
+
+                // Determine middle node (Service or Proto/Port)
+                let service = c.service;
+                if (!service || service === 'unknown') {
+                    service = `${c.proto}/${c.port}`;
+                }
+
+                // Add two links
+                data.push({ from: src, to: service, flow: flow });
+                data.push({ from: service, to: dst, flow: flow });
+            });
+
+            // Node colors map (simple hash)
+            const getColor = (key) => {
+                let hash = 0;
+                for (let i = 0; i < key.length; i++) {
+                    hash = key.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+                return '#' + '00000'.substring(0, 6 - c.length) + c;
+            };
+
+            const colors = {
+                'http': '#00f3ff', 'https': '#00f3ff', 'ssh': '#ff003c', 'dns': '#ffff00'
+            };
+
+            this.sankeyChartInstance = new Chart(ctx, {
+                type: 'sankey',
+                data: {
+                    datasets: [{
+                        label: 'Traffic Flow',
+                        data: data,
+                        colorFrom: (c) => getColor(c.dataset.data[c.dataIndex].from),
+                        colorTo: (c) => getColor(c.dataset.data[c.dataIndex].to),
+                        colorMode: 'gradient', // or 'to' or 'from'
+                        size: 'max', // or 'min'
+                        borderWidth: 0,
+                        nodeWidth: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const item = ctx.raw;
+                                    return `${item.from} -> ${item.to}: ${this.fmtBytes(item.flow)}`;
+                                }
+                            }
+                        }
+                    },
+                    layout: { padding: 20 }
+                }
+            });
         },
 
         async fetchFlags() {
@@ -2282,6 +2393,56 @@ document.addEventListener('alpine:init', () => {
 
         applyFilter(ip) {
             this.openIPModal(ip);
+        },
+
+        loadTab(tab) {
+            const now = Date.now();
+            if (tab === 'overview') {
+                if (now - this.lastFetch.worldmap > this.heavyTTL) {
+                    this.fetchWorldMap();
+                    this.lastFetch.worldmap = now;
+                }
+            } else if (tab === 'security') {
+                if (now - this.lastFetch.security > this.heavyTTL) {
+                    this.fetchSecurityScore();
+                    this.fetchAlertHistory();
+                    this.fetchThreatsByCountry();
+                    this.fetchThreatVelocity();
+                    this.fetchTopThreatIPs();
+                    this.fetchRiskIndex();
+                    this.fetchAttackTimeline();
+                    this.fetchMitreHeatmap();
+                    this.fetchProtocolAnomalies();
+                    this.fetchFeedHealth();
+                    this.fetchWatchlist();
+                    this.lastFetch.security = now;
+                }
+            } else if (tab === 'network') {
+                if (now - this.lastFetch.analytics > this.heavyTTL) {
+                    this.fetchFlags();
+                    this.fetchDurations();
+                    this.fetchPacketSizes();
+                    this.fetchProtocols();
+                    this.fetchFlowStats();
+                    this.fetchProtoMix();
+                    this.fetchNetHealth();
+                    this.lastFetch.analytics = now;
+                }
+                if (now - this.lastFetch.topstats > this.heavyTTL) {
+                    this.fetchASNs();
+                    this.fetchCountries();
+                    this.fetchTalkers();
+                    this.fetchServices();
+                    this.fetchHourlyTraffic();
+                    this.lastFetch.topstats = now;
+                }
+            } else if (tab === 'forensics') {
+                if (now - this.lastFetch.conversations > this.mediumTTL) {
+                    this.fetchConversations();
+                    this.lastFetch.conversations = now;
+                }
+                this.fetchRecentBlocks();
+            }
         },
 
         // ----- Expanded Views & Graph -----
