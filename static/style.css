@@ -503,6 +503,122 @@ tr:hover td {
     font-size: 0.85em;
 }
 
+/* Top Talkers Widget */
+.talkers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+.talker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(0, 243, 255, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid var(--neon-cyan);
+}
+.talker-pair {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+}
+.talker-src {
+    color: var(--neon-cyan);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.talker-arrow {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.talker-dst {
+    color: var(--neon-green);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.talker-meta {
+    width: 100%;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.talker-region {
+    opacity: 0.8;
+}
+.talker-bytes {
+    font-weight: bold;
+    color: var(--neon-green);
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Services Widget */
+.service-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+.service-name {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--neon-cyan);
+}
+.service-bar-container {
+    flex-grow: 1;
+    background: rgba(255,255,255,0.1);
+    height: 6px;
+    border-radius: 3px;
+    margin: 0 10px;
+    overflow: hidden;
+}
+.service-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan) 0%, var(--neon-green) 100%);
+    border-radius: 3px;
+}
+.service-val {
+    width: 70px;
+    text-align: right;
+    color: var(--neon-green);
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+/* Hourly Traffic Widget */
+.hourly-summary {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+.hourly-stat {
+    text-align: center;
+}
+.hourly-stat-value {
+    display: block;
+    font-size: 1.1em;
+    font-weight: bold;
+    font-family: 'JetBrains Mono', monospace;
+}
+.hourly-stat-label {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
 /* Truncate long hostnames to prevent overflow */
 .hostname-line {
     max-width: 100%;

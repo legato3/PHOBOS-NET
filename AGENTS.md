@@ -286,12 +286,15 @@ apt-get install snmp python3-pysnmp4
 - **Protocols** - Protocol breakdown table
 - **Traffic Insights** - Dynamic insights about network behavior
 
-### Top Stats Section
+### Top Stats Section (8 widgets)
 - **Top Sources** - IP tables with geo, sparklines
 - **Top Destinations** - IP tables with geo, sparklines
 - **Top Ports** - Port traffic with service names
 - **Top ASNs** - Autonomous System traffic bars
 - **Top Countries** - Geographic traffic distribution (pie chart)
+- **Top Talkers** - Source→Destination IP pairs with highest traffic
+- **Top Services** - Traffic by service name (aggregated from ports)
+- **Traffic by Hour** - 24-hour traffic distribution chart with peak hour
 
 ### Security Center (13 widgets)
 
@@ -330,6 +333,6 @@ apt-get install snmp python3-pysnmp4
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.4 - Security Center Enhancements)  
+**Last Updated**: January 10, 2026 (v2.5 - Top Stats Expansion)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

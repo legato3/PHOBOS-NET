@@ -42,6 +42,9 @@ _stats_asns_cache = {"data": None, "ts": 0, "key": None}
 _stats_durations_cache = {"data": None, "ts": 0, "key": None}
 _stats_pkts_cache = {"data": None, "ts": 0, "key": None}
 _stats_countries_cache = {"data": None, "ts": 0, "key": None}
+_stats_talkers_cache = {"data": None, "ts": 0, "key": None}
+_stats_services_cache = {"data": None, "ts": 0, "key": None}
+_stats_hourly_cache = {"data": None, "ts": 0, "key": None}
 
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 # Lock for thread-safe access to mock data cache (performance optimization)
@@ -1980,6 +1983,195 @@ def api_stats_countries():
         _stats_countries_cache["ts"] = now
         _stats_countries_cache["key"] = range_key
         _stats_countries_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/talkers")
+@throttle(5, 10)
+def api_stats_talkers():
+    """Top talker pairs (src→dst) by bytes."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_talkers_cache["data"] and _stats_talkers_cache["key"] == range_key and _stats_talkers_cache.get("win") == win:
+            return jsonify(_stats_talkers_cache["data"])
+
+    tf = get_time_range(range_key)
+    output = run_nfdump(["-O", "bytes", "-n", "100"], tf)
+
+    pairs = {}
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+            ibyt_idx = header.index('ibyt')
+        except:
+            sa_idx, da_idx, ibyt_idx = 3, 4, 12
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+                try:
+                    src = parts[sa_idx]
+                    dst = parts[da_idx]
+                    b = int(parts[ibyt_idx])
+                    pair_key = f"{src}→{dst}"
+                    if pair_key in pairs:
+                        pairs[pair_key]["bytes"] += b
+                    else:
+                        pairs[pair_key] = {"src": src, "dst": dst, "bytes": b}
+                except: pass
+
+        # Sort by bytes and get top 10
+        sorted_pairs = sorted(pairs.values(), key=lambda x: x["bytes"], reverse=True)[:10]
+        talkers = []
+        for p in sorted_pairs:
+            talkers.append({
+                "src": p["src"],
+                "dst": p["dst"],
+                "src_hostname": resolve_ip(p["src"]),
+                "dst_hostname": resolve_ip(p["dst"]),
+                "bytes": p["bytes"],
+                "bytes_fmt": fmt_bytes(p["bytes"]),
+                "src_region": get_region(p["src"]),
+                "dst_region": get_region(p["dst"])
+            })
+        data = {"talkers": talkers}
+    except:
+        data = {"talkers": []}
+
+    with _cache_lock:
+        _stats_talkers_cache["data"] = data
+        _stats_talkers_cache["ts"] = now
+        _stats_talkers_cache["key"] = range_key
+        _stats_talkers_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/services")
+@throttle(5, 10)
+def api_stats_services():
+    """Top services by bytes (aggregated by service name)."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_services_cache["data"] and _stats_services_cache["key"] == range_key and _stats_services_cache.get("win") == win:
+            return jsonify(_stats_services_cache["data"])
+
+    # Reuse ports data
+    ports_data = get_common_nfdump_data("ports", range_key)
+
+    # Aggregate by service name
+    service_bytes = Counter()
+    service_flows = Counter()
+    for item in ports_data:
+        port_str = item.get("key", "")
+        try:
+            port = int(port_str)
+            service = PORTS.get(port, f"Port {port}")
+        except:
+            service = port_str
+        service_bytes[service] += item.get("bytes", 0)
+        service_flows[service] += item.get("flows", 0)
+
+    # Get top 10 by bytes
+    top = service_bytes.most_common(10)
+    services = []
+    max_bytes = top[0][1] if top else 1
+    for svc, b in top:
+        services.append({
+            "service": svc,
+            "bytes": b,
+            "bytes_fmt": fmt_bytes(b),
+            "flows": service_flows.get(svc, 0),
+            "pct": round(b / max_bytes * 100, 1)
+        })
+
+    data = {"services": services, "maxBytes": max_bytes}
+    with _cache_lock:
+        _stats_services_cache["data"] = data
+        _stats_services_cache["ts"] = now
+        _stats_services_cache["key"] = range_key
+        _stats_services_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/hourly")
+@throttle(5, 10)
+def api_stats_hourly():
+    """Traffic distribution by hour (last 24 hours)."""
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_hourly_cache["data"] and _stats_hourly_cache.get("win") == win:
+            return jsonify(_stats_hourly_cache["data"])
+
+    # Always use 24h range for hourly stats
+    tf = get_time_range("24h")
+    output = run_nfdump(["-n", "5000"], tf)
+
+    # Initialize hourly buckets (0-23)
+    hourly_bytes = {h: 0 for h in range(24)}
+    hourly_flows = {h: 0 for h in range(24)}
+
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ts_idx = header.index('ts')
+            ibyt_idx = header.index('ibyt')
+        except:
+            ts_idx, ibyt_idx = 0, 12
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(ts_idx, ibyt_idx):
+                try:
+                    # Parse timestamp (format: YYYY-MM-DD HH:MM:SS.mmm)
+                    ts_str = parts[ts_idx]
+                    if ' ' in ts_str:
+                        time_part = ts_str.split(' ')[1]
+                        hour = int(time_part.split(':')[0])
+                    else:
+                        hour = datetime.now().hour
+                    b = int(parts[ibyt_idx])
+                    hourly_bytes[hour] += b
+                    hourly_flows[hour] += 1
+                except: pass
+
+        # Find peak hour
+        peak_hour = max(hourly_bytes, key=hourly_bytes.get)
+        peak_bytes = hourly_bytes[peak_hour]
+
+        # Create labels (0:00, 1:00, etc)
+        labels = [f"{h}:00" for h in range(24)]
+        bytes_data = [hourly_bytes[h] for h in range(24)]
+        flows_data = [hourly_flows[h] for h in range(24)]
+
+        data = {
+            "labels": labels,
+            "bytes": bytes_data,
+            "flows": flows_data,
+            "bytes_fmt": [fmt_bytes(b) for b in bytes_data],
+            "peak_hour": peak_hour,
+            "peak_bytes": peak_bytes,
+            "peak_bytes_fmt": fmt_bytes(peak_bytes),
+            "total_bytes": sum(bytes_data),
+            "total_bytes_fmt": fmt_bytes(sum(bytes_data))
+        }
+    except:
+        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B"}
+
+    with _cache_lock:
+        _stats_hourly_cache["data"] = data
+        _stats_hourly_cache["ts"] = now
+        _stats_hourly_cache["win"] = win
     return jsonify(data)
 
 

@@ -55,6 +55,9 @@ document.addEventListener('alpine:init', () => {
         durations: { durations: [], loading: true },
         packetSizes: { labels: [], data: [], loading: true },
         feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
+        talkers: { talkers: [], loading: true },
+        services: { services: [], maxBytes: 1, loading: true },
+        hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
         
         // Security Features
         securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null },
@@ -113,7 +116,10 @@ document.addEventListener('alpine:init', () => {
             threatVelocity: 'Threat Velocity',
             topThreatIPs: 'Top Threat IPs',
             riskIndex: 'Network Risk Index',
-            conversations: 'Recent Conversations'
+            conversations: 'Recent Conversations',
+            talkers: 'Top Talkers',
+            services: 'Top Services',
+            hourlyTraffic: 'Traffic by Hour'
         },
 
         // Thresholds (editable)
@@ -621,6 +627,9 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.fetchDurations(), 300);
                 setTimeout(() => this.fetchCountries(), 375);
                 setTimeout(() => this.fetchPacketSizes(), 450);
+                setTimeout(() => this.fetchTalkers(), 525);
+                setTimeout(() => this.fetchServices(), 600);
+                setTimeout(() => this.fetchHourlyTraffic(), 675);
             }
 
             // Render sparklines for top IPs (throttled via sparkTTL)
@@ -1123,6 +1132,78 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
                 if(res.ok) this.durations = { ...(await res.json()), loading: false };
             } catch(e) { console.error(e); } finally { this.durations.loading = false; }
+        },
+
+        async fetchTalkers() {
+            this.talkers.loading = true;
+            try {
+                const res = await fetch(`/api/stats/talkers?range=${this.timeRange}`);
+                if(res.ok) this.talkers = { ...(await res.json()), loading: false };
+            } catch(e) { console.error(e); } finally { this.talkers.loading = false; }
+        },
+
+        async fetchServices() {
+            this.services.loading = true;
+            try {
+                const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
+                if(res.ok) this.services = { ...(await res.json()), loading: false };
+            } catch(e) { console.error(e); } finally { this.services.loading = false; }
+        },
+
+        async fetchHourlyTraffic() {
+            this.hourlyTraffic.loading = true;
+            try {
+                const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.hourlyTraffic = { ...data, loading: false };
+                    this.updateHourlyChart(data);
+                }
+            } catch(e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
+        },
+
+        updateHourlyChart(data) {
+            const ctx = document.getElementById('hourlyChart');
+            if (!ctx) return;
+
+            if (this.hourlyChartInstance) {
+                this.hourlyChartInstance.data.labels = data.labels;
+                this.hourlyChartInstance.data.datasets[0].data = data.bytes;
+                this.hourlyChartInstance.update();
+            } else {
+                this.hourlyChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Traffic',
+                            data: data.bytes,
+                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? 'rgba(0, 255, 136, 0.8)' : 'rgba(0, 243, 255, 0.6)'),
+                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? '#00ff88' : '#00f3ff'),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                ticks: { color: '#888', font: { size: 9 }, maxRotation: 45 },
+                                grid: { display: false }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#888',
+                                    font: { size: 9 },
+                                    callback: v => this.fmtBytes(v)
+                                },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            }
+                        }
+                    }
+                });
+            }
         },
 
         async fetchBandwidth() {

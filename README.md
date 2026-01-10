@@ -111,6 +111,14 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 
 ## 🎯 Recent Updates
 
+### v2.5 - January 10, 2026
+
+- **Top Stats Section Expansion**: 3 new widgets (8 total)
+  - Top Talkers: Source→Destination IP pairs with highest traffic
+  - Top Services: Traffic by service name (aggregated from ports)
+  - Traffic by Hour: 24-hour distribution chart with peak hour indicator
+- Sources and Destinations now appear first in the grid
+
 ### v2.4 - January 10, 2026
 
 - **Security Center Enhancements**: 3 new widgets + 8 detection algorithms

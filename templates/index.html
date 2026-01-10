@@ -705,6 +705,95 @@
                 </div>
             </div>
 
+            <!-- Top Talkers -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('talkers') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🔄 Top Talkers</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('talkers')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('talkers')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="talkers.loading"></div>
+                    </div>
+                </h2>
+                <div class="talkers-list" x-show="!isMinimized('talkers')">
+                    <template x-for="(t, idx) in talkers.talkers" :key="idx">
+                        <div class="talker-row">
+                            <div class="talker-pair">
+                                <span class="talker-src" x-text="t.src" :title="t.src_hostname || t.src"></span>
+                                <span class="talker-arrow">→</span>
+                                <span class="talker-dst" x-text="t.dst" :title="t.dst_hostname || t.dst"></span>
+                            </div>
+                            <div class="talker-meta">
+                                <span class="talker-region" x-text="(t.src_region || '') + ' → ' + (t.dst_region || '')"></span>
+                            </div>
+                            <div class="talker-bytes" x-text="t.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!talkers.loading && (!talkers.talkers || talkers.talkers.length === 0)" class="empty-state">No data</div>
+                </div>
+            </div>
+
+            <!-- Top Services -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('services') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🌐 Top Services</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('services')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('services')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="services.loading"></div>
+                    </div>
+                </h2>
+                <div style="margin-top:10px;" x-show="!isMinimized('services')">
+                    <template x-for="svc in services.services" :key="svc.service">
+                        <div class="service-row">
+                            <div class="service-name" x-text="svc.service" :title="svc.service"></div>
+                            <div class="service-bar-container">
+                                <div class="service-bar" :style="'width:' + svc.pct + '%'"></div>
+                            </div>
+                            <div class="service-val" x-text="svc.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!services.loading && (!services.services || services.services.length === 0)" class="empty-state">No data</div>
+                </div>
+            </div>
+
+            <!-- Traffic by Hour -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>⏰ Traffic by Hour</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('hourlyTraffic')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('hourlyTraffic')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="hourlyTraffic.loading"></div>
+                    </div>
+                </h2>
+                <div x-show="!isMinimized('hourlyTraffic')">
+                    <div class="hourly-summary">
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value text-green" x-text="hourlyTraffic.peak_hour + ':00'"></span>
+                            <span class="hourly-stat-label">Peak Hour</span>
+                        </div>
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value text-cyan" x-text="hourlyTraffic.peak_bytes_fmt"></span>
+                            <span class="hourly-stat-label">Peak Traffic</span>
+                        </div>
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value" x-text="hourlyTraffic.total_bytes_fmt"></span>
+                            <span class="hourly-stat-label">24h Total</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper-small chart-expandable" @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (24h)')" title="Click to expand">
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
         </div>
         </template>
 
