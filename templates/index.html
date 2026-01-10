@@ -11,6 +11,7 @@
 
     <!-- External Libs (bundled locally to reduce CDN dependency) -->
     <script src="/static/chart.min.js"></script>
+    <script src="/static/chartjs-chart-sankey.min.js"></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
     <script src="/static/alpine.min.js" defer></script>
     <script src="/static/vis-network.min.js"></script>
@@ -194,260 +195,82 @@
             </div>
         </div>
 
-        <!-- Mobile Quick Stats Bar -->
-        <div class="mobile-stats-bar">
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
-                <span class="mobile-stat-label">CPU</span>
-            </div>
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
-                <span class="mobile-stat-label">MEM</span>
-            </div>
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
-                <span class="mobile-stat-label">Threats</span>
-            </div>
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
-                <span class="mobile-stat-label">Flows</span>
-            </div>
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'" x-text="paused ? '⏸' : '▶'"></span>
-                <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
-            </div>
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'">Security</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'">Network</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'">Forensics</button>
         </div>
 
-        <!-- Summary Stats -->
-        <section id="section-summary" class="scroll-section">
-        <div class="grid" data-reorder="true" data-grid-id="summary">
-            <div class="card stat-box">
-                <div class="value" x-text="summary.totals.bytes_fmt">...</div>
-                <div class="label">Total Traffic</div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
-                <div class="label">Total Flows</div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
-                <div class="label">Avg Packet Size</div>
-            </div>
-        </div>
+        <!-- ============================================
+             OVERVIEW TAB
+             ============================================ -->
+        <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'">
 
-        <!-- Bandwidth Chart (moved up for overview before firewall details) -->
-        <template x-if="isVisible('bandwidth')">
-            <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; margin: 0; gap: 8px;">
-                    <span>📊 Bandwidth & Flow Rate</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="bandwidth.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
-                    <canvas id="bwChart"></canvas>
+            <!-- Mobile Quick Stats Bar -->
+            <div class="mobile-stats-bar">
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
+                    <span class="mobile-stat-label">CPU</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
+                    <span class="mobile-stat-label">MEM</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+                    <span class="mobile-stat-label">Threats</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+                    <span class="mobile-stat-label">Flows</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'" x-text="paused ? '⏸' : '▶'"></span>
+                    <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
                 </div>
             </div>
-        </template>
 
-        <!-- Firewall Health -->
-        <template x-if="isVisible('firewall')">
-            <div>
-                <!-- Section Header -->
-                <div class="section-header">
-                    <span class="section-icon">🛡️</span>
-                    <h3>Firewall Health</h3>
-                </div>
-                <div style="font-size:0.75em; color: var(--text-muted); margin: 4px 4px 10px 4px;">
-                    Legend: <span style="color: orange">orange</span> = warning, <span style="color: var(--neon-red)">red</span> = critical.
-                    Thresholds: Util ≥ <span x-text="thresholds.util_warn"></span>/<span x-text="thresholds.util_crit"></span>%,
-                    TCP resets ≥ <span x-text="thresholds.resets_warn"></span>/<span x-text="thresholds.resets_crit"></span> s⁻¹,
-                    IP/ICMP/IF errs ≥ <span x-text="thresholds.ip_err_warn"></span>/<span x-text="thresholds.ip_err_crit"></span> s⁻¹.
-                </div>
-
-                <!-- System Resources Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">System Resources</span>
+            <!-- Summary Stats -->
+            <section id="section-summary" class="scroll-section">
+                <div class="grid" data-reorder="true" data-grid-id="summary">
+                    <div class="card stat-box">
+                        <div class="value" x-text="summary.totals.bytes_fmt">...</div>
+                        <div class="label">Total Traffic</div>
                     </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.cpu_percent >= 90, 'status-warning': firewall.cpu_percent >= 70 && firewall.cpu_percent < 90, 'status-ok': firewall.cpu_percent < 70 && firewall.cpu_percent != null }" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
-                            <div class="label">🔥 CPU</div>
-                            <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
-                            <div class="label">📊 5min Load</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.mem_percent >= 90, 'status-warning': firewall.mem_percent >= 70 && firewall.mem_percent < 90, 'status-ok': firewall.mem_percent < 70 && firewall.mem_percent != null }" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
-                            <div class="label">💾 Memory</div>
-                            <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" style="font-size:1.4em" x-text="firewall.swap_percent != null ? firewall.swap_percent + '%' : '--'"></div>
-                            <div class="label">Swap</div>
-                        </div>
-                        <div class="card stat-box status-ok clickable-stat" @click="openFwDetail('uptime')" title="Click for details">
-                            <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
-                            <div class="label">⏱️ Uptime</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.proc_count || '--'">--</div>
-                            <div class="label">⚙️ Procs</div>
-                        </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
+                        <div class="label">Total Flows</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
+                        <div class="label">Avg Packet Size</div>
                     </div>
                 </div>
 
-                <!-- Network & Traffic Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Network & Traffic</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('interfaces')" title="Click for details">
-                            <div class="value">
-                                <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
-                                <span style="color:var(--text-muted); font-size:0.5em">|</span>
-                                <span :class="firewall.if_lan_status == '1' ? 'text-green' : 'text-red'">LAN</span>
+                <!-- Bandwidth Chart -->
+                <template x-if="isVisible('bandwidth')">
+                    <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
+                        <h2 style="display: flex; justify-content: space-between; align-items: center; margin: 0; gap: 8px;">
+                            <span>📊 Bandwidth & Flow Rate</span>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                </button>
+                                <div class="spinner" x-show="bandwidth.loading"></div>
                             </div>
-                            <div class="label">Interfaces</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.wan_util_percent >= thresholds.util_crit, 'status-warning': firewall.wan_util_percent >= thresholds.util_warn && firewall.wan_util_percent < thresholds.util_crit }" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.wan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.wan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">WAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.lan_util_percent >= thresholds.util_crit, 'status-warning': firewall.lan_util_percent >= thresholds.util_warn && firewall.lan_util_percent < thresholds.util_crit }" @click="openFwDetail('lan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.lan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.lan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">LAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="fmtBytes(firewall.wan_in)"></span></div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="fmtBytes(firewall.wan_out)"></span></div>
-                            </div>
-                            <div class="label">WAN Total</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
-                            <div class="label">🔌 Conns</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="(firewall.udp_in_s||0).toFixed(1)"></span>/s</div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="(firewall.udp_out_s||0).toFixed(1)"></span>/s</div>
-                            </div>
-                            <div class="label">UDP Rate</div>
+                        </h2>
+                        <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                            <canvas id="bwChart"></canvas>
                         </div>
                     </div>
-                </div>
+                </template>
+            </section>
 
-                <!-- Errors & Reliability Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Errors & Reliability</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_crit, 'status-warning': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_warn && (firewall.tcp_estab_resets_s||0) < thresholds.resets_crit }" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">Opens:</span> <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(1)"></span>/s</div>
-                                <div><span>Resets:</span> <span x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Activity</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_crit, 'status-warning': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_warn && (firewall.tcp_fails_s||0) < thresholds.tcp_fails_crit }" @click="openFwDetail('tcp_reliability')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>Fails: <span x-text="(firewall.tcp_fails_s||0).toFixed(2)"></span>/s</div>
-                                <div>Retrans: <span x-text="(firewall.tcp_retrans_s||0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Reliability</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_crit), 'status-warning': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_warn) }" @click="openFwDetail('if_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>WAN: <span x-text="((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                                <div>LAN: <span x-text="((firewall.lan_in_err_s||0)+(firewall.lan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IF Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_crit), 'status-warning': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_warn) }" @click="openFwDetail('ip_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>IP: <span x-text="((firewall.ip_in_hdr_errors_s||0) + (firewall.ip_in_addr_errors_s||0) + (firewall.ip_in_discards_s||0)).toFixed(2)"></span>/s</div>
-                                <div>ICMP: <span x-text="(firewall.icmp_in_errors_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IP/ICMP Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('disk_io')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">R:</span> <span x-text="fmtBytes(firewall.disk_read)"></span></div>
-                                <div>W: <span x-text="fmtBytes(firewall.disk_write)"></span></div>
-                            </div>
-                            <div class="label">Disk I/O</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Security & Blocking Subsection (Syslog data) -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Security & Blocking</span>
-                        <span x-show="firewall.syslog_active" class="status-badge status-ok" style="margin-left:8px; font-size:0.7em;">LIVE</span>
-                        <span x-show="!firewall.syslog_active" class="status-badge" style="margin-left:8px; font-size:0.7em; opacity:0.5;">Syslog Pending</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.blocks_1h > 0 }" title="Connections blocked by firewall in last hour">
-                            <div class="value" x-text="firewall.blocks_1h || '0'">0</div>
-                            <div class="label">🛡️ Blocks (1h)</div>
-                            <div class="sublabel" x-text="firewall.blocks_per_hour ? firewall.blocks_per_hour + '/hr avg' : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-warning': firewall.unique_blocked_ips >= 10, 'status-critical': firewall.unique_blocked_ips >= 50 }" title="Unique IPs blocked">
-                            <div class="value" x-text="firewall.unique_blocked_ips || '0'">0</div>
-                            <div class="label">🚫 Unique IPs</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.threats_blocked > 0 }" title="Known threat IPs blocked">
-                            <div class="value" x-text="firewall.threats_blocked || '0'">0</div>
-                            <div class="label">⚠️ Threats Blocked</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" title="Syslog receiver status">
-                            <div class="value" style="font-size:1.1em">
-                                <span :class="firewall.syslog_active ? 'text-green' : 'text-muted'" x-text="firewall.syslog_active ? '●' : '○'"></span>
-                            </div>
-                            <div class="label">Syslog</div>
-                            <div class="sublabel" x-text="firewall.syslog_stats?.parsed ? firewall.syslog_stats.parsed + ' parsed' : 'Awaiting logs'"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </template>
-
-        
-
-        </section>
-
-        <!-- World Map Section -->
-        <section id="section-worldmap" class="scroll-section">
+            <!-- World Map Section -->
+            <section id="section-worldmap" class="scroll-section">
         <div class="section-header">
             <span class="section-icon">🗺️</span>
             <h3>Traffic World Map</h3>
@@ -543,623 +366,13 @@
             </div>
         </div>
         </section>
-
-        <!-- Analytics Section -->
-        <section id="section-analytics" class="scroll-section">
-        <div class="section-header">
-            <span class="section-icon">📊</span>
-            <h3>Analytics</h3>
         </div>
 
-        <!-- New Analytics Row -->
-        <template x-if="isVisible('analytics')">
-        <div class="grid" data-reorder="true" data-grid-id="analytics">
-            <!-- TCP Flags -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('flags') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🏳️ TCP Flags</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flags') ? 'Expand ' + getWidgetLabel('flags') : 'Minimize ' + getWidgetLabel('flags')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flags')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flags')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="flags.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('flags')" @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')" title="Click to expand">
-                    <canvas id="flagsChart"></canvas>
-                </div>
-                <div style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;" x-show="!isMinimized('flags')">
-                    <strong>Flags:</strong>
-                    <span title="Acknowledge">AP=ACK+PSH</span> · 
-                    <span title="Acknowledge">A=ACK</span> · 
-                    <span title="ACK+PSH+SYN+FIN">APSF=ACK+PSH+SYN+FIN</span> · 
-                    <span title="Reset">R=RST</span> · 
-                    <span title="No flags">None</span>
-                </div>
-            </div>
-
-            <!-- Long Flows (Enhanced) -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('durations') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>⏱️ Long Flows</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('durations')" :title="isMinimized('durations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('durations') ? 'Expand ' + getWidgetLabel('durations') : 'Minimize ' + getWidgetLabel('durations')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('durations')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('durations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="durations.loading"></div>
-                    </div>
-                </h2>
-                <div x-show="!isMinimized('durations')">
-                    <!-- Stats Summary -->
-                    <div class="longflow-stats" x-show="durations.stats">
-                        <div class="longflow-stat">
-                            <span class="longflow-stat-value text-cyan" x-text="durations.stats?.max_duration_fmt || '—'"></span>
-                            <span class="longflow-stat-label">Longest</span>
-                        </div>
-                        <div class="longflow-stat">
-                            <span class="longflow-stat-value text-green" x-text="durations.stats?.avg_duration_fmt || '—'"></span>
-                            <span class="longflow-stat-label">Average</span>
-                        </div>
-                        <div class="longflow-stat">
-                            <span class="longflow-stat-value" x-text="(durations.stats?.total_flows || 0).toLocaleString()"></span>
-                            <span class="longflow-stat-label">Flows</span>
-                        </div>
-                    </div>
-                    <!-- Flow List -->
-                    <div class="longflow-list">
-                        <template x-for="(f, index) in durations.durations.slice(0, 5)" :key="index">
-                            <div class="longflow-row">
-                                <div class="longflow-main">
-                                    <div class="longflow-ips">
-                                        <span class="text-cyan" x-text="f.src" :title="f.src_hostname || f.src"></span>
-                                        <span class="longflow-arrow">→</span>
-                                        <span class="text-purple" x-text="f.dst" :title="f.dst_hostname || f.dst"></span>
-                                    </div>
-                                    <div class="longflow-meta">
-                                        <span class="longflow-proto" x-text="f.proto_name || f.proto"></span>
-                                        <span class="longflow-bytes" x-text="f.bytes_fmt"></span>
-                                    </div>
-                                </div>
-                                <div class="longflow-duration">
-                                    <div class="longflow-bar-container">
-                                        <div class="longflow-bar" :style="'width:' + f.pct + '%'"></div>
-                                    </div>
-                                    <span class="longflow-dur-value" x-text="f.duration_fmt"></span>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                    <div class="longflow-help" style="margin-top:8px; font-size:0.7em; color:var(--text-muted);">
-                        💡 Long flows may indicate streaming, downloads, or persistent connections
-                    </div>
-                </div>
-            </div>
-
-            <!-- Packet Size Distribution -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('packetSizes') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>📦 Packet Sizes</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('packetSizes')" :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('packetSizes') ? 'Expand ' + getWidgetLabel('packetSizes') : 'Minimize ' + getWidgetLabel('packetSizes')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('packetSizes')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('packetSizes')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="packetSizes.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('packetSizes')" @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')" title="Click to expand">
-                    <canvas id="pktSizeChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Protocols -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('protocols') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>📡 Protocols</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('protocols')" :title="isMinimized('protocols') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protocols') ? 'Expand ' + getWidgetLabel('protocols') : 'Minimize ' + getWidgetLabel('protocols')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocols')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocols')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="protocols.loading"></div>
-                    </div>
-                </h2>
-                <table x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
-                    <thead>
-                        <tr>
-                            <th>Protocol</th>
-                            <th>Stats</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in protocols.protocols" :key="index">
-                            <tr>
-                                <td>
-                                    <strong class="text-cyan" x-text="item.proto_name"></strong>
-                                </td>
-                                <td>
-                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(item.flows).toLocaleString() + ' flows'"></div>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-                <div x-show="!isMinimized('protocols') && !protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)" class="empty-state">No protocol data available</div>
-            </div>
-
-            <!-- Traffic Insights -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('insights') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>💡 Traffic Insights</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('insights')" :title="isMinimized('insights') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('insights') ? 'Expand ' + getWidgetLabel('insights') : 'Minimize ' + getWidgetLabel('insights')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('insights')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('insights')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                    </div>
-                </h2>
-                <div class="insights-list" x-show="!isMinimized('insights')">
-                    <!-- Top talker insight -->
-                    <div class="insight-item" x-show="sources.sources && sources.sources.length > 0">
-                        <span class="insight-icon">📈</span>
-                        <span class="insight-text">
-                            <strong class="text-cyan clickable-ip" @click="openIPModal(sources.sources[0]?.key)" x-text="sources.sources[0]?.key || 'N/A'"></strong> is the top talker with 
-                            <strong class="text-green" x-text="sources.sources[0]?.bytes_fmt || '0 B'"></strong>
-                        </span>
-                    </div>
-                    <!-- Busiest port insight -->
-                    <div class="insight-item" x-show="ports.ports && ports.ports.length > 0">
-                        <span class="insight-icon">🔌</span>
-                        <span class="insight-text">
-                            Port <strong class="text-purple" x-text="ports.ports[0]?.key || 'N/A'"></strong> 
-                            (<span x-text="ports.ports[0]?.service || 'unknown'"></span>) handles most traffic
-                        </span>
-                    </div>
-                    <!-- Protocol breakdown -->
-                    <div class="insight-item" x-show="protocols.protocols && protocols.protocols.length > 0">
-                        <span class="insight-icon">📡</span>
-                        <span class="insight-text">
-                            <strong class="text-yellow" x-text="protocols.protocols[0]?.proto_name || 'N/A'"></strong> dominates with 
-                            <strong x-text="protocols.protocols[0]?.bytes_fmt || '0 B'"></strong>
-                        </span>
-                    </div>
-                    <!-- Top destination insight -->
-                    <div class="insight-item" x-show="destinations.destinations && destinations.destinations.length > 0">
-                        <span class="insight-icon">🎯</span>
-                        <span class="insight-text">
-                            <strong class="text-green clickable-ip" @click="openIPModal(destinations.destinations[0]?.key)" x-text="destinations.destinations[0]?.key || 'N/A'"></strong> is top destination with 
-                            <strong class="text-cyan" x-text="destinations.destinations[0]?.bytes_fmt || '0 B'"></strong>
-                        </span>
-                    </div>
-                    <!-- Total traffic summary -->
-                    <div class="insight-item" x-show="summary.total_bytes">
-                        <span class="insight-icon">📊</span>
-                        <span class="insight-text">
-                            Total traffic: <strong class="text-cyan" x-text="fmtBytes(summary.total_bytes || 0)"></strong> across 
-                            <strong x-text="(summary.total_flows || 0).toLocaleString()"></strong> flows
-                        </span>
-                    </div>
-                    <!-- Threat status - fixed template syntax -->
-                    <div class="insight-item" x-show="(threats.hits?.length || 0) === 0">
-                        <span class="insight-icon">✅</span>
-                        <span class="insight-text text-green">Network traffic is clean - no threats detected</span>
-                    </div>
-                    <div class="insight-item" x-show="(threats.hits?.length || 0) > 0">
-                        <span class="insight-icon">⚠️</span>
-                        <span class="insight-text text-red">
-                            <strong x-text="threats.hits?.length || 0"></strong> threat IPs detected in traffic!
-                        </span>
-                    </div>
-                    <!-- Empty state -->
-                    <div class="empty-state" x-show="!sources.sources?.length && !ports.ports?.length && !protocols.protocols?.length">
-                        Loading insights...
-                    </div>
-                </div>
-            </div>
-
-            <!-- Flow Statistics -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('flowStats') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>📊 Flow Statistics</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flowStats') ? 'Expand ' + getWidgetLabel('flowStats') : 'Minimize ' + getWidgetLabel('flowStats')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowStats')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowStats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="flowStats.loading"></div>
-                    </div>
-                </h2>
-                <div class="flow-stats-grid" x-show="!isMinimized('flowStats')">
-                    <div class="flow-stat-item">
-                        <span class="flow-stat-value text-cyan" x-text="(flowStats.total_flows || 0).toLocaleString()"></span>
-                        <span class="flow-stat-label">Total Flows</span>
-                    </div>
-                    <div class="flow-stat-item">
-                        <span class="flow-stat-value text-green" x-text="flowStats.avg_duration_fmt || '0s'"></span>
-                        <span class="flow-stat-label">Avg Duration</span>
-                    </div>
-                    <div class="flow-stat-item">
-                        <span class="flow-stat-value text-purple" x-text="flowStats.avg_bytes_fmt || '0 B'"></span>
-                        <span class="flow-stat-label">Avg Size</span>
-                    </div>
-                    <div class="flow-stat-item">
-                        <span class="flow-stat-value text-yellow" x-text="(flowStats.bytes_per_packet || 0) + ' B'"></span>
-                        <span class="flow-stat-label">Bytes/Pkt</span>
-                    </div>
-                </div>
-                <div class="duration-dist" x-show="!isMinimized('flowStats') && flowStats.duration_dist">
-                    <div class="duration-dist-label">Duration Distribution:</div>
-                    <div class="duration-dist-bars">
-                        <div class="dist-bar-group">
-                            <div class="dist-bar short" :style="'width:' + (flowStats.duration_dist?.short / (flowStats.total_flows || 1) * 100) + '%'"></div>
-                            <span class="dist-label">&lt;1s</span>
-                        </div>
-                        <div class="dist-bar-group">
-                            <div class="dist-bar medium" :style="'width:' + (flowStats.duration_dist?.medium / (flowStats.total_flows || 1) * 100) + '%'"></div>
-                            <span class="dist-label">1s-1m</span>
-                        </div>
-                        <div class="dist-bar-group">
-                            <div class="dist-bar long" :style="'width:' + (flowStats.duration_dist?.long / (flowStats.total_flows || 1) * 100) + '%'"></div>
-                            <span class="dist-label">&gt;1m</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Protocol Mix -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('protoMix') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🥧 Protocol Mix</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protoMix') ? 'Expand ' + getWidgetLabel('protoMix') : 'Minimize ' + getWidgetLabel('protoMix')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protoMix')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protoMix')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="protoMix.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('protoMix')" @click="openFullscreenChart('protoMixChart', 'Protocol Mix')" title="Click to expand" style="height: 180px;">
-                    <canvas id="protoMixChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Network Health -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('netHealth') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🏥 Network Health</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('netHealth') ? 'Expand ' + getWidgetLabel('netHealth') : 'Minimize ' + getWidgetLabel('netHealth')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('netHealth')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('netHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="netHealth.loading"></div>
-                    </div>
-                </h2>
-                <div x-show="!isMinimized('netHealth')">
-                    <div class="health-summary">
-                        <span class="health-icon" x-text="netHealth.status_icon || '💚'"></span>
-                        <span class="health-score" :class="'health-' + (netHealth.status || 'healthy')" x-text="netHealth.health_score || 100"></span>
-                        <span class="health-label" x-text="(netHealth.status || 'healthy').toUpperCase()"></span>
-                    </div>
-                    <div class="health-indicators">
-                        <template x-for="ind in netHealth.indicators" :key="ind.name">
-                            <div class="health-indicator" :class="'status-' + ind.status">
-                                <span class="ind-icon" x-text="ind.icon"></span>
-                                <span class="ind-name" x-text="ind.name"></span>
-                                <span class="ind-value" x-text="ind.value"></span>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        </template>
-
-        </section>
-
-        <!-- Top Stats Section -->
-        <section id="section-topstats" class="scroll-section">
-        <div class="section-header">
-            <span class="section-icon">🔝</span>
-            <h3>Top Stats</h3>
-        </div>
-
-        <!-- Grid for Top Stats -->
-        <template x-if="isVisible('topstats')">
-        <div class="grid" data-reorder="true" data-grid-id="topstats">
-
-            <!-- Top Sources -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🔝 Top Sources</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="openExpandedTable('sources')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('sources')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                        </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('sources')" :title="isMinimized('sources') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('sources')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('sources')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="sources.loading"></div>
-                    </div>
-                </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('sources')">
-                    <thead>
-                        <tr>
-                            <th style="width:70%;">IP</th>
-                            <th style="width:30%;">Traffic</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in filteredSources" :key="index">
-                            <tr @click="openIPModal(item.key)">
-                                <td style="max-width:0; overflow:hidden;">
-                                    <div style="display:flex; align-items:center; gap:5px; min-width:0;">
-                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
-                                        <strong class="text-cyan" x-text="item.key" style="flex-shrink:0;"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                        </button>
-                                    </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">
-                                        <span x-text="item.region"></span>
-                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
-                                    </div>
-                                    <div style="margin-top:4px;">
-                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="source"></canvas>
-                                    </div>
-                                    <div style="margin-top:2px;">
-                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
-                                         <span class="badge threat" x-show="item.threat">THREAT</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Top Destinations -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
-                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🎯 Top Destinations</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="openExpandedTable('destinations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('destinations')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                        </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('destinations')" :title="isMinimized('destinations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('destinations')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('destinations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="destinations.loading"></div>
-                    </div>
-                </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('destinations')">
-                    <thead>
-                        <tr>
-                            <th style="width:70%;">IP</th>
-                            <th style="width:30%;">Traffic</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in filteredDestinations" :key="index">
-                            <tr @click="openIPModal(item.key)">
-                                <td>
-                                    <div style="display:flex; align-items:center; gap:5px;">
-                                        <span x-text="item.flag" class="flag"></span>
-                                        <strong class="text-purple" x-text="item.key"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                        </button>
-                                    </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                        <span x-text="item.region"></span>
-                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
-                                    </div>
-                                    <div style="margin-top:4px;">
-                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="dest"></canvas>
-                                    </div>
-                                     <div style="margin-top:2px;">
-                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
-                                         <span class="badge threat" x-show="item.threat">THREAT</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Top Ports -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('ports') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🔌 Top Ports</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="openExpandedTable('ports')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('ports')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                        </button>
-                        <button class="icon-btn-small" @click="toggleMinimize('ports')" :title="isMinimized('ports') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('ports') ? 'Expand ' + getWidgetLabel('ports') : 'Minimize ' + getWidgetLabel('ports')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('ports')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('ports')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="ports.loading"></div>
-                    </div>
-                </h2>
-                <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('ports')">
-                    <thead>
-                        <tr>
-                            <th style="width: 70%;">Port</th>
-                            <th style="width: 30%;">Traffic</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in ports.ports" :key="index">
-                            <tr>
-                                <td style="overflow: hidden;">
-                                    <strong class="text-cyan" x-text="item.key"></strong>
-                                    <div class="truncate" style="font-size:0.9em; color:var(--text-muted)" x-text="item.service" :title="item.service"></div>
-                                </td>
-                                <td>
-                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Top ASNs -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🏢 Top ASNs</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('asns') ? 'Expand ' + getWidgetLabel('asns') : 'Minimize ' + getWidgetLabel('asns')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="asns.loading"></div>
-                    </div>
-                </h2>
-                <div style="margin-top:10px;" x-show="!isMinimized('asns')">
-                    <template x-for="asn in asns.asns" :key="asn.asn">
-                        <div class="asn-row">
-                            <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
-                            <div class="asn-bar-container">
-                                <div class="asn-bar" :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'"></div>
-                            </div>
-                            <div class="asn-val" x-text="asn.bytes_fmt"></div>
-                        </div>
-                    </template>
-                    <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)" class="empty-state">No ASN data available</div>
-                </div>
-            </div>
-
-            <!-- Top Countries -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🌍 Top Countries</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('countries') ? 'Expand ' + getWidgetLabel('countries') : 'Minimize ' + getWidgetLabel('countries')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="countries.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
-                    <canvas id="countriesChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Top Talkers -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('talkers') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🔄 Top Talkers</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('talkers') ? 'Expand ' + getWidgetLabel('talkers') : 'Minimize ' + getWidgetLabel('talkers')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('talkers')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('talkers')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="talkers.loading"></div>
-                    </div>
-                </h2>
-                <div class="talkers-list" x-show="!isMinimized('talkers')">
-                    <template x-for="(t, idx) in talkers.talkers" :key="idx">
-                        <div class="talker-row">
-                            <div class="talker-info">
-                                <div class="talker-pair">
-                                    <span class="talker-src" x-text="t.src" :title="t.src_hostname || t.src" @click="openIPModal(t.src)"></span>
-                                    <span class="talker-arrow">→</span>
-                                    <span class="talker-dst" x-text="t.dst" :title="t.dst_hostname || t.dst" @click="openIPModal(t.dst)"></span>
-                                </div>
-                                <div class="talker-meta">
-                                    <span class="talker-region" x-text="(t.src_region || '') + ' → ' + (t.dst_region || '')"></span>
-                                </div>
-                            </div>
-                            <div class="talker-bytes" x-text="t.bytes_fmt"></div>
-                        </div>
-                    </template>
-                    <div x-show="!talkers.loading && (!talkers.talkers || talkers.talkers.length === 0)" class="empty-state">No data</div>
-                </div>
-            </div>
-
-            <!-- Top Services -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('services') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🌐 Top Services</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('services') ? 'Expand ' + getWidgetLabel('services') : 'Minimize ' + getWidgetLabel('services')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('services')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('services')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="services.loading"></div>
-                    </div>
-                </h2>
-                <div style="margin-top:10px;" x-show="!isMinimized('services')">
-                    <template x-for="svc in services.services" :key="svc.service">
-                        <div class="service-row">
-                            <div class="service-name" x-text="svc.service" :title="svc.service"></div>
-                            <div class="service-bar-container">
-                                <div class="service-bar" :style="'width:' + svc.pct + '%'"></div>
-                            </div>
-                            <div class="service-val" x-text="svc.bytes_fmt"></div>
-                        </div>
-                    </template>
-                    <div x-show="!services.loading && (!services.services || services.services.length === 0)" class="empty-state">No data</div>
-                </div>
-            </div>
-
-            <!-- Traffic by Hour -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>⏰ Traffic by Hour</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('hourlyTraffic') ? 'Expand ' + getWidgetLabel('hourlyTraffic') : 'Minimize ' + getWidgetLabel('hourlyTraffic')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('hourlyTraffic')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('hourlyTraffic')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="hourlyTraffic.loading"></div>
-                    </div>
-                </h2>
-                <div x-show="!isMinimized('hourlyTraffic')">
-                    <div class="hourly-summary">
-                        <div class="hourly-stat">
-                            <span class="hourly-stat-value text-green" x-text="hourlyTraffic.peak_hour + ':00'"></span>
-                            <span class="hourly-stat-label">Peak Hour</span>
-                        </div>
-                        <div class="hourly-stat">
-                            <span class="hourly-stat-value text-cyan" x-text="hourlyTraffic.peak_bytes_fmt"></span>
-                            <span class="hourly-stat-label">Peak Traffic</span>
-                        </div>
-                        <div class="hourly-stat">
-                            <span class="hourly-stat-value" x-text="hourlyTraffic.total_bytes_fmt"></span>
-                            <span class="hourly-stat-label">24h Total</span>
-                        </div>
-                    </div>
-                    <div class="chart-wrapper-small chart-expandable" @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (24h)')" title="Click to expand">
-                        <canvas id="hourlyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        </template>
-        </section>
-
-        <!-- ============================================
+            <!-- ============================================
+             SECURITY TAB
+             ============================================ -->
+    <div x-show="activeTab === 'security'" style="display:none" :style="activeTab === 'security' ? 'display:block' : 'display:none'">
+<!-- ============================================
              SECURITY CENTER
              ============================================ -->
         <section id="section-security" class="scroll-section">
@@ -1884,13 +1097,643 @@
         </div> <!-- End security-center -->
         </section>
 
-        <!-- Conversations -->
+
+    </div>
+
+    <!-- ============================================
+             NETWORK TAB
+             ============================================ -->
+    <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'">
+<!-- Top Stats Section -->
+        <section id="section-topstats" class="scroll-section">
+        <div class="section-header">
+            <span class="section-icon">🔝</span>
+            <h3>Top Stats</h3>
+        </div>
+
+        <!-- Grid for Top Stats -->
+        <template x-if="isVisible('topstats')">
+        <div class="grid" data-reorder="true" data-grid-id="topstats">
+
+            <!-- Top Sources -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🔝 Top Sources</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('sources')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('sources')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
+                        <button class="icon-btn-small" @click="toggleMinimize('sources')" :title="isMinimized('sources') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('sources')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('sources')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="sources.loading"></div>
+                    </div>
+                </h2>
+                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('sources')">
+                    <thead>
+                        <tr>
+                            <th style="width:70%;">IP</th>
+                            <th style="width:30%;">Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in filteredSources" :key="index">
+                            <tr @click="openIPModal(item.key)">
+                                <td style="max-width:0; overflow:hidden;">
+                                    <div style="display:flex; align-items:center; gap:5px; min-width:0;">
+                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
+                                        <strong class="text-cyan" x-text="item.key" style="flex-shrink:0;"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                        </button>
+                                    </div>
+                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">
+                                        <span x-text="item.region"></span>
+                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    </div>
+                                    <div style="margin-top:4px;">
+                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="source"></canvas>
+                                    </div>
+                                    <div style="margin-top:2px;">
+                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Destinations -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
+                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🎯 Top Destinations</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('destinations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('destinations')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
+                        <button class="icon-btn-small" @click="toggleMinimize('destinations')" :title="isMinimized('destinations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('destinations')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('destinations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="destinations.loading"></div>
+                    </div>
+                </h2>
+                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('destinations')">
+                    <thead>
+                        <tr>
+                            <th style="width:70%;">IP</th>
+                            <th style="width:30%;">Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in filteredDestinations" :key="index">
+                            <tr @click="openIPModal(item.key)">
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:5px;">
+                                        <span x-text="item.flag" class="flag"></span>
+                                        <strong class="text-purple" x-text="item.key"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                        </button>
+                                    </div>
+                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                        <span x-text="item.region"></span>
+                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    </div>
+                                    <div style="margin-top:4px;">
+                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="dest"></canvas>
+                                    </div>
+                                     <div style="margin-top:2px;">
+                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Ports -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('ports') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🔌 Top Ports</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('ports')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('ports')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
+                        <button class="icon-btn-small" @click="toggleMinimize('ports')" :title="isMinimized('ports') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('ports') ? 'Expand ' + getWidgetLabel('ports') : 'Minimize ' + getWidgetLabel('ports')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('ports')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('ports')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="ports.loading"></div>
+                    </div>
+                </h2>
+                <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('ports')">
+                    <thead>
+                        <tr>
+                            <th style="width: 70%;">Port</th>
+                            <th style="width: 30%;">Traffic</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in ports.ports" :key="index">
+                            <tr>
+                                <td style="overflow: hidden;">
+                                    <strong class="text-cyan" x-text="item.key"></strong>
+                                    <div class="truncate" style="font-size:0.9em; color:var(--text-muted)" x-text="item.service" :title="item.service"></div>
+                                </td>
+                                <td>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                    <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top ASNs -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏢 Top ASNs</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('asns') ? 'Expand ' + getWidgetLabel('asns') : 'Minimize ' + getWidgetLabel('asns')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="asns.loading"></div>
+                    </div>
+                </h2>
+                <div style="margin-top:10px;" x-show="!isMinimized('asns')">
+                    <template x-for="asn in asns.asns" :key="asn.asn">
+                        <div class="asn-row">
+                            <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
+                            <div class="asn-bar-container">
+                                <div class="asn-bar" :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'"></div>
+                            </div>
+                            <div class="asn-val" x-text="asn.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)" class="empty-state">No ASN data available</div>
+                </div>
+            </div>
+
+            <!-- Top Countries -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🌍 Top Countries</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('countries') ? 'Expand ' + getWidgetLabel('countries') : 'Minimize ' + getWidgetLabel('countries')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="countries.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
+                    <canvas id="countriesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Talkers -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('talkers') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🔄 Top Talkers</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('talkers') ? 'Expand ' + getWidgetLabel('talkers') : 'Minimize ' + getWidgetLabel('talkers')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('talkers')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('talkers')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="talkers.loading"></div>
+                    </div>
+                </h2>
+                <div class="talkers-list" x-show="!isMinimized('talkers')">
+                    <template x-for="(t, idx) in talkers.talkers" :key="idx">
+                        <div class="talker-row">
+                            <div class="talker-info">
+                                <div class="talker-pair">
+                                    <span class="talker-src" x-text="t.src" :title="t.src_hostname || t.src" @click="openIPModal(t.src)"></span>
+                                    <span class="talker-arrow">→</span>
+                                    <span class="talker-dst" x-text="t.dst" :title="t.dst_hostname || t.dst" @click="openIPModal(t.dst)"></span>
+                                </div>
+                                <div class="talker-meta">
+                                    <span class="talker-region" x-text="(t.src_region || '') + ' → ' + (t.dst_region || '')"></span>
+                                </div>
+                            </div>
+                            <div class="talker-bytes" x-text="t.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!talkers.loading && (!talkers.talkers || talkers.talkers.length === 0)" class="empty-state">No data</div>
+                </div>
+            </div>
+
+            <!-- Top Services -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('services') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🌐 Top Services</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('services') ? 'Expand ' + getWidgetLabel('services') : 'Minimize ' + getWidgetLabel('services')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('services')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('services')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="services.loading"></div>
+                    </div>
+                </h2>
+                <div style="margin-top:10px;" x-show="!isMinimized('services')">
+                    <template x-for="svc in services.services" :key="svc.service">
+                        <div class="service-row">
+                            <div class="service-name" x-text="svc.service" :title="svc.service"></div>
+                            <div class="service-bar-container">
+                                <div class="service-bar" :style="'width:' + svc.pct + '%'"></div>
+                            </div>
+                            <div class="service-val" x-text="svc.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!services.loading && (!services.services || services.services.length === 0)" class="empty-state">No data</div>
+                </div>
+            </div>
+
+            <!-- Traffic by Hour -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>⏰ Traffic by Hour</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('hourlyTraffic') ? 'Expand ' + getWidgetLabel('hourlyTraffic') : 'Minimize ' + getWidgetLabel('hourlyTraffic')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('hourlyTraffic')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('hourlyTraffic')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="hourlyTraffic.loading"></div>
+                    </div>
+                </h2>
+                <div x-show="!isMinimized('hourlyTraffic')">
+                    <div class="hourly-summary">
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value text-green" x-text="hourlyTraffic.peak_hour + ':00'"></span>
+                            <span class="hourly-stat-label">Peak Hour</span>
+                        </div>
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value text-cyan" x-text="hourlyTraffic.peak_bytes_fmt"></span>
+                            <span class="hourly-stat-label">Peak Traffic</span>
+                        </div>
+                        <div class="hourly-stat">
+                            <span class="hourly-stat-value" x-text="hourlyTraffic.total_bytes_fmt"></span>
+                            <span class="hourly-stat-label">24h Total</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper-small chart-expandable" @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (24h)')" title="Click to expand">
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        </template>
+        </section>
+
+
+<!-- Old Analytics Section Hook (removed) -->
+        <template x-if="isVisible('analytics')">
+        <div class="grid" data-reorder="true" data-grid-id="analytics">
+            <!-- TCP Flags -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('flags') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏳️ TCP Flags</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flags') ? 'Expand ' + getWidgetLabel('flags') : 'Minimize ' + getWidgetLabel('flags')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flags')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flags')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="flags.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('flags')" @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')" title="Click to expand">
+                    <canvas id="flagsChart"></canvas>
+                </div>
+                <div style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;" x-show="!isMinimized('flags')">
+                    <strong>Flags:</strong>
+                    <span title="Acknowledge">AP=ACK+PSH</span> ·
+                    <span title="Acknowledge">A=ACK</span> ·
+                    <span title="ACK+PSH+SYN+FIN">APSF=ACK+PSH+SYN+FIN</span> ·
+                    <span title="Reset">R=RST</span> ·
+                    <span title="No flags">None</span>
+                </div>
+            </div>
+
+            <!-- Long Flows (Enhanced) -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('durations') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>⏱️ Long Flows</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('durations')" :title="isMinimized('durations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('durations') ? 'Expand ' + getWidgetLabel('durations') : 'Minimize ' + getWidgetLabel('durations')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('durations')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('durations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="durations.loading"></div>
+                    </div>
+                </h2>
+                <div x-show="!isMinimized('durations')">
+                    <!-- Stats Summary -->
+                    <div class="longflow-stats" x-show="durations.stats">
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value text-cyan" x-text="durations.stats?.max_duration_fmt || '—'"></span>
+                            <span class="longflow-stat-label">Longest</span>
+                        </div>
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value text-green" x-text="durations.stats?.avg_duration_fmt || '—'"></span>
+                            <span class="longflow-stat-label">Average</span>
+                        </div>
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value" x-text="(durations.stats?.total_flows || 0).toLocaleString()"></span>
+                            <span class="longflow-stat-label">Flows</span>
+                        </div>
+                    </div>
+                    <!-- Flow List -->
+                    <div class="longflow-list">
+                        <template x-for="(f, index) in durations.durations.slice(0, 5)" :key="index">
+                            <div class="longflow-row">
+                                <div class="longflow-main">
+                                    <div class="longflow-ips">
+                                        <span class="text-cyan" x-text="f.src" :title="f.src_hostname || f.src"></span>
+                                        <span class="longflow-arrow">→</span>
+                                        <span class="text-purple" x-text="f.dst" :title="f.dst_hostname || f.dst"></span>
+                                    </div>
+                                    <div class="longflow-meta">
+                                        <span class="longflow-proto" x-text="f.proto_name || f.proto"></span>
+                                        <span class="longflow-bytes" x-text="f.bytes_fmt"></span>
+                                    </div>
+                                </div>
+                                <div class="longflow-duration">
+                                    <div class="longflow-bar-container">
+                                        <div class="longflow-bar" :style="'width:' + f.pct + '%'"></div>
+                                    </div>
+                                    <span class="longflow-dur-value" x-text="f.duration_fmt"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="longflow-help" style="margin-top:8px; font-size:0.7em; color:var(--text-muted);">
+                        💡 Long flows may indicate streaming, downloads, or persistent connections
+                    </div>
+                </div>
+            </div>
+
+            <!-- Packet Size Distribution -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('packetSizes') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>📦 Packet Sizes</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('packetSizes')" :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('packetSizes') ? 'Expand ' + getWidgetLabel('packetSizes') : 'Minimize ' + getWidgetLabel('packetSizes')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('packetSizes')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('packetSizes')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="packetSizes.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('packetSizes')" @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')" title="Click to expand">
+                    <canvas id="pktSizeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Protocols -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('protocols') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>📡 Protocols</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('protocols')" :title="isMinimized('protocols') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protocols') ? 'Expand ' + getWidgetLabel('protocols') : 'Minimize ' + getWidgetLabel('protocols')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocols')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocols')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="protocols.loading"></div>
+                    </div>
+                </h2>
+                <table x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Stats</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in protocols.protocols" :key="index">
+                            <tr>
+                                <td>
+                                    <strong class="text-cyan" x-text="item.proto_name"></strong>
+                                </td>
+                                <td>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="Number(item.flows).toLocaleString() + ' flows'"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div x-show="!isMinimized('protocols') && !protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)" class="empty-state">No protocol data available</div>
+            </div>
+
+            <!-- Traffic Insights -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('insights') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>💡 Traffic Insights</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('insights')" :title="isMinimized('insights') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('insights') ? 'Expand ' + getWidgetLabel('insights') : 'Minimize ' + getWidgetLabel('insights')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('insights')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('insights')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                    </div>
+                </h2>
+                <div class="insights-list" x-show="!isMinimized('insights')">
+                    <!-- Top talker insight -->
+                    <div class="insight-item" x-show="sources.sources && sources.sources.length > 0">
+                        <span class="insight-icon">📈</span>
+                        <span class="insight-text">
+                            <strong class="text-cyan clickable-ip" @click="openIPModal(sources.sources[0]?.key)" x-text="sources.sources[0]?.key || 'N/A'"></strong> is the top talker with
+                            <strong class="text-green" x-text="sources.sources[0]?.bytes_fmt || '0 B'"></strong>
+                        </span>
+                    </div>
+                    <!-- Busiest port insight -->
+                    <div class="insight-item" x-show="ports.ports && ports.ports.length > 0">
+                        <span class="insight-icon">🔌</span>
+                        <span class="insight-text">
+                            Port <strong class="text-purple" x-text="ports.ports[0]?.key || 'N/A'"></strong>
+                            (<span x-text="ports.ports[0]?.service || 'unknown'"></span>) handles most traffic
+                        </span>
+                    </div>
+                    <!-- Protocol breakdown -->
+                    <div class="insight-item" x-show="protocols.protocols && protocols.protocols.length > 0">
+                        <span class="insight-icon">📡</span>
+                        <span class="insight-text">
+                            <strong class="text-yellow" x-text="protocols.protocols[0]?.proto_name || 'N/A'"></strong> dominates with
+                            <strong x-text="protocols.protocols[0]?.bytes_fmt || '0 B'"></strong>
+                        </span>
+                    </div>
+                    <!-- Top destination insight -->
+                    <div class="insight-item" x-show="destinations.destinations && destinations.destinations.length > 0">
+                        <span class="insight-icon">🎯</span>
+                        <span class="insight-text">
+                            <strong class="text-green clickable-ip" @click="openIPModal(destinations.destinations[0]?.key)" x-text="destinations.destinations[0]?.key || 'N/A'"></strong> is top destination with
+                            <strong class="text-cyan" x-text="destinations.destinations[0]?.bytes_fmt || '0 B'"></strong>
+                        </span>
+                    </div>
+                    <!-- Total traffic summary -->
+                    <div class="insight-item" x-show="summary.total_bytes">
+                        <span class="insight-icon">📊</span>
+                        <span class="insight-text">
+                            Total traffic: <strong class="text-cyan" x-text="fmtBytes(summary.total_bytes || 0)"></strong> across
+                            <strong x-text="(summary.total_flows || 0).toLocaleString()"></strong> flows
+                        </span>
+                    </div>
+                    <!-- Threat status - fixed template syntax -->
+                    <div class="insight-item" x-show="(threats.hits?.length || 0) === 0">
+                        <span class="insight-icon">✅</span>
+                        <span class="insight-text text-green">Network traffic is clean - no threats detected</span>
+                    </div>
+                    <div class="insight-item" x-show="(threats.hits?.length || 0) > 0">
+                        <span class="insight-icon">⚠️</span>
+                        <span class="insight-text text-red">
+                            <strong x-text="threats.hits?.length || 0"></strong> threat IPs detected in traffic!
+                        </span>
+                    </div>
+                    <!-- Empty state -->
+                    <div class="empty-state" x-show="!sources.sources?.length && !ports.ports?.length && !protocols.protocols?.length">
+                        Loading insights...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow Statistics -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('flowStats') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>📊 Flow Statistics</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flowStats') ? 'Expand ' + getWidgetLabel('flowStats') : 'Minimize ' + getWidgetLabel('flowStats')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowStats')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowStats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="flowStats.loading"></div>
+                    </div>
+                </h2>
+                <div class="flow-stats-grid" x-show="!isMinimized('flowStats')">
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-cyan" x-text="(flowStats.total_flows || 0).toLocaleString()"></span>
+                        <span class="flow-stat-label">Total Flows</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-green" x-text="flowStats.avg_duration_fmt || '0s'"></span>
+                        <span class="flow-stat-label">Avg Duration</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-purple" x-text="flowStats.avg_bytes_fmt || '0 B'"></span>
+                        <span class="flow-stat-label">Avg Size</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-yellow" x-text="(flowStats.bytes_per_packet || 0) + ' B'"></span>
+                        <span class="flow-stat-label">Bytes/Pkt</span>
+                    </div>
+                </div>
+                <div class="duration-dist" x-show="!isMinimized('flowStats') && flowStats.duration_dist">
+                    <div class="duration-dist-label">Duration Distribution:</div>
+                    <div class="duration-dist-bars">
+                        <div class="dist-bar-group">
+                            <div class="dist-bar short" :style="'width:' + (flowStats.duration_dist?.short / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">&lt;1s</span>
+                        </div>
+                        <div class="dist-bar-group">
+                            <div class="dist-bar medium" :style="'width:' + (flowStats.duration_dist?.medium / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">1s-1m</span>
+                        </div>
+                        <div class="dist-bar-group">
+                            <div class="dist-bar long" :style="'width:' + (flowStats.duration_dist?.long / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">&gt;1m</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Protocol Mix -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('protoMix') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🥧 Protocol Mix</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protoMix') ? 'Expand ' + getWidgetLabel('protoMix') : 'Minimize ' + getWidgetLabel('protoMix')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protoMix')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protoMix')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="protoMix.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('protoMix')" @click="openFullscreenChart('protoMixChart', 'Protocol Mix')" title="Click to expand" style="height: 180px;">
+                    <canvas id="protoMixChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Network Health -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('netHealth') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏥 Network Health</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('netHealth') ? 'Expand ' + getWidgetLabel('netHealth') : 'Minimize ' + getWidgetLabel('netHealth')" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('netHealth')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('netHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="netHealth.loading"></div>
+                    </div>
+                </h2>
+                <div x-show="!isMinimized('netHealth')">
+                    <div class="health-summary">
+                        <span class="health-icon" x-text="netHealth.status_icon || '💚'"></span>
+                        <span class="health-score" :class="'health-' + (netHealth.status || 'healthy')" x-text="netHealth.health_score || 100"></span>
+                        <span class="health-label" x-text="(netHealth.status || 'healthy').toUpperCase()"></span>
+                    </div>
+                    <div class="health-indicators">
+                        <template x-for="ind in netHealth.indicators" :key="ind.name">
+                            <div class="health-indicator" :class="'status-' + ind.status">
+                                <span class="ind-icon" x-text="ind.icon"></span>
+                                <span class="ind-name" x-text="ind.name"></span>
+                                <span class="ind-value" x-text="ind.value"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        </template>
+
+        </section>
+
+
+    </div>
+
+    <!-- ============================================
+             FORENSICS TAB
+             ============================================ -->
+    <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'">
+<!-- Conversations -->
         <section id="section-conversations" class="scroll-section">
         <template x-if="isVisible('conversations')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
             <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0;">
                 <span>💬 Recent Conversations</span>
-                <div style="display: flex; gap: 4px;">
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <!-- View Toggle -->
+                    <div class="view-toggle" style="display:flex; background:rgba(0,0,0,0.3); border-radius:4px; padding:2px; margin-right:8px;" x-show="!isMinimized('conversations')">
+                        <button id="btn-view-list" @click="toggleConversationView('list')" :class="{ 'active': conversationView === 'list' }" style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;" :style="conversationView === 'list' ? 'color:var(--neon-cyan); font-weight:bold' : ''">List</button>
+                        <div style="width:1px; background:rgba(255,255,255,0.1); margin:2px 0;"></div>
+                        <button id="btn-view-flow" @click="toggleConversationView('sankey')" :class="{ 'active': conversationView === 'sankey' }" style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;" :style="conversationView === 'sankey' ? 'color:var(--neon-cyan); font-weight:bold' : ''">Flow</button>
+                    </div>
+
                     <button class="icon-btn-small" @click="openNetworkGraph()" title="Graph View" style="color: var(--neon-purple);" x-show="!isMinimized('conversations')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                     </button>
@@ -1904,7 +1747,9 @@
                     <div class="spinner" x-show="conversations.loading"></div>
                 </div>
             </h2>
-            <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('conversations')">
+
+            <!-- List View -->
+            <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('conversations') && conversationView === 'list'">
                 <thead>
                     <tr>
                         <th style="width: 35%;">Source</th>
@@ -1940,13 +1785,22 @@
                     </template>
                 </tbody>
             </table>
+
+            <!-- Sankey View -->
+            <div x-show="!isMinimized('conversations') && conversationView === 'sankey'" style="height: 400px; position: relative;">
+                <canvas id="sankeyChart"></canvas>
+                <div x-show="conversations.conversations.length === 0" class="empty-state">No flow data for Sankey diagram</div>
+            </div>
         </div>
         </template>
         </section>
 
+
     </div>
 
-    <!-- Scroll Spy Navigation -->
+</div>
+
+<!-- Scroll Spy Navigation -->
     <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
         <div class="scroll-spy-track">
             <template x-for="section in sections" :key="section.id">
