@@ -45,6 +45,9 @@ _stats_countries_cache = {"data": None, "ts": 0, "key": None}
 _stats_talkers_cache = {"data": None, "ts": 0, "key": None}
 _stats_services_cache = {"data": None, "ts": 0, "key": None}
 _stats_hourly_cache = {"data": None, "ts": 0, "key": None}
+_stats_flow_stats_cache = {"data": None, "ts": 0, "key": None}
+_stats_proto_mix_cache = {"data": None, "ts": 0, "key": None}
+_stats_net_health_cache = {"data": None, "ts": 0, "key": None}
 
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 # Lock for thread-safe access to mock data cache (performance optimization)
@@ -1894,11 +1897,51 @@ def api_stats_durations():
 
         # Sort by duration
         sorted_flows = sorted(rows, key=lambda x: x['duration'], reverse=True)[:10]
+        max_dur = sorted_flows[0]['duration'] if sorted_flows else 1
+        
+        # Calculate stats
+        all_durations = [r['duration'] for r in rows if r['duration'] > 0]
+        avg_duration = sum(all_durations) / len(all_durations) if all_durations else 0
+        total_bytes = sum(r['bytes'] for r in rows)
+        
         for f in sorted_flows:
             f['bytes_fmt'] = fmt_bytes(f['bytes'])
-            f['duration_fmt'] = f"{f['duration']:.2f}s"
+            # Format duration nicely
+            dur = f['duration']
+            if dur >= 3600:
+                hours = int(dur // 3600)
+                mins = int((dur % 3600) // 60)
+                f['duration_fmt'] = f"{hours}h {mins}m"
+            elif dur >= 60:
+                mins = int(dur // 60)
+                secs = int(dur % 60)
+                f['duration_fmt'] = f"{mins}m {secs}s"
+            else:
+                f['duration_fmt'] = f"{dur:.2f}s"
+            # Add percentage for bar width
+            f['pct'] = round(dur / max_dur * 100, 1) if max_dur > 0 else 0
+            # Map protocol name
+            proto_val = f.get('proto', '')
+            if proto_val.isdigit():
+                f['proto_name'] = PROTOS.get(int(proto_val), proto_val)
+            else:
+                f['proto_name'] = proto_val
+            # Resolve hostnames
+            f['src_hostname'] = resolve_ip(f['src'])
+            f['dst_hostname'] = resolve_ip(f['dst'])
 
-        data = {"durations": sorted_flows}
+        data = {
+            "durations": sorted_flows,
+            "stats": {
+                "avg_duration": round(avg_duration, 2),
+                "avg_duration_fmt": f"{avg_duration:.1f}s" if avg_duration < 60 else f"{avg_duration/60:.1f}m",
+                "total_flows": len(rows),
+                "total_bytes": total_bytes,
+                "total_bytes_fmt": fmt_bytes(total_bytes),
+                "max_duration": max_dur,
+                "max_duration_fmt": f"{max_dur:.1f}s" if max_dur < 60 else f"{max_dur/60:.1f}m"
+            }
+        }
         with _lock_durations:
             _stats_durations_cache["data"] = data
             _stats_durations_cache["ts"] = now
@@ -2195,6 +2238,260 @@ def api_stats_hourly():
         _stats_hourly_cache["data"] = data
         _stats_hourly_cache["ts"] = now
         _stats_hourly_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/flow_stats")
+@throttle(5, 10)
+def api_stats_flow_stats():
+    """Flow statistics - averages, totals, distributions."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_flow_stats_cache["data"] and _stats_flow_stats_cache["key"] == range_key and _stats_flow_stats_cache.get("win") == win:
+            return jsonify(_stats_flow_stats_cache["data"])
+
+    tf = get_time_range(range_key)
+    output = run_nfdump(["-n", "2000"], tf)
+
+    try:
+        durations = []
+        bytes_list = []
+        packets_list = []
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            td_idx = header.index('td')
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except:
+            td_idx, ibyt_idx, ipkt_idx = 2, 12, 11
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(td_idx, ibyt_idx, ipkt_idx):
+                try:
+                    durations.append(float(parts[td_idx]))
+                    bytes_list.append(int(parts[ibyt_idx]))
+                    packets_list.append(int(parts[ipkt_idx]))
+                except: pass
+
+        total_flows = len(durations)
+        total_bytes = sum(bytes_list)
+        total_packets = sum(packets_list)
+        
+        avg_duration = sum(durations) / total_flows if total_flows > 0 else 0
+        avg_bytes = total_bytes / total_flows if total_flows > 0 else 0
+        avg_packets = total_packets / total_flows if total_flows > 0 else 0
+        
+        # Duration distribution
+        short_flows = sum(1 for d in durations if d < 1)  # < 1s
+        medium_flows = sum(1 for d in durations if 1 <= d < 60)  # 1s - 1m
+        long_flows = sum(1 for d in durations if d >= 60)  # > 1m
+        
+        data = {
+            "total_flows": total_flows,
+            "total_bytes": total_bytes,
+            "total_bytes_fmt": fmt_bytes(total_bytes),
+            "total_packets": total_packets,
+            "avg_duration": round(avg_duration, 2),
+            "avg_duration_fmt": f"{avg_duration:.1f}s" if avg_duration < 60 else f"{avg_duration/60:.1f}m",
+            "avg_bytes": round(avg_bytes),
+            "avg_bytes_fmt": fmt_bytes(avg_bytes),
+            "avg_packets": round(avg_packets, 1),
+            "duration_dist": {
+                "short": short_flows,
+                "medium": medium_flows,
+                "long": long_flows
+            },
+            "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
+        }
+    except:
+        data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
+
+    with _cache_lock:
+        _stats_flow_stats_cache["data"] = data
+        _stats_flow_stats_cache["ts"] = now
+        _stats_flow_stats_cache["key"] = range_key
+        _stats_flow_stats_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/proto_mix")
+@throttle(5, 10)
+def api_stats_proto_mix():
+    """Protocol mix for pie chart visualization."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_proto_mix_cache["data"] and _stats_proto_mix_cache["key"] == range_key and _stats_proto_mix_cache.get("win") == win:
+            return jsonify(_stats_proto_mix_cache["data"])
+
+    # Reuse protocols data
+    protos_data = get_common_nfdump_data("protos", range_key)
+    
+    labels = []
+    bytes_data = []
+    flows_data = []
+    colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4']
+    
+    for i, p in enumerate(protos_data[:8]):  # Top 8 protocols
+        proto_val = p.get('key', '')
+        if proto_val.isdigit():
+            name = PROTOS.get(int(proto_val), f"Proto {proto_val}")
+        else:
+            name = proto_val
+        labels.append(name)
+        bytes_data.append(p.get('bytes', 0))
+        flows_data.append(p.get('flows', 0))
+    
+    total_bytes = sum(bytes_data)
+    percentages = [round(b / total_bytes * 100, 1) if total_bytes > 0 else 0 for b in bytes_data]
+    
+    data = {
+        "labels": labels,
+        "bytes": bytes_data,
+        "bytes_fmt": [fmt_bytes(b) for b in bytes_data],
+        "flows": flows_data,
+        "percentages": percentages,
+        "colors": colors[:len(labels)],
+        "total_bytes": total_bytes,
+        "total_bytes_fmt": fmt_bytes(total_bytes)
+    }
+
+    with _cache_lock:
+        _stats_proto_mix_cache["data"] = data
+        _stats_proto_mix_cache["ts"] = now
+        _stats_proto_mix_cache["key"] = range_key
+        _stats_proto_mix_cache["win"] = win
+    return jsonify(data)
+
+
+@app.route("/api/stats/net_health")
+@throttle(5, 10)
+def api_stats_net_health():
+    """Network health indicators based on traffic patterns."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_net_health_cache["data"] and _stats_net_health_cache["key"] == range_key and _stats_net_health_cache.get("win") == win:
+            return jsonify(_stats_net_health_cache["data"])
+
+    tf = get_time_range(range_key)
+    output = run_nfdump(["-n", "1000"], tf)
+
+    indicators = []
+    health_score = 100
+    
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            flg_idx = header.index('flg')
+            pr_idx = header.index('proto')
+            ibyt_idx = header.index('ibyt')
+        except:
+            flg_idx, pr_idx, ibyt_idx = 10, 7, 12
+
+        total_flows = 0
+        rst_count = 0
+        syn_only = 0
+        icmp_count = 0
+        small_flows = 0
+        
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            total_flows += 1
+            if len(parts) > max(flg_idx, pr_idx, ibyt_idx):
+                try:
+                    flags = parts[flg_idx].upper()
+                    proto = parts[pr_idx]
+                    b = int(parts[ibyt_idx])
+                    
+                    if 'R' in flags: rst_count += 1
+                    if flags == 'S' or flags == '.S': syn_only += 1
+                    if proto == '1' or proto.upper() == 'ICMP': icmp_count += 1
+                    if b < 100: small_flows += 1
+                except: pass
+
+        if total_flows > 0:
+            rst_pct = rst_count / total_flows * 100
+            syn_pct = syn_only / total_flows * 100
+            icmp_pct = icmp_count / total_flows * 100
+            small_pct = small_flows / total_flows * 100
+            
+            # TCP Resets indicator
+            if rst_pct < 5:
+                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "good", "icon": "✅"})
+            elif rst_pct < 15:
+                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                health_score -= 10
+            else:
+                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "bad", "icon": "❌"})
+                health_score -= 25
+            
+            # SYN-only (potential scans)
+            if syn_pct < 2:
+                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "good", "icon": "✅"})
+            elif syn_pct < 10:
+                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                health_score -= 10
+            else:
+                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "bad", "icon": "❌"})
+                health_score -= 20
+            
+            # ICMP traffic
+            if icmp_pct < 5:
+                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "good", "icon": "✅"})
+            elif icmp_pct < 15:
+                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                health_score -= 5
+            else:
+                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "bad", "icon": "❌"})
+                health_score -= 15
+            
+            # Small flows (potential anomaly)
+            if small_pct < 20:
+                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "good", "icon": "✅"})
+            elif small_pct < 40:
+                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                health_score -= 5
+            else:
+                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "bad", "icon": "❌"})
+                health_score -= 10
+
+        health_score = max(0, min(100, health_score))
+        
+        if health_score >= 80:
+            status = "healthy"
+            status_icon = "💚"
+        elif health_score >= 60:
+            status = "fair"
+            status_icon = "💛"
+        else:
+            status = "poor"
+            status_icon = "❤️"
+            
+        data = {
+            "indicators": indicators,
+            "health_score": health_score,
+            "status": status,
+            "status_icon": status_icon,
+            "total_flows": total_flows
+        }
+    except:
+        data = {"indicators": [], "health_score": 100, "status": "unknown", "status_icon": "❓", "total_flows": 0}
+
+    with _cache_lock:
+        _stats_net_health_cache["data"] = data
+        _stats_net_health_cache["ts"] = now
+        _stats_net_health_cache["key"] = range_key
+        _stats_net_health_cache["win"] = win
     return jsonify(data)
 
 

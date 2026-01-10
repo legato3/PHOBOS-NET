@@ -276,15 +276,18 @@ apt-get install snmp python3-pysnmp4
 
 ## 🎛️ Widget Inventory
 
-### Analytics Section
+### Analytics Section (11 widgets)
 - **Summary Stats** - Total traffic, flows, avg packet size
 - **Bandwidth & Flow Rate** - Time-series chart
 - **Firewall Health** - CPU, MEM, Uptime from SNMP
 - **TCP Flags** - Flag distribution chart
-- **Long Flows** - Long-running flow durations
+- **Long Flows** - Enhanced with stats, hostnames, protocol, visual bars, and explanations
 - **Packet Sizes** - Packet size distribution chart
 - **Protocols** - Protocol breakdown table
 - **Traffic Insights** - Dynamic insights about network behavior
+- **Flow Statistics** - Avg duration, avg size, bytes/packet, duration distribution
+- **Protocol Mix** - Pie chart visualization of protocol traffic
+- **Network Health** - Health score with indicators (resets, SYN-only, ICMP, tiny flows)
 
 ### Top Stats Section (8 widgets)
 - **Top Sources** - IP tables with geo, sparklines
@@ -333,6 +336,6 @@ apt-get install snmp python3-pysnmp4
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.5 - Top Stats Expansion)  
+**Last Updated**: January 10, 2026 (v2.6 - Analytics Enhancement)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

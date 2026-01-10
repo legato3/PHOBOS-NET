@@ -52,12 +52,15 @@ document.addEventListener('alpine:init', () => {
         flags: { flags: [], loading: true },
         asns: { asns: [], loading: true },
         countries: { labels: [], bytes: [], loading: true },
-        durations: { durations: [], loading: true },
+        durations: { durations: [], stats: {}, loading: true },
         packetSizes: { labels: [], data: [], loading: true },
         feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
         talkers: { talkers: [], loading: true },
         services: { services: [], maxBytes: 1, loading: true },
         hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
+        flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
+        protoMix: { labels: [], bytes: [], percentages: [], colors: [], loading: true },
+        netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true },
         
         // Security Features
         securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null },
@@ -119,7 +122,10 @@ document.addEventListener('alpine:init', () => {
             conversations: 'Recent Conversations',
             talkers: 'Top Talkers',
             services: 'Top Services',
-            hourlyTraffic: 'Traffic by Hour'
+            hourlyTraffic: 'Traffic by Hour',
+            flowStats: 'Flow Statistics',
+            protoMix: 'Protocol Mix',
+            netHealth: 'Network Health'
         },
 
         // Thresholds (editable)
@@ -643,6 +649,9 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => this.fetchTalkers(), 525);
                 setTimeout(() => this.fetchServices(), 600);
                 setTimeout(() => this.fetchHourlyTraffic(), 675);
+                setTimeout(() => this.fetchFlowStats(), 750);
+                setTimeout(() => this.fetchProtoMix(), 825);
+                setTimeout(() => this.fetchNetHealth(), 900);
             }
 
             // Render sparklines for top IPs (throttled via sparkTTL)
@@ -1217,6 +1226,69 @@ document.addEventListener('alpine:init', () => {
                     }
                 });
             }
+        },
+
+        async fetchFlowStats() {
+            this.flowStats.loading = true;
+            try {
+                const res = await fetch(`/api/stats/flow_stats?range=${this.timeRange}`);
+                if(res.ok) this.flowStats = { ...(await res.json()), loading: false };
+            } catch(e) { console.error(e); } finally { this.flowStats.loading = false; }
+        },
+
+        async fetchProtoMix() {
+            this.protoMix.loading = true;
+            try {
+                const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
+                if(res.ok) {
+                    const data = await res.json();
+                    this.protoMix = { ...data, loading: false };
+                    this.updateProtoMixChart(data);
+                }
+            } catch(e) { console.error(e); } finally { this.protoMix.loading = false; }
+        },
+
+        updateProtoMixChart(data) {
+            const ctx = document.getElementById('protoMixChart');
+            if (!ctx) return;
+
+            if (this.protoMixChartInstance) {
+                this.protoMixChartInstance.data.labels = data.labels;
+                this.protoMixChartInstance.data.datasets[0].data = data.bytes;
+                this.protoMixChartInstance.update();
+            } else {
+                this.protoMixChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.bytes,
+                            backgroundColor: data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'],
+                            borderColor: 'rgba(0,0,0,0.3)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'right',
+                                labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12 }
+                            }
+                        }
+                    }
+                });
+            }
+        },
+
+        async fetchNetHealth() {
+            this.netHealth.loading = true;
+            try {
+                const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
+                if(res.ok) this.netHealth = { ...(await res.json()), loading: false };
+            } catch(e) { console.error(e); } finally { this.netHealth.loading = false; }
         },
 
         async fetchBandwidth() {

@@ -111,6 +111,20 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 
 ## 🎯 Recent Updates
 
+### v2.6 - January 10, 2026
+
+- **Analytics Section Expansion**: 3 new widgets (11 total)
+  - Flow Statistics: Total flows, avg duration, avg size, bytes/packet, duration distribution bars
+  - Protocol Mix: Doughnut chart visualization of protocol traffic
+  - Network Health: Health score (0-100) with indicators for TCP resets, SYN-only flows, ICMP traffic, tiny flows
+- **Enhanced Long Flows Widget**:
+  - Stats summary (longest, average, total flows)
+  - Visual duration bars with percentage
+  - Protocol name display
+  - Bytes transferred per flow
+  - Hostname resolution
+  - Helpful explanation tooltip
+
 ### v2.5 - January 10, 2026
 
 - **Top Stats Section Expansion**: 3 new widgets (8 total)

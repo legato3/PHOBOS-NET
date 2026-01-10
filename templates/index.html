@@ -381,7 +381,7 @@
                 </div>
             </div>
 
-            <!-- Longest Durations -->
+            <!-- Long Flows (Enhanced) -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('durations') }">
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>⏱️ Long Flows</span>
@@ -393,22 +393,50 @@
                         <div class="spinner" x-show="durations.loading"></div>
                     </div>
                 </h2>
-                <table x-show="!isMinimized('durations')">
-                    <thead><tr><th>Src</th><th>Dst</th><th>Dur</th></tr></thead>
-                    <tbody>
+                <div x-show="!isMinimized('durations')">
+                    <!-- Stats Summary -->
+                    <div class="longflow-stats" x-show="durations.stats">
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value text-cyan" x-text="durations.stats?.max_duration_fmt || '—'"></span>
+                            <span class="longflow-stat-label">Longest</span>
+                        </div>
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value text-green" x-text="durations.stats?.avg_duration_fmt || '—'"></span>
+                            <span class="longflow-stat-label">Average</span>
+                        </div>
+                        <div class="longflow-stat">
+                            <span class="longflow-stat-value" x-text="(durations.stats?.total_flows || 0).toLocaleString()"></span>
+                            <span class="longflow-stat-label">Flows</span>
+                        </div>
+                    </div>
+                    <!-- Flow List -->
+                    <div class="longflow-list">
                         <template x-for="(f, index) in durations.durations" :key="index">
-                            <tr>
-                                <td>
-                                    <div class="text-cyan" style="font-size:0.9em" x-text="f.src"></div>
-                                </td>
-                                <td>
-                                    <div class="text-purple" style="font-size:0.9em" x-text="f.dst"></div>
-                                </td>
-                                <td class="text-green" style="font-weight:bold; font-size:0.9em" x-text="f.duration_fmt"></td>
-                            </tr>
+                            <div class="longflow-row">
+                                <div class="longflow-main">
+                                    <div class="longflow-ips">
+                                        <span class="text-cyan" x-text="f.src" :title="f.src_hostname || f.src"></span>
+                                        <span class="longflow-arrow">→</span>
+                                        <span class="text-purple" x-text="f.dst" :title="f.dst_hostname || f.dst"></span>
+                                    </div>
+                                    <div class="longflow-meta">
+                                        <span class="longflow-proto" x-text="f.proto_name || f.proto"></span>
+                                        <span class="longflow-bytes" x-text="f.bytes_fmt"></span>
+                                    </div>
+                                </div>
+                                <div class="longflow-duration">
+                                    <div class="longflow-bar-container">
+                                        <div class="longflow-bar" :style="'width:' + f.pct + '%'"></div>
+                                    </div>
+                                    <span class="longflow-dur-value" x-text="f.duration_fmt"></span>
+                                </div>
+                            </div>
                         </template>
-                    </tbody>
-                </table>
+                    </div>
+                    <div class="longflow-help" style="margin-top:8px; font-size:0.7em; color:var(--text-muted);">
+                        💡 Long flows may indicate streaming, downloads, or persistent connections
+                    </div>
+                </div>
             </div>
 
             <!-- Packet Size Distribution -->
@@ -511,6 +539,103 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Flow Statistics -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('flowStats') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>📊 Flow Statistics</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowStats')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowStats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="flowStats.loading"></div>
+                    </div>
+                </h2>
+                <div class="flow-stats-grid" x-show="!isMinimized('flowStats')">
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-cyan" x-text="(flowStats.total_flows || 0).toLocaleString()"></span>
+                        <span class="flow-stat-label">Total Flows</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-green" x-text="flowStats.avg_duration_fmt || '0s'"></span>
+                        <span class="flow-stat-label">Avg Duration</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-purple" x-text="flowStats.avg_bytes_fmt || '0 B'"></span>
+                        <span class="flow-stat-label">Avg Size</span>
+                    </div>
+                    <div class="flow-stat-item">
+                        <span class="flow-stat-value text-yellow" x-text="(flowStats.bytes_per_packet || 0) + ' B'"></span>
+                        <span class="flow-stat-label">Bytes/Pkt</span>
+                    </div>
+                </div>
+                <div class="duration-dist" x-show="!isMinimized('flowStats') && flowStats.duration_dist">
+                    <div class="duration-dist-label">Duration Distribution:</div>
+                    <div class="duration-dist-bars">
+                        <div class="dist-bar-group">
+                            <div class="dist-bar short" :style="'width:' + (flowStats.duration_dist?.short / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">&lt;1s</span>
+                        </div>
+                        <div class="dist-bar-group">
+                            <div class="dist-bar medium" :style="'width:' + (flowStats.duration_dist?.medium / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">1s-1m</span>
+                        </div>
+                        <div class="dist-bar-group">
+                            <div class="dist-bar long" :style="'width:' + (flowStats.duration_dist?.long / (flowStats.total_flows || 1) * 100) + '%'"></div>
+                            <span class="dist-label">&gt;1m</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Protocol Mix -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('protoMix') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🥧 Protocol Mix</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protoMix')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protoMix')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="protoMix.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('protoMix')" @click="openFullscreenChart('protoMixChart', 'Protocol Mix')" title="Click to expand" style="height: 180px;">
+                    <canvas id="protoMixChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Network Health -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('netHealth') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏥 Network Health</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('netHealth')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('netHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="netHealth.loading"></div>
+                    </div>
+                </h2>
+                <div x-show="!isMinimized('netHealth')">
+                    <div class="health-summary">
+                        <span class="health-icon" x-text="netHealth.status_icon || '💚'"></span>
+                        <span class="health-score" :class="'health-' + (netHealth.status || 'healthy')" x-text="netHealth.health_score || 100"></span>
+                        <span class="health-label" x-text="(netHealth.status || 'healthy').toUpperCase()"></span>
+                    </div>
+                    <div class="health-indicators">
+                        <template x-for="ind in netHealth.indicators" :key="ind.name">
+                            <div class="health-indicator" :class="'status-' + ind.status">
+                                <span class="ind-icon" x-text="ind.icon"></span>
+                                <span class="ind-name" x-text="ind.name"></span>
+                                <span class="ind-value" x-text="ind.value"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
         </div>
         </template>
 
