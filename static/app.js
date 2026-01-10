@@ -1345,17 +1345,22 @@ document.addEventListener('alpine:init', () => {
 
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
-            if (!container) return;
+            if (!container) {
+                console.warn('[WorldMap] Container not found');
+                return;
+            }
             
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
             
-            // Simple SVG world map with markers
-            const width = container.clientWidth || 800;
-            const height = Math.min(400, width * 0.5);
+            console.log('[WorldMap] Rendering with sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length);
             
-            // Convert lat/lng to x/y (simple Mercator projection)
+            // Simple SVG world map with markers
+            const width = container.clientWidth || 1000;
+            const height = 500;
+            
+            // Convert lat/lng to x/y (Mercator projection)
             const latLngToXY = (lat, lng) => {
                 const x = ((lng + 180) / 360) * width;
                 const y = ((90 - lat) / 180) * height;
@@ -1365,80 +1370,98 @@ document.addEventListener('alpine:init', () => {
             // Build SVG
             let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
             
-            // Background with grid
-            svg += `<rect width="100%" height="100%" fill="rgba(0,20,40,0.5)"/>`;
+            // Background - ocean
+            svg += `<rect width="100%" height="100%" fill="rgba(10,30,60,0.8)"/>`;
             
-            // Grid lines
+            // Add subtle gradient background
+            svg += `<defs>
+                <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:rgba(20,50,80,0.6);stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:rgba(5,20,40,0.8);stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#oceanGrad)"/>`;
+            
+            // Grid lines (faint)
             for (let i = 0; i <= 6; i++) {
                 const y = (height / 6) * i;
-                svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="rgba(0,243,255,0.1)" stroke-width="0.5"/>`;
+                svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="rgba(0,243,255,0.08)" stroke-width="0.5"/>`;
             }
             for (let i = 0; i <= 12; i++) {
                 const x = (width / 12) * i;
-                svg += `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(0,243,255,0.1)" stroke-width="0.5"/>`;
+                svg += `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(0,243,255,0.08)" stroke-width="0.5"/>`;
             }
             
-            // Equator
-            svg += `<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="rgba(0,243,255,0.2)" stroke-width="1"/>`;
+            // Equator (more visible)
+            svg += `<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="rgba(0,243,255,0.15)" stroke-width="1"/>`;
             
             // Prime Meridian
-            svg += `<line x1="${width/2}" y1="0" x2="${width/2}" y2="${height}" stroke="rgba(0,243,255,0.15)" stroke-width="1"/>`;
+            svg += `<line x1="${width/2}" y1="0" x2="${width/2}" y2="${height}" stroke="rgba(0,243,255,0.12)" stroke-width="1"/>`;
             
-            // Simplified world map outline (continental shapes)
-            const worldPath = `
-                M${0.12*width},${0.22*height} Q${0.18*width},${0.18*height} ${0.25*width},${0.25*height} 
-                L${0.30*width},${0.38*height} L${0.25*width},${0.52*height} L${0.15*width},${0.65*height}
-                L${0.08*width},${0.85*height} L${0.20*width},${0.95*height}
-                M${0.35*width},${0.15*height} L${0.55*width},${0.12*height} L${0.48*width},${0.25*height}
-                L${0.42*width},${0.35*height} L${0.38*width},${0.55*height} L${0.52*width},${0.85*height}
-                M${0.55*width},${0.18*height} L${0.72*width},${0.15*height} L${0.75*width},${0.28*height}
-                L${0.68*width},${0.42*height} L${0.58*width},${0.38*height} L${0.55*width},${0.52*height}
-                M${0.72*width},${0.22*height} L${0.92*width},${0.25*height} L${0.95*width},${0.45*height}
-                L${0.88*width},${0.55*height} L${0.78*width},${0.48*height}
-                M${0.82*width},${0.65*height} L${0.95*width},${0.72*height} L${0.92*width},${0.88*height}
-                L${0.78*width},${0.92*height} L${0.75*width},${0.78*height}
-            `;
-            svg += `<path d="${worldPath}" fill="none" stroke="rgba(0,243,255,0.25)" stroke-width="1.5" stroke-linecap="round"/>`;
+            // Simplified but recognizable world map outline
+            // North America
+            svg += `<path d="M${0.10*width},${0.20*height} L${0.25*width},${0.15*height} L${0.28*width},${0.30*height} L${0.25*width},${0.50*height} L${0.12*width},${0.55*height} L${0.08*width},${0.40*height} Z" 
+                        fill="rgba(0,243,255,0.1)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5"/>`;
             
-            // Add continent labels
+            // South America
+            svg += `<path d="M${0.20*width},${0.52*height} L${0.30*width},${0.55*height} L${0.28*width},${0.85*height} L${0.15*width},${0.90*height} Z" 
+                        fill="rgba(0,243,255,0.1)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5"/>`;
+            
+            // Europe & Africa
+            svg += `<path d="M${0.40*width},${0.15*height} L${0.55*width},${0.10*height} L${0.58*width},${0.25*height} L${0.52*width},${0.40*height} L${0.45*width},${0.52*height} L${0.48*width},${0.75*height} L${0.38*width},${0.92*height} L${0.32*width},${0.70*height} L${0.35*width},${0.45*height} Z" 
+                        fill="rgba(0,243,255,0.1)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5"/>`;
+            
+            // Asia
+            svg += `<path d="M${0.55*width},${0.12*height} L${0.90*width},${0.08*height} L${0.95*width},${0.35*height} L${0.75*width},${0.40*height} L${0.58*width},${0.30*height} Z" 
+                        fill="rgba(0,243,255,0.1)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5"/>`;
+            
+            // Australia/Oceania
+            svg += `<circle cx="${0.88*width}" cy="${0.68*height}" r="8" fill="rgba(0,243,255,0.1)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5"/>`;
+            
+            // Add continent labels with better visibility
             const labels = [
-                { x: 0.18, y: 0.45, name: 'Americas' },
-                { x: 0.48, y: 0.32, name: 'Europe' },
-                { x: 0.52, y: 0.55, name: 'Africa' },
-                { x: 0.72, y: 0.35, name: 'Asia' },
-                { x: 0.85, y: 0.78, name: 'Oceania' }
+                { x: 0.165, y: 0.40, name: 'N.America' },
+                { x: 0.24, y: 0.72, name: 'S.America' },
+                { x: 0.44, y: 0.48, name: 'Africa' },
+                { x: 0.47, y: 0.20, name: 'Europe' },
+                { x: 0.72, y: 0.28, name: 'Asia' },
+                { x: 0.88, y: 0.78, name: 'Australia' }
             ];
             labels.forEach(l => {
-                svg += `<text x="${l.x*width}" y="${l.y*height}" fill="rgba(0,243,255,0.2)" font-size="10" text-anchor="middle">${l.name}</text>`;
+                svg += `<text x="${l.x*width}" y="${l.y*height}" fill="rgba(0,243,255,0.4)" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle">${l.name}</text>`;
             });
-            // Draw destinations first (purple)
+            
+            // Draw destinations first (purple - larger circles behind)
             dests.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
-                const size = Math.min(12, Math.max(4, Math.log10(p.bytes + 1) * 2));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.6)" stroke="#bc13fe" stroke-width="1">
-                    <title>${p.ip}\\n${p.city || ''}, ${p.country}\\n${p.bytes_fmt}</title>
+                const size = Math.min(14, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.5)" stroke="#bc13fe" stroke-width="2" opacity="0.7">
+                    <title>📍 DST: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
                 </circle>`;
             });
             
             // Draw sources (cyan)
             sources.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
-                const size = Math.min(12, Math.max(4, Math.log10(p.bytes + 1) * 2));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.6)" stroke="#00f3ff" stroke-width="1">
-                    <title>${p.ip}\\n${p.city || ''}, ${p.country}\\n${p.bytes_fmt}</title>
+                const size = Math.min(14, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.6)" stroke="#00f3ff" stroke-width="2" opacity="0.8">
+                    <title>📍 SRC: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
                 </circle>`;
             });
             
-            // Draw threats (red, pulsing)
+            // Draw threats (red, larger and more visible)
             threats.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
-                svg += `<circle cx="${x}" cy="${y}" r="6" fill="rgba(255,0,60,0.8)" stroke="#ff003c" stroke-width="2" class="threat-pulse">
-                    <title>⚠️ THREAT: ${p.ip}\\n${p.city || ''}, ${p.country}</title>
+                svg += `<circle cx="${x}" cy="${y}" r="8" fill="rgba(255,0,60,0.8)" stroke="#ff003c" stroke-width="2.5" opacity="0.95" class="threat-pulse">
+                    <title>⚠️ THREAT: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}</title>
                 </circle>`;
+                // Add a second larger ring for threat visibility
+                svg += `<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="rgba(255,0,60,0.4)" stroke-width="1.5" stroke-dasharray="2,2"/>`;
             });
             
             svg += `</svg>`;
             container.innerHTML = svg;
+            console.log('[WorldMap] Rendered successfully');
         },
 
         async fetchDurations() {
