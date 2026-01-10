@@ -57,7 +57,11 @@ document.addEventListener('alpine:init', () => {
 
         // UI Labels for Widgets (only widgets that exist in HTML template)
         friendlyLabels: {
+            summary: 'Summary Stats',
+            bandwidth: 'Bandwidth & Flow Rate',
+            firewall: 'Firewall Health',
             analytics: 'Analytics Row',
+            topstats: 'Top Stats Row',
             flags: 'TCP Flags',
             asns: 'Top ASNs',
             countries: 'Top Countries',
@@ -865,7 +869,11 @@ document.addEventListener('alpine:init', () => {
             // Merge saved prefs with defaults; default everything to visible for safety
             // Only include widgets that actually exist in the HTML template
             const defaults = {
+                summary: true,
+                bandwidth: true,
+                firewall: true,
                 analytics: true,
+                topstats: true,
                 flags: true,
                 asns: true,
                 countries: true,
