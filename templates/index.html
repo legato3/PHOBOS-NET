@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.13.3/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- CSS -->
     <link rel="stylesheet" href="/static/style.css?v=3">
@@ -528,6 +529,9 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🔝 Top Sources</span>
                     <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('sources')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('sources')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
                         <button class="icon-btn-small" @click="toggleMinimize('sources')" :title="isMinimized('sources') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('sources')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('sources')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -580,6 +584,9 @@
                  <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🎯 Top Destinations</span>
                     <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('destinations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('destinations')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
                         <button class="icon-btn-small" @click="toggleMinimize('destinations')" :title="isMinimized('destinations') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('destinations')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('destinations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -632,6 +639,9 @@
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
                     <span>🔌 Top Ports</span>
                     <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="openExpandedTable('ports')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('ports')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
                         <button class="icon-btn-small" @click="toggleMinimize('ports')" :title="isMinimized('ports') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('ports')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('ports')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1367,6 +1377,12 @@
             <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0;">
                 <span>💬 Recent Conversations</span>
                 <div style="display: flex; gap: 4px;">
+                    <button class="icon-btn-small" @click="openNetworkGraph()" title="Graph View" style="color: var(--neon-purple);" x-show="!isMinimized('conversations')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </button>
+                    <button class="icon-btn-small" @click="openExpandedTable('conversations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('conversations')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                    </button>
                     <button class="icon-btn-small" @click="toggleMinimize('conversations')" :title="isMinimized('conversations') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('conversations')"><path d="M3 12h18M12 3v18"/></svg>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('conversations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1413,6 +1429,57 @@
         </div>
         </template>
 
+    </div>
+
+    <!-- Expanded Table Modal -->
+    <div class="modal" x-show="expandedModalOpen" style="display:none" :style="expandedModalOpen ? 'display:flex' : 'display:none'" @click.self="expandedModalOpen = false">
+        <div class="modal-content" style="max-width: 1000px; height: 90vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0"><span class="text-cyan" x-text="expandedTitle"></span></h2>
+                <button @click="expandedModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close">×</button>
+            </div>
+
+            <div x-show="expandedLoading" class="spinner" style="margin: 0 auto;"></div>
+
+            <div x-show="!expandedLoading" style="overflow-y:auto; height: calc(100% - 60px);">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead style="position:sticky; top:0; background: #111; z-index:1;">
+                        <tr style="border-bottom: 1px solid var(--neon-cyan);">
+                            <template x-for="col in expandedColumns">
+                                <th style="padding:10px; text-align:left; color:var(--text-muted);" x-text="col"></th>
+                            </template>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(row, idx) in expandedData" :key="idx">
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <template x-for="val in row">
+                                    <td style="padding:8px; font-family:monospace;" x-html="val"></td>
+                                </template>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div x-show="expandedData.length === 0" style="padding:20px; text-align:center; color:var(--text-muted)">No data available</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Graph Modal -->
+    <div class="modal" x-show="networkGraphOpen" style="display:none" :style="networkGraphOpen ? 'display:flex' : 'display:none'" @click.self="networkGraphOpen = false">
+        <div class="modal-content" style="max-width: 95vw; height: 90vh; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h2 style="margin:0">🕸️ Network Graph</h2>
+                <button @click="networkGraphOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close">×</button>
+            </div>
+            <div id="network-graph-container" style="flex: 1; border: 1px solid rgba(0,243,255,0.2); background: rgba(0,0,0,0.5); border-radius: 4px;"></div>
+            <div style="font-size:0.8em; color:var(--text-muted); margin-top:5px; text-align:center;">
+                <span style="color:#00f3ff">● Source</span> &nbsp;
+                <span style="color:#bc13fe">● Destination</span> &nbsp;
+                <span style="color:#0aff0a">● Both</span>
+                &nbsp;|&nbsp; Drag to pan, Scroll to zoom, Click node to highlight
+            </div>
+        </div>
     </div>
 
     <!-- IP Detail Modal -->
