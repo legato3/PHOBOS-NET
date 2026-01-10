@@ -4896,103 +4896,53 @@ body.compact-mode {
 .world-map-container {
     position: relative;
     width: 100%;
-    max-height: 350px;
-    background: radial-gradient(ellipse at center, rgba(0, 50, 80, 0.3) 0%, rgba(0, 20, 40, 0.5) 100%);
+    height: 400px;
+    background: #000;
     overflow: hidden;
+    border-radius: 0 0 4px 4px;
 }
 
 .world-map-svg {
     width: 100%;
-    height: auto;
-    max-height: 350px;
+    height: 100%;
+    z-index: 1;
 }
 
-.world-map-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    color: var(--text-secondary);
+/* Leaflet Customization */
+.leaflet-container {
+    background: #050505 !important;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
 }
 
-.world-map-loading .spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--card-border);
-    border-top-color: var(--neon-cyan);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+.leaflet-control-attribution {
+    background: rgba(0,0,0,0.5) !important;
+    color: #666 !important;
 }
 
-/* Map grid lines */
-.map-grid {
-    stroke: rgba(0, 255, 255, 0.1);
-    stroke-width: 0.5;
-    fill: none;
+.leaflet-control-attribution a {
+    color: #888 !important;
 }
 
-.map-equator {
-    stroke: rgba(0, 255, 255, 0.25);
-    stroke-width: 1;
-    stroke-dasharray: 5, 5;
+.leaflet-popup-content-wrapper {
+    background: rgba(10, 14, 23, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 4px;
+    color: #e0e0e0;
 }
 
-.map-tropics {
-    stroke: rgba(255, 255, 0, 0.15);
-    stroke-width: 0.5;
-    stroke-dasharray: 3, 3;
+.leaflet-popup-tip {
+    background: var(--neon-cyan);
 }
 
-/* Data points on map */
-.map-point {
-    transition: all 0.3s ease;
+.map-marker-pulse {
+    animation: marker-pulse 2s infinite;
 }
 
-.map-point.source {
-    fill: rgba(0, 255, 255, 0.6);
-    stroke: var(--neon-cyan);
-    stroke-width: 1;
-}
-
-.map-point.destination {
-    fill: rgba(160, 32, 240, 0.6);
-    stroke: var(--neon-purple);
-    stroke-width: 1;
-}
-
-.map-point.threat {
-    fill: rgba(255, 0, 100, 0.8);
-    stroke: var(--neon-red);
-    stroke-width: 2;
-}
-
-/* Threat pulse animation */
-.threat-pulse {
-    animation: threat-pulse 2s ease-in-out infinite;
-}
-
-@keyframes threat-pulse {
-    0%, 100% {
-        opacity: 1;
-        r: 6;
-    }
-    50% {
-        opacity: 0.6;
-        r: 10;
-    }
-}
-
-/* Country heatmap effect */
-.map-country-heat {
-    transition: fill 0.3s ease;
-}
-
-.map-country-heat:hover {
-    filter: brightness(1.3);
+@keyframes marker-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* Map legend */

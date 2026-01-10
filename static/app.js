@@ -1418,122 +1418,103 @@ document.addEventListener('alpine:init', () => {
 
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
-            if (!container) {
-                console.warn('[WorldMap] Container not found');
-                return;
+            if (!container) return;
+
+            // Initialize Leaflet if not already done
+            if (!this.map) {
+                // Ensure no previous instance exists to prevent "Map container is already initialized" error
+                if (container._leaflet_id) {
+                    container._leaflet_id = null; // Force clear if stray ID
+                }
+
+                try {
+                    this.map = L.map('world-map-svg', {
+                        center: [20, 0],
+                        zoom: 2,
+                        minZoom: 1,
+                        maxZoom: 8,
+                        zoomControl: false,
+                        attributionControl: false
+                    });
+
+                    // Dark Matter Tiles (CartoDB) - Cyberpunk aesthetic match
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19
+                    }).addTo(this.map);
+
+                    // Add attribution manually to bottom-right if needed, or skip for cleaner UI
+
+                } catch (e) {
+                    console.error('Leaflet init failed:', e);
+                    // Attempt recovery: remove any existing map instance on this container ID
+                    if (this.map) { this.map.remove(); this.map = null; }
+                    return;
+                }
             }
-            
+
+            // Clear existing layers
+            if (this.mapLayers) {
+                this.mapLayers.forEach(l => this.map.removeLayer(l));
+            }
+            this.mapLayers = [];
+
+            const addMarker = (lat, lng, color, radius, popup) => {
+                const marker = L.circleMarker([lat, lng], {
+                    radius: radius,
+                    fillColor: color,
+                    color: color,
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                if (popup) marker.bindPopup(popup);
+                marker.addTo(this.map);
+                this.mapLayers.push(marker);
+            };
+
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
             const blocked = this.worldMapLayers.blocked ? (this.worldMap.blocked || []) : [];
-            
-            const width = container.clientWidth || 1200;
-            const height = Math.round(width * 0.5); // Maintain 2:1 aspect ratio for equirectangular
-            
-            // Convert lat/lng to x/y (Equirectangular/Plate Carrée projection)
-            // Standard world map bounds: lat -90 to 90, lng -180 to 180
-            const latLngToXY = (lat, lng) => {
-                // Clamp values to valid ranges
-                lat = Math.max(-85, Math.min(85, lat));
-                lng = Math.max(-180, Math.min(180, lng));
-                
-                // Equirectangular projection
-                const x = ((lng + 180) / 360) * width;
-                const y = ((90 - lat) / 180) * height;
-                return { x, y };
-            };
-            
-            // Build SVG with image background
-            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="width:100%;height:100%;">`;
-            
-            // Background with image
-            svg += `<defs>
-                <filter id="glow">
-                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                    <feMerge>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                </filter>
-                <filter id="pulse">
-                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                    <feMerge>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                </filter>
-            </defs>`;
-            
-            // Use the world map image as background - stretch to fit viewBox exactly
-            svg += `<image xlink:href="/static/world-map-bg.png" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>`;
-            
-            // Semi-transparent overlay for better marker visibility
-            svg += `<rect width="100%" height="100%" fill="rgba(5,15,35,0.15)"/>`;
-            
-            // Draw destinations (purple - draw first so sources appear on top)
+
+            // Draw Destinations (Purple)
             dests.forEach(p => {
-                const { x, y } = latLngToXY(p.lat, p.lng);
-                const size = Math.min(16, Math.max(6, Math.log10(p.bytes + 1) * 3));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.6)" stroke="#bc13fe" stroke-width="2.5" opacity="0.85" filter="url(#glow)">
-                    <title>📍 DST: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
-                </circle>`;
+                const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
+                addMarker(p.lat, p.lng, '#bc13fe', size,
+                    `<strong>DST: ${p.ip}</strong><br>${p.city||''}, ${p.country}<br>${p.bytes_fmt}`);
             });
-            
-            // Draw sources (cyan)
+
+            // Draw Sources (Cyan)
             sources.forEach(p => {
-                const { x, y } = latLngToXY(p.lat, p.lng);
-                const size = Math.min(16, Math.max(6, Math.log10(p.bytes + 1) * 3));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.7)" stroke="#00f3ff" stroke-width="2.5" opacity="0.9" filter="url(#glow)">
-                    <title>📍 SRC: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
-                </circle>`;
+                const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
+                addMarker(p.lat, p.lng, '#00f3ff', size,
+                    `<strong>SRC: ${p.ip}</strong><br>${p.city||''}, ${p.country}<br>${p.bytes_fmt}`);
             });
-            
-            // Draw threats (red with glow effect)
+
+            // Draw Threats (Red)
             threats.forEach(p => {
-                const { x, y } = latLngToXY(p.lat, p.lng);
-                svg += `<g filter="url(#glow)">
-                    <circle cx="${x}" cy="${y}" r="10" fill="rgba(255,0,60,0.85)" stroke="#ff003c" stroke-width="3" opacity="0.95"/>
-                    <circle cx="${x}" cy="${y}" r="16" fill="none" stroke="rgba(255,0,60,0.6)" stroke-width="2" stroke-dasharray="3,3"/>
-                </g>
-                <title>⚠️ THREAT: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}</title>`;
+                addMarker(p.lat, p.lng, '#ff003c', 6,
+                    `<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city||''}, ${p.country}`);
+
+                // Add pulse effect ring
+                const pulse = L.circleMarker([p.lat, p.lng], {
+                    radius: 12,
+                    fill: false,
+                    color: '#ff003c',
+                    weight: 2,
+                    className: 'map-marker-pulse'
+                }).addTo(this.map);
+                this.mapLayers.push(pulse);
             });
-            
-            // Draw blocked IPs (green with pulse effect - draw last to be on top)
+
+            // Draw Blocked (Green)
             blocked.forEach(p => {
-                const { x, y } = latLngToXY(p.lat, p.lng);
-                const size = Math.min(14, Math.max(8, Math.log10(p.block_count + 1) * 4));
-                const isThreat = p.is_threat ? ' [THREAT]' : '';
-                svg += `<g filter="url(#pulse)">
-                    <circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,255,100,0.85)" stroke="#00ff64" stroke-width="3" opacity="0.95"/>
-                    <circle cx="${x}" cy="${y}" r="${size + 6}" fill="none" stroke="rgba(0,255,100,0.5)" stroke-width="2"/>
-                </g>
-                <title>🔥 BLOCKED: ${p.ip}${isThreat}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.block_count} blocks</title>`;
+                const size = Math.min(8, Math.max(5, Math.log10(p.block_count + 1) * 2));
+                addMarker(p.lat, p.lng, '#00ff64', size,
+                    `<strong>🔥 BLOCKED: ${p.ip}</strong><br>${p.block_count} blocks`);
             });
-            
-            // Legend - position at bottom left with percentage-based offset
-            const legendX = 15;
-            const legendY = Math.max(height - 100, 10);
-            const legendH = Math.min(90, height - 20);
-            
-            // Only show legend if there's enough space
-            if (height > 120) {
-                svg += `<g filter="url(#glow)">
-                    <rect x="${legendX}" y="${legendY}" width="150" height="${legendH}" fill="rgba(5,15,35,0.9)" stroke="rgba(0,243,255,0.4)" stroke-width="1" rx="4"/>
-                    <circle cx="${legendX + 12}" cy="${legendY + 14}" r="4" fill="rgba(0,243,255,0.9)"/>
-                    <text x="${legendX + 24}" y="${legendY + 17}" fill="rgba(0,243,255,0.9)" font-size="10" font-family="monospace">Sources</text>
-                    <circle cx="${legendX + 12}" cy="${legendY + 32}" r="4" fill="rgba(188,19,254,0.9)"/>
-                    <text x="${legendX + 24}" y="${legendY + 35}" fill="rgba(188,19,254,0.9)" font-size="10" font-family="monospace">Destinations</text>
-                    <circle cx="${legendX + 12}" cy="${legendY + 50}" r="4" fill="rgba(255,0,60,0.9)"/>
-                    <text x="${legendX + 24}" y="${legendY + 53}" fill="rgba(255,0,60,0.9)" font-size="10" font-family="monospace">Threats</text>
-                    <circle cx="${legendX + 12}" cy="${legendY + 68}" r="4" fill="rgba(0,255,100,0.9)"/>
-                    <text x="${legendX + 24}" y="${legendY + 71}" fill="rgba(0,255,100,0.9)" font-size="10" font-family="monospace">Blocked</text>
-                </g>`;
-            }
-            
-            svg += `</svg>`;
-            container.innerHTML = svg;
         },
 
         async fetchDurations() {
