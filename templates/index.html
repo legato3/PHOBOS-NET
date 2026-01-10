@@ -7,6 +7,7 @@
 
     <!-- External Libs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.13.3/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
 
     <!-- CSS -->
@@ -620,27 +621,51 @@
                 </table>
             </div>
 
-            <!-- Security Section Header -->
-            <div class="section-header security-section">
-                <span class="section-icon">🔐</span>
-                <h3>Security Intelligence</h3>
-                <div class="security-summary">
-                    <span class="security-stat" :class="{ 'ok': (threats.hits?.length || 0) === 0, 'warn': (threats.hits?.length || 0) > 0 }">
-                        <span x-text="threats.hits?.length || 0"></span> threats
+        </div>
+        </template>
+
+        <!-- ============================================
+             SECURITY CENTER
+             ============================================ -->
+        <div class="security-center" x-data="{ securityCollapsed: false }">
+            <!-- Security Center Header -->
+            <div class="security-center-header" @click="securityCollapsed = !securityCollapsed">
+                <div class="security-center-title">
+                    <span class="security-center-icon">🛡️</span>
+                    <h2>Security Center</h2>
+                    <span class="security-center-badge" :class="{ 'badge-ok': (threats.hits?.length || 0) === 0, 'badge-alert': (threats.hits?.length || 0) > 0 }">
+                        <span x-text="(threats.hits?.length || 0) === 0 ? 'Secure' : (threats.hits?.length || 0) + ' Threats'"></span>
                     </span>
-                    <span class="security-divider">·</span>
-                    <span class="security-stat">
-                        <span x-text="feedHealth.summary?.ok || 0"></span>/<span x-text="feedHealth.summary?.total || 0"></span> feeds
-                    </span>
-                    <span class="security-divider">·</span>
-                    <span class="security-stat">
-                        <span x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span> IPs
-                    </span>
-                    <span class="security-divider">·</span>
+                </div>
+                <div class="security-center-stats">
+                    <div class="sc-stat">
+                        <span class="sc-stat-value" :class="'grade-' + (securityScore.grade || 'A').toLowerCase()" x-text="securityScore.score || 100"></span>
+                        <span class="sc-stat-label">Score</span>
+                    </div>
+                    <div class="sc-stat">
+                        <span class="sc-stat-value" x-text="feedHealth.summary?.ok || 0"></span>
+                        <span class="sc-stat-label">Feeds OK</span>
+                    </div>
+                    <div class="sc-stat">
+                        <span class="sc-stat-value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span>
+                        <span class="sc-stat-label">Blocklist IPs</span>
+                    </div>
+                    <div class="sc-stat">
+                        <span class="sc-stat-value" x-text="alertHistory.total || 0"></span>
+                        <span class="sc-stat-label">Alerts 24h</span>
+                    </div>
+                </div>
+                <div class="security-center-actions" @click.stop>
                     <button class="btn-sm" @click="watchlistModalOpen = true" title="Manage Watchlist">👁️ Watchlist</button>
                     <button class="btn-sm" @click="exportThreats('csv')" title="Export threats as CSV">📥 Export</button>
+                    <button class="btn-sm" @click="refreshFeed()" title="Refresh threat feeds">🔄 Refresh</button>
+                    <span class="collapse-indicator" :class="{ 'collapsed': securityCollapsed }">▼</span>
                 </div>
             </div>
+
+            <!-- Security Center Content -->
+            <div class="security-center-content" x-show="!securityCollapsed" x-collapse>
+                <div class="security-grid">
 
             <!-- Security Score Widget -->
             <template x-if="isVisible('securityScore')">
@@ -912,8 +937,9 @@
                 </div>
             </div>
 
-        </div>
-        </template>
+                </div> <!-- End security-grid -->
+            </div> <!-- End security-center-content -->
+        </div> <!-- End security-center -->
 
         <!-- Conversations -->
         <template x-if="isVisible('conversations')">
