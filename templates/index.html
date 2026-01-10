@@ -379,48 +379,6 @@
                 </div>
             </div>
 
-            <!-- Top ASNs -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🏢 Top ASNs</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="asns.loading"></div>
-                    </div>
-                </h2>
-                <div style="margin-top:10px;" x-show="!isMinimized('asns')">
-                    <template x-for="asn in asns.asns" :key="asn.asn">
-                        <div class="asn-row">
-                            <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
-                            <div class="asn-bar-container">
-                                <div class="asn-bar" :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'"></div>
-                            </div>
-                            <div class="asn-val" x-text="asn.bytes_fmt"></div>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Top Countries -->
-            <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                    <span>🌍 Top Countries</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="countries.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
-                    <canvas id="countriesChart"></canvas>
-                </div>
-            </div>
-
             <!-- Longest Durations -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('durations') }">
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
@@ -702,6 +660,48 @@
                         </template>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Top ASNs -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏢 Top ASNs</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="asns.loading"></div>
+                    </div>
+                </h2>
+                <div style="margin-top:10px;" x-show="!isMinimized('asns')">
+                    <template x-for="asn in asns.asns" :key="asn.asn">
+                        <div class="asn-row">
+                            <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
+                            <div class="asn-bar-container">
+                                <div class="asn-bar" :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'"></div>
+                            </div>
+                            <div class="asn-val" x-text="asn.bytes_fmt"></div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Top Countries -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🌍 Top Countries</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="countries.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
+                    <canvas id="countriesChart"></canvas>
+                </div>
             </div>
 
         </div>
