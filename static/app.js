@@ -1080,27 +1080,47 @@ document.addEventListener('alpine:init', () => {
             const high = this.attackTimeline.timeline.map(t => t.high || 0);
             const medium = this.attackTimeline.timeline.map(t => t.medium || 0);
             const low = this.attackTimeline.timeline.map(t => t.low || 0);
+            const fwBlocks = this.attackTimeline.timeline.map(t => t.fw_blocks || 0);
             
             const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
+            const hasFwData = this.attackTimeline.has_fw_data;
+
+            const datasets = [
+                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'a', order: 2 },
+                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a', order: 2 },
+                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a', order: 2 },
+                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a', order: 2 }
+            ];
+            
+            // Add firewall blocks as a line overlay if data exists
+            if (hasFwData) {
+                datasets.push({
+                    label: '🔥 FW Blocks',
+                    data: fwBlocks,
+                    type: 'line',
+                    borderColor: 'rgba(0, 255, 100, 1)',
+                    backgroundColor: 'rgba(0, 255, 100, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'rgba(0, 255, 100, 1)',
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y1',
+                    order: 1
+                });
+            }
 
             this._attackTimelineChart = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'a' },
-                        { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a' },
-                        { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a' },
-                        { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a' }
-                    ]
-                },
+                data: { labels, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: true, position: 'top', labels: { color: '#888', boxWidth: 12, padding: 8 } } },
                     scales: {
                         x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
-                        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } }
+                        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' }, position: 'left' },
+                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'FW Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
                     }
                 }
             });
@@ -1259,16 +1279,52 @@ document.addEventListener('alpine:init', () => {
             if (!ctx) return;
             const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
             const values = (series || []).map(s => s.rate || 0);
+            const blocked = (series || []).map(s => s.blocked || 0);
+            const hasFwData = this.blocklist.has_fw_data;
             const color = this.getCssVar('--neon-red') || '#ff003c';
+            
+            const datasets = [
+                { label: 'Match %', data: values, borderColor: color, backgroundColor: 'rgba(255,0,60,0.12)', fill: true, tension: 0.3, yAxisID: 'y' }
+            ];
+            
+            // Add firewall blocks as second line if data exists
+            if (hasFwData) {
+                datasets.push({
+                    label: '🔥 FW Blocks',
+                    data: blocked,
+                    borderColor: 'rgba(0, 255, 100, 1)',
+                    backgroundColor: 'rgba(0, 255, 100, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    fill: true,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                });
+            }
+            
             if (this.blocklistChartInstance) {
                 this.blocklistChartInstance.data.labels = labels;
-                this.blocklistChartInstance.data.datasets[0].data = values;
+                this.blocklistChartInstance.data.datasets = datasets;
+                this.blocklistChartInstance.options.scales = {
+                    x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                    y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100, position: 'left', title: { display: false } },
+                    ...(hasFwData ? { y1: { ticks: { color: 'rgba(0, 255, 100, 0.8)' }, grid: { display: false }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)', font: { size: 10 } } } } : {})
+                };
                 this.blocklistChartInstance.update();
             } else {
                 this.blocklistChartInstance = new Chart(ctx, {
                     type: 'line',
-                    data: { labels, datasets: [{ label: 'Match %', data: values, borderColor: color, backgroundColor: 'rgba(255,0,60,0.12)', fill: true, tension: 0.3 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#888' }, grid: { color: '#333' } }, y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100 } } }
+                    data: { labels, datasets },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: hasFwData, position: 'top', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10 } } } }, 
+                        scales: { 
+                            x: { ticks: { color: '#888' }, grid: { color: '#333' } }, 
+                            y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100, position: 'left' },
+                            ...(hasFwData ? { y1: { ticks: { color: 'rgba(0, 255, 100, 0.8)' }, grid: { display: false }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)', font: { size: 10 } } } } : {})
+                        } 
+                    }
                 });
             }
         },
