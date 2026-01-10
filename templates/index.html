@@ -1792,46 +1792,69 @@
                 </div>
             </template>
 
-            <!-- Recent Firewall Blocks Widget -->
+                </div> <!-- End security-grid -->
+            </div> <!-- End security-center-content -->
+            
+            <!-- Recent Firewall Blocks Widget (Full Width) -->
             <template x-if="isVisible('recentBlocks')">
-                <div class="card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }">
-                    <h3 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 10px 0;">
+                <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }" style="margin-top: 16px;">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0;">
                         <span>🔥 Recent Firewall Blocks</span>
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green);" x-text="recentBlocks.total_1h + ' (1h)'"></span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;" x-text="recentBlocks.total_1h + ' blocks (1h)'"></span>
                             <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('recentBlocks')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('recentBlocks')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
                             <div class="spinner" x-show="recentBlocks.loading"></div>
                         </div>
-                    </h3>
+                    </h2>
                     <div x-show="!isMinimized('recentBlocks')">
-                        <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="no-data">
-                            <span style="color: var(--text-secondary);">No recent blocks</span>
+                        <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="no-data" style="padding: 30px; text-align: center;">
+                            <span style="color: var(--text-secondary);">✅ No recent blocks - firewall quiet</span>
                         </div>
-                        <div class="recent-blocks-list" x-show="recentBlocks.blocks.length > 0">
-                            <template x-for="block in recentBlocks.blocks.slice(0, 8)" :key="block.id || block.src_ip + block.timestamp">
-                                <div class="recent-block-item">
-                                    <div class="block-time" x-text="block.timestamp ? block.timestamp.split(' ')[1] || block.timestamp : ''"></div>
-                                    <div class="block-ip">
-                                        <span class="ip-addr" x-text="block.src_ip"></span>
-                                        <span class="block-arrow">→</span>
-                                        <span class="port-badge" x-text="':' + block.dst_port"></span>
-                                    </div>
-                                    <div class="block-geo">
-                                        <span x-text="block.country || '??'"></span>
-                                    </div>
-                                    <div class="block-proto" x-text="block.protocol || 'TCP'"></div>
-                                </div>
-                            </template>
-                        </div>
+                        <table style="table-layout: fixed; width: 100%;" x-show="recentBlocks.blocks.length > 0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 18%;">Time</th>
+                                    <th style="width: 22%;">Source IP</th>
+                                    <th style="width: 4%;"></th>
+                                    <th style="width: 18%;">Destination</th>
+                                    <th style="width: 14%;">Country</th>
+                                    <th style="width: 12%;">Protocol</th>
+                                    <th style="width: 12%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="block in recentBlocks.blocks.slice(0, 10)" :key="block.id || block.src_ip + block.timestamp">
+                                    <tr>
+                                        <td style="font-size: 0.85em; color: var(--text-muted);" x-text="block.timestamp ? block.timestamp.split('T')[1]?.split('.')[0] || block.timestamp.split(' ')[1] || block.timestamp : ''"></td>
+                                        <td @click="openIPModal(block.src_ip)" style="cursor: pointer;">
+                                            <strong class="text-green" x-text="block.src_ip"></strong>
+                                        </td>
+                                        <td style="text-align: center; color: var(--text-muted);">→</td>
+                                        <td>
+                                            <span class="text-cyan" x-text="block.dst_ip || '192.168.0.1'"></span>
+                                            <span class="port-badge" style="margin-left: 4px;" x-text="':' + block.dst_port"></span>
+                                        </td>
+                                        <td>
+                                            <span x-text="block.country || '??'"></span>
+                                            <span style="font-size: 0.8em; color: var(--text-muted);" x-show="block.city" x-text="', ' + block.city"></span>
+                                        </td>
+                                        <td>
+                                            <span class="badge" style="background: rgba(0,243,255,0.15); color: var(--neon-cyan);" x-text="block.protocol || 'TCP'"></span>
+                                        </td>
+                                        <td>
+                                            <span class="badge" style="background: rgba(255,0,60,0.2); color: var(--neon-red);" x-text="block.action || 'block'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </template>
-
-                </div> <!-- End security-grid -->
-            </div> <!-- End security-center-content -->
+            
         </div> <!-- End security-center -->
         </section>
 
