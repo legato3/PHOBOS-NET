@@ -4835,63 +4835,6 @@ body.compact-mode {
     gap: 0.5rem;
 }
 
-.wm-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-full);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.wm-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.wm-toggle.active {
-    border-color: var(--neon-cyan);
-}
-
-.wm-toggle.sources.active {
-    background: rgba(0, 255, 255, 0.15);
-    border-color: var(--neon-cyan);
-    color: var(--neon-cyan);
-}
-
-.wm-toggle.destinations.active {
-    background: rgba(160, 32, 240, 0.15);
-    border-color: var(--neon-purple);
-    color: var(--neon-purple);
-}
-
-.wm-toggle.threats.active {
-    background: rgba(255, 0, 100, 0.15);
-    border-color: var(--neon-red);
-    color: var(--neon-red);
-}
-
-.wm-toggle.blocked.active {
-    background: rgba(0, 255, 100, 0.15);
-    border-color: var(--neon-green);
-    color: var(--neon-green);
-}
-
-.wm-toggle-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-}
-
-.wm-toggle.sources .wm-toggle-dot { background: var(--neon-cyan); }
-.wm-toggle.destinations .wm-toggle-dot { background: var(--neon-purple); }
-.wm-toggle.threats .wm-toggle-dot { background: var(--neon-red); }
-.wm-toggle.blocked .wm-toggle-dot { background: var(--neon-green); }
 
 .world-map-container {
     position: relative;
