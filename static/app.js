@@ -28,8 +28,7 @@ document.addEventListener('alpine:init', () => {
         // Fetch cadence control
         lastFetch: {
             worldmap: 0,
-            analytics: 0,
-            topstats: 0,
+            network: 0,
             security: 0,
             conversations: 0
         },
@@ -723,8 +722,16 @@ document.addEventListener('alpine:init', () => {
                     this.lastFetch.worldmap = now;
                 }
             }
-            if (sectionId === 'section-analytics') {
-                if (now - this.lastFetch.analytics > this.heavyTTL) {
+            if (sectionId === 'section-network') {
+                if (now - this.lastFetch.network > this.heavyTTL) {
+                    if (this.isVisible('sources')) this.fetchSources();
+                    if (this.isVisible('destinations')) this.fetchDestinations();
+                    if (this.isVisible('ports')) this.fetchPorts();
+                    if (this.isVisible('asns')) this.fetchASNs();
+                    if (this.isVisible('countries')) this.fetchCountries();
+                    if (this.isVisible('talkers')) this.fetchTalkers();
+                    if (this.isVisible('services')) this.fetchServices();
+                    if (this.isVisible('hourlyTraffic')) this.fetchHourlyTraffic();
                     if (this.isVisible('flags')) this.fetchFlags();
                     if (this.isVisible('durations')) this.fetchDurations();
                     if (this.isVisible('packetSizes')) this.fetchPacketSizes();
@@ -732,17 +739,7 @@ document.addEventListener('alpine:init', () => {
                     if (this.isVisible('flowStats')) this.fetchFlowStats();
                     if (this.isVisible('protoMix')) this.fetchProtoMix();
                     if (this.isVisible('netHealth')) this.fetchNetHealth();
-                    this.lastFetch.analytics = now;
-                }
-            }
-            if (sectionId === 'section-topstats') {
-                if (now - this.lastFetch.topstats > this.heavyTTL) {
-                    if (this.isVisible('asns')) this.fetchASNs();
-                    if (this.isVisible('countries')) this.fetchCountries();
-                    if (this.isVisible('talkers')) this.fetchTalkers();
-                    if (this.isVisible('services')) this.fetchServices();
-                    if (this.isVisible('hourlyTraffic')) this.fetchHourlyTraffic();
-                    this.lastFetch.topstats = now;
+                    this.lastFetch.network = now;
                 }
             }
             if (sectionId === 'section-security') {
@@ -793,7 +790,7 @@ document.addEventListener('alpine:init', () => {
                 this.lastFetch.worldmap = now;
             }
 
-            if (this.isSectionVisible('section-analytics') && (now - this.lastFetch.analytics > this.heavyTTL)) {
+            if (this.isSectionVisible('section-network') && (now - this.lastFetch.network > this.heavyTTL)) {
                 this.fetchFlags();
                 this.fetchDurations();
                 this.fetchPacketSizes();
@@ -801,16 +798,12 @@ document.addEventListener('alpine:init', () => {
                 this.fetchFlowStats();
                 this.fetchProtoMix();
                 this.fetchNetHealth();
-                this.lastFetch.analytics = now;
-            }
-
-            if (this.isSectionVisible('section-topstats') && (now - this.lastFetch.topstats > this.heavyTTL)) {
                 this.fetchASNs();
                 this.fetchCountries();
                 this.fetchTalkers();
                 this.fetchServices();
                 this.fetchHourlyTraffic();
-                this.lastFetch.topstats = now;
+                this.lastFetch.network = now;
             }
 
             if (this.isSectionVisible('section-security') && (now - this.lastFetch.security > this.heavyTTL)) {
@@ -2418,7 +2411,7 @@ document.addEventListener('alpine:init', () => {
                     this.lastFetch.security = now;
                 }
             } else if (tab === 'network') {
-                if (now - this.lastFetch.analytics > this.heavyTTL) {
+                if (now - this.lastFetch.network > this.heavyTTL) {
                     this.fetchFlags();
                     this.fetchDurations();
                     this.fetchPacketSizes();
@@ -2426,15 +2419,12 @@ document.addEventListener('alpine:init', () => {
                     this.fetchFlowStats();
                     this.fetchProtoMix();
                     this.fetchNetHealth();
-                    this.lastFetch.analytics = now;
-                }
-                if (now - this.lastFetch.topstats > this.heavyTTL) {
                     this.fetchASNs();
                     this.fetchCountries();
                     this.fetchTalkers();
                     this.fetchServices();
                     this.fetchHourlyTraffic();
-                    this.lastFetch.topstats = now;
+                    this.lastFetch.network = now;
                 }
             } else if (tab === 'forensics') {
                 if (now - this.lastFetch.conversations > this.mediumTTL) {
@@ -2774,8 +2764,7 @@ document.addEventListener('alpine:init', () => {
         sections: [
             { id: 'section-summary', label: 'Summary' },
             { id: 'section-worldmap', label: 'World Map' },
-            { id: 'section-analytics', label: 'Analytics' },
-            { id: 'section-topstats', label: 'Top Stats' },
+            { id: 'section-network', label: 'Network' },
             { id: 'section-security', label: 'Security' },
             { id: 'section-conversations', label: 'Conversations' }
         ],

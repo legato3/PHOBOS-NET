@@ -133,8 +133,15 @@ button.active {
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
+    grid-auto-flow: dense;
+}
+
+/* Responsive Grid Spans */
+@media (min-width: 1200px) {
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: span 3; }
 }
 
 .card {
