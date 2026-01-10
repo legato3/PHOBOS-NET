@@ -111,7 +111,35 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 
 ## 🎯 Recent Updates
 
+### v2.4 - January 10, 2026
+
+- **Security Center Enhancements**: 3 new widgets + 8 detection algorithms
+  - Attack Timeline: 24h hourly breakdown chart
+  - MITRE ATT&CK Heatmap: Technique coverage visualization
+  - Protocol Anomalies: Deviation detection with baseline tracking
+- **Advanced Detection Algorithms**:
+  - Port Scan Detection (T1046)
+  - Brute Force Detection (T1110)
+  - Data Exfiltration (T1041)
+  - DNS Tunneling (T1071.004)
+  - Lateral Movement (T1021)
+  - Protocol Anomalies (T1095)
+  - Off-Hours Activity (T1029)
+  - New External Connections
+- **Enhanced Existing Widgets**:
+  - Security Score with trend indicator (↑/↓)
+  - Alert History with severity/type filtering
+  - Threat Detections with block button
+- **Bug Fix**: Network Risk Index calculation error resolved
+
+### v2.3 - January 10, 2026
+
+- Configuration Settings modal for DNS, SNMP, paths
+- Clickable Firewall Health widgets with detail modals
+- Feed Health widget optimization
+
 ### v2.2 - January 9, 2026
+
 - Advanced SNMP widgets: real-time WAN/LAN Mbps, utilization, swap usage
 - Interface error/discard rates with WARN/ALERT highlighting
 - TCP reliability (fails/s, retrans/s) and UDP rate widgets
@@ -119,12 +147,14 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 - Env var overrides for SNMP and config paths
 
 ### v2.1 - January 9, 2026
+
 - **SNMP Firewall Monitoring**: Integrated OPNsense health metrics
 - **Firewall Dashboard Widgets**: CPU, Memory, Uptime, Load Average
 - **Auto-Formatted Uptime**: Human-readable display (e.g., "17h 44m")
 - **30-Second SNMP Cache**: Optimized polling with thread-safe locking
 
 ### v2.0 - January 2026
+
 - **Notification Center**: Header-based alert dropdown
 - **CPU Optimization**: Granular caching, nfdump consolidation
 - **Multi-Feed Support**: Aggregate ~38K threat IPs from 4 sources

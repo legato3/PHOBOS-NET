@@ -770,6 +770,9 @@
                                 <span class="score-value" x-text="securityScore.score || 0"></span>
                                 <span class="score-grade" x-text="securityScore.grade || '-'"></span>
                             </div>
+                            <div class="score-trend" x-show="securityScore.trend">
+                                <span :class="securityScore.trend === 'up' ? 'trend-up' : 'trend-down'" x-text="securityScore.trend === 'up' ? '↑' : '↓'"></span>
+                            </div>
                         </div>
                         <div class="score-details">
                             <div class="score-status" x-text="securityScore.status || 'calculating...'"></div>
@@ -791,7 +794,7 @@
             <template x-if="isVisible('alertHistory')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('alertHistory') }">
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                        <span>� Alert History (24h)</span>
+                        <span>🔔 Alert History (24h)</span>
                         <div style="display: flex; gap: 4px;">
                             <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertHistory')"><path d="M3 12h18M12 3v18"/></svg>
@@ -800,6 +803,29 @@
                             <div class="spinner" x-show="alertHistory.loading"></div>
                         </div>
                     </h2>
+                    <!-- Alert Filters -->
+                    <div class="alert-filters" x-show="!isMinimized('alertHistory')">
+                        <select x-model="alertFilter.severity" class="filter-select">
+                            <option value="all">All Severities</option>
+                            <option value="critical">🔴 Critical</option>
+                            <option value="high">🟠 High</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="low">🟢 Low</option>
+                        </select>
+                        <select x-model="alertFilter.type" class="filter-select">
+                            <option value="all">All Types</option>
+                            <option value="threat_ip">Threat IP</option>
+                            <option value="port_scan">Port Scan</option>
+                            <option value="brute_force">Brute Force</option>
+                            <option value="data_exfil">Data Exfil</option>
+                            <option value="dns_tunneling">DNS Tunneling</option>
+                            <option value="lateral_movement">Lateral Movement</option>
+                            <option value="suspicious_port">Suspicious Port</option>
+                            <option value="large_transfer">Large Transfer</option>
+                            <option value="off_hours">Off-Hours</option>
+                            <option value="watchlist">Watchlist</option>
+                        </select>
+                    </div>
                     <div class="alert-summary" x-show="!isMinimized('alertHistory')">
                         <span class="alert-badge critical" x-show="alertHistory.by_severity?.critical > 0">🔴 <span x-text="alertHistory.by_severity?.critical || 0"></span> critical</span>
                         <span class="alert-badge high" x-show="alertHistory.by_severity?.high > 0">🟠 <span x-text="alertHistory.by_severity?.high || 0"></span> high</span>
@@ -810,7 +836,7 @@
                     <table x-show="!isMinimized('alertHistory')">
                         <thead><tr><th>Time</th><th>Type</th><th>Message</th><th>Severity</th></tr></thead>
                         <tbody>
-                            <template x-for="(a, idx) in (alertHistory.alerts || []).slice(0, 10)" :key="idx">
+                            <template x-for="(a, idx) in filteredAlerts.slice(0, 10)" :key="idx">
                                 <tr>
                                     <td style="font-size:0.85em; color:var(--text-muted); white-space:nowrap" x-text="a.time_ago"></td>
                                     <td><span class="badge" :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()" x-text="a.type || 'alert'"></span></td>
@@ -818,8 +844,8 @@
                                     <td><span :class="'severity-' + a.severity" x-text="a.severity"></span></td>
                                 </tr>
                             </template>
-                            <template x-if="!alertHistory.alerts || alertHistory.alerts.length === 0">
-                                <tr><td colspan="4" style="color:var(--text-muted); text-align:center">✅ No alerts in past 24 hours</td></tr>
+                            <template x-if="filteredAlerts.length === 0">
+                                <tr><td colspan="4" style="color:var(--text-muted); text-align:center" x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? '🔍 No matching alerts' : '✅ No alerts in past 24 hours'"></td></tr>
                             </template>
                         </tbody>
                     </table>
@@ -880,7 +906,7 @@
                     <span x-text="threats.total_threats || 0"></span> threats detected · <span x-text="threats.feed_ips || 0"></span> IPs in blocklist
                 </div>
                 <table x-show="!isMinimized('threats')">
-                    <thead><tr><th>IP</th><th>Category</th><th>Feed</th><th>Country</th><th>Traffic</th></tr></thead>
+                    <thead><tr><th>IP</th><th>Category</th><th>Feed</th><th>Country</th><th>Traffic</th><th style="width:50px">Actions</th></tr></thead>
                     <tbody>
                         <template x-for="(t, idx) in threats.hits" :key="t.ip + idx">
                             <tr>
@@ -889,10 +915,11 @@
                                 <td style="font-size:0.85em; color:var(--text-muted)" x-text="t.feed || 'unknown'"></td>
                                 <td><span x-text="t.country || '--'"></span></td>
                                 <td><strong class="text-green" x-text="t.bytes_fmt || fmtBytes(t.bytes || 0)"></strong><div style="font-size:0.75em; color:var(--text-muted)" x-text="(t.flows || t.hits || 0) + ' flows'"></div></td>
+                                <td><button class="btn-block-ip" @click="blockThreatIP(t.ip)" title="Add to local blocklist">🚫</button></td>
                             </tr>
                         </template>
                         <template x-if="!threats.hits || threats.hits.length === 0">
-                            <tr><td colspan="5" style="color:var(--text-muted); text-align:center">✅ No threat detections</td></tr>
+                            <tr><td colspan="6" style="color:var(--text-muted); text-align:center">✅ No threat detections</td></tr>
                         </template>
                     </tbody>
                 </table>
@@ -1127,6 +1154,103 @@
                                 <div class="risk-factor-item">
                                     <span class="factor-name" x-text="factor.factor"></span>
                                     <span class="factor-value" :class="'impact-' + factor.impact" x-text="factor.value"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Attack Timeline Widget -->
+            <template x-if="isVisible('attackTimeline')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('attackTimeline') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>📈 Attack Timeline (24h)</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="runDetection()" title="Run Detection Now" style="color: var(--neon-green);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </button>
+                            <button class="icon-btn-small" @click="toggleMinimize('attackTimeline')" :title="isMinimized('attackTimeline') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('attackTimeline')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('attackTimeline')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="attackTimeline.loading"></div>
+                        </div>
+                    </h2>
+                    <div x-show="!isMinimized('attackTimeline')">
+                        <div class="timeline-summary">
+                            <span class="timeline-stat">📊 <span x-text="attackTimeline.total_24h || 0"></span> alerts</span>
+                            <span class="timeline-stat">🔥 Peak: <span x-text="attackTimeline.peak_hour || '--'"></span> (<span x-text="attackTimeline.peak_count || 0"></span>)</span>
+                        </div>
+                        <div style="height: 120px;" class="chart-expandable" @click="openFullscreenChart('attackTimelineChart', 'Attack Timeline')" title="Click to expand">
+                            <canvas id="attackTimelineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- MITRE ATT&CK Heatmap Widget -->
+            <template x-if="isVisible('mitreHeatmap')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('mitreHeatmap') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>🎯 MITRE ATT&CK Coverage</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('mitreHeatmap')" :title="isMinimized('mitreHeatmap') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('mitreHeatmap')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('mitreHeatmap')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="mitreHeatmap.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="mitre-heatmap" x-show="!isMinimized('mitreHeatmap')">
+                        <div class="mitre-summary">
+                            <span x-text="mitreHeatmap.total_techniques || 0"></span> techniques · <span x-text="mitreHeatmap.total_detections || 0"></span> detections
+                        </div>
+                        <template x-if="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
+                            <div class="mitre-grid">
+                                <template x-for="tech in mitreHeatmap.techniques.slice(0, 8)" :key="tech.technique">
+                                    <div class="mitre-cell" :class="{ 'heat-high': tech.count >= 5, 'heat-medium': tech.count >= 2 && tech.count < 5, 'heat-low': tech.count < 2 }" :title="tech.name + ' (' + tech.tactic + ')'">
+                                        <span class="mitre-id" x-text="tech.technique"></span>
+                                        <span class="mitre-count" x-text="tech.count"></span>
+                                        <span class="mitre-tactic" x-text="tech.tactic"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="!mitreHeatmap.techniques || mitreHeatmap.techniques.length === 0">
+                            <div class="empty-state-compact">
+                                <span class="empty-icon">✅</span>
+                                <span>No MITRE techniques detected</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Protocol Anomalies Widget -->
+            <template x-if="isVisible('protocolAnomalies')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('protocolAnomalies') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>⚡ Protocol Anomalies</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('protocolAnomalies')" :title="isMinimized('protocolAnomalies') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocolAnomalies')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocolAnomalies')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="protocolAnomalies.loading"></div>
+                        </div>
+                    </h2>
+                    <div x-show="!isMinimized('protocolAnomalies')">
+                        <div class="anomaly-summary" :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
+                            <span x-show="protocolAnomalies.anomaly_count > 0" class="text-red">⚠️ <span x-text="protocolAnomalies.anomaly_count"></span> anomalies detected</span>
+                            <span x-show="protocolAnomalies.anomaly_count === 0" class="text-green">✅ No anomalies</span>
+                        </div>
+                        <div class="protocol-anomaly-list">
+                            <template x-for="proto in (protocolAnomalies.protocols || []).slice(0, 6)" :key="proto.protocol">
+                                <div class="protocol-anomaly-item" :class="{ 'is-anomaly': proto.is_anomaly }">
+                                    <span class="proto-name" x-text="proto.protocol"></span>
+                                    <span class="proto-bytes" x-text="proto.bytes_fmt"></span>
+                                    <span class="proto-deviation" :class="{ 'deviation-high': proto.deviation > 3, 'deviation-medium': proto.deviation > 1.5 }" x-text="proto.deviation + 'x'"></span>
                                 </div>
                             </template>
                         </div>

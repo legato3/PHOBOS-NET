@@ -142,6 +142,32 @@ PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
 INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
 
+# Auth/brute-force ports to monitor
+BRUTE_FORCE_PORTS = [22, 23, 3389, 5900, 21, 25, 110, 143, 993, 995, 3306, 5432]  # SSH, Telnet, RDP, VNC, FTP, Mail, DBs
+
+# Port scan detection thresholds
+PORT_SCAN_THRESHOLD = 15  # Number of unique ports from single IP to trigger alert
+PORT_SCAN_WINDOW = 300    # Time window in seconds (5 min)
+
+# Data exfiltration thresholds
+EXFIL_THRESHOLD_MB = 500  # MB outbound from internal host
+EXFIL_RATIO_THRESHOLD = 10  # Outbound/Inbound ratio
+
+# DNS tunneling indicators
+DNS_QUERY_THRESHOLD = 100  # Queries per minute to trigger
+DNS_TXT_THRESHOLD = 20     # TXT record lookups
+
+# Time-based anomaly (off-hours)
+BUSINESS_HOURS_START = 7   # 7 AM
+BUSINESS_HOURS_END = 22    # 10 PM
+OFF_HOURS_THRESHOLD_MB = 100  # MB during off-hours to alert
+
+# Tracking for advanced detection
+_port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
+_connection_tracker = {}  # {ip: {count: int, bytes: int}}
+_seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
+_protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
+
 # Allow override via environment variable, default per project docs
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 
@@ -980,6 +1006,375 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 _alert_history.append(alert)
 
     return alerts
+
+
+def detect_port_scan(flow_data):
+    """Detect port scanning - single IP hitting many ports."""
+    global _port_scan_tracker
+    alerts = []
+    current_time = time.time()
+    
+    # Clean old entries
+    _port_scan_tracker = {ip: data for ip, data in _port_scan_tracker.items() 
+                          if current_time - data.get('first_seen', 0) < PORT_SCAN_WINDOW}
+    
+    for flow in flow_data:
+        src_ip = flow.get('src_ip') or flow.get('key')
+        dst_port = flow.get('dst_port') or flow.get('port')
+        if not src_ip or not dst_port:
+            continue
+        
+        # Only track external IPs scanning internal
+        if not any(src_ip.startswith(net) for net in INTERNAL_NETS):
+            if src_ip not in _port_scan_tracker:
+                _port_scan_tracker[src_ip] = {'ports': set(), 'first_seen': current_time}
+            
+            _port_scan_tracker[src_ip]['ports'].add(dst_port)
+            
+            if len(_port_scan_tracker[src_ip]['ports']) >= PORT_SCAN_THRESHOLD:
+                alerts.append({
+                    "type": "port_scan",
+                    "msg": f"🔍 Port Scan Detected: {src_ip} probed {len(_port_scan_tracker[src_ip]['ports'])} ports",
+                    "severity": "high",
+                    "ip": src_ip,
+                    "ports_scanned": len(_port_scan_tracker[src_ip]['ports']),
+                    "ts": current_time,
+                    "mitre": "T1046"  # Network Service Discovery
+                })
+                # Reset to avoid repeated alerts
+                _port_scan_tracker[src_ip]['ports'] = set()
+    
+    return alerts
+
+
+def detect_brute_force(flow_data):
+    """Detect brute force attempts - many connections to auth ports."""
+    alerts = []
+    auth_attempts = defaultdict(lambda: {'count': 0, 'bytes': 0})
+    
+    for flow in flow_data:
+        dst_port = flow.get('dst_port') or flow.get('port')
+        src_ip = flow.get('src_ip') or flow.get('key')
+        
+        try:
+            dst_port = int(dst_port)
+        except (ValueError, TypeError):
+            continue
+        
+        if dst_port in BRUTE_FORCE_PORTS and src_ip:
+            auth_attempts[src_ip]['count'] += flow.get('flows', 1)
+            auth_attempts[src_ip]['port'] = dst_port
+    
+    for ip, data in auth_attempts.items():
+        if data['count'] >= 50:  # 50+ connection attempts
+            service = PORTS.get(data['port'], f"Port {data['port']}")
+            alerts.append({
+                "type": "brute_force",
+                "msg": f"🔐 Possible Brute Force: {ip} → {service} ({data['count']} attempts)",
+                "severity": "high",
+                "ip": ip,
+                "port": data['port'],
+                "attempts": data['count'],
+                "ts": time.time(),
+                "mitre": "T1110"  # Brute Force
+            })
+    
+    return alerts
+
+
+def detect_data_exfiltration(sources_data, destinations_data):
+    """Detect potential data exfiltration - large outbound from internal hosts."""
+    alerts = []
+    
+    # Build inbound/outbound map for internal hosts
+    internal_traffic = defaultdict(lambda: {'in': 0, 'out': 0})
+    
+    for item in sources_data:
+        ip = item.get('key')
+        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+            internal_traffic[ip]['out'] += item.get('bytes', 0)
+    
+    for item in (destinations_data or []):
+        ip = item.get('key')
+        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+            internal_traffic[ip]['in'] += item.get('bytes', 0)
+    
+    for ip, traffic in internal_traffic.items():
+        out_mb = traffic['out'] / (1024 * 1024)
+        in_mb = max(traffic['in'] / (1024 * 1024), 0.1)  # Avoid div by 0
+        ratio = out_mb / in_mb
+        
+        if out_mb >= EXFIL_THRESHOLD_MB:
+            alerts.append({
+                "type": "data_exfil",
+                "msg": f"📤 Large Outbound: {ip} sent {out_mb:.1f} MB",
+                "severity": "high",
+                "ip": ip,
+                "bytes_out": traffic['out'],
+                "ratio": ratio,
+                "ts": time.time(),
+                "mitre": "T1041"  # Exfiltration Over C2 Channel
+            })
+        elif ratio >= EXFIL_RATIO_THRESHOLD and out_mb >= 50:  # At least 50MB with high ratio
+            alerts.append({
+                "type": "data_exfil",
+                "msg": f"📤 Suspicious Outbound Ratio: {ip} ({ratio:.1f}x out/in)",
+                "severity": "medium",
+                "ip": ip,
+                "bytes_out": traffic['out'],
+                "ratio": ratio,
+                "ts": time.time(),
+                "mitre": "T1041"
+            })
+    
+    return alerts
+
+
+def detect_dns_anomaly(flow_data):
+    """Detect DNS tunneling indicators - excessive DNS queries."""
+    alerts = []
+    dns_queries = defaultdict(int)
+    
+    for flow in flow_data:
+        dst_port = flow.get('dst_port') or flow.get('port')
+        src_ip = flow.get('src_ip') or flow.get('key')
+        
+        try:
+            if int(dst_port) == 53:
+                dns_queries[src_ip] += flow.get('flows', 1)
+        except (ValueError, TypeError):
+            continue
+    
+    for ip, count in dns_queries.items():
+        if count >= DNS_QUERY_THRESHOLD:
+            alerts.append({
+                "type": "dns_tunneling",
+                "msg": f"🌐 Excessive DNS: {ip} made {count} queries",
+                "severity": "medium",
+                "ip": ip,
+                "query_count": count,
+                "ts": time.time(),
+                "mitre": "T1071.004"  # DNS Protocol
+            })
+    
+    return alerts
+
+
+def detect_new_external(sources_data, destinations_data):
+    """Detect first-time connections to new countries/ASNs."""
+    global _seen_external
+    alerts = []
+    
+    all_ips = set()
+    for item in sources_data:
+        all_ips.add(item.get('key'))
+    for item in (destinations_data or []):
+        all_ips.add(item.get('key'))
+    
+    for ip in all_ips:
+        if not ip or any(ip.startswith(net) for net in INTERNAL_NETS):
+            continue
+        
+        geo = lookup_geo(ip)
+        if geo:
+            country = geo.get('country_code')
+            asn = geo.get('asn')
+            
+            if country and country not in _seen_external['countries']:
+                _seen_external['countries'].add(country)
+                # Only alert after initial population (don't flood on startup)
+                if len(_seen_external['countries']) > 10:
+                    alerts.append({
+                        "type": "new_country",
+                        "msg": f"🌍 First Contact: {country} ({geo.get('country_name', 'Unknown')})",
+                        "severity": "low",
+                        "ip": ip,
+                        "country": country,
+                        "ts": time.time(),
+                        "mitre": "T1071"
+                    })
+            
+            if asn and asn not in _seen_external['asns']:
+                _seen_external['asns'].add(asn)
+                if len(_seen_external['asns']) > 50:
+                    alerts.append({
+                        "type": "new_asn",
+                        "msg": f"🏢 New ASN Contact: AS{asn} ({geo.get('asn_name', 'Unknown')[:30]})",
+                        "severity": "low",
+                        "ip": ip,
+                        "asn": asn,
+                        "ts": time.time(),
+                        "mitre": "T1071"
+                    })
+    
+    return alerts
+
+
+def detect_lateral_movement(flow_data):
+    """Detect internal-to-internal traffic spikes."""
+    alerts = []
+    internal_pairs = defaultdict(lambda: {'bytes': 0, 'flows': 0})
+    
+    for flow in flow_data:
+        src_ip = flow.get('src_ip') or flow.get('key')
+        dst_ip = flow.get('dst_ip')
+        
+        if not src_ip or not dst_ip:
+            continue
+        
+        src_internal = any(src_ip.startswith(net) for net in INTERNAL_NETS)
+        dst_internal = any(dst_ip.startswith(net) for net in INTERNAL_NETS)
+        
+        if src_internal and dst_internal and src_ip != dst_ip:
+            pair_key = f"{src_ip}->{dst_ip}"
+            internal_pairs[pair_key]['bytes'] += flow.get('bytes', 0)
+            internal_pairs[pair_key]['flows'] += flow.get('flows', 1)
+            internal_pairs[pair_key]['src'] = src_ip
+            internal_pairs[pair_key]['dst'] = dst_ip
+    
+    for pair, data in internal_pairs.items():
+        mb = data['bytes'] / (1024 * 1024)
+        if mb >= 100 or data['flows'] >= 1000:  # 100MB or 1000 flows internal
+            alerts.append({
+                "type": "lateral_movement",
+                "msg": f"↔️ Internal Transfer: {data['src']} → {data['dst']} ({mb:.1f} MB)",
+                "severity": "medium",
+                "src_ip": data['src'],
+                "dst_ip": data['dst'],
+                "bytes": data['bytes'],
+                "flows": data['flows'],
+                "ts": time.time(),
+                "mitre": "T1021"  # Remote Services
+            })
+    
+    return alerts
+
+
+def detect_protocol_anomaly(protocols_data):
+    """Detect unusual protocol usage patterns."""
+    global _protocol_baseline
+    alerts = []
+    
+    for proto in protocols_data:
+        proto_name = proto.get('proto') or proto.get('key')
+        proto_bytes = proto.get('bytes', 0)
+        
+        if proto_name not in _protocol_baseline:
+            _protocol_baseline[proto_name] = {'total_bytes': proto_bytes, 'samples': 1}
+        else:
+            baseline = _protocol_baseline[proto_name]
+            avg = baseline['total_bytes'] / baseline['samples']
+            
+            # Update baseline (exponential moving average)
+            baseline['total_bytes'] += proto_bytes
+            baseline['samples'] += 1
+            
+            # Alert if 5x average and significant volume
+            if proto_bytes > avg * 5 and proto_bytes > 10 * 1024 * 1024:  # 10MB minimum
+                alerts.append({
+                    "type": "protocol_anomaly",
+                    "msg": f"⚡ Protocol Spike: {proto_name} at {fmt_bytes(proto_bytes)} (5x normal)",
+                    "severity": "medium",
+                    "protocol": proto_name,
+                    "bytes": proto_bytes,
+                    "avg_bytes": avg,
+                    "ts": time.time(),
+                    "mitre": "T1095"  # Non-Application Layer Protocol
+                })
+    
+    return alerts
+
+
+def detect_off_hours_activity(sources_data):
+    """Detect significant activity during off-hours."""
+    alerts = []
+    current_hour = datetime.now().hour
+    
+    # Check if outside business hours
+    if current_hour >= BUSINESS_HOURS_START and current_hour < BUSINESS_HOURS_END:
+        return alerts  # During business hours, no alerts
+    
+    for item in sources_data:
+        ip = item.get('key')
+        bytes_val = item.get('bytes', 0)
+        mb = bytes_val / (1024 * 1024)
+        
+        # Only internal hosts
+        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+            if mb >= OFF_HOURS_THRESHOLD_MB:
+                alerts.append({
+                    "type": "off_hours",
+                    "msg": f"🌙 Off-Hours Activity: {ip} transferred {mb:.1f} MB at {current_hour}:00",
+                    "severity": "low",
+                    "ip": ip,
+                    "bytes": bytes_val,
+                    "hour": current_hour,
+                    "ts": time.time(),
+                    "mitre": "T1029"  # Scheduled Transfer
+                })
+    
+    return alerts
+
+
+def run_all_detections(ports_data, sources_data, destinations_data, protocols_data, flow_data=None):
+    """Run all detection algorithms and aggregate alerts."""
+    all_alerts = []
+    
+    # Basic flow data (simplified if not provided)
+    if flow_data is None:
+        flow_data = sources_data + (destinations_data or [])
+    
+    try:
+        all_alerts.extend(detect_port_scan(flow_data))
+    except Exception as e:
+        print(f"Port scan detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_brute_force(flow_data))
+    except Exception as e:
+        print(f"Brute force detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_data_exfiltration(sources_data, destinations_data))
+    except Exception as e:
+        print(f"Data exfil detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_dns_anomaly(flow_data))
+    except Exception as e:
+        print(f"DNS anomaly detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_new_external(sources_data, destinations_data))
+    except Exception as e:
+        print(f"New external detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_lateral_movement(flow_data))
+    except Exception as e:
+        print(f"Lateral movement detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_protocol_anomaly(protocols_data))
+    except Exception as e:
+        print(f"Protocol anomaly detection error: {e}")
+    
+    try:
+        all_alerts.extend(detect_off_hours_activity(sources_data))
+    except Exception as e:
+        print(f"Off-hours detection error: {e}")
+    
+    # Add all new alerts to history
+    with _alert_history_lock:
+        for alert in all_alerts:
+            if 'ts' not in alert:
+                alert['ts'] = time.time()
+            # Avoid duplicates in recent history
+            existing_keys = {(a.get('type'), a.get('ip'), a.get('msg')) for a in list(_alert_history)[-50:]}
+            if (alert.get('type'), alert.get('ip'), alert.get('msg')) not in existing_keys:
+                _alert_history.append(alert)
+    
+    return all_alerts
 
 
 def fmt_bytes(b):
@@ -2294,6 +2689,187 @@ def api_export_threats():
     })
 
 
+@app.route('/api/security/attack-timeline')
+@throttle(5, 10)
+def api_attack_timeline():
+    """Get attack timeline data for visualization (24h hourly breakdown)."""
+    now = time.time()
+    cutoff = now - 86400  # 24 hours
+    
+    with _alert_history_lock:
+        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    
+    # Build hourly buckets
+    timeline = []
+    for i in range(24):
+        hour_start = now - ((23 - i) * 3600)
+        hour_end = hour_start + 3600
+        hour_label = time.strftime('%H:00', time.localtime(hour_start))
+        
+        hour_alerts = [a for a in recent if hour_start <= a.get('ts', 0) < hour_end]
+        
+        by_type = defaultdict(int)
+        by_severity = defaultdict(int)
+        for a in hour_alerts:
+            by_type[a.get('type', 'unknown')] += 1
+            by_severity[a.get('severity', 'low')] += 1
+        
+        timeline.append({
+            'hour': hour_label,
+            'timestamp': hour_start,
+            'total': len(hour_alerts),
+            'by_type': dict(by_type),
+            'by_severity': dict(by_severity),
+            'critical': by_severity.get('critical', 0),
+            'high': by_severity.get('high', 0),
+            'medium': by_severity.get('medium', 0),
+            'low': by_severity.get('low', 0)
+        })
+    
+    # Peak hour
+    peak = max(timeline, key=lambda x: x['total']) if timeline else None
+    
+    return jsonify({
+        'timeline': timeline,
+        'peak_hour': peak.get('hour') if peak else None,
+        'peak_count': peak.get('total') if peak else 0,
+        'total_24h': sum(t['total'] for t in timeline)
+    })
+
+
+@app.route('/api/security/mitre-heatmap')
+@throttle(5, 10)
+def api_mitre_heatmap():
+    """Get MITRE ATT&CK technique coverage from alerts."""
+    now = time.time()
+    cutoff = now - 86400  # 24 hours
+    
+    with _alert_history_lock:
+        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    
+    # Count by MITRE technique
+    techniques = defaultdict(lambda: {'count': 0, 'alerts': [], 'tactic': '', 'name': ''})
+    
+    for alert in recent:
+        mitre = alert.get('mitre', '')
+        if mitre:
+            techniques[mitre]['count'] += 1
+            if len(techniques[mitre]['alerts']) < 5:
+                techniques[mitre]['alerts'].append({
+                    'type': alert.get('type'),
+                    'msg': alert.get('msg', '')[:50],
+                    'severity': alert.get('severity')
+                })
+    
+    # Enrich with MITRE info
+    mitre_info = {
+        'T1046': {'tactic': 'Discovery', 'name': 'Network Service Discovery'},
+        'T1110': {'tactic': 'Credential Access', 'name': 'Brute Force'},
+        'T1041': {'tactic': 'Exfiltration', 'name': 'Exfiltration Over C2 Channel'},
+        'T1071': {'tactic': 'Command and Control', 'name': 'Application Layer Protocol'},
+        'T1071.004': {'tactic': 'Command and Control', 'name': 'DNS'},
+        'T1021': {'tactic': 'Lateral Movement', 'name': 'Remote Services'},
+        'T1095': {'tactic': 'Command and Control', 'name': 'Non-Application Layer Protocol'},
+        'T1029': {'tactic': 'Exfiltration', 'name': 'Scheduled Transfer'},
+        'T1190': {'tactic': 'Initial Access', 'name': 'Exploit Public-Facing Application'},
+        'T1105': {'tactic': 'Command and Control', 'name': 'Ingress Tool Transfer'},
+        'T1595': {'tactic': 'Reconnaissance', 'name': 'Active Scanning'},
+        'T1090': {'tactic': 'Command and Control', 'name': 'Proxy'},
+        'T1584': {'tactic': 'Resource Development', 'name': 'Compromise Infrastructure'},
+        'T1583': {'tactic': 'Resource Development', 'name': 'Acquire Infrastructure'},
+    }
+    
+    heatmap = []
+    for tech_id, data in techniques.items():
+        info = mitre_info.get(tech_id, {'tactic': 'Unknown', 'name': tech_id})
+        heatmap.append({
+            'technique': tech_id,
+            'tactic': info['tactic'],
+            'name': info['name'],
+            'count': data['count'],
+            'alerts': data['alerts']
+        })
+    
+    # Sort by count descending
+    heatmap.sort(key=lambda x: x['count'], reverse=True)
+    
+    # Group by tactic for visualization
+    by_tactic = defaultdict(list)
+    for item in heatmap:
+        by_tactic[item['tactic']].append(item)
+    
+    return jsonify({
+        'techniques': heatmap,
+        'by_tactic': dict(by_tactic),
+        'total_techniques': len(heatmap),
+        'total_detections': sum(t['count'] for t in heatmap)
+    })
+
+
+@app.route('/api/security/protocol-anomalies')
+@throttle(5, 10)
+def api_protocol_anomalies():
+    """Get protocol anomaly data for Security Center."""
+    global _protocol_baseline
+    
+    range_key = request.args.get('range', '1h')
+    protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+    
+    anomalies = []
+    for proto in protocols_data:
+        proto_name = proto.get('key') or proto.get('proto')
+        proto_bytes = proto.get('bytes', 0)
+        
+        baseline = _protocol_baseline.get(proto_name, {})
+        avg = baseline.get('total_bytes', proto_bytes) / max(baseline.get('samples', 1), 1)
+        
+        deviation = (proto_bytes / avg) if avg > 0 else 1
+        
+        anomalies.append({
+            'protocol': proto_name,
+            'bytes': proto_bytes,
+            'bytes_fmt': fmt_bytes(proto_bytes),
+            'avg_bytes': avg,
+            'avg_fmt': fmt_bytes(avg),
+            'deviation': round(deviation, 2),
+            'is_anomaly': deviation > 2.0 and proto_bytes > 5 * 1024 * 1024,  # 2x+ and 5MB+
+            'flows': proto.get('flows', 0)
+        })
+    
+    # Sort anomalies first, then by deviation
+    anomalies.sort(key=lambda x: (not x['is_anomaly'], -x['deviation']))
+    
+    return jsonify({
+        'protocols': anomalies,
+        'anomaly_count': sum(1 for a in anomalies if a['is_anomaly']),
+        'baseline_samples': sum(b.get('samples', 0) for b in _protocol_baseline.values())
+    })
+
+
+@app.route('/api/security/run-detection')
+@throttle(2, 10)
+def api_run_detection():
+    """Manually trigger all detection algorithms."""
+    range_key = request.args.get('range', '1h')
+    
+    try:
+        ports_data = get_common_nfdump_data("ports", range_key)[:50]
+        sources_data = get_common_nfdump_data("sources", range_key)[:50]
+        destinations_data = get_common_nfdump_data("destinations", range_key)[:50]
+        protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+        
+        # Run all detections
+        new_alerts = run_all_detections(ports_data, sources_data, destinations_data, protocols_data)
+        
+        return jsonify({
+            'status': 'ok',
+            'new_alerts': len(new_alerts),
+            'alerts': new_alerts[:20]
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 @app.route('/api/security/threats/by_country')
 @throttle(5, 10)
 def api_threats_by_country():
@@ -2436,8 +3012,10 @@ def api_risk_index():
         risk_factors.append({'factor': 'Active Threats', 'value': f'{threat_count} IPs', 'impact': 'critical', 'points': 30})
     
     # Factor 2: Threat velocity (0-20 points)
-    current_hour = int(time.time() // 3600) % 24
-    hourly_threats = _threat_hourly_buckets.get(current_hour, 0)
+    # Count threats seen in the last hour
+    one_hour_ago = time.time() - 3600
+    hourly_threats = len([ip for ip in _threat_timeline 
+                          if _threat_timeline[ip]['last_seen'] >= one_hour_ago])
     if hourly_threats == 0:
         risk_factors.append({'factor': 'Threat Velocity', 'value': '0/hr', 'impact': 'low', 'points': 0})
     elif hourly_threats <= 5:

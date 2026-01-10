@@ -57,7 +57,7 @@ document.addEventListener('alpine:init', () => {
         feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
         
         // Security Features
-        securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true },
+        securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null },
         alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
         threatsByCountry: { countries: [], loading: true },
         watchlist: { watchlist: [], count: 0, loading: true },
@@ -67,6 +67,15 @@ document.addEventListener('alpine:init', () => {
         threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
         topThreatIPs: { ips: [], loading: true },
         riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
+
+        // New Security Widgets
+        attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true },
+        mitreHeatmap: { techniques: [], by_tactic: {}, total_techniques: 0, loading: true },
+        protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
+        
+        // Alert Filtering
+        alertFilter: { severity: 'all', type: 'all' },
+        alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'watchlist', 'off_hours', 'new_country', 'protocol_anomaly'],
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -597,6 +606,10 @@ document.addEventListener('alpine:init', () => {
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
                 this.fetchRiskIndex();
+                // New security widgets
+                this.fetchAttackTimeline();
+                this.fetchMitreHeatmap();
+                this.fetchProtocolAnomalies();
             }
 
             // New Features
@@ -773,6 +786,12 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch('/api/security/score');
                 if (res.ok) {
                     const d = await res.json();
+                    // Track trend
+                    const prevScore = this.securityScore.score;
+                    if (prevScore && prevScore !== d.score) {
+                        d.trend = d.score > prevScore ? 'up' : 'down';
+                        d.prevScore = prevScore;
+                    }
                     this.securityScore = { ...d, loading: false };
                 }
             } catch (e) { console.error('Security score fetch error:', e); }
@@ -789,6 +808,126 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (e) { console.error('Alert history fetch error:', e); }
             finally { this.alertHistory.loading = false; }
+        },
+
+        async fetchAttackTimeline() {
+            this.attackTimeline.loading = true;
+            try {
+                const res = await fetch('/api/security/attack-timeline');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.attackTimeline = { ...d, loading: false };
+                    this.renderAttackTimelineChart();
+                }
+            } catch (e) { console.error('Attack timeline fetch error:', e); }
+            finally { this.attackTimeline.loading = false; }
+        },
+
+        async fetchMitreHeatmap() {
+            this.mitreHeatmap.loading = true;
+            try {
+                const res = await fetch('/api/security/mitre-heatmap');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.mitreHeatmap = { ...d, loading: false };
+                }
+            } catch (e) { console.error('MITRE heatmap fetch error:', e); }
+            finally { this.mitreHeatmap.loading = false; }
+        },
+
+        async fetchProtocolAnomalies() {
+            this.protocolAnomalies.loading = true;
+            try {
+                const res = await fetch('/api/security/protocol-anomalies?range=' + this.timeRange);
+                if (res.ok) {
+                    const d = await res.json();
+                    this.protocolAnomalies = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Protocol anomalies fetch error:', e); }
+            finally { this.protocolAnomalies.loading = false; }
+        },
+
+        async runDetection() {
+            this.showToast('Running detection algorithms...', 'info');
+            try {
+                const res = await fetch('/api/security/run-detection?range=' + this.timeRange);
+                if (res.ok) {
+                    const d = await res.json();
+                    this.showToast(`Detection complete: ${d.new_alerts} new alerts`, d.new_alerts > 0 ? 'warning' : 'success');
+                    // Refresh alert history
+                    this.fetchAlertHistory();
+                    this.fetchAttackTimeline();
+                }
+            } catch (e) {
+                console.error('Detection error:', e);
+                this.showToast('Detection failed', 'error');
+            }
+        },
+
+        renderAttackTimelineChart() {
+            const canvas = document.getElementById('attackTimelineChart');
+            if (!canvas || !this.attackTimeline.timeline) return;
+            
+            const ctx = canvas.getContext('2d');
+            if (this._attackTimelineChart) this._attackTimelineChart.destroy();
+            
+            const labels = this.attackTimeline.timeline.map(t => t.hour);
+            const critical = this.attackTimeline.timeline.map(t => t.critical || 0);
+            const high = this.attackTimeline.timeline.map(t => t.high || 0);
+            const medium = this.attackTimeline.timeline.map(t => t.medium || 0);
+            const low = this.attackTimeline.timeline.map(t => t.low || 0);
+            
+            this._attackTimelineChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Critical', data: critical, backgroundColor: 'rgba(255, 0, 60, 0.8)', stack: 'a' },
+                        { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a' },
+                        { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a' },
+                        { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top', labels: { color: '#888', boxWidth: 12, padding: 8 } } },
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
+                        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } }
+                    }
+                }
+            });
+        },
+
+        get filteredAlerts() {
+            let alerts = this.alertHistory.alerts || [];
+            if (this.alertFilter.severity !== 'all') {
+                alerts = alerts.filter(a => a.severity === this.alertFilter.severity);
+            }
+            if (this.alertFilter.type !== 'all') {
+                alerts = alerts.filter(a => a.type === this.alertFilter.type);
+            }
+            return alerts;
+        },
+
+        async blockThreatIP(ip) {
+            if (!confirm(`Block ${ip} via security webhook?`)) return;
+            try {
+                const res = await fetch('/api/security/block', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip, action: 'block' })
+                });
+                if (res.ok) {
+                    this.showToast(`Sent block request for ${ip}`, 'success');
+                } else {
+                    this.showToast('Block request failed', 'error');
+                }
+            } catch (e) {
+                console.error('Block error:', e);
+                this.showToast('Block request failed', 'error');
+            }
         },
 
         async fetchThreatsByCountry() {

@@ -293,17 +293,32 @@ apt-get install snmp python3-pysnmp4
 - **Top ASNs** - Autonomous System traffic bars
 - **Top Countries** - Geographic traffic distribution (pie chart)
 
-### Security Center (10 widgets)
-- **Security Score** - 0-100 gauge with grade
-- **Alert History (24h)** - Recent alerts by severity
+### Security Center (13 widgets)
+
+- **Security Score** - 0-100 gauge with grade + trend indicator (↑/↓)
+- **Alert History (24h)** - Recent alerts with severity/type filtering
 - **Threats by Country** - Geo breakdown of threats
-- **Threat Detections** - Active threat IP table
+- **Threat Detections** - Active threat IP table with block button
 - **Feed Health** - Compact 2-column feed status list
 - **Top Malicious Ports** - Suspicious port activity
 - **Blocklist Match Rate** - Time-series chart
 - **Threat Velocity** - Threats/hr with trend
 - **Top Threat IPs** - Ranked threat IPs with hits
 - **Network Risk Index** - Risk meter with factors
+- **Attack Timeline** - 24h stacked bar chart by severity
+- **MITRE ATT&CK Heatmap** - Technique coverage visualization
+- **Protocol Anomalies** - Protocol deviation detection
+
+### Advanced Detection Algorithms
+
+- **Port Scan Detection** - Detects IPs scanning multiple ports
+- **Brute Force Detection** - Monitors auth port connection attempts
+- **Data Exfiltration** - Large outbound transfer detection
+- **DNS Tunneling** - Abnormal DNS query patterns
+- **Lateral Movement** - Internal-to-internal traffic spikes
+- **Protocol Anomaly** - Unusual protocol distributions
+- **Off-Hours Activity** - After-hours traffic alerts
+- **New External Connections** - First-seen country/ASN tracking
 
 ## 🔐 Security Considerations
 
@@ -315,6 +330,6 @@ apt-get install snmp python3-pysnmp4
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.3 - New Widgets)  
+**Last Updated**: January 10, 2026 (v2.4 - Security Center Enhancements)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs
