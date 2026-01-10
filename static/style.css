@@ -1601,6 +1601,163 @@ body {
 }
 
 /* ============================================
+   THREAT VELOCITY WIDGET
+   ============================================ */
+.velocity-display {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.velocity-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.velocity-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.5em;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.velocity-unit {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.velocity-trend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    width: fit-content;
+}
+
+.velocity-trend.trend-up {
+    background: rgba(255, 0, 60, 0.15);
+    color: var(--neon-red);
+}
+
+.velocity-trend.trend-down {
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--neon-green);
+}
+
+.velocity-trend.trend-stable {
+    background: rgba(255, 204, 0, 0.15);
+    color: var(--neon-yellow);
+}
+
+.trend-label {
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+.velocity-stats {
+    display: flex;
+    gap: 20px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.velocity-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.velocity-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: var(--neon-cyan);
+}
+
+.velocity-stat-label {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* ============================================
+   TOP THREAT IPS WIDGET
+   ============================================ */
+.threat-ips-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.threat-ip-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 0, 60, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid var(--neon-red);
+}
+
+.threat-ip-rank {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 700;
+    color: var(--text-muted);
+    width: 20px;
+    text-align: center;
+}
+
+.threat-ip-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.threat-ip-addr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95em;
+    color: var(--neon-yellow);
+}
+
+.threat-ip-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8em;
+}
+
+.threat-ip-meta .badge {
+    font-size: 0.75em;
+    padding: 1px 5px;
+}
+
+.threat-ip-hits {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.hits-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--neon-red);
+}
+
+.hits-label {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* ============================================
    SECURITY CENTER
    ============================================ */
 .security-center {

@@ -2330,6 +2330,86 @@ def api_threats_by_country():
     })
 
 
+@app.route('/api/security/threat_velocity')
+@throttle(5, 10)
+def api_threat_velocity():
+    """Get threat detection velocity (threats per hour)"""
+    now = time.time()
+    hour_ago = now - 3600
+    two_hours_ago = now - 7200
+    day_ago = now - 86400
+    
+    # Count threats in different time windows
+    current_hour = 0
+    last_hour = 0
+    total_24h = 0
+    hourly_counts = defaultdict(int)
+    
+    with _alert_history_lock:
+        for alert in _alert_history:
+            ts = alert.get('ts', 0)
+            if ts > day_ago:
+                total_24h += 1
+                hour_bucket = int((now - ts) // 3600)
+                hourly_counts[hour_bucket] += 1
+                
+                if ts > hour_ago:
+                    current_hour += 1
+                elif ts > two_hours_ago:
+                    last_hour += 1
+    
+    # Calculate trend (% change from last hour)
+    if last_hour > 0:
+        trend = int(((current_hour - last_hour) / last_hour) * 100)
+    elif current_hour > 0:
+        trend = 100
+    else:
+        trend = 0
+    
+    # Find peak hour
+    peak = max(hourly_counts.values()) if hourly_counts else 0
+    
+    return jsonify({
+        'current': current_hour,
+        'trend': trend,
+        'total_24h': total_24h,
+        'peak': peak,
+        'hourly': dict(hourly_counts)
+    })
+
+
+@app.route('/api/security/top_threat_ips')
+@throttle(5, 10)
+def api_top_threat_ips():
+    """Get top threat IPs by hit count"""
+    now = time.time()
+    
+    # Get IPs with timeline data from last 24h
+    threat_ips = []
+    for ip, timeline in _threat_timeline.items():
+        if now - timeline['last_seen'] < 86400:
+            info = get_threat_info(ip)
+            geo = lookup_geo(ip) or {}
+            threat_ips.append({
+                'ip': ip,
+                'hits': timeline.get('hit_count', 1),
+                'first_seen': timeline.get('first_seen'),
+                'last_seen': timeline.get('last_seen'),
+                'category': info.get('category', 'UNKNOWN'),
+                'feed': info.get('feed', 'unknown'),
+                'country': geo.get('country_code', '--'),
+                'mitre': info.get('mitre_technique', '')
+            })
+    
+    # Sort by hits descending
+    threat_ips.sort(key=lambda x: x['hits'], reverse=True)
+    
+    return jsonify({
+        'ips': threat_ips[:10],
+        'total': len(threat_ips)
+    })
+
+
 @app.route('/api/security/watchlist', methods=['GET'])
 @throttle(5, 10)
 def api_get_watchlist():

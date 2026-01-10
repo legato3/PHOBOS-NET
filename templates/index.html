@@ -938,6 +938,83 @@
                 </div>
             </div>
 
+            <!-- Threat Velocity Widget -->
+            <template x-if="isVisible('threatVelocity')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('threatVelocity') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>📈 Threat Velocity</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('threatVelocity')" :title="isMinimized('threatVelocity') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatVelocity')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatVelocity')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="threatVelocity.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="velocity-display" x-show="!isMinimized('threatVelocity')">
+                        <div class="velocity-main">
+                            <span class="velocity-value" :class="{ 'text-green': threatVelocity.current === 0, 'text-yellow': threatVelocity.current > 0 && threatVelocity.current < 5, 'text-red': threatVelocity.current >= 5 }" x-text="threatVelocity.current || 0"></span>
+                            <span class="velocity-unit">threats/hr</span>
+                        </div>
+                        <div class="velocity-trend" :class="{ 'trend-up': threatVelocity.trend > 0, 'trend-down': threatVelocity.trend < 0, 'trend-stable': threatVelocity.trend === 0 }">
+                            <span x-text="threatVelocity.trend > 0 ? '↑' : threatVelocity.trend < 0 ? '↓' : '→'"></span>
+                            <span x-text="Math.abs(threatVelocity.trend || 0) + '%'"></span>
+                            <span class="trend-label">vs last hour</span>
+                        </div>
+                        <div class="velocity-stats">
+                            <div class="velocity-stat">
+                                <span class="velocity-stat-value" x-text="threatVelocity.total_24h || 0"></span>
+                                <span class="velocity-stat-label">24h Total</span>
+                            </div>
+                            <div class="velocity-stat">
+                                <span class="velocity-stat-value" x-text="threatVelocity.peak || 0"></span>
+                                <span class="velocity-stat-label">Peak/hr</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Top Threat IPs Widget -->
+            <template x-if="isVisible('topThreatIPs')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('topThreatIPs') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>🎯 Top Threat IPs</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('topThreatIPs')" :title="isMinimized('topThreatIPs') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('topThreatIPs')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('topThreatIPs')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="topThreatIPs.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="threat-ips-list" x-show="!isMinimized('topThreatIPs')">
+                        <template x-for="(ip, idx) in (topThreatIPs.ips || []).slice(0, 5)" :key="ip.ip">
+                            <div class="threat-ip-item">
+                                <div class="threat-ip-rank" x-text="idx + 1"></div>
+                                <div class="threat-ip-info">
+                                    <span class="threat-ip-addr" x-text="ip.ip"></span>
+                                    <span class="threat-ip-meta">
+                                        <span class="badge" :class="'cat-' + (ip.category || 'unknown').toLowerCase()" x-text="ip.category || 'Unknown'"></span>
+                                        <span x-text="ip.country || '--'"></span>
+                                    </span>
+                                </div>
+                                <div class="threat-ip-hits">
+                                    <span class="hits-value" x-text="ip.hits"></span>
+                                    <span class="hits-label">hits</span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!topThreatIPs.ips || topThreatIPs.ips.length === 0">
+                            <div class="empty-state-compact">
+                                <span class="empty-icon">✅</span>
+                                <span>No threat IPs detected</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
                 </div> <!-- End security-grid -->
             </div> <!-- End security-center-content -->
         </div> <!-- End security-center -->

@@ -61,6 +61,8 @@ document.addEventListener('alpine:init', () => {
         watchlistInput: '',
         alertHistoryOpen: false,
         watchlistModalOpen: false,
+        threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
+        topThreatIPs: { ips: [], loading: true },
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -95,6 +97,8 @@ document.addEventListener('alpine:init', () => {
             securityScore: 'Security Score',
             alertHistory: 'Alert History',
             threatsByCountry: 'Threats by Country',
+            threatVelocity: 'Threat Velocity',
+            topThreatIPs: 'Top Threat IPs',
             conversations: 'Recent Conversations'
         },
 
@@ -418,6 +422,8 @@ document.addEventListener('alpine:init', () => {
                 this.fetchAlertHistory();
                 this.fetchThreatsByCountry();
                 this.fetchWatchlist();
+                this.fetchThreatVelocity();
+                this.fetchTopThreatIPs();
             }
 
             // New Features
@@ -622,6 +628,30 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (e) { console.error('Threats by country fetch error:', e); }
             finally { this.threatsByCountry.loading = false; }
+        },
+
+        async fetchThreatVelocity() {
+            this.threatVelocity.loading = true;
+            try {
+                const res = await fetch('/api/security/threat_velocity');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.threatVelocity = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Threat velocity fetch error:', e); }
+            finally { this.threatVelocity.loading = false; }
+        },
+
+        async fetchTopThreatIPs() {
+            this.topThreatIPs.loading = true;
+            try {
+                const res = await fetch('/api/security/top_threat_ips');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.topThreatIPs = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Top threat IPs fetch error:', e); }
+            finally { this.topThreatIPs.loading = false; }
         },
 
         async fetchWatchlist() {
@@ -1190,6 +1220,8 @@ document.addEventListener('alpine:init', () => {
                 securityScore: true,
                 alertHistory: true,
                 threatsByCountry: true,
+                threatVelocity: true,
+                topThreatIPs: true,
                 conversations: true
             };
             try {
