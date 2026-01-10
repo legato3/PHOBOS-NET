@@ -133,7 +133,7 @@ button.active {
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
 }
 
@@ -3469,6 +3469,22 @@ body.compact-mode {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         white-space: nowrap;
+        scrollbar-width: thin;
+        scrollbar-color: var(--neon-cyan) rgba(255,255,255,0.1);
+    }
+    
+    .card table::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .card table::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 3px;
+    }
+    
+    .card table::-webkit-scrollbar-thumb {
+        background: var(--neon-cyan);
+        border-radius: 3px;
     }
     
     .card table thead,
@@ -3786,7 +3802,7 @@ body.compact-mode {
 @media (max-width: 480px) {
     body {
         padding: 8px;
-        padding-bottom: 75px !important;
+        padding-bottom: 80px !important;
         font-size: 13px;
     }
     
@@ -3800,6 +3816,44 @@ body.compact-mode {
     
     .controls select {
         font-size: 13px;
+    }
+    
+    /* Mobile Stats Bar */
+    .mobile-stats-bar {
+        padding: 6px 8px;
+        gap: 10px;
+    }
+    
+    .mobile-stat {
+        min-width: 48px;
+    }
+    
+    .mobile-stat-value {
+        font-size: 1em;
+    }
+    
+    .mobile-stat-label {
+        font-size: 0.6em;
+    }
+    
+    /* Mobile Navigation */
+    .mobile-nav {
+        padding: 4px 0;
+        padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    }
+    
+    .mobile-nav-item {
+        padding: 6px 8px;
+        min-width: 48px;
+        gap: 2px;
+    }
+    
+    .mobile-nav-icon {
+        font-size: 1.1em;
+    }
+    
+    .mobile-nav-label {
+        font-size: 0.6em;
     }
     
     /* Single Column Grids */
@@ -4058,11 +4112,29 @@ body.compact-mode {
     padding: 8px;
     color: var(--text-muted);
     font-size: 0.75em;
+    opacity: 0.7;
+    font-style: italic;
 }
 
 @media (max-width: 768px) {
     .table-swipe-hint {
         display: block;
+    }
+    
+    .card:has(table) {
+        position: relative;
+    }
+    
+    /* Scroll shadow indicators */
+    .card table::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 30px;
+        background: linear-gradient(to left, rgba(10, 14, 23, 0.8), transparent);
+        pointer-events: none;
     }
 }
 
