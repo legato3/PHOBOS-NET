@@ -435,13 +435,13 @@
                 <div class="world-map-controls" x-show="!isMinimized('worldmap')">
                     <div class="wm-layer-toggles">
                         <button class="wm-toggle sources" :class="{ active: worldMapLayers.sources }" @click="worldMapLayers.sources = !worldMapLayers.sources" title="Toggle Sources">
-                            <span class="wm-toggle-dot"></span> Sources
+                            <span class="wm-toggle-dot"></span>
                         </button>
                         <button class="wm-toggle destinations" :class="{ active: worldMapLayers.destinations }" @click="worldMapLayers.destinations = !worldMapLayers.destinations" title="Toggle Destinations">
-                            <span class="wm-toggle-dot"></span> Destinations
+                            <span class="wm-toggle-dot"></span>
                         </button>
                         <button class="wm-toggle threats" :class="{ active: worldMapLayers.threats }" @click="worldMapLayers.threats = !worldMapLayers.threats" title="Toggle Threats">
-                            <span class="wm-toggle-dot"></span> Threats
+                            <span class="wm-toggle-dot"></span>
                         </button>
                     </div>
                     <div class="spinner" x-show="worldMap.loading"></div>
