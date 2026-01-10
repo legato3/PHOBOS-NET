@@ -805,31 +805,51 @@
                             <div class="spinner" x-show="feedHealth.loading"></div>
                         </div>
                     </h2>
-                    <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('feedHealth')">
-                        <span class="text-green" x-text="feedHealth.summary?.ok || 0"></span>/<span x-text="feedHealth.summary?.total || 0"></span> feeds OK · 
-                        <span x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span> total IPs · 
-                        Last refresh: <span x-text="feedHealth.summary?.last_refresh || 'never'"></span>
+                    <!-- Summary Bar -->
+                    <div class="feed-summary-bar" x-show="!isMinimized('feedHealth')">
+                        <div class="feed-stat">
+                            <span class="feed-stat-value text-green" x-text="feedHealth.summary?.ok || 0"></span>
+                            <span class="feed-stat-label">OK</span>
+                        </div>
+                        <div class="feed-stat-divider">/</div>
+                        <div class="feed-stat">
+                            <span class="feed-stat-value" x-text="feedHealth.summary?.total || 0"></span>
+                            <span class="feed-stat-label">Feeds</span>
+                        </div>
+                        <div class="feed-stat-sep">·</div>
+                        <div class="feed-stat">
+                            <span class="feed-stat-value text-cyan" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span>
+                            <span class="feed-stat-label">IPs</span>
+                        </div>
+                        <div class="feed-stat-sep">·</div>
+                        <div class="feed-stat">
+                            <span class="feed-stat-value text-muted" x-text="feedHealth.summary?.last_refresh || 'never'"></span>
+                        </div>
                     </div>
-                    <table x-show="!isMinimized('feedHealth')">
-                        <thead><tr><th>Feed</th><th>Category</th><th>Status</th><th>IPs</th><th>Latency</th></tr></thead>
-                        <tbody>
-                            <template x-for="(f, idx) in feedHealth.feeds" :key="f.name + idx">
-                                <tr>
-                                    <td><strong x-text="f.name"></strong></td>
-                                    <td><span class="badge" :class="'cat-' + (f.category || 'unknown').toLowerCase()" x-text="f.category"></span></td>
-                                    <td>
-                                        <span class="feed-status" :class="f.status" x-text="f.status === 'ok' ? '✅ OK' : '❌ Error'"></span>
-                                        <div x-show="f.error" style="font-size:0.75em; color:var(--neon-red)" x-text="f.error"></div>
-                                    </td>
-                                    <td><span class="text-cyan" x-text="(f.ips || 0).toLocaleString()"></span></td>
-                                    <td style="color:var(--text-muted)" x-text="f.latency_ms + 'ms'"></td>
-                                </tr>
-                            </template>
-                            <template x-if="!feedHealth.feeds || feedHealth.feeds.length === 0">
-                                <tr><td colspan="5" style="color:var(--text-muted); text-align:center">No feed data yet</td></tr>
-                            </template>
-                        </tbody>
-                    </table>
+                    <!-- Feed Grid -->
+                    <div class="feed-grid" x-show="!isMinimized('feedHealth')">
+                        <template x-for="(f, idx) in feedHealth.feeds" :key="f.name + idx">
+                            <div class="feed-card" :class="{ 'feed-error': f.status !== 'ok' }">
+                                <div class="feed-card-header">
+                                    <span class="feed-status-dot" :class="f.status"></span>
+                                    <span class="feed-name" x-text="f.name"></span>
+                                </div>
+                                <div class="feed-card-body">
+                                    <span class="feed-ips" x-text="(f.ips || 0).toLocaleString()"></span>
+                                    <span class="feed-ips-label">IPs</span>
+                                </div>
+                                <div class="feed-card-footer">
+                                    <span class="badge feed-cat" :class="'cat-' + (f.category || 'unknown').toLowerCase()" x-text="f.category"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!feedHealth.feeds || feedHealth.feeds.length === 0">
+                            <div class="empty-state-compact" style="grid-column: 1/-1;">
+                                <span class="empty-icon">📡</span>
+                                <span>No feed data yet</span>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </template>
 
