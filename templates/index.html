@@ -16,7 +16,7 @@
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- CSS -->
-    <link rel="stylesheet" href="/static/style.css?v=3">
+    <link rel="stylesheet" href="/static/style.css?v=2.6.0">
 </head>
 <body class="antialiased" x-data="dashboard">
 
@@ -468,7 +468,7 @@
                         <div class="spinner" x-show="protocols.loading"></div>
                     </div>
                 </h2>
-                <table x-show="!isMinimized('protocols')">
+                <table x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
                     <thead>
                         <tr>
                             <th>Protocol</th>
@@ -489,6 +489,7 @@
                         </template>
                     </tbody>
                 </table>
+                <div x-show="!isMinimized('protocols') && !protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)" class="empty-state">No protocol data available</div>
             </div>
 
             <!-- Traffic Insights -->
@@ -979,7 +980,7 @@
             <template x-if="isVisible('securityScore')">
                 <div class="card security-score-card" :class="{ 'widget-minimized': isMinimized('securityScore'), 'score-excellent': securityScore.grade === 'A', 'score-good': securityScore.grade === 'B', 'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade === 'D', 'score-critical': securityScore.grade === 'F' }">
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                        <span>� Security Score</span>
+                        <span>🛡️ Security Score</span>
                         <div style="display: flex; gap: 4px;">
                             <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('securityScore')"><path d="M3 12h18M12 3v18"/></svg>

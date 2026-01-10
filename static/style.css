@@ -1868,6 +1868,15 @@ body {
     border-radius: 4px;
 }
 
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 20px 16px;
+    color: var(--text-muted);
+    font-size: 0.9em;
+    font-style: italic;
+}
+
 /* Compact Empty States */
 .empty-state-compact {
     display: flex;

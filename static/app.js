@@ -1304,72 +1304,76 @@ document.addEventListener('alpine:init', () => {
         },
 
         updateBwChart(data) {
-            const ctx = document.getElementById('bwChart');
-            if (!ctx) return;
+            try {
+                const ctx = document.getElementById('bwChart');
+                if (!ctx || !data || !data.labels) return;
 
-            const colorArea = 'rgba(0, 243, 255, 0.2)';
-            const colorLine = '#00f3ff';
-            const colorFlows = '#bc13fe';
+                const colorArea = 'rgba(0, 243, 255, 0.2)';
+                const colorLine = '#00f3ff';
+                const colorFlows = '#bc13fe';
 
-            if (this.bwChartInstance) {
-                this.bwChartInstance.data.labels = data.labels;
-                this.bwChartInstance.data.datasets[0].data = data.bandwidth;
-                this.bwChartInstance.data.datasets[1].data = data.flows;
-                this.bwChartInstance.update();
-            } else {
-                this.bwChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.labels,
-                        datasets: [
-                            {
-                                label: 'Traffic (Mbps)',
-                                data: data.bandwidth,
-                                borderColor: colorLine,
-                                backgroundColor: colorArea,
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.4,
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Flows/s',
-                                data: data.flows,
-                                borderColor: colorFlows,
-                                backgroundColor: 'transparent',
-                                borderWidth: 2,
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: { legend: { labels: { color: '#e0e0e0' } } },
-                        scales: {
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                grid: { drawOnChartArea: false },
-                                ticks: { color: '#888' }
-                            },
-                            x: {
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
+                if (this.bwChartInstance) {
+                    this.bwChartInstance.data.labels = data.labels;
+                    this.bwChartInstance.data.datasets[0].data = data.bandwidth;
+                    this.bwChartInstance.data.datasets[1].data = data.flows;
+                    this.bwChartInstance.update();
+                } else {
+                    this.bwChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.labels,
+                            datasets: [
+                                {
+                                    label: 'Traffic (Mbps)',
+                                    data: data.bandwidth,
+                                    borderColor: colorLine,
+                                    backgroundColor: colorArea,
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    yAxisID: 'y'
+                                },
+                                {
+                                    label: 'Flows/s',
+                                    data: data.flows,
+                                    borderColor: colorFlows,
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    yAxisID: 'y1'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: { legend: { labels: { color: '#e0e0e0' } } },
+                            scales: {
+                                y: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'left',
+                                    grid: { color: '#333' },
+                                    ticks: { color: '#888' }
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    grid: { drawOnChartArea: false },
+                                    ticks: { color: '#888' }
+                                },
+                                x: {
+                                    grid: { color: '#333' },
+                                    ticks: { color: '#888' }
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (e) {
+                console.error('Chart render error:', e);
             }
         },
 
@@ -1386,117 +1390,129 @@ document.addEventListener('alpine:init', () => {
         },
 
         updatePktSizeChart(data) {
-            const ctx = document.getElementById('pktSizeChart');
-            if (!ctx) return;
+            try {
+                const ctx = document.getElementById('pktSizeChart');
+                if (!ctx || !data || !data.labels) return;
 
-            // Cyberpunk palette
-            const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
+                // Cyberpunk palette
+                const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
 
-            if (this.pktSizeChartInstance) {
-                this.pktSizeChartInstance.data.labels = data.labels;
-                this.pktSizeChartInstance.data.datasets[0].data = data.data;
-                this.pktSizeChartInstance.update();
-            } else {
-                this.pktSizeChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Flows',
-                            data: data.data,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y', // Horizontal bar
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false }
+                if (this.pktSizeChartInstance) {
+                    this.pktSizeChartInstance.data.labels = data.labels;
+                    this.pktSizeChartInstance.data.datasets[0].data = data.data;
+                    this.pktSizeChartInstance.update();
+                } else {
+                    this.pktSizeChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'Flows',
+                                data: data.data,
+                                backgroundColor: colors,
+                                borderWidth: 0
+                            }]
                         },
-                        scales: {
-                            x: {
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
+                        options: {
+                            indexAxis: 'y', // Horizontal bar
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
                             },
-                            y: {
-                                grid: { display: false },
-                                ticks: { color: '#e0e0e0', font: { size: 10 } }
+                            scales: {
+                                x: {
+                                    grid: { color: '#333' },
+                                    ticks: { color: '#888' }
+                                },
+                                y: {
+                                    grid: { display: false },
+                                    ticks: { color: '#e0e0e0', font: { size: 10 } }
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (e) {
+                console.error('Chart render error:', e);
             }
         },
 
         updateCountriesChart(data) {
-            const ctx = document.getElementById('countriesChart');
-            if (!ctx || !data) return;
-            const labels = data.labels || [];
-            const values = data.bytes || [];
-            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
-            if (this.countriesChartInstance) {
-                this.countriesChartInstance.data.labels = labels;
-                this.countriesChartInstance.data.datasets[0].data = values;
-                this.countriesChartInstance.update();
-            } else {
-                this.countriesChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: 'Bytes',
-                            data: values,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { ticks: { color: '#888' }, grid: { color: '#333' } },
-                            y: { ticks: { color: '#888' }, grid: { color: '#333' } }
+            try {
+                const ctx = document.getElementById('countriesChart');
+                if (!ctx || !data) return;
+                const labels = data.labels || [];
+                const values = data.bytes || [];
+                const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
+                if (this.countriesChartInstance) {
+                    this.countriesChartInstance.data.labels = labels;
+                    this.countriesChartInstance.data.datasets[0].data = values;
+                    this.countriesChartInstance.update();
+                } else {
+                    this.countriesChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: 'Bytes',
+                                data: values,
+                                backgroundColor: colors,
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                                y: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                            }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (e) {
+                console.error('Chart render error:', e);
             }
         },
 
         updateFlagsChart(flagsData) {
-            const ctx = document.getElementById('flagsChart');
-            if (!ctx || !flagsData) return;
+            try {
+                const ctx = document.getElementById('flagsChart');
+                if (!ctx || !flagsData) return;
 
-            const labels = flagsData.map(f => f.flag);
-            const data = flagsData.map(f => f.count);
-            // Cyberpunk palette
-            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
+                const labels = flagsData.map(f => f.flag);
+                const data = flagsData.map(f => f.count);
+                // Cyberpunk palette
+                const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
 
-            if (this.flagsChartInstance) {
-                this.flagsChartInstance.data.labels = labels;
-                this.flagsChartInstance.data.datasets[0].data = data;
-                this.flagsChartInstance.update();
-            } else {
-                this.flagsChartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: data,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
+                if (this.flagsChartInstance) {
+                    this.flagsChartInstance.data.labels = labels;
+                    this.flagsChartInstance.data.datasets[0].data = data;
+                    this.flagsChartInstance.update();
+                } else {
+                    this.flagsChartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: data,
+                                backgroundColor: colors,
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
+                            }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (e) {
+                console.error('Chart render error:', e);
             }
         },
 
