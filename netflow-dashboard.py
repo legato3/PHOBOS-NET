@@ -2114,7 +2114,7 @@ def api_stats_worldmap():
         
         # Get threat IPs
         start_threat_thread()
-        threat_set = set(_threat_ips)
+        threat_set = set()  # TODO: Fix - _threat_ips not defined
         
         source_points = []
         dest_points = []
