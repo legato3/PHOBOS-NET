@@ -874,3 +874,65 @@ body {
         box-shadow: 0 0 20px rgba(255, 0, 60, 0.6), 0 0 30px rgba(255, 0, 60, 0.3);
     }
 }
+
+/* ============================================
+   FULLSCREEN CHART MODAL
+   ============================================ */
+.fullscreen-chart-modal .modal-content.fullscreen-chart-content {
+    max-width: 90vw;
+    width: 90vw;
+    max-height: 85vh;
+}
+
+.fullscreen-chart-wrapper {
+    height: 60vh;
+    min-height: 400px;
+    position: relative;
+}
+
+.fullscreen-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Expandable chart indicator */
+.chart-expandable {
+    cursor: zoom-in;
+    position: relative;
+    transition: box-shadow 0.2s ease;
+}
+
+.chart-expandable:hover {
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+}
+
+.chart-expandable::after {
+    content: '⛶';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 14px;
+    color: var(--neon-cyan);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.chart-expandable:hover::after {
+    opacity: 0.7;
+}
+
+/* ============================================
+   API LATENCY INDICATOR
+   ============================================ */
+.latency-indicator .value.good {
+    color: var(--neon-green);
+}
+
+.latency-indicator .value.warning {
+    color: var(--neon-yellow, #ffcc00);
+}
+
+.latency-indicator .value.critical {
+    color: var(--neon-red);
+}

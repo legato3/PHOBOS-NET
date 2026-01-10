@@ -102,10 +102,18 @@ document.addEventListener('alpine:init', () => {
         bwChartInstance: null,
         flagsChartInstance: null,
         pktSizeChartInstance: null,
-            trendModalOpen: false,
-            trendIP: null,
-            trendKind: 'source',
-            trendChartInstance: null,
+        trendModalOpen: false,
+        trendIP: null,
+        trendKind: 'source',
+        trendChartInstance: null,
+        
+        // Fullscreen Chart Mode
+        fullscreenChart: null, // { chartId, title, chartInstance }
+        fullscreenChartInstance: null,
+        
+        // API Latency Tracking
+        apiLatency: null,
+        apiLatencyHistory: [],
 
         init() {
             console.log('Neural Link Established.');
@@ -247,6 +255,7 @@ document.addEventListener('alpine:init', () => {
                         this.trendModalOpen = false;
                         this.thresholdsModalOpen = false;
                         this.widgetManagerOpen = false;
+                        this.closeFullscreenChart();
                         break;
                     case '?':
                         if (e.shiftKey) {
@@ -260,6 +269,78 @@ document.addEventListener('alpine:init', () => {
 
         togglePause() {
             this.paused = !this.paused;
+        },
+
+        // Fullscreen Chart Methods
+        openFullscreenChart(chartId, title) {
+            const sourceChart = this.getChartInstance(chartId);
+            if (!sourceChart) return;
+            
+            this.fullscreenChart = { chartId, title };
+            
+            // Clone chart to fullscreen modal after DOM updates
+            this.$nextTick(() => {
+                const canvas = document.getElementById('fullscreenChartCanvas');
+                if (!canvas) return;
+                
+                // Destroy existing fullscreen chart if any
+                if (this.fullscreenChartInstance) {
+                    this.fullscreenChartInstance.destroy();
+                }
+                
+                // Clone the chart configuration
+                const config = JSON.parse(JSON.stringify(sourceChart.config));
+                config.options = config.options || {};
+                config.options.responsive = true;
+                config.options.maintainAspectRatio = false;
+                
+                this.fullscreenChartInstance = new Chart(canvas, config);
+            });
+        },
+
+        closeFullscreenChart() {
+            if (this.fullscreenChartInstance) {
+                this.fullscreenChartInstance.destroy();
+                this.fullscreenChartInstance = null;
+            }
+            this.fullscreenChart = null;
+        },
+
+        getChartInstance(chartId) {
+            switch(chartId) {
+                case 'bwChart': return this.bwChartInstance;
+                case 'flagsChart': return this.flagsChartInstance;
+                case 'pktSizeChart': return this.pktSizeChartInstance;
+                case 'countriesChart': return this.countriesChartInstance;
+                case 'blocklistChart': return this.blocklistChartInstance;
+                default: return null;
+            }
+        },
+
+        // API Latency tracking helper
+        async fetchWithLatency(url) {
+            const start = performance.now();
+            const res = await fetch(url);
+            const latency = Math.round(performance.now() - start);
+            this.apiLatency = latency;
+            this.apiLatencyHistory.push(latency);
+            if (this.apiLatencyHistory.length > 10) {
+                this.apiLatencyHistory.shift();
+            }
+            return res;
+        },
+
+        get avgLatency() {
+            if (this.apiLatencyHistory.length === 0) return null;
+            return Math.round(this.apiLatencyHistory.reduce((a, b) => a + b, 0) / this.apiLatencyHistory.length);
+        },
+
+        get latencyClass() {
+            const avg = this.avgLatency;
+            if (avg === null) return '';
+            if (avg < 200) return 'good';
+            if (avg < 500) return 'warning';
+            return 'critical';
         },
 
         openThresholds() { this.thresholdsModalOpen = true; },
@@ -345,7 +426,7 @@ document.addEventListener('alpine:init', () => {
         async fetchSummary() {
             this.summary.loading = true;
             try {
-                const res = await fetch(`/api/stats/summary?range=${this.timeRange}`);
+                const res = await this.fetchWithLatency(`/api/stats/summary?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
                     this.summary = { ...data, loading: false };

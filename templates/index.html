@@ -148,7 +148,7 @@
                         <div class="spinner" x-show="bandwidth.loading"></div>
                     </div>
                 </h2>
-                <div class="chart-wrapper" x-show="!isMinimized('bandwidth')">
+                <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
                     <canvas id="bwChart"></canvas>
                 </div>
             </div>
@@ -331,7 +331,7 @@
                         <div class="spinner" x-show="flags.loading"></div>
                     </div>
                 </h2>
-                <div class="chart-wrapper-small" x-show="!isMinimized('flags')">
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('flags')" @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')" title="Click to expand">
                     <canvas id="flagsChart"></canvas>
                 </div>
                 <div style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;" x-show="!isMinimized('flags')">
@@ -381,7 +381,7 @@
                         <div class="spinner" x-show="countries.loading"></div>
                     </div>
                 </h2>
-                <div class="chart-wrapper-small" x-show="!isMinimized('countries')">
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
                     <canvas id="countriesChart"></canvas>
                 </div>
             </div>
@@ -428,7 +428,7 @@
                         <div class="spinner" x-show="packetSizes.loading"></div>
                     </div>
                 </h2>
-                <div class="chart-wrapper-small" x-show="!isMinimized('packetSizes')">
+                <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('packetSizes')" @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')" title="Click to expand">
                     <canvas id="pktSizeChart"></canvas>
                 </div>
             </div>
@@ -696,7 +696,7 @@
                     </div>
                 </h2>
                 <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('blocklist')">Rate of flows matching blocklists / feeds</div>
-                <div style="height:120px; margin-bottom:8px;" x-show="!isMinimized('blocklist')">
+                <div style="height:120px; margin-bottom:8px;" class="chart-expandable" x-show="!isMinimized('blocklist')" @click="openFullscreenChart('blocklistChart', 'Blocklist Match Rate')" title="Click to expand">
                     <canvas id="blocklistChart"></canvas>
                 </div>
                 <div style="display:flex; gap:12px; align-items:center; justify-content:flex-start;" x-show="!isMinimized('blocklist')">
@@ -827,6 +827,20 @@
         </div>
     </div>
 
+    <!-- Fullscreen Chart Modal -->
+    <div class="modal fullscreen-chart-modal" x-show="fullscreenChart" style="display:none" :style="fullscreenChart ? 'display:flex' : 'display:none'" @click.self="closeFullscreenChart()">
+        <div class="modal-content fullscreen-chart-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="margin:0"><span class="text-cyan" x-text="fullscreenChart?.title || 'Chart'"></span></h2>
+                <button @click="closeFullscreenChart()" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close fullscreen">×</button>
+            </div>
+            <div class="fullscreen-chart-wrapper">
+                <canvas id="fullscreenChartCanvas"></canvas>
+            </div>
+            <p style="text-align:center; color:var(--text-muted); font-size:0.8em; margin-top:12px;">Press <kbd>ESC</kbd> or click outside to close</p>
+        </div>
+    </div>
+
     <!-- Thresholds Modal -->
     <div class="modal" x-show="thresholdsModalOpen" style="display:none" :style="thresholdsModalOpen ? 'display:flex' : 'display:none'" @click.self="thresholdsModalOpen = false">
         <div class="modal-content" style="max-width: 700px;">
@@ -934,6 +948,10 @@
             <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
             <span class="label">Status:</span>
             <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
+        </div>
+        <div class="status-bar-item latency-indicator" x-show="avgLatency !== null">
+            <span class="label">API:</span>
+            <span class="value" :class="latencyClass" x-text="avgLatency + 'ms'"></span>
         </div>
         <div class="status-bar-item">
             <span class="label">Next:</span>
