@@ -203,13 +203,36 @@ def resolve_hostname(ip):
 def is_internal(ip):
     return any(ip.startswith(net) for net in INTERNAL_NETS)
 
-def get_region(ip):
-    if is_internal(ip): return "🏠 Local"
-    first = int(ip.split('.')[0])
-    if first < 64: return "🌍 Americas"
-    elif first < 128: return "🌍 Europe"
-    elif first < 192: return "🌏 Asia"
-    else: return "🌐 Global"
+# Region mappings based on country ISO codes
+REGION_MAPPING = {
+    # Americas
+    'US': '🌎 Americas', 'CA': '🌎 Americas', 'MX': '🌎 Americas', 'BR': '🌎 Americas',
+    'AR': '🌎 Americas', 'CL': '🌎 Americas', 'CO': '🌎 Americas', 'PE': '🌎 Americas',
+    # Europe
+    'GB': '🌍 Europe', 'DE': '🌍 Europe', 'FR': '🌍 Europe', 'NL': '🌍 Europe',
+    'BE': '🌍 Europe', 'IT': '🌍 Europe', 'ES': '🌍 Europe', 'PL': '🌍 Europe',
+    'SE': '🌍 Europe', 'NO': '🌍 Europe', 'DK': '🌍 Europe', 'FI': '🌍 Europe',
+    'AT': '🌍 Europe', 'CH': '🌍 Europe', 'IE': '🌍 Europe', 'PT': '🌍 Europe',
+    'CZ': '🌍 Europe', 'RO': '🌍 Europe', 'HU': '🌍 Europe', 'UA': '🌍 Europe',
+    'RU': '🌍 Europe',
+    # Asia-Pacific
+    'CN': '🌏 Asia', 'JP': '🌏 Asia', 'KR': '🌏 Asia', 'IN': '🌏 Asia',
+    'SG': '🌏 Asia', 'HK': '🌏 Asia', 'TW': '🌏 Asia', 'AU': '🌏 Asia',
+    'NZ': '🌏 Asia', 'ID': '🌏 Asia', 'TH': '🌏 Asia', 'VN': '🌏 Asia',
+    'MY': '🌏 Asia', 'PH': '🌏 Asia',
+}
+
+def get_region(ip, country_iso=None):
+    """Get region emoji based on country ISO code from GeoIP lookup."""
+    if is_internal(ip): 
+        return "🏠 Local"
+    if country_iso:
+        return REGION_MAPPING.get(country_iso.upper(), '🌐 Global')
+    # Fallback: try to lookup country if not provided
+    geo = lookup_geo(ip)
+    if geo and geo.get('country_iso'):
+        return REGION_MAPPING.get(geo['country_iso'].upper(), '🌐 Global')
+    return "🌐 Global"
 
 def flag_from_iso(iso):
     if not iso or len(iso)!=2: return ""
@@ -1646,12 +1669,12 @@ def api_stats_sources():
     # Enrich
     for i in sources:
         i["hostname"] = resolve_ip(i["key"])
-        i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+        i["region"] = get_region(i["key"], i.get("country_iso"))
         i["threat"] = False
 
     data = {"sources": sources}
@@ -1685,12 +1708,12 @@ def api_stats_destinations():
 
     for i in dests:
         i["hostname"] = resolve_ip(i["key"])
-        i["region"] = get_region(i["key"])
         i["internal"] = is_internal(i["key"])
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
         geo = lookup_geo(i["key"])
         if geo:
             i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+        i["region"] = get_region(i["key"], i.get("country_iso"))
         i["threat"] = False
 
     data = {"destinations": dests}
@@ -2280,6 +2303,8 @@ def api_stats_talkers():
         sorted_pairs = sorted(pairs.values(), key=lambda x: x["bytes"], reverse=True)[:10]
         talkers = []
         for p in sorted_pairs:
+            src_geo = lookup_geo(p["src"])
+            dst_geo = lookup_geo(p["dst"])
             talkers.append({
                 "src": p["src"],
                 "dst": p["dst"],
@@ -2287,8 +2312,8 @@ def api_stats_talkers():
                 "dst_hostname": resolve_ip(p["dst"]),
                 "bytes": p["bytes"],
                 "bytes_fmt": fmt_bytes(p["bytes"]),
-                "src_region": get_region(p["src"]),
-                "dst_region": get_region(p["dst"])
+                "src_region": get_region(p["src"], src_geo.get('country_iso') if src_geo else None),
+                "dst_region": get_region(p["dst"], dst_geo.get('country_iso') if dst_geo else None)
             })
         data = {"talkers": talkers}
     except:
@@ -3079,8 +3104,8 @@ def api_conversations():
                 "src_hostname": resolve_ip(r['src']),
                 "dst_hostname": resolve_ip(r['dst']),
                 "bytes": r['bytes'], "bytes_fmt": fmt_bytes(r['bytes']),
-                "src_region": get_region(r['src']),
-                "dst_region": get_region(r['dst']),
+                "src_region": get_region(r['src']),  # GeoIP lookup done inside get_region if needed
+                "dst_region": get_region(r['dst']),  # GeoIP lookup done inside get_region if needed
                 "proto": r['proto_name'],
                 "port": r['dst_port'],
                 "service": r['service'],
@@ -3118,7 +3143,7 @@ def api_ip_detail(ip):
     data = {
         "ip": ip,
         "hostname": resolve_ip(ip),
-        "region": get_region(ip),
+        "region": get_region(ip, geo.get('country_iso') if geo else None),
         "internal": is_internal(ip),
         "geo": geo,
         "direction": direction,
