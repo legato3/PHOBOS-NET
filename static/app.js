@@ -1,3 +1,12 @@
+// Register Service Worker for offline support
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+            .then(reg => console.log('[SW] Registered:', reg.scope))
+            .catch(err => console.log('[SW] Registration failed:', err));
+    });
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('dashboard', () => ({
         initDone: false,
@@ -10,6 +19,7 @@ document.addEventListener('alpine:init', () => {
         refreshTimer: null,
         paused: false,
         lastUpdate: '-',
+        lastUpdateTs: 0,  // Unix timestamp for freshness calculation
         searchQuery: '',
 
         // Refresh countdown
@@ -389,6 +399,15 @@ document.addEventListener('alpine:init', () => {
             return ((total - this.refreshCountdown) / total) * 100;
         },
 
+        get dataFreshness() {
+            if (!this.lastUpdateTs) return { text: 'Never', class: 'error' };
+            const elapsed = Math.floor((Date.now() - this.lastUpdateTs) / 1000);
+            if (elapsed < 30) return { text: `${elapsed}s ago`, class: '' };
+            if (elapsed < 60) return { text: `${elapsed}s ago`, class: 'stale' };
+            if (elapsed < 120) return { text: `${Math.floor(elapsed/60)}m ago`, class: 'stale' };
+            return { text: `${Math.floor(elapsed/60)}m ago`, class: 'error' };
+        },
+
         setupKeyboardShortcuts() {
             document.addEventListener('keydown', (e) => {
                 // Don't trigger if typing in input
@@ -603,6 +622,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadAll() {
             this.lastUpdate = new Date().toLocaleTimeString();
+            this.lastUpdateTs = Date.now();
 
             // Parallel Requests
             // Light endpoints (frequent)
@@ -896,11 +916,12 @@ document.addEventListener('alpine:init', () => {
         },
 
         renderAttackTimelineChart() {
-            const canvas = document.getElementById('attackTimelineChart');
-            if (!canvas || !this.attackTimeline.timeline) return;
-            
-            const ctx = canvas.getContext('2d');
-            if (this._attackTimelineChart) this._attackTimelineChart.destroy();
+            try {
+                const canvas = document.getElementById('attackTimelineChart');
+                if (!canvas || !this.attackTimeline.timeline) return;
+                
+                const ctx = canvas.getContext('2d');
+                if (this._attackTimelineChart) this._attackTimelineChart.destroy();
             
             const labels = this.attackTimeline.timeline.map(t => t.hour);
             const critical = this.attackTimeline.timeline.map(t => t.critical || 0);
@@ -929,6 +950,9 @@ document.addEventListener('alpine:init', () => {
                     }
                 }
             });
+            } catch (e) {
+                console.error('Chart render error:', e);
+            }
         },
 
         get filteredAlerts() {
@@ -1185,14 +1209,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         updateHourlyChart(data) {
-            const ctx = document.getElementById('hourlyChart');
-            if (!ctx) return;
+            try {
+                const ctx = document.getElementById('hourlyChart');
+                if (!ctx || !data || !data.labels) return;
 
-            if (this.hourlyChartInstance) {
-                this.hourlyChartInstance.data.labels = data.labels;
-                this.hourlyChartInstance.data.datasets[0].data = data.bytes;
-                this.hourlyChartInstance.update();
-            } else {
+                if (this.hourlyChartInstance) {
+                    this.hourlyChartInstance.data.labels = data.labels;
+                    this.hourlyChartInstance.data.datasets[0].data = data.bytes;
+                    this.hourlyChartInstance.update();
+                } else {
                 this.hourlyChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -1226,6 +1251,9 @@ document.addEventListener('alpine:init', () => {
                     }
                 });
             }
+            } catch (e) {
+                console.error('Chart render error:', e);
+            }
         },
 
         async fetchFlowStats() {
@@ -1249,14 +1277,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         updateProtoMixChart(data) {
-            const ctx = document.getElementById('protoMixChart');
-            if (!ctx) return;
+            try {
+                const ctx = document.getElementById('protoMixChart');
+                if (!ctx || !data || !data.labels) return;
 
-            if (this.protoMixChartInstance) {
-                this.protoMixChartInstance.data.labels = data.labels;
-                this.protoMixChartInstance.data.datasets[0].data = data.bytes;
-                this.protoMixChartInstance.update();
-            } else {
+                if (this.protoMixChartInstance) {
+                    this.protoMixChartInstance.data.labels = data.labels;
+                    this.protoMixChartInstance.data.datasets[0].data = data.bytes;
+                    this.protoMixChartInstance.update();
+                } else {
                 this.protoMixChartInstance = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
@@ -1280,6 +1309,9 @@ document.addEventListener('alpine:init', () => {
                         }
                     }
                 });
+            }
+            } catch (e) {
+                console.error('Chart render error:', e);
             }
         },
 

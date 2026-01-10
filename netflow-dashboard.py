@@ -3861,6 +3861,15 @@ SNMP_POLL_INTERVAL = float(os.getenv("SNMP_POLL_INTERVAL", "2"))  # seconds
 SNMP_CACHE_TTL = float(os.getenv("SNMP_CACHE_TTL", str(max(1.0, SNMP_POLL_INTERVAL))))
 _snmp_thread_started = False
 
+# SNMP exponential backoff state
+_snmp_backoff = {
+    "failures": 0,
+    "max_failures": 5,
+    "base_delay": 2,  # seconds
+    "max_delay": 60,  # max backoff delay
+    "last_failure": 0
+}
+
 
 def format_uptime(uptime_str):
     """Convert uptime from 0:17:42:05.92 to readable format"""
@@ -3885,12 +3894,24 @@ def format_uptime(uptime_str):
     return uptime_str
 
 def get_snmp_data():
-    """Fetch SNMP data from OPNsense firewall"""
+    """Fetch SNMP data from OPNsense firewall with exponential backoff"""
+    global _snmp_backoff
     now = time.time()
     
     with _snmp_cache_lock:
         if _snmp_cache["data"] and now - _snmp_cache["ts"] < SNMP_CACHE_TTL:
             return _snmp_cache["data"]
+    
+    # Check if we're in backoff period
+    if _snmp_backoff["failures"] > 0:
+        backoff_delay = min(
+            _snmp_backoff["base_delay"] * (2 ** (_snmp_backoff["failures"] - 1)),
+            _snmp_backoff["max_delay"]
+        )
+        if now - _snmp_backoff["last_failure"] < backoff_delay:
+            # Return cached data if available, otherwise empty
+            with _snmp_cache_lock:
+                return _snmp_cache.get("data") or {"error": "SNMP unreachable", "backoff": True}
     
     try:
         result = {}
@@ -4036,6 +4057,9 @@ def get_snmp_data():
         if "sys_uptime" in result:
             result["sys_uptime_formatted"] = format_uptime(result["sys_uptime"])
         
+        # Reset backoff on success
+        _snmp_backoff["failures"] = 0
+        
         with _snmp_cache_lock:
             _snmp_cache["data"] = result
             _snmp_cache["ts"] = now
@@ -4043,8 +4067,17 @@ def get_snmp_data():
         return result
         
     except Exception as e:
-        print(f"SNMP Error: {e}")
-        return {}
+        # Increment backoff on failure
+        _snmp_backoff["failures"] = min(_snmp_backoff["failures"] + 1, _snmp_backoff["max_failures"])
+        _snmp_backoff["last_failure"] = now
+        backoff_delay = min(
+            _snmp_backoff["base_delay"] * (2 ** (_snmp_backoff["failures"] - 1)),
+            _snmp_backoff["max_delay"]
+        )
+        print(f"SNMP Error: {e} (backoff: {backoff_delay}s, failures: {_snmp_backoff['failures']})")
+        # Return cached data if available
+        with _snmp_cache_lock:
+            return _snmp_cache.get("data") or {"error": str(e), "backoff": True}
 
 
 def start_snmp_thread():

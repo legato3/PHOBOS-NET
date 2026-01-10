@@ -9,11 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- External Libs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.13.3/dist/cdn.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
-    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- External Libs (bundled locally to reduce CDN dependency) -->
+    <script src="/static/chart.min.js"></script>
+    <script src="/static/alpine-collapse.min.js" defer></script>
+    <script src="/static/alpine.min.js" defer></script>
+    <script src="/static/vis-network.min.js"></script>
 
     <!-- CSS -->
     <link rel="stylesheet" href="/static/style.css?v=2.6.0">
@@ -125,9 +125,12 @@
                     </div>
                 </div>
 
-                <div style="font-size:0.8em; color:var(--text-muted); margin-left:10px;">
+                <div style="font-size:0.8em; color:var(--text-muted); margin-left:10px; display: flex; align-items: center; gap: 8px;">
                     <span x-show="threatStatus.status" :class="'pill ' + (threatStatus.status === 'ok' ? 'ok' : 'err')" x-text="threatStatus.status === 'ok' ? 'Feed OK' : 'Feed Error'"></span>
-                    <span x-text="lastUpdate"></span>
+                    <span class="freshness-indicator">
+                        <span class="freshness-dot" :class="dataFreshness.class"></span>
+                        <span x-text="dataFreshness.text"></span>
+                    </span>
                 </div>
             </div>
         </div>
@@ -821,6 +824,7 @@
                             <div class="asn-val" x-text="asn.bytes_fmt"></div>
                         </div>
                     </template>
+                    <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)" class="empty-state">No ASN data available</div>
                 </div>
             </div>
 
