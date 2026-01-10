@@ -55,6 +55,24 @@ document.addEventListener('alpine:init', () => {
         minimizedWidgets: new Set(JSON.parse(localStorage.getItem('minimizedWidgets') || '[]')),
         widgetManagerOpen: false,
 
+        // UI Labels for Widgets (only widgets that exist in HTML template)
+        friendlyLabels: {
+            analytics: 'Analytics Row',
+            flags: 'TCP Flags',
+            asns: 'Top ASNs',
+            countries: 'Top Countries',
+            durations: 'Long Flows',
+            packetSizes: 'Packet Sizes',
+            sources: 'Top Sources',
+            destinations: 'Top Destinations',
+            ports: 'Top Ports',
+            protocols: 'Protocols',
+            threats: 'Threat Detections',
+            maliciousPorts: 'Top Malicious Ports',
+            blocklist: 'Blocklist Match Rate',
+            conversations: 'Recent Conversations'
+        },
+
         // Thresholds (editable)
         thresholds: {
             util_warn: 70, util_crit: 90,
@@ -844,31 +862,40 @@ document.addEventListener('alpine:init', () => {
 
         // Widget Management Methods
         loadWidgetPreferences() {
-            const stored = localStorage.getItem('widgetVisibility');
-            if (stored) {
-                this.widgetVisibility = JSON.parse(stored);
-            } else {
-                // Default: all widgets visible
-                this.widgetVisibility = {
-                    summary: true,
-                    bandwidth: true,
-                    firewall: true,
-                    flags: true,
-                    asns: true,
-                    countries: true,
-                    durations: true,
-                    packetSizes: true,
-                    sources: true,
-                    destinations: true,
-                    ports: true,
-                    protocols: true,
-                    threats: true,
-                    maliciousPorts: true,
-                    blocklist: true,
-                    conversations: true
-                };
-                this.saveWidgetPreferences();
+            // Merge saved prefs with defaults; default everything to visible for safety
+            // Only include widgets that actually exist in the HTML template
+            const defaults = {
+                analytics: true,
+                flags: true,
+                asns: true,
+                countries: true,
+                durations: true,
+                packetSizes: true,
+                sources: true,
+                destinations: true,
+                ports: true,
+                protocols: true,
+                threats: true,
+                maliciousPorts: true,
+                blocklist: true,
+                conversations: true
+            };
+            try {
+                const saved = JSON.parse(localStorage.getItem('widgetVisibility') || '{}');
+                // Only apply saved preferences for widgets that exist in defaults
+                // This filters out stale keys from previous versions
+                const filteredSaved = {};
+                for (const key of Object.keys(defaults)) {
+                    if (key in saved) {
+                        filteredSaved[key] = saved[key];
+                    }
+                }
+                this.widgetVisibility = { ...defaults, ...filteredSaved };
+            } catch (e) {
+                console.error('widget prefs parse error', e);
+                this.widgetVisibility = { ...defaults };
             }
+            this.saveWidgetPreferences();
         },
 
         saveWidgetPreferences() {
@@ -903,10 +930,17 @@ document.addEventListener('alpine:init', () => {
             return this.widgetVisibility[widgetId] !== false;
         },
 
+        getWidgetLabel(widgetId) {
+            return this.friendlyLabels[widgetId] || widgetId;
+        },
+
         resetWidgetPreferences() {
             if (confirm('Reset all widget settings to default?')) {
+                // Clear all saved preferences first
                 this.minimizedWidgets.clear();
-                localStorage.setItem('minimizedWidgets', JSON.stringify([]));
+                localStorage.removeItem('minimizedWidgets');
+                localStorage.removeItem('widgetVisibility');
+                // Reload defaults from scratch
                 this.loadWidgetPreferences();
             }
         },
