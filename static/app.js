@@ -1432,8 +1432,11 @@ document.addEventListener('alpine:init', () => {
             if (!this.map) {
                 // Ensure no previous instance exists to prevent "Map container is already initialized" error
                 if (container._leaflet_id) {
-                    container._leaflet_id = null; // Force clear if stray ID
+                    container._leaflet_id = null;
                 }
+
+                // Clear any existing content
+                container.innerHTML = '';
 
                 try {
                     this.map = L.map('world-map-svg', {
@@ -1442,7 +1445,9 @@ document.addEventListener('alpine:init', () => {
                         minZoom: 1,
                         maxZoom: 8,
                         zoomControl: false,
-                        attributionControl: false
+                        attributionControl: false,
+                        preferCanvas: true, // Use canvas for better performance
+                        renderer: L.canvas()
                     });
 
                     // Dark Matter Tiles (CartoDB) - Cyberpunk aesthetic match
@@ -1457,7 +1462,10 @@ document.addEventListener('alpine:init', () => {
                 } catch (e) {
                     console.error('Leaflet init failed:', e);
                     // Attempt recovery: remove any existing map instance on this container ID
-                    if (this.map) { this.map.remove(); this.map = null; }
+                    if (this.map) { 
+                        this.map.remove(); 
+                        this.map = null; 
+                    }
                     return;
                 }
             }
@@ -1635,11 +1643,23 @@ document.addEventListener('alpine:init', () => {
         updateProtoMixChart(data) {
             try {
                 const ctx = document.getElementById('protoMixChart');
-                if (!ctx || !data || !data.labels) return;
+                if (!ctx) return;
+                
+                // Validate data structure
+                if (!data || !data.labels || !data.bytes || data.labels.length === 0) {
+                    console.warn('Protocol Mix: No data available');
+                    // Clear existing chart if no data
+                    if (this.protoMixChartInstance) {
+                        this.protoMixChartInstance.destroy();
+                        this.protoMixChartInstance = null;
+                    }
+                    return;
+                }
 
                 if (this.protoMixChartInstance) {
                     this.protoMixChartInstance.data.labels = data.labels;
                     this.protoMixChartInstance.data.datasets[0].data = data.bytes;
+                    this.protoMixChartInstance.data.datasets[0].backgroundColor = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
                     this.protoMixChartInstance.update();
                 } else {
                 this.protoMixChartInstance = new Chart(ctx, {
@@ -1661,13 +1681,23 @@ document.addEventListener('alpine:init', () => {
                                 display: true,
                                 position: 'right',
                                 labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
+                                        const pct = data.percentages ? data.percentages[context.dataIndex] : '';
+                                        return `${label}: ${value} (${pct}%)`;
+                                    }
+                                }
                             }
                         }
                     }
                 });
             }
             } catch (e) {
-                console.error('Chart render error:', e);
+                console.error('Protocol Mix chart error:', e);
             }
         },
 

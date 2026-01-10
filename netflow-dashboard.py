@@ -2700,44 +2700,79 @@ def api_stats_proto_mix():
         if _stats_proto_mix_cache["data"] and _stats_proto_mix_cache["key"] == range_key and _stats_proto_mix_cache.get("win") == win:
             return jsonify(_stats_proto_mix_cache["data"])
 
-    # Reuse protocols data
-    protos_data = get_common_nfdump_data("protos", range_key)
-    
-    labels = []
-    bytes_data = []
-    flows_data = []
-    colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4']
-    
-    for i, p in enumerate(protos_data[:8]):  # Top 8 protocols
-        proto_val = p.get('key', '')
-        if proto_val.isdigit():
-            name = PROTOS.get(int(proto_val), f"Proto {proto_val}")
-        else:
-            name = proto_val
-        labels.append(name)
-        bytes_data.append(p.get('bytes', 0))
-        flows_data.append(p.get('flows', 0))
-    
-    total_bytes = sum(bytes_data)
-    percentages = [round(b / total_bytes * 100, 1) if total_bytes > 0 else 0 for b in bytes_data]
-    
-    data = {
-        "labels": labels,
-        "bytes": bytes_data,
-        "bytes_fmt": [fmt_bytes(b) for b in bytes_data],
-        "flows": flows_data,
-        "percentages": percentages,
-        "colors": colors[:len(labels)],
-        "total_bytes": total_bytes,
-        "total_bytes_fmt": fmt_bytes(total_bytes)
-    }
+    try:
+        # Reuse protocols data
+        protos_data = get_common_nfdump_data("protos", range_key)
+        
+        if not protos_data:
+            # Return empty but valid structure
+            return jsonify({
+                "labels": [],
+                "bytes": [],
+                "bytes_fmt": [],
+                "flows": [],
+                "percentages": [],
+                "colors": [],
+                "total_bytes": 0,
+                "total_bytes_fmt": "0 B"
+            })
+        
+        labels = []
+        bytes_data = []
+        flows_data = []
+        colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4']
+        
+        for i, p in enumerate(protos_data[:8]):  # Top 8 protocols
+            proto_val = p.get('key', '')
+            if not proto_val:
+                continue
+                
+            # Convert protocol number to name
+            if proto_val.isdigit():
+                name = PROTOS.get(int(proto_val), f"Proto {proto_val}")
+            else:
+                name = proto_val.upper()
+                
+            labels.append(name)
+            bytes_data.append(p.get('bytes', 0))
+            flows_data.append(p.get('flows', 0))
+        
+        total_bytes = sum(bytes_data)
+        percentages = [round(b / total_bytes * 100, 1) if total_bytes > 0 else 0 for b in bytes_data]
+        
+        data = {
+            "labels": labels,
+            "bytes": bytes_data,
+            "bytes_fmt": [fmt_bytes(b) for b in bytes_data],
+            "flows": flows_data,
+            "percentages": percentages,
+            "colors": colors[:len(labels)],
+            "total_bytes": total_bytes,
+            "total_bytes_fmt": fmt_bytes(total_bytes)
+        }
 
-    with _cache_lock:
-        _stats_proto_mix_cache["data"] = data
-        _stats_proto_mix_cache["ts"] = now
-        _stats_proto_mix_cache["key"] = range_key
-        _stats_proto_mix_cache["win"] = win
-    return jsonify(data)
+        with _cache_lock:
+            _stats_proto_mix_cache["data"] = data
+            _stats_proto_mix_cache["ts"] = now
+            _stats_proto_mix_cache["key"] = range_key
+            _stats_proto_mix_cache["win"] = win
+        return jsonify(data)
+        
+    except Exception as e:
+        print(f"Error in proto_mix: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return empty but valid structure on error
+        return jsonify({
+            "labels": [],
+            "bytes": [],
+            "bytes_fmt": [],
+            "flows": [],
+            "percentages": [],
+            "colors": [],
+            "total_bytes": 0,
+            "total_bytes_fmt": "0 B"
+        })
 
 
 @app.route("/api/stats/net_health")
@@ -2759,12 +2794,24 @@ def api_stats_net_health():
     
     try:
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
+        if len(lines) < 2:
+            raise ValueError("No flow data available")
+            
+        # Dynamic column detection
+        header_line = lines[0].lower()
+        header = [c.strip() for c in header_line.split(',')]
+        
         try:
-            flg_idx = header.index('flg')
-            pr_idx = header.index('proto')
-            ibyt_idx = header.index('ibyt')
-        except:
+            # Try to find columns dynamically
+            flg_idx = header.index('flg') if 'flg' in header else header.index('flags') if 'flags' in header else -1
+            pr_idx = header.index('pr') if 'pr' in header else header.index('proto') if 'proto' in header else -1
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else header.index('bytes') if 'bytes' in header else -1
+            
+            if flg_idx == -1 or pr_idx == -1 or ibyt_idx == -1:
+                raise ValueError(f"Required columns not found. Header: {header}")
+        except Exception as e:
+            print(f"Column detection error: {e}")
+            # Use fallback indices
             flg_idx, pr_idx, ibyt_idx = 10, 7, 12
 
         total_flows = 0
@@ -2849,16 +2896,19 @@ def api_stats_net_health():
         
         # Add firewall protection status from syslog
         fw_stats = _get_firewall_block_stats()
-        if fw_stats['blocks_1h'] > 0:
+        blocks_1h = fw_stats.get('blocks_per_hour', 0)
+        syslog_active = fw_stats.get('blocks', 0) > 0 or fw_stats.get('unique_ips', 0) > 0
+        
+        if blocks_1h > 0:
             indicators.append({
                 "name": "Firewall Active", 
-                "value": f"{fw_stats['blocks_1h']} blocks/hr", 
+                "value": f"{int(blocks_1h)} blocks/hr", 
                 "status": "good", 
                 "icon": "🔥"
             })
             # Bonus points for active firewall protection
             health_score = min(100, health_score + 5)
-        elif fw_stats['syslog_active']:
+        elif syslog_active:
             indicators.append({
                 "name": "Firewall Active", 
                 "value": "0 blocks", 
@@ -2867,7 +2917,7 @@ def api_stats_net_health():
             })
         
         # Add threat blocking info if available
-        if fw_stats['threats_blocked'] > 0:
+        if fw_stats.get('threats_blocked', 0) > 0:
             indicators.append({
                 "name": "Threats Blocked", 
                 "value": str(fw_stats['threats_blocked']), 
@@ -2881,11 +2931,23 @@ def api_stats_net_health():
             "status": status,
             "status_icon": status_icon,
             "total_flows": total_flows,
-            "firewall_active": fw_stats['syslog_active'],
-            "blocks_1h": fw_stats['blocks_1h']
+            "firewall_active": syslog_active,
+            "blocks_1h": int(blocks_1h)
         }
-    except:
-        data = {"indicators": [], "health_score": 100, "status": "unknown", "status_icon": "❓", "total_flows": 0}
+    except Exception as e:
+        print(f"Error in net_health: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return degraded but informative status
+        data = {
+            "indicators": [{"name": "Data Unavailable", "value": "Check nfdump", "status": "warn", "icon": "⚠️"}],
+            "health_score": 0,
+            "status": "degraded",
+            "status_icon": "⚠️",
+            "total_flows": 0,
+            "firewall_active": False,
+            "blocks_1h": 0
+        }
 
     with _cache_lock:
         _stats_net_health_cache["data"] = data

@@ -455,19 +455,28 @@
         
         <div class="card wide-card world-map-card" :class="{ 'widget-minimized': isMinimized('worldmap') }">
             <div class="world-map-header">
-                <div class="world-map-title">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0;">
-                        <span>🌍 Global Traffic Overview</span>
-                        <button class="icon-btn-small" @click="toggleMinimize('worldmap')" :title="isMinimized('worldmap') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('worldmap')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('worldmap')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                    </h2>
-                    <div class="world-map-stats" x-show="worldMap.summary && !isMinimized('worldmap')">
-                        <span class="wm-stat"><strong class="text-cyan" x-text="worldMap.summary?.countries_reached || 0"></strong> Countries</span>
-                        <span class="wm-stat"><strong class="text-green" x-text="worldMap.summary?.total_sources || 0"></strong> Sources</span>
-                        <span class="wm-stat"><strong class="text-purple" x-text="worldMap.summary?.total_destinations || 0"></strong> Destinations</span>
-                        <span class="wm-stat" x-show="worldMap.summary?.total_threats > 0"><strong class="text-red" x-text="worldMap.summary?.total_threats || 0"></strong> Threats</span>
+                <div class="world-map-title-row">
+                    <button class="icon-btn-small" @click="toggleMinimize('worldmap')" :title="isMinimized('worldmap') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('worldmap')"><path d="M3 12h18M12 3v18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('worldmap')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="world-map-stats-badges" x-show="worldMap.summary && !isMinimized('worldmap')">
+                        <span class="wm-badge wm-badge-cyan" :title="worldMap.summary?.countries_reached + ' Countries'">
+                            <span class="wm-badge-icon">🌍</span>
+                            <span class="wm-badge-value" x-text="worldMap.summary?.countries_reached || 0"></span>
+                        </span>
+                        <span class="wm-badge wm-badge-green" :title="worldMap.summary?.total_sources + ' Sources'">
+                            <span class="wm-badge-icon">⬆️</span>
+                            <span class="wm-badge-value" x-text="worldMap.summary?.total_sources || 0"></span>
+                        </span>
+                        <span class="wm-badge wm-badge-purple" :title="worldMap.summary?.total_destinations + ' Destinations'">
+                            <span class="wm-badge-icon">⬇️</span>
+                            <span class="wm-badge-value" x-text="worldMap.summary?.total_destinations || 0"></span>
+                        </span>
+                        <span class="wm-badge wm-badge-red" x-show="worldMap.summary?.total_threats > 0" :title="worldMap.summary?.total_threats + ' Threats'">
+                            <span class="wm-badge-icon">⚠️</span>
+                            <span class="wm-badge-value" x-text="worldMap.summary?.total_threats || 0"></span>
+                        </span>
                     </div>
                 </div>
                 <div class="world-map-controls" x-show="!isMinimized('worldmap')">
