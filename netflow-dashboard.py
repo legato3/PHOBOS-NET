@@ -144,7 +144,7 @@ INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.2
 # Allow override via environment variable, default per project docs
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 
-# Initialize global resolver to avoid instantiation overhead per request
+# Global resolver instance to avoid re-initialization overhead (reading /etc/resolv.conf)
 _shared_resolver = dns.resolver.Resolver()
 _shared_resolver.nameservers = [DNS_SERVER]
 _shared_resolver.timeout = 2
