@@ -888,10 +888,20 @@ def start_threat_thread():
     t = threading.Thread(target=loop, daemon=True)
     t.start()
 
-def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed"):
+def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
     alerts = []
     seen = set()
     threat_set = threat_set - whitelist
+    
+    # Combine sources and destinations for IP checking
+    all_ips_data = list(sources_data)
+    if destinations_data:
+        # Add destination IPs, avoiding duplicates by key
+        seen_keys = {item['key'] for item in sources_data}
+        for item in destinations_data:
+            if item['key'] not in seen_keys:
+                all_ips_data.append(item)
+                seen_keys.add(item['key'])
 
     # Enhanced detection logic
     for item in ports_data:
@@ -907,7 +917,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
             pass
 
     # Lower threshold for sample data triggering
-    for item in sources_data:
+    for item in all_ips_data:
         if item["bytes"] > 50*1024*1024: # 50MB
             alert_key = f"large_{item['key']}"
             if alert_key not in seen:
@@ -957,13 +967,6 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                     "ts": time.time()
                 })
                 seen.add(alert_key)
-
-        # Test alert if 84.x.x.x (from sample, keeping this for UX demo)
-        elif item["key"].startswith("84.192."):
-             alert_key = f"demo_watchlist_{item['key']}"
-             if alert_key not in seen:
-                 alerts.append({"type":"watchlist","msg":f"👁️ Demo Watchlist IP: {item['key']}","severity":"low","feed":"demo", "ts": time.time()})
-                 seen.add(alert_key)
 
     # Add all alerts to history
     with _alert_history_lock:
@@ -1771,11 +1774,12 @@ def api_alerts():
     whitelist = load_list(THREAT_WHITELIST)
 
     # Run analysis (using shared data)
-    # Alerts logic uses top 20 sources/ports, which are covered by sources (top 50) and ports (top 20)
-    sources = get_common_nfdump_data("sources", range_key)[:20]
+    # Alerts logic uses top sources/dests/ports for comprehensive IP coverage
+    sources = get_common_nfdump_data("sources", range_key)[:50]
+    dests = get_common_nfdump_data("dests", range_key)[:50]
     ports = get_common_nfdump_data("ports", range_key)
 
-    alerts = detect_anomalies(ports, sources, threat_set, whitelist)
+    alerts = detect_anomalies(ports, sources, threat_set, whitelist, destinations_data=dests)
     send_notifications([a for a in alerts if a.get("severity") in ("critical","high")])
 
     data = {
