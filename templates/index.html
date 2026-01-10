@@ -3,7 +3,11 @@
 <head>
     <title>NetFlow Analytics</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#0a0e17">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
 
     <!-- External Libs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -11,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
 
     <!-- CSS -->
-    <link rel="stylesheet" href="/static/style.css?v=2">
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body class="antialiased" x-data="dashboard">
 
@@ -29,8 +33,13 @@
 
         <!-- Header -->
         <div class="header">
-            <div class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></div>
-            <div class="controls">
+            <div class="header-top">
+                <div class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></div>
+                <button class="mobile-filter-toggle" @click="showMobileFilters = !showMobileFilters" :class="{ 'active': showMobileFilters }">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                </button>
+            </div>
+            <div class="controls" :class="{ 'mobile-show': showMobileFilters }">
                 <!-- Notification Center -->
                 <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
                     <button @click="open = !open" class="icon-btn" title="Notifications" aria-label="Toggle notifications" style="position: relative;">
@@ -118,6 +127,30 @@
                     <span x-show="threatStatus.status" :class="'pill ' + (threatStatus.status === 'ok' ? 'ok' : 'err')" x-text="threatStatus.status === 'ok' ? 'Feed OK' : 'Feed Error'"></span>
                     <span x-text="lastUpdate"></span>
                 </div>
+            </div>
+        </div>
+
+        <!-- Mobile Quick Stats Bar -->
+        <div class="mobile-stats-bar">
+            <div class="mobile-stat">
+                <span class="mobile-stat-value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
+                <span class="mobile-stat-label">CPU</span>
+            </div>
+            <div class="mobile-stat">
+                <span class="mobile-stat-value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
+                <span class="mobile-stat-label">MEM</span>
+            </div>
+            <div class="mobile-stat">
+                <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+                <span class="mobile-stat-label">Threats</span>
+            </div>
+            <div class="mobile-stat">
+                <span class="mobile-stat-value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+                <span class="mobile-stat-label">Flows</span>
+            </div>
+            <div class="mobile-stat">
+                <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'" x-text="paused ? '⏸' : '▶'"></span>
+                <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
             </div>
         </div>
 
@@ -1305,6 +1338,30 @@
             <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
         </div>
     </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav">
+        <button class="mobile-nav-item" @click="document.querySelector('.container').scrollTo({top: 0, behavior: 'smooth'})" title="Top">
+            <span class="mobile-nav-icon">📊</span>
+            <span class="mobile-nav-label">Overview</span>
+        </button>
+        <button class="mobile-nav-item" @click="document.querySelector('.security-center').scrollIntoView({behavior: 'smooth'})" title="Security">
+            <span class="mobile-nav-icon">🛡️</span>
+            <span class="mobile-nav-label">Security</span>
+        </button>
+        <button class="mobile-nav-item" :class="{ 'active': !paused }" @click="togglePause()" title="Toggle refresh">
+            <span class="mobile-nav-icon" x-text="paused ? '▶️' : '⏸️'"></span>
+            <span class="mobile-nav-label" x-text="paused ? 'Resume' : 'Pause'"></span>
+        </button>
+        <button class="mobile-nav-item" @click="refreshData()" title="Refresh now">
+            <span class="mobile-nav-icon">🔄</span>
+            <span class="mobile-nav-label">Refresh</span>
+        </button>
+        <button class="mobile-nav-item" @click="showSettingsModal = true" title="Settings">
+            <span class="mobile-nav-icon">⚙️</span>
+            <span class="mobile-nav-label">Settings</span>
+        </button>
+    </nav>
 
     <!-- App Logic -->
     <script src="/static/app.js"></script>

@@ -28,6 +28,9 @@ document.addEventListener('alpine:init', () => {
         // Compact mode
         compactMode: false,
 
+        // Mobile UI state
+        showMobileFilters: false,
+
         // Sparkline cache
         sparkCache: {}, // { key: { ts, labels, bytes } }
         sparkTTL: 120000, // 2 minutes

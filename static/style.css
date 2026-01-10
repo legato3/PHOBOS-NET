@@ -297,6 +297,7 @@ tr:hover td {
 .text-purple { color: var(--neon-purple); }
 .text-green { color: var(--neon-green); }
 .text-red { color: var(--neon-red); }
+.text-yellow { color: var(--neon-yellow); }
 
 .flag { font-size: 1.2em; margin-right: 5px; filter: grayscale(0.3); }
 
@@ -2115,4 +2116,841 @@ body.compact-mode {
     font-size: 1.2em;
     opacity: 0.3;
     pointer-events: none;
+}
+
+/* ============================================
+   MOBILE-FIRST RESPONSIVE DESIGN
+   ============================================ */
+
+/* Tablet Breakpoint */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .security-center-stats {
+        gap: 16px;
+        padding: 0 12px;
+    }
+    
+    .sc-stat-value {
+        font-size: 1em;
+    }
+    
+    .security-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mobile Breakpoint */
+@media (max-width: 768px) {
+    /* Base Layout */
+    body {
+        padding: 10px;
+        padding-bottom: 70px !important;
+        font-size: 14px;
+    }
+    
+    .container {
+        gap: 12px;
+    }
+    
+    /* Header - Mobile Friendly */
+    .header {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 0;
+        position: sticky;
+        top: 0;
+        background: var(--bg-dark);
+        z-index: 100;
+        margin: -10px -10px 0 -10px;
+        padding: 10px;
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .header h1 {
+        font-size: 1.3em;
+    }
+    
+    .controls {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: space-between;
+    }
+    
+    .controls select,
+    .controls input {
+        flex: 1;
+        min-width: 100px;
+        height: 40px;
+        font-size: 14px;
+    }
+    
+    .controls button,
+    .controls .icon-btn {
+        height: 40px;
+        min-width: 40px;
+        padding: 8px 12px;
+    }
+    
+    /* Grid - Single Column */
+    .dashboard-grid,
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    /* Cards - Touch Friendly */
+    .card {
+        padding: 14px;
+        border-radius: 10px;
+    }
+    
+    .card h2 {
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+    
+    /* Tables - Horizontal Scroll */
+    .card table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+    
+    .card table thead,
+    .card table tbody,
+    .card table tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
+    .card table th,
+    .card table td {
+        padding: 10px 8px;
+        font-size: 0.9em;
+    }
+    
+    /* Security Center - Mobile */
+    .security-center {
+        margin: 0 -10px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    
+    .security-center-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 14px;
+        gap: 12px;
+    }
+    
+    .security-center-title {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .security-center-title h2 {
+        font-size: 1.1em;
+    }
+    
+    .security-center-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        width: 100%;
+        padding: 10px;
+        margin: 0;
+        border: none;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+    }
+    
+    .sc-stat {
+        align-items: center;
+    }
+    
+    .sc-stat-value {
+        font-size: 1.1em;
+    }
+    
+    .sc-stat-label {
+        font-size: 0.65em;
+    }
+    
+    .security-center-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .security-center-actions .btn-sm {
+        flex: 1;
+        justify-content: center;
+        padding: 10px;
+    }
+    
+    .collapse-indicator {
+        position: absolute;
+        right: 14px;
+        top: 18px;
+    }
+    
+    .security-center-content {
+        padding: 12px;
+    }
+    
+    .security-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    /* Activity Feed - Mobile */
+    .activity-feed {
+        gap: 8px;
+    }
+    
+    .activity-item {
+        padding: 10px;
+    }
+    
+    .activity-msg {
+        font-size: 0.85em;
+    }
+    
+    /* Feed Grid - Mobile */
+    .feed-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .feed-card {
+        padding: 10px;
+    }
+    
+    .feed-ips {
+        font-size: 1.1em;
+    }
+    
+    /* Alert Pills - Mobile */
+    .alert-pills {
+        gap: 6px;
+    }
+    
+    .alert-pill {
+        padding: 6px 10px;
+        font-size: 0.8em;
+    }
+    
+    /* Score Widget - Mobile */
+    .score-display {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .score-circle {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .score-circle::before {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .score-value {
+        font-size: 2em;
+    }
+    
+    .score-details {
+        width: 100%;
+    }
+    
+    .score-stats {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    /* Velocity Widget - Mobile */
+    .velocity-display {
+        text-align: center;
+    }
+    
+    .velocity-main {
+        justify-content: center;
+    }
+    
+    .velocity-trend {
+        margin: 0 auto;
+    }
+    
+    .velocity-stats {
+        justify-content: center;
+    }
+    
+    /* Threat IPs - Mobile */
+    .threat-ip-item {
+        flex-wrap: wrap;
+    }
+    
+    .threat-ip-info {
+        flex: 1 1 60%;
+    }
+    
+    .threat-ip-hits {
+        flex-direction: row;
+        gap: 6px;
+    }
+    
+    /* Section Headers - Mobile */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px;
+    }
+    
+    .section-header h3 {
+        font-size: 1em;
+    }
+    
+    .subsection-header {
+        padding: 10px 12px;
+    }
+    
+    .subsection-content {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 10px;
+    }
+    
+    /* Stat Cards - Mobile */
+    .stat-card,
+    .stat-box {
+        padding: 12px;
+        min-height: 70px;
+    }
+    
+    .stat-card .value,
+    .stat-box .value {
+        font-size: 1.5em;
+    }
+    
+    /* Status Bar - Mobile */
+    .status-bar {
+        height: auto;
+        min-height: 50px;
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        gap: 8px 16px;
+        justify-content: center;
+    }
+    
+    .status-bar-item {
+        font-size: 0.8em;
+    }
+    
+    /* Modals - Mobile Full Screen */
+    .modal-content {
+        width: 95vw;
+        max-width: none;
+        max-height: 85vh;
+        margin: 10px;
+        border-radius: 12px;
+    }
+    
+    /* Dropdown - Mobile */
+    .dropdown-menu {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        top: auto;
+        bottom: 60px;
+        max-width: none;
+        border-radius: 12px;
+    }
+    
+    .dropdown-menu a {
+        padding: 14px 16px;
+        font-size: 1em;
+    }
+    
+    /* Wide Cards - Mobile */
+    .wide-card {
+        margin: 0 -10px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    
+    /* Hide on Mobile */
+    .keyboard-hint {
+        display: none;
+    }
+    
+    /* Country Threats - Mobile */
+    .country-threat-list {
+        gap: 8px;
+    }
+    
+    .country-threat-item {
+        padding: 10px;
+    }
+    
+    /* Blocklist Stats - Mobile */
+    .blocklist-stats {
+        justify-content: center;
+    }
+    
+    /* Touch Target Improvements */
+    button,
+    .btn-sm,
+    .icon-btn,
+    .icon-btn-small {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .icon-btn-small {
+        min-height: 36px;
+        min-width: 36px;
+    }
+}
+
+/* Small Mobile Breakpoint */
+@media (max-width: 480px) {
+    body {
+        padding: 8px;
+        padding-bottom: 75px !important;
+        font-size: 13px;
+    }
+    
+    .header h1 {
+        font-size: 1.2em;
+    }
+    
+    .controls {
+        gap: 6px;
+    }
+    
+    .controls select {
+        font-size: 13px;
+    }
+    
+    /* Single Column Grids */
+    .subsection-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .feed-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .security-center-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    /* Cards Even More Compact */
+    .card {
+        padding: 12px;
+    }
+    
+    .card h2 {
+        font-size: 0.95em;
+    }
+    
+    /* Score - Smaller */
+    .score-circle {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .score-circle::before {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .score-value {
+        font-size: 1.6em;
+    }
+    
+    /* Activity Items */
+    .activity-item {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .activity-icon {
+        display: none;
+    }
+    
+    .activity-type {
+        font-size: 0.7em;
+    }
+    
+    /* Alert Pills - Wrap */
+    .alert-pills {
+        justify-content: center;
+    }
+    
+    .alert-pill {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
+    
+    /* Threat IP Items */
+    .threat-ip-rank {
+        display: none;
+    }
+    
+    .threat-ip-addr {
+        font-size: 0.85em;
+    }
+    
+    /* Table Font Size */
+    .card table th,
+    .card table td {
+        padding: 8px 6px;
+        font-size: 0.85em;
+    }
+    
+    /* Status Bar */
+    .status-bar {
+        font-size: 0.75em;
+        gap: 6px 12px;
+    }
+    
+    /* Compact Mode Indicator - Move Up */
+    .compact-mode::after {
+        bottom: 80px;
+    }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .header {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .security-center-header {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .security-center-stats {
+        grid-template-columns: repeat(4, 1fr);
+        flex: 1;
+    }
+    
+    .security-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .subsection-content {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .feed-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Safe Area Insets for Notched Phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body {
+        padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    }
+    
+    .status-bar {
+        padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Dark Mode Color Scheme for Mobile */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}
+
+/* Reduce Motion for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    .refresh-progress-bar {
+        transition: none !important;
+    }
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background: white;
+        color: black;
+        padding: 0;
+    }
+    
+    .header,
+    .status-bar,
+    .keyboard-hint,
+    .modal,
+    button,
+    .controls {
+        display: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        border: 1px solid #ccc;
+        background: white;
+    }
+}
+
+/* ============================================
+   MOBILE BOTTOM NAVIGATION
+   ============================================ */
+
+.mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 14, 23, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--accent-primary);
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
+    justify-content: space-around;
+    box-shadow: 0 -4px 20px rgba(0, 255, 255, 0.1);
+}
+
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+    border-radius: 8px;
+}
+
+.mobile-nav-item:hover,
+.mobile-nav-item:active {
+    color: var(--accent-primary);
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.mobile-nav-item.active {
+    color: var(--accent-primary);
+}
+
+.mobile-nav-item.active .mobile-nav-icon {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.mobile-nav-icon {
+    font-size: 1.3em;
+    line-height: 1;
+}
+
+.mobile-nav-label {
+    font-size: 0.65em;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Show mobile nav on mobile */
+@media (max-width: 768px) {
+    .mobile-nav {
+        display: flex;
+    }
+    
+    /* Hide status bar on mobile (replaced by mobile nav) */
+    .status-bar {
+        display: none;
+    }
+}
+
+/* Swipe indicator for tables */
+.table-swipe-hint {
+    display: none;
+    text-align: center;
+    padding: 8px;
+    color: var(--text-muted);
+    font-size: 0.75em;
+}
+
+@media (max-width: 768px) {
+    .table-swipe-hint {
+        display: block;
+    }
+}
+
+/* Touch-friendly tap effects */
+@media (max-width: 768px) {
+    button:active,
+    .btn-sm:active,
+    .icon-btn:active,
+    .card:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
+    
+    .mobile-nav-item:active {
+        transform: scale(0.95);
+    }
+    
+    /* Disable hover effects on touch */
+    @media (hover: none) {
+        button:hover,
+        .btn-sm:hover,
+        .card:hover {
+            transform: none;
+            box-shadow: none;
+        }
+    }
+}
+
+/* Mobile Quick Stats Bar */
+.mobile-stats-bar {
+    display: none;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 16px;
+}
+
+.mobile-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    gap: 2px;
+}
+
+.mobile-stat-value {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
+.mobile-stat-label {
+    font-size: 0.65em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+    .mobile-stats-bar {
+        display: flex;
+    }
+}
+
+/* Smooth scrolling for mobile */
+@media (max-width: 768px) {
+    html {
+        scroll-behavior: smooth;
+    }
+    
+    .container {
+        scroll-padding-top: 80px;
+    }
+}
+
+/* Header Top Row */
+.header-top {
+    display: contents;
+}
+
+.mobile-filter-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: var(--glass-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    color: var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mobile-filter-toggle:hover,
+.mobile-filter-toggle:active {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: var(--accent-primary);
+}
+
+@media (max-width: 768px) {
+    .header-top {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .mobile-filter-toggle {
+        display: flex;
+    }
+    
+    /* Controls hidden by default on mobile */
+    .controls {
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        margin-top: 10px;
+    }
+    
+    .controls.mobile-show {
+        display: flex;
+    }
+    
+    .controls > * {
+        width: 100%;
+    }
+    
+    .controls .dropdown {
+        width: auto;
+    }
+    
+    /* Mobile filter row groups */
+    .controls select,
+    .controls input {
+        width: 100%;
+    }
+    
+    .mobile-filter-toggle.active {
+        background: var(--accent-primary);
+        color: var(--bg-dark);
+    }
 }
