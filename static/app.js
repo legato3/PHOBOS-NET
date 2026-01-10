@@ -2037,7 +2037,8 @@ document.addEventListener('alpine:init', () => {
                 threatsByCountry: true,
                 threatVelocity: true,
                 topThreatIPs: true,
-                conversations: true
+                conversations: true,
+                worldmap: true
             };
             try {
                 const saved = JSON.parse(localStorage.getItem('widgetVisibility') || '{}');
