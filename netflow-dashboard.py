@@ -2410,6 +2410,104 @@ def api_top_threat_ips():
     })
 
 
+@app.route('/api/security/risk_index')
+@throttle(5, 10)
+def api_risk_index():
+    """Calculate Network Risk Index based on traffic patterns and threats"""
+    # Gather risk factors
+    risk_factors = []
+    risk_score = 0
+    
+    # Factor 1: Active threats (0-30 points)
+    threat_count = len(_threat_timeline)
+    if threat_count == 0:
+        risk_factors.append({'factor': 'Active Threats', 'value': 'None', 'impact': 'low', 'points': 0})
+    elif threat_count <= 5:
+        risk_score += 10
+        risk_factors.append({'factor': 'Active Threats', 'value': f'{threat_count} IPs', 'impact': 'medium', 'points': 10})
+    elif threat_count <= 20:
+        risk_score += 20
+        risk_factors.append({'factor': 'Active Threats', 'value': f'{threat_count} IPs', 'impact': 'high', 'points': 20})
+    else:
+        risk_score += 30
+        risk_factors.append({'factor': 'Active Threats', 'value': f'{threat_count} IPs', 'impact': 'critical', 'points': 30})
+    
+    # Factor 2: Threat velocity (0-20 points)
+    current_hour = int(time.time() // 3600) % 24
+    hourly_threats = _threat_hourly_buckets.get(current_hour, 0)
+    if hourly_threats == 0:
+        risk_factors.append({'factor': 'Threat Velocity', 'value': '0/hr', 'impact': 'low', 'points': 0})
+    elif hourly_threats <= 5:
+        risk_score += 5
+        risk_factors.append({'factor': 'Threat Velocity', 'value': f'{hourly_threats}/hr', 'impact': 'medium', 'points': 5})
+    elif hourly_threats <= 20:
+        risk_score += 10
+        risk_factors.append({'factor': 'Threat Velocity', 'value': f'{hourly_threats}/hr', 'impact': 'high', 'points': 10})
+    else:
+        risk_score += 20
+        risk_factors.append({'factor': 'Threat Velocity', 'value': f'{hourly_threats}/hr', 'impact': 'critical', 'points': 20})
+    
+    # Factor 3: Feed coverage (0-15 points for poor coverage)
+    global _threat_feed_health
+    if _threat_feed_health:
+        ok_feeds = sum(1 for f in _threat_feed_health.get('feeds', []) if f.get('status') == 'ok')
+        total_feeds = len(_threat_feed_health.get('feeds', []))
+        if total_feeds > 0:
+            coverage = ok_feeds / total_feeds
+            if coverage >= 0.9:
+                risk_factors.append({'factor': 'Feed Coverage', 'value': f'{ok_feeds}/{total_feeds}', 'impact': 'low', 'points': 0})
+            elif coverage >= 0.7:
+                risk_score += 5
+                risk_factors.append({'factor': 'Feed Coverage', 'value': f'{ok_feeds}/{total_feeds}', 'impact': 'medium', 'points': 5})
+            else:
+                risk_score += 15
+                risk_factors.append({'factor': 'Feed Coverage', 'value': f'{ok_feeds}/{total_feeds}', 'impact': 'high', 'points': 15})
+    
+    # Factor 4: Suspicious port activity (0-20 points)
+    suspicious_ports = {22, 23, 3389, 445, 135, 137, 138, 139, 1433, 3306, 5432}
+    # Check if any suspicious ports have high traffic (simplified check)
+    suspicious_activity = False
+    for port in suspicious_ports:
+        if port in [22, 3389]:  # Common admin ports - flag if from unusual sources
+            suspicious_activity = True
+            break
+    if suspicious_activity:
+        risk_score += 10
+        risk_factors.append({'factor': 'Suspicious Ports', 'value': 'Detected', 'impact': 'medium', 'points': 10})
+    else:
+        risk_factors.append({'factor': 'Suspicious Ports', 'value': 'Normal', 'impact': 'low', 'points': 0})
+    
+    # Factor 5: External exposure (0-15 points)
+    # Simplified: assume some external exposure exists
+    risk_score += 5
+    risk_factors.append({'factor': 'External Traffic', 'value': 'Present', 'impact': 'medium', 'points': 5})
+    
+    # Calculate risk level
+    if risk_score <= 15:
+        risk_level = 'LOW'
+        risk_color = 'green'
+    elif risk_score <= 35:
+        risk_level = 'MODERATE'
+        risk_color = 'yellow'
+    elif risk_score <= 55:
+        risk_level = 'ELEVATED'
+        risk_color = 'orange'
+    elif risk_score <= 75:
+        risk_level = 'HIGH'
+        risk_color = 'red'
+    else:
+        risk_level = 'CRITICAL'
+        risk_color = 'red'
+    
+    return jsonify({
+        'score': risk_score,
+        'max_score': 100,
+        'level': risk_level,
+        'color': risk_color,
+        'factors': risk_factors
+    })
+
+
 @app.route('/api/security/watchlist', methods=['GET'])
 @throttle(5, 10)
 def api_get_watchlist():

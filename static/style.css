@@ -1518,18 +1518,20 @@ body {
 
 .feed-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    max-height: 280px;
+    overflow-y: auto;
 }
 
 .feed-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(0, 243, 255, 0.1);
-    border-radius: 8px;
-    padding: 10px;
+    border-radius: 6px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     transition: all 0.2s;
 }
 
@@ -1567,7 +1569,7 @@ body {
 }
 
 .feed-name {
-    font-size: 0.85em;
+    font-size: 0.75em;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -1757,6 +1759,189 @@ body {
     color: var(--text-muted);
     text-transform: uppercase;
 }
+
+/* ============================================
+   ASN DISTRIBUTION WIDGET
+   ============================================ */
+.asn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.asn-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.asn-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 100px;
+}
+
+.asn-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.asn-name {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.asn-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.asn-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-purple), var(--neon-cyan));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.asn-bytes {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    min-width: 60px;
+    text-align: right;
+}
+
+/* ============================================
+   NETWORK RISK INDEX WIDGET
+   ============================================ */
+.risk-index-card {
+    transition: border-color 0.3s ease;
+}
+
+.risk-index-card.risk-low { border-color: var(--neon-green); }
+.risk-index-card.risk-moderate { border-color: var(--neon-yellow); }
+.risk-index-card.risk-elevated { border-color: var(--neon-orange, #ff9500); }
+.risk-index-card.risk-high { border-color: var(--neon-red); }
+.risk-index-card.risk-critical { border-color: #ff0040; box-shadow: 0 0 15px rgba(255, 0, 64, 0.3); }
+
+.risk-display {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.risk-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.risk-bar-bg {
+    height: 10px;
+    background: linear-gradient(90deg, 
+        var(--neon-green) 0%, 
+        var(--neon-yellow) 25%, 
+        #ff9500 50%, 
+        var(--neon-red) 75%, 
+        #ff0040 100%);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+}
+
+.risk-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: transparent;
+    border-right: 3px solid white;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    transition: width 0.5s ease;
+}
+
+.risk-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65em;
+    color: var(--text-muted);
+    padding: 0 2px;
+}
+
+.risk-score-display {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.risk-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2em;
+    font-weight: 700;
+}
+
+.risk-max {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.risk-level-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: auto;
+}
+
+.risk-level-badge.level-low { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
+.risk-level-badge.level-moderate { background: rgba(255, 255, 0, 0.2); color: var(--neon-yellow); }
+.risk-level-badge.level-elevated { background: rgba(255, 149, 0, 0.2); color: #ff9500; }
+.risk-level-badge.level-high { background: rgba(255, 0, 60, 0.2); color: var(--neon-red); }
+.risk-level-badge.level-critical { background: rgba(255, 0, 64, 0.3); color: #ff0040; animation: pulse-critical 1s ease-in-out infinite; }
+
+@keyframes pulse-critical {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.risk-factors {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.risk-factor-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    font-size: 0.8em;
+}
+
+.factor-name {
+    color: var(--text-muted);
+}
+
+.factor-value {
+    font-weight: 600;
+}
+
+.factor-value.impact-low { color: var(--neon-green); }
+.factor-value.impact-medium { color: var(--neon-yellow); }
+.factor-value.impact-high { color: #ff9500; }
+.factor-value.impact-critical { color: var(--neon-red); }
 
 /* ============================================
    SECURITY CENTER

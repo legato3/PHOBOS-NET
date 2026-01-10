@@ -66,6 +66,7 @@ document.addEventListener('alpine:init', () => {
         watchlistModalOpen: false,
         threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
         topThreatIPs: { ips: [], loading: true },
+        riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -86,7 +87,7 @@ document.addEventListener('alpine:init', () => {
             topstats: 'Top Stats Row',
             flags: 'TCP Flags',
             asns: 'Top ASNs',
-            countries: 'Top Countries',
+            countries: 'Traffic by Country',
             durations: 'Long Flows',
             packetSizes: 'Packet Sizes',
             sources: 'Top Sources',
@@ -102,6 +103,7 @@ document.addEventListener('alpine:init', () => {
             threatsByCountry: 'Threats by Country',
             threatVelocity: 'Threat Velocity',
             topThreatIPs: 'Top Threat IPs',
+            riskIndex: 'Network Risk Index',
             conversations: 'Recent Conversations'
         },
 
@@ -427,6 +429,7 @@ document.addEventListener('alpine:init', () => {
                 this.fetchWatchlist();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
+                this.fetchRiskIndex();
             }
 
             // New Features
@@ -655,6 +658,18 @@ document.addEventListener('alpine:init', () => {
                 }
             } catch (e) { console.error('Top threat IPs fetch error:', e); }
             finally { this.topThreatIPs.loading = false; }
+        },
+
+        async fetchRiskIndex() {
+            this.riskIndex.loading = true;
+            try {
+                const res = await fetch('/api/security/risk_index');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.riskIndex = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Risk index fetch error:', e); }
+            finally { this.riskIndex.loading = false; }
         },
 
         async fetchWatchlist() {

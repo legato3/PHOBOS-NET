@@ -655,6 +655,71 @@
                 </table>
             </div>
 
+            <!-- TCP Flags -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('flags') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🚩 TCP Flags</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flags')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flags')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="flags.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper" x-show="!isMinimized('flags')" style="height: 180px;">
+                    <canvas id="flagsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- ASN Distribution -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🏢 Top ASNs</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="asns.loading"></div>
+                    </div>
+                </h2>
+                <div class="asn-list" x-show="!isMinimized('asns')">
+                    <template x-for="(asn, idx) in (asns.asns || []).slice(0, 8)" :key="idx">
+                        <div class="asn-item">
+                            <div class="asn-info">
+                                <span class="asn-number text-purple" x-text="'AS' + asn.asn"></span>
+                                <span class="asn-name" x-text="asn.name || 'Unknown'" :title="asn.name"></span>
+                            </div>
+                            <div class="asn-bar-wrap">
+                                <div class="asn-bar" :style="'width: ' + ((asn.bytes / (asns.maxBytes || 1)) * 100) + '%'"></div>
+                            </div>
+                            <span class="asn-bytes text-green" x-text="asn.bytes_fmt || fmtBytes(asn.bytes)"></span>
+                        </div>
+                    </template>
+                    <template x-if="!asns.asns || asns.asns.length === 0">
+                        <div style="color:var(--text-muted); text-align:center; padding: 20px;">No ASN data</div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Traffic by Country -->
+            <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
+                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <span>🌍 Traffic by Country</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="spinner" x-show="countries.loading"></div>
+                    </div>
+                </h2>
+                <div class="chart-wrapper" x-show="!isMinimized('countries')" style="height: 180px;">
+                    <canvas id="countriesChart"></canvas>
+                </div>
+            </div>
+
         </div>
         </template>
 
@@ -1044,6 +1109,49 @@
                                 <span>No threat IPs detected</span>
                             </div>
                         </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Network Risk Index Widget -->
+            <template x-if="isVisible('riskIndex')">
+                <div class="card risk-index-card" :class="{ 'widget-minimized': isMinimized('riskIndex'), 'risk-low': riskIndex.level === 'LOW', 'risk-moderate': riskIndex.level === 'MODERATE', 'risk-elevated': riskIndex.level === 'ELEVATED', 'risk-high': riskIndex.level === 'HIGH', 'risk-critical': riskIndex.level === 'CRITICAL' }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>⚠️ Network Risk Index</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="toggleMinimize('riskIndex')" :title="isMinimized('riskIndex') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('riskIndex')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('riskIndex')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="riskIndex.loading"></div>
+                        </div>
+                    </h2>
+                    <div class="risk-display" x-show="!isMinimized('riskIndex')">
+                        <div class="risk-meter">
+                            <div class="risk-bar-bg">
+                                <div class="risk-bar-fill" :style="'width: ' + (riskIndex.score || 0) + '%'"></div>
+                            </div>
+                            <div class="risk-labels">
+                                <span>LOW</span>
+                                <span>MOD</span>
+                                <span>ELEV</span>
+                                <span>HIGH</span>
+                                <span>CRIT</span>
+                            </div>
+                        </div>
+                        <div class="risk-score-display">
+                            <span class="risk-value" x-text="riskIndex.score || 0"></span>
+                            <span class="risk-max">/ 100</span>
+                            <span class="risk-level-badge" :class="'level-' + (riskIndex.level || 'low').toLowerCase()" x-text="riskIndex.level || 'LOW'"></span>
+                        </div>
+                        <div class="risk-factors">
+                            <template x-for="factor in (riskIndex.factors || []).slice(0, 4)" :key="factor.factor">
+                                <div class="risk-factor-item">
+                                    <span class="factor-name" x-text="factor.factor"></span>
+                                    <span class="factor-value" :class="'impact-' + factor.impact" x-text="factor.value"></span>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </template>
