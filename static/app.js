@@ -853,7 +853,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await this.fetchWithLatency(`/api/stats/summary?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.summary = { ...data, loading: false };
+                    this.summary = { ...data };
                     if(data.threat_status) this.threatStatus = data.threat_status;
                 }
             } catch(e) { console.error(e); } finally { this.summary.loading = false; }
@@ -863,7 +863,7 @@ document.addEventListener('alpine:init', () => {
             this.sources.loading = true;
             try {
                 const res = await fetch(`/api/stats/sources?range=${this.timeRange}`);
-                if(res.ok) this.sources = { ...(await res.json()), loading: false };
+                if(res.ok) this.sources = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.sources.loading = false; }
             // defer sparkline draw after DOM update
             this.$nextTick(() => this.renderSparklines('source'));
@@ -873,7 +873,7 @@ document.addEventListener('alpine:init', () => {
             this.destinations.loading = true;
             try {
                 const res = await fetch(`/api/stats/destinations?range=${this.timeRange}`);
-                if(res.ok) this.destinations = { ...(await res.json()), loading: false };
+                if(res.ok) this.destinations = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.destinations.loading = false; }
             this.$nextTick(() => this.renderSparklines('dest'));
         },
@@ -882,7 +882,7 @@ document.addEventListener('alpine:init', () => {
             this.ports.loading = true;
             try {
                 const res = await fetch(`/api/stats/ports?range=${this.timeRange}`);
-                if(res.ok) this.ports = { ...(await res.json()), loading: false };
+                if(res.ok) this.ports = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.ports.loading = false; }
         },
 
@@ -891,7 +891,7 @@ document.addEventListener('alpine:init', () => {
             this.firewall.loading = true;
             try {
                 const res = await fetch(`/api/stats/firewall?range=${this.timeRange}`);
-                if(res.ok) this.firewall = { ...(await res.json()).firewall, loading: false };
+                if(res.ok) this.firewall = { ...(await res.json()).firewall };
             } catch(e) { console.error(e); } finally { this.firewall.loading = false; }
         },
 
@@ -925,7 +925,7 @@ document.addEventListener('alpine:init', () => {
             this.protocols.loading = true;
             try {
                 const res = await fetch(`/api/stats/protocols?range=${this.timeRange}`);
-                if(res.ok) this.protocols = { ...(await res.json()), loading: false };
+                if(res.ok) this.protocols = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.protocols.loading = false; }
         },
 
@@ -935,7 +935,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`);
                 if (res.ok) {
-                    this.maliciousPorts = { ...(await res.json()), loading: false };
+                    this.maliciousPorts = { ...(await res.json()) };
                     return;
                 }
             } catch (e) { /* ignore and fallback */ }
@@ -958,7 +958,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/threats?range=${this.timeRange}`);
                 if (res.ok) {
                     const d = await res.json();
-                    this.threats = { ...(d), loading: false };
+                    this.threats = { ...(d) };
                     return;
                 }
             } catch (e) { /* ignore and fallback */ }
@@ -1358,7 +1358,7 @@ document.addEventListener('alpine:init', () => {
             this.alerts.loading = true;
             try {
                 const res = await fetch(`/api/alerts?range=${this.timeRange}`);
-                if(res.ok) this.alerts = { ...(await res.json()), loading: false };
+                if(res.ok) this.alerts = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.alerts.loading = false; }
         },
 
@@ -1366,7 +1366,7 @@ document.addEventListener('alpine:init', () => {
             this.conversations.loading = true;
             try {
                 const res = await fetch(`/api/conversations?range=${this.timeRange}`);
-                if(res.ok) this.conversations = { ...(await res.json()), loading: false };
+                if(res.ok) this.conversations = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.conversations.loading = false; }
         },
 
@@ -1376,7 +1376,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/flags?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.flags = { ...data, loading: false };
+                    this.flags = { ...data };
                     this.updateFlagsChart(data.flags);
                 }
             } catch(e) { console.error(e); } finally { this.flags.loading = false; }
@@ -1390,7 +1390,7 @@ document.addEventListener('alpine:init', () => {
                     const data = await res.json();
                     // Calc max for bar chart
                     const max = Math.max(...data.asns.map(a => a.bytes));
-                    this.asns = { ...data, maxBytes: max, loading: false };
+                    this.asns = { ...data, maxBytes: max };
                 }
             } catch(e) { console.error(e); } finally { this.asns.loading = false; }
         },
@@ -1401,7 +1401,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/countries?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.countries = { ...data, loading: false };
+                    this.countries = { ...data };
                     this.updateCountriesChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.countries.loading = false; }
@@ -1413,7 +1413,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.worldMap = { ...data, loading: false };
+                    this.worldMap = { ...data };
                 } else {
                     console.error('[WorldMap] API error:', res.status);
                 }
@@ -1537,7 +1537,7 @@ document.addEventListener('alpine:init', () => {
             this.durations.loading = true;
             try {
                 const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
-                if(res.ok) this.durations = { ...(await res.json()), loading: false };
+                if(res.ok) this.durations = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.durations.loading = false; }
         },
 
@@ -1545,7 +1545,7 @@ document.addEventListener('alpine:init', () => {
             this.talkers.loading = true;
             try {
                 const res = await fetch(`/api/stats/talkers?range=${this.timeRange}`);
-                if(res.ok) this.talkers = { ...(await res.json()), loading: false };
+                if(res.ok) this.talkers = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.talkers.loading = false; }
         },
 
@@ -1553,7 +1553,7 @@ document.addEventListener('alpine:init', () => {
             this.services.loading = true;
             try {
                 const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
-                if(res.ok) this.services = { ...(await res.json()), loading: false };
+                if(res.ok) this.services = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.services.loading = false; }
         },
 
@@ -1563,7 +1563,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.hourlyTraffic = { ...data, loading: false };
+                    this.hourlyTraffic = { ...data };
                     this.updateHourlyChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
@@ -1624,7 +1624,7 @@ document.addEventListener('alpine:init', () => {
             this.flowStats.loading = true;
             try {
                 const res = await fetch(`/api/stats/flow_stats?range=${this.timeRange}`);
-                if(res.ok) this.flowStats = { ...(await res.json()), loading: false };
+                if(res.ok) this.flowStats = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.flowStats.loading = false; }
         },
 
@@ -1634,7 +1634,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.protoMix = { ...data, loading: false };
+                    this.protoMix = { ...data };
                     this.updateProtoMixChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.protoMix.loading = false; }
@@ -1705,7 +1705,7 @@ document.addEventListener('alpine:init', () => {
             this.netHealth.loading = true;
             try {
                 const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
-                if(res.ok) this.netHealth = { ...(await res.json()), loading: false };
+                if(res.ok) this.netHealth = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.netHealth.loading = false; }
         },
 
@@ -1715,7 +1715,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/bandwidth?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.bandwidth = { ...data, loading: false };
+                    this.bandwidth = { ...data };
                     this.updateBwChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.bandwidth.loading = false; }
@@ -1801,7 +1801,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/packet_sizes?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.packetSizes = { ...data, loading: false };
+                    this.packetSizes = { ...data };
                     this.updatePktSizeChart(data);
                 }
             } catch(e) { console.error(e); } finally { this.packetSizes.loading = false; }
