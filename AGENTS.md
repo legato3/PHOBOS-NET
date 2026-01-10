@@ -236,6 +236,24 @@ apt-get install snmp python3-pysnmp4
 - `:class` for dynamic styling
 - Keep reactivity intact when modifying
 
+### Mobile-First Responsive Design
+- **Breakpoints**: 1024px (tablet), 768px (mobile), 480px (small mobile)
+- **Mobile Bottom Nav**: Fixed 5-button navigation (Overview, Security, Pause, Refresh, Settings)
+- **Mobile Stats Bar**: Horizontal scrollable quick stats (CPU, MEM, Threats, Flows, Status)
+- **Collapsible Controls**: Filter toggle button hides/shows header controls
+- **Touch Targets**: Minimum 44px for all interactive elements
+- **Safe Areas**: Supports notched phones (iPhone X+) with `env(safe-area-inset-*)`
+- **PWA Ready**: Meta tags for home screen install on iOS/Android
+
+### Responsive Considerations
+- Single column layouts on mobile
+- Horizontal scrolling tables with swipe support
+- Security Center full-width on mobile
+- Activity feed compact layout
+- Score widget centered and stacked
+- `prefers-reduced-motion` accessibility support
+- Print styles for report generation
+
 ## 📚 Architecture Decisions
 
 ### Why Multi-Feed?
@@ -266,6 +284,6 @@ apt-get install snmp python3-pysnmp4
 
 ---
 
-**Last Updated**: January 9, 2026 (v2.1)  
+**Last Updated**: January 10, 2026 (v2.2 - Mobile Responsive)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs
