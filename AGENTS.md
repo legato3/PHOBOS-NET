@@ -280,16 +280,18 @@ apt-get install snmp python3-pysnmp4
 - **Summary Stats** - Total traffic, flows, avg packet size
 - **Bandwidth & Flow Rate** - Time-series chart
 - **Firewall Health** - CPU, MEM, Uptime from SNMP
-- **Top Sources/Destinations** - IP tables with geo, sparklines
-- **Top Ports** - Port traffic with service names
-- **Protocols** - Protocol breakdown
 - **TCP Flags** - Flag distribution chart
 - **Top ASNs** - Autonomous System traffic bars
 - **Top Countries** - Geographic traffic distribution (pie chart)
 - **Longest Durations** - Long-running flows
 - **Packet Sizes** - Packet size distribution chart
-- **Top Conversations** - Heaviest traffic pairs (src → dst)
-- **Traffic Insights** - AI-generated insights about network behavior
+- **Protocols** - Protocol breakdown table
+- **Traffic Insights** - Dynamic insights about network behavior
+
+### Top Stats Section
+- **Top Sources** - IP tables with geo, sparklines
+- **Top Destinations** - IP tables with geo, sparklines
+- **Top Ports** - Port traffic with service names
 
 ### Security Center (10 widgets)
 - **Security Score** - 0-100 gauge with grade
