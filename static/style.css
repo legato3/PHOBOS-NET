@@ -2408,6 +2408,17 @@ body {
     font-weight: 600;
 }
 
+.insight-text .clickable-ip {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+
+.insight-text .clickable-ip:hover {
+    text-decoration-style: solid;
+}
+
 /* ============================================
    THREAT VELOCITY WIDGET
    ============================================ */

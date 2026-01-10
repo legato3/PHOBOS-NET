@@ -511,7 +511,7 @@
                     <div class="insight-item" x-show="sources.sources && sources.sources.length > 0">
                         <span class="insight-icon">📈</span>
                         <span class="insight-text">
-                            <strong class="text-cyan" x-text="sources.sources[0]?.key || 'N/A'"></strong> is the top talker with 
+                            <strong class="text-cyan clickable-ip" @click="openIPModal(sources.sources[0]?.key)" x-text="sources.sources[0]?.key || 'N/A'"></strong> is the top talker with 
                             <strong class="text-green" x-text="sources.sources[0]?.bytes_fmt || '0 B'"></strong>
                         </span>
                     </div>
@@ -531,15 +531,36 @@
                             <strong x-text="protocols.protocols[0]?.bytes_fmt || '0 B'"></strong>
                         </span>
                     </div>
-                    <!-- Threat status -->
-                    <div class="insight-item">
-                        <span class="insight-icon" x-text="(threats.hits?.length || 0) > 0 ? '⚠️' : '✅'"></span>
-                        <span class="insight-text" :class="{ 'text-red': (threats.hits?.length || 0) > 0, 'text-green': (threats.hits?.length || 0) === 0 }">
-                            <template x-if="(threats.hits?.length || 0) === 0">Network traffic is clean - no threats detected</template>
-                            <template x-if="(threats.hits?.length || 0) > 0">
-                                <span><strong x-text="threats.hits?.length || 0"></strong> threat IPs detected in traffic</span>
-                            </template>
+                    <!-- Top destination insight -->
+                    <div class="insight-item" x-show="destinations.destinations && destinations.destinations.length > 0">
+                        <span class="insight-icon">🎯</span>
+                        <span class="insight-text">
+                            <strong class="text-green clickable-ip" @click="openIPModal(destinations.destinations[0]?.key)" x-text="destinations.destinations[0]?.key || 'N/A'"></strong> is top destination with 
+                            <strong class="text-cyan" x-text="destinations.destinations[0]?.bytes_fmt || '0 B'"></strong>
                         </span>
+                    </div>
+                    <!-- Total traffic summary -->
+                    <div class="insight-item" x-show="summary.total_bytes">
+                        <span class="insight-icon">📊</span>
+                        <span class="insight-text">
+                            Total traffic: <strong class="text-cyan" x-text="fmtBytes(summary.total_bytes || 0)"></strong> across 
+                            <strong x-text="(summary.total_flows || 0).toLocaleString()"></strong> flows
+                        </span>
+                    </div>
+                    <!-- Threat status - fixed template syntax -->
+                    <div class="insight-item" x-show="(threats.hits?.length || 0) === 0">
+                        <span class="insight-icon">✅</span>
+                        <span class="insight-text text-green">Network traffic is clean - no threats detected</span>
+                    </div>
+                    <div class="insight-item" x-show="(threats.hits?.length || 0) > 0">
+                        <span class="insight-icon">⚠️</span>
+                        <span class="insight-text text-red">
+                            <strong x-text="threats.hits?.length || 0"></strong> threat IPs detected in traffic!
+                        </span>
+                    </div>
+                    <!-- Empty state -->
+                    <div class="empty-state" x-show="!sources.sources?.length && !ports.ports?.length && !protocols.protocols?.length">
+                        Loading insights...
                     </div>
                 </div>
             </div>
