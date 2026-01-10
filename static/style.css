@@ -998,3 +998,73 @@ body {
 .feed-status.error {
     color: var(--neon-red);
 }
+
+/* ============================================
+   BLOCKLIST STATS
+   ============================================ */
+.blocklist-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.blocklist-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.blocklist-value {
+    font-size: 1.3em;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.blocklist-label {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   SECURITY SECTION HEADER
+   ============================================ */
+.section-header.security-section {
+    background: linear-gradient(90deg, rgba(188, 19, 254, 0.1) 0%, transparent 100%);
+    border-left: 3px solid var(--neon-purple);
+}
+
+.security-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    font-size: 0.85em;
+}
+
+.security-stat {
+    color: var(--text-muted);
+}
+
+.security-stat.ok {
+    color: var(--neon-green);
+}
+
+.security-stat.warn {
+    color: var(--neon-red);
+    font-weight: 600;
+}
+
+.security-divider {
+    color: var(--card-border);
+}
+
+/* Text color utilities */
+.text-yellow {
+    color: var(--neon-yellow, #ffcc00) !important;
+}
+
+.text-red {
+    color: var(--neon-red) !important;
+}

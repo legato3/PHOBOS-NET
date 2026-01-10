@@ -620,6 +620,25 @@
                 </table>
             </div>
 
+            <!-- Security Section Header -->
+            <div class="section-header security-section">
+                <span class="section-icon">🔐</span>
+                <h3>Security Intelligence</h3>
+                <div class="security-summary">
+                    <span class="security-stat" :class="{ 'ok': (threats.hits?.length || 0) === 0, 'warn': (threats.hits?.length || 0) > 0 }">
+                        <span x-text="threats.hits?.length || 0"></span> threats
+                    </span>
+                    <span class="security-divider">·</span>
+                    <span class="security-stat">
+                        <span x-text="feedHealth.summary?.ok || 0"></span>/<span x-text="feedHealth.summary?.total || 0"></span> feeds
+                    </span>
+                    <span class="security-divider">·</span>
+                    <span class="security-stat">
+                        <span x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span> IPs
+                    </span>
+                </div>
+            </div>
+
             <!-- Threat Detections -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('threats') }">
                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
@@ -741,18 +760,18 @@
                         <div class="spinner" x-show="blocklist.loading"></div>
                     </div>
                 </h2>
-                <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('blocklist')">Rate of flows matching blocklists / feeds</div>
-                <div style="height:120px; margin-bottom:8px;" class="chart-expandable" x-show="!isMinimized('blocklist')" @click="openFullscreenChart('blocklistChart', 'Blocklist Match Rate')" title="Click to expand">
+                <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('blocklist')">Rate of flows matching blocklists / feeds</div>
+                <div style="height:100px; margin-bottom:8px;" class="chart-expandable" x-show="!isMinimized('blocklist')" @click="openFullscreenChart('blocklistChart', 'Blocklist Match Rate')" title="Click to expand">
                     <canvas id="blocklistChart"></canvas>
                 </div>
-                <div style="display:flex; gap:12px; align-items:center; justify-content:flex-start;" x-show="!isMinimized('blocklist')">
-                    <div>
-                        <div class="value" style="font-size:1.4em; color:var(--neon-green);" x-text="(blocklist.current_rate != null) ? (blocklist.current_rate + '%') : '--'"></div>
-                        <div class="label">Current Match Rate</div>
+                <div class="blocklist-stats" x-show="!isMinimized('blocklist')">
+                    <div class="blocklist-stat">
+                        <span class="blocklist-value" :class="{ 'text-green': blocklist.current_rate == 0, 'text-yellow': blocklist.current_rate > 0 && blocklist.current_rate < 1, 'text-red': blocklist.current_rate >= 1 }" x-text="(blocklist.current_rate != null) ? (blocklist.current_rate + '%') : '--'"></span>
+                        <span class="blocklist-label">Match Rate</span>
                     </div>
-                    <div>
-                        <div style="font-size:1.1em; color:var(--text-muted);" x-text="(blocklist.total_matches || 0) + ' matches'"></div>
-                        <div class="label">Total Matches</div>
+                    <div class="blocklist-stat">
+                        <span class="blocklist-value" style="color: var(--text-muted);" x-text="(blocklist.total_matches || 0).toLocaleString()"></span>
+                        <span class="blocklist-label">Matches</span>
                     </div>
                 </div>
             </div>
