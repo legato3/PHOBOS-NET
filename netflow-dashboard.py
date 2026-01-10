@@ -4301,6 +4301,96 @@ def api_stats_firewall_stream():
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
+@app.route("/api/stats/blocklist_rate")
+@throttle(5, 10)
+def api_stats_blocklist_rate():
+    """Blocklist match rate statistics (sparkline data)."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+
+    # Check if we have threat data
+    threat_set = load_threatlist()
+    threat_count = len(threat_set)
+
+    # Determine bucket interval based on range
+    # Target approx 15-20 buckets
+    # 1h = 3600s / 15 = ~240s (4 min)
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400}.get(range_key, 3600)
+    bucket_size = max(60, range_seconds // 15)
+
+    # Initialize buckets
+    num_buckets = range_seconds // bucket_size
+    # End time is now, start time is now - range
+    start_ts = now - range_seconds
+    buckets = {i: 0 for i in range(num_buckets + 1)}
+
+    # Fetch recent flows
+    tf = get_time_range(range_key)
+    # Using a higher limit to get decent stats
+    output = run_nfdump(["-n", "5000"], tf)
+
+    match_counts = defaultdict(int)
+    total_matches = 0
+
+    try:
+        lines = output.strip().split("\n")
+        header = lines[0].split(',')
+        try:
+            ts_idx = header.index('ts')
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+        except:
+            ts_idx, sa_idx, da_idx = 0, 3, 4
+
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            if len(parts) > max(ts_idx, sa_idx, da_idx):
+                try:
+                    src = parts[sa_idx]
+                    dst = parts[da_idx]
+
+                    if src in threat_set or dst in threat_set:
+                        total_matches += 1
+
+                        # Parse timestamp to bucket
+                        ts_str = parts[ts_idx]
+                        # Expected format: YYYY-MM-DD HH:MM:SS.mmm
+                        try:
+                            # Strip millis
+                            ts_clean = ts_str.split('.')[0]
+                            dt = datetime.strptime(ts_clean, '%Y-%m-%d %H:%M:%S')
+                            ts_val = dt.timestamp()
+
+                            if ts_val >= start_ts:
+                                b_idx = int((ts_val - start_ts) // bucket_size)
+                                if b_idx in buckets:
+                                    buckets[b_idx] += 1
+                        except:
+                            # Fallback if parsing fails: ignore time distribution
+                            pass
+                except: pass
+
+        # Generate series
+        series = []
+        for i in range(num_buckets + 1):
+            t = start_ts + (i * bucket_size)
+            series.append({"ts": int(t * 1000), "rate": buckets[i]})
+
+        current_rate = series[-1]["rate"] if series else 0
+
+    except Exception:
+        series = []
+        current_rate = 0
+        total_matches = 0
+
+    return jsonify({
+        "series": series,
+        "current_rate": current_rate,
+        "total_matches": total_matches,
+        "threat_count": threat_count
+    })
+
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
     app.run(host="0.0.0.0",port=8080,threaded=True)

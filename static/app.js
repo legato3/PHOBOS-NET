@@ -27,9 +27,14 @@ document.addEventListener('alpine:init', () => {
         countdownTimer: null,
 
         // Fetch cadence control
-        lastHeavyFetch: 0,
+        lastFetch: {
+            worldmap: 0,
+            analytics: 0,
+            topstats: 0,
+            security: 0,
+            conversations: 0
+        },
         heavyTTL: 60000, // 60s for heavy widgets
-        lastMediumFetch: 0,
         mediumTTL: 30000, // 30s for conversations
 
         // Low Power mode
@@ -102,6 +107,10 @@ document.addEventListener('alpine:init', () => {
         widgetVisibility: {},
         minimizedWidgets: new Set(JSON.parse(localStorage.getItem('minimizedWidgets') || '[]')),
         widgetManagerOpen: false,
+
+        // Intersection Observer State
+        visibleSections: new Set(),
+        observer: null,
 
         // UI Labels for Widgets (only widgets that exist in HTML template)
         friendlyLabels: {
@@ -310,6 +319,7 @@ document.addEventListener('alpine:init', () => {
             this.initDone = true;
             this.loadWidgetPreferences();
             this.loadCompactMode();
+            this.startIntersectionObserver();
             this.loadAll();
             this.loadNotifyStatus();
             this.loadThresholds();
@@ -353,6 +363,44 @@ document.addEventListener('alpine:init', () => {
             this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
+        },
+
+        startIntersectionObserver() {
+            const options = {
+                root: null,
+                rootMargin: '100px', // Preload 100px before appearing
+                threshold: 0.1
+            };
+
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const sectionId = entry.target.id;
+                    if (entry.isIntersecting) {
+                        this.visibleSections.add(sectionId);
+                        // Trigger a fetch if we just became visible
+                        this.fetchSectionData(sectionId);
+                    } else {
+                        this.visibleSections.delete(sectionId);
+                    }
+                });
+            }, options);
+
+            // Observe all main sections
+            ['section-summary', 'section-worldmap', 'section-analytics', 'section-topstats', 'section-security', 'section-conversations'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.observer.observe(el);
+            });
+        },
+
+        isSectionVisible(id) {
+            // If observer not ready or section explicitly visible set, assume true to be safe
+            if (!this.observer) return true;
+            return this.visibleSections.has(id);
+        },
+
+        // Helper to get CSS variable value
+        getCssVar(name) {
+             return getComputedStyle(document.body).getPropertyValue(name).trim();
         },
 
         get activeAlerts() {
@@ -622,70 +670,147 @@ document.addEventListener('alpine:init', () => {
         },
 
         showToast(message, type = 'info') {
-            // Simple toast notification (could be enhanced)
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
             toast.textContent = message;
-            toast.style.cssText = 'position:fixed;bottom:60px;right:20px;padding:12px 20px;border-radius:6px;z-index:10000;animation:fadeIn 0.3s;';
-            toast.style.background = type === 'success' ? 'var(--neon-green)' : type === 'error' ? 'var(--neon-red)' : 'var(--neon-cyan)';
-            toast.style.color = '#000';
+
+            // Stack toasts
+            const existingToasts = document.querySelectorAll('.toast');
+            const offset = existingToasts.length * 50 + 60; // 60px base offset
+
+            let bgColor = 'var(--neon-cyan)';
+            if (type === 'success') bgColor = 'var(--neon-green)';
+            if (type === 'error') bgColor = 'var(--neon-red)';
+            if (type === 'warning') bgColor = 'var(--neon-yellow)';
+
+            toast.style.cssText = `position:fixed;bottom:${offset}px;right:20px;padding:12px 20px;border-radius:6px;z-index:10000;animation:fadeIn 0.3s;background:${bgColor};color:#000;box-shadow:0 4px 10px rgba(0,0,0,0.5);font-weight:600;min-width:200px;`;
             document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                toast.style.transition = 'all 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        },
+
+        fetchSectionData(sectionId) {
+            // Trigger specific data loads based on visibility
+            const now = Date.now();
+
+            if (sectionId === 'section-worldmap' && this.isVisible('worldMap')) {
+                if (now - this.lastFetch.worldmap > this.heavyTTL) {
+                    this.fetchWorldMap();
+                    this.lastFetch.worldmap = now;
+                }
+            }
+            if (sectionId === 'section-analytics') {
+                if (now - this.lastFetch.analytics > this.heavyTTL) {
+                    if (this.isVisible('flags')) this.fetchFlags();
+                    if (this.isVisible('durations')) this.fetchDurations();
+                    if (this.isVisible('packetSizes')) this.fetchPacketSizes();
+                    if (this.isVisible('protocols')) this.fetchProtocols();
+                    if (this.isVisible('flowStats')) this.fetchFlowStats();
+                    if (this.isVisible('protoMix')) this.fetchProtoMix();
+                    if (this.isVisible('netHealth')) this.fetchNetHealth();
+                    this.lastFetch.analytics = now;
+                }
+            }
+            if (sectionId === 'section-topstats') {
+                if (now - this.lastFetch.topstats > this.heavyTTL) {
+                    if (this.isVisible('asns')) this.fetchASNs();
+                    if (this.isVisible('countries')) this.fetchCountries();
+                    if (this.isVisible('talkers')) this.fetchTalkers();
+                    if (this.isVisible('services')) this.fetchServices();
+                    if (this.isVisible('hourlyTraffic')) this.fetchHourlyTraffic();
+                    this.lastFetch.topstats = now;
+                }
+            }
+            if (sectionId === 'section-security') {
+                if (now - this.lastFetch.security > this.heavyTTL) {
+                    this.fetchSecurityScore();
+                    this.fetchAlertHistory();
+                    this.fetchThreatsByCountry();
+                    this.fetchThreatVelocity();
+                    this.fetchTopThreatIPs();
+                    this.fetchRiskIndex();
+                    this.fetchAttackTimeline();
+                    this.fetchMitreHeatmap();
+                    this.fetchProtocolAnomalies();
+                    this.fetchFeedHealth();
+                    this.fetchWatchlist();
+                    this.lastFetch.security = now;
+                }
+            }
+            if (sectionId === 'section-conversations' && this.isVisible('conversations')) {
+                if (now - this.lastFetch.conversations > this.mediumTTL) {
+                    this.fetchConversations();
+                    this.lastFetch.conversations = now;
+                }
+            }
         },
 
         async loadAll() {
             this.lastUpdate = new Date().toLocaleTimeString();
             this.lastUpdateTs = Date.now();
+            const now = Date.now();
 
-            // Parallel Requests
-            // Light endpoints (frequent)
+            // Always fetch these (Core dashboard)
             this.fetchSummary();
             this.fetchBandwidth();
-            this.fetchSources();
-            this.fetchDestinations();
+            this.fetchSources(); // Top 10 sources
+            this.fetchDestinations(); // Top 10 dests
             this.fetchPorts();
-            this.fetchProtocols();
-            this.fetchMaliciousPorts();
-            this.fetchThreats();
+            this.fetchThreats(); // Threat detections count
             this.fetchBlocklistRate();
-            this.fetchAlerts();
+            this.fetchAlerts(); // Alerts list
             if (!this.firewallStreamActive) this.fetchFirewall();
 
-            // Medium endpoint cadence (e.g., conversations, feed health, security)
-            const now = Date.now();
-            if (now - this.lastMediumFetch > this.mediumTTL) {
-                this.lastMediumFetch = now;
-                this.fetchConversations();
-                this.fetchFeedHealth();
+            // Smart Loading via Polling: Check if sections are visible AND stale
+
+            if (this.isSectionVisible('section-worldmap') && (now - this.lastFetch.worldmap > this.heavyTTL)) {
+                this.fetchWorldMap();
+                this.lastFetch.worldmap = now;
+            }
+
+            if (this.isSectionVisible('section-analytics') && (now - this.lastFetch.analytics > this.heavyTTL)) {
+                this.fetchFlags();
+                this.fetchDurations();
+                this.fetchPacketSizes();
+                this.fetchProtocols();
+                this.fetchFlowStats();
+                this.fetchProtoMix();
+                this.fetchNetHealth();
+                this.lastFetch.analytics = now;
+            }
+
+            if (this.isSectionVisible('section-topstats') && (now - this.lastFetch.topstats > this.heavyTTL)) {
+                this.fetchASNs();
+                this.fetchCountries();
+                this.fetchTalkers();
+                this.fetchServices();
+                this.fetchHourlyTraffic();
+                this.lastFetch.topstats = now;
+            }
+
+            if (this.isSectionVisible('section-security') && (now - this.lastFetch.security > this.heavyTTL)) {
                 this.fetchSecurityScore();
                 this.fetchAlertHistory();
                 this.fetchThreatsByCountry();
-                this.fetchWatchlist();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
                 this.fetchRiskIndex();
-                // New security widgets
                 this.fetchAttackTimeline();
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
+                this.fetchFeedHealth();
+                this.fetchWatchlist();
+                this.lastFetch.security = now;
             }
 
-            // New Features
-            if (now - this.lastHeavyFetch > this.heavyTTL) {
-                this.lastHeavyFetch = now;
-                // Stagger heavy calls slightly to avoid spikes
-                setTimeout(() => this.fetchFlags(), 0);
-                setTimeout(() => this.fetchASNs(), 150);
-                setTimeout(() => this.fetchDurations(), 300);
-                setTimeout(() => this.fetchCountries(), 375);
-                setTimeout(() => this.fetchPacketSizes(), 450);
-                setTimeout(() => this.fetchTalkers(), 525);
-                setTimeout(() => this.fetchServices(), 600);
-                setTimeout(() => this.fetchHourlyTraffic(), 675);
-                setTimeout(() => this.fetchFlowStats(), 750);
-                setTimeout(() => this.fetchProtoMix(), 825);
-                setTimeout(() => this.fetchNetHealth(), 900);
-                setTimeout(() => this.fetchWorldMap(), 975);
+            if (this.isSectionVisible('section-conversations') && (now - this.lastFetch.conversations > this.mediumTTL)) {
+                this.fetchConversations();
+                this.lastFetch.conversations = now;
             }
 
             // Render sparklines for top IPs (throttled via sparkTTL)
@@ -943,12 +1068,14 @@ document.addEventListener('alpine:init', () => {
             const medium = this.attackTimeline.timeline.map(t => t.medium || 0);
             const low = this.attackTimeline.timeline.map(t => t.low || 0);
             
+            const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
+
             this._attackTimelineChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Critical', data: critical, backgroundColor: 'rgba(255, 0, 60, 0.8)', stack: 'a' },
+                        { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'a' },
                         { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a' },
                         { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a' },
                         { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a' }
@@ -1119,7 +1246,7 @@ document.addEventListener('alpine:init', () => {
             if (!ctx) return;
             const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
             const values = (series || []).map(s => s.rate || 0);
-            const color = '#ff003c';
+            const color = this.getCssVar('--neon-red') || '#ff003c';
             if (this.blocklistChartInstance) {
                 this.blocklistChartInstance.data.labels = labels;
                 this.blocklistChartInstance.data.datasets[0].data = values;
@@ -1192,7 +1319,6 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    console.log('[WorldMap] API response:', data);
                     this.worldMap = { ...data, loading: false };
                     this.$nextTick(() => this.renderWorldMap());
                 } else {
@@ -1203,16 +1329,11 @@ document.addEventListener('alpine:init', () => {
 
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
-            if (!container) {
-                console.warn('[WorldMap] Container not found');
-                return;
-            }
+            if (!container) return;
             
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
-            
-            console.log('[WorldMap] Rendering - sources:', sources.length, 'dests:', dests.length, 'threats:', threats.length);
             
             // Simple SVG world map with markers
             const width = container.clientWidth || 800;
@@ -1313,16 +1434,10 @@ document.addEventListener('alpine:init', () => {
         updateHourlyChart(data) {
             try {
                 const ctx = document.getElementById('hourlyChart');
-                if (!ctx) {
-                    console.warn('[HourlyChart] Canvas element not found');
-                    return;
-                }
-                if (!data || !data.labels || data.labels.length === 0) {
-                    console.warn('[HourlyChart] No data available');
-                    return;
-                }
+                if (!ctx || !data || !data.labels) return;
                 
-                console.log('[HourlyChart] Rendering with', data.labels.length, 'data points');
+                const peakColor = this.getCssVar('--neon-green') || '#00ff88';
+                const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
 
                 if (this.hourlyChartInstance) {
                     this.hourlyChartInstance.data.labels = data.labels;
@@ -1336,8 +1451,8 @@ document.addEventListener('alpine:init', () => {
                         datasets: [{
                             label: 'Traffic',
                             data: data.bytes,
-                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? 'rgba(0, 255, 136, 0.8)' : 'rgba(0, 243, 255, 0.6)'),
-                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? '#00ff88' : '#00f3ff'),
+                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
                             borderWidth: 1
                         }]
                     },
@@ -1452,8 +1567,8 @@ document.addEventListener('alpine:init', () => {
                 if (!ctx || !data || !data.labels) return;
 
                 const colorArea = 'rgba(0, 243, 255, 0.2)';
-                const colorLine = '#00f3ff';
-                const colorFlows = '#bc13fe';
+                const colorLine = this.getCssVar('--neon-cyan') || '#00f3ff';
+                const colorFlows = this.getCssVar('--neon-purple') || '#bc13fe';
 
                 if (this.bwChartInstance) {
                     this.bwChartInstance.data.labels = data.labels;
