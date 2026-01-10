@@ -360,12 +360,23 @@ OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (fire
 | `FIREWALL_IP` | `192.168.0.1` | Only accept logs from this IP |
 
 ### API Endpoints
+
 | Endpoint | Description |
 |----------|-------------|
 | `/api/firewall/logs/stats` | Block counts, top ports, top countries |
 | `/api/firewall/logs/blocked` | Top blocked IPs with enrichment |
 | `/api/firewall/logs/timeline` | Hourly blocks/passes chart data |
 | `/api/firewall/logs/recent` | Recent log entries |
+| `/api/stats/malicious_ports` | Blocked ports + threat traffic (syslog+NetFlow) |
+
+### Enhanced APIs (Syslog-aware)
+
+| Endpoint | Syslog Enhancement |
+|----------|-------------------|
+| `/api/security/score` | +5 pts for active blocking, `fw_blocks_1h`, `fw_threats_blocked` |
+| `/api/stats/threats` | `blocked` status and `block_count` per threat IP |
+| `/api/stats/firewall` | `blocks_1h`, `unique_blocked_ips`, `syslog_active` |
+| `/api/stats/net_health` | "Firewall Active" and "Threats Blocked" indicators |
 
 ### OPNsense Setup
 1. Go to **System → Settings → Logging / Targets**
@@ -385,6 +396,6 @@ OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (fire
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.8 - Firewall Syslog Integration)  
+**Last Updated**: January 10, 2026 (v2.9 - Syslog Widget Enhancements)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules/Claude)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

@@ -11,7 +11,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('dashboard', () => ({
         initDone: false,
 
-        firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false },
+        firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false, blocks_1h: 0, blocks_per_hour: 0, unique_blocked_ips: 0, threats_blocked: 0, syslog_active: false },
         firewallStreamActive: false,
         firewallES: null,
         timeRange: '1h',
@@ -56,8 +56,8 @@ document.addEventListener('alpine:init', () => {
         destinations: { destinations: [], loading: true },
         ports: { ports: [], loading: true },
         protocols: { protocols: [], loading: true },
-        maliciousPorts: { ports: [], loading: true },
-        threats: { hits: [], loading: true },
+        maliciousPorts: { ports: [], loading: true, has_syslog: false },
+        threats: { hits: [], loading: true, total_blocked: 0 },
         blocklist: { series: [], current_rate: null, total_matches: 0, loading: true },
         alerts: { alerts: [], loading: true },
         bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
@@ -75,10 +75,10 @@ document.addEventListener('alpine:init', () => {
         hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
         flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
         protoMix: { labels: [], bytes: [], percentages: [], colors: [], loading: true },
-        netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true },
+        netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
         
         // Security Features
-        securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null },
+        securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
         alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
         threatsByCountry: { countries: [], loading: true },
         watchlist: { watchlist: [], count: 0, loading: true },

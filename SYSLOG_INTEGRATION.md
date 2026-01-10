@@ -432,6 +432,25 @@ journalctl -u netflow-dashboard -f | grep -i syslog
 3. **Rate limiting**: Implement if log volume is unexpectedly high
 4. **Disk monitoring**: Alert if database grows beyond expected size
 
+## Widget Enhancements (Implemented)
+
+### Phase 1: Core Integration
+
+- **Security Score**: +5 points bonus when firewall actively blocking, shows blocks/hr and threats blocked
+- **Threat Detections**: New "FW Status" column showing 🛡️ block count for each threat IP
+- **Firewall Health**: New "Security & Blocking" subsection with Blocks(1h), Unique IPs, Threats Blocked, Syslog status
+
+### Phase 2: Deep Integration
+
+- **Top Malicious Ports** (`/api/stats/malicious_ports`): New API combining syslog blocked ports with NetFlow threat traffic
+  - Shows blocked count, unique attackers, and traffic bytes per port
+  - Highlights suspicious ports (SSH, RDP, SMB, etc.)
+- **Network Health**: New "Firewall Active" and "Threats Blocked" indicators
+- **Alert History**: Firewall blocks now inject alerts:
+  - Threat IP blocks → **High** severity
+  - Sensitive port probes → **Medium** severity
+  - Deduplication: Same IP/port limited to once per 60 seconds
+
 ## Future Enhancements
 
 1. **WebSocket live feed**: Real-time blocked connections display

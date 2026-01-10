@@ -851,10 +851,53 @@ def remove_from_watchlist(ip):
         return False
 
 
+def _get_firewall_block_stats(hours=1):
+    """Get firewall block statistics for the last N hours."""
+    try:
+        cutoff = time.time() - (hours * 3600)
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                # Total blocks
+                cur = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs 
+                    WHERE timestamp > ? AND action IN ('block', 'reject')
+                """, (cutoff,))
+                blocks = cur.fetchone()[0] or 0
+                
+                # Unique blocked IPs
+                cur = conn.execute("""
+                    SELECT COUNT(DISTINCT src_ip) FROM fw_logs 
+                    WHERE timestamp > ? AND action IN ('block', 'reject')
+                """, (cutoff,))
+                unique_ips = cur.fetchone()[0] or 0
+                
+                # Threat IPs blocked (matched threat feed)
+                cur = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs 
+                    WHERE timestamp > ? AND action IN ('block', 'reject') AND is_threat = 1
+                """, (cutoff,))
+                threats_blocked = cur.fetchone()[0] or 0
+                
+                return {
+                    'blocks': blocks,
+                    'unique_ips': unique_ips,
+                    'threats_blocked': threats_blocked,
+                    'blocks_per_hour': round(blocks / hours, 1)
+                }
+            finally:
+                conn.close()
+    except Exception:
+        return {'blocks': 0, 'unique_ips': 0, 'threats_blocked': 0, 'blocks_per_hour': 0}
+
+
 def calculate_security_score():
-    """Calculate 0-100 security score based on current threat state"""
+    """Calculate 0-100 security score based on current threat state and firewall activity"""
     score = 100
     reasons = []
+    
+    # Get firewall block stats
+    fw_stats = _get_firewall_block_stats(hours=1)
     
     # Threat detections penalty (up to -40 points)
     threat_count = len([ip for ip in _threat_timeline if time.time() - _threat_timeline[ip]['last_seen'] < 3600])
@@ -862,6 +905,22 @@ def calculate_security_score():
         penalty = min(40, threat_count * 10)
         score -= penalty
         reasons.append(f"-{penalty}: {threat_count} active threats")
+    
+    # POSITIVE: Firewall blocking known threats (+5 to +15 points)
+    threats_blocked = fw_stats.get('threats_blocked', 0)
+    if threats_blocked > 0:
+        bonus = min(15, 5 + threats_blocked)
+        score = min(100, score + bonus)
+        reasons.append(f"+{bonus}: {threats_blocked} known threats blocked")
+    
+    # POSITIVE: Active firewall protection (+5 if blocking attacks)
+    if fw_stats.get('blocks', 0) > 10:
+        score = min(100, score + 5)
+        reasons.append("+5: Firewall actively blocking")
+    
+    # WARNING: High attack rate (informational, no penalty if being blocked)
+    if fw_stats.get('blocks_per_hour', 0) > 100:
+        reasons.append(f"⚠️ High attack rate: {fw_stats['blocks_per_hour']}/hr")
     
     # Feed health penalty (up to -20 points)
     feeds_ok = sum(1 for f in _feed_status.values() if f.get('status') == 'ok')
@@ -922,7 +981,8 @@ def calculate_security_score():
         'threats_active': threat_count if 'threat_count' in dir() else 0,
         'feeds_ok': feeds_ok if 'feeds_ok' in dir() else 0,
         'feeds_total': feeds_total if 'feeds_total' in dir() else 0,
-        'blocklist_ips': total_ips
+        'blocklist_ips': total_ips,
+        'firewall': fw_stats
     }
 
 
@@ -2695,13 +2755,43 @@ def api_stats_net_health():
         else:
             status = "poor"
             status_icon = "❤️"
+        
+        # Add firewall protection status from syslog
+        fw_stats = _get_firewall_block_stats()
+        if fw_stats['blocks_1h'] > 0:
+            indicators.append({
+                "name": "Firewall Active", 
+                "value": f"{fw_stats['blocks_1h']} blocks/hr", 
+                "status": "good", 
+                "icon": "🔥"
+            })
+            # Bonus points for active firewall protection
+            health_score = min(100, health_score + 5)
+        elif fw_stats['syslog_active']:
+            indicators.append({
+                "name": "Firewall Active", 
+                "value": "0 blocks", 
+                "status": "good", 
+                "icon": "✅"
+            })
+        
+        # Add threat blocking info if available
+        if fw_stats['threats_blocked'] > 0:
+            indicators.append({
+                "name": "Threats Blocked", 
+                "value": str(fw_stats['threats_blocked']), 
+                "status": "good", 
+                "icon": "🛡️"
+            })
             
         data = {
             "indicators": indicators,
             "health_score": health_score,
             "status": status,
             "status_icon": status_icon,
-            "total_flows": total_flows
+            "total_flows": total_flows,
+            "firewall_active": fw_stats['syslog_active'],
+            "blocks_1h": fw_stats['blocks_1h']
         }
     except:
         data = {"indicators": [], "health_score": 100, "status": "unknown", "status_icon": "❓", "total_flows": 0}
@@ -3000,14 +3090,62 @@ def _insert_fw_log(parsed: dict, raw_log: str):
     # Enrich with GeoIP
     src_ip = parsed['src_ip']
     country_iso = None
+    country_name = None
     if not is_internal(src_ip):
         geo = lookup_geo(src_ip)
         if geo:
             country_iso = geo.get('country_iso')
+            country_name = geo.get('country')
     
     # Check if threat
     threat_set = load_threatlist()
     is_threat = 1 if src_ip in threat_set else 0
+    
+    # Inject important blocks as alerts
+    if parsed['action'] == 'block':
+        dst_port = parsed.get('dst_port', 0)
+        
+        # Define high-value ports that warrant alerts
+        HIGH_VALUE_PORTS = {22, 23, 445, 3389, 5900, 1433, 3306, 5432, 27017}
+        
+        # Create alert for: threat IPs, sensitive ports, or external sources
+        should_alert = False
+        severity = 'low'
+        alert_type = 'firewall_block'
+        msg = f"Blocked {src_ip}"
+        
+        if is_threat:
+            should_alert = True
+            severity = 'high'
+            alert_type = 'threat_blocked'
+            msg = f"🔥 Threat IP blocked: {src_ip}"
+            if country_name:
+                msg += f" ({country_name})"
+        elif dst_port in HIGH_VALUE_PORTS:
+            should_alert = True
+            severity = 'medium'
+            alert_type = 'sensitive_port_blocked'
+            port_names = {22: 'SSH', 23: 'Telnet', 445: 'SMB', 3389: 'RDP', 
+                         5900: 'VNC', 1433: 'MSSQL', 3306: 'MySQL', 5432: 'PostgreSQL', 27017: 'MongoDB'}
+            service = port_names.get(dst_port, str(dst_port))
+            msg = f"🛡️ {service} probe blocked: {src_ip}:{dst_port}"
+        
+        if should_alert:
+            alert = {
+                'type': alert_type,
+                'severity': severity,
+                'ip': src_ip,
+                'port': dst_port,
+                'msg': msg,
+                'ts': now,
+                'source': 'firewall'
+            }
+            with _alert_history_lock:
+                # Dedupe: don't add if same IP/port in last 60 seconds
+                recent_keys = {(a.get('ip'), a.get('port')) for a in list(_alert_history)[-20:] 
+                              if a.get('ts', 0) > now - 60}
+                if (src_ip, dst_port) not in recent_keys:
+                    _alert_history.append(alert)
     
     with _firewall_db_lock:
         conn = _firewall_db_connect()
@@ -3676,11 +3814,33 @@ def api_threat_refresh():
 @app.route('/api/stats/threats')
 @throttle(5, 10)
 def api_threats():
-    """Get threat detections with category and geo info"""
+    """Get threat detections with category, geo info, and firewall block status"""
     range_key = request.args.get('range', '1h')
+    range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    cutoff = time.time() - range_seconds
+    
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
     threat_set = threat_set - whitelist
+    
+    # Get blocked IPs from firewall logs
+    blocked_ips = {}
+    try:
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                cur = conn.execute("""
+                    SELECT src_ip, COUNT(*) as cnt, MAX(timestamp) as last_blocked
+                    FROM fw_logs 
+                    WHERE timestamp > ? AND action IN ('block', 'reject')
+                    GROUP BY src_ip
+                """, (cutoff,))
+                for row in cur.fetchall():
+                    blocked_ips[row[0]] = {'count': row[1], 'last_blocked': row[2]}
+            finally:
+                conn.close()
+    except Exception:
+        pass  # Syslog may not be configured yet
     
     # Get sources/destinations and find threat matches
     sources = get_common_nfdump_data("sources", range_key)[:50]
@@ -3695,6 +3855,7 @@ def api_threats():
             seen.add(ip)
             info = get_threat_info(ip)
             geo = lookup_geo(ip) or {}
+            block_info = blocked_ips.get(ip, {})
             hits.append({
                 "ip": ip,
                 "category": info.get("category", "UNKNOWN"),
@@ -3704,17 +3865,158 @@ def api_threats():
                 "flows": item.get("flows", 0),
                 "country": geo.get("country_code", "--"),
                 "city": geo.get("city", ""),
-                "hits": item.get("flows", 1)
+                "hits": item.get("flows", 1),
+                "blocked": block_info.get('count', 0) > 0,
+                "block_count": block_info.get('count', 0),
+                "last_blocked": datetime.fromtimestamp(block_info['last_blocked']).isoformat() if block_info.get('last_blocked') else None
             })
     
     # Sort by bytes descending
     hits.sort(key=lambda x: x["bytes"], reverse=True)
     
+    # Summary stats
+    total_blocked = sum(1 for h in hits if h['blocked'])
+    
     return jsonify({
         "hits": hits[:20],
         "total_threats": len(hits),
+        "total_blocked": total_blocked,
         "feed_ips": _threat_status.get("size", 0),
         "threat_status": _threat_status
+    })
+
+
+@app.route('/api/stats/malicious_ports')
+@throttle(5, 10)
+def api_malicious_ports():
+    """Get top malicious ports - combining threat traffic + firewall blocks"""
+    range_key = request.args.get('range', '1h')
+    
+    # Suspicious ports to highlight
+    SUSPICIOUS_PORTS = {
+        22: 'SSH',
+        23: 'Telnet',
+        445: 'SMB',
+        3389: 'RDP',
+        5900: 'VNC',
+        1433: 'MSSQL',
+        3306: 'MySQL',
+        5432: 'PostgreSQL',
+        27017: 'MongoDB',
+        6379: 'Redis',
+        11211: 'Memcached',
+        8080: 'HTTP-Alt',
+        8443: 'HTTPS-Alt',
+        4444: 'Metasploit',
+        5555: 'Android ADB',
+        6666: 'IRC',
+        31337: 'Back Orifice',
+    }
+    
+    port_data = {}
+    
+    # Get blocked ports from firewall syslog
+    try:
+        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path, timeout=5)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            
+            range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+            cutoff = int(time.time()) - range_seconds
+            
+            # Get blocked ports with counts
+            cur.execute("""
+                SELECT dst_port, COUNT(*) as hits, COUNT(DISTINCT src_ip) as unique_ips
+                FROM fw_logs
+                WHERE action = 'block' AND timestamp >= ? AND dst_port > 0
+                GROUP BY dst_port
+                ORDER BY hits DESC
+                LIMIT 50
+            """, (cutoff,))
+            
+            for row in cur.fetchall():
+                port = row['dst_port']
+                service = SUSPICIOUS_PORTS.get(port, get_service_name(port))
+                port_data[port] = {
+                    'port': port,
+                    'service': service,
+                    'blocked': row['hits'],
+                    'unique_attackers': row['unique_ips'],
+                    'netflow_bytes': 0,
+                    'netflow_flows': 0,
+                    'suspicious': port in SUSPICIOUS_PORTS
+                }
+            conn.close()
+    except Exception as e:
+        pass  # Syslog not available, continue with NetFlow only
+    
+    # Merge with threat traffic from NetFlow
+    try:
+        tf = get_time_range(range_key)
+        threat_set = load_threatlist()
+        output = run_nfdump(["-o", "csv", "-n", "500", "-s", "ip/bytes"], tf)
+        
+        lines = output.strip().split('\n')
+        if len(lines) > 1:
+            header = [c.strip().lower() for c in lines[0].split(',')]
+            ip_idx = next((i for i, h in enumerate(header) if 'ip' in h and 'addr' in h), None)
+            byt_idx = next((i for i, h in enumerate(header) if h in ('ibyt', 'bytes')), None)
+            fl_idx = next((i for i, h in enumerate(header) if h in ('fl', 'flows')), None)
+            
+            if ip_idx is not None:
+                for line in lines[1:]:
+                    parts = line.split(',')
+                    if len(parts) > max(ip_idx, byt_idx or 0, fl_idx or 0):
+                        ip = parts[ip_idx].strip()
+                        if ip in threat_set:
+                            # Get port info for this threat IP
+                            port_output = run_nfdump(["-o", "csv", "-n", "10", "-s", "port/bytes", f"src ip {ip} or dst ip {ip}"], tf)
+                            port_lines = port_output.strip().split('\n')
+                            if len(port_lines) > 1:
+                                p_header = [c.strip().lower() for c in port_lines[0].split(',')]
+                                p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
+                                p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes')), None)
+                                p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
+                                
+                                if p_idx is not None:
+                                    for pline in port_lines[1:3]:  # Top 2 ports per threat
+                                        pparts = pline.split(',')
+                                        try:
+                                            port = int(pparts[p_idx].strip())
+                                            bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
+                                            flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
+                                            
+                                            if port not in port_data:
+                                                port_data[port] = {
+                                                    'port': port,
+                                                    'service': SUSPICIOUS_PORTS.get(port, get_service_name(port)),
+                                                    'blocked': 0,
+                                                    'unique_attackers': 0,
+                                                    'netflow_bytes': 0,
+                                                    'netflow_flows': 0,
+                                                    'suspicious': port in SUSPICIOUS_PORTS
+                                                }
+                                            port_data[port]['netflow_bytes'] += bytes_val
+                                            port_data[port]['netflow_flows'] += flows_val
+                                        except:
+                                            pass
+    except:
+        pass
+    
+    # Convert to list and sort by total activity (blocked + flows)
+    ports = list(port_data.values())
+    for p in ports:
+        p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
+        p['bytes_fmt'] = format_bytes(p['netflow_bytes'])
+    
+    ports.sort(key=lambda x: x['total_score'], reverse=True)
+    
+    return jsonify({
+        "ports": ports[:20],
+        "total": len(ports),
+        "has_syslog": any(p['blocked'] > 0 for p in ports)
     })
 
 
@@ -4752,10 +5054,23 @@ def start_snmp_thread():
 @app.route("/api/stats/firewall")
 @throttle(5, 10)
 def api_stats_firewall():
-    """Firewall health stats from SNMP"""
+    """Firewall health stats from SNMP + syslog block data"""
     start_snmp_thread()
-    data = get_snmp_data()
-    return jsonify({"firewall": data})
+    snmp_data = get_snmp_data()
+    
+    # Add syslog block stats
+    fw_stats = _get_firewall_block_stats(hours=1)
+    
+    # Merge syslog data into response
+    if snmp_data:
+        snmp_data['blocks_1h'] = fw_stats.get('blocks', 0)
+        snmp_data['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
+        snmp_data['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
+        snmp_data['threats_blocked'] = fw_stats.get('threats_blocked', 0)
+        snmp_data['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
+        snmp_data['syslog_stats'] = _syslog_stats
+    
+    return jsonify({"firewall": snmp_data})
 
 
 @app.route("/api/stats/firewall/stream")
