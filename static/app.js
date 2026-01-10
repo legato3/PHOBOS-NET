@@ -49,6 +49,12 @@ document.addEventListener('alpine:init', () => {
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
         dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
+        
+        // Widget Management
+        widgetVisibility: {},
+        minimizedWidgets: new Set(JSON.parse(localStorage.getItem('minimizedWidgets') || '[]')),
+        widgetManagerOpen: false,
+
         // Thresholds (editable)
         thresholds: {
             util_warn: 70, util_crit: 90,
@@ -78,6 +84,7 @@ document.addEventListener('alpine:init', () => {
         init() {
             console.log('Neural Link Established.');
             this.initDone = true;
+            this.loadWidgetPreferences();
             this.loadAll();
             this.loadNotifyStatus();
             this.loadThresholds();
@@ -833,6 +840,75 @@ document.addEventListener('alpine:init', () => {
              if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
              if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
              return bytes + ' B';
+        },
+
+        // Widget Management Methods
+        loadWidgetPreferences() {
+            const stored = localStorage.getItem('widgetVisibility');
+            if (stored) {
+                this.widgetVisibility = JSON.parse(stored);
+            } else {
+                // Default: all widgets visible
+                this.widgetVisibility = {
+                    summary: true,
+                    bandwidth: true,
+                    firewall: true,
+                    flags: true,
+                    asns: true,
+                    countries: true,
+                    durations: true,
+                    packetSizes: true,
+                    sources: true,
+                    destinations: true,
+                    ports: true,
+                    protocols: true,
+                    threats: true,
+                    maliciousPorts: true,
+                    blocklist: true,
+                    conversations: true
+                };
+                this.saveWidgetPreferences();
+            }
+        },
+
+        saveWidgetPreferences() {
+            localStorage.setItem('widgetVisibility', JSON.stringify(this.widgetVisibility));
+        },
+
+        toggleWidget(widgetId) {
+            this.widgetVisibility[widgetId] = !this.widgetVisibility[widgetId];
+            this.saveWidgetPreferences();
+        },
+
+        toggleMinimize(widgetId) {
+            if (this.minimizedWidgets.has(widgetId)) {
+                this.minimizedWidgets.delete(widgetId);
+            } else {
+                this.minimizedWidgets.add(widgetId);
+            }
+            localStorage.setItem('minimizedWidgets', JSON.stringify([...this.minimizedWidgets]));
+            this.$nextTick(() => {
+                // Trigger chart redraw if needed
+                if (widgetId === 'bandwidth' && this.bwChartInstance) {
+                    this.bwChartInstance.resize();
+                }
+            });
+        },
+
+        isMinimized(widgetId) {
+            return this.minimizedWidgets.has(widgetId);
+        },
+
+        isVisible(widgetId) {
+            return this.widgetVisibility[widgetId] !== false;
+        },
+
+        resetWidgetPreferences() {
+            if (confirm('Reset all widget settings to default?')) {
+                this.minimizedWidgets.clear();
+                localStorage.setItem('minimizedWidgets', JSON.stringify([]));
+                this.loadWidgetPreferences();
+            }
         },
 
         async openIPModal(ip) {

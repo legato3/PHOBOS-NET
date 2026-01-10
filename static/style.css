@@ -148,6 +148,16 @@ button.active {
     position: relative;
     display: flex;
     flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.card.widget-minimized {
+    padding: 10px 15px;
+}
+
+.card.widget-minimized h2 {
+    margin: 0 !important;
+}
     min-height: 200px; /* consistent height */
 }
 /* Draggable affordance */
