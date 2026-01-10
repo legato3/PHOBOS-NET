@@ -48,6 +48,7 @@ document.addEventListener('alpine:init', () => {
         countries: { labels: [], bytes: [], loading: true },
         durations: { durations: [], loading: true },
         packetSizes: { labels: [], data: [], loading: true },
+        feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
 
         // Settings / Status
         notify: { email: true, webhook: true, muted: false },
@@ -78,6 +79,7 @@ document.addEventListener('alpine:init', () => {
             threats: 'Threat Detections',
             maliciousPorts: 'Top Malicious Ports',
             blocklist: 'Blocklist Match Rate',
+            feedHealth: 'Feed Health',
             conversations: 'Recent Conversations'
         },
 
@@ -386,11 +388,12 @@ document.addEventListener('alpine:init', () => {
             this.fetchAlerts();
             if (!this.firewallStreamActive) this.fetchFirewall();
 
-            // Medium endpoint cadence (e.g., conversations)
+            // Medium endpoint cadence (e.g., conversations, feed health)
             const now = Date.now();
             if (now - this.lastMediumFetch > this.mediumTTL) {
                 this.lastMediumFetch = now;
                 this.fetchConversations();
+                this.fetchFeedHealth();
             }
 
             // New Features
@@ -547,6 +550,18 @@ document.addEventListener('alpine:init', () => {
                 hits: a.count || 1
             }));
             this.threats.hits = arr;
+        },
+
+        async fetchFeedHealth() {
+            this.feedHealth.loading = true;
+            try {
+                const res = await fetch('/api/stats/feeds');
+                if (res.ok) {
+                    const d = await res.json();
+                    this.feedHealth = { ...d, loading: false };
+                }
+            } catch (e) { console.error('Feed health fetch error:', e); }
+            finally { this.feedHealth.loading = false; }
         },
 
         async fetchBlocklistRate() {
@@ -1053,6 +1068,7 @@ document.addEventListener('alpine:init', () => {
                 threats: true,
                 maliciousPorts: true,
                 blocklist: true,
+                feedHealth: true,
                 conversations: true
             };
             try {

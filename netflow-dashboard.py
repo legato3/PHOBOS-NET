@@ -58,6 +58,8 @@ _geo_cache_ttl = 900  # 15 min
 GEO_CACHE_MAX = 2000
 
 _threat_cache = {"data": set(), "mtime": 0}
+_threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
+_feed_status = {}  # Per-feed health tracking
 _alert_sent_ts = 0
 _alert_history = deque(maxlen=50)
 
@@ -562,42 +564,92 @@ def load_threatlist():
     return _threat_cache["data"]
 
 
+def parse_feed_line(line):
+    """Parse feed line: URL or URL|CATEGORY|NAME"""
+    parts = line.split('|')
+    url = parts[0].strip()
+    category = parts[1].strip() if len(parts) > 1 else 'UNKNOWN'
+    name = parts[2].strip() if len(parts) > 2 else url.split('/')[-2] if '/' in url else 'feed'
+    return url, category, name
+
+
 def fetch_threat_feed():
-    global _threat_status
+    global _threat_status, _threat_ip_to_feed, _feed_status
     try:
         _threat_status['last_attempt'] = time.time()
         
         # Support multiple feeds from threat-feeds.txt
-        urls = []
+        feed_entries = []
         feeds_file = '/root/threat-feeds.txt'
         if os.path.exists(feeds_file):
             with open(feeds_file, 'r') as f:
-                urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        feed_entries.append(parse_feed_line(line))
         elif os.path.exists(THREAT_FEED_URL_PATH):
             with open(THREAT_FEED_URL_PATH, 'r') as f:
                 url = f.read().strip()
                 if url:
-                    urls = [url]
+                    feed_entries.append((url, 'UNKNOWN', 'legacy-feed'))
         
-        if not urls:
+        if not feed_entries:
             _threat_status['status'] = 'missing'
             return
         
         all_ips = set()
+        ip_to_feed = {}
         errors = []
+        new_feed_status = {}
         
-        for url in urls:
+        for url, category, name in feed_entries:
+            feed_start = time.time()
             try:
                 r = requests.get(url, timeout=25)
+                latency_ms = int((time.time() - feed_start) * 1000)
+                
                 if r.status_code != 200:
-                    feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                    errors.append(f'{feed_name}: HTTP {r.status_code}')
+                    new_feed_status[name] = {
+                        'status': 'error', 'category': category, 'ips': 0,
+                        'error': f'HTTP {r.status_code}', 'latency_ms': latency_ms,
+                        'last_attempt': time.time(), 'last_ok': _feed_status.get(name, {}).get('last_ok', 0)
+                    }
+                    errors.append(f'{name}: HTTP {r.status_code}')
                     continue
-                ips = [line.strip() for line in r.text.split('\n') if line.strip() and not line.startswith('#')]
-                all_ips.update(ips)
+                
+                # Parse IPs from feed
+                feed_ips = []
+                for line in r.text.split('\n'):
+                    line = line.strip()
+                    if not line or line.startswith('#') or line.startswith(';'):
+                        continue
+                    # Handle CIDR notation in DROP lists
+                    if '/' in line:
+                        line = line.split('/')[0].strip()
+                    # Handle space-separated formats (some feeds have "IP ; comment")
+                    if ' ' in line:
+                        line = line.split()[0].strip()
+                    if line:
+                        feed_ips.append(line)
+                        ip_to_feed[line] = {'category': category, 'feed': name}
+                
+                all_ips.update(feed_ips)
+                new_feed_status[name] = {
+                    'status': 'ok', 'category': category, 'ips': len(feed_ips),
+                    'error': None, 'latency_ms': latency_ms,
+                    'last_attempt': time.time(), 'last_ok': time.time()
+                }
             except Exception as e:
-                feed_name = url.split('/')[-2] if '/' in url else 'feed'
-                errors.append(f'{feed_name}: {str(e)[:30]}')
+                latency_ms = int((time.time() - feed_start) * 1000)
+                new_feed_status[name] = {
+                    'status': 'error', 'category': category, 'ips': 0,
+                    'error': str(e)[:50], 'latency_ms': latency_ms,
+                    'last_attempt': time.time(), 'last_ok': _feed_status.get(name, {}).get('last_ok', 0)
+                }
+                errors.append(f'{name}: {str(e)[:30]}')
+        
+        _feed_status = new_feed_status
+        _threat_ip_to_feed = ip_to_feed
         
         if not all_ips:
             _threat_status['status'] = 'empty'
@@ -612,11 +664,18 @@ def fetch_threat_feed():
         
         _threat_status['last_ok'] = time.time()
         _threat_status['size'] = len(all_ips)
+        _threat_status['feeds_ok'] = sum(1 for f in new_feed_status.values() if f['status'] == 'ok')
+        _threat_status['feeds_total'] = len(new_feed_status)
         _threat_status['status'] = 'ok'
         _threat_status['error'] = '; '.join(errors) if errors else None
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
+
+
+def get_threat_info(ip):
+    """Get threat category and feed name for an IP"""
+    return _threat_ip_to_feed.get(ip, {'category': 'UNKNOWN', 'feed': 'unknown'})
 
 
 def get_feed_label():
@@ -1802,6 +1861,99 @@ def api_test_alert():
 def api_threat_refresh():
     fetch_threat_feed()
     return jsonify({"status":"ok","threat_status": _threat_status})
+
+
+@app.route('/api/stats/threats')
+@throttle(5, 10)
+def api_threats():
+    """Get threat detections with category and geo info"""
+    range_key = request.args.get('range', '1h')
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+    threat_set = threat_set - whitelist
+    
+    # Get sources/destinations and find threat matches
+    sources = get_common_nfdump_data("sources", range_key)[:50]
+    destinations = get_common_nfdump_data("destinations", range_key)[:50]
+    
+    hits = []
+    seen = set()
+    
+    for item in sources + destinations:
+        ip = item.get("key", "")
+        if ip in threat_set and ip not in seen:
+            seen.add(ip)
+            info = get_threat_info(ip)
+            geo = lookup_geo(ip) or {}
+            hits.append({
+                "ip": ip,
+                "category": info.get("category", "UNKNOWN"),
+                "feed": info.get("feed", "unknown"),
+                "bytes": item.get("bytes", 0),
+                "bytes_fmt": fmt_bytes(item.get("bytes", 0)),
+                "flows": item.get("flows", 0),
+                "country": geo.get("country_code", "--"),
+                "city": geo.get("city", ""),
+                "hits": item.get("flows", 1)
+            })
+    
+    # Sort by bytes descending
+    hits.sort(key=lambda x: x["bytes"], reverse=True)
+    
+    return jsonify({
+        "hits": hits[:20],
+        "total_threats": len(hits),
+        "feed_ips": _threat_status.get("size", 0),
+        "threat_status": _threat_status
+    })
+
+
+@app.route('/api/stats/feeds')
+@throttle(5, 10)
+def api_feed_status():
+    """Get per-feed health status"""
+    feeds = []
+    for name, info in _feed_status.items():
+        last_ok = info.get('last_ok', 0)
+        feeds.append({
+            "name": name,
+            "category": info.get("category", "UNKNOWN"),
+            "status": info.get("status", "unknown"),
+            "ips": info.get("ips", 0),
+            "latency_ms": info.get("latency_ms", 0),
+            "error": info.get("error"),
+            "last_ok_ago": format_time_ago(last_ok) if last_ok else "never"
+        })
+    
+    # Sort by status (ok first), then by ips
+    feeds.sort(key=lambda x: (0 if x["status"] == "ok" else 1, -x["ips"]))
+    
+    return jsonify({
+        "feeds": feeds,
+        "summary": {
+            "total": len(feeds),
+            "ok": sum(1 for f in feeds if f["status"] == "ok"),
+            "error": sum(1 for f in feeds if f["status"] == "error"),
+            "total_ips": _threat_status.get("size", 0),
+            "last_refresh": format_time_ago(_threat_status.get("last_ok", 0)) if _threat_status.get("last_ok") else "never"
+        }
+    })
+
+
+def format_time_ago(ts):
+    """Format timestamp as human-readable time ago"""
+    if not ts:
+        return "never"
+    diff = time.time() - ts
+    if diff < 60:
+        return f"{int(diff)}s ago"
+    elif diff < 3600:
+        return f"{int(diff/60)}m ago"
+    elif diff < 86400:
+        return f"{int(diff/3600)}h ago"
+    else:
+        return f"{int(diff/86400)}d ago"
+
 
 @app.route("/api/notify_status")
 def api_notify_status():

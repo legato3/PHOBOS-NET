@@ -633,24 +633,70 @@
                     </div>
                 </h2>
                 <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('threats')">
-                    Recent matched threat feeds and counts
+                    <span x-text="threats.total_threats || 0"></span> threats detected · <span x-text="threats.feed_ips || 0"></span> IPs in blocklist
                 </div>
                 <table x-show="!isMinimized('threats')">
-                    <thead><tr><th>IP</th><th>Type</th><th>Hits</th></tr></thead>
+                    <thead><tr><th>IP</th><th>Category</th><th>Feed</th><th>Country</th><th>Traffic</th></tr></thead>
                     <tbody>
                         <template x-for="(t, idx) in threats.hits" :key="t.ip + idx">
                             <tr>
-                                <td><strong class="text-cyan" x-text="t.ip"></strong></td>
-                                <td style="color:var(--text-muted)" x-text="t.type || 'feed'"></td>
-                                <td><strong class="text-green" x-text="t.hits"></strong></td>
+                                <td><strong class="text-cyan" x-text="t.ip" style="cursor:pointer" @click="showIP(t.ip)"></strong></td>
+                                <td><span class="badge" :class="'cat-' + (t.category || 'unknown').toLowerCase()" x-text="t.category || 'UNKNOWN'"></span></td>
+                                <td style="font-size:0.85em; color:var(--text-muted)" x-text="t.feed || 'unknown'"></td>
+                                <td><span x-text="t.country || '--'"></span></td>
+                                <td><strong class="text-green" x-text="t.bytes_fmt || fmtBytes(t.bytes || 0)"></strong><div style="font-size:0.75em; color:var(--text-muted)" x-text="(t.flows || t.hits || 0) + ' flows'"></div></td>
                             </tr>
                         </template>
                         <template x-if="!threats.hits || threats.hits.length === 0">
-                            <tr><td colspan="3" style="color:var(--text-muted); text-align:center">No recent detections</td></tr>
+                            <tr><td colspan="5" style="color:var(--text-muted); text-align:center">✅ No threat detections</td></tr>
                         </template>
                     </tbody>
                 </table>
             </div>
+
+            <!-- Feed Health -->
+            <template x-if="isVisible('feedHealth')">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('feedHealth') }">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                        <span>📡 Feed Health</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="icon-btn-small" @click="refreshFeed()" title="Refresh Feeds Now" style="color: var(--neon-green);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.5-6.3"/><path d="M21 3v6h-6"/></svg>
+                            </button>
+                            <button class="icon-btn-small" @click="toggleMinimize('feedHealth')" :title="isMinimized('feedHealth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('feedHealth')"><path d="M3 12h18M12 3v18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('feedHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <div class="spinner" x-show="feedHealth.loading"></div>
+                        </div>
+                    </h2>
+                    <div style="font-size:0.9em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('feedHealth')">
+                        <span class="text-green" x-text="feedHealth.summary?.ok || 0"></span>/<span x-text="feedHealth.summary?.total || 0"></span> feeds OK · 
+                        <span x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span> total IPs · 
+                        Last refresh: <span x-text="feedHealth.summary?.last_refresh || 'never'"></span>
+                    </div>
+                    <table x-show="!isMinimized('feedHealth')">
+                        <thead><tr><th>Feed</th><th>Category</th><th>Status</th><th>IPs</th><th>Latency</th></tr></thead>
+                        <tbody>
+                            <template x-for="(f, idx) in feedHealth.feeds" :key="f.name + idx">
+                                <tr>
+                                    <td><strong x-text="f.name"></strong></td>
+                                    <td><span class="badge" :class="'cat-' + (f.category || 'unknown').toLowerCase()" x-text="f.category"></span></td>
+                                    <td>
+                                        <span class="feed-status" :class="f.status" x-text="f.status === 'ok' ? '✅ OK' : '❌ Error'"></span>
+                                        <div x-show="f.error" style="font-size:0.75em; color:var(--neon-red)" x-text="f.error"></div>
+                                    </td>
+                                    <td><span class="text-cyan" x-text="(f.ips || 0).toLocaleString()"></span></td>
+                                    <td style="color:var(--text-muted)" x-text="f.latency_ms + 'ms'"></td>
+                                </tr>
+                            </template>
+                            <template x-if="!feedHealth.feeds || feedHealth.feeds.length === 0">
+                                <tr><td colspan="5" style="color:var(--text-muted); text-align:center">No feed data yet</td></tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
 
             <!-- Top Malicious Ports -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('maliciousPorts') }">

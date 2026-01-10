@@ -936,3 +936,65 @@ body {
 .latency-indicator .value.critical {
     color: var(--neon-red);
 }
+
+/* ============================================
+   THREAT CATEGORY BADGES
+   ============================================ */
+.badge.cat-c2 {
+    background: linear-gradient(135deg, #ff003c, #990024);
+    color: #fff;
+    text-shadow: 0 0 5px rgba(255, 0, 60, 0.5);
+}
+
+.badge.cat-malware {
+    background: linear-gradient(135deg, #ff6600, #994400);
+    color: #fff;
+}
+
+.badge.cat-scanner {
+    background: linear-gradient(135deg, #ffcc00, #997a00);
+    color: #111;
+}
+
+.badge.cat-badactor {
+    background: linear-gradient(135deg, #bc13fe, #7a0da6);
+    color: #fff;
+}
+
+.badge.cat-compromised {
+    background: linear-gradient(135deg, #ff9933, #995c1f);
+    color: #111;
+}
+
+.badge.cat-hijacked {
+    background: linear-gradient(135deg, #cc0066, #800040);
+    color: #fff;
+}
+
+.badge.cat-aggregate {
+    background: linear-gradient(135deg, #3399ff, #1f5c99);
+    color: #fff;
+}
+
+.badge.cat-tor {
+    background: linear-gradient(135deg, #7d4698, #4e2d60);
+    color: #fff;
+}
+
+.badge.cat-unknown {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+}
+
+/* Feed Status */
+.feed-status {
+    font-weight: 600;
+}
+
+.feed-status.ok {
+    color: var(--neon-green);
+}
+
+.feed-status.error {
+    color: var(--neon-red);
+}
