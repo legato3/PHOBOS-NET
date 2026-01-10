@@ -5051,7 +5051,48 @@ body.compact-mode {
     50% { box-shadow: 0 0 16px var(--neon-green), 0 0 24px var(--neon-green); }
 }
 
-/* Country stats below map */
+/* Compact 3-column country stats below map */
+.world-map-countries.compact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid var(--card-border);
+}
+.world-map-countries.compact-grid .wm-country-col {
+    min-width: 0;
+}
+.world-map-countries.compact-grid .wm-country-col h4 {
+    font-size: 0.7rem;
+    margin: 0 0 0.4rem 0;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 0.3rem;
+}
+.world-map-countries.compact-grid .wm-country-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    padding: 0.15rem 0;
+}
+.world-map-countries.compact-grid .wm-c-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+.world-map-countries.compact-grid .wm-c-val {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Country stats below map - legacy */
 .world-map-country-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

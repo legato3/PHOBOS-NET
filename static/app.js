@@ -1466,8 +1466,8 @@ document.addEventListener('alpine:init', () => {
                 </filter>
             </defs>`;
             
-            // Use the world map image as background
-            svg += `<image xlink:href="/static/world-map-bg.png" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>`;
+            // Use the world map image as background - stretch to fit viewBox exactly
+            svg += `<image xlink:href="/static/world-map-bg.png" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>`;
             
             // Semi-transparent overlay for better marker visibility
             svg += `<rect width="100%" height="100%" fill="rgba(5,15,35,0.15)"/>`;

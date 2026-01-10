@@ -509,45 +509,37 @@
                 </div>
             </div>
             
-            <!-- Country Stats Grid -->
-            <div class="world-map-countries" x-show="!isMinimized('worldmap')">
+            <!-- Country Stats - Compact 3-Column Grid -->
+            <div class="world-map-countries compact-grid" x-show="!isMinimized('worldmap')">
                 <div class="wm-country-col">
-                    <h4>🔼 Top Source Countries</h4>
-                    <div class="wm-country-list">
-                        <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso">
-                            <div class="wm-country-item">
-                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
-                                <span class="wm-country-name" x-text="c.name"></span>
-                                <span class="wm-country-value text-cyan" x-text="c.bytes_fmt"></span>
-                            </div>
-                        </template>
-                        <div class="empty-state-compact" x-show="!worldMap.source_countries?.length">No data</div>
-                    </div>
+                    <h4>🔼 Sources</h4>
+                    <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso">
+                        <div class="wm-country-row">
+                            <span x-text="flagFromIso(c.iso)"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
+                        </div>
+                    </template>
                 </div>
                 <div class="wm-country-col">
-                    <h4>🔽 Top Destination Countries</h4>
-                    <div class="wm-country-list">
-                        <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso">
-                            <div class="wm-country-item">
-                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
-                                <span class="wm-country-name" x-text="c.name"></span>
-                                <span class="wm-country-value text-purple" x-text="c.bytes_fmt"></span>
-                            </div>
-                        </template>
-                        <div class="empty-state-compact" x-show="!worldMap.dest_countries?.length">No data</div>
-                    </div>
+                    <h4>🔽 Destinations</h4>
+                    <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso">
+                        <div class="wm-country-row">
+                            <span x-text="flagFromIso(c.iso)"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
+                        </div>
+                    </template>
                 </div>
                 <div class="wm-country-col" x-show="worldMap.threat_countries?.length > 0">
-                    <h4>⚠️ Threat Origins</h4>
-                    <div class="wm-country-list">
-                        <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
-                            <div class="wm-country-item threat">
-                                <span class="wm-country-flag" x-text="flagFromIso(c.iso)"></span>
-                                <span class="wm-country-name" x-text="c.name"></span>
-                                <span class="wm-country-value text-red" x-text="c.count + ' IPs'"></span>
-                            </div>
-                        </template>
-                    </div>
+                    <h4>⚠️ Threats</h4>
+                    <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
+                        <div class="wm-country-row">
+                            <span x-text="flagFromIso(c.iso)"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-red" x-text="c.count"></span>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
