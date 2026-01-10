@@ -396,6 +396,6 @@ OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (fire
 
 ---
 
-**Last Updated**: January 10, 2026 (v2.9 - Syslog Widget Enhancements)  
+**Last Updated**: January 10, 2026 (v3.0 - Full Syslog Integration)  
 **Maintained By**: Human + AI Collaboration (Warp/Jules/Claude)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs

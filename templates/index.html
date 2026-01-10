@@ -1330,12 +1330,20 @@
                             <div>
                                 <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;">
                                     <span x-text="threatsByCountry.total_countries || 0"></span> countries detected
+                                    <template x-if="threatsByCountry.has_fw_data">
+                                        <span> · <span class="text-green" x-text="threatsByCountry.total_blocked"></span> blocked</span>
+                                    </template>
                                 </div>
                                 <template x-for="(c, idx) in (threatsByCountry.countries || []).slice(0, 8)" :key="c.country_code">
                                     <div class="country-threat-item">
                                         <span class="country-flag" x-text="c.country_code"></span>
                                         <span class="country-name" x-text="c.country_name"></span>
-                                        <span class="country-count" x-text="c.threat_count"></span>
+                                        <span class="country-count">
+                                            <span x-text="c.threat_count"></span>
+                                            <template x-if="c.blocked > 0">
+                                                <span style="color: var(--neon-green); font-size: 0.8em; margin-left: 4px;">🔥<span x-text="c.blocked"></span></span>
+                                            </template>
+                                        </span>
                                     </div>
                                 </template>
                             </div>
@@ -1519,7 +1527,12 @@
                         <div class="spinner" x-show="blocklist.loading"></div>
                     </div>
                 </h2>
-                <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('blocklist')">Rate of flows matching blocklists / feeds</div>
+                <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('blocklist')">
+                    Rate of flows matching blocklists / feeds
+                    <template x-if="blocklist.has_fw_data">
+                        <span style="color: var(--neon-green);"> + FW blocks</span>
+                    </template>
+                </div>
                 <div style="height:100px; margin-bottom:8px;" class="chart-expandable" x-show="!isMinimized('blocklist')" @click="openFullscreenChart('blocklistChart', 'Blocklist Match Rate')" title="Click to expand">
                     <canvas id="blocklistChart"></canvas>
                 </div>
@@ -1532,6 +1545,12 @@
                         <span class="blocklist-value" style="color: var(--text-muted);" x-text="(blocklist.total_matches || 0).toLocaleString()"></span>
                         <span class="blocklist-label">Matches</span>
                     </div>
+                    <template x-if="blocklist.has_fw_data">
+                        <div class="blocklist-stat">
+                            <span class="blocklist-value" style="color: var(--neon-green);" x-text="(blocklist.total_blocked || 0).toLocaleString()"></span>
+                            <span class="blocklist-label">🔥 Blocked</span>
+                        </div>
+                    </template>
                 </div>
             </div>
 
@@ -1685,6 +1704,12 @@
                                 <span class="timeline-stat-value" x-text="attackTimeline.peak_count || 0"></span>
                                 <span class="timeline-stat-label">Peak Count</span>
                             </div>
+                            <template x-if="attackTimeline.has_fw_data">
+                                <div class="timeline-stat">
+                                    <span class="timeline-stat-value" style="color: var(--neon-green);" x-text="attackTimeline.fw_blocks_24h || 0"></span>
+                                    <span class="timeline-stat-label">🔥 FW Blocks</span>
+                                </div>
+                            </template>
                         </div>
                         <div style="height: 140px;" class="chart-expandable" @click="openFullscreenChart('attackTimelineChart', 'Attack Timeline')" title="Click to expand">
                             <canvas id="attackTimelineChart"></canvas>

@@ -451,6 +451,12 @@ journalctl -u netflow-dashboard -f | grep -i syslog
   - Sensitive port probes → **Medium** severity
   - Deduplication: Same IP/port limited to once per 60 seconds
 
+### Phase 3: Chart Integration
+
+- **Attack Timeline**: New "FW Blocks" stat showing 24h firewall blocks, per-hour block data in API
+- **Threats by Country**: Shows blocked count per country (🔥 indicator), total blocked in header
+- **Blocklist Match Rate**: New "Blocked" stat, sparkline includes firewall block overlay
+
 ## Future Enhancements
 
 1. **WebSocket live feed**: Real-time blocked connections display

@@ -4169,6 +4169,28 @@ def api_attack_timeline():
     with _alert_history_lock:
         recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
     
+    # Get firewall block counts from syslog (if available)
+    fw_hourly_blocks = {}
+    try:
+        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path, timeout=5)
+            cur = conn.cursor()
+            cutoff_int = int(cutoff)
+            cur.execute("""
+                SELECT strftime('%H', datetime(timestamp, 'unixepoch', 'localtime')) as hour,
+                       COUNT(*) as blocks,
+                       SUM(is_threat) as threat_blocks
+                FROM fw_logs
+                WHERE action = 'block' AND timestamp >= ?
+                GROUP BY hour
+            """, (cutoff_int,))
+            for row in cur.fetchall():
+                fw_hourly_blocks[row[0] + ':00'] = {'blocks': row[1], 'threat_blocks': row[2] or 0}
+            conn.close()
+    except:
+        pass
+    
     # Build hourly buckets
     timeline = []
     for i in range(24):
@@ -4184,6 +4206,9 @@ def api_attack_timeline():
             by_type[a.get('type', 'unknown')] += 1
             by_severity[a.get('severity', 'low')] += 1
         
+        # Add firewall block data
+        fw_data = fw_hourly_blocks.get(hour_label, {'blocks': 0, 'threat_blocks': 0})
+        
         timeline.append({
             'hour': hour_label,
             'timestamp': hour_start,
@@ -4193,17 +4218,22 @@ def api_attack_timeline():
             'critical': by_severity.get('critical', 0),
             'high': by_severity.get('high', 0),
             'medium': by_severity.get('medium', 0),
-            'low': by_severity.get('low', 0)
+            'low': by_severity.get('low', 0),
+            'fw_blocks': fw_data['blocks'],
+            'fw_threat_blocks': fw_data['threat_blocks']
         })
     
     # Peak hour
     peak = max(timeline, key=lambda x: x['total']) if timeline else None
+    total_fw_blocks = sum(t['fw_blocks'] for t in timeline)
     
     return jsonify({
         'timeline': timeline,
         'peak_hour': peak.get('hour') if peak else None,
         'peak_count': peak.get('total') if peak else 0,
-        'total_24h': sum(t['total'] for t in timeline)
+        'total_24h': sum(t['total'] for t in timeline),
+        'fw_blocks_24h': total_fw_blocks,
+        'has_fw_data': total_fw_blocks > 0
     })
 
 
@@ -4343,8 +4373,29 @@ def api_run_detection():
 @app.route('/api/security/threats/by_country')
 @throttle(5, 10)
 def api_threats_by_country():
-    """Get threat counts grouped by country"""
-    country_stats = defaultdict(lambda: {'count': 0, 'ips': [], 'categories': defaultdict(int)})
+    """Get threat counts grouped by country with firewall block data"""
+    country_stats = defaultdict(lambda: {'count': 0, 'ips': [], 'categories': defaultdict(int), 'blocked': 0})
+    
+    # Get blocked IPs by country from syslog
+    blocked_by_country = {}
+    try:
+        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path, timeout=5)
+            cur = conn.cursor()
+            cutoff = int(time.time()) - 86400
+            cur.execute("""
+                SELECT country_iso, COUNT(*) as blocks, COUNT(DISTINCT src_ip) as unique_ips
+                FROM fw_logs
+                WHERE action = 'block' AND timestamp >= ? AND country_iso IS NOT NULL
+                GROUP BY country_iso
+            """, (cutoff,))
+            for row in cur.fetchall():
+                if row[0]:
+                    blocked_by_country[row[0]] = {'blocks': row[1], 'unique_ips': row[2]}
+            conn.close()
+    except:
+        pass
     
     for ip, timeline in _threat_timeline.items():
         if time.time() - timeline['last_seen'] < 86400:
@@ -4360,6 +4411,15 @@ def api_threats_by_country():
             info = get_threat_info(ip)
             country_stats[country]['categories'][info.get('category', 'UNKNOWN')] += 1
     
+    # Merge with firewall block data
+    for code, block_data in blocked_by_country.items():
+        if code not in country_stats:
+            # Country only seen in firewall blocks, not in threat feeds
+            country_stats[code]['name'] = code  # We don't have the full name
+            country_stats[code]['blocked_only'] = True
+        country_stats[code]['blocked'] = block_data['blocks']
+        country_stats[code]['blocked_ips'] = block_data['unique_ips']
+    
     # Convert to list and sort
     result = []
     for code, data in country_stats.items():
@@ -4367,15 +4427,21 @@ def api_threats_by_country():
             'country_code': code,
             'country_name': data.get('name', 'Unknown'),
             'threat_count': data['count'],
+            'blocked': data.get('blocked', 0),
+            'blocked_ips': data.get('blocked_ips', 0),
             'sample_ips': data['ips'],
-            'categories': dict(data['categories'])
+            'categories': dict(data['categories']),
+            'blocked_only': data.get('blocked_only', False)
         })
     
-    result.sort(key=lambda x: x['threat_count'], reverse=True)
+    result.sort(key=lambda x: (x['threat_count'] + x['blocked']), reverse=True)
+    total_blocked = sum(r['blocked'] for r in result)
     
     return jsonify({
         'countries': result[:20],
-        'total_countries': len(result)
+        'total_countries': len(result),
+        'total_blocked': total_blocked,
+        'has_fw_data': total_blocked > 0
     })
 
 
@@ -5166,7 +5232,7 @@ def api_stats_blocklist_rate():
         series = []
         for i in range(num_buckets + 1):
             t = start_ts + (i * bucket_size)
-            series.append({"ts": int(t * 1000), "rate": buckets[i]})
+            series.append({"ts": int(t * 1000), "rate": buckets[i], "blocked": 0})
 
         current_rate = series[-1]["rate"] if series else 0
 
@@ -5175,11 +5241,40 @@ def api_stats_blocklist_rate():
         current_rate = 0
         total_matches = 0
 
+    # Overlay firewall block data onto series
+    total_blocked = 0
+    try:
+        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path, timeout=5)
+            cur = conn.cursor()
+            cutoff = int(start_ts)
+            cur.execute("""
+                SELECT timestamp, COUNT(*) as cnt
+                FROM fw_logs
+                WHERE action = 'block' AND timestamp >= ?
+                GROUP BY CAST(timestamp / ? AS INTEGER)
+                ORDER BY timestamp
+            """, (cutoff, bucket_size))
+            
+            for row in cur.fetchall():
+                ts_val = row[0]
+                cnt = row[1]
+                total_blocked += cnt
+                b_idx = int((ts_val - start_ts) // bucket_size)
+                if 0 <= b_idx < len(series):
+                    series[b_idx]['blocked'] = series[b_idx].get('blocked', 0) + cnt
+            conn.close()
+    except:
+        pass
+
     return jsonify({
         "series": series,
         "current_rate": current_rate,
         "total_matches": total_matches,
-        "threat_count": threat_count
+        "total_blocked": total_blocked,
+        "threat_count": threat_count,
+        "has_fw_data": total_blocked > 0
     })
 
 if __name__=="__main__":

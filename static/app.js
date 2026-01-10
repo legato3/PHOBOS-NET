@@ -58,7 +58,7 @@ document.addEventListener('alpine:init', () => {
         protocols: { protocols: [], loading: true },
         maliciousPorts: { ports: [], loading: true, has_syslog: false },
         threats: { hits: [], loading: true, total_blocked: 0 },
-        blocklist: { series: [], current_rate: null, total_matches: 0, loading: true },
+        blocklist: { series: [], current_rate: null, total_matches: 0, total_blocked: 0, has_fw_data: false, loading: true },
         alerts: { alerts: [], loading: true },
         bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
         conversations: { conversations: [], loading: true },
@@ -80,7 +80,7 @@ document.addEventListener('alpine:init', () => {
         // Security Features
         securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
         alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
-        threatsByCountry: { countries: [], loading: true },
+        threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
         watchlist: { watchlist: [], count: 0, loading: true },
         watchlistInput: '',
         alertHistoryOpen: false,
@@ -90,7 +90,7 @@ document.addEventListener('alpine:init', () => {
         riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
 
         // New Security Widgets
-        attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true },
+        attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
         mitreHeatmap: { techniques: [], by_tactic: {}, total_techniques: 0, loading: true },
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
         
