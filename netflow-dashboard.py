@@ -159,6 +159,7 @@ FIREWALL_DB_PATH = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
 _firewall_db_lock = threading.Lock()
 _syslog_thread_started = False
 _syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
+_syslog_stats_lock = threading.Lock()
 SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
 SYSLOG_BIND = os.getenv("SYSLOG_BIND", "0.0.0.0")
 FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")  # Only accept from this IP
@@ -3265,8 +3266,6 @@ def _cleanup_old_fw_logs():
 
 def _syslog_receiver_loop():
     """UDP syslog receiver loop."""
-    global _syslog_stats
-    
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
@@ -3291,7 +3290,8 @@ def _syslog_receiver_loop():
             if addr[0] != FIREWALL_IP and FIREWALL_IP != "0.0.0.0":
                 continue
             
-            _syslog_stats["received"] += 1
+            with _syslog_stats_lock:
+                _syslog_stats["received"] += 1
             line = data.decode('utf-8', errors='ignore')
             
             # Only process filterlog messages
@@ -3300,15 +3300,18 @@ def _syslog_receiver_loop():
             
             parsed = _parse_filterlog(line)
             if parsed:
-                _syslog_stats["parsed"] += 1
-                _syslog_stats["last_log"] = time.time()
+                with _syslog_stats_lock:
+                    _syslog_stats["parsed"] += 1
+                    _syslog_stats["last_log"] = time.time()
                 _insert_fw_log(parsed, line)
             else:
-                _syslog_stats["errors"] += 1
+                with _syslog_stats_lock:
+                    _syslog_stats["errors"] += 1
         except socket_module.timeout:
             continue  # Normal timeout, check shutdown and continue
-        except Exception as e:
-            _syslog_stats["errors"] += 1
+        except Exception:
+            with _syslog_stats_lock:
+                _syslog_stats["errors"] += 1
 
 def _syslog_maintenance_loop():
     """Periodic maintenance for firewall logs."""
@@ -3393,6 +3396,8 @@ def api_firewall_logs_stats():
             conn.close()
     
     hours = range_seconds / 3600
+    with _syslog_stats_lock:
+        receiver_stats = dict(_syslog_stats)
     data = {
         "blocks_total": blocks,
         "blocks_per_hour": round(blocks / hours, 1) if hours > 0 else 0,
@@ -3401,7 +3406,7 @@ def api_firewall_logs_stats():
         "top_blocked_ports": top_ports,
         "top_blocked_countries": top_countries,
         "threat_hits": threat_hits,
-        "receiver_stats": _syslog_stats
+        "receiver_stats": receiver_stats
     }
     return jsonify(data)
 
@@ -3547,7 +3552,9 @@ def api_firewall_logs_recent():
         finally:
             conn.close()
     
-    return jsonify({"logs": logs, "receiver_stats": _syslog_stats})
+    with _syslog_stats_lock:
+        receiver_stats = dict(_syslog_stats)
+    return jsonify({"logs": logs, "receiver_stats": receiver_stats})
 
 
 @app.route("/api/alerts")
@@ -5227,8 +5234,9 @@ def api_stats_firewall():
         snmp_data['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
         snmp_data['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
         snmp_data['threats_blocked'] = fw_stats.get('threats_blocked', 0)
-        snmp_data['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
-        snmp_data['syslog_stats'] = _syslog_stats
+        with _syslog_stats_lock:
+            snmp_data['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
+            snmp_data['syslog_stats'] = dict(_syslog_stats)
     
     return jsonify({"firewall": snmp_data})
 
@@ -5245,7 +5253,17 @@ def api_stats_firewall_stream():
                 data = _snmp_cache.get("data")
                 ts = _snmp_cache.get("ts", 0)
             if ts and ts != last_ts and data is not None:
-                payload = json.dumps({"firewall": data})
+                # Merge syslog stats into SSE payload
+                merged = dict(data) if data else {}
+                fw_stats = _get_firewall_block_stats(hours=1)
+                merged['blocks_1h'] = fw_stats.get('blocks', 0)
+                merged['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
+                merged['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
+                merged['threats_blocked'] = fw_stats.get('threats_blocked', 0)
+                with _syslog_stats_lock:
+                    merged['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
+                    merged['syslog_stats'] = dict(_syslog_stats)
+                payload = json.dumps({"firewall": merged})
                 yield f"data: {payload}\n\n"
                 last_ts = ts
             _shutdown_event.wait(timeout=max(0.2, SNMP_POLL_INTERVAL / 2.0))
