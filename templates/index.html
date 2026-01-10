@@ -646,7 +646,7 @@
             <template x-if="isVisible('securityScore')">
                 <div class="card security-score-card" :class="{ 'widget-minimized': isMinimized('securityScore'), 'score-excellent': securityScore.grade === 'A', 'score-good': securityScore.grade === 'B', 'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade === 'D', 'score-critical': securityScore.grade === 'F' }">
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                        <span>🛡️ Security Score</span>
+                        <span>� Security Score</span>
                         <div style="display: flex; gap: 4px;">
                             <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('securityScore')"><path d="M3 12h18M12 3v18"/></svg>
@@ -682,7 +682,7 @@
             <template x-if="isVisible('alertHistory')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('alertHistory') }">
                     <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
-                        <span>📋 Alert History (24h)</span>
+                        <span>� Alert History (24h)</span>
                         <div style="display: flex; gap: 4px;">
                             <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertHistory')"><path d="M3 12h18M12 3v18"/></svg>
@@ -705,7 +705,7 @@
                                 <tr>
                                     <td style="font-size:0.85em; color:var(--text-muted); white-space:nowrap" x-text="a.time_ago"></td>
                                     <td><span class="badge" :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()" x-text="a.type || 'alert'"></span></td>
-                                    <td style="font-size:0.9em; max-width:300px; overflow:hidden; text-overflow:ellipsis;" x-text="a.msg"></td>
+                                    <td style="font-size:0.9em; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="a.msg" x-text="a.msg"></td>
                                     <td><span :class="'severity-' + a.severity" x-text="a.severity"></span></td>
                                 </tr>
                             </template>
@@ -730,19 +730,26 @@
                             <div class="spinner" x-show="threatsByCountry.loading"></div>
                         </div>
                     </h2>
-                    <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;" x-show="!isMinimized('threatsByCountry')">
-                        <span x-text="threatsByCountry.total_countries || 0"></span> countries with threat activity
-                    </div>
                     <div class="country-threat-list" x-show="!isMinimized('threatsByCountry')">
-                        <template x-for="(c, idx) in (threatsByCountry.countries || []).slice(0, 8)" :key="c.country_code">
-                            <div class="country-threat-item">
-                                <span class="country-flag" x-text="c.country_code"></span>
-                                <span class="country-name" x-text="c.country_name"></span>
-                                <span class="country-count" x-text="c.threat_count"></span>
+                        <template x-if="threatsByCountry.countries && threatsByCountry.countries.length > 0">
+                            <div>
+                                <div style="font-size:0.85em; color:var(--text-muted); margin-bottom:8px;">
+                                    <span x-text="threatsByCountry.total_countries || 0"></span> countries detected
+                                </div>
+                                <template x-for="(c, idx) in (threatsByCountry.countries || []).slice(0, 8)" :key="c.country_code">
+                                    <div class="country-threat-item">
+                                        <span class="country-flag" x-text="c.country_code"></span>
+                                        <span class="country-name" x-text="c.country_name"></span>
+                                        <span class="country-count" x-text="c.threat_count"></span>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                         <template x-if="!threatsByCountry.countries || threatsByCountry.countries.length === 0">
-                            <div style="color:var(--text-muted); text-align:center; padding:12px;">✅ No threat activity by country</div>
+                            <div class="empty-state-compact">
+                                <span class="empty-icon">🌍</span>
+                                <span>No geo-located threats</span>
+                            </div>
                         </template>
                     </div>
                 </div>

@@ -1107,6 +1107,13 @@ body {
     display: flex;
     gap: 24px;
     align-items: flex-start;
+    overflow: hidden;
+}
+
+.score-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .score-gauge {
@@ -1152,10 +1159,6 @@ body {
     color: var(--text-muted);
 }
 
-.score-details {
-    flex: 1;
-}
-
 .score-status {
     font-size: 1.1em;
     font-weight: 600;
@@ -1192,6 +1195,9 @@ body {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 4px;
     border-left: 2px solid var(--neon-yellow);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .score-stats {
@@ -1210,6 +1216,19 @@ body {
     margin-bottom: 12px;
     flex-wrap: wrap;
     align-items: center;
+}
+
+/* Prevent text overflow in alert tables */
+.card table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.card table td,
+.card table th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .alert-badge {
@@ -1278,6 +1297,15 @@ body {
     background: rgba(255, 255, 255, 0.02);
     border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.country-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .country-flag {
@@ -1287,11 +1315,7 @@ body {
     border-radius: 4px;
     font-family: monospace;
     color: var(--neon-cyan);
-}
-
-.country-name {
-    flex: 1;
-    font-size: 0.9em;
+    flex-shrink: 0;
 }
 
 .country-count {
@@ -1301,6 +1325,27 @@ body {
     padding: 2px 8px;
     background: rgba(255, 204, 0, 0.1);
     border-radius: 4px;
+}
+
+/* Compact Empty States */
+.empty-state-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    color: var(--text-muted);
+    text-align: center;
+    gap: 8px;
+}
+
+.empty-state-compact .empty-icon {
+    font-size: 2em;
+    opacity: 0.5;
+}
+
+.empty-state-compact span:last-child {
+    font-size: 0.9em;
 }
 
 /* Text color utilities */
