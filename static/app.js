@@ -1366,79 +1366,31 @@ document.addEventListener('alpine:init', () => {
                 return { x, y };
             };
             
-            // Build SVG
-            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
+            // Build SVG with image background
+            let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="width:100%;height:100%;">`;
             
-            // Background
-            svg += `<rect width="100%" height="100%" fill="rgba(5,15,35,0.9)"/>`;
-            
-            // Gradient definitions
+            // Background with image
             svg += `<defs>
-                <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:rgba(10,25,50,0.7);stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:rgba(2,10,25,0.9);stop-opacity:1" />
-                </linearGradient>
                 <filter id="glow">
-                    <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
                     <feMerge>
                         <feMergeNode in="coloredBlur"/>
                         <feMergeNode in="SourceGraphic"/>
                     </feMerge>
                 </filter>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#oceanGrad)"/>`;
+            </defs>`;
             
-            // Grid (very subtle)
-            for (let i = 0; i <= 6; i++) {
-                const y = (height / 6) * i;
-                svg += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="rgba(0,243,255,0.04)" stroke-width="0.5"/>`;
-            }
-            for (let i = 0; i <= 12; i++) {
-                const x = (width / 12) * i;
-                svg += `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(0,243,255,0.04)" stroke-width="0.5"/>`;
-            }
+            // Use the world map image as background
+            svg += `<image xlink:href="/static/world-map-bg.png" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>`;
             
-            // Equator
-            svg += `<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="rgba(0,243,255,0.12)" stroke-width="1.5"/>`;
-            
-            // Prime Meridian
-            svg += `<line x1="${width/2}" y1="0" x2="${width/2}" y2="${height}" stroke="rgba(0,243,255,0.1)" stroke-width="1.5"/>`;
-            
-            // Detailed country borders using simplified paths
-            // Major countries and regions with better detail
-            const countryBorders = [
-                // USA
-                `M${latLngToXY(49, -125).x},${latLngToXY(49, -125).y} L${latLngToXY(49, -95).x},${latLngToXY(49, -95).y} L${latLngToXY(45, -95).x},${latLngToXY(45, -95).y} L${latLngToXY(30, -97).x},${latLngToXY(30, -97).y} L${latLngToXY(26, -80).x},${latLngToXY(26, -80).y} L${latLngToXY(42, -71).x},${latLngToXY(42, -71).y} Z`,
-                // Canada
-                `M${latLngToXY(60, -130).x},${latLngToXY(60, -130).y} L${latLngToXY(60, -100).x},${latLngToXY(60, -100).y} L${latLngToXY(50, -85).x},${latLngToXY(50, -85).y} L${latLngToXY(49, -95).x},${latLngToXY(49, -95).y} L${latLngToXY(49, -125).x},${latLngToXY(49, -125).y} Z`,
-                // Mexico
-                `M${latLngToXY(32, -117).x},${latLngToXY(32, -117).y} L${latLngToXY(30, -97).x},${latLngToXY(30, -97).y} L${latLngToXY(14, -92).x},${latLngToXY(14, -92).y} L${latLngToXY(14, -110).x},${latLngToXY(14, -110).y} Z`,
-                // Brazil
-                `M${latLngToXY(5, -34).x},${latLngToXY(5, -34).y} L${latLngToXY(5, -60).x},${latLngToXY(5, -60).y} L${latLngToXY(-33, -55).x},${latLngToXY(-33, -55).y} L${latLngToXY(-33, -35).x},${latLngToXY(-33, -35).y} Z`,
-                // Europe (simplified)
-                `M${latLngToXY(56, -10).x},${latLngToXY(56, -10).y} L${latLngToXY(56, 40).x},${latLngToXY(56, 40).y} L${latLngToXY(36, 42).x},${latLngToXY(36, 42).y} L${latLngToXY(36, 0).x},${latLngToXY(36, 0).y} L${latLngToXY(43, -8).x},${latLngToXY(43, -8).y} Z`,
-                // Russia
-                `M${latLngToXY(70, 30).x},${latLngToXY(70, 30).y} L${latLngToXY(70, 160).x},${latLngToXY(70, 160).y} L${latLngToXY(50, 170).x},${latLngToXY(50, 170).y} L${latLngToXY(50, 130).x},${latLngToXY(50, 130).y} L${latLngToXY(45, 40).x},${latLngToXY(45, 40).y} Z`,
-                // China
-                `M${latLngToXY(53, 73).x},${latLngToXY(53, 73).y} L${latLngToXY(53, 135).x},${latLngToXY(53, 135).y} L${latLngToXY(20, 135).x},${latLngToXY(20, 135).y} L${latLngToXY(20, 73).x},${latLngToXY(20, 73).y} Z`,
-                // India
-                `M${latLngToXY(35, 68).x},${latLngToXY(35, 68).y} L${latLngToXY(35, 97).x},${latLngToXY(35, 97).y} L${latLngToXY(8, 97).x},${latLngToXY(8, 97).y} L${latLngToXY(8, 68).x},${latLngToXY(8, 68).y} Z`,
-                // Australia
-                `M${latLngToXY(-10, 113).x},${latLngToXY(-10, 113).y} L${latLngToXY(-10, 154).x},${latLngToXY(-10, 154).y} L${latLngToXY(-44, 154).x},${latLngToXY(-44, 154).y} L${latLngToXY(-44, 113).x},${latLngToXY(-44, 113).y} Z`,
-                // Africa (simplified)
-                `M${latLngToXY(37, -18).x},${latLngToXY(37, -18).y} L${latLngToXY(37, 52).x},${latLngToXY(37, 52).y} L${latLngToXY(-35, 52).x},${latLngToXY(-35, 52).y} L${latLngToXY(-35, 10).x},${latLngToXY(-35, 10).y} L${latLngToXY(-15, -18).x},${latLngToXY(-15, -18).y} Z`
-            ];
-            
-            // Draw country borders
-            countryBorders.forEach(pathData => {
-                svg += `<path d="${pathData}" fill="none" stroke="rgba(0,243,255,0.35)" stroke-width="1.2" stroke-linejoin="round" filter="url(#glow)"/>`;
-            });
+            // Semi-transparent overlay for better marker visibility
+            svg += `<rect width="100%" height="100%" fill="rgba(5,15,35,0.15)"/>`;
             
             // Draw destinations (purple - draw first so sources appear on top)
             dests.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
                 const size = Math.min(16, Math.max(6, Math.log10(p.bytes + 1) * 3));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.5)" stroke="#bc13fe" stroke-width="2.5" opacity="0.8" filter="url(#glow)">
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(188,19,254,0.6)" stroke="#bc13fe" stroke-width="2.5" opacity="0.85" filter="url(#glow)">
                     <title>📍 DST: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
                 </circle>`;
             });
@@ -1447,7 +1399,7 @@ document.addEventListener('alpine:init', () => {
             sources.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
                 const size = Math.min(16, Math.max(6, Math.log10(p.bytes + 1) * 3));
-                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.65)" stroke="#00f3ff" stroke-width="2.5" opacity="0.85" filter="url(#glow)">
+                svg += `<circle cx="${x}" cy="${y}" r="${size}" fill="rgba(0,243,255,0.7)" stroke="#00f3ff" stroke-width="2.5" opacity="0.9" filter="url(#glow)">
                     <title>📍 SRC: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}\\n${p.bytes_fmt}</title>
                 </circle>`;
             });
@@ -1456,8 +1408,8 @@ document.addEventListener('alpine:init', () => {
             threats.forEach(p => {
                 const { x, y } = latLngToXY(p.lat, p.lng);
                 svg += `<g filter="url(#glow)">
-                    <circle cx="${x}" cy="${y}" r="10" fill="rgba(255,0,60,0.8)" stroke="#ff003c" stroke-width="3" opacity="0.95"/>
-                    <circle cx="${x}" cy="${y}" r="16" fill="none" stroke="rgba(255,0,60,0.5)" stroke-width="2" stroke-dasharray="3,3"/>
+                    <circle cx="${x}" cy="${y}" r="10" fill="rgba(255,0,60,0.85)" stroke="#ff003c" stroke-width="3" opacity="0.95"/>
+                    <circle cx="${x}" cy="${y}" r="16" fill="none" stroke="rgba(255,0,60,0.6)" stroke-width="2" stroke-dasharray="3,3"/>
                 </g>
                 <title>⚠️ THREAT: ${p.ip}\\n${p.city ? p.city + ', ' : ''}${p.country}</title>`;
             });
@@ -1466,18 +1418,18 @@ document.addEventListener('alpine:init', () => {
             const legendX = 20;
             const legendY = height - 80;
             svg += `<g filter="url(#glow)">
-                <rect x="${legendX}" y="${legendY}" width="200" height="70" fill="rgba(5,15,35,0.8)" stroke="rgba(0,243,255,0.4)" stroke-width="1.5" rx="4"/>
-                <circle cx="${legendX + 15}" cy="${legendY + 15}" r="4" fill="rgba(0,243,255,0.8)"/>
-                <text x="${legendX + 30}" y="${legendY + 19}" fill="rgba(0,243,255,0.8)" font-size="11" font-family="monospace">Sources</text>
-                <circle cx="${legendX + 15}" cy="${legendY + 35}" r="4" fill="rgba(188,19,254,0.8)"/>
-                <text x="${legendX + 30}" y="${legendY + 39}" fill="rgba(188,19,254,0.8)" font-size="11" font-family="monospace">Destinations</text>
-                <circle cx="${legendX + 15}" cy="${legendY + 55}" r="4" fill="rgba(255,0,60,0.8)"/>
-                <text x="${legendX + 30}" y="${legendY + 59}" fill="rgba(255,0,60,0.8)" font-size="11" font-family="monospace">Threats</text>
+                <rect x="${legendX}" y="${legendY}" width="200" height="70" fill="rgba(5,15,35,0.85)" stroke="rgba(0,243,255,0.5)" stroke-width="1.5" rx="4"/>
+                <circle cx="${legendX + 15}" cy="${legendY + 15}" r="4" fill="rgba(0,243,255,0.9)"/>
+                <text x="${legendX + 30}" y="${legendY + 19}" fill="rgba(0,243,255,0.9)" font-size="11" font-family="monospace">Sources</text>
+                <circle cx="${legendX + 15}" cy="${legendY + 35}" r="4" fill="rgba(188,19,254,0.9)"/>
+                <text x="${legendX + 30}" y="${legendY + 39}" fill="rgba(188,19,254,0.9)" font-size="11" font-family="monospace">Destinations</text>
+                <circle cx="${legendX + 15}" cy="${legendY + 55}" r="4" fill="rgba(255,0,60,0.9)"/>
+                <text x="${legendX + 30}" y="${legendY + 59}" fill="rgba(255,0,60,0.9)" font-size="11" font-family="monospace">Threats</text>
             </g>`;
             
             svg += `</svg>`;
             container.innerHTML = svg;
-            console.log('[WorldMap] Rendered successfully');
+            console.log('[WorldMap] Rendered successfully with background image');
         },
 
         async fetchDurations() {
