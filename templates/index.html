@@ -14,6 +14,11 @@
 </head>
 <body class="antialiased" x-data="dashboard">
 
+    <!-- Refresh Progress Bar -->
+    <div class="refresh-progress">
+        <div class="refresh-progress-bar" :class="{ 'paused': paused }" :style="'width: ' + countdownPercent + '%'"></div>
+    </div>
+
     <!-- Loading Overlay -->
     <div class="loading-screen" x-show="!initDone" style="display:none" :style="!initDone ? 'display:flex' : 'display:none'">
         <div class="loader">Initializing Neural Link...</div>
@@ -901,6 +906,11 @@
         </div>
     </div>
 
+    <!-- Keyboard Shortcuts Hint -->
+    <div class="keyboard-hint" title="Press ? for all shortcuts">
+        <kbd>R</kbd> Refresh <kbd>P</kbd> Pause <kbd>1-6</kbd> Time
+    </div>
+
     <!-- Sticky Status Bar -->
     <div class="status-bar">
         <div class="status-bar-item">
@@ -924,6 +934,10 @@
             <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
             <span class="label">Status:</span>
             <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
+        </div>
+        <div class="status-bar-item">
+            <span class="label">Next:</span>
+            <span class="value" style="color: var(--text-muted);" x-text="paused ? '--' : refreshCountdown + 's'"></span>
         </div>
         <div class="status-bar-item">
             <span class="label">Updated:</span>

@@ -12,6 +12,10 @@ document.addEventListener('alpine:init', () => {
         lastUpdate: '-',
         searchQuery: '',
 
+        // Refresh countdown
+        refreshCountdown: 30,
+        countdownTimer: null,
+
         // Fetch cadence control
         lastHeavyFetch: 0,
         heavyTTL: 60000, // 60s for heavy widgets
@@ -117,6 +121,12 @@ document.addEventListener('alpine:init', () => {
             // Start real-time firewall stream (SSE) if supported
             this.startFirewallStream();
 
+            // Keyboard shortcuts
+            this.setupKeyboardShortcuts();
+
+            // Start countdown timer
+            this.startCountdown();
+
             // Watchers
             this.$watch('timeRange', () => {
                 this.loadAll();
@@ -170,6 +180,82 @@ document.addEventListener('alpine:init', () => {
             this.refreshTimer = setInterval(() => {
                 if (!this.paused) this.loadAll();
             }, this.refreshInterval);
+            // Reset countdown when timer restarts
+            this.refreshCountdown = this.refreshInterval / 1000;
+            this.startCountdown();
+        },
+
+        startCountdown() {
+            if (this.countdownTimer) clearInterval(this.countdownTimer);
+            this.refreshCountdown = this.refreshInterval / 1000;
+            this.countdownTimer = setInterval(() => {
+                if (!this.paused && this.refreshCountdown > 0) {
+                    this.refreshCountdown--;
+                }
+                if (this.refreshCountdown <= 0) {
+                    this.refreshCountdown = this.refreshInterval / 1000;
+                }
+            }, 1000);
+        },
+
+        get countdownPercent() {
+            const total = this.refreshInterval / 1000;
+            return ((total - this.refreshCountdown) / total) * 100;
+        },
+
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Don't trigger if typing in input
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                
+                switch(e.key.toLowerCase()) {
+                    case 'r':
+                        e.preventDefault();
+                        this.loadAll();
+                        this.refreshCountdown = this.refreshInterval / 1000;
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        this.togglePause();
+                        break;
+                    case '1':
+                        e.preventDefault();
+                        this.timeRange = '15m';
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        this.timeRange = '30m';
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        this.timeRange = '1h';
+                        break;
+                    case '4':
+                        e.preventDefault();
+                        this.timeRange = '6h';
+                        break;
+                    case '5':
+                        e.preventDefault();
+                        this.timeRange = '24h';
+                        break;
+                    case '6':
+                        e.preventDefault();
+                        this.timeRange = '7d';
+                        break;
+                    case 'escape':
+                        this.modalOpen = false;
+                        this.trendModalOpen = false;
+                        this.thresholdsModalOpen = false;
+                        this.widgetManagerOpen = false;
+                        break;
+                    case '?':
+                        if (e.shiftKey) {
+                            e.preventDefault();
+                            alert('Keyboard Shortcuts:\n\nR - Refresh data\nP - Pause/Resume\n1-6 - Time range (15m to 7d)\nESC - Close modals\n? - Show this help');
+                        }
+                        break;
+                }
+            });
         },
 
         togglePause() {

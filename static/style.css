@@ -768,3 +768,109 @@ body {
         justify-content: center;
     }
 }
+
+/* ============================================
+   REFRESH COUNTDOWN PROGRESS BAR
+   ============================================ */
+.refresh-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+}
+
+.refresh-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+    transition: width 1s linear;
+    box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.refresh-progress-bar.paused {
+    background: var(--text-muted);
+    box-shadow: none;
+}
+
+/* ============================================
+   ANIMATED NUMBER TRANSITIONS
+   ============================================ */
+.stat-box .value,
+.status-bar-item .value {
+    transition: color 0.3s ease;
+}
+
+/* Animated count class - add via JS when values change */
+.value-animate {
+    animation: valueFlash 0.6s ease-out;
+}
+
+@keyframes valueFlash {
+    0% {
+        transform: scale(1);
+        text-shadow: 0 0 0 transparent;
+    }
+    30% {
+        transform: scale(1.08);
+        text-shadow: 0 0 20px var(--neon-cyan);
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: 0 0 15px rgba(10, 255, 10, 0.2);
+    }
+}
+
+/* Smooth number transitions for counters */
+.counter-animate {
+    display: inline-block;
+    transition: transform 0.2s ease-out;
+}
+
+/* ============================================
+   KEYBOARD SHORTCUTS HINT
+   ============================================ */
+.keyboard-hint {
+    position: fixed;
+    bottom: 50px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.75em;
+    color: var(--text-muted);
+    z-index: 999;
+    backdrop-filter: blur(10px);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.keyboard-hint:hover {
+    opacity: 1;
+}
+
+.keyboard-hint kbd {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: monospace;
+    color: var(--neon-cyan);
+    margin: 0 2px;
+}
+
+/* Pulse animation for new threat alerts */
+.threat-pulse {
+    animation: threatPulse 2s ease-in-out infinite;
+}
+
+@keyframes threatPulse {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(255, 0, 60, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 0, 60, 0.6), 0 0 30px rgba(255, 0, 60, 0.3);
+    }
+}
