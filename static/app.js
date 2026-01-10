@@ -300,6 +300,7 @@ document.addEventListener('alpine:init', () => {
 
         init() {
             console.log('Neural Link Established.');
+            console.log('[Init] vis-network available:', typeof vis !== 'undefined', 'vis.Network:', typeof vis !== 'undefined' && vis?.Network ? 'yes' : 'no');
             this.initDone = true;
             this.loadWidgetPreferences();
             this.loadCompactMode();
@@ -1918,14 +1919,39 @@ document.addEventListener('alpine:init', () => {
         },
 
         async openNetworkGraph() {
+            console.log('[Graph] openNetworkGraph called');
+            console.log('[Graph] vis available:', typeof vis !== 'undefined', 'vis.Network:', typeof vis !== 'undefined' && vis?.Network ? 'yes' : 'no');
             this.networkGraphOpen = true;
             // Wait for modal transition
-            setTimeout(() => this.renderNetworkGraph(), 100);
+            setTimeout(() => {
+                console.log('[Graph] Calling renderNetworkGraph after modal open');
+                this.renderNetworkGraph();
+            }, 100);
         },
 
         async renderNetworkGraph() {
             const container = document.getElementById('network-graph-container');
-            if (!container) return;
+            if (!container) {
+                console.error('[Graph] Container not found');
+                return;
+            }
+
+            // Log container dimensions
+            const rect = container.getBoundingClientRect();
+            console.log('[Graph] Container dimensions:', rect.width, 'x', rect.height);
+
+            // Check if vis library is loaded
+            if (typeof vis === 'undefined' || !vis.Network) {
+                console.error('[Graph] vis-network library not loaded');
+                container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">vis-network library not loaded. Check console.</div>';
+                return;
+            }
+
+            // Ensure container has dimensions (vis-network needs explicit size)
+            if (rect.height < 100) {
+                console.log('[Graph] Container too small, setting explicit height');
+                container.style.height = '70vh';
+            }
 
             // Clear previous
             container.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
@@ -1933,9 +1959,14 @@ document.addEventListener('alpine:init', () => {
             try {
                 // Fetch top conversations
                 const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=100`);
-                if (!res.ok) throw new Error("Failed to fetch graph data");
+                if (!res.ok) throw new Error("Failed to fetch graph data: " + res.status);
                 const json = await res.json();
                 const convs = json.conversations || [];
+
+                if (convs.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding-top:50px">No conversation data available</div>';
+                    return;
+                }
 
                 // Nodes and Edges
                 const nodes = new Map();
@@ -2008,21 +2039,23 @@ document.addEventListener('alpine:init', () => {
                 };
 
                 container.innerHTML = ''; // clear spinner
+                
+                console.log('[Graph] Creating network with', data.nodes.length, 'nodes and', data.edges.length, 'edges');
                 this.networkGraphInstance = new vis.Network(container, data, options);
 
                 // Click handler
                 this.networkGraphInstance.on("click", (params) => {
                     if (params.nodes.length > 0) {
                         const nodeId = params.nodes[0];
-                        // Optional: Open IP details on click?
-                        // this.openIPModal(nodeId);
-                        // Just highlighting for now is enough
+                        this.openIPModal(nodeId);
                     }
                 });
+                
+                console.log('[Graph] Network created successfully');
 
             } catch (e) {
-                console.error(e);
-                container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">Failed to load graph data</div>';
+                console.error('[Graph] Error:', e);
+                container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">Failed to load graph: ' + e.message + '</div>';
             }
         },
 
