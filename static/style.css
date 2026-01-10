@@ -512,27 +512,39 @@ tr:hover td {
 }
 .talker-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     padding: 8px 10px;
     background: rgba(0, 243, 255, 0.05);
     border-radius: 6px;
     border-left: 3px solid var(--neon-cyan);
+    gap: 10px;
+}
+.talker-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 .talker-pair {
-    flex: 1;
     display: flex;
     align-items: center;
     gap: 6px;
     min-width: 0;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85em;
+    font-size: 0.82em;
 }
 .talker-src {
     color: var(--neon-cyan);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+    max-width: 45%;
+}
+.talker-src:hover {
+    text-decoration: underline;
 }
 .talker-arrow {
     color: var(--text-muted);
@@ -543,12 +555,15 @@ tr:hover td {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+    max-width: 45%;
+}
+.talker-dst:hover {
+    text-decoration: underline;
 }
 .talker-meta {
-    width: 100%;
-    font-size: 0.75em;
+    font-size: 0.7em;
     color: var(--text-muted);
-    margin-top: 4px;
 }
 .talker-region {
     opacity: 0.8;
@@ -557,7 +572,8 @@ tr:hover td {
     font-weight: bold;
     color: var(--neon-green);
     flex-shrink: 0;
-    margin-left: auto;
+    font-size: 0.9em;
+    white-space: nowrap;
 }
 
 /* Services Widget */

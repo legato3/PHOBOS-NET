@@ -860,13 +860,15 @@
                 <div class="talkers-list" x-show="!isMinimized('talkers')">
                     <template x-for="(t, idx) in talkers.talkers" :key="idx">
                         <div class="talker-row">
-                            <div class="talker-pair">
-                                <span class="talker-src" x-text="t.src" :title="t.src_hostname || t.src"></span>
-                                <span class="talker-arrow">→</span>
-                                <span class="talker-dst" x-text="t.dst" :title="t.dst_hostname || t.dst"></span>
-                            </div>
-                            <div class="talker-meta">
-                                <span class="talker-region" x-text="(t.src_region || '') + ' → ' + (t.dst_region || '')"></span>
+                            <div class="talker-info">
+                                <div class="talker-pair">
+                                    <span class="talker-src" x-text="t.src" :title="t.src_hostname || t.src" @click="openIPModal(t.src)"></span>
+                                    <span class="talker-arrow">→</span>
+                                    <span class="talker-dst" x-text="t.dst" :title="t.dst_hostname || t.dst" @click="openIPModal(t.dst)"></span>
+                                </div>
+                                <div class="talker-meta">
+                                    <span class="talker-region" x-text="(t.src_region || '') + ' → ' + (t.dst_region || '')"></span>
+                                </div>
                             </div>
                             <div class="talker-bytes" x-text="t.bytes_fmt"></div>
                         </div>
