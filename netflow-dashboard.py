@@ -3125,13 +3125,35 @@ def start_agg_thread():
                 now_ts = time.time()
                 win = int(now_ts // 60)
 
-                sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
-                sources.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
-                ports.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                dests = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
-                dests.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                protos = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
+                # Parallelize nfdump calls to speed up aggregation
+                def fetch_sources():
+                    data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
+                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                    return data
+
+                def fetch_ports():
+                    data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
+                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                    return data
+
+                def fetch_dests():
+                    data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
+                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                    return data
+
+                def fetch_protos():
+                    return parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
+
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    f_sources = executor.submit(fetch_sources)
+                    f_ports = executor.submit(fetch_ports)
+                    f_dests = executor.submit(fetch_dests)
+                    f_protos = executor.submit(fetch_protos)
+
+                    sources = f_sources.result()
+                    ports = f_ports.result()
+                    dests = f_dests.result()
+                    protos = f_protos.result()
 
                 with _common_data_lock:
                     _common_data_cache[f"sources:{range_key}:{win}"] = {"data": sources, "ts": now_ts, "win": win}
@@ -3814,6 +3836,34 @@ def api_bandwidth():
         # Build a mapping for quick lookup
         by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
 
+        # Identify missing buckets that need computation
+        missing_buckets = []
+        for i in range(bucket_count, 0, -1):
+            et = current_bucket_end - timedelta(minutes=i*5)
+            et_ts = int(et.timestamp())
+            if et_ts not in by_end and et < now:
+                missing_buckets.append(et)
+
+        # Parallel compute missing buckets
+        if missing_buckets:
+            # Use a reasonable number of workers to avoid overloading the system
+            # 8 workers allows decent parallelism without excessive context switching
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+
+            # Re-fetch data after computation
+            with _trends_db_lock:
+                conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                try:
+                    cur = conn.execute(
+                        "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                        (start_ts, end_ts)
+                    )
+                    rows = cur.fetchall()
+                    by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
+                finally:
+                    conn.close()
+
         for i in range(bucket_count, 0, -1):
             et = current_bucket_end - timedelta(minutes=i*5)
             et_ts = int(et.timestamp())
@@ -3825,27 +3875,8 @@ def api_bandwidth():
                 val_bw = round((total_b*8)/(300*1_000_000),2)
                 val_flows = round(total_f/300,2)
             else:
-                # If missing and it's not in the future, attempt on-demand fill once
-                if et < now:
-                    _ensure_rollup_for_bucket(et)
-                    with _trends_db_lock:
-                        conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
-                        try:
-                            cur = conn.execute("SELECT bytes, flows FROM traffic_rollups WHERE bucket_end=?", (et_ts,))
-                            row = cur.fetchone()
-                        finally:
-                            conn.close()
-                    if row:
-                        total_b, total_f = row[0], row[1]
-                        val_bw = round((total_b*8)/(300*1_000_000),2)
-                        val_flows = round(total_f/300,2)
-                    else:
-                        val_bw = 0
-                        val_flows = 0
-                else:
-                    # future/incomplete bucket
-                    val_bw = 0
-                    val_flows = 0
+                val_bw = 0
+                val_flows = 0
 
             bw.append(val_bw)
             flows.append(val_flows)
