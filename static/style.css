@@ -2356,7 +2356,7 @@ body {
 .btn-sm {
     padding: 4px 8px;
     font-size: 0.8em;
-    border-radius: 0;
+    border-radius: var(--radius-sm);
     background: rgba(0, 243, 255, 0.1);
     border: 1px solid rgba(0, 243, 255, 0.3);
     color: var(--accent-cyan);
