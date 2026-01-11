@@ -464,11 +464,12 @@ def mock_nfdump(args):
 
     # If asking for raw flows with limit (alerts detection usage)
     if not agg_key and "-n" in args and not "-s" in args:
-         out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
+         output_lines = ["ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt"]
          for r in rows[:limit]:
              # Reconstruct line
-             line = f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}"
-             out += line + "\n"
+             output_lines.append(f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}")
+
+         out = "\n".join(output_lines) + "\n"
 
          with _mock_lock:
              if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
@@ -486,7 +487,8 @@ def mock_nfdump(args):
         # Sort by bytes desc
         sorted_keys = sorted(counts.keys(), key=lambda k: counts[k]["bytes"], reverse=True)[:limit]
 
-        out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
+        # Use the corrected header directly
+        output_lines = ["ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt"]
         # We need to ensure the key ends up in the right column for dynamic parsing to work
         # sa=3, da=4, sp=5, dp=6, proto=7
         # But we previously put key at 4.
@@ -503,7 +505,7 @@ def mock_nfdump(args):
             # Construct a row with 13 columns (indices 0-12)
             row = ["0"] * 13
             row[target_idx] = str(k)
-            row[5] = str(d['flows']) # flows (matches sp? No, wait. sp is index 5 in header.)
+            # row[5] = str(d['flows']) # flows (matches sp? No, wait. sp is index 5 in header.)
             # Wait, header is: ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt
             # Index:            0  1  2  3  4  5  6    7    8    9   10   11   12
 
@@ -527,10 +529,9 @@ def mock_nfdump(args):
             row[11] = str(d['packets'])
             row[12] = str(d['bytes'])
 
-            out += ",".join(row) + "\n"
+            output_lines.append(",".join(row))
 
-        # We must change the header variable to match
-        out = out.replace("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt", "ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
+        out = "\n".join(output_lines) + "\n"
 
         with _mock_lock:
              if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
