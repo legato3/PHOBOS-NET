@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
+from flask_compress import Compress
 import subprocess, time, os, json, smtplib
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
@@ -18,6 +19,7 @@ import signal
 import socket as socket_module  # For socket.timeout in syslog receiver
 
 app = Flask(__name__)
+Compress(app)  # Enable gzip/brotli compression for all responses
 
 # ------------------ Constants ------------------
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
@@ -6059,10 +6061,10 @@ def track_error():
     with _performance_lock:
         _performance_metrics['error_count'] += 1
 
-# Security headers for all responses
+# Security headers and cache headers for all responses
 @app.after_request
 def set_security_headers(response):
-    """Add security headers to all responses."""
+    """Add security headers and cache headers to all responses."""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -6081,6 +6083,18 @@ def set_security_headers(response):
         "frame-ancestors 'none';"
     )
     response.headers['Content-Security-Policy'] = csp
+    
+    # Cache headers for static files (long cache, immutable)
+    if request.endpoint == 'static' or request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    # Cache headers for API endpoints (short cache)
+    elif request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'public, max-age=60'
+    # No cache for HTML
+    elif request.path == '/' or request.path.endswith('.html'):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
     
     return response
 

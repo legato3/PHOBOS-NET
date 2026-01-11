@@ -5,7 +5,7 @@ const CACHE_NAME = 'netflow-dashboard-v3.0.0';
 const STATIC_ASSETS = [
     '/',
     '/static/style.min.css',
-    '/static/app.js',
+    '/static/app.min.js',
     '/static/js/utils.js',
     '/static/js/widgets.js',
     '/static/js/lazy-load.js',
