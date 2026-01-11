@@ -234,20 +234,21 @@ body {
     color: #fff;
 }
 
-/* Scrollbar Polish */
+/* Scrollbar Polish - Termix style skinny scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 ::-webkit-scrollbar-track {
-    background: #0a0a0a;
+    background: #1e1e21;
 }
 ::-webkit-scrollbar-thumb {
-    background: #333;
+    background-color: #4a4a4a;
     border-radius: 3px;
+    border: 1px solid #1e1e21;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-cyan);
+    background-color: #5a5a5a;
 }
 
 /* Layout - Premium spacing and structure */
@@ -829,14 +830,14 @@ tr:hover td {
     top: calc(100% + 6px);
     right: 0;
     background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: var(--radius-md);
     padding: var(--space-1) 0;
     min-width: 200px;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
     margin-top: 4px;
     overflow: hidden;
 }
@@ -848,10 +849,10 @@ tr:hover td {
     max-height: 80vh;
     overflow-y: auto;
     overflow-x: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: none;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2);
+    scrollbar-color: #4a4a4a #1e1e21;
 }
 
 .dropdown-menu.settings-panel::-webkit-scrollbar {
@@ -859,17 +860,18 @@ tr:hover td {
 }
 
 .dropdown-menu.settings-panel::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
+    background: #1e1e21;
     border-radius: 3px;
 }
 
 .dropdown-menu.settings-panel::-webkit-scrollbar-thumb {
-    background: rgba(0, 243, 255, 0.3);
+    background-color: #4a4a4a;
     border-radius: 3px;
+    border: 1px solid #1e1e21;
 }
 
 .dropdown-menu.settings-panel::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 243, 255, 0.5);
+    background-color: #5a5a5a;
 }
 
 .settings-section {
@@ -1015,7 +1017,7 @@ tr:hover td {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
     z-index: 1000;
     display: flex;
@@ -1024,8 +1026,8 @@ tr:hover td {
 }
 .modal-content {
     background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: none;
     width: 90%; 
     max-width: 800px;
     max-height: 90vh;
@@ -1053,7 +1055,7 @@ tr:hover td {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: #000;
+    background: var(--bg-primary);
     z-index: 2000;
     display: flex;
     justify-content: center;
@@ -4079,13 +4081,18 @@ body.compact-mode {
     }
     
     .card table::-webkit-scrollbar-track {
-        background: rgba(255,255,255,0.05);
+        background: #1e1e21;
         border-radius: 3px;
     }
-    
+
     .card table::-webkit-scrollbar-thumb {
-        background: var(--neon-cyan);
+        background-color: #4a4a4a;
         border-radius: 3px;
+        border: 1px solid #1e1e21;
+    }
+    
+    .card table::-webkit-scrollbar-thumb:hover {
+        background-color: #5a5a5a;
     }
     
     .card table thead,
