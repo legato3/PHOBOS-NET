@@ -1242,6 +1242,31 @@ document.addEventListener('alpine:init', () => {
             return alerts;
         },
 
+        get filteredRecentBlocks() {
+            let filtered = this.recentBlocks.blocks || [];
+            
+            // Apply action filter
+            if (this.recentBlocksFilter.action !== 'all') {
+                filtered = filtered.filter(b => b.action === this.recentBlocksFilter.action);
+            }
+            
+            // Apply threat filter
+            if (this.recentBlocksFilter.threatOnly) {
+                filtered = filtered.filter(b => b.is_threat);
+            }
+            
+            // Apply IP search filter
+            if (this.recentBlocksFilter.searchIP) {
+                const searchIP = this.recentBlocksFilter.searchIP.toLowerCase();
+                filtered = filtered.filter(b => 
+                    (b.src_ip && b.src_ip.includes(searchIP)) || 
+                    (b.dst_ip && b.dst_ip.includes(searchIP))
+                );
+            }
+            
+            return filtered;
+        },
+
         async blockThreatIP(ip) {
             if (!confirm(`Block ${ip} via security webhook?`)) return;
             try {
