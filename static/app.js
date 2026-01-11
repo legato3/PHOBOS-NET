@@ -839,15 +839,22 @@ document.addEventListener('alpine:init', () => {
             this.lastUpdateTs = Date.now();
             const now = Date.now();
 
-            // Always fetch these (Core dashboard)
-            this.fetchSummary();
-            this.fetchBandwidth();
+            // Staggered loading: Prioritize critical summary data
+            // Fetch summary first (await safe because it has internal try/catch)
+            await this.fetchSummary();
+
+            // Then fetch key charts in parallel, resilient to failure
+            await Promise.allSettled([
+                this.fetchBandwidth(),
+                this.fetchAlerts(),
+                this.fetchBlocklistRate(),
+                this.fetchThreats()
+            ]);
+
+            // Then fetch the rest of the core data
             this.fetchSources(); // Top 10 sources
             this.fetchDestinations(); // Top 10 dests
             this.fetchPorts();
-            this.fetchThreats(); // Threat detections count
-            this.fetchBlocklistRate();
-            this.fetchAlerts(); // Alerts list
             if (!this.firewallStreamActive) this.fetchFirewall();
 
             // Smart Loading via Polling: Check if sections are visible AND stale
