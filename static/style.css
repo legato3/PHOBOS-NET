@@ -5153,80 +5153,106 @@ body.compact-mode {
    SERVER HEALTH SECTION
    ============================================ */
 .server-stat-card {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(0, 243, 255, 0.15);
-    border-radius: 8px;
-    padding: 16px;
+    background: rgba(10, 14, 23, 0.6);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    border-radius: 10px;
+    padding: 18px;
     transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
 }
 
 .server-stat-card:hover {
-    border-color: rgba(0, 243, 255, 0.3);
-    background: rgba(0, 243, 255, 0.05);
+    border-color: rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 243, 255, 0.1);
+    transform: translateY(-2px);
 }
 
 .server-stat-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     font-weight: 600;
-    font-size: 1em;
+    font-size: 0.95em;
     color: var(--text-main);
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.1);
+}
+
+.server-stat-header > span:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1em;
 }
 
 .server-stat-value {
-    font-size: 1.2em;
+    font-size: 1.4em;
     font-weight: 700;
-    font-family: var(--font-mono), monospace;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
     color: var(--accent-cyan);
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
 }
 
 .server-stat-badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75em;
-    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 14px;
+    font-size: 0.7em;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    border: 1px solid;
 }
 
 .badge-success {
-    background: rgba(0, 255, 100, 0.2);
-    color: var(--neon-green);
-    border: 1px solid rgba(0, 255, 100, 0.3);
+    background: rgba(0, 255, 100, 0.15);
+    color: #00ff64;
+    border-color: rgba(0, 255, 100, 0.4);
+    box-shadow: 0 0 8px rgba(0, 255, 100, 0.2);
 }
 
 .badge-warning {
-    background: rgba(255, 200, 0, 0.2);
-    color: var(--neon-yellow);
-    border: 1px solid rgba(255, 200, 0, 0.3);
+    background: rgba(255, 200, 0, 0.15);
+    color: #ffc800;
+    border-color: rgba(255, 200, 0, 0.4);
+    box-shadow: 0 0 8px rgba(255, 200, 0, 0.2);
 }
 
 .badge-error {
-    background: rgba(255, 0, 60, 0.2);
+    background: rgba(255, 0, 60, 0.15);
     color: var(--neon-red);
-    border: 1px solid rgba(255, 0, 60, 0.3);
+    border-color: rgba(255, 0, 60, 0.4);
+    box-shadow: 0 0 8px rgba(255, 0, 60, 0.2);
 }
 
 .server-stat-details {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    font-size: 0.85em;
+    gap: 8px;
+    font-size: 0.875em;
     color: var(--text-secondary);
+    margin-top: 8px;
 }
 
 .server-stat-details > div {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 4px 0;
 }
 
 .server-stat-details span {
     color: var(--text-main);
     font-weight: 500;
-    font-family: var(--font-mono), monospace;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 0.95em;
+}
+
+.server-stat-details > div:last-child {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
+    margin-top: 4px;
 }
 
 /* ============================================

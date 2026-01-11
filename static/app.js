@@ -1946,6 +1946,9 @@ document.addEventListener('alpine:init', () => {
                 if(res.ok) {
                     const data = await res.json();
                     this.serverHealth = { ...data, loading: false };
+                } else {
+                    console.error('Server health fetch failed:', res.status);
+                    this.serverHealth.loading = false;
                 }
             } catch(e) { 
                 console.error('Server health fetch error:', e);

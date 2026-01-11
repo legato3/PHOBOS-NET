@@ -5326,93 +5326,87 @@ def api_server_health():
         'timestamp': datetime.now().isoformat()
     }
     
-    # CPU Statistics
+    # CPU Statistics - try psutil first, then fallback
     try:
-        import resource
-        # Get CPU usage from /proc/stat (more accurate than resource)
         try:
-            with open('/proc/stat', 'r') as f:
-                stat_line = f.readline()
-                fields = stat_line.split()
-                # user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
-                if len(fields) >= 5:
-                    user = int(fields[1])
-                    nice = int(fields[2])
-                    system = int(fields[3])
-                    idle = int(fields[4])
-                    iowait = int(fields[5]) if len(fields) > 5 else 0
-                    total = user + nice + system + idle + iowait
-                    if total > 0:
-                        cpu_percent = round(((user + nice + system) / total) * 100, 1)
-                        data['cpu']['percent'] = cpu_percent
-        except Exception:
-            # Fallback: approximate from load average
+            import psutil
+            # Use psutil for accurate CPU and memory stats
+            data['cpu']['percent'] = round(psutil.cpu_percent(interval=0.1), 1)
+            loads = psutil.getloadavg()
+            data['cpu']['load_1min'] = round(loads[0], 2)
+            data['cpu']['load_5min'] = round(loads[1], 2)
+            data['cpu']['load_15min'] = round(loads[2], 2)
+        except ImportError:
+            # Fallback: use load average approximation
             try:
                 with open('/proc/loadavg', 'r') as f:
-                    load = float(f.read().split()[0])
-                    # Rough approximation: load / num_cores * 100
-                    # Assume 4 cores if we can't detect
+                    loads = [float(x) for x in f.read().split()[:3]]
+                    data['cpu']['load_1min'] = round(loads[0], 2)
+                    data['cpu']['load_5min'] = round(loads[1], 2)
+                    data['cpu']['load_15min'] = round(loads[2], 2)
+                    # Approximate CPU percent from load average
                     try:
                         with open('/proc/cpuinfo', 'r') as cf:
                             cores = len([l for l in cf.readlines() if l.startswith('processor')])
                         cores = max(cores, 1)
                     except:
                         cores = 4
-                    data['cpu']['percent'] = min(round((load / cores) * 100, 1), 100.0)
-                    data['cpu']['load_1min'] = round(load, 2)
+                    data['cpu']['percent'] = min(round((loads[0] / cores) * 100, 1), 100.0)
             except Exception:
-                data['cpu']['percent'] = 0
-                
-        # Get load averages
-        try:
-            with open('/proc/loadavg', 'r') as f:
-                loads = [float(x) for x in f.read().split()[:3]]
-                data['cpu']['load_1min'] = round(loads[0], 2)
-                data['cpu']['load_5min'] = round(loads[1], 2)
-                data['cpu']['load_15min'] = round(loads[2], 2)
-        except Exception:
-            pass
-    except Exception:
-        data['cpu'] = {'percent': 0, 'error': 'Unable to read CPU stats'}
+                data['cpu'] = {'percent': 0}
+    except Exception as e:
+        data['cpu'] = {'percent': 0, 'error': str(e)}
     
-    # Memory Statistics
+    # Memory Statistics - try psutil first, then fallback
     try:
-        import resource
-        # Get process memory
         try:
-            mem_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            # Linux returns KB, macOS returns bytes
-            if mem_kb > 1000000:  # If > 1GB, probably bytes
-                mem_mb = mem_kb / (1024 * 1024)
-            else:
-                mem_mb = mem_kb / 1024
-            data['memory']['process_mb'] = round(mem_mb, 1)
-        except Exception:
-            pass
+            import psutil
+            mem = psutil.virtual_memory()
+            data['memory']['total_gb'] = round(mem.total / (1024**3), 2)
+            data['memory']['used_gb'] = round(mem.used / (1024**3), 2)
+            data['memory']['available_gb'] = round(mem.available / (1024**3), 2)
+            data['memory']['percent'] = round(mem.percent, 1)
             
-        # Get system memory from /proc/meminfo
-        try:
-            meminfo = {}
-            with open('/proc/meminfo', 'r') as f:
-                for line in f:
-                    parts = line.split(':')
-                    if len(parts) == 2:
-                        key = parts[0].strip()
-                        val = parts[1].strip().split()[0]
-                        meminfo[key] = int(val)
-            
-            if 'MemTotal' in meminfo and 'MemAvailable' in meminfo:
-                total_kb = meminfo['MemTotal']
-                avail_kb = meminfo['MemAvailable']
-                used_kb = total_kb - avail_kb
-                data['memory']['total_gb'] = round(total_kb / (1024 * 1024), 2)
-                data['memory']['used_gb'] = round(used_kb / (1024 * 1024), 2)
-                data['memory']['available_gb'] = round(avail_kb / (1024 * 1024), 2)
-                data['memory']['percent'] = round((used_kb / total_kb) * 100, 1) if total_kb > 0 else 0
-        except Exception:
-            pass
-    except Exception:
-        data['memory'] = {'error': 'Unable to read memory stats'}
+            # Process memory
+            process = psutil.Process()
+            data['memory']['process_mb'] = round(process.memory_info().rss / (1024**2), 1)
+        except ImportError:
+            # Fallback: use /proc/meminfo
+            import resource
+            # Get process memory
+            try:
+                mem_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                if mem_kb > 1000000:  # If > 1GB, probably bytes
+                    mem_mb = mem_kb / (1024 * 1024)
+                else:
+                    mem_mb = mem_kb / 1024
+                data['memory']['process_mb'] = round(mem_mb, 1)
+            except Exception:
+                pass
+                
+            # Get system memory from /proc/meminfo
+            try:
+                meminfo = {}
+                with open('/proc/meminfo', 'r') as f:
+                    for line in f:
+                        parts = line.split(':')
+                        if len(parts) == 2:
+                            key = parts[0].strip()
+                            val = parts[1].strip().split()[0]
+                            meminfo[key] = int(val)
+                
+                if 'MemTotal' in meminfo and 'MemAvailable' in meminfo:
+                    total_kb = meminfo['MemTotal']
+                    avail_kb = meminfo['MemAvailable']
+                    used_kb = total_kb - avail_kb
+                    data['memory']['total_gb'] = round(total_kb / (1024 * 1024), 2)
+                    data['memory']['used_gb'] = round(used_kb / (1024 * 1024), 2)
+                    data['memory']['available_gb'] = round(avail_kb / (1024 * 1024), 2)
+                    data['memory']['percent'] = round((used_kb / total_kb) * 100, 1) if total_kb > 0 else 0
+            except Exception:
+                pass
+    except Exception as e:
+        data['memory'] = {'error': str(e)}
     
     # Disk Statistics
     try:
