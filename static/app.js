@@ -1242,7 +1242,8 @@ document.addEventListener('alpine:init', () => {
                         blocks: logs, 
                         stats,
                         total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0, 
-                        loading: false 
+                        loading: false,
+                        lastUpdate: new Date().toISOString()
                     };
 
                     const targetView = this.recentBlocksView || 50;
@@ -2630,6 +2631,79 @@ document.addEventListener('alpine:init', () => {
             const safeCount = Math.max(10, count || 10);
             const maxAvailable = this.recentBlocks?.blocks?.length || safeCount;
             this.recentBlocksView = Math.min(safeCount, Math.min(1000, maxAvailable));
+        },
+
+        startRecentBlocksAutoRefresh() {
+            // Clear existing timer if any
+            if (this.recentBlocksRefreshTimer) {
+                clearInterval(this.recentBlocksRefreshTimer);
+                this.recentBlocksRefreshTimer = null;
+            }
+            
+            // Only start if auto-refresh is enabled
+            if (!this.recentBlocksAutoRefresh) return;
+            
+            // Initial fetch
+            this.fetchRecentBlocks();
+            
+            // Set up interval: refresh every 3 seconds for real-time feel
+            const refreshInterval = 3000;
+            this.recentBlocksRefreshTimer = setInterval(() => {
+                if (this.recentBlocksAutoRefresh && this.activeTab === 'forensics') {
+                    this.fetchRecentBlocksIncremental();
+                }
+            }, refreshInterval);
+        },
+
+        toggleRecentBlocksAutoRefresh() {
+            if (this.recentBlocksAutoRefresh) {
+                this.startRecentBlocksAutoRefresh();
+            } else {
+                if (this.recentBlocksRefreshTimer) {
+                    clearInterval(this.recentBlocksRefreshTimer);
+                    this.recentBlocksRefreshTimer = null;
+                }
+            }
+        },
+
+        async fetchRecentBlocksIncremental() {
+            // Incremental update: only fetch if we're on the forensics tab and widget is visible
+            if (this.activeTab !== 'forensics' || this.isMinimized('recentBlocks')) {
+                return;
+            }
+            
+            // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
+            // This ensures we always have the latest data
+            try {
+                const res = await fetch('/api/firewall/logs/recent?limit=1000');
+                
+                if (res.ok) {
+                    const d = await res.json();
+                    const newLogs = d.logs || [];
+                    const stats = d.stats || this.computeRecentBlockStats(newLogs);
+                    
+                    // Check if we have new data by comparing latest timestamp
+                    const currentLatestTs = this.recentBlocks?.stats?.latest_ts || 0;
+                    const newLatestTs = stats?.latest_ts || 0;
+                    
+                    // Only update if we have newer data
+                    if (newLatestTs > currentLatestTs || newLogs.length !== (this.recentBlocks?.blocks?.length || 0)) {
+                        this.recentBlocks = {
+                            blocks: newLogs,
+                            stats,
+                            total_1h: stats?.blocks_last_hour || stats?.actions?.block || newLogs.length || 0,
+                            loading: false,
+                            lastUpdate: new Date().toISOString()
+                        };
+                        
+                        // Update view count if needed
+                        const targetView = this.recentBlocksView || 50;
+                        this.recentBlocksView = Math.min(targetView, newLogs.length || targetView, 1000);
+                    }
+                }
+            } catch (e) {
+                console.error('Incremental recent blocks fetch error:', e);
+            }
         },
 
         timeAgo(ts) {

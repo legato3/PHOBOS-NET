@@ -3693,24 +3693,37 @@ def api_firewall_logs_recent():
     """Get most recent firewall log entries (up to 1000)."""
     limit = min(int(request.args.get('limit', 1000)), 1000)
     action_filter = request.args.get('action')  # 'block', 'pass', or None for all
+    since_ts = request.args.get('since')  # Optional: only return logs newer than this timestamp
     now = time.time()
     cutoff_1h = now - 3600
 
     with _firewall_db_lock:
         conn = _firewall_db_connect()
         try:
+            # Build query with optional filters
+            where_clauses = []
+            params = []
+            
+            if since_ts:
+                try:
+                    since_float = float(since_ts)
+                    where_clauses.append("timestamp > ?")
+                    params.append(since_float)
+                except (ValueError, TypeError):
+                    pass  # Ignore invalid since parameter
+            
             if action_filter:
-                cur = conn.execute("""
-                    SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port, 
-                           dst_ip, dst_port, proto, country_iso, is_threat
-                    FROM fw_logs WHERE action = ? ORDER BY timestamp DESC LIMIT ?
-                """, (action_filter, limit))
-            else:
-                cur = conn.execute("""
-                    SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port, 
-                           dst_ip, dst_port, proto, country_iso, is_threat
-                    FROM fw_logs ORDER BY timestamp DESC LIMIT ?
-                """, (limit,))
+                where_clauses.append("action = ?")
+                params.append(action_filter)
+            
+            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+            params.append(limit)
+            
+            cur = conn.execute(f"""
+                SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port, 
+                       dst_ip, dst_port, proto, country_iso, is_threat
+                FROM fw_logs WHERE {where_sql} ORDER BY timestamp DESC LIMIT ?
+            """, params)
             
             logs = []
             action_counts = {"block": 0, "reject": 0, "pass": 0}

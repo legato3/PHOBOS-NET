@@ -105,6 +105,7 @@
     --space-2: 0.5rem;                  /* 8px */
     --space-3: 0.75rem;                 /* 12px */
     --space-4: 1rem;                    /* 16px */
+    --space-5: 1.25rem;                 /* 20px */
     --space-6: 1.5rem;                  /* 24px */
     --space-8: 2rem;                    /* 32px */
     --space-12: 3rem;                   /* 48px */
@@ -758,6 +759,39 @@ table {
 .table-compact td { padding: 10px 12px; }
 .table-compact th { padding: 10px 12px; font-size: 13px; }
 
+/* ============================================
+   Unified Endpoint Widget Design System
+   Tokens for Sources/Destinations widgets
+   ============================================ */
+
+/* Design tokens for endpoint widgets */
+:root {
+    /* Endpoint widget spacing */
+    --endpoint-row-padding-y: var(--space-4);      /* 16px vertical padding */
+    --endpoint-row-padding-x: var(--space-4);      /* 16px horizontal padding */
+    --endpoint-row-padding-y-primary: var(--space-5); /* 20px for primary rows */
+    --endpoint-row-gap: var(--space-3);            /* 12px gap between rows */
+    --endpoint-row-gap-primary: var(--space-4);    /* 16px for primary row spacing */
+    --endpoint-cell-gap: var(--space-2);           /* 8px gap within cells */
+    --endpoint-meta-gap: var(--space-2);           /* 8px gap for metadata */
+    
+    /* Endpoint typography */
+    --endpoint-ip-size: var(--text-base);          /* 16px IP address */
+    --endpoint-ip-size-primary: var(--text-lg);    /* 18px for primary row */
+    --endpoint-ip-weight: var(--font-weight-semibold); /* 600 */
+    --endpoint-meta-size: var(--text-xs);          /* 12px metadata */
+    --endpoint-value-size: var(--text-lg);         /* 18px traffic value */
+    --endpoint-value-size-primary: var(--text-xl); /* 20px for primary row */
+    --endpoint-flows-size: var(--text-xs);         /* 12px flows count */
+    
+    /* Endpoint surfaces - depth-based hierarchy */
+    --endpoint-surface-base: rgba(255, 255, 255, 0.01);
+    --endpoint-surface-elevated: rgba(255, 255, 255, 0.02);
+    --endpoint-surface-primary: rgba(255, 255, 255, 0.025);
+    --endpoint-surface-hover: rgba(255, 255, 255, 0.035);
+    --endpoint-surface-separator: rgba(255, 255, 255, 0.03);
+}
+
 /* Network endpoint tables - refined styling */
 table:has(.network-endpoint-row) {
     border-collapse: separate;
@@ -765,12 +799,12 @@ table:has(.network-endpoint-row) {
 }
 
 table:has(.network-endpoint-row) th {
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    font-weight: 500;
-    font-size: 12px;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--endpoint-surface-separator);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: var(--letter-spacing-wide);
     color: var(--text-muted);
 }
 .thead-sticky thead { position: sticky; top: 0; background: var(--bg-primary); z-index: 1; }
@@ -795,77 +829,180 @@ td {
     position: relative;
 }
 
-/* Network endpoint tables - cleaner, borderless design */
+/* Network endpoint tables - cleaner, borderless design with surface depth */
 table:has(.network-endpoint-row) td {
     border-bottom: none;
+    padding: 0; /* Padding handled by .endpoint-cell */
 }
 
 table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
-/* Signal-driven rows - visual weighting with enhanced inline bars */
-tr[data-percentage] {
+/* Unified endpoint row - surface depth instead of borders */
+.network-endpoint-row {
+    margin-bottom: var(--endpoint-row-gap);
+    border-radius: var(--radius-md);
+    background: var(--endpoint-surface-base);
+    transition: background-color var(--motion-base), transform var(--motion-fast);
     position: relative;
 }
 
-/* Enhanced background intensity proportional to traffic */
-tr[data-percentage]::before {
+/* Primary row (rank 0) - more prominent spacing and elevation */
+.network-endpoint-row[data-row-rank="0"] {
+    margin-bottom: var(--endpoint-row-gap-primary);
+    background: var(--endpoint-surface-primary);
+}
+
+/* Secondary rows (rank > 0) - standard treatment */
+.network-endpoint-row[data-row-rank]:not([data-row-rank="0"]) {
+    background: var(--endpoint-surface-base);
+}
+
+/* Hover state - subtle elevation */
+.network-endpoint-row:hover {
+    background: var(--endpoint-surface-hover);
+    transform: translateX(2px);
+    cursor: pointer;
+}
+
+/* Signal-driven background bar - subtle, proportional to traffic */
+.network-endpoint-row[data-percentage]::before {
     content: '';
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: calc(var(--row-percentage, 0) * 1%);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--endpoint-surface-elevated);
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
     pointer-events: none;
     z-index: 0;
-    transition: background 0.2s ease;
+    transition: width var(--motion-slow), background var(--motion-base);
 }
 
-/* First row (highest traffic) gets slightly more prominence */
-tr[data-percentage]:first-child::before {
-    background: rgba(255, 255, 255, 0.04);
+/* Primary row bar slightly more visible */
+.network-endpoint-row[data-row-rank="0"][data-percentage]::before {
+    background: var(--endpoint-surface-primary);
 }
 
-tr:hover td {
-    background: rgba(255, 255, 255, 0.04);
-    cursor: pointer;
+/* Hover state for background bar */
+.network-endpoint-row:hover[data-percentage]::before {
+    background: var(--endpoint-surface-hover);
 }
 
-tr:hover[data-percentage]::before {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-/* Ensure content appears above the bar */
-tr[data-percentage] td {
+/* Endpoint cell wrapper - handles padding and z-index */
+.endpoint-cell {
     position: relative;
     z-index: 1;
+    padding: var(--endpoint-row-padding-y) var(--endpoint-row-padding-x);
 }
 
-/* Unified network endpoint row styling - clean, minimal design */
-.network-endpoint-row {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    transition: background-color 0.15s ease;
+/* Primary row cell - more padding */
+.network-endpoint-row[data-row-rank="0"] .endpoint-cell {
+    padding: var(--endpoint-row-padding-y-primary) var(--endpoint-row-padding-x);
 }
 
-.network-endpoint-row:last-child {
-    border-bottom: none;
+/* Endpoint content structure */
+.endpoint-primary-line {
+    display: flex;
+    align-items: center;
+    gap: var(--endpoint-cell-gap);
+    margin-bottom: var(--endpoint-meta-gap);
 }
 
-.network-endpoint-row:hover {
-    background: rgba(255, 255, 255, 0.02);
+.endpoint-ip {
+    font-size: var(--endpoint-ip-size);
+    font-weight: var(--endpoint-ip-weight);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    flex: 1;
 }
 
-/* Subtle sparkline - supportive, not dominant */
+.network-endpoint-row[data-row-rank="0"] .endpoint-ip {
+    font-size: var(--endpoint-ip-size-primary);
+}
+
+.endpoint-flag {
+    flex-shrink: 0;
+    font-size: var(--text-base);
+    filter: grayscale(0.2);
+}
+
+.endpoint-filter-btn {
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: opacity var(--motion-fast);
+}
+
+.endpoint-filter-btn:hover {
+    opacity: 0.9;
+}
+
+.endpoint-meta-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--endpoint-meta-size);
+    color: var(--text-muted);
+    line-height: var(--line-height-normal);
+    margin-bottom: var(--space-2);
+}
+
+.endpoint-meta-sparkline {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    opacity: 0.6;
+}
+
+.endpoint-badges {
+    display: flex;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.endpoint-badges .badge {
+    margin-left: 0; /* Remove default margin when using flexbox gap */
+}
+
+.endpoint-value-cell {
+    text-align: right;
+    vertical-align: middle;
+}
+
+.endpoint-value {
+    font-size: var(--endpoint-value-size);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+    line-height: var(--line-height-tight);
+}
+
+.network-endpoint-row[data-row-rank="0"] .endpoint-value {
+    font-size: var(--endpoint-value-size-primary);
+}
+
+.endpoint-flows {
+    font-size: var(--endpoint-flows-size);
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* Subtle sparkline - supportive, inline with metadata */
 .spark-subtle {
-    opacity: 0.65;
-    filter: contrast(0.9);
+    display: inline-block;
+    opacity: 0.5;
+    filter: contrast(0.8);
+    vertical-align: middle;
+    width: 80px;
+    height: 14px;
 }
 
 .spark-subtle:hover {
-    opacity: 0.9;
-    filter: contrast(1);
+    opacity: 0.7;
+    filter: contrast(0.95);
 }
 
 /* Technical data in tables - IPs, IDs, commands use monospace */
@@ -2417,6 +2554,12 @@ body {
 }
 
 .log-count { color: var(--text-muted); font-size: 0.85em; }
+.log-update-time { 
+    color: var(--text-muted); 
+    font-size: 0.8em; 
+    opacity: 0.7;
+    font-style: italic;
+}
 
 .log-range {
     display: inline-flex;
