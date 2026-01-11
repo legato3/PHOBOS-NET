@@ -963,14 +963,24 @@ document.addEventListener('alpine:init', () => {
 
         async fetchSummary() {
             this.summary.loading = true;
+            this.summary.error = null;
             try {
                 const res = await this.fetchWithLatency(`/api/stats/summary?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.summary = { ...data };
+                    this.summary = { ...data, error: null };
                     if(data.threat_status) this.threatStatus = data.threat_status;
+                } else {
+                    const errorMsg = `Summary fetch failed: ${res.status}`;
+                    console.error(errorMsg);
+                    this.summary.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load summary') || errorMsg;
                 }
-            } catch(e) { console.error(e); } finally { this.summary.loading = false; }
+            } catch(e) { 
+                console.error('Failed to fetch summary:', e);
+                this.summary.error = window.DashboardUtils?.getUserFriendlyError(e, 'load summary') || 'Failed to load summary';
+            } finally { 
+                this.summary.loading = false; 
+            }
         },
 
         async fetchSources() {
