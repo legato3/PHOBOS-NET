@@ -71,6 +71,79 @@ function computeRecentBlockStats(logs = []) {
     return stats;
 }
 
+// Enhanced error handling utilities
+function getErrorMessage(error, defaultMessage = 'An error occurred') {
+    if (!error) return defaultMessage;
+    if (typeof error === 'string') return error;
+    if (error.message) return error.message;
+    if (error.error) return typeof error.error === 'string' ? error.error : defaultMessage;
+    return defaultMessage;
+}
+
+function getUserFriendlyError(error, context = '') {
+    const message = getErrorMessage(error);
+    
+    // Network errors
+    if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        return context ? `Network error: Unable to ${context}. Please check your connection.` : 'Network error: Please check your connection.';
+    }
+    
+    // Timeout errors
+    if (message.includes('timeout') || message.includes('Timeout')) {
+        return context ? `Request timeout: ${context} took too long. Please try again.` : 'Request timeout: Please try again.';
+    }
+    
+    // 404 errors
+    if (message.includes('404') || message.includes('Not Found')) {
+        return context ? `Not found: ${context} is not available.` : 'Resource not found.';
+    }
+    
+    // 500 errors
+    if (message.includes('500') || message.includes('Internal Server Error')) {
+        return context ? `Server error: ${context} failed. Please try again later.` : 'Server error: Please try again later.';
+    }
+    
+    // Rate limiting
+    if (message.includes('429') || message.includes('Rate limit')) {
+        return 'Too many requests. Please wait a moment and try again.';
+    }
+    
+    // Generic error
+    return context ? `${context}: ${message}` : message;
+}
+
+// Safe fetch with enhanced error handling
+async function safeFetch(url, options = {}) {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
+        
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch {
+                errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+            throw errorData;
+        }
+        
+        return response;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error('Request timeout: The request took too long to complete.');
+        }
+        throw error;
+    }
+}
+
 // Export utilities to global namespace
 window.DashboardUtils = {
     fmtBytes,
@@ -78,5 +151,8 @@ window.DashboardUtils = {
     timeAgo,
     flagFromIso,
     getCssVar,
-    computeRecentBlockStats
+    computeRecentBlockStats,
+    getErrorMessage,
+    getUserFriendlyError,
+    safeFetch
 };

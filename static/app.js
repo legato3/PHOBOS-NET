@@ -662,17 +662,28 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // API Latency tracking helper
-        async fetchWithLatency(url) {
+        // API Latency tracking helper with enhanced error handling
+        async fetchWithLatency(url, options = {}) {
             const start = performance.now();
-            const res = await fetch(url);
-            const latency = Math.round(performance.now() - start);
-            this.apiLatency = latency;
-            this.apiLatencyHistory.push(latency);
-            if (this.apiLatencyHistory.length > 10) {
-                this.apiLatencyHistory.shift();
+            try {
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(url, { ...options, timeout: options.timeout || 30000 });
+                const latency = Math.round(performance.now() - start);
+                this.apiLatency = latency;
+                this.apiLatencyHistory.push(latency);
+                if (this.apiLatencyHistory.length > 10) {
+                    this.apiLatencyHistory.shift();
+                }
+                return res;
+            } catch (error) {
+                const latency = Math.round(performance.now() - start);
+                this.apiLatency = latency;
+                this.apiLatencyHistory.push(latency);
+                if (this.apiLatencyHistory.length > 10) {
+                    this.apiLatencyHistory.shift();
+                }
+                throw error;
             }
-            return res;
         },
 
         get avgLatency() {
@@ -940,38 +951,66 @@ document.addEventListener('alpine:init', () => {
 
         async fetchSources() {
             this.sources.loading = true;
+            this.sources.error = null;
             try {
-                const res = await fetch(`/api/stats/sources?range=${this.timeRange}`);
-                if(res.ok) this.sources = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.sources.loading = false; }
-            // defer sparkline draw after DOM update
-            this.$nextTick(() => this.renderSparklines('source'));
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/stats/sources?range=${this.timeRange}`);
+                this.sources = { ...(await res.json()), loading: false, error: null };
+            } catch(e) { 
+                console.error('Failed to fetch sources:', e);
+                this.sources.error = window.DashboardUtils?.getUserFriendlyError(e, 'load sources') || 'Failed to load sources';
+            } finally { 
+                this.sources.loading = false;
+                // defer sparkline draw after DOM update
+                this.$nextTick(() => this.renderSparklines('source'));
+            }
         },
 
         async fetchDestinations() {
             this.destinations.loading = true;
+            this.destinations.error = null;
             try {
-                const res = await fetch(`/api/stats/destinations?range=${this.timeRange}`);
-                if(res.ok) this.destinations = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.destinations.loading = false; }
-            this.$nextTick(() => this.renderSparklines('dest'));
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/stats/destinations?range=${this.timeRange}`);
+                this.destinations = { ...(await res.json()), loading: false, error: null };
+            } catch(e) { 
+                console.error('Failed to fetch destinations:', e);
+                this.destinations.error = window.DashboardUtils?.getUserFriendlyError(e, 'load destinations') || 'Failed to load destinations';
+            } finally { 
+                this.destinations.loading = false;
+                this.$nextTick(() => this.renderSparklines('dest'));
+            }
         },
 
         async fetchPorts() {
             this.ports.loading = true;
+            this.ports.error = null;
             try {
-                const res = await fetch(`/api/stats/ports?range=${this.timeRange}`);
-                if(res.ok) this.ports = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.ports.loading = false; }
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/stats/ports?range=${this.timeRange}`);
+                this.ports = { ...(await res.json()), loading: false, error: null };
+            } catch(e) { 
+                console.error('Failed to fetch ports:', e);
+                this.ports.error = window.DashboardUtils?.getUserFriendlyError(e, 'load ports') || 'Failed to load ports';
+            } finally { 
+                this.ports.loading = false; 
+            }
         },
 
 
         async fetchFirewall() {
             this.firewall.loading = true;
+            this.firewall.error = null;
             try {
-                const res = await fetch(`/api/stats/firewall?range=${this.timeRange}`);
-                if(res.ok) this.firewall = { ...(await res.json()).firewall };
-            } catch(e) { console.error(e); } finally { this.firewall.loading = false; }
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/stats/firewall?range=${this.timeRange}`);
+                this.firewall = { ...(await res.json()).firewall, loading: false, error: null };
+            } catch(e) { 
+                console.error('Failed to fetch firewall:', e);
+                this.firewall.error = window.DashboardUtils?.getUserFriendlyError(e, 'load firewall stats') || 'Failed to load firewall stats';
+            } finally { 
+                this.firewall.loading = false; 
+            }
         },
 
         startFirewallStream() {
@@ -1965,14 +2004,19 @@ document.addEventListener('alpine:init', () => {
 
         async fetchBandwidth() {
             this.bandwidth.loading = true;
+            this.bandwidth.error = null;
             try {
-                const res = await fetch(`/api/bandwidth?range=${this.timeRange}`);
-                if(res.ok) {
-                    const data = await res.json();
-                    this.bandwidth = { ...data };
-                    this.updateBwChart(data);
-                }
-            } catch(e) { console.error(e); } finally { this.bandwidth.loading = false; }
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/bandwidth?range=${this.timeRange}`);
+                const data = await res.json();
+                this.bandwidth = { ...data, loading: false, error: null };
+                this.updateBwChart(data);
+            } catch(e) { 
+                console.error('Failed to fetch bandwidth:', e);
+                this.bandwidth.error = window.DashboardUtils?.getUserFriendlyError(e, 'load bandwidth') || 'Failed to load bandwidth';
+            } finally { 
+                this.bandwidth.loading = false; 
+            }
         },
 
         updateBwChart(data) {
