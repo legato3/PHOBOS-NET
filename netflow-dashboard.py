@@ -4963,9 +4963,10 @@ def api_forensics_flow_search():
 
     try:
         # Build nfdump command with filters
-        nfdump_args = ["-O", "bytes", "-n", "100"]
+        # Note: run_nfdump automatically adds -o csv
+        nfdump_args = ["-s", "bytes", "-n", "100"]
         if filter_str:
-            nfdump_args.extend(["-a", filter_str])
+            nfdump_args.extend(["-A", filter_str])
         
         output = run_nfdump(nfdump_args, tf)
 
