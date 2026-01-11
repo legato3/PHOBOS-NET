@@ -31,7 +31,21 @@ window.DashboardWidgets = {
         topThreatIPs: true,
         conversations: true,
         worldmap: true,
-        recentBlocks: true
+        recentBlocks: true,
+        ipInvestigation: true,
+        flowSearch: true,
+        alertCorrelation: true,
+        riskIndex: true,
+        mitreHeatmap: true,
+        protocolAnomalies: true,
+        attackTimeline: true,
+        flowStats: true,
+        protoMix: true,
+        netHealth: true,
+        talkers: true,
+        services: true,
+        hourlyTraffic: true,
+        insights: true
     },
 
     // Friendly labels for widgets
@@ -71,7 +85,10 @@ window.DashboardWidgets = {
         mitreHeatmap: 'MITRE ATT&CK Coverage',
         protocolAnomalies: 'Protocol Anomalies',
         attackTimeline: 'Attack Timeline',
-        recentBlocks: 'Firewall Logs'
+        recentBlocks: 'Firewall Logs',
+        ipInvestigation: 'IP Deep Dive',
+        flowSearch: 'Advanced Flow Search',
+        alertCorrelation: 'Alert Correlation'
     },
 
     // Load widget preferences from localStorage
