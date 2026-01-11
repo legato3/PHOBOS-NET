@@ -4,7 +4,6 @@ Utility scripts for deployment, maintenance, and development.
 
 ## Deployment Scripts
 
-- **deploy.sh** - Quick deployment script for Proxmox LXC containers
 - **optimize_environment.sh** - Automated environment optimization (Gunicorn, systemd, resource limits)
 
 ## Maintenance Scripts

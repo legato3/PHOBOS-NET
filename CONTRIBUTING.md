@@ -31,7 +31,7 @@ pip3 install flask maxminddb requests
 
 - Test with sample data in `sample_data/` directory
 - Validate HTML with `scripts/test_html_validation.py`
-- Test deployment with `scripts/deploy.sh`
+- Test deployment following instructions in `docs/DEPLOYMENT.md`
 
 ## Documentation
 
