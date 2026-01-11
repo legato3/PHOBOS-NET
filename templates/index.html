@@ -12,10 +12,10 @@
     <!-- Resource hints for better performance -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <!-- JetBrains Mono font - Terminal/hacker aesthetic -->
+    <!-- VT323 font - Pixel art retro terminal aesthetic -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     
     <!-- Critical JavaScript modules - Preload for faster execution -->
     <link rel="preload" href="/static/js/utils.js" as="script">
@@ -416,11 +416,6 @@
              SECURITY CENTER
              ============================================ -->
         <section id="section-security" class="scroll-section" style="margin-bottom: 32px;">
-            <div class="section-header">
-                <span class="section-icon">🛡️</span>
-                <h3>Security Center</h3>
-            </div>
-
             <!-- Security Summary Stats -->
             <div class="grid" style="margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                 <div class="card stat-box">
@@ -1016,10 +1011,6 @@
     <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'" id="network-tab" role="tabpanel" aria-labelledby="network-tab-btn" tabindex="0">
         <!-- Network Dashboard -->
         <section id="section-network" class="scroll-section" style="margin-bottom: 32px;">
-        <div class="section-header">
-            <span class="section-icon">🕸️</span>
-            <h3>Network Overview</h3>
-        </div>
         <div class="grid" data-reorder="true" data-grid-id="network-overview">
             <!-- Top Sources -->
             <template x-if="isVisible('sources')">
@@ -1561,11 +1552,6 @@
      FIREWALL LOGS (Moved from Security)
      ======================================== -->
 <section id="section-firewall-forensics" class="scroll-section">
-    <div class="section-header">
-        <span class="section-icon">🔥</span>
-        <h3>Firewall Activity</h3>
-    </div>
-
     <!-- Firewall Logs Widget -->
     <template x-if="isVisible('recentBlocks')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }">
@@ -1672,10 +1658,6 @@
 
 <!-- IP Deep Dive Investigation Panel -->
     <section id="section-ip-investigation" class="scroll-section" style="margin-bottom: 32px;">
-    <div class="section-header">
-        <span class="section-icon">🔍</span>
-        <h3>IP Investigation</h3>
-    </div>
     <template x-if="isVisible('ipInvestigation')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('ipInvestigation') }" style="max-width: 100%; padding: 24px;">
             <h2>
@@ -1932,11 +1914,6 @@
              ============================================ -->
     <div x-show="activeTab === 'server'" style="display:none" :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab" role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
         <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
-            <div class="section-header">
-                <span class="section-icon">🖥️</span>
-                <h3>Server Health</h3>
-            </div>
-
             <!-- Loading State -->
             <template x-if="serverHealth.loading">
                 <div class="empty-state">
