@@ -416,45 +416,40 @@
              SECURITY CENTER
              ============================================ -->
         <section id="section-security" class="scroll-section" style="margin-bottom: 32px;">
-        <div class="security-center" x-data="{ securityCollapsed: false }">
-            <!-- Security Center Header -->
-            <div class="security-center-header" @click="securityCollapsed = !securityCollapsed">
-                <div class="security-center-title">
-                    <span class="security-center-icon">🛡️</span>
-                    <h2>Security Center</h2>
-                    <span class="security-center-badge" :class="{ 'badge-ok': (threats.hits?.length || 0) === 0, 'badge-alert': (threats.hits?.length || 0) > 0 }">
-                        <span x-text="(threats.hits?.length || 0) === 0 ? 'Secure' : (threats.hits?.length || 0) + ' Threats'"></span>
-                    </span>
+            <div class="section-header">
+                <span class="section-icon">🛡️</span>
+                <h3>Security Center</h3>
+            </div>
+
+            <!-- Security Summary Stats -->
+            <div class="grid" style="margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="card stat-box">
+                    <div class="value" :class="'grade-' + (securityScore.grade || 'A').toLowerCase()" x-text="securityScore.score || 100"></div>
+                    <div class="label">Security Score</div>
                 </div>
-                <div class="security-center-stats">
-                    <div class="sc-stat">
-                        <span class="sc-stat-value" :class="'grade-' + (securityScore.grade || 'A').toLowerCase()" x-text="securityScore.score || 100"></span>
-                        <span class="sc-stat-label">Score</span>
-                    </div>
-                    <div class="sc-stat">
-                        <span class="sc-stat-value" x-text="feedHealth.summary?.ok || 0"></span>
-                        <span class="sc-stat-label">Feeds OK</span>
-                    </div>
-                    <div class="sc-stat">
-                        <span class="sc-stat-value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span>
-                        <span class="sc-stat-label">Blocklist IPs</span>
-                    </div>
-                    <div class="sc-stat">
-                        <span class="sc-stat-value" x-text="alertHistory.total || 0"></span>
-                        <span class="sc-stat-label">Alerts 24h</span>
-                    </div>
+                <div class="card stat-box">
+                    <div class="value" x-text="feedHealth.summary?.ok || 0"></div>
+                    <div class="label">Feeds OK</div>
                 </div>
-                <div class="security-center-actions" @click.stop>
-                    <button class="btn-sm" @click="watchlistModalOpen = true" aria-label="Manage watchlist">👁️ <span aria-hidden="true"></span>Watchlist</button>
-                    <button class="btn-sm" @click="exportThreats('csv')" aria-label="Export threats as CSV">📥 <span aria-hidden="true"></span>Export</button>
-                    <button class="btn-sm" @click="refreshFeed()" aria-label="Refresh threat feeds">🔄 <span aria-hidden="true"></span>Refresh</button>
-                    <span class="collapse-indicator" :class="{ 'collapsed': securityCollapsed }">▼</span>
+                <div class="card stat-box">
+                    <div class="value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></div>
+                    <div class="label">Blocklist IPs</div>
+                </div>
+                <div class="card stat-box">
+                    <div class="value" x-text="alertHistory.total || 0"></div>
+                    <div class="label">Alerts 24h</div>
                 </div>
             </div>
 
-            <!-- Security Center Content -->
-            <div class="security-center-content" x-show="!securityCollapsed" x-collapse>
-                <div class="security-grid">
+            <!-- Security Actions -->
+            <div style="display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;">
+                <button class="btn-sm" @click="watchlistModalOpen = true" aria-label="Manage watchlist">👁️ Watchlist</button>
+                <button class="btn-sm" @click="exportThreats('csv')" aria-label="Export threats as CSV">📥 Export</button>
+                <button class="btn-sm" @click="refreshFeed()" aria-label="Refresh threat feeds">🔄 Refresh</button>
+            </div>
+
+            <!-- Security Widgets Grid -->
+            <div class="security-grid">
 
             <!-- Security Score Widget -->
             <template x-if="isVisible('securityScore')">
@@ -914,8 +909,7 @@
                 </div>
             </template>
 
-                </div> <!-- End security-grid -->
-            </div> <!-- End security-center-content -->
+            </div> <!-- End security-grid -->
 
             <!-- Firewall Logs - MOVED TO FORENSICS TAB -->
             <template x-show="false">
@@ -1013,7 +1007,6 @@
             </template><!-- Old Firewall Logs widget disabled -->
             </template>
 
-        </div> <!-- End security-center -->
         </section>
     </div>
 
@@ -2659,7 +2652,7 @@
             <span class="mobile-nav-icon">📊</span>
             <span class="mobile-nav-label">Overview</span>
         </button>
-        <button class="mobile-nav-item" @click="document.querySelector('.security-center').scrollIntoView({behavior: 'smooth'})" title="Security">
+        <button class="mobile-nav-item" @click="document.querySelector('#section-security').scrollIntoView({behavior: 'smooth'})" title="Security">
             <span class="mobile-nav-icon">🛡️</span>
             <span class="mobile-nav-label">Security</span>
         </button>

@@ -632,6 +632,17 @@ button.active {
     letter-spacing: 1px;
     margin-top: 5px;
 }
+.stat-box .value.grade-a,
+.stat-box .value.grade-b {
+    color: var(--accent-primary);
+}
+.stat-box .value.grade-c,
+.stat-box .value.grade-d {
+    color: var(--accent-secondary);
+}
+.stat-box .value.grade-f {
+    color: var(--accent-danger);
+}
 .stat-box .sublabel {
     font-size: 0.75em;
     color: var(--text-muted);
