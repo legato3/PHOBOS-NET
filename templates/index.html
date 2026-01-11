@@ -9,6 +9,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
 
+    <!-- Preconnect to external resources for better performance -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+
     <!-- External Libs (bundled locally to reduce CDN dependency) -->
     <script src="/static/chart.min.js" defer></script>
     <script src="/static/chartjs-chart-sankey.min.js" defer></script>
@@ -20,8 +24,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="/static/style.css?v=2.6.0">
+    <!-- CSS - Using minified version for production -->
+    <link rel="stylesheet" href="/static/style.min.css?v=2.6.1">
 </head>
 <body class="antialiased" x-data="dashboard">
 
@@ -2277,7 +2281,7 @@
         </button>
     </nav>
 
-    <!-- App Logic -->
-    <script src="/static/app.js" defer></script>
+    <!-- App Logic - Using minified version for production -->
+    <script src="/static/app.min.js?v=2.6.1" defer></script>
 </body>
 </html>
