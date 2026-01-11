@@ -96,12 +96,22 @@ window.DashboardWidgets = {
         try {
             const saved = JSON.parse(localStorage.getItem('widgetVisibility') || '{}');
             const filteredSaved = {};
+            // Merge: start with defaults, then apply saved preferences
+            // But ensure new widgets are visible by default (if not explicitly hidden)
+            context.widgetVisibility = { ...this.defaultVisibility };
             for (const key of Object.keys(this.defaultVisibility)) {
                 if (key in saved) {
-                    filteredSaved[key] = saved[key];
+                    // Only apply saved preference if it exists
+                    context.widgetVisibility[key] = saved[key];
                 }
             }
-            context.widgetVisibility = { ...this.defaultVisibility, ...filteredSaved };
+            // Ensure new forensics widgets are visible if not in saved prefs
+            const newWidgets = ['ipInvestigation', 'flowSearch', 'alertCorrelation'];
+            newWidgets.forEach(widget => {
+                if (!(widget in saved)) {
+                    context.widgetVisibility[widget] = true;
+                }
+            });
         } catch (e) {
             console.error('widget prefs parse error', e);
             context.widgetVisibility = { ...this.defaultVisibility };
