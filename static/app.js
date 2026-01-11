@@ -1725,18 +1725,21 @@ document.addEventListener('alpine:init', () => {
 
             // Draw Threats (Red)
             threats.forEach(p => {
-                addMarker(p.lat, p.lng, '#ff003c', 6,
-                    `<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city||''}, ${p.country}`);
-
-                // Add pulse effect ring
-                const pulse = L.circleMarker([p.lat, p.lng], {
-                    radius: 12,
-                    fill: false,
+                const threatMarker = L.circleMarker([p.lat, p.lng], {
+                    radius: 6,
+                    fillColor: '#ff003c',
                     color: '#ff003c',
-                    weight: 2,
-                    className: 'map-marker-pulse'
-                }).addTo(this.map);
-                this.mapLayers.push(pulse);
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city||''}, ${p.country}`);
+                // Make threat marker clickable - open IP investigation
+                threatMarker.on('click', () => {
+                    this.openIPModal(p.ip);
+                });
+                threatMarker.addTo(this.map);
+                this.mapLayers.push(threatMarker);
             });
 
             // Draw Blocked (Green)
