@@ -600,6 +600,26 @@ tr:hover td {
     overflow-x: hidden;
     border: 1px solid rgba(0, 243, 255, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 243, 255, 0.3) rgba(0, 0, 0, 0.2);
+}
+
+.dropdown-menu.settings-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-menu.settings-panel::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.dropdown-menu.settings-panel::-webkit-scrollbar-thumb {
+    background: rgba(0, 243, 255, 0.3);
+    border-radius: 3px;
+}
+
+.dropdown-menu.settings-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 243, 255, 0.5);
 }
 
 .settings-section {
