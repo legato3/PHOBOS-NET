@@ -15,7 +15,9 @@ except ImportError:
     import csscompressor
     import rjsmin
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+# Get the project root (parent of scripts/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(PROJECT_ROOT, 'static')
 
 def minify_css(input_path, output_path):
     """Minify CSS file"""
