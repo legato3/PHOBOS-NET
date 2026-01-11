@@ -2588,12 +2588,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         loadTab(tab) {
+            this.activeTab = tab;
             const now = Date.now();
             if (tab === 'overview') {
                 if (now - this.lastFetch.worldmap > this.heavyTTL) {
                     this.fetchWorldMap();
                     this.lastFetch.worldmap = now;
                 }
+            } else if (tab === 'server') {
+                this.fetchServerHealth();
             } else if (tab === 'security') {
                 if (now - this.lastFetch.security > this.heavyTTL) {
                     this.fetchSecurityScore();
