@@ -1,0 +1,41 @@
+# Production Docker Compose for Proxmox LXC
+# Replaces systemd service with Docker
+
+services:
+  netflow-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netflow-dashboard-prod
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist nfdump data
+      - /var/cache/nfdump:/var/cache/nfdump:rw
+      # Persist database files
+      - ./data:/app/data:rw
+      # Persist threat feeds
+      - ./threat-feeds.txt:/app/threat-feeds.txt:ro
+      - ./threat-ips.txt:/app/threat-ips.txt:rw
+      # Persist firewall database
+      - ./firewall.db:/app/firewall.db:rw
+      # Persist netflow trends database
+      - ./netflow-trends.sqlite:/app/netflow-trends.sqlite:rw
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Resource limits (matching LXC constraints)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 512M
+        reservations:
+          memory: 256M
