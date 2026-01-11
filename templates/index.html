@@ -47,6 +47,30 @@
     </div>
 
     <div class="container" id="main-content" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
+        <!-- Mobile filter collapse -->
+        <div class="mobile-filter-drawer" x-show="showMobileFilters" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:200;background:rgba(10,14,23,0.98);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="width:90vw;max-width:400px;background:rgba(20,24,33,0.98);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+                <!-- Place filter controls here (clone from header) -->
+                <div class="mobile-filters-content">
+                    <select x-model="timeRange" aria-label="Time range" style="width:100%;margin-bottom:12px;">
+                        <option value="15m">Last 15m</option>
+                        <option value="30m">Last 30m</option>
+                        <option value="1h">Last 1h</option>
+                        <option value="6h">Last 6h</option>
+                        <option value="24h">Last 24h</option>
+                        <option value="7d">Last 7d</option>
+                    </select>
+                    <input type="text" x-model="searchQuery" placeholder="Search IP..." class="search-box" aria-label="Search IP address" style="width:100%;margin-bottom:12px;">
+                    <select x-model="refreshInterval" aria-label="Refresh interval" style="width:100%;margin-bottom:12px;">
+                        <option value="10000">10s</option>
+                        <option value="30000">30s</option>
+                        <option value="60000">60s</option>
+                    </select>
+                    <button @click="togglePause()" :class="{ 'active': paused }" x-text="paused ? 'Resumed' : 'Pause'" style="width:100%;margin-bottom:12px;"></button>
+                </div>
+                <button @click="showMobileFilters=false" style="margin-top:24px;width:100%;background:var(--neon-cyan);color:#000;padding:12px 0;border:none;border-radius:8px;font-weight:bold;">Close</button>
+            </div>
+        </div>
 
         <!-- Header -->
         <header class="header" role="banner">
@@ -166,7 +190,7 @@
         </header>
 
         <!-- Tab Navigation -->
-        <nav class="tabs" role="navigation" aria-label="Main navigation">
+        <nav class="tabs sticky-tabs" role="navigation" aria-label="Main navigation" style="position:sticky;top:0;z-index:100;background:rgba(10,14,23,0.98);backdrop-filter:blur(6px);">
             <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'" role="tab" :aria-selected="activeTab === 'overview'" aria-controls="overview-tab">Overview</button>
             <button class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'" role="tab" :aria-selected="activeTab === 'security'" aria-controls="security-tab">Security</button>
             <button class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'" role="tab" :aria-selected="activeTab === 'network'" aria-controls="network-tab">Network</button>
@@ -206,7 +230,7 @@
             </div>
 
             <!-- Summary Stats -->
-            <section id="section-summary" class="scroll-section">
+            <section id="section-summary" class="scroll-section" style="margin-bottom: 32px;">
                 <div class="grid" data-reorder="true" data-grid-id="summary">
                     <div class="card stat-box">
                         <div class="value" x-text="summary.totals.bytes_fmt">...</div>
@@ -243,7 +267,7 @@
             </section>
 
             <!-- World Map Section -->
-            <section id="section-worldmap" class="scroll-section">
+            <section id="section-worldmap" class="scroll-section" style="margin-bottom: 32px;">
         <div class="section-header">
             <span class="section-icon">🗺️</span>
             <h3>Traffic World Map</h3>
@@ -348,7 +372,7 @@
 <!-- ============================================
              SECURITY CENTER
              ============================================ -->
-        <section id="section-security" class="scroll-section">
+        <section id="section-security" class="scroll-section" style="margin-bottom: 32px;">
         <div class="security-center" x-data="{ securityCollapsed: false }">
             <!-- Security Center Header -->
             <div class="security-center-header" @click="securityCollapsed = !securityCollapsed">
@@ -851,8 +875,8 @@
             </div> <!-- End security-center-content -->
 
             <!-- Firewall Logs - MOVED TO FORENSICS TAB -->
-            <template x-if="false">
-                <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }" style="margin-top: 16px;">
+            <template x-show="false">
+                <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }" style="margin-top: 16px; max-width: 100%; padding: 24px;">
                     <h2>
                         <span>🔥 Firewall Logs</span>
                         <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
@@ -957,7 +981,7 @@
              ============================================ -->
     <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'">
         <!-- Network Dashboard -->
-        <section id="section-network" class="scroll-section">
+        <section id="section-network" class="scroll-section" style="margin-bottom: 32px;">
         <div class="section-header">
             <span class="section-icon">🕸️</span>
             <h3>Network Overview</h3>
@@ -1505,13 +1529,13 @@
      ======================================== -->
 
 <!-- IP Deep Dive Investigation Panel -->
-<section id="section-ip-investigation" class="scroll-section">
+    <section id="section-ip-investigation" class="scroll-section" style="margin-bottom: 32px;">
     <div class="section-header">
         <span class="section-icon">🔍</span>
         <h3>IP Investigation</h3>
     </div>
-    <template x-if="isVisible('ipInvestigation')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('ipInvestigation') }">
+    <template x-show="isVisible('ipInvestigation')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('ipInvestigation') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🔍 IP Deep Dive</span>
                 <div class="card-actions">
@@ -1566,9 +1590,9 @@
 </section>
 
 <!-- Advanced Flow Search -->
-<section id="section-flow-search" class="scroll-section">
-    <template x-if="isVisible('flowSearch')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('flowSearch') }">
+    <section id="section-flow-search" class="scroll-section" style="margin-bottom: 32px;">
+    <template x-show="isVisible('flowSearch')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('flowSearch') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🎯 Advanced Flow Search</span>
                 <div class="card-actions">
@@ -1632,9 +1656,9 @@
 </section>
 
 <!-- Alert Correlation Viewer -->
-<section id="section-alert-correlation" class="scroll-section">
-    <template x-if="isVisible('alertCorrelation')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('alertCorrelation') }">
+    <section id="section-alert-correlation" class="scroll-section" style="margin-bottom: 32px;">
+    <template x-show="isVisible('alertCorrelation')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('alertCorrelation') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🔗 Alert Correlation & Attack Chains</span>
                 <div class="card-actions">
@@ -1686,9 +1710,9 @@
 </section>
 
 <!-- Recent Conversations (Existing Widget) -->
-        <section id="section-conversations" class="scroll-section">
-        <template x-if="isVisible('conversations')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
+        <section id="section-conversations" class="scroll-section" style="margin-bottom: 32px;">
+        <template x-show="isVisible('conversations')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>💬 Recent Conversations</span>
                 <div class="card-actions" style="gap: 4px; align-items: center;">
