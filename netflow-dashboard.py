@@ -358,16 +358,29 @@ def throttle(max_calls=20, time_window=10):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            now = time.time()
+            start_time = time.time()
+            now = start_time
             endpoint = func.__name__
             with _throttle_lock:
                 _request_times[endpoint] = [t for t in _request_times[endpoint] if now - t < time_window]
                 if len(_request_times[endpoint]) >= max_calls:
                     global _metric_http_429
                     _metric_http_429 += 1
+                    track_error()
                     return jsonify({"error": "Rate limit"}), 429
                 _request_times[endpoint].append(now)
-            return func(*args, **kwargs)
+            try:
+                result = func(*args, **kwargs)
+                duration = time.time() - start_time
+                # Track performance (skip for error responses)
+                if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], int) and result[1] == 200:
+                    track_performance(endpoint, duration, cached=False)
+                elif not isinstance(result, tuple):
+                    track_performance(endpoint, duration, cached=False)
+                return result
+            except Exception as e:
+                track_error()
+                raise
         return wrapper
     return decorator
 
@@ -5986,6 +5999,36 @@ def api_stats_blocklist_rate():
         "has_fw_data": total_blocked > 0
     })
 
+# Performance metrics tracking
+_performance_metrics = {
+    'request_count': 0,
+    'total_response_time': 0.0,
+    'endpoint_times': defaultdict(list),
+    'error_count': 0,
+    'cache_hits': 0,
+    'cache_misses': 0
+}
+_performance_lock = threading.Lock()
+
+def track_performance(endpoint, duration, cached=False):
+    """Track performance metrics for an endpoint."""
+    with _performance_lock:
+        _performance_metrics['request_count'] += 1
+        _performance_metrics['total_response_time'] += duration
+        _performance_metrics['endpoint_times'][endpoint].append(duration)
+        # Keep only last 100 samples per endpoint
+        if len(_performance_metrics['endpoint_times'][endpoint]) > 100:
+            _performance_metrics['endpoint_times'][endpoint].pop(0)
+        if cached:
+            _performance_metrics['cache_hits'] += 1
+        else:
+            _performance_metrics['cache_misses'] += 1
+
+def track_error():
+    """Track error occurrence."""
+    with _performance_lock:
+        _performance_metrics['error_count'] += 1
+
 # Security headers for all responses
 @app.after_request
 def set_security_headers(response):
@@ -6031,8 +6074,57 @@ def internal_error(error):
 def handle_exception(error):
     """Handle unhandled exceptions."""
     import traceback
+    track_error()
     app.logger.error(f'Unhandled Exception: {error}\n{traceback.format_exc()}')
     return jsonify({'error': 'An error occurred'}), 500
+
+
+# Performance metrics endpoint
+@app.route("/api/performance/metrics")
+@throttle(10, 60)
+def api_performance_metrics():
+    """Get performance metrics."""
+    with _performance_lock:
+        metrics = dict(_performance_metrics)
+        
+    # Calculate statistics
+    avg_response_time = 0.0
+    if metrics['request_count'] > 0:
+        avg_response_time = metrics['total_response_time'] / metrics['request_count']
+    
+    # Calculate per-endpoint statistics
+    endpoint_stats = {}
+    for endpoint, times in metrics['endpoint_times'].items():
+        if times:
+            endpoint_stats[endpoint] = {
+                'count': len(times),
+                'avg_ms': round(sum(times) / len(times) * 1000, 2),
+                'min_ms': round(min(times) * 1000, 2),
+                'max_ms': round(max(times) * 1000, 2),
+                'p95_ms': round(sorted(times)[int(len(times) * 0.95)] * 1000, 2) if len(times) > 1 else round(times[0] * 1000, 2)
+            }
+    
+    cache_hit_rate = 0.0
+    total_cache_requests = metrics['cache_hits'] + metrics['cache_misses']
+    if total_cache_requests > 0:
+        cache_hit_rate = metrics['cache_hits'] / total_cache_requests * 100
+    
+    error_rate = 0.0
+    if metrics['request_count'] > 0:
+        error_rate = metrics['error_count'] / metrics['request_count'] * 100
+    
+    return jsonify({
+        'summary': {
+            'total_requests': metrics['request_count'],
+            'avg_response_time_ms': round(avg_response_time * 1000, 2),
+            'error_count': metrics['error_count'],
+            'error_rate_percent': round(error_rate, 2),
+            'cache_hit_rate_percent': round(cache_hit_rate, 2),
+            'cache_hits': metrics['cache_hits'],
+            'cache_misses': metrics['cache_misses']
+        },
+        'endpoints': endpoint_stats
+    })
 
 
 if __name__=="__main__":

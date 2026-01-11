@@ -699,6 +699,30 @@ document.addEventListener('alpine:init', () => {
             return 'critical';
         },
 
+        // Performance metrics tracking
+        performanceMetrics: {
+            loading: false,
+            error: null,
+            data: null
+        },
+
+        async fetchPerformanceMetrics() {
+            this.performanceMetrics.loading = true;
+            this.performanceMetrics.error = null;
+            try {
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn('/api/performance/metrics');
+                const data = await res.json();
+                this.performanceMetrics.data = data;
+                this.performanceMetrics.error = null;
+            } catch(e) {
+                console.error('Failed to fetch performance metrics:', e);
+                this.performanceMetrics.error = window.DashboardUtils?.getUserFriendlyError(e, 'load performance metrics') || 'Failed to load performance metrics';
+            } finally {
+                this.performanceMetrics.loading = false;
+            }
+        },
+
         openThresholds() { this.thresholdsModalOpen = true; },
 
         async loadThresholds() {
