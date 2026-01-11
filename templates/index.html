@@ -1541,10 +1541,196 @@
     </div>
 
     <!-- ============================================
-             FORENSICS TAB
+             FORENSICS TAB - Investigation & Incident Response
              ============================================ -->
     <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'">
-<!-- Conversations -->
+
+<!-- ========================================
+     FORENSICS INVESTIGATION TOOLS
+     ======================================== -->
+
+<!-- IP Deep Dive Investigation Panel -->
+<section id="section-ip-investigation" class="scroll-section">
+    <div class="section-header">
+        <span class="section-icon">🔍</span>
+        <h3>IP Investigation</h3>
+    </div>
+    <template x-if="isVisible('ipInvestigation')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('ipInvestigation') }">
+            <h2>
+                <span>🔍 IP Deep Dive</span>
+                <div class="card-actions">
+                    <button class="icon-btn-small" @click="toggleMinimize('ipInvestigation')" :title="isMinimized('ipInvestigation') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('ipInvestigation')"><path d="M3 12h18M12 3v18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('ipInvestigation')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="spinner" x-show="ipInvestigation.loading"></div>
+                </div>
+            </h2>
+            <div x-show="!isMinimized('ipInvestigation')">
+                <div style="margin-bottom: 15px;">
+                    <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()" placeholder="Enter IP address to investigate... (e.g., 192.168.1.100)" class="search-box" style="width: 100%; max-width: 500px;">
+                    <button @click="investigateIP()" style="margin-left: 8px; padding: 8px 16px; background: var(--neon-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Investigate</button>
+                </div>
+                <div x-show="ipInvestigation.result" style="margin-top: 20px;">
+                    <div class="grid" style="margin-bottom: 15px;">
+                        <div class="card" style="padding: 12px;">
+                            <strong>Classification:</strong>
+                            <span x-text="ipInvestigation.result?.classification || 'N/A'" :class="ipInvestigation.result?.classification === 'Internal' ? 'text-green' : 'text-purple'"></span>
+                        </div>
+                        <div class="card" style="padding: 12px;">
+                            <strong>Threat Status:</strong>
+                            <span x-text="ipInvestigation.result?.is_threat ? '⚠️ THREAT' : '✅ Clean'" :class="ipInvestigation.result?.is_threat ? 'text-red' : 'text-green'"></span>
+                        </div>
+                        <div class="card" style="padding: 12px;">
+                            <strong>Total Traffic:</strong>
+                            <span class="text-cyan" x-text="ipInvestigation.result?.total_bytes_fmt || 'N/A'"></span>
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="card">
+                            <h4>Geographic Info</h4>
+                            <p><strong>Country:</strong> <span x-text="ipInvestigation.result?.country || 'N/A'"></span></p>
+                            <p><strong>Region:</strong> <span x-text="ipInvestigation.result?.region || 'N/A'"></span></p>
+                            <p><strong>ASN:</strong> <span x-text="ipInvestigation.result?.asn || 'N/A'"></span></p>
+                        </div>
+                        <div class="card">
+                            <h4>Activity Summary</h4>
+                            <p><strong>First Seen:</strong> <span x-text="ipInvestigation.result?.first_seen || 'N/A'"></span></p>
+                            <p><strong>Last Seen:</strong> <span x-text="ipInvestigation.result?.last_seen || 'N/A'"></span></p>
+                            <p><strong>Total Flows:</strong> <span x-text="ipInvestigation.result?.flow_count || 0"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div x-show="!ipInvestigation.result && !ipInvestigation.loading" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    🔍 Enter an IP address to begin investigation
+                </div>
+            </div>
+        </div>
+    </template>
+</section>
+
+<!-- Advanced Flow Search -->
+<section id="section-flow-search" class="scroll-section">
+    <template x-if="isVisible('flowSearch')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('flowSearch') }">
+            <h2>
+                <span>🎯 Advanced Flow Search</span>
+                <div class="card-actions">
+                    <button class="icon-btn-small" @click="exportFlowSearchResults()" title="Export Results" style="color: var(--neon-green);" x-show="!isMinimized('flowSearch') && flowSearch.results.length > 0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                    <button class="icon-btn-small" @click="toggleMinimize('flowSearch')" :title="isMinimized('flowSearch') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowSearch')"><path d="M3 12h18M12 3v18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowSearch')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="spinner" x-show="flowSearch.loading"></div>
+                </div>
+            </h2>
+            <div x-show="!isMinimized('flowSearch')">
+                <div class="grid" style="margin-bottom: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    <input type="text" x-model="flowSearch.filters.srcIP" placeholder="Source IP" class="search-box" style="width: 100%;">
+                    <input type="text" x-model="flowSearch.filters.dstIP" placeholder="Dest IP" class="search-box" style="width: 100%;">
+                    <input type="text" x-model="flowSearch.filters.port" placeholder="Port" class="search-box" style="width: 100%;">
+                    <select x-model="flowSearch.filters.protocol" class="search-box" style="width: 100%;">
+                        <option value="">All Protocols</option>
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="icmp">ICMP</option>
+                    </select>
+                    <input type="text" x-model="flowSearch.filters.country" placeholder="Country Code" class="search-box" style="width: 100%;">
+                    <button @click="searchFlows()" style="padding: 8px 16px; background: var(--neon-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap;">🔍 Search</button>
+                </div>
+                <div x-show="flowSearch.results.length > 0">
+                    <div style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.9em;">
+                        Found <span class="text-cyan" x-text="flowSearch.results.length"></span> flows
+                    </div>
+                    <table class="table-fixed table-compact">
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Destination</th>
+                                <th>Protocol</th>
+                                <th>Port</th>
+                                <th>Traffic</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(flow, idx) in flowSearch.results.slice(0, 50)" :key="idx">
+                                <tr>
+                                    <td><strong class="text-cyan" x-text="flow.src" @click="openIPModal(flow.src)" style="cursor: pointer;"></strong></td>
+                                    <td><strong class="text-purple" x-text="flow.dst" @click="openIPModal(flow.dst)" style="cursor: pointer;"></strong></td>
+                                    <td><span x-text="flow.proto"></span></td>
+                                    <td><span x-text="flow.port"></span></td>
+                                    <td><span class="text-green" x-text="flow.bytes_fmt"></span></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div x-show="flowSearch.results.length === 0 && !flowSearch.loading" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    🎯 Configure filters and click Search to find flows
+                </div>
+            </div>
+        </div>
+    </template>
+</section>
+
+<!-- Alert Correlation Viewer -->
+<section id="section-alert-correlation" class="scroll-section">
+    <template x-if="isVisible('alertCorrelation')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('alertCorrelation') }">
+            <h2>
+                <span>🔗 Alert Correlation & Attack Chains</span>
+                <div class="card-actions">
+                    <button class="icon-btn-small" @click="toggleMinimize('alertCorrelation')" :title="isMinimized('alertCorrelation') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertCorrelation')"><path d="M3 12h18M12 3v18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('alertCorrelation')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="spinner" x-show="alertCorrelation.loading"></div>
+                </div>
+            </h2>
+            <div x-show="!isMinimized('alertCorrelation')">
+                <div style="margin-bottom: 10px; font-size: 0.9em; color: var(--text-muted);">
+                    <span x-text="alertCorrelation.chains?.length || 0"></span> attack chains detected · Grouped by IP and time proximity
+                </div>
+                <div x-show="alertCorrelation.chains && alertCorrelation.chains.length > 0">
+                    <template x-for="(chain, idx) in alertCorrelation.chains" :key="idx">
+                        <div class="card" style="margin-bottom: 12px; border-left: 3px solid var(--neon-red); background: rgba(255,0,60,0.05);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div>
+                                    <strong class="text-red">Chain #<span x-text="idx + 1"></span></strong> -
+                                    <span class="text-cyan" x-text="chain.ip"></span>
+                                    <span style="margin-left: 8px; color: var(--text-muted); font-size: 0.85em;">
+                                        <span x-text="chain.alerts.length"></span> related alerts
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.85em; color: var(--text-muted);">
+                                    <span x-text="chain.timespan"></span>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.9em;">
+                                <div style="margin-bottom: 4px;"><strong>Attack Progression:</strong></div>
+                                <template x-for="alert in chain.alerts" :key="alert.id">
+                                    <div style="padding: 4px 8px; margin: 4px 0; background: rgba(0,0,0,0.3); border-radius: 3px; font-size: 0.85em;">
+                                        <span class="badge" :class="'cat-' + (alert.type || '').toLowerCase()" x-text="alert.type"></span>
+                                        <span style="margin-left: 8px;" x-text="alert.message"></span>
+                                        <span style="float: right; color: var(--text-muted);" x-text="alert.time"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div x-show="!alertCorrelation.chains || alertCorrelation.chains.length === 0" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    ✅ No correlated attack chains detected
+                </div>
+            </div>
+        </div>
+    </template>
+</section>
+
+<!-- Recent Conversations (Existing Widget) -->
         <section id="section-conversations" class="scroll-section">
         <template x-if="isVisible('conversations')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
@@ -1619,12 +1805,30 @@
         </template>
         </section>
 
-<!-- ========================================
-     FORENSICS INVESTIGATION TOOLS
-     ======================================== -->
 
-<!-- IP Deep Dive Investigation Panel -->
-<section id="section-ip-investigation" class="scroll-section">
+    </div>
+
+</main>
+
+<!-- Scroll Spy Navigation -->
+    <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity">
+        <div class="scroll-spy-track">
+            <template x-for="section in sections" :key="section.id">
+                <a :href="'#' + section.id"
+                   class="scroll-spy-item"
+                   :class="{ 'active': activeSection === section.id }"
+                   @click.prevent="scrollToSection(section.id)"
+                   :title="section.label">
+                    <span class="scroll-spy-dot"></span>
+                    <span class="scroll-spy-label" x-text="section.label"></span>
+                </a>
+            </template>
+        </div>
+    </nav>
+
+<!-- SKIP ALL DUPLICATE SECTIONS -->
+<template x-if="false">
+<section id="DUPLICATE-section-ip-investigation" class="scroll-section">
     <div class="section-header">
         <span class="section-icon">🔍</span>
         <h3>IP Investigation</h3>
@@ -2156,11 +2360,7 @@
         </div>
     </template>
 </section>
-
-
-    </div>
-
-</main>
+</template><!-- End of duplicate sections (hidden) -->
 
 <!-- Scroll Spy Navigation -->
     <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
