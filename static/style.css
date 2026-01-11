@@ -447,32 +447,71 @@ button.active {
 }
 
 .card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
+    background: linear-gradient(135deg, rgba(15, 15, 15, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
+    border: 2px solid var(--card-border);
     border-radius: var(--radius-lg);
     padding: var(--space-6);
-    box-shadow: var(--card-shadow);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: 
+        var(--card-shadow),
+        0 0 0 1px rgba(0, 243, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
     position: relative;
     display: flex;
     flex-direction: column;
     transition: 
-        border-color var(--motion-base),
-        box-shadow var(--motion-base),
-        background-color var(--motion-base),
-        transform var(--motion-fast);
+        all var(--motion-base);
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        var(--accent-primary), 
+        var(--accent-secondary), 
+        var(--accent-primary), 
+        transparent
+    );
+    opacity: 0;
+    transform: scaleX(0);
+    transition: transform var(--motion-base), opacity var(--motion-base);
+    z-index: 1;
 }
 
 .card:hover {
-    background: var(--card-bg-hover);
-    border-color: var(--card-border-hover);
-    box-shadow: var(--card-shadow-hover);
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0.85) 0%, rgba(15, 15, 15, 0.95) 100%);
+    border-color: rgba(0, 243, 255, 0.4);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(0, 243, 255, 0.1),
+        0 0 24px rgba(0, 243, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transform: translateY(-4px);
+}
+
+.card:hover::before {
+    transform: scaleX(1);
+    opacity: 1;
 }
 
 .card:focus-within {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary), var(--card-shadow-hover);
+    box-shadow: 
+        0 0 0 2px var(--accent-primary),
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 32px rgba(0, 243, 255, 0.2);
+}
+
+.card:focus-within::before {
+    transform: scaleX(1);
+    opacity: 1;
 }
 
 .card.widget-minimized {
