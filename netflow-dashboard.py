@@ -4861,10 +4861,10 @@ def api_risk_index():
         risk_factors.append({'factor': 'Threat Velocity', 'value': f'{hourly_threats}/hr', 'impact': 'critical', 'points': 20})
     
     # Factor 3: Feed coverage (0-15 points for poor coverage)
-    global _threat_feed_health
-    if _threat_feed_health:
-        ok_feeds = sum(1 for f in _threat_feed_health.get('feeds', []) if f.get('status') == 'ok')
-        total_feeds = len(_threat_feed_health.get('feeds', []))
+    global _feed_status
+    if _feed_status:
+        ok_feeds = sum(1 for f in _feed_status.values() if f.get('status') == 'ok')
+        total_feeds = len(_feed_status)
         if total_feeds > 0:
             coverage = ok_feeds / total_feeds
             if coverage >= 0.9:
