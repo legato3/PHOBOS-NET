@@ -1530,6 +1530,116 @@
              FORENSICS TAB - Investigation & Incident Response
              ============================================ -->
     <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab" role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+<!-- ========================================
+     FIREWALL LOGS (Moved from Security)
+     ======================================== -->
+<section id="section-firewall-forensics" class="scroll-section">
+    <div class="section-header">
+        <span class="section-icon">🔥</span>
+        <h3>Firewall Activity</h3>
+    </div>
+
+    <!-- Firewall Logs Widget -->
+    <template x-if="isVisible('recentBlocks')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }">
+            <h2>
+                <span>🔥 Live Firewall Logs</span>
+                <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
+                    <span class="badge" :style="recentBlocksAutoRefresh ? 'background: rgba(255,0,60,0.2); color: var(--neon-red);' : 'background: rgba(100,100,100,0.2); color: var(--text-muted);'" style="font-size: 0.85em;" x-text="recentBlocksAutoRefresh ? '🔴 LIVE' : '⏸ PAUSED'"></span>
+                    <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;" x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
+                    <span class="badge" style="background: rgba(255,0,60,0.18); color: var(--neon-red); font-size: 0.9em;" x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
+                    <button class="icon-btn-small" @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()" :title="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="recentBlocksAutoRefresh"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!recentBlocksAutoRefresh"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="8" x2="10" y2="16"></line><line x1="14" y1="8" x2="14" y2="16"></line></svg>
+                    </button>
+                    <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('recentBlocks')"><path d="M3 12h18M12 3v18"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('recentBlocks')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <div class="spinner" x-show="recentBlocks.loading"></div>
+                </div>
+            </h2>
+            <div x-show="!isMinimized('recentBlocks')">
+                <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="no-data" style="padding: 30px; text-align: center;">
+                    <span style="color: var(--text-secondary);">✅ No firewall logs yet</span>
+                </div>
+                <div x-show="recentBlocks.blocks.length > 0">
+                    <div class="log-toolbar">
+                        <div class="log-chips">
+                            <span class="log-chip"><strong x-text="(recentBlocks.stats?.total || recentBlocks.blocks.length).toLocaleString()"></strong> Logs</span>
+                            <span class="log-chip log-chip-green"><strong x-text="((recentBlocks.stats?.actions?.block || 0) + (recentBlocks.stats?.actions?.reject || 0)).toLocaleString()"></strong> Block/Reject</span>
+                            <span class="log-chip log-chip-blue"><strong x-text="(recentBlocks.stats?.actions?.pass || 0).toLocaleString()"></strong> Pass</span>
+                            <span class="log-chip log-chip-pink"><strong x-text="(recentBlocks.stats?.threats || 0).toLocaleString()"></strong> Threat</span>
+                            <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_src || 0).toLocaleString()"></strong> Src</span>
+                            <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_dst || 0).toLocaleString()"></strong> Dst</span>
+                        </div>
+                        <div class="log-controls">
+                            <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || recentBlocks.blocks.length, recentBlocks.blocks.length).toLocaleString() + ' / ' + (recentBlocks.blocks.length || 0).toLocaleString()"></span>
+                            <div class="log-range">
+                                <button :class="{ 'active': recentBlocksView === 50 }" @click="setRecentBlocksView(50)">50</button>
+                                <button :class="{ 'active': recentBlocksView === 200 }" @click="setRecentBlocksView(200)">200</button>
+                                <button :class="{ 'active': recentBlocksView === 1000 }" @click="setRecentBlocksView(1000)">1000</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="log-table-wrapper">
+                        <table class="table-fixed table-compact thead-sticky" x-show="recentBlocks.blocks.length > 0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 16%;">Time</th>
+                                    <th style="width: 13%;">Dir / IF</th>
+                                    <th style="width: 22%;">Source</th>
+                                    <th style="width: 4%;"></th>
+                                    <th style="width: 25%;">Destination</th>
+                                    <th style="width: 10%;">Protocol</th>
+                                    <th style="width: 10%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="block in filteredRecentBlocks.slice(0, recentBlocksView || filteredRecentBlocks.length)" :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
+                                    <tr :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }">
+                                        <td style="font-size: 0.85em; color: var(--text-muted);">
+                                            <div style="font-family: monospace;" x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp"></div>
+                                            <div class="log-sub" x-text="timeAgo(block.timestamp_ts)"></div>
+                                        </td>
+                                        <td>
+                                            <div class="log-direction" :class="block.direction === 'in' ? 'text-green' : 'text-purple'">
+                                                <span x-text="(block.direction || 'in').toUpperCase()"></span>
+                                                <span class="log-sub" x-text="block.interface || '-'" style="display:block;"></span>
+                                            </div>
+                                        </td>
+                                        <td @click="openIPModal(block.src_ip)" style="cursor: pointer;">
+                                            <div class="truncate"><strong class="text-green" x-text="block.src_ip || '--'"></strong></div>
+                                            <div class="log-sub" x-text="block.src_port ? 'Port ' + block.src_port : ''"></div>
+                                        </td>
+                                        <td style="text-align: center; color: var(--text-muted);">→</td>
+                                        <td @click="openIPModal(block.dst_ip)" style="cursor: pointer;">
+                                            <div class="truncate">
+                                                <span class="text-cyan" x-text="block.dst_ip || '192.168.0.1'"></span>
+                                                <span class="port-badge" style="margin-left: 4px;" x-show="block.dst_port" x-text="':' + block.dst_port"></span>
+                                            </div>
+                                            <div class="log-sub" x-text="block.service || 'Unknown service'"></div>
+                                        </td>
+                                        <td>
+                                            <span class="badge" style="background: rgba(0,243,255,0.15); color: var(--neon-cyan);" x-text="(block.proto || 'TCP').toUpperCase()"></span>
+                                            <div class="log-sub" x-show="block.direction" x-text="block.direction === 'in' ? 'Inbound' : 'Outbound'"></div>
+                                        </td>
+                                        <td>
+                                            <span class="badge" :style="(block.action === 'pass') ? 'background: rgba(0,255,100,0.2); color: var(--neon-green);' : 'background: rgba(255,0,60,0.2); color: var(--neon-red);'" x-text="(block.action || 'block').toUpperCase()"></span>
+                                            <div class="log-sub" x-show="block.is_threat" style="color: var(--neon-red);">Threat</div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+</section>
+
 
 <!-- ========================================
      FORENSICS INVESTIGATION TOOLS
@@ -2226,110 +2336,7 @@
     </div>
 </section>
 
-<!-- ========================================
-     FIREWALL LOGS (Moved from Security)
-     ======================================== -->
-<section id="section-firewall-forensics" class="scroll-section">
-    <div class="section-header">
-        <span class="section-icon">🔥</span>
-        <h3>Firewall Activity</h3>
-    </div>
 
-    <!-- Firewall Logs Widget -->
-    <template x-if="isVisible('recentBlocks')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }">
-            <h2>
-                <span>🔥 Firewall Logs</span>
-                <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
-                    <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;" x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
-                    <span class="badge" style="background: rgba(255,0,60,0.18); color: var(--neon-red); font-size: 0.9em;" x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
-                    <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('recentBlocks')"><path d="M3 12h18M12 3v18"/></svg>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('recentBlocks')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                    <div class="spinner" x-show="recentBlocks.loading"></div>
-                </div>
-            </h2>
-            <div x-show="!isMinimized('recentBlocks')">
-                <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="no-data" style="padding: 30px; text-align: center;">
-                    <span style="color: var(--text-secondary);">✅ No firewall logs yet</span>
-                </div>
-                <div x-show="recentBlocks.blocks.length > 0">
-                    <div class="log-toolbar">
-                        <div class="log-chips">
-                            <span class="log-chip"><strong x-text="(recentBlocks.stats?.total || recentBlocks.blocks.length).toLocaleString()"></strong> Logs</span>
-                            <span class="log-chip log-chip-green"><strong x-text="((recentBlocks.stats?.actions?.block || 0) + (recentBlocks.stats?.actions?.reject || 0)).toLocaleString()"></strong> Block/Reject</span>
-                            <span class="log-chip log-chip-blue"><strong x-text="(recentBlocks.stats?.actions?.pass || 0).toLocaleString()"></strong> Pass</span>
-                            <span class="log-chip log-chip-pink"><strong x-text="(recentBlocks.stats?.threats || 0).toLocaleString()"></strong> Threat</span>
-                            <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_src || 0).toLocaleString()"></strong> Src</span>
-                            <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_dst || 0).toLocaleString()"></strong> Dst</span>
-                        </div>
-                        <div class="log-controls">
-                            <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || recentBlocks.blocks.length, recentBlocks.blocks.length).toLocaleString() + ' / ' + (recentBlocks.blocks.length || 0).toLocaleString()"></span>
-                            <div class="log-range">
-                                <button :class="{ 'active': recentBlocksView === 50 }" @click="setRecentBlocksView(50)">50</button>
-                                <button :class="{ 'active': recentBlocksView === 200 }" @click="setRecentBlocksView(200)">200</button>
-                                <button :class="{ 'active': recentBlocksView === 1000 }" @click="setRecentBlocksView(1000)">1000</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="log-table-wrapper">
-                        <table class="table-fixed table-compact thead-sticky" x-show="recentBlocks.blocks.length > 0">
-                            <thead>
-                                <tr>
-                                    <th style="width: 16%;">Time</th>
-                                    <th style="width: 13%;">Dir / IF</th>
-                                    <th style="width: 22%;">Source</th>
-                                    <th style="width: 4%;"></th>
-                                    <th style="width: 25%;">Destination</th>
-                                    <th style="width: 10%;">Protocol</th>
-                                    <th style="width: 10%;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="block in recentBlocks.blocks.slice(0, recentBlocksView || recentBlocks.blocks.length)" :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
-                                    <tr :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }">
-                                        <td style="font-size: 0.85em; color: var(--text-muted);">
-                                            <div style="font-family: monospace;" x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp"></div>
-                                            <div class="log-sub" x-text="timeAgo(block.timestamp_ts)"></div>
-                                        </td>
-                                        <td>
-                                            <div class="log-direction" :class="block.direction === 'in' ? 'text-green' : 'text-purple'">
-                                                <span x-text="(block.direction || 'in').toUpperCase()"></span>
-                                                <span class="log-sub" x-text="block.interface || '-'" style="display:block;"></span>
-                                            </div>
-                                        </td>
-                                        <td @click="openIPModal(block.src_ip)" style="cursor: pointer;">
-                                            <div class="truncate"><strong class="text-green" x-text="block.src_ip || '--'"></strong></div>
-                                            <div class="log-sub" x-text="block.src_port ? 'Port ' + block.src_port : ''"></div>
-                                        </td>
-                                        <td style="text-align: center; color: var(--text-muted);">→</td>
-                                        <td @click="openIPModal(block.dst_ip)" style="cursor: pointer;">
-                                            <div class="truncate">
-                                                <span class="text-cyan" x-text="block.dst_ip || '192.168.0.1'"></span>
-                                                <span class="port-badge" style="margin-left: 4px;" x-show="block.dst_port" x-text="':' + block.dst_port"></span>
-                                            </div>
-                                            <div class="log-sub" x-text="block.service || 'Unknown service'"></div>
-                                        </td>
-                                        <td>
-                                            <span class="badge" style="background: rgba(0,243,255,0.15); color: var(--neon-cyan);" x-text="(block.proto || 'TCP').toUpperCase()"></span>
-                                            <div class="log-sub" x-show="block.direction" x-text="block.direction === 'in' ? 'Inbound' : 'Outbound'"></div>
-                                        </td>
-                                        <td>
-                                            <span class="badge" :style="(block.action === 'pass') ? 'background: rgba(0,255,100,0.2); color: var(--neon-green);' : 'background: rgba(255,0,60,0.2); color: var(--neon-red);'" x-text="(block.action || 'block').toUpperCase()"></span>
-                                            <div class="log-sub" x-show="block.is_threat" style="color: var(--neon-red);">Threat</div>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </template>
-</section>
 </template><!-- End of duplicate sections (hidden) -->
 
 <!-- Scroll Spy Navigation -->

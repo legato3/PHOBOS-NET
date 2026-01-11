@@ -91,8 +91,11 @@ document.addEventListener('alpine:init', () => {
         attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
         mitreHeatmap: { techniques: [], by_tactic: {}, total_techniques: 0, loading: true },
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
-        recentBlocks: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 } },
+        recentBlocks: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 }, lastUpdate: null },
         recentBlocksView: 50,
+        recentBlocksFilter: { action: 'all', searchIP: '', threatOnly: false },
+        recentBlocksAutoRefresh: true,
+        recentBlocksRefreshTimer: null,
 
         // Forensics Investigation Tools
         ipInvestigation: { searchIP: '', result: null, loading: false },
@@ -370,6 +373,15 @@ document.addEventListener('alpine:init', () => {
                     this.loadTab(val);
                     // Resize charts if needed when tab becomes visible
                     window.dispatchEvent(new Event('resize'));
+                    // Manage firewall logs auto-refresh based on active tab
+                    if (val === 'forensics') {
+                        this.startRecentBlocksAutoRefresh();
+                    } else {
+                        if (this.recentBlocksRefreshTimer) {
+                            clearInterval(this.recentBlocksRefreshTimer);
+                            this.recentBlocksRefreshTimer = null;
+                        }
+                    }
                 });
             });
             this.$watch('refreshInterval', () => {
@@ -2574,6 +2586,8 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.fetchRecentBlocks();
                 this.fetchAlertCorrelation();
+                // Start auto-refresh for firewall logs
+                this.startRecentBlocksAutoRefresh();
             }
         },
 
