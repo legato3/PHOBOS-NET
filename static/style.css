@@ -517,6 +517,7 @@ button.active {
     color: var(--text-primary);
 }
 
+/* Main Grid - Default uniform layout */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -524,6 +525,28 @@ button.active {
     grid-auto-flow: dense;
     margin-bottom: var(--space-6);
     padding: 0;
+}
+
+/* Primary Focus Layout - 2/3 + 1/3 column layout for hierarchy */
+@media (min-width: 1400px) {
+    .layout-primary-focus {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: var(--space-6);
+        align-items: start;
+    }
+    
+    .primary-column {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-6);
+    }
+    
+    .secondary-column {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+    }
 }
 
 /* Responsive Grid Spans */
@@ -534,21 +557,38 @@ button.active {
 
 .card {
     background: var(--card-bg);
-    border: 1px solid var(--card-border);
+    border: none; /* Removed border - using elevation instead */
     border-radius: var(--radius-md);
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: border-color var(--motion-base), background-color var(--motion-base), box-shadow var(--motion-base);
+    transition: background-color var(--motion-base), box-shadow var(--motion-base);
     overflow: hidden;
 }
 
 .card:hover {
-    border-color: var(--card-border-hover);
     background: var(--card-bg-hover);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Primary focus cards - higher elevation */
+.primary-column .card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.primary-column .card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.14), 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Secondary cards - lower elevation */
+.secondary-column .card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.secondary-column .card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .card:focus-within {
@@ -572,6 +612,11 @@ button.active {
 /* Corner glows removed for cleaner material design */
 
 .wide-card {
+    grid-column: 1 / -1;
+}
+
+/* Composite card - merged panels */
+.composite-card {
     grid-column: 1 / -1;
 }
 
@@ -632,19 +677,21 @@ button.active {
     padding: 10px;
 }
 .stat-box .value {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-weight-semibold);
+    font-size: 28px; /* Numbers lead - larger, bolder */
+    font-weight: 600;
     color: var(--text-primary);
-    letter-spacing: var(--letter-spacing-tight);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 .stat-box .label {
-    font-size: 12px; /* Metadata: 12px */
+    font-size: 11px; /* Labels support - smaller, lighter */
     color: var(--text-muted);
-    text-transform: none; /* Remove uppercase */
-    letter-spacing: -0.01em;
-    margin-top: 5px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    margin-top: 4px;
     font-family: var(--font-sans);
     font-weight: 400;
+    opacity: 0.8;
 }
 .stat-box .value.grade-a,
 .stat-box .value.grade-b {
@@ -696,6 +743,29 @@ td {
     white-space: nowrap;
     font-size: 14px;
     font-family: var(--font-sans);
+    position: relative;
+}
+
+/* Signal-driven rows - visual weighting with inline bars */
+tr[data-percentage]::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--row-percentage, 0) * 1%);
+    background: rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+    z-index: 0;
+}
+
+tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+}
+
+tr:hover[data-percentage]::before {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 /* Technical data in tables - IPs, IDs, commands use monospace */
@@ -706,6 +776,23 @@ td .log-entry,
 td .id-value {
     font-family: var(--font-mono);
     font-size: 13px;
+}
+
+/* Numbers in tables - lead with size and weight */
+td .value-number,
+td strong {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Labels in tables - support with muted color */
+td .value-label,
+td .subtext {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+    opacity: 0.7;
 }
 
 tr:last-child td {
@@ -727,10 +814,11 @@ tr:hover td {
     margin-left: 5px;
     font-family: var(--font-sans);
 }
-.internal { background: rgba(0, 243, 255, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 243, 255, 0.2); }
-.external { background: rgba(255, 255, 255, 0.08); color: #aaa; border: 1px solid rgba(255, 255, 255, 0.12); }
-.threat { background: rgba(255, 0, 60, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); animation: pulse 2s infinite; }
-.suspicious { background: rgba(255, 0, 255, 0.12); color: var(--accent-magenta); border: 1px solid rgba(255, 0, 255, 0.25); }
+/* Selective color usage - only for important signals */
+.internal { background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); border: 1px solid rgba(255, 255, 255, 0.08); }
+.external { background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); border: 1px solid rgba(255, 255, 255, 0.08); }
+.threat { background: rgba(255, 0, 60, 0.15); color: var(--accent-danger); border: 1px solid var(--accent-danger); }
+.suspicious { background: rgba(255, 0, 255, 0.12); color: var(--accent-secondary); border: 1px solid rgba(255, 0, 255, 0.2); }
 
 @keyframes pulse {
     0% { opacity: 1; }
@@ -1999,21 +2087,36 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: rgba(0, 0, 0, 0.3);
+    height: 2px;
+    background: rgba(0, 0, 0, 0.2);
     z-index: 1001;
 }
 
 .refresh-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+    background: var(--accent-primary);
     transition: width 1s linear;
-    box-shadow: 0 0 10px var(--neon-cyan);
+    opacity: 0.8;
 }
 
 .refresh-progress-bar.paused {
     background: var(--text-muted);
-    box-shadow: none;
+    opacity: 0.4;
+}
+
+/* Subtle pulse animation for live indicators */
+@keyframes subtlePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+
+.live-indicator {
+    animation: subtlePulse 3s ease-in-out infinite;
+}
+
+.live-indicator.paused {
+    animation: none;
+    opacity: 0.5;
 }
 
 /* ============================================
@@ -3482,10 +3585,11 @@ body {
 
 .asn-bar-wrap {
     flex: 1;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 3px;
     overflow: hidden;
+    position: relative;
 }
 
 .asn-bar {
