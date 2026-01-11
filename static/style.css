@@ -666,7 +666,7 @@ table {
 .table-fixed { table-layout: fixed; width: 100%; }
 .table-compact td { padding: 4px 8px; }
 .table-compact th { padding: 6px 8px; font-size: 0.85em; }
-.thead-sticky thead { position: sticky; top: 0; background: rgba(10,10,10,0.95); z-index: 1; }
+.thead-sticky thead { position: sticky; top: 0; background: var(--bg-primary); z-index: 1; }
 
 th {
     text-align: left;
@@ -4073,7 +4073,7 @@ body.compact-mode {
         -webkit-overflow-scrolling: touch;
         white-space: nowrap;
         scrollbar-width: thin;
-        scrollbar-color: var(--neon-cyan) rgba(255,255,255,0.1);
+        scrollbar-color: #4a4a4a #1e1e21;
     }
     
     .card table::-webkit-scrollbar {
