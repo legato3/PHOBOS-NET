@@ -29,24 +29,27 @@
 </head>
 <body class="antialiased" x-data="dashboard">
 
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- Refresh Progress Bar -->
-    <div class="refresh-progress">
+    <div class="refresh-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="countdownPercent" aria-label="Auto-refresh countdown">
         <div class="refresh-progress-bar" :class="{ 'paused': paused }" :style="'width: ' + countdownPercent + '%'"></div>
     </div>
 
     <!-- Loading Overlay -->
-    <div class="loading-screen" x-show="!initDone" style="display:none" :style="!initDone ? 'display:flex' : 'display:none'">
+    <div class="loading-screen" x-show="!initDone" style="display:none" :style="!initDone ? 'display:flex' : 'display:none'" role="status" aria-live="polite">
         <div class="loader">Initializing Neural Link...</div>
     </div>
 
-    <div class="container" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
+    <div class="container" id="main-content" x-show="initDone" style="display:none" :style="initDone ? 'display:block' : 'display:none'" x-transition.opacity.duration.500ms>
 
         <!-- Header -->
-        <div class="header">
+        <header class="header" role="banner">
             <div class="header-top">
-                <div class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></div>
-                <button class="mobile-filter-toggle" @click="showMobileFilters = !showMobileFilters" :class="{ 'active': showMobileFilters }" aria-label="Toggle filters">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                <h1 class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></h1>
+                <button class="mobile-filter-toggle" @click="showMobileFilters = !showMobileFilters" :class="{ 'active': showMobileFilters }" aria-label="Toggle filters" aria-expanded="false" :aria-expanded="showMobileFilters.toString()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
                 </button>
             </div>
             <div class="controls" :class="{ 'mobile-show': showMobileFilters }">
@@ -197,20 +200,23 @@
                     </span>
                 </div>
             </div>
-        </div>
+        </header>
 
         <!-- Tab Navigation -->
-        <div class="tabs">
-            <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'">Security</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'">Network</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'">Forensics</button>
-        </div>
+        <nav class="tabs" role="navigation" aria-label="Main navigation">
+            <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'" role="tab" :aria-selected="activeTab === 'overview'" aria-controls="overview-tab">Overview</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'" role="tab" :aria-selected="activeTab === 'security'" aria-controls="security-tab">Security</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'" role="tab" :aria-selected="activeTab === 'network'" aria-controls="network-tab">Network</button>
+            <button class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'" role="tab" :aria-selected="activeTab === 'forensics'" aria-controls="forensics-tab">Forensics</button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main role="main">
 
         <!-- ============================================
              OVERVIEW TAB
              ============================================ -->
-        <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'">
+        <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn">
 
             <!-- Mobile Quick Stats Bar -->
             <div class="mobile-stats-bar">
@@ -1819,7 +1825,7 @@
 
     </div>
 
-</div>
+</main>
 
 <!-- Scroll Spy Navigation -->
     <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
