@@ -1810,22 +1810,6 @@
 
 </main>
 
-<!-- Scroll Spy Navigation -->
-    <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity">
-        <div class="scroll-spy-track">
-            <template x-for="section in sections" :key="section.id">
-                <a :href="'#' + section.id"
-                   class="scroll-spy-item"
-                   :class="{ 'active': activeSection === section.id }"
-                   @click.prevent="scrollToSection(section.id)"
-                   :title="section.label">
-                    <span class="scroll-spy-dot"></span>
-                    <span class="scroll-spy-label" x-text="section.label"></span>
-                </a>
-            </template>
-        </div>
-    </nav>
-
 <!-- SKIP ALL DUPLICATE SECTIONS -->
 <template x-if="false">
 <section id="DUPLICATE-section-ip-investigation" class="scroll-section">
