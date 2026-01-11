@@ -1065,10 +1065,23 @@ document.addEventListener('alpine:init', () => {
 
         async fetchProtocols() {
             this.protocols.loading = true;
+            this.protocols.error = null;
             try {
-                const res = await fetch(`/api/stats/protocols?range=${this.timeRange}`);
-                if(res.ok) this.protocols = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.protocols.loading = false; }
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn(`/api/stats/protocols?range=${this.timeRange}`);
+                if(res.ok) {
+                    this.protocols = { ...(await res.json()), loading: false, error: null };
+                } else {
+                    const errorMsg = `Protocols fetch failed: ${res.status}`;
+                    console.error(errorMsg);
+                    this.protocols.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load protocols') || errorMsg;
+                }
+            } catch(e) { 
+                console.error('Failed to fetch protocols:', e);
+                this.protocols.error = window.DashboardUtils?.getUserFriendlyError(e, 'load protocols') || 'Failed to load protocols';
+            } finally { 
+                this.protocols.loading = false; 
+            }
         },
 
         // ----- New widget fetchers (Option B: threat-focused) -----
@@ -2011,17 +2024,22 @@ document.addEventListener('alpine:init', () => {
 
         async fetchServerHealth() {
             this.serverHealth.loading = true;
+            this.serverHealth.error = null;
             try {
-                const res = await fetch('/api/server/health');
+                const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
+                const res = await safeFetchFn('/api/server/health');
                 if(res.ok) {
                     const data = await res.json();
-                    this.serverHealth = { ...data, loading: false };
+                    this.serverHealth = { ...data, loading: false, error: null };
                 } else {
-                    console.error('Server health fetch failed:', res.status);
+                    const errorMsg = `Server health fetch failed: ${res.status}`;
+                    console.error(errorMsg);
+                    this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load server health') || errorMsg;
                     this.serverHealth.loading = false;
                 }
             } catch(e) { 
                 console.error('Server health fetch error:', e);
+                this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
                 this.serverHealth.loading = false;
             }
         },
