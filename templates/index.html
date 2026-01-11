@@ -23,7 +23,7 @@
     <link rel="preload" href="/static/js/lazy-load.js" as="script">
     
     <!-- CSS - Critical render path, load first -->
-    <link rel="stylesheet" href="/static/style.min.css?v=3.2.0">
+    <link rel="stylesheet" href="/static/style.min.css?v=3.3.0">
     <!-- Widget-specific enhancements -->
     <link rel="stylesheet" href="/static/conversations.css?v=1">
 
@@ -212,17 +212,36 @@
             </div>
         </header>
 
-        <!-- Tab Navigation -->
-        <nav class="tabs sticky-tabs" role="tablist" aria-label="Main navigation" style="position:sticky;top:0;z-index:100;background:rgba(10,14,23,0.98);backdrop-filter:blur(6px);">
-            <button id="overview-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="tab" :aria-selected="activeTab === 'overview'" aria-controls="overview-tab">Overview</button>
-            <button id="security-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="tab" :aria-selected="activeTab === 'security'" aria-controls="security-tab">Security</button>
-            <button id="network-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="tab" :aria-selected="activeTab === 'network'" aria-controls="network-tab">Network</button>
-            <button id="forensics-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'" aria-controls="forensics-tab">Forensics</button>
-            <button id="server-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'" aria-controls="server-tab">🖥️ Server</button>
-        </nav>
+        <!-- Layout with Sidebar -->
+        <div class="layout-wrapper">
+            <!-- Left Sidebar Menu -->
+            <aside class="sidebar" role="navigation" aria-label="Main navigation">
+                <nav class="sidebar-nav">
+                    <button class="sidebar-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="menuitem" aria-selected="activeTab === 'overview'">
+                        <span class="sidebar-icon">📊</span>
+                        <span class="sidebar-label">Overview</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="menuitem" aria-selected="activeTab === 'security'">
+                        <span class="sidebar-icon">🛡️</span>
+                        <span class="sidebar-label">Security</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="menuitem" aria-selected="activeTab === 'network'">
+                        <span class="sidebar-icon">🕸️</span>
+                        <span class="sidebar-label">Network</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="menuitem" aria-selected="activeTab === 'forensics'">
+                        <span class="sidebar-icon">🔍</span>
+                        <span class="sidebar-label">Forensics</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="menuitem" aria-selected="activeTab === 'server'">
+                        <span class="sidebar-icon">🖥️</span>
+                        <span class="sidebar-label">Server</span>
+                    </button>
+                </nav>
+            </aside>
 
-        <!-- Main Content Area -->
-        <main>
+            <!-- Main Content Area -->
+            <main class="main-content">
 
         <!-- ============================================
              OVERVIEW TAB
