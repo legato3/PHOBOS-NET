@@ -171,6 +171,10 @@ _firewall_db_lock = threading.Lock()
 _syslog_thread_started = False
 _syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
 _syslog_stats_lock = threading.Lock()
+# Syslog batch insert buffer
+_syslog_buffer = []
+_syslog_buffer_lock = threading.Lock()
+_syslog_buffer_size = 100  # Flush when buffer reaches this size
 SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
 SYSLOG_BIND = os.getenv("SYSLOG_BIND", "0.0.0.0")
 FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")  # Only accept from this IP
@@ -3246,8 +3250,36 @@ def _parse_filterlog(line: str) -> dict:
         'dst_port': int(match.group('dst_port') or 0),
     }
 
+def _flush_syslog_buffer():
+    """Flush buffered syslog entries to database in batch."""
+    global _syslog_buffer
+    logs_to_insert = []
+    with _syslog_buffer_lock:
+        if not _syslog_buffer:
+            return
+        logs_to_insert = _syslog_buffer[:]
+        _syslog_buffer.clear()
+    
+    if not logs_to_insert:
+        return
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            conn.executemany("""
+                INSERT INTO fw_logs (timestamp, timestamp_iso, action, direction, interface,
+                    src_ip, src_port, dst_ip, dst_port, proto, rule_id, length, country_iso, is_threat, raw_log)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, logs_to_insert)
+            conn.commit()
+        except Exception as e:
+            print(f"Error flushing syslog buffer: {e}")
+        finally:
+            conn.close()
+
 def _insert_fw_log(parsed: dict, raw_log: str):
-    """Insert parsed firewall log into database with enrichment."""
+    """Insert parsed firewall log into database with enrichment (buffered batch insert)."""
+    global _syslog_flush_timer
     now = time.time()
     now_iso = datetime.fromtimestamp(now).isoformat()
     
@@ -3311,19 +3343,20 @@ def _insert_fw_log(parsed: dict, raw_log: str):
                 if (src_ip, dst_port) not in recent_keys:
                     _alert_history.append(alert)
     
-    with _firewall_db_lock:
-        conn = _firewall_db_connect()
-        try:
-            conn.execute("""
-                INSERT INTO fw_logs (timestamp, timestamp_iso, action, direction, interface,
-                    src_ip, src_port, dst_ip, dst_port, proto, rule_id, length, country_iso, is_threat, raw_log)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],
-                  parsed['src_ip'], parsed['src_port'], parsed['dst_ip'], parsed['dst_port'],
-                  parsed['proto'], parsed['rule_id'], parsed['length'], country_iso, is_threat, raw_log[:500]))
-            conn.commit()
-        finally:
-            conn.close()
+    # Add to buffer for batch insert
+    log_tuple = (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],
+                 parsed['src_ip'], parsed['src_port'], parsed['dst_ip'], parsed['dst_port'],
+                 parsed['proto'], parsed['rule_id'], parsed['length'], country_iso, is_threat, raw_log[:500])
+    
+    flush_needed = False
+    with _syslog_buffer_lock:
+        _syslog_buffer.append(log_tuple)
+        if len(_syslog_buffer) >= _syslog_buffer_size:
+            flush_needed = True
+    
+    # Flush if buffer is full (periodic flush handled by maintenance thread)
+    if flush_needed:
+        _flush_syslog_buffer()
 
 def _cleanup_old_fw_logs():
     """Remove firewall logs older than retention period."""
@@ -3391,8 +3424,15 @@ def _syslog_maintenance_loop():
     while not _shutdown_event.is_set():
         try:
             _cleanup_old_fw_logs()
-        except Exception:
-            pass
+            
+            # Check disk space and log warning if high
+            disk_info = check_disk_space('/var/cache/nfdump')
+            if disk_info['percent_used'] > 90:
+                print(f"WARNING: NetFlow disk usage at {disk_info['percent_used']:.1f}% ({disk_info['used_gb']:.1f}GB / {disk_info['total_gb']:.1f}GB)")
+            elif disk_info['percent_used'] > 75:
+                print(f"INFO: NetFlow disk usage at {disk_info['percent_used']:.1f}% ({disk_info['used_gb']:.1f}GB / {disk_info['total_gb']:.1f}GB)")
+        except Exception as e:
+            print(f"Maintenance error: {e}")
         _shutdown_event.wait(timeout=3600)  # Run every hour
 
 def start_syslog_thread():
@@ -5180,6 +5220,22 @@ def api_config():
     return jsonify({'status': 'ok', 'config': saved})
 
 
+def check_disk_space(path='/var/cache/nfdump'):
+    """Check disk space usage for a given path. Returns percentage used."""
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage(path)
+        percent_used = (used / total) * 100 if total > 0 else 0
+        return {
+            'percent_used': round(percent_used, 1),
+            'total_gb': round(total / (1024**3), 2),
+            'used_gb': round(used / (1024**3), 2),
+            'free_gb': round(free / (1024**3), 2),
+            'status': 'critical' if percent_used > 90 else 'warning' if percent_used > 75 else 'ok'
+        }
+    except Exception:
+        return {'percent_used': 0, 'status': 'unknown'}
+
 @app.route('/metrics')
 def metrics():
     """Prometheus-style metrics for basic instrumentation."""
@@ -5699,6 +5755,8 @@ if __name__=="__main__":
     def shutdown_handler(signum=None, frame=None):
         print("\n[Shutdown] Stopping background services...")
         _shutdown_event.set()
+        # Flush any pending syslog buffer
+        _flush_syslog_buffer()
         # Give threads time to clean up
         time.sleep(1)
         print("[Shutdown] Complete.")
