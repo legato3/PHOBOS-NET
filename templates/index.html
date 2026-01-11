@@ -1541,7 +1541,7 @@
         <span class="section-icon">🔍</span>
         <h3>IP Investigation</h3>
     </div>
-    <template x-show="isVisible('ipInvestigation')">
+    <template x-if="isVisible('ipInvestigation')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('ipInvestigation') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🔍 IP Deep Dive</span>
@@ -1598,7 +1598,7 @@
 
 <!-- Advanced Flow Search -->
     <section id="section-flow-search" class="scroll-section" style="margin-bottom: 32px;">
-    <template x-show="isVisible('flowSearch')">
+    <template x-if="isVisible('flowSearch')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('flowSearch') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🎯 Advanced Flow Search</span>
@@ -1664,7 +1664,7 @@
 
 <!-- Alert Correlation Viewer -->
     <section id="section-alert-correlation" class="scroll-section" style="margin-bottom: 32px;">
-    <template x-show="isVisible('alertCorrelation')">
+    <template x-if="isVisible('alertCorrelation')">
         <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('alertCorrelation') }" style="max-width: 100%; padding: 24px;">
             <h2>
                 <span>🔗 Alert Correlation & Attack Chains</span>
