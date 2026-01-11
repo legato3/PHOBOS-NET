@@ -211,7 +211,7 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 
 ## 🤝 Contributing
 
-See `sample_data/README.md` for data format documentation.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [sample_data/README.md](sample_data/README.md) for data format documentation.
 
 ## 🔗 Repository
 
