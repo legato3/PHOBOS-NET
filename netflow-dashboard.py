@@ -4933,6 +4933,131 @@ def api_thresholds():
     return jsonify(saved)
 
 
+# ===== FORENSICS API ENDPOINTS =====
+
+@app.route('/api/forensics/flow-search')
+def api_forensics_flow_search():
+    """Advanced flow search with multi-criteria filtering for forensics investigation."""
+    range_val = request.args.get('range', '1h')
+    src_ip = request.args.get('src_ip', '')
+    dst_ip = request.args.get('dst_ip', '')
+    port = request.args.get('port', '')
+    protocol = request.args.get('protocol', '')
+    country = request.args.get('country', '')
+
+    # Build nfdump filter
+    filters = []
+    if src_ip:
+        filters.append(f"src ip {src_ip}")
+    if dst_ip:
+        filters.append(f"dst ip {dst_ip}")
+    if port:
+        filters.append(f"(src port {port} or dst port {port})")
+    if protocol:
+        proto_map = {'tcp': '6', 'udp': '17', 'icmp': '1'}
+        proto_num = proto_map.get(protocol.lower(), protocol)
+        filters.append(f"proto {proto_num}")
+
+    filter_str = ' and '.join(filters) if filters else ''
+
+    try:
+        cmd = build_nfdump_cmd(range_val, aggregation='srcip,dstip,proto,dstport', limit=100, filter_str=filter_str)
+        out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=10).decode('utf-8', errors='ignore')
+
+        flows = []
+        for line in out.split('\n'):
+            parts = line.split(',')
+            if len(parts) >= 6 and not line.startswith('ts'):
+                try:
+                    flows.append({
+                        'src': parts[3].strip(),
+                        'dst': parts[4].strip(),
+                        'proto': parts[5].strip(),
+                        'port': int(parts[6].strip()) if parts[6].strip().isdigit() else 0,
+                        'bytes': int(parts[10].strip()) if len(parts) > 10 and parts[10].strip().isdigit() else 0,
+                        'packets': int(parts[11].strip()) if len(parts) > 11 and parts[11].strip().isdigit() else 0
+                    })
+                except (ValueError, IndexError):
+                    continue
+
+        # Apply country filter if specified
+        if country and geoip_city:
+            filtered_flows = []
+            for flow in flows:
+                try:
+                    src_geo = geoip_city.city(flow['src'])
+                    dst_geo = geoip_city.city(flow['dst'])
+                    if (src_geo.country.iso_code == country.upper() or
+                        dst_geo.country.iso_code == country.upper()):
+                        filtered_flows.append(flow)
+                except:
+                    pass
+            flows = filtered_flows
+
+        return jsonify({'flows': flows, 'count': len(flows)})
+
+    except Exception as e:
+        print(f"Flow search error: {e}")
+        return jsonify({'flows': [], 'count': 0, 'error': str(e)})
+
+
+@app.route('/api/forensics/alert-correlation')
+def api_forensics_alert_correlation():
+    """Correlate alerts to identify attack chains and multi-stage attacks."""
+    range_val = request.args.get('range', '24h')
+
+    # Get alerts from history
+    alerts = list(_alert_history)
+
+    # Group alerts by IP and time proximity (within 1 hour)
+    chains = {}
+    time_threshold = 3600  # 1 hour in seconds
+
+    for alert in sorted(alerts, key=lambda x: x.get('timestamp', 0)):
+        ip = alert.get('ip') or alert.get('source_ip')
+        if not ip:
+            continue
+
+        timestamp = alert.get('timestamp', 0)
+
+        # Find if this IP has an existing chain within time threshold
+        found_chain = False
+        for chain_ip, chain_data in chains.items():
+            if chain_ip == ip:
+                last_alert_time = chain_data['alerts'][-1].get('timestamp', 0)
+                if timestamp - last_alert_time <= time_threshold:
+                    chain_data['alerts'].append(alert)
+                    chain_data['end_time'] = timestamp
+                    found_chain = True
+                    break
+
+        # Create new chain if not found
+        if not found_chain and ip:
+            chains[ip] = {
+                'ip': ip,
+                'alerts': [alert],
+                'start_time': timestamp,
+                'end_time': timestamp
+            }
+
+    # Filter chains with multiple alerts and format response
+    result_chains = []
+    for ip, chain_data in chains.items():
+        if len(chain_data['alerts']) > 1:  # Only chains with multiple related alerts
+            result_chains.append({
+                'ip': ip,
+                'alerts': [{
+                    'id': f"{a.get('type', 'alert')}_{a.get('timestamp', 0)}",
+                    'type': a.get('type', 'unknown'),
+                    'message': a.get('msg', 'Alert'),
+                    'time': datetime.fromtimestamp(a.get('timestamp', 0)).strftime('%H:%M:%S') if a.get('timestamp') else 'recent'
+                } for a in chain_data['alerts']],
+                'timespan': f"{len(chain_data['alerts'])} alerts over {int((chain_data['end_time'] - chain_data['start_time']) / 60)}min"
+            })
+
+    return jsonify({'chains': result_chains, 'count': len(result_chains)})
+
+
 # ===== Configuration Settings =====
 def get_default_config():
     """Return default configuration values."""

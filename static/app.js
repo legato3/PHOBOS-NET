@@ -93,7 +93,12 @@ document.addEventListener('alpine:init', () => {
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
         recentBlocks: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 } },
         recentBlocksView: 50,
-        
+
+        // Forensics Investigation Tools
+        ipInvestigation: { searchIP: '', result: null, loading: false },
+        flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
+        alertCorrelation: { chains: [], loading: false },
+
         // Alert Filtering
         alertFilter: { severity: 'all', type: 'all' },
         alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'watchlist', 'off_hours', 'new_country', 'protocol_anomaly'],
@@ -2201,6 +2206,139 @@ document.addEventListener('alpine:init', () => {
              window.location.href = '/api/alerts_export?format=' + fmt;
         },
 
+        // === FORENSICS INVESTIGATION FUNCTIONS ===
+
+        async investigateIP() {
+            if (!this.ipInvestigation.searchIP.trim()) return;
+
+            this.ipInvestigation.loading = true;
+            this.ipInvestigation.result = null;
+
+            try {
+                const res = await fetch(`/api/ip_detail/${this.ipInvestigation.searchIP}?range=${this.timeRange}`);
+                const data = await res.json();
+
+                // Determine classification
+                const ip = this.ipInvestigation.searchIP;
+                const isInternal = ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.');
+
+                // Check if it's a threat
+                const isThreat = this.threats.hits.some(t => t.ip === ip);
+
+                this.ipInvestigation.result = {
+                    ...data,
+                    classification: isInternal ? 'Internal' : 'External',
+                    is_threat: isThreat,
+                    total_bytes_fmt: this.fmtBytes(data.direction?.upload + data.direction?.download || 0),
+                    flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0)
+                };
+            } catch (err) {
+                console.error('IP investigation failed:', err);
+                alert('Failed to investigate IP');
+            } finally {
+                this.ipInvestigation.loading = false;
+            }
+        },
+
+        async searchFlows() {
+            this.flowSearch.loading = true;
+            this.flowSearch.results = [];
+
+            try {
+                const params = new URLSearchParams({ range: this.timeRange });
+                if (this.flowSearch.filters.srcIP) params.append('src_ip', this.flowSearch.filters.srcIP);
+                if (this.flowSearch.filters.dstIP) params.append('dst_ip', this.flowSearch.filters.dstIP);
+                if (this.flowSearch.filters.port) params.append('port', this.flowSearch.filters.port);
+                if (this.flowSearch.filters.protocol) params.append('protocol', this.flowSearch.filters.protocol);
+                if (this.flowSearch.filters.country) params.append('country', this.flowSearch.filters.country);
+
+                const res = await fetch(`/api/forensics/flow-search?${params}`);
+                const data = await res.json();
+
+                this.flowSearch.results = (data.flows || []).map(f => ({
+                    ...f,
+                    bytes_fmt: this.fmtBytes(f.bytes || 0)
+                }));
+            } catch (err) {
+                console.error('Flow search failed:', err);
+                // For now, use mock data from conversations as fallback
+                const filtered = this.conversations.conversations.filter(c => {
+                    if (this.flowSearch.filters.srcIP && !c.src.includes(this.flowSearch.filters.srcIP)) return false;
+                    if (this.flowSearch.filters.dstIP && !c.dst.includes(this.flowSearch.filters.dstIP)) return false;
+                    if (this.flowSearch.filters.port && c.port !== parseInt(this.flowSearch.filters.port)) return false;
+                    if (this.flowSearch.filters.protocol && c.proto.toLowerCase() !== this.flowSearch.filters.protocol.toLowerCase()) return false;
+                    return true;
+                });
+                this.flowSearch.results = filtered.map(c => ({
+                    src: c.src,
+                    dst: c.dst,
+                    proto: c.proto,
+                    port: c.port,
+                    bytes_fmt: c.bytes_fmt
+                }));
+            } finally {
+                this.flowSearch.loading = false;
+            }
+        },
+
+        exportFlowSearchResults() {
+            if (this.flowSearch.results.length === 0) return;
+
+            const csv = [
+                ['Source', 'Destination', 'Protocol', 'Port', 'Traffic'].join(','),
+                ...this.flowSearch.results.map(f =>
+                    [f.src, f.dst, f.proto, f.port, f.bytes_fmt].join(',')
+                )
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `flow-search-${Date.now()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+
+        async fetchAlertCorrelation() {
+            this.alertCorrelation.loading = true;
+
+            try {
+                const res = await fetch(`/api/forensics/alert-correlation?range=${this.timeRange}`);
+                const data = await res.json();
+                this.alertCorrelation.chains = data.chains || [];
+            } catch (err) {
+                console.error('Alert correlation fetch failed:', err);
+                // Build correlation from alert history as fallback
+                const alerts = this.alertHistory.alerts || [];
+                const byIP = {};
+
+                alerts.forEach(alert => {
+                    const ip = alert.ip || alert.source_ip;
+                    if (!ip) return;
+                    if (!byIP[ip]) byIP[ip] = [];
+                    byIP[ip].push(alert);
+                });
+
+                this.alertCorrelation.chains = Object.entries(byIP)
+                    .filter(([ip, alerts]) => alerts.length > 1)
+                    .map(([ip, alerts]) => ({
+                        ip,
+                        alerts: alerts.map(a => ({
+                            id: a.msg,
+                            type: a.type,
+                            message: a.msg,
+                            time: a.time || a.timestamp
+                        })),
+                        timespan: alerts.length > 1 ?
+                            `${alerts[0].time || 'recent'} - ${alerts[alerts.length-1].time || 'recent'}` :
+                            'recent'
+                    }));
+            } finally {
+                this.alertCorrelation.loading = false;
+            }
+        },
+
         // Helpers
         fmtBytes(bytes) {
              if (bytes >= 1024**3) return (bytes / 1024**3).toFixed(2) + ' GB';
@@ -2432,6 +2570,7 @@ document.addEventListener('alpine:init', () => {
                     this.lastFetch.conversations = now;
                 }
                 this.fetchRecentBlocks();
+                this.fetchAlertCorrelation();
             }
         },
 
