@@ -2089,6 +2089,27 @@ table[style*="table-layout:fixed"] td:first-child {
     color: var(--text-primary);
 }
 
+/* Status bar visual grouping */
+.status-bar-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: 0 var(--space-4);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.status-bar-group:last-child {
+    border-right: none;
+}
+
+.status-bar-group:first-child {
+    padding-left: 0;
+}
+
+.status-bar-group:last-child {
+    padding-right: 0;
+}
+
 .status-bar-item .label {
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-wider);
@@ -2159,6 +2180,18 @@ body {
         padding: 8px 15px;
         gap: 10px 20px;
         justify-content: flex-start;
+    }
+    
+    .status-bar-group {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 8px 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .status-bar-group:last-child {
+        border-bottom: none;
     }
     
     .subsection-content {

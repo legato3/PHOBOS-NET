@@ -2616,39 +2616,51 @@
 
     <!-- Sticky Status Bar -->
     <div class="status-bar">
-        <div class="status-bar-item">
-            <span class="status-bar-dot" :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
-            <span class="label">CPU:</span>
-            <span class="value" :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }" x-text="(firewall.cpu_percent || '--') + '%'"></span>
+        <!-- System Metrics -->
+        <div class="status-bar-group">
+            <div class="status-bar-item">
+                <span class="status-bar-dot" :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
+                <span class="label">CPU:</span>
+                <span class="value" :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }" x-text="(firewall.cpu_percent || '--') + '%'"></span>
+            </div>
+            <div class="status-bar-item">
+                <span class="label">MEM:</span>
+                <span class="value" :class="{ 'warning': firewall.mem_percent >= 70, 'critical': firewall.mem_percent >= 90 }" x-text="(firewall.mem_percent || '--') + '%'"></span>
+            </div>
         </div>
-        <div class="status-bar-item">
-            <span class="label">MEM:</span>
-            <span class="value" :class="{ 'warning': firewall.mem_percent >= 70, 'critical': firewall.mem_percent >= 90 }" x-text="(firewall.mem_percent || '--') + '%'"></span>
+        <!-- Network Metrics -->
+        <div class="status-bar-group">
+            <div class="status-bar-item">
+                <span class="label">Threats:</span>
+                <span class="value" :class="{ 'critical': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+            </div>
+            <div class="status-bar-item">
+                <span class="label">Flows:</span>
+                <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+            </div>
         </div>
-        <div class="status-bar-item">
-            <span class="label">Threats:</span>
-            <span class="value" :class="{ 'critical': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+        <!-- Status -->
+        <div class="status-bar-group">
+            <div class="status-bar-item">
+                <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
+                <span class="label">Status:</span>
+                <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
+            </div>
         </div>
-        <div class="status-bar-item">
-            <span class="label">Flows:</span>
-            <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
-        </div>
-        <div class="status-bar-item">
-            <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
-            <span class="label">Status:</span>
-            <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
-        </div>
-        <div class="status-bar-item latency-indicator" x-show="avgLatency !== null">
-            <span class="label">API:</span>
-            <span class="value" :class="latencyClass" x-text="avgLatency + 'ms'"></span>
-        </div>
-        <div class="status-bar-item">
-            <span class="label">Next:</span>
-            <span class="value" style="color: var(--text-muted);" x-text="paused ? '--' : refreshCountdown + 's'"></span>
-        </div>
-        <div class="status-bar-item">
-            <span class="label">Updated:</span>
-            <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
+        <!-- Performance & Timing -->
+        <div class="status-bar-group">
+            <div class="status-bar-item latency-indicator" x-show="avgLatency !== null">
+                <span class="label">API:</span>
+                <span class="value" :class="latencyClass" x-text="avgLatency + 'ms'"></span>
+            </div>
+            <div class="status-bar-item">
+                <span class="label">Next:</span>
+                <span class="value" style="color: var(--text-muted);" x-text="paused ? '--' : refreshCountdown + 's'"></span>
+            </div>
+            <div class="status-bar-item">
+                <span class="label">Updated:</span>
+                <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
+            </div>
         </div>
     </div>
 
