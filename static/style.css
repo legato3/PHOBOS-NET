@@ -199,11 +199,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Pixel art crisp edges */
-    image-rendering: -moz-crisp-edges;
-    image-rendering: -webkit-crisp-edges;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
+    /* Pixel art crisp edges - applied only to images, not all elements */
 }
 
 /* Skip to content link for accessibility */
