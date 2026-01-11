@@ -5323,6 +5323,7 @@ def api_server_health():
         'syslog': {},
         'netflow': {},
         'database': {},
+        'system': {},
         'timestamp': datetime.now().isoformat()
     }
     
