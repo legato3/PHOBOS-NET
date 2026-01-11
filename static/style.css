@@ -57,9 +57,9 @@
     --neon-yellow: var(--accent-warning);
     --danger: var(--accent-danger);
     
-    /* Typography System - Pixel art retro terminal aesthetic */
-    --font-sans: 'VT323', 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
-    --font-mono: 'VT323', 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
+    /* Typography System - Termix style system fonts */
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     
     /* Text Colors - Clear hierarchy */
     --text-primary: #e8e8e8;            /* Main content - WCAG AAA on bg-primary */
@@ -457,7 +457,7 @@ button.active {
     justify-content: center;
     gap: 6px;
     padding: 8px 14px;
-    border: 2px solid var(--card-border);
+    border: 1px solid var(--card-border);
     border-radius: 0;
     background: rgba(255,255,255,0.05);
     color: var(--text-main);
@@ -526,7 +526,7 @@ button.active {
 
 .card {
     background: var(--card-bg);
-    border: 2px solid var(--card-border);
+    border: 1px solid var(--card-border);
     border-radius: 0;
     padding: var(--space-6);
     box-shadow: none;
@@ -535,9 +535,6 @@ button.active {
     flex-direction: column;
     transition: border-color var(--motion-base);
     overflow: hidden;
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
 }
 
 .card:hover {
