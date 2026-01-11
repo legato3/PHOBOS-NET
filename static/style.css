@@ -119,13 +119,13 @@
     --space-xl: var(--space-8);
     --space-2xl: var(--space-12);
     
-    /* Border Radius - Pixel art: completely square edges */
+    /* Border Radius - Termix style rounded corners */
     --radius-none: 0;
-    --radius-sm: 0;
-    --radius-md: 0;
-    --radius-lg: 0;
-    --radius-xl: 0;
-    --radius-2xl: 0;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
     --radius-full: 9999px;
     
     /* Shadows - Subtle, minimal for hacker aesthetic */
@@ -373,7 +373,7 @@ select, button, input {
     border: 1px solid rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
     padding: 6px 10px;
-    border-radius: 0;
+    border-radius: var(--radius-sm);
     font-size: var(--text-sm);
     font-weight: var(--font-weight-normal);
     cursor: pointer;
@@ -406,7 +406,7 @@ button.active {
     padding: var(--space-2);
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 0;
+    border-radius: var(--radius-sm);
     color: var(--text-secondary);
     cursor: pointer;
     transition: 
@@ -435,7 +435,7 @@ button.active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0;
+    border-radius: var(--radius-sm);
 }
 
 .icon-btn-small:hover {
@@ -458,7 +458,7 @@ button.active {
     gap: 6px;
     padding: 6px 12px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 0;
+    border-radius: var(--radius-sm);
     background: rgba(255,255,255,0.03);
     color: var(--text-main);
     cursor: pointer;
@@ -528,7 +528,7 @@ button.active {
 .card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 0;
+    border-radius: var(--radius-md);
     padding: var(--space-4);
     box-shadow: none;
     position: relative;
