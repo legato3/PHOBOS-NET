@@ -112,36 +112,58 @@ function getUserFriendlyError(error, context = '') {
     return context ? `${context}: ${message}` : message;
 }
 
-// Safe fetch with enhanced error handling
+// Request deduplication: track in-flight requests to prevent duplicates
+const _inFlightRequests = new Map();
+
+// Safe fetch with enhanced error handling and request deduplication
 async function safeFetch(url, options = {}) {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
-        
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch {
-                errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
-            }
-            throw errorData;
-        }
-        
-        return response;
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            throw new Error('Request timeout: The request took too long to complete.');
-        }
-        throw error;
+    // Create request key for deduplication (URL + method)
+    const requestKey = `${options.method || 'GET'}:${url}`;
+    
+    // If same request is already in flight, reuse the promise
+    if (_inFlightRequests.has(requestKey)) {
+        return _inFlightRequests.get(requestKey);
     }
+    
+    // Create new request promise
+    const fetchPromise = (async () => {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
+            
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch {
+                    errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+                }
+                throw errorData;
+            }
+            
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout: The request took too long to complete.');
+            }
+            throw error;
+        } finally {
+            // Remove from in-flight map when done (success or error)
+            _inFlightRequests.delete(requestKey);
+        }
+    })();
+    
+    // Store in-flight request
+    _inFlightRequests.set(requestKey, fetchPromise);
+    
+    return fetchPromise;
 }
 
 // Export utilities to global namespace

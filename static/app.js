@@ -1,7 +1,13 @@
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/static/sw.js')
+            .then(registration => {
+                console.log('[SW] Service Worker registered:', registration.scope);
+            })
+            .catch(error => {
+                console.warn('[SW] Service Worker registration failed:', error);
+            });
     });
 }
 

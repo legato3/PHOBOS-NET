@@ -6103,10 +6103,10 @@ def set_security_headers(response):
     # Note: Alpine.js uses inline event handlers, so we use a relaxed CSP
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; "
         "img-src 'self' data: https:; "
-        "font-src 'self' https://cdn.jsdelivr.net data:; "
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; "
         "connect-src 'self'; "
         "frame-ancestors 'none';"
     )
