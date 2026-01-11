@@ -24,10 +24,7 @@ const STATIC_CACHE_TTL = 86400;  // 24 hours for static assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('[SW] Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
-            })
+            .then(cache => cache.addAll(STATIC_ASSETS))
             .then(() => self.skipWaiting())
     );
 });
@@ -39,10 +36,7 @@ self.addEventListener('activate', (event) => {
             .then(keys => {
                 return Promise.all(
                     keys.filter(key => key !== CACHE_NAME)
-                        .map(key => {
-                            console.log('[SW] Removing old cache:', key);
-                            return caches.delete(key);
-                        })
+                        .map(key => caches.delete(key))
                 );
             })
             .then(() => self.clients.claim())
@@ -97,7 +91,6 @@ self.addEventListener('fetch', (event) => {
                     return caches.match(event.request)
                         .then(cached => {
                             if (cached) {
-                                console.log('[SW] Serving cached API:', url.pathname);
                                 return cached;
                             }
                             // Return empty response for API failures

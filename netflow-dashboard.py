@@ -3184,7 +3184,6 @@ def start_agg_thread():
 
 # ===== Firewall Syslog Receiver (OPNsense filterlog) =====
 
-import socket
 import re
 
 # Regex to parse OPNsense filterlog messages
@@ -3408,8 +3407,8 @@ def _cleanup_old_fw_logs():
 
 def _syslog_receiver_loop():
     """UDP syslog receiver loop."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_DGRAM)
+    sock.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
     
     try:
         sock.bind((SYSLOG_BIND, SYSLOG_PORT))
@@ -4319,7 +4318,7 @@ def api_malicious_ports():
     ports = list(port_data.values())
     for p in ports:
         p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
-        # p['bytes_fmt'] = format_bytes(p['netflow_bytes'])  # TODO: implement format_bytes
+        p['bytes_fmt'] = fmt_bytes(p['netflow_bytes'])
     
     ports.sort(key=lambda x: x['total_score'], reverse=True)
     
@@ -5555,9 +5554,6 @@ def api_server_health():
 
 
 # ===== SNMP Integration =====
-import subprocess
-import time
-import threading
 
 # SNMP Configuration (override with env vars)
 SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
