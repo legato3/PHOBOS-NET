@@ -485,28 +485,48 @@ button.active {
 .card[draggable="true"] { cursor: move; }
 .card.dragging { opacity: 0.7; box-shadow: 0 0 0 2px var(--accent-cyan) inset; }
 
-/* Subtle glow accent on corners */
-.card::before {
-    content: '';
-    position: absolute;
-    top: -1px; left: -1px;
-    width: 20px; height: 20px;
-    border-top: 2px solid var(--accent-cyan);
-    border-left: 2px solid var(--accent-cyan);
-    border-radius: 6px 0 0 0;
-    opacity: 0.4;
-    pointer-events: none;
-}
+/* Enhanced glow accents on corners */
 .card::after {
     content: '';
     position: absolute;
-    bottom: -1px; right: -1px;
-    width: 20px; height: 20px;
-    border-bottom: 2px solid var(--accent-magenta);
-    border-right: 2px solid var(--accent-magenta);
-    border-radius: 0 0 6px 0;
-    opacity: 0.4;
+    top: -2px; 
+    left: -2px;
+    width: 40px; 
+    height: 40px;
+    border-top: 3px solid var(--accent-primary);
+    border-left: 3px solid var(--accent-primary);
+    border-radius: var(--radius-md) 0 0 0;
+    opacity: 0.6;
     pointer-events: none;
+    box-shadow: 
+        -2px -2px 8px rgba(0, 243, 255, 0.3),
+        inset -2px -2px 4px rgba(0, 243, 255, 0.1);
+    z-index: 1;
+}
+
+.card:hover::after {
+    opacity: 1;
+    box-shadow: 
+        -2px -2px 12px rgba(0, 243, 255, 0.5),
+        inset -2px -2px 6px rgba(0, 243, 255, 0.2);
+}
+
+.card .card-corner-glow {
+    content: '';
+    position: absolute;
+    bottom: -2px; 
+    right: -2px;
+    width: 40px; 
+    height: 40px;
+    border-bottom: 3px solid var(--accent-secondary);
+    border-right: 3px solid var(--accent-secondary);
+    border-radius: 0 0 var(--radius-md) 0;
+    opacity: 0.6;
+    pointer-events: none;
+    box-shadow: 
+        2px 2px 8px rgba(255, 0, 255, 0.3),
+        inset 2px 2px 4px rgba(255, 0, 255, 0.1);
+    z-index: 1;
 }
 
 .wide-card {
@@ -6000,11 +6020,14 @@ body.compact-mode {
     display: flex;
     gap: var(--space-2);
     margin-bottom: var(--space-8);
-    border-bottom: 1px solid var(--card-border);
+    border-bottom: 2px solid var(--card-border);
     padding-bottom: 0;
     overflow-x: auto;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
+    background: linear-gradient(180deg, rgba(0, 243, 255, 0.03) 0%, transparent 100%);
+    padding: var(--space-2) var(--space-2) 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .tabs::-webkit-scrollbar {
@@ -6015,77 +6038,120 @@ body.compact-mode {
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
-    background: var(--bg-overlay);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: linear-gradient(180deg, var(--bg-overlay) 0%, rgba(10, 14, 23, 0.98) 100%);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
     padding-top: var(--space-4);
     padding-bottom: var(--space-2);
     margin-top: calc(var(--space-4) * -1);
     margin-bottom: var(--space-6);
+    border-bottom: 2px solid rgba(0, 243, 255, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .tab-btn {
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid transparent;
+    border-bottom: none;
     color: var(--text-secondary);
     font-size: var(--text-sm);
     font-weight: var(--font-weight-medium);
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-6);
     cursor: pointer;
     transition: 
-        color var(--motion-base),
-        border-color var(--motion-base),
-        background-color var(--motion-fast);
+        all var(--motion-base);
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-wider);
     white-space: nowrap;
     position: relative;
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .tab-btn::before {
     content: '';
     position: absolute;
-    bottom: -1px;
+    bottom: -2px;
     left: 0;
     right: 0;
-    height: 2px;
-    background: var(--accent-primary);
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
     transform: scaleX(0);
     transition: transform var(--motion-base);
-    border-radius: 2px 2px 0 0;
+    opacity: 0;
+}
+
+.tab-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity var(--motion-base);
+    pointer-events: none;
 }
 
 .tab-btn:hover {
     color: var(--text-primary);
-    background: var(--glass-bg);
+    background: rgba(0, 243, 255, 0.08);
+    border-color: rgba(0, 243, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 -4px 16px rgba(0, 243, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .tab-btn:hover::before {
-    transform: scaleX(0.5);
+    transform: scaleX(0.6);
+    opacity: 0.6;
+}
+
+.tab-btn:hover::after {
+    opacity: 1;
 }
 
 .tab-btn:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
-    border-radius: var(--radius-sm);
-    background: var(--glass-bg);
+    border-radius: var(--radius-md);
+    background: rgba(0, 243, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 243, 255, 0.2);
 }
 
 .tab-btn.active {
     color: var(--accent-primary);
-    font-weight: var(--font-weight-semibold);
-    background: var(--glass-bg);
+    font-weight: var(--font-weight-bold);
+    background: linear-gradient(180deg, rgba(0, 243, 255, 0.15) 0%, rgba(0, 243, 255, 0.05) 100%);
+    border-color: rgba(0, 243, 255, 0.3);
+    border-bottom-color: var(--bg-overlay);
+    box-shadow: 
+        0 -4px 20px rgba(0, 243, 255, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+    z-index: 1;
 }
 
 .tab-btn.active::before {
     transform: scaleX(1);
+    opacity: 1;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--accent-primary), rgba(255, 0, 255, 0.8), var(--accent-primary), transparent);
+    box-shadow: 0 0 12px var(--accent-primary-glow);
+}
+
+.tab-btn.active::after {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(0, 243, 255, 0.2) 0%, rgba(255, 0, 255, 0.1) 100%);
 }
 
 .tab-btn.active:hover {
     color: var(--accent-primary);
-    background: var(--glass-bg-hover);
+    background: linear-gradient(180deg, rgba(0, 243, 255, 0.2) 0%, rgba(0, 243, 255, 0.08) 100%);
+    border-color: rgba(0, 243, 255, 0.4);
+    box-shadow: 
+        0 -4px 24px rgba(0, 243, 255, 0.3),
+        0 4px 16px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 /* Force 4 columns for specific grids on desktop */
