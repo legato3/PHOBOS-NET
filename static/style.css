@@ -175,15 +175,22 @@
 }
 
 body {
-    background-color: var(--bg-dark);
-    color: var(--text-main);
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--line-height-normal);
+    letter-spacing: var(--letter-spacing-normal);
     margin: 0;
-    padding: 20px;
+    padding: var(--space-4);
     background-image:
-        radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.02) 0%, transparent 30%),
-        radial-gradient(circle at 90% 80%, rgba(255, 0, 255, 0.02) 0%, transparent 30%);
+        radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.015) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(255, 0, 255, 0.015) 0%, transparent 40%);
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 /* Skip to content link for accessibility */
@@ -271,17 +278,20 @@ body {
 }
 
 .title {
-    font-size: 1.8em;
-    font-weight: 900;
-    letter-spacing: 2px;
+    font-size: var(--text-3xl);
+    font-weight: var(--font-weight-extrabold);
+    letter-spacing: var(--letter-spacing-wider);
     text-transform: uppercase;
-    text-shadow: 0 0 8px rgba(0, 243, 255, 0.2);
+    color: var(--text-primary);
+    text-shadow: 0 0 12px var(--accent-primary-glow);
+    line-height: var(--line-height-tight);
 }
 
 .controls {
     display: flex;
-    gap: 15px;
+    gap: var(--space-4);
     align-items: center;
+    flex-wrap: wrap;
 }
 
 /* Glass Inputs */
@@ -314,35 +324,50 @@ button.active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--card-border);
-    border-radius: 4px;
-    color: var(--accent-cyan);
+    padding: var(--space-2);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: var(--accent-primary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: 
+        background-color var(--motion-fast),
+        border-color var(--motion-fast),
+        box-shadow var(--motion-fast),
+        color var(--motion-fast);
 }
+
 .icon-btn:hover {
-    background: rgba(0, 243, 255, 0.12);
-    box-shadow: 0 0 6px rgba(0, 243, 255, 0.2);
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+    box-shadow: 0 0 8px var(--accent-primary-glow);
+    color: var(--accent-primary);
+}
+
+.icon-btn:active {
+    transform: scale(0.95);
 }
 
 .icon-btn-small {
     background: transparent;
     border: none;
-    padding: 2px;
+    padding: var(--space-1);
     cursor: pointer;
-    color: var(--text-muted);
-    transition: color 0.2s;
-    display: flex;
+    color: var(--text-tertiary);
+    transition: color var(--motion-fast);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--radius-sm);
 }
+
 .icon-btn-small:hover {
-    color: var(--accent-cyan);
-    background: transparent;
-    box-shadow: none;
-    border: none;
+    color: var(--accent-primary);
+    background: rgba(0, 243, 255, 0.08);
+}
+
+.icon-btn-small:active {
+    transform: scale(0.9);
 }
 
 /* Default header icon button color */
