@@ -274,6 +274,108 @@
                 </template>
             </section>
 
+            <!-- Server Health Section -->
+            <section id="section-server-health" class="scroll-section" style="margin-bottom: 32px;">
+                <div class="section-header">
+                    <span class="section-icon">🖥️</span>
+                    <h3>Server Health</h3>
+                </div>
+                <template x-if="isVisible('serverHealth')">
+                    <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('serverHealth') }" style="max-width: 100%; padding: 24px;">
+                        <h2>
+                            <span>🖥️ Server Health & Statistics</span>
+                            <div class="card-actions">
+                                <button class="icon-btn-small" @click="toggleMinimize('serverHealth')" :title="isMinimized('serverHealth') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('serverHealth')"><path d="M3 12h18M12 3v18"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('serverHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                </button>
+                                <div class="spinner" x-show="serverHealth.loading"></div>
+                            </div>
+                        </h2>
+                        <div x-show="!isMinimized('serverHealth')">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                                <!-- CPU -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>⚡ CPU</span>
+                                        <span class="server-stat-value" :class="{ 'text-yellow': serverHealth.cpu?.percent >= 70, 'text-red': serverHealth.cpu?.percent >= 90 }" x-text="serverHealth.cpu?.percent ? serverHealth.cpu.percent + '%' : '--'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.cpu?.load_1min">
+                                        <div>Load 1m: <span x-text="serverHealth.cpu.load_1min"></span></div>
+                                        <div x-show="serverHealth.cpu.load_5min">Load 5m: <span x-text="serverHealth.cpu.load_5min"></span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Memory -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>💾 Memory</span>
+                                        <span class="server-stat-value" :class="{ 'text-yellow': serverHealth.memory?.percent >= 70, 'text-red': serverHealth.memory?.percent >= 90 }" x-text="serverHealth.memory?.percent ? serverHealth.memory.percent + '%' : '--'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.memory?.total_gb">
+                                        <div>Total: <span x-text="serverHealth.memory.total_gb + ' GB'"></span></div>
+                                        <div>Used: <span x-text="serverHealth.memory.used_gb + ' GB'"></span></div>
+                                        <div>Available: <span x-text="serverHealth.memory.available_gb + ' GB'"></span></div>
+                                        <div x-show="serverHealth.memory.process_mb">Process: <span x-text="serverHealth.memory.process_mb + ' MB'"></span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Disk -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>💿 Disk</span>
+                                        <span class="server-stat-value" :class="{ 'text-yellow': serverHealth.disk?.root?.percent_used >= 75, 'text-red': serverHealth.disk?.root?.percent_used >= 90 }" x-text="serverHealth.disk?.root?.percent_used ? serverHealth.disk.root.percent_used + '%' : '--'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.disk?.root">
+                                        <div>Root: <span x-text="serverHealth.disk.root.used_gb + ' GB / ' + serverHealth.disk.root.total_gb + ' GB'"></span></div>
+                                        <div x-show="serverHealth.disk.nfdump">NetFlow: <span x-text="serverHealth.disk.nfdump.used_gb + ' GB / ' + serverHealth.disk.nfdump.total_gb + ' GB'"></span></div>
+                                        <div x-show="serverHealth.disk.nfdump_files">Files: <span x-text="serverHealth.disk.nfdump_files"></span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Syslog -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>📋 Syslog</span>
+                                        <span class="server-stat-badge" :class="serverHealth.syslog?.active ? 'badge-success' : 'badge-warning'" x-text="serverHealth.syslog?.active ? 'Active' : 'Inactive'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.syslog">
+                                        <div>Received: <span x-text="(serverHealth.syslog.received || 0).toLocaleString()"></span></div>
+                                        <div>Parsed: <span x-text="(serverHealth.syslog.parsed || 0).toLocaleString()"></span></div>
+                                        <div x-show="serverHealth.syslog.errors">Errors: <span class="text-red" x-text="serverHealth.syslog.errors"></span></div>
+                                    </div>
+                                </div>
+
+                                <!-- NetFlow -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>🌊 NetFlow</span>
+                                        <span class="server-stat-badge" :class="serverHealth.netflow?.available ? 'badge-success' : 'badge-error'" x-text="serverHealth.netflow?.available ? 'Available' : 'Unavailable'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.netflow">
+                                        <div x-show="serverHealth.netflow.files_count">Files: <span x-text="serverHealth.netflow.files_count"></span></div>
+                                        <div x-show="serverHealth.netflow.version">Version: <span x-text="serverHealth.netflow.version"></span></div>
+                                        <div x-show="serverHealth.netflow.directory">Path: <span style="font-family: monospace; font-size: 0.85em;" x-text="serverHealth.netflow.directory"></span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Database -->
+                                <div class="server-stat-card">
+                                    <div class="server-stat-header">
+                                        <span>🗄️ Database</span>
+                                        <span class="server-stat-badge" :class="serverHealth.database?.connected ? 'badge-success' : 'badge-error'" x-text="serverHealth.database?.connected ? 'Connected' : 'Disconnected'"></span>
+                                    </div>
+                                    <div class="server-stat-details" x-show="serverHealth.database?.connected">
+                                        <div>Logs: <span x-text="(serverHealth.database.log_count || 0).toLocaleString()"></span></div>
+                                        <div x-show="serverHealth.database.size_mb">Size: <span x-text="serverHealth.database.size_mb + ' MB'"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </section>
+
             <!-- World Map Section -->
             <section id="section-worldmap" class="scroll-section" style="margin-bottom: 32px;">
         <div class="section-header">

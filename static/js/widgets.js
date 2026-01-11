@@ -45,7 +45,8 @@ window.DashboardWidgets = {
         talkers: true,
         services: true,
         hourlyTraffic: true,
-        insights: true
+        insights: true,
+        serverHealth: true
     },
 
     // Friendly labels for widgets
@@ -88,7 +89,8 @@ window.DashboardWidgets = {
         recentBlocks: 'Firewall Logs',
         ipInvestigation: 'IP Deep Dive',
         flowSearch: 'Advanced Flow Search',
-        alertCorrelation: 'Alert Correlation'
+        alertCorrelation: 'Alert Correlation',
+        serverHealth: 'Server Health'
     },
 
     // Load widget preferences from localStorage

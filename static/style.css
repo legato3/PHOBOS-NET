@@ -5150,6 +5150,86 @@ body.compact-mode {
 }
 
 /* ============================================
+   SERVER HEALTH SECTION
+   ============================================ */
+.server-stat-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 243, 255, 0.15);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+}
+
+.server-stat-card:hover {
+    border-color: rgba(0, 243, 255, 0.3);
+    background: rgba(0, 243, 255, 0.05);
+}
+
+.server-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 1em;
+    color: var(--text-main);
+}
+
+.server-stat-value {
+    font-size: 1.2em;
+    font-weight: 700;
+    font-family: var(--font-mono), monospace;
+    color: var(--accent-cyan);
+}
+
+.server-stat-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-success {
+    background: rgba(0, 255, 100, 0.2);
+    color: var(--neon-green);
+    border: 1px solid rgba(0, 255, 100, 0.3);
+}
+
+.badge-warning {
+    background: rgba(255, 200, 0, 0.2);
+    color: var(--neon-yellow);
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+.badge-error {
+    background: rgba(255, 0, 60, 0.2);
+    color: var(--neon-red);
+    border: 1px solid rgba(255, 0, 60, 0.3);
+}
+
+.server-stat-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+.server-stat-details > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.server-stat-details span {
+    color: var(--text-main);
+    font-weight: 500;
+    font-family: var(--font-mono), monospace;
+}
+
+/* ============================================
    SCROLL SPY NAVIGATION
    ============================================ */
 .scroll-spy {

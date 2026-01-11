@@ -74,6 +74,7 @@ document.addEventListener('alpine:init', () => {
         flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
         protoMix: { labels: [], bytes: [], percentages: [], colors: [], loading: true },
         netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
+        serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
         
         // Security Features
         securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
@@ -1936,6 +1937,20 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
                 if(res.ok) this.netHealth = { ...(await res.json()) };
             } catch(e) { console.error(e); } finally { this.netHealth.loading = false; }
+        },
+
+        async fetchServerHealth() {
+            this.serverHealth.loading = true;
+            try {
+                const res = await fetch('/api/server/health');
+                if(res.ok) {
+                    const data = await res.json();
+                    this.serverHealth = { ...data, loading: false };
+                }
+            } catch(e) { 
+                console.error('Server health fetch error:', e);
+                this.serverHealth.loading = false;
+            }
         },
 
         async fetchBandwidth() {
