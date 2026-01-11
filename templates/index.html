@@ -10,15 +10,15 @@
     <meta name="mobile-web-app-capable" content="yes">
 
     <!-- External Libs (bundled locally to reduce CDN dependency) -->
-    <script src="/static/chart.min.js"></script>
-    <script src="/static/chartjs-chart-sankey.min.js"></script>
+    <script src="/static/chart.min.js" defer></script>
+    <script src="/static/chartjs-chart-sankey.min.js" defer></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
     <script src="/static/alpine.min.js" defer></script>
-    <script src="/static/vis-network.min.js"></script>
+    <script src="/static/vis-network.min.js" defer></script>
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
 
     <!-- CSS -->
     <link rel="stylesheet" href="/static/style.css?v=2.6.0">
@@ -195,8 +195,6 @@
             </div>
         </div>
 
-        <!-- Mobile Quick Stats Bar -->
-
         <!-- Tab Navigation -->
         <div class="tabs">
             <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
@@ -205,446 +203,74 @@
             <button class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'">Forensics</button>
         </div>
 
-        <!-- OVERVIEW TAB -->
+        <!-- ============================================
+             OVERVIEW TAB
+             ============================================ -->
         <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'">
-<div class="mobile-stats-bar">
-            <div class="mobile-stat">
-                <span class="mobile-stat-value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
-                <span class="mobile-stat-label">CPU</span>
-            </div>
-<!-- Summary Stats -->
-        <section id="section-summary" class="scroll-section">
-        <div class="grid" data-reorder="true" data-grid-id="summary">
-            <div class="card stat-box">
-                <div class="value" x-text="summary.totals.bytes_fmt">...</div>
-                <div class="label">Total Traffic</div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
-                <div class="label">Total Flows</div>
-            </div>
-            <div class="card stat-box">
-                <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
-                <div class="label">Avg Packet Size</div>
-            </div>
-        </div>
 
-        <!-- Bandwidth Chart (moved up for overview before firewall details) -->
-        <template x-if="isVisible('bandwidth')">
-            <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; margin: 0; gap: 8px;">
-                    <span>📊 Bandwidth & Flow Rate</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="bandwidth.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
-                    <canvas id="bwChart"></canvas>
+            <!-- Mobile Quick Stats Bar -->
+            <div class="mobile-stats-bar">
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
+                    <span class="mobile-stat-label">CPU</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
+                    <span class="mobile-stat-label">MEM</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+                    <span class="mobile-stat-label">Threats</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+                    <span class="mobile-stat-label">Flows</span>
+                </div>
+                <div class="mobile-stat">
+                    <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'" x-text="paused ? '⏸' : '▶'"></span>
+                    <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
                 </div>
             </div>
-        </template>
 
-        <!-- Firewall Health -->
-        <template x-if="isVisible('firewall')">
-            <div>
-                <!-- Section Header -->
-                <div class="section-header">
-                    <span class="section-icon">🛡️</span>
-                    <h3>Firewall Health</h3>
-                </div>
-                <div style="font-size:0.75em; color: var(--text-muted); margin: 4px 4px 10px 4px;">
-                    Legend: <span style="color: orange">orange</span> = warning, <span style="color: var(--neon-red)">red</span> = critical.
-                    Thresholds: Util ≥ <span x-text="thresholds.util_warn"></span>/<span x-text="thresholds.util_crit"></span>%,
-                    TCP resets ≥ <span x-text="thresholds.resets_warn"></span>/<span x-text="thresholds.resets_crit"></span> s⁻¹,
-                    IP/ICMP/IF errs ≥ <span x-text="thresholds.ip_err_warn"></span>/<span x-text="thresholds.ip_err_crit"></span> s⁻¹.
-                </div>
-
-                <!-- System Resources Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">System Resources</span>
+            <!-- Summary Stats -->
+            <section id="section-summary" class="scroll-section">
+                <div class="grid" data-reorder="true" data-grid-id="summary">
+                    <div class="card stat-box">
+                        <div class="value" x-text="summary.totals.bytes_fmt">...</div>
+                        <div class="label">Total Traffic</div>
                     </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.cpu_percent >= 90, 'status-warning': firewall.cpu_percent >= 70 && firewall.cpu_percent < 90, 'status-ok': firewall.cpu_percent < 70 && firewall.cpu_percent != null }" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
-                            <div class="label">🔥 CPU</div>
-                            <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
-                            <div class="label">📊 5min Load</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.mem_percent >= 90, 'status-warning': firewall.mem_percent >= 70 && firewall.mem_percent < 90, 'status-ok': firewall.mem_percent < 70 && firewall.mem_percent != null }" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
-                            <div class="label">💾 Memory</div>
-                            <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" style="font-size:1.4em" x-text="firewall.swap_percent != null ? firewall.swap_percent + '%' : '--'"></div>
-                            <div class="label">Swap</div>
-                        </div>
-                        <div class="card stat-box status-ok clickable-stat" @click="openFwDetail('uptime')" title="Click for details">
-                            <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
-                            <div class="label">⏱️ Uptime</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.proc_count || '--'">--</div>
-                            <div class="label">⚙️ Procs</div>
-                        </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
+                        <div class="label">Total Flows</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
+                        <div class="label">Avg Packet Size</div>
                     </div>
                 </div>
 
-                <!-- Network & Traffic Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Network & Traffic</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('interfaces')" title="Click for details">
-                            <div class="value">
-                                <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
-                                <span style="color:var(--text-muted); font-size:0.5em">|</span>
-                                <span :class="firewall.if_lan_status == '1' ? 'text-green' : 'text-red'">LAN</span>
+                <!-- Bandwidth Chart -->
+                <template x-if="isVisible('bandwidth')">
+                    <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
+                        <h2>
+                            <span>📊 Bandwidth & Flow Rate</span>
+                            <div class="card-actions">
+                                <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                </button>
+                                <div class="spinner" x-show="bandwidth.loading"></div>
                             </div>
-                            <div class="label">Interfaces</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.wan_util_percent >= thresholds.util_crit, 'status-warning': firewall.wan_util_percent >= thresholds.util_warn && firewall.wan_util_percent < thresholds.util_crit }" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.wan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.wan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">WAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.lan_util_percent >= thresholds.util_crit, 'status-warning': firewall.lan_util_percent >= thresholds.util_warn && firewall.lan_util_percent < thresholds.util_crit }" @click="openFwDetail('lan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.lan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.lan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">LAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="fmtBytes(firewall.wan_in)"></span></div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="fmtBytes(firewall.wan_out)"></span></div>
-                            </div>
-                            <div class="label">WAN Total</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
-                            <div class="label">🔌 Conns</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="(firewall.udp_in_s||0).toFixed(1)"></span>/s</div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="(firewall.udp_out_s||0).toFixed(1)"></span>/s</div>
-                            </div>
-                            <div class="label">UDP Rate</div>
+                        </h2>
+                        <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                            <canvas id="bwChart"></canvas>
                         </div>
                     </div>
-                </div>
+                </template>
+            </section>
 
-                <!-- Errors & Reliability Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Errors & Reliability</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_crit, 'status-warning': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_warn && (firewall.tcp_estab_resets_s||0) < thresholds.resets_crit }" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">Opens:</span> <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(1)"></span>/s</div>
-                                <div><span>Resets:</span> <span x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Activity</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_crit, 'status-warning': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_warn && (firewall.tcp_fails_s||0) < thresholds.tcp_fails_crit }" @click="openFwDetail('tcp_reliability')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>Fails: <span x-text="(firewall.tcp_fails_s||0).toFixed(2)"></span>/s</div>
-                                <div>Retrans: <span x-text="(firewall.tcp_retrans_s||0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Reliability</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_crit), 'status-warning': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_warn) }" @click="openFwDetail('if_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>WAN: <span x-text="((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                                <div>LAN: <span x-text="((firewall.lan_in_err_s||0)+(firewall.lan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IF Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_crit), 'status-warning': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_warn) }" @click="openFwDetail('ip_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>IP: <span x-text="((firewall.ip_in_hdr_errors_s||0) + (firewall.ip_in_addr_errors_s||0) + (firewall.ip_in_discards_s||0)).toFixed(2)"></span>/s</div>
-                                <div>ICMP: <span x-text="(firewall.icmp_in_errors_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IP/ICMP Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('disk_io')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">R:</span> <span x-text="fmtBytes(firewall.disk_read)"></span></div>
-                                <div>W: <span x-text="fmtBytes(firewall.disk_write)"></span></div>
-                            </div>
-                            <div class="label">Disk I/O</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Security & Blocking Subsection (Syslog data) -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Security & Blocking</span>
-                        <span x-show="firewall.syslog_active" class="status-badge status-ok" style="margin-left:8px; font-size:0.7em;">LIVE</span>
-                        <span x-show="!firewall.syslog_active" class="status-badge" style="margin-left:8px; font-size:0.7em; opacity:0.5;">Syslog Pending</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.blocks_1h > 0 }" title="Connections blocked by firewall in last hour">
-                            <div class="value" x-text="firewall.blocks_1h || '0'">0</div>
-                            <div class="label">🛡️ Blocks (1h)</div>
-                            <div class="sublabel" x-text="firewall.blocks_per_hour ? firewall.blocks_per_hour + '/hr avg' : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-warning': firewall.unique_blocked_ips >= 10, 'status-critical': firewall.unique_blocked_ips >= 50 }" title="Unique IPs blocked">
-                            <div class="value" x-text="firewall.unique_blocked_ips || '0'">0</div>
-                            <div class="label">🚫 Unique IPs</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.threats_blocked > 0 }" title="Known threat IPs blocked">
-                            <div class="value" x-text="firewall.threats_blocked || '0'">0</div>
-                            <div class="label">⚠️ Threats Blocked</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" title="Syslog receiver status">
-                            <div class="value" style="font-size:1.1em">
-                                <span :class="firewall.syslog_active ? 'text-green' : 'text-muted'" x-text="firewall.syslog_active ? '●' : '○'"></span>
-                            </div>
-                            <div class="label">Syslog</div>
-                            <div class="sublabel" x-text="firewall.syslog_stats?.parsed ? firewall.syslog_stats.parsed + ' parsed' : 'Awaiting logs'"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </template>
-
-
-
-        </section>
-            <!-- bandwidth -->
-            <template x-if="isVisible('bandwidth')">
-<div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; margin: 0; gap: 8px;">
-                    <span>📊 Bandwidth & Flow Rate</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        <div class="spinner" x-show="bandwidth.loading"></div>
-                    </div>
-                </h2>
-                <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
-                    <canvas id="bwChart"></canvas>
-                </div>
-            </div>
-            </template>
-<template x-if="isVisible('firewall')">
-            <div>
-                <!-- Section Header -->
-                <div class="section-header">
-                    <span class="section-icon">🛡️</span>
-                    <h3>Firewall Health</h3>
-                </div>
-                <div style="font-size:0.75em; color: var(--text-muted); margin: 4px 4px 10px 4px;">
-                    Legend: <span style="color: orange">orange</span> = warning, <span style="color: var(--neon-red)">red</span> = critical.
-                    Thresholds: Util ≥ <span x-text="thresholds.util_warn"></span>/<span x-text="thresholds.util_crit"></span>%,
-                    TCP resets ≥ <span x-text="thresholds.resets_warn"></span>/<span x-text="thresholds.resets_crit"></span> s⁻¹,
-                    IP/ICMP/IF errs ≥ <span x-text="thresholds.ip_err_warn"></span>/<span x-text="thresholds.ip_err_crit"></span> s⁻¹.
-                </div>
-
-                <!-- System Resources Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">System Resources</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.cpu_percent >= 90, 'status-warning': firewall.cpu_percent >= 70 && firewall.cpu_percent < 90, 'status-ok': firewall.cpu_percent < 70 && firewall.cpu_percent != null }" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'">--</div>
-                            <div class="label">🔥 CPU</div>
-                            <div class="sublabel" x-text="firewall.cpu_load_1min ? 'Load: ' + firewall.cpu_load_1min : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.cpu_load_5min || '--'">--</div>
-                            <div class="label">📊 5min Load</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.mem_percent >= 90, 'status-warning': firewall.mem_percent >= 70 && firewall.mem_percent < 90, 'status-ok': firewall.mem_percent < 70 && firewall.mem_percent != null }" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'">--</div>
-                            <div class="label">💾 Memory</div>
-                            <div class="sublabel" x-text="firewall.mem_used && firewall.mem_total ? formatBytes(firewall.mem_used * 1024) + ' / ' + formatBytes(firewall.mem_total * 1024) : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('memory')" title="Click for details">
-                            <div class="value" style="font-size:1.4em" x-text="firewall.swap_percent != null ? firewall.swap_percent + '%' : '--'"></div>
-                            <div class="label">Swap</div>
-                        </div>
-                        <div class="card stat-box status-ok clickable-stat" @click="openFwDetail('uptime')" title="Click for details">
-                            <div class="value" x-text="firewall.sys_uptime_formatted || '--'">--</div>
-                            <div class="label">⏱️ Uptime</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('cpu')" title="Click for details">
-                            <div class="value" x-text="firewall.proc_count || '--'">--</div>
-                            <div class="label">⚙️ Procs</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Network & Traffic Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Network & Traffic</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('interfaces')" title="Click for details">
-                            <div class="value">
-                                <span :class="firewall.if_wan_status == '1' ? 'text-green' : 'text-red'">WAN</span>
-                                <span style="color:var(--text-muted); font-size:0.5em">|</span>
-                                <span :class="firewall.if_lan_status == '1' ? 'text-green' : 'text-red'">LAN</span>
-                            </div>
-                            <div class="label">Interfaces</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.wan_util_percent >= thresholds.util_crit, 'status-warning': firewall.wan_util_percent >= thresholds.util_warn && firewall.wan_util_percent < thresholds.util_crit }" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.wan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.wan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">WAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': firewall.lan_util_percent >= thresholds.util_crit, 'status-warning': firewall.lan_util_percent >= thresholds.util_warn && firewall.lan_util_percent < thresholds.util_crit }" @click="openFwDetail('lan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">⬇️</span> <span x-text="(firewall.lan_rx_mbps ?? 0).toFixed(1)"></span></div>
-                                <div><span class="text-purple">⬆️</span> <span x-text="(firewall.lan_tx_mbps ?? 0).toFixed(1)"></span></div>
-                            </div>
-                            <div class="label">LAN Mbps</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('wan_traffic')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="fmtBytes(firewall.wan_in)"></span></div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="fmtBytes(firewall.wan_out)"></span></div>
-                            </div>
-                            <div class="label">WAN Total</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" x-text="firewall.tcp_conns || '--'">--</div>
-                            <div class="label">🔌 Conns</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-cyan">IN:</span> <span x-text="(firewall.udp_in_s||0).toFixed(1)"></span>/s</div>
-                                <div><span class="text-purple">OUT:</span> <span x-text="(firewall.udp_out_s||0).toFixed(1)"></span>/s</div>
-                            </div>
-                            <div class="label">UDP Rate</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Errors & Reliability Subsection -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Errors & Reliability</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_crit, 'status-warning': (firewall.tcp_estab_resets_s||0) >= thresholds.resets_warn && (firewall.tcp_estab_resets_s||0) < thresholds.resets_crit }" @click="openFwDetail('tcp_activity')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">Opens:</span> <span x-text="(firewall.tcp_active_opens_s ?? 0).toFixed(1)"></span>/s</div>
-                                <div><span>Resets:</span> <span x-text="(firewall.tcp_estab_resets_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Activity</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_crit, 'status-warning': (firewall.tcp_fails_s||0) >= thresholds.tcp_fails_warn && (firewall.tcp_fails_s||0) < thresholds.tcp_fails_crit }" @click="openFwDetail('tcp_reliability')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>Fails: <span x-text="(firewall.tcp_fails_s||0).toFixed(2)"></span>/s</div>
-                                <div>Retrans: <span x-text="(firewall.tcp_retrans_s||0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">TCP Reliability</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_crit), 'status-warning': (((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)) >= thresholds.if_err_warn) }" @click="openFwDetail('if_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>WAN: <span x-text="((firewall.wan_in_err_s||0)+(firewall.wan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                                <div>LAN: <span x-text="((firewall.lan_in_err_s||0)+(firewall.lan_out_err_s||0)).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IF Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-critical': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_crit), 'status-warning': (((firewall.ip_in_hdr_errors_s||0)+(firewall.ip_in_addr_errors_s||0)+(firewall.ip_in_discards_s||0)) >= thresholds.ip_err_warn) }" @click="openFwDetail('ip_errors')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div>IP: <span x-text="((firewall.ip_in_hdr_errors_s||0) + (firewall.ip_in_addr_errors_s||0) + (firewall.ip_in_discards_s||0)).toFixed(2)"></span>/s</div>
-                                <div>ICMP: <span x-text="(firewall.icmp_in_errors_s ?? 0).toFixed(2)"></span>/s</div>
-                            </div>
-                            <div class="label">IP/ICMP Errors</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" @click="openFwDetail('disk_io')" title="Click for details">
-                            <div class="value" style="font-size:1.1em">
-                                <div><span class="text-green">R:</span> <span x-text="fmtBytes(firewall.disk_read)"></span></div>
-                                <div>W: <span x-text="fmtBytes(firewall.disk_write)"></span></div>
-                            </div>
-                            <div class="label">Disk I/O</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Security & Blocking Subsection (Syslog data) -->
-                <div class="subsection" x-data="{ collapsed: false }">
-                    <div class="subsection-header" :class="{ collapsed: collapsed }" @click="collapsed = !collapsed">
-                        <span class="subsection-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        </span>
-                        <span class="subsection-title">Security & Blocking</span>
-                        <span x-show="firewall.syslog_active" class="status-badge status-ok" style="margin-left:8px; font-size:0.7em;">LIVE</span>
-                        <span x-show="!firewall.syslog_active" class="status-badge" style="margin-left:8px; font-size:0.7em; opacity:0.5;">Syslog Pending</span>
-                    </div>
-                    <div class="subsection-content" :class="{ collapsed: collapsed }">
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.blocks_1h > 0 }" title="Connections blocked by firewall in last hour">
-                            <div class="value" x-text="firewall.blocks_1h || '0'">0</div>
-                            <div class="label">🛡️ Blocks (1h)</div>
-                            <div class="sublabel" x-text="firewall.blocks_per_hour ? firewall.blocks_per_hour + '/hr avg' : ''"></div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-warning': firewall.unique_blocked_ips >= 10, 'status-critical': firewall.unique_blocked_ips >= 50 }" title="Unique IPs blocked">
-                            <div class="value" x-text="firewall.unique_blocked_ips || '0'">0</div>
-                            <div class="label">🚫 Unique IPs</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" :class="{ 'status-ok': firewall.threats_blocked > 0 }" title="Known threat IPs blocked">
-                            <div class="value" x-text="firewall.threats_blocked || '0'">0</div>
-                            <div class="label">⚠️ Threats Blocked</div>
-                        </div>
-                        <div class="card stat-box clickable-stat" title="Syslog receiver status">
-                            <div class="value" style="font-size:1.1em">
-                                <span :class="firewall.syslog_active ? 'text-green' : 'text-muted'" x-text="firewall.syslog_active ? '●' : '○'"></span>
-                            </div>
-                            <div class="label">Syslog</div>
-                            <div class="sublabel" x-text="firewall.syslog_stats?.parsed ? firewall.syslog_stats.parsed + ' parsed' : 'Awaiting logs'"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </template>
-<!-- World Map Section -->
-        <section id="section-worldmap" class="scroll-section">
+            <!-- World Map Section -->
+            <section id="section-worldmap" class="scroll-section">
         <div class="section-header">
             <span class="section-icon">🗺️</span>
             <h3>Traffic World Map</h3>
@@ -740,12 +366,16 @@
             </div>
         </div>
         </section>
-
         </div>
 
-        <!-- SECURITY TAB -->
-        <div x-show="activeTab === 'security'" style="display:none" :style="activeTab === 'security' ? 'display:block' : 'display:none'">
-<section id="section-security" class="scroll-section">
+            <!-- ============================================
+             SECURITY TAB
+             ============================================ -->
+    <div x-show="activeTab === 'security'" style="display:none" :style="activeTab === 'security' ? 'display:block' : 'display:none'">
+<!-- ============================================
+             SECURITY CENTER
+             ============================================ -->
+        <section id="section-security" class="scroll-section">
         <div class="security-center" x-data="{ securityCollapsed: false }">
             <!-- Security Center Header -->
             <div class="security-center-header" @click="securityCollapsed = !securityCollapsed">
@@ -789,9 +419,9 @@
             <!-- Security Score Widget -->
             <template x-if="isVisible('securityScore')">
                 <div class="card security-score-card" :class="{ 'widget-minimized': isMinimized('securityScore'), 'score-excellent': securityScore.grade === 'A', 'score-good': securityScore.grade === 'B', 'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade === 'D', 'score-critical': securityScore.grade === 'F' }">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <h2>
                         <span>🛡️ Security Score</span>
-                        <div style="display: flex; gap: 4px;">
+                        <div class="card-actions">
                             <button class="icon-btn-small" @click="toggleMinimize('securityScore')" :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('securityScore') ? 'Expand ' + getWidgetLabel('securityScore') : 'Minimize ' + getWidgetLabel('securityScore')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('securityScore')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('securityScore')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -834,9 +464,9 @@
             <!-- Alert History Widget -->
             <template x-if="isVisible('alertHistory')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('alertHistory') }">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <h2>
                         <span>🔔 Alert History (24h)</span>
-                        <div style="display: flex; gap: 4px;">
+                        <div class="card-actions">
                             <button class="icon-btn-small" @click="toggleMinimize('alertHistory')" :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('alertHistory') ? 'Expand ' + getWidgetLabel('alertHistory') : 'Minimize ' + getWidgetLabel('alertHistory')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('alertHistory')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('alertHistory')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -895,9 +525,9 @@
             <!-- Threats by Country Widget -->
             <template x-if="isVisible('threatsByCountry')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('threatsByCountry') }">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <h2>
                         <span>🌍 Threats by Country</span>
-                        <div style="display: flex; gap: 4px;">
+                        <div class="card-actions">
                             <button class="icon-btn-small" @click="toggleMinimize('threatsByCountry')" :title="isMinimized('threatsByCountry') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threatsByCountry') ? 'Expand ' + getWidgetLabel('threatsByCountry') : 'Minimize ' + getWidgetLabel('threatsByCountry')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatsByCountry')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatsByCountry')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -940,9 +570,9 @@
 
             <!-- Threat Detections -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('threats') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🚨 Threat Detections</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('threats')" :title="isMinimized('threats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threats') ? 'Expand ' + getWidgetLabel('threats') : 'Minimize ' + getWidgetLabel('threats')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threats')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -956,7 +586,7 @@
                         <span> · <span class="text-green" x-text="threats.total_blocked"></span> blocked by firewall</span>
                     </template>
                 </div>
-                <table x-show="!isMinimized('threats')">
+                <table class="table-fixed table-compact" x-show="!isMinimized('threats')">
                     <thead><tr><th>IP</th><th>Category</th><th>Feed</th><th>Country</th><th>Traffic</th><th>FW Status</th><th style="width:50px">Actions</th></tr></thead>
                     <tbody>
                         <template x-for="(t, idx) in threats.hits" :key="t.ip + idx">
@@ -987,9 +617,9 @@
             <!-- Feed Health -->
             <template x-if="isVisible('feedHealth')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('feedHealth') }">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <h2>
                         <span>📡 Feed Health</span>
-                        <div style="display: flex; gap: 4px;">
+                        <div class="card-actions">
                             <button class="icon-btn-small" @click="refreshFeed()" title="Refresh Feeds Now" style="color: var(--neon-green);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.5-6.3"/><path d="M21 3v6h-6"/></svg>
                             </button>
@@ -1042,9 +672,9 @@
 
             <!-- Top Malicious Ports -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('maliciousPorts') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🔒 Top Malicious Ports</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('maliciousPorts')" :title="isMinimized('maliciousPorts') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('maliciousPorts') ? 'Expand ' + getWidgetLabel('maliciousPorts') : 'Minimize ' + getWidgetLabel('maliciousPorts')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('maliciousPorts')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('maliciousPorts')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1060,7 +690,7 @@
                         <span>Ports most frequently seen in threat traffic</span>
                     </template>
                 </div>
-                <table x-show="!isMinimized('maliciousPorts')">
+                <table class="table-fixed table-compact" x-show="!isMinimized('maliciousPorts')">
                     <thead><tr><th>Port</th><th>FW Blocked</th><th>Traffic</th></tr></thead>
                     <tbody>
                         <template x-for="(p, i) in maliciousPorts.ports" :key="p.port + '-' + i">
@@ -1096,9 +726,9 @@
 
             <!-- Blocklist Match Rate -->
             <div class="card" :class="{ 'widget-minimized': isMinimized('blocklist') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🛡️ Blocklist Match Rate</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('blocklist')" :title="isMinimized('blocklist') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('blocklist') ? 'Expand ' + getWidgetLabel('blocklist') : 'Minimize ' + getWidgetLabel('blocklist')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('blocklist')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('blocklist')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1136,9 +766,9 @@
             <!-- Threat Velocity Widget -->
             <template x-if="isVisible('threatVelocity')">
                 <div class="card" :class="{ 'widget-minimized': isMinimized('threatVelocity') }">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                    <h2>
                         <span>📈 Threat Velocity</span>
-                        <div style="display: flex; gap: 4px;">
+                        <div class="card-actions">
                             <button class="icon-btn-small" @click="toggleMinimize('threatVelocity')" :title="isMinimized('threatVelocity') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('threatVelocity') ? 'Expand ' + getWidgetLabel('threatVelocity') : 'Minimize ' + getWidgetLabel('threatVelocity')" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('threatVelocity')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('threatVelocity')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1372,9 +1002,9 @@
             <!-- Firewall Logs Widget (Full Width) -->
             <template x-if="isVisible('recentBlocks')">
                 <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('recentBlocks') }" style="margin-top: 16px;">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0; flex-wrap: wrap;">
+                    <h2>
                         <span>🔥 Firewall Logs</span>
-                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
                             <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;" x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
                             <span class="badge" style="background: rgba(255,0,60,0.18); color: var(--neon-red); font-size: 0.9em;" x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
                             <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
@@ -1409,7 +1039,7 @@
                             </div>
 
                             <div class="log-table-wrapper">
-                                <table style="table-layout: fixed; width: 100%;" x-show="recentBlocks.blocks.length > 0">
+                                <table class="table-fixed table-compact thead-sticky" x-show="recentBlocks.blocks.length > 0">
                                     <thead>
                                         <tr>
                                             <th style="width: 16%;">Time</th>
@@ -1467,22 +1097,26 @@
         </div> <!-- End security-center -->
         </section>
 
-        </div>
 
-        <!-- NETWORK TAB -->
-        <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'">
-            <section id="section-network" class="scroll-section">
-                <div class="section-header">
-                    <span class="section-icon">🕸️</span>
-                    <h3>Network Overview</h3>
-                </div>
-                <div class="grid grid-4" data-reorder="true" data-grid-id="network-overview">
-            <!-- sources -->
+    </div>
+
+    <!-- ============================================
+             NETWORK TAB
+             ============================================ -->
+    <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'">
+        <!-- Network Dashboard -->
+        <section id="section-network" class="scroll-section">
+        <div class="section-header">
+            <span class="section-icon">🕸️</span>
+            <h3>Network Overview</h3>
+        </div>
+        <div class="grid" data-reorder="true" data-grid-id="network-overview">
+            <!-- Top Sources -->
             <template x-if="isVisible('sources')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('sources') }">
+                <h2>
                     <span>🔝 Top Sources</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="openExpandedTable('sources')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('sources')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
@@ -1493,7 +1127,7 @@
                         <div class="spinner" x-show="sources.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('sources')">
+                <table class="table-fixed table-compact" x-show="!isMinimized('sources')">
                     <thead>
                         <tr>
                             <th style="width:70%;">IP</th>
@@ -1533,12 +1167,13 @@
                 </table>
             </div>
             </template>
-            <!-- destinations -->
+
+            <!-- Top Destinations -->
             <template x-if="isVisible('destinations')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
-                 <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('destinations') }">
+                      <h2>
                     <span>🎯 Top Destinations</span>
-                    <div style="display: flex; gap: 4px;">
+                          <div class="card-actions">
                         <button class="icon-btn-small" @click="openExpandedTable('destinations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('destinations')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
@@ -1549,7 +1184,7 @@
                         <div class="spinner" x-show="destinations.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout:fixed; width:100%;" x-show="!isMinimized('destinations')">
+                <table class="table-fixed table-compact" x-show="!isMinimized('destinations')">
                     <thead>
                         <tr>
                             <th style="width:70%;">IP</th>
@@ -1589,12 +1224,13 @@
                 </table>
             </div>
             </template>
-            <!-- ports -->
+
+            <!-- Top Ports -->
             <template x-if="isVisible('ports')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('ports') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('ports') }">
+                <h2>
                     <span>🔌 Top Ports</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="openExpandedTable('ports')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('ports')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                         </button>
@@ -1605,7 +1241,7 @@
                         <div class="spinner" x-show="ports.loading"></div>
                     </div>
                 </h2>
-                <table style="table-layout: fixed; width: 100%;" x-show="!isMinimized('ports')">
+                <table class="table-fixed table-compact" x-show="!isMinimized('ports')">
                     <thead>
                         <tr>
                             <th style="width: 70%;">Port</th>
@@ -1629,12 +1265,13 @@
                 </table>
             </div>
             </template>
-            <!-- asns -->
+
+            <!-- Top ASNs -->
             <template x-if="isVisible('asns')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('asns') }">
+                <h2>
                     <span>🏢 Top ASNs</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('asns')" :title="isMinimized('asns') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('asns') ? 'Expand ' + getWidgetLabel('asns') : 'Minimize ' + getWidgetLabel('asns')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('asns')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('asns')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1656,12 +1293,13 @@
                 </div>
             </div>
             </template>
-            <!-- countries -->
+
+            <!-- Top Countries -->
             <template x-if="isVisible('countries')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('countries') }">
+                <h2>
                     <span>🌍 Top Countries</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('countries')" :title="isMinimized('countries') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('countries') ? 'Expand ' + getWidgetLabel('countries') : 'Minimize ' + getWidgetLabel('countries')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('countries')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('countries')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1674,12 +1312,13 @@
                 </div>
             </div>
             </template>
-            <!-- talkers -->
+
+            <!-- Top Talkers -->
             <template x-if="isVisible('talkers')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('talkers') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('talkers') }">
+                <h2>
                     <span>🔄 Top Talkers</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('talkers')" :title="isMinimized('talkers') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('talkers') ? 'Expand ' + getWidgetLabel('talkers') : 'Minimize ' + getWidgetLabel('talkers')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('talkers')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('talkers')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1707,12 +1346,13 @@
                 </div>
             </div>
             </template>
-            <!-- services -->
+
+            <!-- Top Services -->
             <template x-if="isVisible('services')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('services') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('services') }">
+                <h2>
                     <span>🌐 Top Services</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('services')" :title="isMinimized('services') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('services') ? 'Expand ' + getWidgetLabel('services') : 'Minimize ' + getWidgetLabel('services')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('services')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('services')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1734,12 +1374,13 @@
                 </div>
             </div>
             </template>
-            <!-- hourlyTraffic -->
+
+            <!-- Traffic by Hour -->
             <template x-if="isVisible('hourlyTraffic')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
+                <h2>
                     <span>⏰ Traffic by Hour</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')" :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('hourlyTraffic') ? 'Expand ' + getWidgetLabel('hourlyTraffic') : 'Minimize ' + getWidgetLabel('hourlyTraffic')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('hourlyTraffic')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('hourlyTraffic')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1768,12 +1409,13 @@
                 </div>
             </div>
             </template>
-            <!-- flags -->
+
+            <!-- TCP Flags -->
             <template x-if="isVisible('flags')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('flags') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🏳️ TCP Flags</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('flags')" :title="isMinimized('flags') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flags') ? 'Expand ' + getWidgetLabel('flags') : 'Minimize ' + getWidgetLabel('flags')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flags')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flags')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1794,12 +1436,13 @@
                 </div>
             </div>
             </template>
-            <!-- durations -->
+
+            <!-- Long Flows -->
             <template x-if="isVisible('durations')">
-<div class="card" :class="{ 'widget-minimized': isMinimized('durations') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+<div class="card span-2" :class="{ 'widget-minimized': isMinimized('durations') }">
+                <h2>
                     <span>⏱️ Long Flows</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('durations')" :title="isMinimized('durations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('durations') ? 'Expand ' + getWidgetLabel('durations') : 'Minimize ' + getWidgetLabel('durations')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('durations')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('durations')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1853,12 +1496,13 @@
                 </div>
             </div>
             </template>
-            <!-- packetSizes -->
+
+            <!-- Packet Size Distribution -->
             <template x-if="isVisible('packetSizes')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('packetSizes') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>📦 Packet Sizes</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('packetSizes')" :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('packetSizes') ? 'Expand ' + getWidgetLabel('packetSizes') : 'Minimize ' + getWidgetLabel('packetSizes')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('packetSizes')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('packetSizes')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1871,12 +1515,13 @@
                 </div>
             </div>
             </template>
-            <!-- protocols -->
+
+            <!-- Protocols -->
             <template x-if="isVisible('protocols')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('protocols') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>📡 Protocols</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('protocols')" :title="isMinimized('protocols') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protocols') ? 'Expand ' + getWidgetLabel('protocols') : 'Minimize ' + getWidgetLabel('protocols')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protocols')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protocols')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1884,7 +1529,7 @@
                         <div class="spinner" x-show="protocols.loading"></div>
                     </div>
                 </h2>
-                <table x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
+                <table class="table-fixed table-compact" x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
                     <thead>
                         <tr>
                             <th>Protocol</th>
@@ -1908,12 +1553,13 @@
                 <div x-show="!isMinimized('protocols') && !protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)" class="empty-state">No protocol data available</div>
             </div>
             </template>
-            <!-- insights -->
+
+            <!-- Traffic Insights -->
             <template x-if="isVisible('insights')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('insights') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>💡 Traffic Insights</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('insights')" :title="isMinimized('insights') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('insights') ? 'Expand ' + getWidgetLabel('insights') : 'Minimize ' + getWidgetLabel('insights')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('insights')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('insights')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1979,12 +1625,13 @@
                 </div>
             </div>
             </template>
-            <!-- flowStats -->
+
+            <!-- Flow Statistics -->
             <template x-if="isVisible('flowStats')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('flowStats') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>📊 Flow Statistics</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('flowStats')" :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('flowStats') ? 'Expand ' + getWidgetLabel('flowStats') : 'Minimize ' + getWidgetLabel('flowStats')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('flowStats')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('flowStats')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -2029,12 +1676,13 @@
                 </div>
             </div>
             </template>
-            <!-- protoMix -->
+
+            <!-- Protocol Mix -->
             <template x-if="isVisible('protoMix')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('protoMix') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🥧 Protocol Mix</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('protoMix')" :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('protoMix') ? 'Expand ' + getWidgetLabel('protoMix') : 'Minimize ' + getWidgetLabel('protoMix')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('protoMix')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('protoMix')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -2047,12 +1695,13 @@
                 </div>
             </div>
             </template>
-            <!-- netHealth -->
+
+            <!-- Network Health -->
             <template x-if="isVisible('netHealth')">
 <div class="card" :class="{ 'widget-minimized': isMinimized('netHealth') }">
-                <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0;">
+                <h2>
                     <span>🏥 Network Health</span>
-                    <div style="display: flex; gap: 4px;">
+                    <div class="card-actions">
                         <button class="icon-btn-small" @click="toggleMinimize('netHealth')" :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('netHealth') ? 'Expand ' + getWidgetLabel('netHealth') : 'Minimize ' + getWidgetLabel('netHealth')" style="color: var(--neon-cyan);">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('netHealth')"><path d="M3 12h18M12 3v18"/></svg>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('netHealth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -2079,28 +1728,32 @@
             </div>
             </template>
 
-                </div>
-            </section>
         </div>
+        </section>
 
-        <!-- FORENSICS TAB -->
-        <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'">
-            <section id="section-conversations" class="scroll-section">
-            <!-- conversations -->
-            <template x-if="isVisible('conversations')">
-<div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
-            <h2 style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 12px 0;">
+    </div>
+
+    <!-- ============================================
+             FORENSICS TAB
+             ============================================ -->
+    <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'">
+<!-- Conversations -->
+        <section id="section-conversations" class="scroll-section">
+        <template x-if="isVisible('conversations')">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('conversations') }">
+            <h2>
                 <span>💬 Recent Conversations</span>
-                <div style="display: flex; gap: 4px; align-items: center;">
+                <div class="card-actions" style="gap: 4px; align-items: center;">
+                    <!-- View Toggle -->
                     <div class="view-toggle" style="display:flex; background:rgba(0,0,0,0.3); border-radius:4px; padding:2px; margin-right:8px;" x-show="!isMinimized('conversations')">
                         <button id="btn-view-list" @click="toggleConversationView('list')" :class="{ 'active': conversationView === 'list' }" style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;" :style="conversationView === 'list' ? 'color:var(--neon-cyan); font-weight:bold' : ''">List</button>
                         <div style="width:1px; background:rgba(255,255,255,0.1); margin:2px 0;"></div>
                         <button id="btn-view-flow" @click="toggleConversationView('sankey')" :class="{ 'active': conversationView === 'sankey' }" style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;" :style="conversationView === 'sankey' ? 'color:var(--neon-cyan); font-weight:bold' : ''">Flow</button>
                     </div>
 
-
-
-
+                    <button class="icon-btn-small" @click="openNetworkGraph()" title="Graph View" style="color: var(--neon-purple);" x-show="!isMinimized('conversations')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </button>
                     <button class="icon-btn-small" @click="openExpandedTable('conversations')" title="View All" style="color: var(--neon-cyan);" x-show="!isMinimized('conversations')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                     </button>
@@ -2111,7 +1764,9 @@
                     <div class="spinner" x-show="conversations.loading"></div>
                 </div>
             </h2>
-            <table x-show="!isMinimized('conversations') && conversationView === 'list'" style="table-layout: fixed; width: 100%;" x-show="!isMinimized('conversations')">
+
+            <!-- List View -->
+            <table class="table-fixed table-compact" x-show="!isMinimized('conversations') && conversationView === 'list'">
                 <thead>
                     <tr>
                         <th style="width: 35%;">Source</th>
@@ -2146,20 +1801,22 @@
                         </tr>
                     </template>
                 </tbody>
-
             </table>
+
+            <!-- Sankey View -->
             <div x-show="!isMinimized('conversations') && conversationView === 'sankey'" style="height: 400px; position: relative;">
                 <canvas id="sankeyChart"></canvas>
                 <div x-show="conversations.conversations.length === 0" class="empty-state">No flow data for Sankey diagram</div>
             </div>
-
         </div>
-            </template>
+        </template>
+        </section>
 
-            </section>
-        </div>
 
-    </div> <!-- End Container -->
+    </div>
+
+</div>
+
 <!-- Scroll Spy Navigation -->
     <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
         <div class="scroll-spy-track">
@@ -2182,7 +1839,7 @@
     <!-- Expanded Table Modal -->
     <div class="modal" x-show="expandedModalOpen" style="display:none" :style="expandedModalOpen ? 'display:flex' : 'display:none'" @click.self="expandedModalOpen = false">
         <div class="modal-content" style="max-width: 1000px; height: 90vh;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h2 style="margin:0"><span class="text-cyan" x-text="expandedTitle"></span></h2>
                 <button @click="expandedModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close">×</button>
             </div>
@@ -2190,7 +1847,7 @@
             <div x-show="expandedLoading" class="spinner" style="margin: 0 auto;"></div>
 
             <div x-show="!expandedLoading" style="overflow-y:auto; height: calc(100% - 60px);">
-                <table style="width:100%; border-collapse:collapse;">
+                <table class="table-fixed table-compact" style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; background: #111; z-index:1;">
                         <tr style="border-bottom: 1px solid var(--neon-cyan);">
                             <template x-for="col in expandedColumns">
@@ -2216,7 +1873,7 @@
     <!-- Network Graph Modal -->
     <div class="modal" x-show="networkGraphOpen" style="display:none" :style="networkGraphOpen ? 'display:flex' : 'display:none'" @click.self="networkGraphOpen = false">
         <div class="modal-content" style="max-width: 95vw; height: 90vh; display: flex; flex-direction: column;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <h2 style="margin:0">🕸️ Network Graph</h2>
                 <button @click="networkGraphOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close">×</button>
             </div>
@@ -2233,7 +1890,7 @@
     <!-- IP Detail Modal -->
     <div class="modal" x-show="modalOpen" style="display:none" :style="modalOpen ? 'display:flex' : 'display:none'" @click.self="modalOpen = false">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h2 style="margin:0">IP Details: <span class="text-cyan" x-text="selectedIP"></span></h2>
                 <button @click="modalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close details">×</button>
             </div>
@@ -2279,7 +1936,7 @@
     <!-- IP Trend Modal -->
     <div class="modal" x-show="trendModalOpen" style="display:none" :style="trendModalOpen ? 'display:flex' : 'display:none'" @click.self="trendModalOpen = false">
         <div class="modal-content" style="max-width: 760px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h2 style="margin:0">Trend: <span class="text-cyan" x-text="trendIP"></span> <span style="color:var(--text-muted); font-size:0.7em" x-text="'(' + (trendKind==='source' ? 'Source' : 'Destination') + ')' "></span></h2>
                 <button @click="trendModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close trend">×</button>
             </div>
@@ -2292,7 +1949,7 @@
     <!-- Fullscreen Chart Modal -->
     <div class="modal fullscreen-chart-modal" x-show="fullscreenChart" style="display:none" :style="fullscreenChart ? 'display:flex' : 'display:none'" @click.self="closeFullscreenChart()">
         <div class="modal-content fullscreen-chart-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h2 style="margin:0"><span class="text-cyan" x-text="fullscreenChart?.title || 'Chart'"></span></h2>
                 <button @click="closeFullscreenChart()" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close fullscreen">×</button>
             </div>
@@ -2306,7 +1963,7 @@
     <!-- Thresholds Modal -->
     <div class="modal" x-show="thresholdsModalOpen" style="display:none" :style="thresholdsModalOpen ? 'display:flex' : 'display:none'" @click.self="thresholdsModalOpen = false">
         <div class="modal-content" style="max-width: 700px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h2 style="margin:0">Threshold Settings</h2>
                 <button @click="thresholdsModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close settings">×</button>
             </div>
@@ -2348,9 +2005,9 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
-                <button @click="thresholdsModalOpen=false">Cancel</button>
-                <button @click="saveThresholds()" style="background: var(--neon-cyan); color:#000; font-weight:bold;">Save</button>
+            <div class="modal__footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+                <button class="btn btn--ghost" @click="thresholdsModalOpen=false">Cancel</button>
+                <button class="btn btn--primary" @click="saveThresholds()">Save</button>
             </div>
         </div>
     </div>
@@ -2360,7 +2017,7 @@
         <div class="modal-content fw-detail-modal" style="max-width: 500px;">
             <template x-if="fwDetailType && fwDetails[fwDetailType]">
                 <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                         <h2 style="margin:0" x-text="fwDetails[fwDetailType].title"></h2>
                         <button @click="closeFwDetail()" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close detail modal">×</button>
                     </div>
@@ -2407,7 +2064,7 @@
     <!-- Configuration Settings Modal -->
     <div class="modal" x-show="configModalOpen" style="display:none" :style="configModalOpen ? 'display:flex' : 'display:none'" @click.self="configModalOpen = false">
         <div class="modal-content config-modal" style="max-width: 600px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div class="modal__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <h2 style="margin:0">⚙️ Configuration Settings</h2>
                 <button @click="configModalOpen = false" style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)" aria-label="Close config modal">×</button>
             </div>
@@ -2475,9 +2132,9 @@
                     </div>
                 </div>
                 
-                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid var(--card-border);">
-                    <button @click="configModalOpen = false">Cancel</button>
-                    <button @click="saveConfig()" :disabled="configSaving" style="background: var(--neon-cyan); color:#000; font-weight:bold;">
+                <div class="modal__footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid var(--card-border);">
+                    <button class="btn btn--ghost" @click="configModalOpen = false">Cancel</button>
+                    <button class="btn btn--primary" @click="saveConfig()" :disabled="configSaving">
                         <span x-show="!configSaving">💾 Save Configuration</span>
                         <span x-show="configSaving">Saving...</span>
                     </button>
@@ -2498,7 +2155,7 @@
             <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">Monitor specific IPs for any network activity. Matches will appear in threat detections.</p>
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <input type="text" x-model="watchlistInput" placeholder="Enter IP address (e.g., 192.168.1.100)" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-cyan); border-radius: 4px; color: #fff; font-family: monospace;">
-                <button @click="addToWatchlist()" :disabled="!watchlistInput" style="padding: 8px 16px;" title="Add IP to watchlist">➕ Add</button>
+                <button class="btn btn--primary" @click="addToWatchlist()" :disabled="!watchlistInput" title="Add IP to watchlist">➕ Add</button>
             </div>
             <div style="max-height: 300px; overflow-y: auto;">
                 <template x-if="watchlist.watchlist && watchlist.watchlist.length > 0">
@@ -2509,7 +2166,7 @@
                                     <span style="font-family: monospace; color: var(--neon-yellow);" x-text="entry.ip"></span>
                                     <span style="font-size: 0.8em; color: var(--text-muted); margin-left: 8px;" x-text="'added ' + entry.added_ago"></span>
                                 </div>
-                                <button @click="removeFromWatchlist(entry.ip)" style="background: rgba(255,0,60,0.2); border-color: var(--neon-red); color: var(--neon-red); padding: 4px 8px; font-size: 0.85em;" title="Remove from watchlist">🗑️</button>
+                                <button class="btn btn--danger" @click="removeFromWatchlist(entry.ip)" title="Remove from watchlist" style="padding: 4px 8px; font-size: 0.85em;">🗑️</button>
                             </div>
                         </template>
                     </div>
@@ -2547,8 +2204,8 @@
                 </div>
             </div>
             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,243,255,0.1); display:flex; justify-content:space-between; gap:10px;">
-                <button @click="resetWidgetPreferences()" style="background: rgba(255,0,60,0.2); color: var(--neon-red); border-color: var(--neon-red);">Reset All</button>
-                <button @click="widgetManagerOpen=false">Close</button>
+                <button class="btn btn--danger" @click="resetWidgetPreferences()">Reset All</button>
+                <button class="btn btn--ghost" @click="widgetManagerOpen=false">Close</button>
             </div>
         </div>
     </div>
@@ -2621,6 +2278,6 @@
     </nav>
 
     <!-- App Logic -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js" defer></script>
 </body>
 </html>
