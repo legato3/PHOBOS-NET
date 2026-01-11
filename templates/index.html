@@ -12,10 +12,10 @@
     <!-- Resource hints for better performance -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <!-- Inter font - Humanist UI font for modern, clean typography -->
+    <!-- JetBrains Mono font - Terminal/hacker aesthetic -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Critical JavaScript modules - Preload for faster execution -->
     <link rel="preload" href="/static/js/utils.js" as="script">
@@ -967,7 +967,7 @@
                                         <template x-for="block in recentBlocks.blocks.slice(0, recentBlocksView || recentBlocks.blocks.length)" :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
                                             <tr :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }">
                                                 <td style="font-size: 0.85em; color: var(--text-muted);">
-                                                    <div style="font-family: monospace;" x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp"></div>
+                                                    <div x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp"></div>
                                                     <div class="log-sub" x-text="timeAgo(block.timestamp_ts)"></div>
                                                 </td>
                                                 <td>
@@ -2252,7 +2252,7 @@
                         <template x-for="(row, idx) in expandedData" :key="idx">
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                                 <template x-for="val in row">
-                                    <td style="padding:8px; font-family:monospace;" x-html="val"></td>
+                                    <td style="padding:8px;" x-html="val"></td>
                                 </template>
                             </tr>
                         </template>
@@ -2547,7 +2547,7 @@
             </div>
             <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">Monitor specific IPs for any network activity. Matches will appear in threat detections.</p>
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <input type="text" x-model="watchlistInput" aria-label="IP address to add to watchlist" placeholder="Enter IP address (e.g., 192.168.1.100)" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-cyan); border-radius: 4px; color: #fff; font-family: monospace;">
+                <input type="text" x-model="watchlistInput" aria-label="IP address to add to watchlist" placeholder="Enter IP address (e.g., 192.168.1.100)" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-cyan); border-radius: 4px; color: #fff;">
                 <button class="btn btn--primary" @click="addToWatchlist()" :disabled="!watchlistInput" title="Add IP to watchlist">➕ Add</button>
             </div>
             <div style="max-height: 300px; overflow-y: auto;">
@@ -2556,7 +2556,7 @@
                         <template x-for="entry in watchlist.watchlist" :key="entry.ip">
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,243,255,0.05); border: 1px solid rgba(0,243,255,0.1); border-radius: 4px;">
                                 <div>
-                                    <span style="font-family: monospace; color: var(--neon-yellow);" x-text="entry.ip"></span>
+                                    <span style="color: var(--neon-yellow);" x-text="entry.ip"></span>
                                     <span style="font-size: 0.8em; color: var(--text-muted); margin-left: 8px;" x-text="'added ' + entry.added_ago"></span>
                                 </div>
                                 <button class="btn btn--danger" @click="removeFromWatchlist(entry.ip)" title="Remove from watchlist" style="padding: 4px 8px; font-size: 0.85em;">🗑️</button>

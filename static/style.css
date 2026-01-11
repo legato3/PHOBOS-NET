@@ -18,13 +18,13 @@
     --glass-blur: 12px;
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     
-    /* Card System - Layered elevation */
-    --card-bg: rgba(15, 15, 15, 0.6);
-    --card-bg-hover: rgba(20, 20, 20, 0.7);
-    --card-border: rgba(0, 243, 255, 0.1);
-    --card-border-hover: rgba(0, 243, 255, 0.2);
-    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
+    /* Card System - Sharp, minimal terminal aesthetic */
+    --card-bg: rgba(15, 15, 15, 0.8);
+    --card-bg-hover: rgba(20, 20, 20, 0.85);
+    --card-border: rgba(0, 243, 255, 0.08);
+    --card-border-hover: rgba(0, 243, 255, 0.15);
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35);
     
     /* Functional Accents - Subtle, purposeful only */
     --accent-primary: #00f3ff;          /* Cyan - Primary actions, highlights */
@@ -57,8 +57,8 @@
     --neon-yellow: var(--accent-warning);
     --danger: var(--accent-danger);
     
-    /* Typography System - Premium hierarchy */
-    --font-sans: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+    /* Typography System - Hacker/Terminal aesthetic - Unified monospace */
+    --font-sans: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
     
     /* Text Colors - Clear hierarchy */
@@ -119,22 +119,22 @@
     --space-xl: var(--space-8);
     --space-2xl: var(--space-12);
     
-    /* Border Radius - Consistent rounding */
+    /* Border Radius - Sharp, terminal-like edges */
     --radius-none: 0;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
-    --radius-2xl: 16px;
+    --radius-sm: 2px;
+    --radius-md: 3px;
+    --radius-lg: 4px;
+    --radius-xl: 6px;
+    --radius-2xl: 8px;
     --radius-full: 9999px;
     
-    /* Shadows - Layered depth system */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
-    --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.5);
-    --shadow-glow-primary: 0 0 8px var(--accent-primary-glow);
-    --shadow-glow-danger: 0 0 8px var(--accent-danger-glow);
+    /* Shadows - Subtle, minimal for hacker aesthetic */
+    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25);
+    --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.3);
+    --shadow-glow-primary: 0 0 4px var(--accent-primary-glow);
+    --shadow-glow-danger: 0 0 4px var(--accent-danger-glow);
     
     /* Transitions - Subtle, purposeful motion */
     --motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -177,7 +177,7 @@
 body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: var(--line-height-normal);
@@ -304,7 +304,7 @@ body {
     transition: background-color var(--motion-base), color var(--motion-base);
     text-align: left;
     width: 100%;
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
 }
 
 .sidebar-item:hover {
@@ -357,6 +357,7 @@ body {
     letter-spacing: var(--letter-spacing-tight);
     color: var(--text-primary);
     line-height: var(--line-height-tight);
+    font-family: var(--font-mono);
 }
 
 .controls {
@@ -377,7 +378,7 @@ select, button, input {
     font-weight: var(--font-weight-normal);
     cursor: pointer;
     transition: border-color var(--motion-base), background-color var(--motion-base);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
 }
 
 select:hover, button:hover, input:hover {
@@ -524,20 +525,21 @@ button.active {
 }
 
 .card {
-    background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-md);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
     padding: var(--space-6);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--card-shadow);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: border-color var(--motion-base);
+    transition: border-color var(--motion-base), box-shadow var(--motion-base);
     overflow: hidden;
 }
 
 .card:hover {
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--card-border-hover);
+    box-shadow: var(--card-shadow-hover);
 }
 
 .card:focus-within {
@@ -1055,7 +1057,7 @@ tr:hover td {
     justify-content: center;
     align-items: center;
     color: var(--neon-cyan);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 1.5em;
     letter-spacing: 3px;
 }
@@ -1689,7 +1691,7 @@ table[style*="table-layout:fixed"] td:first-child {
     font-size: 1.1em;
     font-weight: bold;
     color: var(--neon-cyan);
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
 }
 
 .fw-detail-thresholds {
@@ -1785,7 +1787,7 @@ table[style*="table-layout:fixed"] td:first-child {
     border: 1px solid var(--card-border);
     border-radius: 4px;
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
     transition: border-color 0.2s;
 }
@@ -2602,7 +2604,7 @@ body {
     padding: 2px 6px;
     background: rgba(0, 243, 255, 0.1);
     border-radius: 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     color: var(--neon-cyan);
     flex-shrink: 0;
 }
@@ -5779,7 +5781,7 @@ body.compact-mode {
 /* Leaflet Customization */
 .leaflet-container {
     background: #050505 !important;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    font-family: var(--font-mono) !important;
     z-index: 1 !important;
 }
 
