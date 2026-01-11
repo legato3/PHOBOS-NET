@@ -36,9 +36,14 @@ python3 minify.py
 ### 2. Caching Strategy
 
 #### Server-Side Caching
-- **60-second API cache**: All `/api/stats/*` endpoints
+- **60-second API cache**: All `/api/stats/*` endpoints (aligned to 60s windows)
+- **Common data cache**: Shared cache for sources, destinations, ports, and protocols
+  - Reduces redundant nfdump queries by reusing cached data across endpoints
+  - Summary, protocols, and ASNs endpoints now use shared cache instead of separate queries
+  - Automatic cleanup prevents memory growth (max 100 entries, LRU eviction)
 - **Granular bandwidth cache**: 5-minute historical data buckets
 - **Thread-safe caching**: `threading.Lock` prevents race conditions
+- **Cache reuse optimization**: Multiple endpoints share the same underlying data to minimize nfdump calls
 
 #### Client-Side Caching (Service Worker)
 - **Static Assets**: Cache-first strategy for CSS, JS, images
@@ -126,6 +131,8 @@ Promise.all([
 - Check nfdump cache on server (60s TTL)
 - Verify nfcapd isn't writing during queries
 - Monitor server CPU/disk I/O
+- Check cache hit rates: Summary, protocols, and ASNs endpoints now reuse common data cache
+- Review `/api/performance/metrics` endpoint for cache statistics
 
 ### Service Worker Issues
 ```javascript

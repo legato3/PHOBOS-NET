@@ -900,34 +900,40 @@ document.addEventListener('alpine:init', () => {
             }
 
             if (this.isSectionVisible('section-network') && (now - this.lastFetch.network > this.heavyTTL)) {
-                this.fetchFlags();
-                this.fetchDurations();
-                this.fetchPacketSizes();
-                this.fetchProtocols();
-                this.fetchFlowStats();
-                this.fetchProtoMix();
-                this.fetchNetHealth();
-                this.fetchASNs();
-                this.fetchCountries();
-                this.fetchTalkers();
-                this.fetchServices();
-                this.fetchHourlyTraffic();
+                // Parallelize all network section fetches for better performance
+                await Promise.allSettled([
+                    this.fetchFlags(),
+                    this.fetchDurations(),
+                    this.fetchPacketSizes(),
+                    this.fetchProtocols(),
+                    this.fetchFlowStats(),
+                    this.fetchProtoMix(),
+                    this.fetchNetHealth(),
+                    this.fetchASNs(),
+                    this.fetchCountries(),
+                    this.fetchTalkers(),
+                    this.fetchServices(),
+                    this.fetchHourlyTraffic()
+                ]);
                 this.lastFetch.network = now;
             }
 
             if (this.isSectionVisible('section-security') && (now - this.lastFetch.security > this.heavyTTL)) {
-                this.fetchSecurityScore();
-                this.fetchAlertHistory();
-                this.fetchThreatsByCountry();
-                this.fetchThreatVelocity();
-                this.fetchTopThreatIPs();
-                this.fetchRiskIndex();
-                this.fetchAttackTimeline();
-                this.fetchMitreHeatmap();
-                this.fetchProtocolAnomalies();
-                this.fetchRecentBlocks();
-                this.fetchFeedHealth();
-                this.fetchWatchlist();
+                // Parallelize security section fetches for better performance
+                await Promise.allSettled([
+                    this.fetchSecurityScore(),
+                    this.fetchAlertHistory(),
+                    this.fetchThreatsByCountry(),
+                    this.fetchThreatVelocity(),
+                    this.fetchTopThreatIPs(),
+                    this.fetchRiskIndex(),
+                    this.fetchAttackTimeline(),
+                    this.fetchMitreHeatmap(),
+                    this.fetchProtocolAnomalies(),
+                    this.fetchRecentBlocks(),
+                    this.fetchFeedHealth(),
+                    this.fetchWatchlist()
+                ]);
                 this.lastFetch.security = now;
             }
 

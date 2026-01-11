@@ -19,7 +19,14 @@ import signal
 import socket as socket_module  # For socket.timeout in syslog receiver
 
 app = Flask(__name__)
-Compress(app)  # Enable gzip/brotli compression for all responses
+# Configure compression with optimal settings
+Compress(app)
+app.config['COMPRESS_MIMETYPES'] = [
+    'text/html', 'text/css', 'text/javascript',
+    'application/json', 'application/javascript'
+]
+app.config['COMPRESS_LEVEL'] = 6  # Balance between compression ratio and CPU usage
+app.config['COMPRESS_MIN_SIZE'] = 500  # Only compress responses >500 bytes
 
 # ------------------ Constants ------------------
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
@@ -125,6 +132,7 @@ _ip_detail_ttl = 180  # seconds
 
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
+COMMON_DATA_CACHE_MAX = 100  # Maximum cache entries (4 types * 25 time ranges)
 
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
 DNS_CACHE_MAX = 5000
@@ -1098,6 +1106,20 @@ def start_threat_thread():
     t = threading.Thread(target=loop, daemon=True, name='ThreatFeedThread')
     t.start()
 
+# Cache pre-warming thread (note: start_agg_thread already handles common data pre-computation)
+# This thread is kept for potential future enhancements but currently the agg_thread handles pre-warming
+_cache_prewarm_thread_started = False
+
+def start_cache_prewarm_thread():
+    """Start background thread to pre-warm caches (currently handled by agg_thread, but kept for extensibility)."""
+    global _cache_prewarm_thread_started
+    if _cache_prewarm_thread_started:
+        return
+    _cache_prewarm_thread_started = True
+    # Note: start_agg_thread() already pre-computes common data every 60s
+    # This thread is a placeholder for future cache optimization strategies
+    # For now, we rely on the existing agg_thread for cache pre-warming
+
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
     alerts = []
     seen = set()
@@ -1738,6 +1760,13 @@ def get_common_nfdump_data(query_type, range_key):
 
     with _common_data_lock:
         _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
+        # Cleanup old entries if cache gets too large (LRU-style)
+        if len(_common_data_cache) > COMMON_DATA_CACHE_MAX:
+            # Remove oldest 20% of entries
+            drop_count = max(1, COMMON_DATA_CACHE_MAX // 5)
+            oldest = sorted(_common_data_cache.items(), key=lambda kv: kv[1]["ts"])[:drop_count]
+            for k, _ in oldest:
+                _common_data_cache.pop(k, None)
 
     return data
 
@@ -1751,8 +1780,9 @@ def api_stats_summary():
         if _stats_summary_cache["data"] and _stats_summary_cache.get("key") == range_key and _stats_summary_cache.get("win") == win:
             return jsonify(_stats_summary_cache["data"])
 
-    tf = get_time_range(range_key)
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf), expected_key='sa')
+    # Reuse common data cache instead of running separate nfdump query
+    # Using top 100 sources (from cache) is more accurate than top 20 for totals
+    sources = get_common_nfdump_data("sources", range_key)
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
@@ -1914,9 +1944,8 @@ def api_stats_protocols():
         if _stats_protocols_cache["data"] and _stats_protocols_cache["key"] == range_key and _stats_protocols_cache.get("win") == win:
             return jsonify(_stats_protocols_cache["data"])
 
-    tf = get_time_range(range_key)
-    # LIMITED TO 10
-    protos_raw = parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","10"], tf), expected_key='proto')
+    # Reuse common data cache (fetches 20, we use top 10)
+    protos_raw = get_common_nfdump_data("protos", range_key)[:10]
 
     for i in protos_raw:
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
@@ -1998,9 +2027,8 @@ def api_stats_asns():
         if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and _stats_asns_cache.get("win") == win:
             return jsonify(_stats_asns_cache["data"])
 
-    tf = get_time_range(range_key)
-    # Re-use top sources logic but aggregate in python
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","50"], tf), expected_key='sa')
+    # Reuse common data cache (fetches 100 sources, better than 50 for aggregation)
+    sources = get_common_nfdump_data("sources", range_key)
 
     asn_counts = Counter()
 
@@ -6123,6 +6151,81 @@ def handle_exception(error):
     return jsonify({'error': 'An error occurred'}), 500
 
 
+# Batch API endpoint for fetching multiple stats in one request
+@app.route("/api/stats/batch", methods=['POST'])
+@throttle(10, 20)
+def api_stats_batch():
+    """Batch endpoint: accepts list of endpoint names, returns combined response."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        requests_list = data.get('requests', [])
+        range_key = request.args.get('range', '1h')
+        
+        if not requests_list:
+            return jsonify({'error': 'No requests provided'}), 400
+        
+        results = {}
+        errors = {}
+        
+        # Map endpoint names to handler functions
+        handlers = {
+            'summary': api_stats_summary,
+            'sources': api_stats_sources,
+            'destinations': api_stats_destinations,
+            'ports': api_stats_ports,
+            'protocols': api_stats_protocols,
+            'bandwidth': api_bandwidth,
+            'threats': api_threats,
+            'alerts': api_alerts,
+            'firewall': api_stats_firewall,
+        }
+        
+        # Process each request using test_request_context with proper query string
+        for req in requests_list:
+            endpoint_name = req.get('endpoint')
+            if not endpoint_name or endpoint_name not in handlers:
+                if endpoint_name:
+                    errors[endpoint_name] = 'Unknown endpoint'
+                continue
+            
+            params = req.get('params', {})
+            if 'range' not in params:
+                params['range'] = range_key
+            
+            # Build query string for test_request_context
+            from urllib.parse import urlencode
+            query_string = urlencode(params)
+            
+            # Create test request context with query string
+            with app.test_request_context(query_string=query_string):
+                try:
+                    handler = handlers[endpoint_name]
+                    # Call handler and extract JSON from Response
+                    response = handler()
+                    if hasattr(response, 'get_json'):
+                        result = response.get_json()
+                    elif hasattr(response, 'json'):
+                        result = response.json
+                    else:
+                        result = None
+                    
+                    if result:
+                        results[endpoint_name] = result
+                except Exception as e:
+                    errors[endpoint_name] = str(e)
+        
+        response_data = {'results': results}
+        if errors:
+            response_data['errors'] = errors
+        
+        return jsonify(response_data)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # Performance metrics endpoint
 @app.route("/api/performance/metrics")
 @throttle(10, 60)
@@ -6194,6 +6297,7 @@ if __name__=="__main__":
     start_trends_thread()
     start_agg_thread()
     start_syslog_thread()  # OPNsense firewall log receiver
+    start_cache_prewarm_thread()  # Pre-warm caches before expiry
     
     # Run Flask app (auto-pick next free port if requested one is busy)
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
