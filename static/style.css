@@ -5380,3 +5380,10 @@ body.compact-mode {
     background: transparent;
     box-shadow: none;
 }
+
+/* Force 4 columns for specific grids on desktop */
+@media (min-width: 1400px) {
+    .grid.grid-4 {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
