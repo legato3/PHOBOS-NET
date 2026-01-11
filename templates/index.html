@@ -17,6 +17,8 @@
     <script src="/static/chart.min.js" defer></script>
     <script src="/static/chartjs-chart-sankey.min.js" defer></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
+    <!-- Register app component BEFORE Alpine starts so alpine:init is caught -->
+    <script src="/static/app.min.js?v=2.6.1" defer></script>
     <script src="/static/alpine.min.js" defer></script>
     <script src="/static/vis-network.min.js" defer></script>
 
@@ -2287,7 +2289,6 @@
         </button>
     </nav>
 
-    <!-- App Logic - Using minified version for production -->
-    <script src="/static/app.min.js?v=2.6.1" defer></script>
+    <!-- App Logic already loaded in <head> to ensure Alpine picks it up -->
 </body>
 </html>
