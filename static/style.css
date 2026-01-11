@@ -1,62 +1,177 @@
 :root {
-    /* Core palette - Near-black base */
-    --bg-dark: #0a0a0a;
-    --card-bg: rgba(15, 15, 15, 0.75);
-    --card-border: rgba(0, 243, 255, 0.12);
-    --glass-bg: rgba(255, 255, 255, 0.04);
-    --glass-blur: 10px;
-
-    /* Functional accent colors only - Cyan / Magenta / Red */
-    --accent-cyan: #00f3ff;
-    --accent-magenta: #ff00ff;
-    --accent-red: #ff003c;
-
-    /* Semantic aliases (functional usage only) */
-    --accent-primary: var(--accent-cyan);
-    --accent-primary-glow: rgba(0, 243, 255, 0.2);
-    --accent-secondary: var(--accent-magenta);
-    --accent-secondary-glow: rgba(255, 0, 255, 0.15);
-    --danger: var(--accent-red);
-    --danger-glow: rgba(255, 0, 60, 0.2);
-
+    /* ============================================
+       PREMIUM CYBERPUNK OPERATIONS CONSOLE
+       Design System v3.0
+       ============================================ */
+    
+    /* Base Colors - Near-black foundation */
+    --bg-primary: #0a0a0a;              /* Pure black base */
+    --bg-secondary: #0f0f0f;            /* Slightly lighter for depth */
+    --bg-elevated: #141414;             /* Cards and elevated surfaces */
+    --bg-overlay: rgba(10, 10, 10, 0.95); /* Overlays and modals */
+    
+    /* Glass Morphism - Premium subtle effects */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-bg-hover: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(0, 243, 255, 0.08);
+    --glass-border-hover: rgba(0, 243, 255, 0.15);
+    --glass-blur: 12px;
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    
+    /* Card System - Layered elevation */
+    --card-bg: rgba(15, 15, 15, 0.6);
+    --card-bg-hover: rgba(20, 20, 20, 0.7);
+    --card-border: rgba(0, 243, 255, 0.1);
+    --card-border-hover: rgba(0, 243, 255, 0.2);
+    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.4);
+    
+    /* Functional Accents - Subtle, purposeful only */
+    --accent-primary: #00f3ff;          /* Cyan - Primary actions, highlights */
+    --accent-primary-hover: #00d4e6;    /* Slightly darker on hover */
+    --accent-primary-glow: rgba(0, 243, 255, 0.15);
+    --accent-primary-glow-strong: rgba(0, 243, 255, 0.25);
+    
+    --accent-secondary: #ff00ff;        /* Magenta - Secondary actions, warnings */
+    --accent-secondary-hover: #cc00cc;
+    --accent-secondary-glow: rgba(255, 0, 255, 0.12);
+    
+    --accent-danger: #ff003c;           /* Red - Critical alerts, errors */
+    --accent-danger-hover: #cc002e;
+    --accent-danger-glow: rgba(255, 0, 60, 0.2);
+    
+    --accent-success: #00ff88;          /* Green - Success states, health */
+    --accent-success-hover: #00cc6a;
+    --accent-success-glow: rgba(0, 255, 136, 0.15);
+    
+    --accent-warning: #ffb800;          /* Amber - Warnings */
+    --accent-warning-hover: #cc9300;
+    --accent-warning-glow: rgba(255, 184, 0, 0.15);
+    
     /* Legacy compatibility (deprecated, use semantic aliases) */
-    --neon-cyan: var(--accent-cyan);
-    --neon-purple: var(--accent-magenta);
-    --neon-red: var(--accent-red);
-
-    /* Typography Scale - Improved Hierarchy */
-    --text-primary: #e0e0e0;
-    --text-secondary: #a8a8a8;
-    --text-light: #f0f0f0;
+    --bg-dark: var(--bg-primary);
+    --neon-cyan: var(--accent-primary);
+    --neon-purple: var(--accent-secondary);
+    --neon-red: var(--accent-danger);
+    --neon-green: var(--accent-success);
+    --neon-yellow: var(--accent-warning);
+    --danger: var(--accent-danger);
+    
+    /* Typography System - Premium hierarchy */
+    --font-sans: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
+    
+    /* Text Colors - Clear hierarchy */
+    --text-primary: #e8e8e8;            /* Main content - WCAG AAA on bg-primary */
+    --text-secondary: #a0a0a0;          /* Secondary content - WCAG AA */
+    --text-tertiary: #707070;           /* Tertiary, disabled states */
+    --text-muted: #666666;              /* Muted text */
+    --text-inverse: #000000;            /* Text on accent backgrounds */
     --text-main: var(--text-primary);
-    --text-muted: #888;
-    --font-mono: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --text-light: #f5f5f5;              /* Light text for emphasis */
     
-    /* Typography Sizes - Modular Scale */
-    --font-size-xs: 0.75rem;    /* 12px */
-    --font-size-sm: 0.875rem;   /* 14px */
-    --font-size-base: 1rem;     /* 16px */
-    --font-size-lg: 1.125rem;   /* 18px */
-    --font-size-xl: 1.25rem;    /* 20px */
-    --font-size-2xl: 1.5rem;    /* 24px */
-    --font-size-3xl: 1.875rem;  /* 30px */
+    /* Typography Scale - Modular scale (1.125 ratio, 16px base) */
+    --text-xs: 0.75rem;                 /* 12px - Captions, labels */
+    --text-sm: 0.875rem;                /* 14px - Secondary text */
+    --text-base: 1rem;                  /* 16px - Body text */
+    --text-lg: 1.125rem;                /* 18px - Emphasized body */
+    --text-xl: 1.25rem;                 /* 20px - Small headings */
+    --text-2xl: 1.5rem;                 /* 24px - Section titles */
+    --text-3xl: 1.875rem;               /* 30px - Page titles */
+    --text-4xl: 2.25rem;                /* 36px - Hero text */
     
-    /* Spacing Scale - Improved Rhythm */
-    --space-xs: 0.25rem;   /* 4px */
-    --space-sm: 0.5rem;    /* 8px */
-    --space-md: 1rem;      /* 16px */
-    --space-lg: 1.5rem;    /* 24px */
-    --space-xl: 2rem;      /* 32px */
-    --space-2xl: 3rem;     /* 48px */
-
-    /* Radii */
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    
+    /* Letter Spacing */
+    --letter-spacing-tight: -0.02em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.02em;
+    --letter-spacing-wider: 0.05em;
+    --letter-spacing-widest: 0.1em;
+    
+    /* Line Heights */
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+    
+    /* Spacing System - 8px base unit */
+    --space-0: 0;
+    --space-1: 0.25rem;                 /* 4px */
+    --space-2: 0.5rem;                  /* 8px */
+    --space-3: 0.75rem;                 /* 12px */
+    --space-4: 1rem;                    /* 16px */
+    --space-6: 1.5rem;                  /* 24px */
+    --space-8: 2rem;                    /* 32px */
+    --space-12: 3rem;                   /* 48px */
+    --space-16: 4rem;                   /* 64px */
+    --space-24: 6rem;                   /* 96px */
+    
+    /* Legacy spacing (deprecated, use numbered scale) */
+    --space-xs: var(--space-1);
+    --space-sm: var(--space-2);
+    --space-md: var(--space-4);
+    --space-lg: var(--space-6);
+    --space-xl: var(--space-8);
+    --space-2xl: var(--space-12);
+    
+    /* Border Radius - Consistent rounding */
+    --radius-none: 0;
     --radius-sm: 4px;
-    --radius-lg: 10px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --radius-full: 9999px;
     
-    /* Transitions - Subtle, Purposeful Motion */
-    --transition-fast: 150ms ease-out;
-    --transition-base: 200ms ease-out;
-    --transition-slow: 300ms ease-out;
+    /* Shadows - Layered depth system */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.5);
+    --shadow-glow-primary: 0 0 8px var(--accent-primary-glow);
+    --shadow-glow-danger: 0 0 8px var(--accent-danger-glow);
+    
+    /* Transitions - Subtle, purposeful motion */
+    --motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* Legacy transitions (deprecated, use motion scale) */
+    --transition-fast: var(--motion-fast);
+    --transition-base: var(--motion-base);
+    --transition-slow: var(--motion-slow);
+    
+    /* Z-Index Scale - Layered system */
+    --z-base: 0;
+    --z-elevated: 10;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-modal-backdrop: 900;
+    --z-modal: 1000;
+    --z-tooltip: 1100;
+    --z-notification: 1200;
+    
+    /* Layout Constraints */
+    --container-max-width: 1920px;
+    --container-padding: var(--space-4);
+    --header-height: 64px;
+    --status-bar-height: 40px;
+    --sidebar-width: 280px;
+    
+    /* Typography sizes (deprecated, use text scale) */
+    --font-size-xs: var(--text-xs);
+    --font-size-sm: var(--text-sm);
+    --font-size-base: var(--text-base);
+    --font-size-lg: var(--text-lg);
+    --font-size-xl: var(--text-xl);
+    --font-size-2xl: var(--text-2xl);
+    --font-size-3xl: var(--text-3xl);
 }
 
 body {
@@ -131,21 +246,24 @@ body {
     background: var(--accent-cyan);
 }
 
-/* Layout - Improved Spacing */
+/* Layout - Premium spacing and structure */
 .container {
-    max-width: 1800px;
+    max-width: var(--container-max-width);
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl);
+    gap: var(--space-8);
+    padding: 0 var(--container-padding);
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-md);
-    padding: 0 var(--space-sm);
+    margin-bottom: var(--space-6);
+    padding: var(--space-4) 0;
+    min-height: var(--header-height);
+    position: relative;
 }
 
 .header-top {
