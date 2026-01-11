@@ -5986,6 +5986,55 @@ def api_stats_blocklist_rate():
         "has_fw_data": total_blocked > 0
     })
 
+# Security headers for all responses
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to all responses."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    
+    # Content Security Policy (relaxed for Alpine.js inline handlers)
+    # Note: Alpine.js uses inline event handlers, so we use a relaxed CSP
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' https://cdn.jsdelivr.net data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers['Content-Security-Policy'] = csp
+    
+    return response
+
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors."""
+    return jsonify({'error': 'Not found'}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors."""
+    import traceback
+    app.logger.error(f'Server Error: {error}\n{traceback.format_exc()}')
+    return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Handle unhandled exceptions."""
+    import traceback
+    app.logger.error(f'Unhandled Exception: {error}\n{traceback.format_exc()}')
+    return jsonify({'error': 'An error occurred'}), 500
+
+
 if __name__=="__main__":
     print("NetFlow Analytics Pro (Modernized)")
     
