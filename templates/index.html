@@ -28,6 +28,8 @@
 
     <!-- CSS - Using minified version for production -->
     <link rel="stylesheet" href="/static/style.min.css?v=2.6.1">
+    <!-- Widget-specific enhancements -->
+    <link rel="stylesheet" href="/static/conversations.css?v=1">
 </head>
 <body class="antialiased" x-data="dashboard">
 
@@ -52,29 +54,33 @@
                 <h1 class="title">NETFLOW <span class="text-cyan">ANALYTICS</span></h1>
                 <button class="mobile-filter-toggle" @click="showMobileFilters = !showMobileFilters" :class="{ 'active': showMobileFilters }" aria-label="Toggle filters" aria-expanded="false" :aria-expanded="showMobileFilters.toString()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                </button>
-            </div>
-            <div class="controls" :class="{ 'mobile-show': showMobileFilters }">
-                <!-- Notification Center -->
-                <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
-                    <button @click="open = !open" class="icon-btn" title="Notifications" aria-label="Toggle notifications" style="position: relative;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                        <span x-show="activeAlerts.length > 0" class="badge-dot"></span>
-                    </button>
-                    <div class="dropdown-menu notification-menu" x-show="open" style="display:none; width: 400px; max-height: 80vh; overflow-y: auto;">
-                        <div style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; color: var(--text-main);">
-                            NOTIFICATIONS (<span x-text="activeAlerts.length"></span>)
+                <h2>
+                    <span>💬 Recent Conversations</span>
+                    <div class="card-actions convo-actions">
+                        <!-- Toggle: List | Flow -->
+                        <div class="convo-toggle" x-show="!isMinimized('conversations')">
+                            <button id="btn-view-list" @click="toggleConversationView('list')" :class="{ 'active': conversationView === 'list' }" aria-pressed="true">List</button>
+                            <button id="btn-view-flow" @click="toggleConversationView('sankey')" :class="{ 'active': conversationView === 'sankey' }" aria-pressed="false">Flow</button>
                         </div>
 
-                        <template x-if="activeAlerts.length === 0">
-                            <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-                                No new alerts.
-                            </div>
-                        </template>
+                        <!-- Action buttons -->
+                        <div class="convo-action-group" x-show="!isMinimized('conversations')">
+                            <button class="icon-btn-small" @click="openNetworkGraph()" title="Graph View" aria-label="Graph view">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                            </button>
+                            <button class="icon-btn-small" @click="openExpandedTable('conversations')" title="View All" aria-label="View all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                            </button>
+                        </div>
 
-                        <template x-for="(group, severity) in groupedAlerts" :key="severity">
-                            <div class="alert-group">
-                                <div class="alert-group-header" :class="severity.toLowerCase()">
+                        <!-- Minimize/Expand always present -->
+                        <button class="icon-btn-small" @click="toggleMinimize('conversations')" :title="isMinimized('conversations') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('conversations') ? 'Expand ' + getWidgetLabel('conversations') : 'Minimize ' + getWidgetLabel('conversations')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('conversations')"><path d="M3 12h18M12 3v18"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('conversations')"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                        <div class="spinner" x-show="conversations.loading"></div>
+                    </div>
+                </h2>
                                     <span x-text="severity"></span>
                                 </div>
                                 <template x-for="alert in group" :key="alert.msg">

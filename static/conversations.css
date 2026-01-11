@@ -1,0 +1,8 @@
+/* UI enhancements for Recent Conversations header */
+.convo-actions{gap:8px;align-items:center}
+.convo-toggle{display:inline-flex;border:1px solid var(--card-border);background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden}
+.convo-toggle button{background:transparent;border:0;padding:6px 12px;color:var(--text-muted);cursor:pointer;font-size:.85em}
+.convo-toggle button.active{background:var(--accent-primary);color:#000;font-weight:700;box-shadow:0 0 12px var(--accent-primary-glow)}
+.convo-action-group{display:inline-flex;gap:6px}
+.convo-action-group .icon-btn-small{width:28px;height:28px;border-radius:6px;border:1px solid var(--card-border);background:rgba(255,255,255,0.04)}
+.convo-action-group .icon-btn-small:hover{background:rgba(0,243,255,0.12)}
