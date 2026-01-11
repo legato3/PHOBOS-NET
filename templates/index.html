@@ -9,17 +9,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- Preconnect to external resources for better performance -->
+    <!-- Resource hints for better performance -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="preload" href="/static/js/utils.js" as="script">
+    <link rel="preload" href="/static/js/widgets.js" as="script">
 
-    <!-- External Libs (bundled locally to reduce CDN dependency) -->
+    <!-- External Libs (bundled locally to reduce CDN dependency) - Defer all heavy libraries -->
     <script src="/static/chart.min.js" defer></script>
     <script src="/static/chartjs-chart-sankey.min.js" defer></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
+    <!-- Modular JavaScript - Load modules before app -->
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/widgets.js"></script>
+    <script src="/static/js/lazy-load.js"></script>
     <!-- Register app component BEFORE Alpine starts so alpine:init is caught -->
-    <script src="/static/app.min.js?v=2.6.1" defer></script>
+    <script src="/static/app.js?v=2.7.0"></script>
     <script src="/static/alpine.min.js" defer></script>
+    <!-- Heavy visualization libraries - Defer until needed -->
     <script src="/static/vis-network.min.js" defer></script>
 
     <!-- Leaflet -->
@@ -66,9 +73,9 @@
                         <option value="30000">30s</option>
                         <option value="60000">60s</option>
                     </select>
-                    <button @click="togglePause()" :class="{ 'active': paused }" x-text="paused ? 'Resumed' : 'Pause'" style="width:100%;margin-bottom:12px;"></button>
+                    <button @click="togglePause()" :class="{ 'active': paused }" :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'" x-text="paused ? 'Resumed' : 'Pause'" style="width:100%;margin-bottom:12px;"></button>
                 </div>
-                <button @click="showMobileFilters=false" style="margin-top:24px;width:100%;background:var(--neon-cyan);color:#000;padding:12px 0;border:none;border-radius:8px;font-weight:bold;">Close</button>
+                <button @click="showMobileFilters=false" aria-label="Close filters menu" style="margin-top:24px;width:100%;background:var(--neon-cyan);color:#000;padding:12px 0;border:none;border-radius:8px;font-weight:bold;">Close</button>
             </div>
         </div>
 
@@ -97,79 +104,79 @@
                     <option value="60000">60s</option>
                 </select>
 
-                <button @click="togglePause()" :class="{ 'active': paused }" x-text="paused ? 'Resumed' : 'Pause'"></button>
+                <button @click="togglePause()" :class="{ 'active': paused }" :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'" x-text="paused ? 'Resumed' : 'Pause'"></button>
 
                  <!-- Dropdown for Actions -->
                  <div class="dropdown" x-data="{ open: false }" @click.outside="open = false" style="position:relative">
-                    <button @click="open = !open" class="icon-btn" title="Settings & Actions" aria-label="Open settings menu">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <button @click="open = !open" class="icon-btn" title="Settings & Actions" aria-label="Open settings menu" :aria-expanded="open.toString()" aria-haspopup="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     </button>
-                    <div class="dropdown-menu settings-panel" x-show="open" style="display:none">
+                    <div class="dropdown-menu settings-panel" x-show="open" style="display:none" role="menu" aria-label="Settings menu">
                         <!-- Export Section -->
                         <div class="settings-section">
                             <div class="settings-section-title">📤 Export Data</div>
-                            <a @click="exportCSV(); open = false">
-                                <span class="settings-icon">📊</span> Export CSV
-                            </a>
-                            <a @click="exportJSON(); open = false">
-                                <span class="settings-icon">📋</span> Export JSON
-                            </a>
-                            <a @click="exportAlerts('csv'); open = false">
-                                <span class="settings-icon">⚠️</span> Export Alerts
-                            </a>
+                            <button @click="exportCSV(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">📊</span> Export CSV
+                            </button>
+                            <button @click="exportJSON(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">📋</span> Export JSON
+                            </button>
+                            <button @click="exportAlerts('csv'); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">⚠️</span> Export Alerts
+                            </button>
                         </div>
                         
                         <!-- Alerts Section -->
                         <div class="settings-section">
                             <div class="settings-section-title">🔔 Notifications</div>
-                            <a @click="toggleNotify('email')" class="settings-toggle">
-                                <span class="settings-icon">📧</span> Email Alerts
-                                <span class="toggle-pill" :class="notify.email ? 'on' : 'off'" x-text="notify.email ? 'ON' : 'OFF'"></span>
-                            </a>
-                            <a @click="toggleNotify('webhook')" class="settings-toggle">
-                                <span class="settings-icon">🔗</span> Webhook
-                                <span class="toggle-pill" :class="notify.webhook ? 'on' : 'off'" x-text="notify.webhook ? 'ON' : 'OFF'"></span>
-                            </a>
-                            <a @click="muteAlerts(); open = false">
-                                <span class="settings-icon" x-text="notify.muted ? '🔊' : '🔇'"></span>
+                            <button @click="toggleNotify('email')" class="settings-toggle" role="menuitem">
+                                <span class="settings-icon" aria-hidden="true">📧</span> Email Alerts
+                                <span class="toggle-pill" :class="notify.email ? 'on' : 'off'" x-text="notify.email ? 'ON' : 'OFF'" aria-label="Email alerts status"></span>
+                            </button>
+                            <button @click="toggleNotify('webhook')" class="settings-toggle" role="menuitem">
+                                <span class="settings-icon" aria-hidden="true">🔗</span> Webhook
+                                <span class="toggle-pill" :class="notify.webhook ? 'on' : 'off'" x-text="notify.webhook ? 'ON' : 'OFF'" aria-label="Webhook status"></span>
+                            </button>
+                            <button @click="muteAlerts(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" x-text="notify.muted ? '🔊' : '🔇'" aria-hidden="true"></span>
                                 <span x-text="notify.muted ? 'Unmute Alerts' : 'Mute for 1 Hour'"></span>
-                            </a>
-                            <a @click="sendTestAlert(); open = false">
-                                <span class="settings-icon">🧪</span> Send Test Alert
-                            </a>
+                            </button>
+                            <button @click="sendTestAlert(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">🧪</span> Send Test Alert
+                            </button>
                         </div>
                         
                         <!-- Display Section -->
                         <div class="settings-section">
                             <div class="settings-section-title">🎨 Display</div>
-                            <a @click="toggleCompactMode()" class="settings-toggle">
-                                <span class="settings-icon">📐</span> Compact Mode
-                                <span class="toggle-pill" :class="compactMode ? 'on' : 'off'" x-text="compactMode ? 'ON' : 'OFF'"></span>
-                            </a>
-                            <a @click="lowPower = !lowPower" class="settings-toggle">
-                                <span class="settings-icon">🔋</span> Low Power
-                                <span class="toggle-pill" :class="lowPower ? 'on' : 'off'" x-text="lowPower ? 'ON' : 'OFF'"></span>
-                            </a>
-                            <a @click="widgetManagerOpen = true; open = false">
-                                <span class="settings-icon">🧩</span> Customize Widgets
-                            </a>
-                            <a @click="resetWidgetPreferences(); open = false">
-                                <span class="settings-icon">↩️</span> Reset Widgets
-                            </a>
+                            <button @click="toggleCompactMode()" class="settings-toggle" role="menuitem">
+                                <span class="settings-icon" aria-hidden="true">📐</span> Compact Mode
+                                <span class="toggle-pill" :class="compactMode ? 'on' : 'off'" x-text="compactMode ? 'ON' : 'OFF'" aria-label="Compact mode status"></span>
+                            </button>
+                            <button @click="lowPower = !lowPower" class="settings-toggle" role="menuitem">
+                                <span class="settings-icon" aria-hidden="true">🔋</span> Low Power
+                                <span class="toggle-pill" :class="lowPower ? 'on' : 'off'" x-text="lowPower ? 'ON' : 'OFF'" aria-label="Low power mode status"></span>
+                            </button>
+                            <button @click="widgetManagerOpen = true; open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">🧩</span> Customize Widgets
+                            </button>
+                            <button @click="resetWidgetPreferences(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">↩️</span> Reset Widgets
+                            </button>
                         </div>
                         
                         <!-- System Section -->
                         <div class="settings-section">
                             <div class="settings-section-title">⚙️ System</div>
-                            <a @click="refreshFeed(); open = false">
-                                <span class="settings-icon">🔄</span> Refresh Threat Feeds
-                            </a>
-                            <a @click="openThresholds(); open = false">
-                                <span class="settings-icon">📏</span> Alert Thresholds
-                            </a>
-                            <a @click="openConfig(); open = false">
-                                <span class="settings-icon">🛠️</span> Configuration
-                            </a>
+                            <button @click="refreshFeed(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">🔄</span> Refresh Threat Feeds
+                            </button>
+                            <button @click="openThresholds(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">📏</span> Alert Thresholds
+                            </button>
+                            <button @click="openConfig(); open = false" role="menuitem" class="settings-menu-item">
+                                <span class="settings-icon" aria-hidden="true">🛠️</span> Configuration
+                            </button>
                         </div>
                         
                         <!-- Version Footer -->
@@ -190,20 +197,20 @@
         </header>
 
         <!-- Tab Navigation -->
-        <nav class="tabs sticky-tabs" role="navigation" aria-label="Main navigation" style="position:sticky;top:0;z-index:100;background:rgba(10,14,23,0.98);backdrop-filter:blur(6px);">
-            <button class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'" role="tab" :aria-selected="activeTab === 'overview'" aria-controls="overview-tab">Overview</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'" role="tab" :aria-selected="activeTab === 'security'" aria-controls="security-tab">Security</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'" role="tab" :aria-selected="activeTab === 'network'" aria-controls="network-tab">Network</button>
-            <button class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'" role="tab" :aria-selected="activeTab === 'forensics'" aria-controls="forensics-tab">Forensics</button>
+        <nav class="tabs sticky-tabs" role="tablist" aria-label="Main navigation" style="position:sticky;top:0;z-index:100;background:rgba(10,14,23,0.98);backdrop-filter:blur(6px);">
+            <button id="overview-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'overview' }" @click="activeTab = 'overview'" role="tab" :aria-selected="activeTab === 'overview'" aria-controls="overview-tab">Overview</button>
+            <button id="security-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'security' }" @click="activeTab = 'security'" role="tab" :aria-selected="activeTab === 'security'" aria-controls="security-tab">Security</button>
+            <button id="network-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'network' }" @click="activeTab = 'network'" role="tab" :aria-selected="activeTab === 'network'" aria-controls="network-tab">Network</button>
+            <button id="forensics-tab-btn" class="tab-btn" :class="{ 'active': activeTab === 'forensics' }" @click="activeTab = 'forensics'" role="tab" :aria-selected="activeTab === 'forensics'" aria-controls="forensics-tab">Forensics</button>
         </nav>
 
         <!-- Main Content Area -->
-        <main role="main">
+        <main>
 
         <!-- ============================================
              OVERVIEW TAB
              ============================================ -->
-        <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn">
+        <div x-show="activeTab === 'overview'" style="display:none" :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
             <!-- Mobile Quick Stats Bar -->
             <div class="mobile-stats-bar">
@@ -253,8 +260,8 @@
                             <span>📊 Bandwidth & Flow Rate</span>
                             <div class="card-actions">
                                 <button class="icon-btn-small" @click="toggleMinimize('bandwidth')" :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('bandwidth') ? 'Expand ' + getWidgetLabel('bandwidth') : 'Minimize ' + getWidgetLabel('bandwidth')" style="color: var(--neon-cyan);">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')"><path d="M3 12h18M12 3v18"/></svg>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('bandwidth')" aria-hidden="true"><path d="M3 12h18M12 3v18"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('bandwidth')" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 </button>
                                 <div class="spinner" x-show="bandwidth.loading"></div>
                             </div>
@@ -368,7 +375,7 @@
             <!-- ============================================
              SECURITY TAB
              ============================================ -->
-    <div x-show="activeTab === 'security'" style="display:none" :style="activeTab === 'security' ? 'display:block' : 'display:none'">
+    <div x-show="activeTab === 'security'" style="display:none" :style="activeTab === 'security' ? 'display:block' : 'display:none'" id="security-tab" role="tabpanel" aria-labelledby="security-tab-btn" tabindex="0">
 <!-- ============================================
              SECURITY CENTER
              ============================================ -->
@@ -402,9 +409,9 @@
                     </div>
                 </div>
                 <div class="security-center-actions" @click.stop>
-                    <button class="btn-sm" @click="watchlistModalOpen = true" title="Manage Watchlist">👁️ Watchlist</button>
-                    <button class="btn-sm" @click="exportThreats('csv')" title="Export threats as CSV">📥 Export</button>
-                    <button class="btn-sm" @click="refreshFeed()" title="Refresh threat feeds">🔄 Refresh</button>
+                    <button class="btn-sm" @click="watchlistModalOpen = true" aria-label="Manage watchlist">👁️ <span aria-hidden="true"></span>Watchlist</button>
+                    <button class="btn-sm" @click="exportThreats('csv')" aria-label="Export threats as CSV">📥 <span aria-hidden="true"></span>Export</button>
+                    <button class="btn-sm" @click="refreshFeed()" aria-label="Refresh threat feeds">🔄 <span aria-hidden="true"></span>Refresh</button>
                     <span class="collapse-indicator" :class="{ 'collapsed': securityCollapsed }">▼</span>
                 </div>
             </div>
@@ -473,14 +480,14 @@
                     </h2>
                     <!-- Alert Filters -->
                     <div class="alert-filters" x-show="!isMinimized('alertHistory')">
-                        <select x-model="alertFilter.severity" class="filter-select">
+                        <select x-model="alertFilter.severity" class="filter-select" aria-label="Filter alerts by severity">
                             <option value="all">All Severities</option>
                             <option value="critical">🔴 Critical</option>
                             <option value="high">🟠 High</option>
                             <option value="medium">🟡 Medium</option>
                             <option value="low">🟢 Low</option>
                         </select>
-                        <select x-model="alertFilter.type" class="filter-select">
+                        <select x-model="alertFilter.type" class="filter-select" aria-label="Filter alerts by type">
                             <option value="all">All Types</option>
                             <option value="threat_ip">Threat IP</option>
                             <option value="port_scan">Port Scan</option>
@@ -882,7 +889,7 @@
                         <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
                             <span class="badge" style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;" x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
                             <span class="badge" style="background: rgba(255,0,60,0.18); color: var(--neon-red); font-size: 0.9em;" x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
-                            <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" style="color: var(--neon-cyan);">
+                            <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')" :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'" :aria-label="isMinimized('recentBlocks') ? 'Expand recent blocks' : 'Minimize recent blocks'" style="color: var(--neon-cyan);">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!isMinimized('recentBlocks')"><path d="M3 12h18M12 3v18"/></svg>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('recentBlocks')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             </button>
@@ -979,7 +986,7 @@
     <!-- ============================================
              NETWORK TAB
              ============================================ -->
-    <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'">
+    <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'" id="network-tab" role="tabpanel" aria-labelledby="network-tab-btn" tabindex="0">
         <!-- Network Dashboard -->
         <section id="section-network" class="scroll-section" style="margin-bottom: 32px;">
         <div class="section-header">
@@ -1522,7 +1529,7 @@
     <!-- ============================================
              FORENSICS TAB - Investigation & Incident Response
              ============================================ -->
-    <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'">
+    <div x-show="activeTab === 'forensics'" style="display:none" :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab" role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
 
 <!-- ========================================
      FORENSICS INVESTIGATION TOOLS

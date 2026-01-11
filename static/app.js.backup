@@ -117,46 +117,44 @@ document.addEventListener('alpine:init', () => {
         visibleSections: new Set(),
         observer: null,
 
-        // UI Labels for Widgets - Using DashboardWidgets module
-        get friendlyLabels() {
-            return (typeof DashboardWidgets !== 'undefined' && DashboardWidgets.friendlyLabels) || {
-                summary: 'Summary Stats',
-                bandwidth: 'Bandwidth & Flow Rate',
-                firewall: 'Firewall Health',
-                analytics: 'Analytics Row',
-                topstats: 'Top Stats Row',
-                flags: 'TCP Flags',
-                asns: 'Top ASNs',
-                countries: 'Traffic by Country',
-                durations: 'Long Flows',
-                packetSizes: 'Packet Sizes',
-                sources: 'Top Sources',
-                destinations: 'Top Destinations',
-                ports: 'Top Ports',
-                protocols: 'Protocols',
-                threats: 'Threat Detections',
-                maliciousPorts: 'Top Malicious Ports',
-                blocklist: 'Blocklist Match Rate',
-                feedHealth: 'Feed Health',
-                securityScore: 'Security Score',
-                alertHistory: 'Alert History',
-                threatsByCountry: 'Threats by Country',
-                threatVelocity: 'Threat Velocity',
-                topThreatIPs: 'Top Threat IPs',
-                riskIndex: 'Network Risk Index',
-                conversations: 'Recent Conversations',
-                talkers: 'Top Talkers',
-                services: 'Top Services',
-                hourlyTraffic: 'Traffic by Hour',
-                flowStats: 'Flow Statistics',
-                protoMix: 'Protocol Mix',
-                netHealth: 'Network Health',
-                insights: 'Traffic Insights',
-                mitreHeatmap: 'MITRE ATT&CK Coverage',
-                protocolAnomalies: 'Protocol Anomalies',
-                attackTimeline: 'Attack Timeline',
-                recentBlocks: 'Firewall Logs'
-            };
+        // UI Labels for Widgets (only widgets that exist in HTML template)
+        friendlyLabels: {
+            summary: 'Summary Stats',
+            bandwidth: 'Bandwidth & Flow Rate',
+            firewall: 'Firewall Health',
+            analytics: 'Analytics Row',
+            topstats: 'Top Stats Row',
+            flags: 'TCP Flags',
+            asns: 'Top ASNs',
+            countries: 'Traffic by Country',
+            durations: 'Long Flows',
+            packetSizes: 'Packet Sizes',
+            sources: 'Top Sources',
+            destinations: 'Top Destinations',
+            ports: 'Top Ports',
+            protocols: 'Protocols',
+            threats: 'Threat Detections',
+            maliciousPorts: 'Top Malicious Ports',
+            blocklist: 'Blocklist Match Rate',
+            feedHealth: 'Feed Health',
+            securityScore: 'Security Score',
+            alertHistory: 'Alert History',
+            threatsByCountry: 'Threats by Country',
+            threatVelocity: 'Threat Velocity',
+            topThreatIPs: 'Top Threat IPs',
+            riskIndex: 'Network Risk Index',
+            conversations: 'Recent Conversations',
+            talkers: 'Top Talkers',
+            services: 'Top Services',
+            hourlyTraffic: 'Traffic by Hour',
+            flowStats: 'Flow Statistics',
+            protoMix: 'Protocol Mix',
+            netHealth: 'Network Health',
+            insights: 'Traffic Insights',
+            mitreHeatmap: 'MITRE ATT&CK Coverage',
+            protocolAnomalies: 'Protocol Anomalies',
+            attackTimeline: 'Attack Timeline',
+            recentBlocks: 'Firewall Logs'
         },
 
         // Thresholds (editable)
@@ -280,7 +278,7 @@ document.addEventListener('alpine:init', () => {
             if (val === null || val === undefined) return '--';
             if (field.includes('percent')) return val + '%';
             if (field.includes('_s') || field.includes('_mbps')) return val.toFixed(2);
-            if (field === 'mem_used' || field === 'mem_total') return DashboardUtils.formatBytes(val * 1024);
+            if (field === 'mem_used' || field === 'mem_total') return this.formatBytes(val * 1024);
             if (field === 'wan_in' || field === 'wan_out' || field === 'disk_read' || field === 'disk_write') return this.fmtBytes(val);
             if (field === 'if_wan_status' || field === 'if_lan_status') return val === '1' ? 'UP' : 'DOWN';
             return val;
@@ -330,36 +328,25 @@ document.addEventListener('alpine:init', () => {
         apiLatencyHistory: [],
 
         init() {
-            // Polyfill requestIdleCallback for better browser support
-            const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
-            
-            // Mark as initialized immediately for rendering
             this.initDone = true;
-            
-            // Defer heavy initialization to avoid blocking initial render
-            idleCallback(() => {
-                this.loadWidgetPreferences();
-                this.loadCompactMode();
-                this.startIntersectionObserver();
-                // Defer data loading slightly to allow initial paint
-                setTimeout(() => {
-                    this.loadAll();
-                }, 50);
-                this.loadNotifyStatus();
-                this.loadThresholds();
-                // Initialize drag-and-drop after DOM paints
-                this.$nextTick(() => this.setupDragAndDrop());
-                this.startTimer();
+            this.loadWidgetPreferences();
+            this.loadCompactMode();
+            this.startIntersectionObserver();
+            this.loadAll();
+            this.loadNotifyStatus();
+            this.loadThresholds();
+            // Initialize drag-and-drop after DOM paints
+            this.$nextTick(() => this.setupDragAndDrop());
+            this.startTimer();
 
-                // Start real-time firewall stream (SSE) if supported
-                this.startFirewallStream();
+            // Start real-time firewall stream (SSE) if supported
+            this.startFirewallStream();
 
-                // Keyboard shortcuts
-                this.setupKeyboardShortcuts();
+            // Keyboard shortcuts
+            this.setupKeyboardShortcuts();
 
-                // Start countdown timer
-                this.startCountdown();
-            }, { timeout: 100 });
+            // Start countdown timer
+            this.startCountdown();
 
             // Watchers
             this.$watch('timeRange', () => {
@@ -434,9 +421,9 @@ document.addEventListener('alpine:init', () => {
             return this.visibleSections.has(id);
         },
 
-        // Helper to get CSS variable value - Using DashboardUtils module
+        // Helper to get CSS variable value
         getCssVar(name) {
-            return DashboardUtils.getCssVar(name);
+             return getComputedStyle(document.body).getPropertyValue(name).trim();
         },
 
         get activeAlerts() {
@@ -510,11 +497,9 @@ document.addEventListener('alpine:init', () => {
                 
                 switch(e.key.toLowerCase()) {
                     case 'r':
-                        if (!e.ctrlKey && !e.metaKey) {
-                            e.preventDefault();
-                            this.loadAll();
-                            this.refreshCountdown = this.refreshInterval / 1000;
-                        }
+                        e.preventDefault();
+                        this.loadAll();
+                        this.refreshCountdown = this.refreshInterval / 1000;
                         break;
                     case 'p':
                         e.preventDefault();
@@ -552,45 +537,11 @@ document.addEventListener('alpine:init', () => {
                         this.expandedModalOpen = false;
                         this.networkGraphOpen = false;
                         this.closeFullscreenChart();
-                        // Return focus to a safe element
-                        document.activeElement?.blur();
                         break;
                     case '?':
                         if (e.shiftKey) {
                             e.preventDefault();
                             alert('Keyboard Shortcuts:\n\nR - Refresh data\nP - Pause/Resume\n1-6 - Time range (15m to 7d)\nESC - Close modals\n? - Show this help');
-                        }
-                        break;
-                    case 'g':
-                        if (e.shiftKey) {
-                            e.preventDefault();
-                            // Focus search box
-                            const searchBox = document.querySelector('.search-box');
-                            if (searchBox) searchBox.focus();
-                        }
-                        break;
-                    case 'o':
-                        if (e.shiftKey) {
-                            e.preventDefault();
-                            this.activeTab = 'overview';
-                        }
-                        break;
-                    case 's':
-                        if (e.shiftKey && !e.ctrlKey) {
-                            e.preventDefault();
-                            this.activeTab = 'security';
-                        }
-                        break;
-                    case 'n':
-                        if (e.shiftKey && !e.ctrlKey) {
-                            e.preventDefault();
-                            this.activeTab = 'network';
-                        }
-                        break;
-                    case 'f':
-                        if (e.shiftKey && !e.ctrlKey) {
-                            e.preventDefault();
-                            this.activeTab = 'forensics';
                         }
                         break;
                 }
@@ -1156,12 +1107,6 @@ document.addEventListener('alpine:init', () => {
                 const canvas = document.getElementById('attackTimelineChart');
                 if (!canvas || !this.attackTimeline.timeline) return;
                 
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.renderAttackTimelineChart(), 100);
-                    return;
-                }
-                
                 const ctx = canvas.getContext('2d');
                 if (this._attackTimelineChart) this._attackTimelineChart.destroy();
             
@@ -1367,12 +1312,6 @@ document.addEventListener('alpine:init', () => {
         updateBlocklistChart(series) {
             const ctx = document.getElementById('blocklistChart');
             if (!ctx) return;
-            
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                setTimeout(() => this.renderBlocklistChart(), 100);
-                return;
-            }
             const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
             const values = (series || []).map(s => s.rate || 0);
             const blocked = (series || []).map(s => s.blocked || 0);
@@ -1597,13 +1536,6 @@ document.addEventListener('alpine:init', () => {
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
             if (!container) return;
-            
-            // Check if Leaflet is loaded
-            if (typeof L === 'undefined') {
-                console.warn('Leaflet not loaded yet, deferring map render');
-                setTimeout(() => this.renderWorldMap(), 100);
-                return;
-            }
 
             // Initialize Leaflet if not already done
             if (!this.map) {
@@ -1751,12 +1683,6 @@ document.addEventListener('alpine:init', () => {
                 const ctx = document.getElementById('hourlyChart');
                 if (!ctx || !data || !data.labels) return;
                 
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updateHourlyChart(data), 100);
-                    return;
-                }
-                
                 const peakColor = this.getCssVar('--neon-green') || '#00ff88';
                 const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
 
@@ -1827,12 +1753,6 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('protoMixChart');
                 if (!ctx) return;
-                
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updateProtoMixChart(data), 100);
-                    return;
-                }
                 
                 // Validate data structure
                 if (!data || !data.labels || !data.bytes || data.labels.length === 0) {
@@ -1914,13 +1834,6 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('bwChart');
                 if (!ctx || !data || !data.labels) return;
-                
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    console.warn('Chart.js not loaded yet, deferring chart creation');
-                    setTimeout(() => this.updateBwChart(data), 100);
-                    return;
-                }
 
                 const colorArea = 'rgba(0, 243, 255, 0.2)';
                 const colorLine = this.getCssVar('--neon-cyan') || '#00f3ff';
@@ -2007,12 +1920,6 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('pktSizeChart');
                 if (!ctx || !data || !data.labels) return;
-                
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updatePktSizeChart(data), 100);
-                    return;
-                }
 
                 // Cyberpunk palette
                 const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
@@ -2062,12 +1969,6 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('countriesChart');
                 if (!ctx || !data) return;
-                
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updateCountriesChart(data), 100);
-                    return;
-                }
                 const labels = data.labels || [];
                 const values = data.bytes || [];
                 const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
@@ -2107,12 +2008,6 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('flagsChart');
                 if (!ctx || !flagsData) return;
-                
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updateFlagsChart(flagsData), 100);
-                    return;
-                }
 
                 const labels = flagsData.map(f => f.flag);
                 const data = flagsData.map(f => f.count);
@@ -2444,13 +2339,45 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // Helpers - Using DashboardUtils module
+        // Helpers
         fmtBytes(bytes) {
-            return DashboardUtils.fmtBytes(bytes);
+             if (bytes >= 1024**3) return (bytes / 1024**3).toFixed(2) + ' GB';
+             if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
+             if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+             return bytes + ' B';
         },
 
         computeRecentBlockStats(logs = []) {
-            return DashboardUtils.computeRecentBlockStats(logs);
+            const stats = {
+                total: logs.length,
+                actions: { block: 0, reject: 0, pass: 0 },
+                threats: 0,
+                unique_src: 0,
+                unique_dst: 0,
+                blocks_last_hour: 0,
+                passes_last_hour: 0
+            };
+
+            const cutoff = (Date.now() / 1000) - 3600;
+            const srcSet = new Set();
+            const dstSet = new Set();
+
+            logs.forEach((log) => {
+                const action = log.action;
+                const ts = log.timestamp_ts || 0;
+                if (stats.actions[action] !== undefined) stats.actions[action] += 1;
+                if (log.is_threat) stats.threats += 1;
+                if (log.src_ip) srcSet.add(log.src_ip);
+                if (log.dst_ip) dstSet.add(log.dst_ip);
+                if (ts >= cutoff) {
+                    if (action === 'pass') stats.passes_last_hour += 1;
+                    if (action === 'block' || action === 'reject') stats.blocks_last_hour += 1;
+                }
+            });
+
+            stats.unique_src = srcSet.size;
+            stats.unique_dst = dstSet.size;
+            return stats;
         },
 
         setRecentBlocksView(count) {
@@ -2460,11 +2387,17 @@ document.addEventListener('alpine:init', () => {
         },
 
         timeAgo(ts) {
-            return DashboardUtils.timeAgo(ts);
+            if (!ts) return '';
+            const diff = Math.max(0, (Date.now() / 1000) - ts);
+            if (diff < 60) return `${Math.round(diff)}s ago`;
+            if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+            return `${Math.round(diff / 86400)}d ago`;
         },
 
         flagFromIso(iso) {
-            return DashboardUtils.flagFromIso(iso);
+            if (!iso || iso.length !== 2) return '🌐';
+            return String.fromCodePoint(...[...iso.toUpperCase()].map(c => c.charCodeAt(0) + 127397));
         },
 
         // Compact Mode
@@ -2480,37 +2413,101 @@ document.addEventListener('alpine:init', () => {
             this.compactMode = !this.compactMode;
         },
 
-        // Widget Management Methods - Using DashboardWidgets module
+        // Widget Management Methods
         loadWidgetPreferences() {
-            DashboardWidgets.loadPreferences(this);
+            // Merge saved prefs with defaults; default everything to visible for safety
+            // Only include widgets that actually exist in the HTML template
+            const defaults = {
+                summary: true,
+                bandwidth: true,
+                firewall: true,
+                analytics: true,
+                topstats: true,
+                flags: true,
+                asns: true,
+                countries: true,
+                durations: true,
+                packetSizes: true,
+                sources: true,
+                destinations: true,
+                ports: true,
+                protocols: true,
+                threats: true,
+                maliciousPorts: true,
+                blocklist: true,
+                feedHealth: true,
+                securityScore: true,
+                alertHistory: true,
+                threatsByCountry: true,
+                threatVelocity: true,
+                topThreatIPs: true,
+                conversations: true,
+                worldmap: true,
+                recentBlocks: true
+            };
+            try {
+                const saved = JSON.parse(localStorage.getItem('widgetVisibility') || '{}');
+                // Only apply saved preferences for widgets that exist in defaults
+                // This filters out stale keys from previous versions
+                const filteredSaved = {};
+                for (const key of Object.keys(defaults)) {
+                    if (key in saved) {
+                        filteredSaved[key] = saved[key];
+                    }
+                }
+                this.widgetVisibility = { ...defaults, ...filteredSaved };
+            } catch (e) {
+                console.error('widget prefs parse error', e);
+                this.widgetVisibility = { ...defaults };
+            }
+            this.saveWidgetPreferences();
         },
 
         saveWidgetPreferences() {
-            DashboardWidgets.savePreferences(this);
+            localStorage.setItem('widgetVisibility', JSON.stringify(this.widgetVisibility));
         },
 
         toggleWidget(widgetId) {
-            DashboardWidgets.toggleWidget(this, widgetId);
+            this.widgetVisibility[widgetId] = !this.widgetVisibility[widgetId];
+            this.saveWidgetPreferences();
         },
 
         toggleMinimize(widgetId) {
-            DashboardWidgets.toggleMinimize(this, widgetId);
+            if (this.minimizedWidgets.has(widgetId)) {
+                this.minimizedWidgets.delete(widgetId);
+            } else {
+                this.minimizedWidgets.add(widgetId);
+            }
+            localStorage.setItem('minimizedWidgets', JSON.stringify([...this.minimizedWidgets]));
+            this.$nextTick(() => {
+                // Trigger chart redraw if needed
+                if (widgetId === 'bandwidth' && this.bwChartInstance) {
+                    this.bwChartInstance.resize();
+                }
+            });
         },
 
         isMinimized(widgetId) {
-            return DashboardWidgets.isMinimized(this, widgetId);
+            return this.minimizedWidgets.has(widgetId);
         },
 
         isVisible(widgetId) {
-            return DashboardWidgets.isVisible(this, widgetId);
+            return this.widgetVisibility[widgetId] !== false;
         },
 
         getWidgetLabel(widgetId) {
-            return DashboardWidgets.getWidgetLabel(this, widgetId);
+            return this.friendlyLabels[widgetId] || widgetId;
         },
 
         resetWidgetPreferences() {
-            DashboardWidgets.resetPreferences(this);
+            if (confirm('Reset all widget settings to default?')) {
+                // Clear all saved preferences first
+                this.minimizedWidgets.clear();
+                localStorage.removeItem('minimizedWidgets');
+                localStorage.removeItem('widgetVisibility');
+                // Reload defaults from scratch
+                this.loadWidgetPreferences();
+            }
         },
 
         async openIPModal(ip) {

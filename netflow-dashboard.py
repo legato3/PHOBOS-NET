@@ -4959,45 +4959,98 @@ def api_forensics_flow_search():
         filters.append(f"proto {proto_num}")
 
     filter_str = ' and '.join(filters) if filters else ''
+    tf = get_time_range(range_val)
 
     try:
-        cmd = build_nfdump_cmd(range_val, aggregation='srcip,dstip,proto,dstport', limit=100, filter_str=filter_str)
-        out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=10).decode('utf-8', errors='ignore')
+        # Build nfdump command with filters
+        nfdump_args = ["-O", "bytes", "-n", "100"]
+        if filter_str:
+            nfdump_args.extend(["-a", filter_str])
+        
+        output = run_nfdump(nfdump_args, tf)
 
         flows = []
-        for line in out.split('\n'):
+        lines = output.strip().split("\n")
+        if not lines:
+            return jsonify({'flows': [], 'count': 0})
+
+        # Parse header dynamically
+        header = lines[0].split(',')
+        try:
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+            dp_idx = header.index('dp')
+            pr_idx = header.index('proto')
+            ibyt_idx = header.index('ibyt')
+            ipkt_idx = header.index('ipkt')
+        except ValueError:
+            # Fallback indices (based on mock/nfdump std)
+            sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
+
+        seen_flows = set()
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'): continue
             parts = line.split(',')
-            if len(parts) >= 6 and not line.startswith('ts'):
+            if len(parts) > max(sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx):
                 try:
+                    src = parts[sa_idx].strip()
+                    dst = parts[da_idx].strip()
+                    dst_port = parts[dp_idx].strip()
+                    proto = parts[pr_idx].strip()
+                    
+                    # Deduplicate flows
+                    flow_key = (src, dst, proto, dst_port)
+                    if flow_key in seen_flows:
+                        continue
+                    seen_flows.add(flow_key)
+
+                    bytes_val = int(parts[ibyt_idx]) if len(parts) > ibyt_idx and parts[ibyt_idx].strip().isdigit() else 0
+                    packets_val = int(parts[ipkt_idx]) if len(parts) > ipkt_idx and parts[ipkt_idx].strip().isdigit() else 0
+                    port_val = int(dst_port) if dst_port.isdigit() else 0
+
+                    # Map protocol number to name if needed
+                    proto_name = proto
+                    if proto.isdigit():
+                        proto_name = PROTOS.get(int(proto), proto)
+
                     flows.append({
-                        'src': parts[3].strip(),
-                        'dst': parts[4].strip(),
-                        'proto': parts[5].strip(),
-                        'port': int(parts[6].strip()) if parts[6].strip().isdigit() else 0,
-                        'bytes': int(parts[10].strip()) if len(parts) > 10 and parts[10].strip().isdigit() else 0,
-                        'packets': int(parts[11].strip()) if len(parts) > 11 and parts[11].strip().isdigit() else 0
+                        'src': src,
+                        'dst': dst,
+                        'proto': proto_name,
+                        'port': port_val,
+                        'bytes': bytes_val,
+                        'packets': packets_val
                     })
                 except (ValueError, IndexError):
                     continue
 
+        # Sort by bytes descending
+        flows.sort(key=lambda x: x.get('bytes', 0), reverse=True)
+        flows = flows[:100]  # Limit to top 100
+
         # Apply country filter if specified
-        if country and geoip_city:
-            filtered_flows = []
-            for flow in flows:
-                try:
-                    src_geo = geoip_city.city(flow['src'])
-                    dst_geo = geoip_city.city(flow['dst'])
-                    if (src_geo.country.iso_code == country.upper() or
-                        dst_geo.country.iso_code == country.upper()):
-                        filtered_flows.append(flow)
-                except:
-                    pass
-            flows = filtered_flows
+        if country:
+            city_db = load_city_db()
+            if city_db:
+                filtered_flows = []
+                for flow in flows:
+                    try:
+                        src_rec = city_db.get(flow['src'])
+                        dst_rec = city_db.get(flow['dst'])
+                        src_country = src_rec.get('country', {}).get('iso_code') if src_rec else None
+                        dst_country = dst_rec.get('country', {}).get('iso_code') if dst_rec else None
+                        if (src_country == country.upper()) or (dst_country == country.upper()):
+                            filtered_flows.append(flow)
+                    except:
+                        pass
+                flows = filtered_flows
 
         return jsonify({'flows': flows, 'count': len(flows)})
 
     except Exception as e:
         print(f"Flow search error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'flows': [], 'count': 0, 'error': str(e)})
 
 

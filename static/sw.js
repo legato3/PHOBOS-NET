@@ -1,11 +1,14 @@
 // Service Worker for NetFlow Analytics Dashboard
 // Provides offline caching for static assets and graceful degradation
 
-const CACHE_NAME = 'netflow-dashboard-v2.6.1';
+const CACHE_NAME = 'netflow-dashboard-v2.7.0';
 const STATIC_ASSETS = [
     '/',
     '/static/style.min.css',
-    '/static/app.min.js',
+    '/static/app.js',
+    '/static/js/utils.js',
+    '/static/js/widgets.js',
+    '/static/js/lazy-load.js',
     '/static/chart.min.js',
     '/static/chartjs-chart-sankey.min.js',
     '/static/alpine.min.js',
@@ -15,6 +18,7 @@ const STATIC_ASSETS = [
 
 // Cache durations (in seconds)
 const API_CACHE_TTL = 60;  // API responses cached for 60s
+const STATIC_CACHE_TTL = 86400;  // 24 hours for static assets
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
