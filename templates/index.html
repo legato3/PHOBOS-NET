@@ -1050,7 +1050,7 @@
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredSources" :key="index">
-                            <tr @click="openIPModal(item.key)">
+                            <tr @click="openIPModal(item.key)" :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
                                 <td style="max-width:0; overflow:hidden;">
                                     <div style="display:flex; align-items:center; gap:5px; min-width:0;">
                                         <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
@@ -1109,7 +1109,7 @@
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredDestinations" :key="index">
-                            <tr @click="openIPModal(item.key)">
+                            <tr @click="openIPModal(item.key)" :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
                                 <td>
                                     <div style="display:flex; align-items:center; gap:5px;">
                                         <span x-text="item.flag" class="flag"></span>
@@ -1170,7 +1170,7 @@
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in ports.ports" :key="index">
-                            <tr>
+                            <tr :data-percentage="ports.ports.length > 0 && ports.ports[0]?.bytes ? Math.round((item.bytes / ports.ports[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (ports.ports.length > 0 && ports.ports[0]?.bytes ? Math.round((item.bytes / ports.ports[0].bytes) * 100) : 0)">
                                 <td style="overflow: hidden;">
                                     <strong class="text-cyan" x-text="item.key"></strong>
                                     <div class="truncate" style="font-size:0.9em; color:var(--text-muted)" x-text="item.service" :title="item.service"></div>
