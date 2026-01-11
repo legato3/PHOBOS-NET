@@ -740,6 +740,22 @@ table {
 .table-fixed { table-layout: fixed; width: 100%; }
 .table-compact td { padding: 10px 12px; }
 .table-compact th { padding: 10px 12px; font-size: 13px; }
+
+/* Network endpoint tables - refined styling */
+table:has(.network-endpoint-row) {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+table:has(.network-endpoint-row) th {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
 .thead-sticky thead { position: sticky; top: 0; background: var(--bg-primary); z-index: 1; }
 
 th {
@@ -755,18 +771,28 @@ th {
 
 td {
     padding: 10px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: none; /* Removed border - using network-endpoint-row border instead */
     white-space: nowrap;
     font-size: 14px;
     font-family: var(--font-sans);
     position: relative;
 }
 
-/* Signal-driven rows - visual weighting with inline bars */
+/* Network endpoint tables - cleaner, borderless design */
+table:has(.network-endpoint-row) td {
+    border-bottom: none;
+}
+
+table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
+    border-bottom: none;
+}
+
+/* Signal-driven rows - visual weighting with enhanced inline bars */
 tr[data-percentage] {
     position: relative;
 }
 
+/* Enhanced background intensity proportional to traffic */
 tr[data-percentage]::before {
     content: '';
     position: absolute;
@@ -774,24 +800,55 @@ tr[data-percentage]::before {
     top: 0;
     bottom: 0;
     width: calc(var(--row-percentage, 0) * 1%);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
     pointer-events: none;
     z-index: 0;
+    transition: background 0.2s ease;
+}
+
+/* First row (highest traffic) gets slightly more prominence */
+tr[data-percentage]:first-child::before {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 tr:hover td {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
 }
 
 tr:hover[data-percentage]::before {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 /* Ensure content appears above the bar */
 tr[data-percentage] td {
     position: relative;
     z-index: 1;
+}
+
+/* Unified network endpoint row styling - clean, minimal design */
+.network-endpoint-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background-color 0.15s ease;
+}
+
+.network-endpoint-row:last-child {
+    border-bottom: none;
+}
+
+.network-endpoint-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Subtle sparkline - supportive, not dominant */
+.spark-subtle {
+    opacity: 0.65;
+    filter: contrast(0.9);
+}
+
+.spark-subtle:hover {
+    opacity: 0.9;
+    filter: contrast(1);
 }
 
 /* Technical data in tables - IPs, IDs, commands use monospace */

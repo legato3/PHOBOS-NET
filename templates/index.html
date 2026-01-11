@@ -1050,30 +1050,34 @@
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredSources" :key="index">
-                            <tr @click="openIPModal(item.key)" :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
-                                <td>
-                                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
-                                        <strong class="text-cyan" x-text="item.key" style="font-size:14px; font-family:var(--font-mono);"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; margin-left:auto;">
+                            <tr @click="openIPModal(item.key)" class="network-endpoint-row" :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
+                                <td style="padding: 14px 16px;">
+                                    <!-- Primary: IP Address -->
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                                        <span x-text="item.flag" class="flag" style="flex-shrink:0; font-size:16px;"></span>
+                                        <strong x-text="item.key" style="font-size:15px; font-weight:600; font-family:var(--font-mono); color:var(--text-primary); flex:1;"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; opacity:0.6;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px; line-height:1.4;">
-                                        <div><span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span></div>
+                                    <!-- Secondary: Metadata -->
+                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px; line-height:1.4;">
+                                        <span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span>
                                     </div>
-                                    <div style="margin-bottom:4px;">
-                                        <canvas class="spark" width="140" height="24" :data-ip="item.key" data-kind="source"></canvas>
+                                    <!-- Supporting: Sparkline (smaller, subtle) -->
+                                    <div style="margin-bottom:8px; opacity:0.7;">
+                                        <canvas class="spark spark-subtle" width="100" height="18" :data-ip="item.key" data-kind="source"></canvas>
                                     </div>
+                                    <!-- Supporting: Badges -->
                                     <div style="display:flex; gap:4px; flex-wrap:wrap;">
                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
                                         <span class="badge threat" x-show="item.threat">THREAT</span>
                                     </div>
                                 </td>
-                                <td style="vertical-align:top;">
+                                <td style="vertical-align:middle; padding: 14px 16px;">
                                     <div style="text-align:right;">
-                                        <div class="text-green" style="font-size:16px; font-weight:600; font-family:var(--font-mono); margin-bottom:4px;" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                        <div style="font-size:12px; color:var(--text-muted); opacity:0.8;" x-text="item.flows + ' flows'"></div>
+                                        <div style="font-size:17px; font-weight:600; font-family:var(--font-mono); color:var(--text-primary); margin-bottom:3px;" :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                        <div style="font-size:11px; color:var(--text-muted); opacity:0.7;" x-text="item.flows + ' flows'"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -1110,30 +1114,34 @@
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredDestinations" :key="index">
-                            <tr @click="openIPModal(item.key)" :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
-                                <td>
-                                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
-                                        <strong class="text-purple" x-text="item.key" style="font-size:14px; font-family:var(--font-mono);"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; margin-left:auto;">
+                            <tr @click="openIPModal(item.key)" class="network-endpoint-row" :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
+                                <td style="padding: 14px 16px;">
+                                    <!-- Primary: IP Address -->
+                                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                                        <span x-text="item.flag" class="flag" style="flex-shrink:0; font-size:16px;"></span>
+                                        <strong x-text="item.key" style="font-size:15px; font-weight:600; font-family:var(--font-mono); color:var(--text-primary); flex:1;"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; opacity:0.6;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px; line-height:1.4;">
-                                        <div><span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span></div>
+                                    <!-- Secondary: Metadata -->
+                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px; line-height:1.4;">
+                                        <span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span>
                                     </div>
-                                    <div style="margin-bottom:4px;">
-                                        <canvas class="spark" width="140" height="24" :data-ip="item.key" data-kind="dest"></canvas>
+                                    <!-- Supporting: Sparkline (smaller, subtle) -->
+                                    <div style="margin-bottom:8px; opacity:0.7;">
+                                        <canvas class="spark spark-subtle" width="100" height="18" :data-ip="item.key" data-kind="dest"></canvas>
                                     </div>
+                                    <!-- Supporting: Badges -->
                                     <div style="display:flex; gap:4px; flex-wrap:wrap;">
                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
                                         <span class="badge threat" x-show="item.threat">THREAT</span>
                                     </div>
                                 </td>
-                                <td style="vertical-align:top;">
+                                <td style="vertical-align:middle; padding: 14px 16px;">
                                     <div style="text-align:right;">
-                                        <div class="text-green" style="font-size:16px; font-weight:600; font-family:var(--font-mono); margin-bottom:4px;" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                        <div style="font-size:12px; color:var(--text-muted); opacity:0.8;" x-text="item.flows + ' flows'"></div>
+                                        <div style="font-size:17px; font-weight:600; font-family:var(--font-mono); color:var(--text-primary); margin-bottom:3px;" :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                        <div style="font-size:11px; color:var(--text-muted); opacity:0.7;" x-text="item.flows + ' flows'"></div>
                                     </div>
                                 </td>
                             </tr>
