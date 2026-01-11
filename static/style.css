@@ -306,6 +306,9 @@ body {
     text-align: left;
     width: 100%;
     font-family: var(--font-mono);
+    pointer-events: auto;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .sidebar-item:hover {

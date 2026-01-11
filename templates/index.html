@@ -214,23 +214,23 @@
             <!-- Left Sidebar Menu -->
             <aside class="sidebar" role="navigation" aria-label="Main navigation">
                 <nav class="sidebar-nav">
-                    <button class="sidebar-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="menuitem" aria-selected="activeTab === 'overview'">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="menuitem" aria-selected="activeTab === 'overview'">
                         <span class="sidebar-icon">📊</span>
                         <span class="sidebar-label">Overview</span>
                     </button>
-                    <button class="sidebar-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="menuitem" aria-selected="activeTab === 'security'">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="menuitem" aria-selected="activeTab === 'security'">
                         <span class="sidebar-icon">🛡️</span>
                         <span class="sidebar-label">Security</span>
                     </button>
-                    <button class="sidebar-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="menuitem" aria-selected="activeTab === 'network'">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="menuitem" aria-selected="activeTab === 'network'">
                         <span class="sidebar-icon">🕸️</span>
                         <span class="sidebar-label">Network</span>
                     </button>
-                    <button class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="menuitem" aria-selected="activeTab === 'forensics'">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="menuitem" aria-selected="activeTab === 'forensics'">
                         <span class="sidebar-icon">🔍</span>
                         <span class="sidebar-label">Forensics</span>
                     </button>
-                    <button class="sidebar-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="menuitem" aria-selected="activeTab === 'server'">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="menuitem" aria-selected="activeTab === 'server'">
                         <span class="sidebar-icon">🖥️</span>
                         <span class="sidebar-label">Server</span>
                     </button>
