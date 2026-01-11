@@ -1044,36 +1044,37 @@
                 <table class="table-fixed table-compact" x-show="!isMinimized('sources')">
                     <thead>
                         <tr>
-                            <th style="width:70%;">IP</th>
-                            <th style="width:30%;">Traffic</th>
+                            <th style="width:50%;">IP Address</th>
+                            <th style="width:50%;">Traffic</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredSources" :key="index">
                             <tr @click="openIPModal(item.key)" :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
-                                <td style="max-width:0; overflow:hidden;">
-                                    <div style="display:flex; align-items:center; gap:5px; min-width:0;">
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
                                         <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
-                                        <strong class="text-cyan" x-text="item.key" style="flex-shrink:0;"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0;">
+                                        <strong class="text-cyan" x-text="item.key" style="font-size:14px; font-family:var(--font-mono);"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; margin-left:auto;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">
-                                        <span x-text="item.region"></span>
-                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px; line-height:1.4;">
+                                        <div><span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span></div>
                                     </div>
-                                    <div style="margin-top:4px;">
-                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="source"></canvas>
+                                    <div style="margin-bottom:4px;">
+                                        <canvas class="spark" width="140" height="24" :data-ip="item.key" data-kind="source"></canvas>
                                     </div>
-                                    <div style="margin-top:2px;">
-                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
-                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                                        <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                        <span class="badge threat" x-show="item.threat">THREAT</span>
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                <td style="vertical-align:top;">
+                                    <div style="text-align:right;">
+                                        <div class="text-green" style="font-size:16px; font-weight:600; font-family:var(--font-mono); margin-bottom:4px;" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                        <div style="font-size:12px; color:var(--text-muted); opacity:0.8;" x-text="item.flows + ' flows'"></div>
+                                    </div>
                                 </td>
                             </tr>
                         </template>
@@ -1103,36 +1104,37 @@
                 <table class="table-fixed table-compact" x-show="!isMinimized('destinations')">
                     <thead>
                         <tr>
-                            <th style="width:70%;">IP</th>
-                            <th style="width:30%;">Traffic</th>
+                            <th style="width:50%;">IP Address</th>
+                            <th style="width:50%;">Traffic</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in filteredDestinations" :key="index">
                             <tr @click="openIPModal(item.key)" :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0" :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
                                 <td>
-                                    <div style="display:flex; align-items:center; gap:5px;">
-                                        <span x-text="item.flag" class="flag"></span>
-                                        <strong class="text-purple" x-text="item.key"></strong>
-                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key">
+                                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                        <span x-text="item.flag" class="flag" style="flex-shrink:0;"></span>
+                                        <strong class="text-purple" x-text="item.key" style="font-size:14px; font-family:var(--font-mono);"></strong>
+                                        <button class="icon-btn-small" @click.stop="applyFilter(item.key)" title="Filter / Details" :aria-label="'View details for ' + item.key" style="flex-shrink:0; margin-left:auto;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                         </button>
                                     </div>
-                                    <div style="font-size:0.85em; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                        <span x-text="item.region"></span>
-                                        <span x-show="item.hostname" x-text="'• ' + item.hostname"></span>
+                                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px; line-height:1.4;">
+                                        <div><span x-text="item.region"></span><span x-show="item.hostname" x-text="' • ' + item.hostname"></span></div>
                                     </div>
-                                    <div style="margin-top:4px;">
-                                        <canvas class="spark" width="120" height="24" :data-ip="item.key" data-kind="dest"></canvas>
+                                    <div style="margin-bottom:4px;">
+                                        <canvas class="spark" width="140" height="24" :data-ip="item.key" data-kind="dest"></canvas>
                                     </div>
-                                     <div style="margin-top:2px;">
-                                         <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
-                                         <span class="badge threat" x-show="item.threat">THREAT</span>
+                                    <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                                        <span class="badge" :class="item.internal ? 'internal' : 'external'" x-text="item.internal ? 'Internal' : 'External'"></span>
+                                        <span class="badge threat" x-show="item.threat">THREAT</span>
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="text-green" style="font-size:1.1em; font-weight:bold" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                    <div style="font-size:0.8em; color:var(--text-muted)" x-text="item.flows + ' flows'"></div>
+                                <td style="vertical-align:top;">
+                                    <div style="text-align:right;">
+                                        <div class="text-green" style="font-size:16px; font-weight:600; font-family:var(--font-mono); margin-bottom:4px;" x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                        <div style="font-size:12px; color:var(--text-muted); opacity:0.8;" x-text="item.flows + ' flows'"></div>
+                                    </div>
                                 </td>
                             </tr>
                         </template>

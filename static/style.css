@@ -738,8 +738,8 @@ table {
 
 /* Table utilities */
 .table-fixed { table-layout: fixed; width: 100%; }
-.table-compact td { padding: 4px 8px; }
-.table-compact th { padding: 6px 8px; font-size: 0.85em; }
+.table-compact td { padding: 10px 12px; }
+.table-compact th { padding: 10px 12px; font-size: 13px; }
 .thead-sticky thead { position: sticky; top: 0; background: var(--bg-primary); z-index: 1; }
 
 th {
