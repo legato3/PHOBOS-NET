@@ -15,7 +15,7 @@ PROX_NFDUMP/
 │   └── index.html            # Single-page dashboard UI
 ├── threat-feeds.txt          # Multi-feed configuration
 ├── sample_data/              # Real data examples for reference
-└── netflow-dashboard.service # Systemd service definition
+└── systemd/netflow-dashboard.service # Systemd service definition
 ```
 
 ### Technology Stack

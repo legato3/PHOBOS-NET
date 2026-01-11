@@ -15,7 +15,7 @@
 - **Memory Usage**: 137MB (14% of total RAM)
 - **Threading**: Enabled
 - **Port**: 8080
-- **Service**: systemd (netflow-dashboard.service)
+- **Service**: systemd (systemd/netflow-dashboard.service)
 
 ## Issues Identified
 
@@ -58,7 +58,7 @@ pct exec 122 -- pip3 install gunicorn
 
 ### 2. Update systemd Service
 
-Use the optimized service file (`netflow-dashboard-optimized.service`) which includes:
+Use the optimized service file (`systemd/netflow-dashboard-optimized.service`) which includes:
 - Gunicorn with 1 worker, 8 threads (optimal for I/O-bound Flask app)
 - Memory limits (512MB max, 400MB high water mark)
 - File descriptor limits (65536)
@@ -79,7 +79,7 @@ ExecStart=/usr/bin/gunicorn --bind 0.0.0.0:8080 \
     --worker-connections 1000 --timeout 30 \
     --max-requests 2000 \
     --name netflow-dashboard \
-    -c /root/gunicorn_config.py \
+    -c /root/scripts/gunicorn_config.py \
     netflow_dashboard:app
 ```
 

@@ -96,11 +96,13 @@ Edit `/root/threat-feeds.txt` to customize threat intelligence sources.
 
 ### 4. Install Systemd Service
 ```bash
-cp netflow-dashboard.service /etc/systemd/system/
+cp systemd/netflow-dashboard.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable netflow-dashboard.service
 systemctl start netflow-dashboard.service
 ```
+
+For production deployment with Gunicorn, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/ENVIRONMENT_OPTIMIZATION.md](docs/ENVIRONMENT_OPTIMIZATION.md).
 
 ## 🌐 Access
 
@@ -115,12 +117,24 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/stats/firewall` - Firewall health metrics (SNMP)
 - `/api/alerts_history` - Historical alerts
 - `/api/thresholds` - GET current alert thresholds / POST to update
+- `/health` - Health check endpoint (database, disk space, syslog, nfdump status)
+- `/metrics` - Prometheus-style metrics endpoint
 
 ## 🔍 Sample Data
 
 The `sample_data/` directory contains real NetFlow examples and format documentation to help AI agents understand data structures.
 
 ## 🎯 Recent Updates
+
+### v2.7 - January 11, 2026
+
+- **Logging & Monitoring Improvements**:
+  - NetFlow 7-day retention policy (automatic cleanup via nfexpire)
+  - Syslog batch inserts (10-50x performance improvement)
+  - Disk space monitoring with alerts
+  - Health check endpoint (`/health`) for monitoring
+  - Database optimization (weekly VACUUM only)
+- **Repository Organization**: Documentation and scripts organized into `docs/` and `scripts/` directories
 
 ### v2.6 - January 10, 2026
 
@@ -229,10 +243,17 @@ Thresholds API payload example (POST /api/thresholds):
 
 ## 📚 Documentation
 
-- **[PERFORMANCE.md](PERFORMANCE.md)** - Complete performance optimization guide
-- **[OPTIMIZATION_CHECKLIST.md](OPTIMIZATION_CHECKLIST.md)** - Deployment checklist and benchmarks
-- **[AGENTS.md](AGENTS.md)** - Architecture guide for AI coding agents
+See the **[docs/](docs/)** directory for comprehensive documentation:
+
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Deployment instructions
+- **[docs/AGENTS.md](docs/AGENTS.md)** - Architecture guide for developers/AI agents
+- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** - Performance optimization guide
+- **[docs/NFCAPD_SETUP.md](docs/NFCAPD_SETUP.md)** - NetFlow collector setup
+- **[docs/SYSLOG_INTEGRATION.md](docs/SYSLOG_INTEGRATION.md)** - Firewall syslog integration
+- **[docs/LOGGING_IMPROVEMENTS.md](docs/LOGGING_IMPROVEMENTS.md)** - Logging and monitoring improvements
 - **[sample_data/README.md](sample_data/README.md)** - Data format documentation
+
+For a complete list, see [docs/README.md](docs/README.md).
 
 ## 🎯 Performance Metrics
 

@@ -26,13 +26,13 @@ python3 netflow-dashboard.py
 
 ```bash
 # Install on LXC container
-systemctl start netflow-dashboard.service
-systemctl stop netflow-dashboard.service
-systemctl restart netflow-dashboard.service
-systemctl status netflow-dashboard.service
+systemctl start systemd/netflow-dashboard.service
+systemctl stop systemd/netflow-dashboard.service
+systemctl restart systemd/netflow-dashboard.service
+systemctl status systemd/netflow-dashboard.service
 
 # View logs
-journalctl -u netflow-dashboard.service -f
+journalctl -u systemd/netflow-dashboard.service -f
 
 # Manual run for debugging
 cd /root && python3 netflow-dashboard.py
