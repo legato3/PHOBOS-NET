@@ -636,6 +636,29 @@ tr:hover td {
     justify-content: space-between;
 }
 
+.settings-menu-item,
+.settings-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+
+.settings-menu-item:hover,
+.settings-toggle:hover {
+    background: rgba(0, 243, 255, 0.1);
+    color: var(--neon-cyan);
+}
+
 .settings-icon {
     font-size: 1em;
     width: 20px;
