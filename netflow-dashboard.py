@@ -5517,6 +5517,40 @@ def api_server_health():
     except Exception as e:
         data['database'] = {'connected': False, 'error': str(e)}
     
+    # System Information (Uptime, Process Info)
+    try:
+        # Get system uptime from /proc/uptime
+        try:
+            with open('/proc/uptime', 'r') as f:
+                uptime_seconds = float(f.read().split()[0])
+                days = int(uptime_seconds // 86400)
+                hours = int((uptime_seconds % 86400) // 3600)
+                minutes = int((uptime_seconds % 3600) // 60)
+                data['system']['uptime_seconds'] = int(uptime_seconds)
+                data['system']['uptime_formatted'] = f"{days}d {hours}h {minutes}m"
+        except Exception:
+            data['system']['uptime_formatted'] = 'N/A'
+        
+        # Get process/thread information using /proc
+        try:
+            import os
+            import glob
+            pid = os.getpid()
+            # Count threads in /proc/PID/task/
+            thread_count = len([d for d in glob.glob(f'/proc/{pid}/task/*') if os.path.isdir(d)])
+            data['system']['process_threads'] = thread_count
+            
+            # Get process name/command
+            try:
+                with open(f'/proc/{pid}/comm', 'r') as f:
+                    data['system']['process_name'] = f.read().strip()
+            except Exception:
+                data['system']['process_name'] = 'python3'
+        except Exception:
+            data['system']['process_threads'] = 0
+    except Exception:
+        data['system'] = {'error': 'Unable to read system stats'}
+    
     return jsonify(data)
 
 

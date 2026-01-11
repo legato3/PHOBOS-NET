@@ -2025,12 +2025,12 @@
                         <div class="server-stat-header">
                             <span>💿 Disk (Root)</span>
                             <span class="server-stat-badge" :class="{
-                                'badge-success': serverHealth.disk.root.percent < 80,
-                                'badge-warning': serverHealth.disk.root.percent >= 80 && serverHealth.disk.root.percent < 90,
-                                'badge-error': serverHealth.disk.root.percent >= 90
-                            }" x-text="serverHealth.disk.root.percent ? serverHealth.disk.root.percent + '%' : 'N/A'"></span>
+                                'badge-success': serverHealth.disk.root.percent_used < 80,
+                                'badge-warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
+                                'badge-error': serverHealth.disk.root.percent_used >= 90
+                            }" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></span>
                         </div>
-                        <div class="server-stat-value" x-text="serverHealth.disk.root.percent ? serverHealth.disk.root.percent + '%' : 'N/A'"></div>
+                        <div class="server-stat-value" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></div>
                         <div class="server-stat-details">
                             <div>
                                 <span>Used:</span>
@@ -2052,12 +2052,12 @@
                         <div class="server-stat-header">
                             <span>📊 NetFlow Data</span>
                             <span class="server-stat-badge" :class="{
-                                'badge-success': !serverHealth.disk.nfdump.percent || serverHealth.disk.nfdump.percent < 80,
-                                'badge-warning': serverHealth.disk.nfdump.percent >= 80 && serverHealth.disk.nfdump.percent < 90,
-                                'badge-error': serverHealth.disk.nfdump.percent >= 90
-                            }" x-text="serverHealth.disk.nfdump.percent ? serverHealth.disk.nfdump.percent + '%' : 'N/A'"></span>
+                                'badge-success': !serverHealth.disk.nfdump.percent_used || serverHealth.disk.nfdump.percent_used < 80,
+                                'badge-warning': serverHealth.disk.nfdump.percent_used >= 80 && serverHealth.disk.nfdump.percent_used < 90,
+                                'badge-error': serverHealth.disk.nfdump.percent_used >= 90
+                            }" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></span>
                         </div>
-                        <div class="server-stat-value" x-text="serverHealth.disk.nfdump.percent ? serverHealth.disk.nfdump.percent + '%' : 'N/A'"></div>
+                        <div class="server-stat-value" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></div>
                         <div class="server-stat-details">
                             <div x-show="serverHealth.disk.nfdump_files !== undefined">
                                 <span>Files:</span>
@@ -2160,10 +2160,44 @@
                         </div>
                     </div>
 
+                    <!-- System Uptime -->
+                    <div class="server-stat-card" x-show="serverHealth.system && serverHealth.system.uptime_formatted && !serverHealth.system.error">
+                        <div class="server-stat-header">
+                            <span>⏱️ Uptime</span>
+                            <span class="server-stat-badge badge-success">RUNNING</span>
+                        </div>
+                        <div class="server-stat-value" style="font-size: 1.4em;" x-text="serverHealth.system.uptime_formatted || 'N/A'"></div>
+                        <div class="server-stat-details">
+                            <div x-show="serverHealth.system.uptime_seconds">
+                                <span>Total:</span>
+                                <span x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process Information -->
+                    <div class="server-stat-card" x-show="serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error">
+                        <div class="server-stat-header">
+                            <span>⚙️ Process</span>
+                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                        </div>
+                        <div class="server-stat-value" x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></div>
+                        <div class="server-stat-details">
+                            <div>
+                                <span>Threads:</span>
+                                <span x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></span>
+                            </div>
+                            <div x-show="serverHealth.system.process_name">
+                                <span>Process:</span>
+                                <span x-text="serverHealth.system.process_name || 'N/A'" style="font-size: 0.85em;"></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- System Information -->
                     <div class="server-stat-card" x-show="serverHealth.timestamp">
                         <div class="server-stat-header">
-                            <span>⚙️ System</span>
+                            <span>🕐 System</span>
                             <span class="server-stat-badge badge-success">ONLINE</span>
                         </div>
                         <div class="server-stat-value" style="font-size: 1.2em;" x-text="new Date(serverHealth.timestamp).toLocaleTimeString()"></div>
