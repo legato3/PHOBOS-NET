@@ -277,26 +277,13 @@
                 </div>
             </div>
 
-            <!-- Summary Stats -->
+            <!-- Summary Stats & Bandwidth - Primary/Secondary Layout -->
             <section id="section-summary" class="scroll-section" style="margin-bottom: 32px;">
-                <div class="grid" data-reorder="true" data-grid-id="summary">
-                    <div class="card stat-box">
-                        <div class="value" x-text="summary.totals.bytes_fmt">...</div>
-                        <div class="label">Total Traffic</div>
-                    </div>
-                    <div class="card stat-box">
-                        <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
-                        <div class="label">Total Flows</div>
-                    </div>
-                    <div class="card stat-box">
-                        <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
-                        <div class="label">Avg Packet Size</div>
-                    </div>
-                </div>
-
-                <!-- Bandwidth Chart -->
-                <template x-if="isVisible('bandwidth')">
-                    <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
+                <div class="layout-primary-focus">
+                    <!-- Primary Column: Bandwidth Chart -->
+                    <div class="primary-column">
+                        <template x-if="isVisible('bandwidth')">
+                            <div class="card" :class="{ 'widget-minimized': isMinimized('bandwidth') }">
                         <h2>
                             <span>📊 Bandwidth & Flow Rate</span>
                             <div class="card-actions">
@@ -310,8 +297,26 @@
                         <div class="chart-wrapper chart-expandable" x-show="!isMinimized('bandwidth')" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
                             <canvas id="bwChart"></canvas>
                         </div>
+                            </div>
+                        </template>
                     </div>
-                </template>
+
+                    <!-- Secondary Column: Summary Stats -->
+                    <div class="secondary-column">
+                        <div class="card stat-box">
+                            <div class="value" x-text="summary.totals.bytes_fmt">...</div>
+                            <div class="label">Total Traffic</div>
+                        </div>
+                        <div class="card stat-box">
+                            <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
+                            <div class="label">Total Flows</div>
+                        </div>
+                        <div class="card stat-box">
+                            <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
+                            <div class="label">Avg Packet Size</div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- World Map Section -->
@@ -1016,10 +1021,13 @@
     <div x-show="activeTab === 'network'" style="display:none" :style="activeTab === 'network' ? 'display:block' : 'display:none'" id="network-tab" role="tabpanel" aria-labelledby="network-tab-btn" tabindex="0">
         <!-- Network Dashboard -->
         <section id="section-network" class="scroll-section" style="margin-bottom: 32px;">
-        <div class="grid" data-reorder="true" data-grid-id="network-overview">
-            <!-- Top Sources -->
-            <template x-if="isVisible('sources')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('sources') }">
+        
+        <!-- Primary Network Endpoints: Sources & Destinations -->
+        <div class="layout-primary-focus" style="margin-bottom: var(--space-6);">
+            <!-- Primary Column: Sources -->
+            <div class="primary-column">
+                <template x-if="isVisible('sources')">
+                    <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
                 <h2>
                     <span>🔝 Top Sources</span>
                     <div class="card-actions">
@@ -1071,12 +1079,14 @@
                         </template>
                     </tbody>
                 </table>
+                    </div>
+                </template>
             </div>
-            </template>
 
-            <!-- Top Destinations -->
-            <template x-if="isVisible('destinations')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('destinations') }">
+            <!-- Secondary Column: Destinations -->
+            <div class="secondary-column">
+                <template x-if="isVisible('destinations')">
+                    <div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
                       <h2>
                     <span>🎯 Top Destinations</span>
                           <div class="card-actions">
@@ -1128,12 +1138,16 @@
                         </template>
                     </tbody>
                 </table>
+                    </div>
+                </template>
             </div>
-            </template>
+        </div>
 
+        <!-- Supporting Network Metrics -->
+        <div class="grid" data-reorder="true" data-grid-id="network-overview" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
             <!-- Top Ports -->
             <template x-if="isVisible('ports')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('ports') }">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('ports') }">
                 <h2>
                     <span>🔌 Top Ports</span>
                     <div class="card-actions">
@@ -1169,12 +1183,12 @@
                         </template>
                     </tbody>
                 </table>
-            </div>
+                </div>
             </template>
 
             <!-- Top ASNs -->
             <template x-if="isVisible('asns')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('asns') }">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('asns') }">
                 <h2>
                     <span>🏢 Top ASNs</span>
                     <div class="card-actions">
@@ -1197,12 +1211,12 @@
                     </template>
                     <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)" class="empty-state">No ASN data available</div>
                 </div>
-            </div>
+                </div>
             </template>
 
             <!-- Top Countries -->
             <template x-if="isVisible('countries')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('countries') }">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('countries') }">
                 <h2>
                     <span>🌍 Top Countries</span>
                     <div class="card-actions">
@@ -1216,14 +1230,14 @@
                 <div class="chart-wrapper-small chart-expandable" x-show="!isMinimized('countries')" @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')" title="Click to expand">
                     <canvas id="countriesChart"></canvas>
                 </div>
-            </div>
+                </div>
             </template>
 
             <!-- Top Talkers - MOVED TO FORENSICS TAB -->
 
             <!-- Top Services -->
             <template x-if="isVisible('services')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('services') }">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('services') }">
                 <h2>
                     <span>🌐 Top Services</span>
                     <div class="card-actions">
@@ -1246,12 +1260,12 @@
                     </template>
                     <div x-show="!services.loading && (!services.services || services.services.length === 0)" class="empty-state">No data</div>
                 </div>
-            </div>
+                </div>
             </template>
 
             <!-- Traffic by Hour -->
             <template x-if="isVisible('hourlyTraffic')">
-<div class="card span-2" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
+                <div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
                 <h2>
                     <span>⏰ Traffic by Hour</span>
                     <div class="card-actions">
