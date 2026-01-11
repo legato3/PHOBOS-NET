@@ -448,19 +448,29 @@ button.active {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    padding: var(--space-6);
+    box-shadow: var(--card-shadow);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
+    transition: 
+        border-color var(--motion-base),
+        box-shadow var(--motion-base),
+        background-color var(--motion-base),
+        transform var(--motion-fast);
+}
+
+.card:hover {
+    background: var(--card-bg-hover);
+    border-color: var(--card-border-hover);
+    box-shadow: var(--card-shadow-hover);
 }
 
 .card:focus-within {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 1px var(--accent-primary), 0 2px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px var(--accent-primary), var(--card-shadow-hover);
 }
 
 .card.widget-minimized {
