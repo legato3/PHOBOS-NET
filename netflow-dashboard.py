@@ -439,6 +439,8 @@ def mock_nfdump(args):
                 _mock_data_cache["rows"] = new_rows
                 _mock_data_cache["mtime"] = mtime
                 _mock_data_cache["output_cache"] = {} # Invalidate output cache
+
+            # Use reference to avoid holding lock during processing
             rows = _mock_data_cache["rows"]
         except Exception as e:
             print(f"Mock error: {e}")
@@ -460,15 +462,17 @@ def mock_nfdump(args):
         try: limit = int(args[idx])
         except: pass
 
-    out = ""
+    out_lines = []
 
     # If asking for raw flows with limit (alerts detection usage)
     if not agg_key and "-n" in args and not "-s" in args:
-         out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
+         out_lines.append("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt")
          for r in rows[:limit]:
              # Reconstruct line
              line = f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}"
-             out += line + "\n"
+             out_lines.append(line)
+
+         out = "\n".join(out_lines) + "\n"
 
          with _mock_lock:
              if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
@@ -486,11 +490,8 @@ def mock_nfdump(args):
         # Sort by bytes desc
         sorted_keys = sorted(counts.keys(), key=lambda k: counts[k]["bytes"], reverse=True)[:limit]
 
-        out = "ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt\n"
-        # We need to ensure the key ends up in the right column for dynamic parsing to work
-        # sa=3, da=4, sp=5, dp=6, proto=7
-        # But we previously put key at 4.
-        # Let's respect the agg_key.
+        # Use updated header to match standard nfdump CSV (flows at index 9, packets at 11, bytes at 12)
+        out_lines.append("ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
 
         # Mappings based on column names in header above:
         # sa=3, da=4, sp=5, dp=6, proto=7
@@ -503,34 +504,14 @@ def mock_nfdump(args):
             # Construct a row with 13 columns (indices 0-12)
             row = ["0"] * 13
             row[target_idx] = str(k)
-            row[5] = str(d['flows']) # flows (matches sp? No, wait. sp is index 5 in header.)
-            # Wait, header is: ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt
-            # Index:            0  1  2  3  4  5  6    7    8    9   10   11   12
-
-            # If agg_key is 'sa', key goes to 3.
-            # But parse_csv will look for 'fl' or 'flows'. My header doesn't have 'flows'.
-            # It has 'stos'? No.
-            # Real nfdump csv has 'fl' or 'flows'.
-            # Let's adjust the header to match what parse_csv expects for flows/packets/bytes.
-
-            # parse_csv looks for: ibyt/byt/bytes, fl/flows, ipkt/pkt/packets
-            # Let's use: ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt
-            # Index:      0  1  2  3  4  5  6    7    8    9    10   11   12
-
-            # So flows is index 9.
-            # ipkt is index 11.
-            # ibyt is index 12.
-
-            row = ["0"] * 13
-            row[target_idx] = str(k)
+            # Index 9: flows, 11: packets, 12: bytes
             row[9] = str(d['flows'])
             row[11] = str(d['packets'])
             row[12] = str(d['bytes'])
 
-            out += ",".join(row) + "\n"
+            out_lines.append(",".join(row))
 
-        # We must change the header variable to match
-        out = out.replace("ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt", "ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt")
+        out = "\n".join(out_lines) + "\n"
 
         with _mock_lock:
              if "output_cache" not in _mock_data_cache: _mock_data_cache["output_cache"] = {}
@@ -3846,10 +3827,63 @@ def api_bandwidth():
 
         # Parallel compute missing buckets
         if missing_buckets:
-            # Use a reasonable number of workers to avoid overloading the system
-            # 8 workers allows decent parallelism without excessive context switching
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+            global _has_nfdump
+            if _has_nfdump is None:
+                _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+
+            # OPTIMIZATION: If using mock data (nfdump missing), the result is identical for all buckets.
+            # Compute once and replicate to avoid launching N threads and N*3 mock calls.
+            if _has_nfdump is False and len(missing_buckets) > 0:
+                 # Compute one bucket to seed data
+                 sample_bucket = missing_buckets[0]
+                 _ensure_rollup_for_bucket(sample_bucket)
+
+                 # Fetch the computed result
+                 sample_ts = int(sample_bucket.timestamp())
+                 sample_data = None
+                 with _trends_db_lock:
+                     conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                     try:
+                         # Get main rollup
+                         cur = conn.execute("SELECT bytes, flows FROM traffic_rollups WHERE bucket_end=?", (sample_ts,))
+                         row = cur.fetchone()
+                         if row:
+                             sample_data = {"bytes": row[0], "flows": row[1]}
+
+                             # Get sources/dests
+                             cur = conn.execute("SELECT ip, bytes, flows FROM top_sources WHERE bucket_end=?", (sample_ts,))
+                             top_src = cur.fetchall()
+                             cur = conn.execute("SELECT ip, bytes, flows FROM top_dests WHERE bucket_end=?", (sample_ts,))
+                             top_dst = cur.fetchall()
+
+                             # Replicate to all other missing buckets
+                             other_buckets = missing_buckets[1:]
+                             if other_buckets:
+                                 data_rows = []
+                                 src_rows = []
+                                 dst_rows = []
+
+                                 for bucket in other_buckets:
+                                     bts = int(bucket.timestamp())
+                                     data_rows.append((bts, sample_data["bytes"], sample_data["flows"]))
+                                     for r in top_src:
+                                         src_rows.append((bts, r[0], r[1], r[2]))
+                                     for r in top_dst:
+                                         dst_rows.append((bts, r[0], r[1], r[2]))
+
+                                 conn.executemany("INSERT OR REPLACE INTO traffic_rollups(bucket_end, bytes, flows) VALUES (?,?,?)", data_rows)
+                                 if src_rows:
+                                     conn.executemany("INSERT OR REPLACE INTO top_sources(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)", src_rows)
+                                 if dst_rows:
+                                     conn.executemany("INSERT OR REPLACE INTO top_dests(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)", dst_rows)
+                                 conn.commit()
+                     finally:
+                         conn.close()
+            else:
+                # Use a reasonable number of workers to avoid overloading the system
+                # 8 workers allows decent parallelism without excessive context switching
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
 
             # Re-fetch data after computation
             with _trends_db_lock:
