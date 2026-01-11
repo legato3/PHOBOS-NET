@@ -2645,13 +2645,27 @@ body {
     border-radius: 4px;
 }
 
-/* Empty States */
+/* Empty States - Enhanced */
 .empty-state {
     text-align: center;
-    padding: 20px 16px;
+    padding: 32px 16px;
     color: var(--text-muted);
     font-size: 0.9em;
     font-style: italic;
+    opacity: 0;
+    animation: fadeInEmpty 0.4s var(--motion-base) forwards;
+    transition: opacity var(--motion-base), transform var(--motion-base);
+}
+
+@keyframes fadeInEmpty {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Loading Skeleton Animation */
@@ -2723,25 +2737,35 @@ body {
     animation: none;
 }
 
-/* Compact Empty States */
+/* Compact Empty States - Enhanced */
 .empty-state-compact {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px 16px;
+    padding: 32px 16px;
     color: var(--text-muted);
     text-align: center;
-    gap: 8px;
+    gap: 12px;
+    opacity: 0;
+    animation: fadeInEmpty 0.4s var(--motion-base) forwards;
 }
 
 .empty-state-compact .empty-icon {
-    font-size: 2em;
-    opacity: 0.5;
+    font-size: 2.5em;
+    opacity: 0.4;
+    transition: opacity var(--motion-base), transform var(--motion-base);
+    animation: pulseSubtle 3s ease-in-out infinite;
+}
+
+@keyframes pulseSubtle {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
 }
 
 .empty-state-compact span:last-child {
     font-size: 0.9em;
+    opacity: 0.8;
 }
 
 /* ============================================
