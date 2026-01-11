@@ -155,7 +155,18 @@ _trends_db_lock = threading.Lock()
 _trends_thread_started = False
 
 # Firewall syslog storage (SQLite) for 7-day retention
-FIREWALL_DB_PATH = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+# Prefer env override; if not set and /root is not writable (e.g., local dev on macOS),
+# fall back to a local file in the current workspace.
+_env_fw_db = os.getenv("FIREWALL_DB_PATH")
+if _env_fw_db and _env_fw_db.strip():
+    FIREWALL_DB_PATH = _env_fw_db
+else:
+    _default_fw_db = "/root/firewall.db"
+    _fw_dir = os.path.dirname(_default_fw_db) or "/"
+    if os.path.isdir(_fw_dir) and os.access(_fw_dir, os.W_OK):
+        FIREWALL_DB_PATH = _default_fw_db
+    else:
+        FIREWALL_DB_PATH = os.path.join(os.getcwd(), "firewall.db")
 _firewall_db_lock = threading.Lock()
 _syslog_thread_started = False
 _syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
@@ -2332,7 +2343,7 @@ def api_stats_worldmap():
         blocked_points = []
         blocked_countries = {}
         try:
-            db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+            db_path = FIREWALL_DB_PATH
             if os.path.exists(db_path):
                 range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
                 cutoff = int(time.time()) - range_seconds
@@ -4131,7 +4142,7 @@ def api_malicious_ports():
     
     # Get blocked ports from firewall syslog
     try:
-        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             conn.row_factory = sqlite3.Row
@@ -4386,7 +4397,7 @@ def api_attack_timeline():
     # Get firewall block counts from syslog (if available)
     fw_hourly_blocks = {}
     try:
-        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
@@ -4593,7 +4604,7 @@ def api_threats_by_country():
     # Get blocked IPs by country from syslog
     blocked_by_country = {}
     try:
-        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
@@ -5469,7 +5480,7 @@ def api_stats_blocklist_rate():
     # Overlay firewall block data onto series
     total_blocked = 0
     try:
-        db_path = os.getenv("FIREWALL_DB_PATH", "/root/firewall.db")
+        db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
@@ -5524,8 +5535,25 @@ if __name__=="__main__":
     start_agg_thread()
     start_syslog_thread()  # OPNsense firewall log receiver
     
-    # Run Flask app
+    # Run Flask app (auto-pick next free port if requested one is busy)
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
-    port = int(os.environ.get('FLASK_PORT', 8080))
+    requested_port = int(os.environ.get('FLASK_PORT', 8080))
+
+    def _find_open_port(h, start_port, max_tries=10):
+        p = start_port
+        for _ in range(max_tries):
+            try:
+                s = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_STREAM)
+                s.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
+                s.bind((h, p))
+                s.close()
+                return p
+            except OSError:
+                p += 1
+        return start_port
+
+    port = _find_open_port(host, requested_port)
+    if port != requested_port:
+        print(f"Requested port {requested_port} in use, selected {port} instead")
     print(f"Starting server on {host}:{port} (debug={DEBUG_MODE})")
     app.run(host=host, port=port, threaded=True, debug=DEBUG_MODE)
