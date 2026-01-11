@@ -1,0 +1,48 @@
+[Unit]
+Description=NetFlow Analytics Dashboard (Optimized)
+After=network.target
+
+[Service]
+Type=notify
+User=root
+WorkingDirectory=/root
+ExecStart=/usr/bin/python3 -m gunicorn --bind 0.0.0.0:8080 \
+    --workers 1 \
+    --threads 8 \
+    --worker-class gthread \
+    --worker-connections 1000 \
+    --timeout 30 \
+    --graceful-timeout 30 \
+    --keep-alive 5 \
+    --max-requests 2000 \
+    --max-requests-jitter 100 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info \
+    --name netflow-dashboard \
+    -c /root/gunicorn_config.py \
+    netflow_dashboard:app
+
+# Resource Limits (optimized for 1GB RAM container)
+MemoryMax=512M
+MemoryHigh=400M
+MemoryLimit=512M
+LimitNOFILE=65536
+TasksMax=100
+
+# Restart Policy
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=300s
+StartLimitBurst=5
+
+# Process Management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security (minimal - running as root in LXC is acceptable)
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
