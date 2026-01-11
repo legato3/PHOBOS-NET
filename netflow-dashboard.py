@@ -5269,6 +5269,49 @@ def metrics():
     return Response(body, mimetype='text/plain; version=0.0.4')
 
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring."""
+    checks = {
+        'database': False,
+        'disk_space': check_disk_space('/var/cache/nfdump'),
+        'syslog_active': _syslog_stats.get('received', 0) > 0,
+        'nfdump_available': _has_nfdump,
+        'memory_usage_mb': 0
+    }
+    
+    # Check database connectivity
+    try:
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            conn.execute("SELECT 1")
+            conn.close()
+        checks['database'] = True
+    except Exception:
+        checks['database'] = False
+    
+    # Check memory usage (simple approximation)
+    try:
+        import resource
+        mem_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # Linux returns KB
+        checks['memory_usage_mb'] = round(mem_mb, 1)
+    except Exception:
+        pass
+    
+    # Determine overall status
+    disk_status = checks['disk_space'].get('status', 'unknown')
+    all_ok = checks['database'] and checks['syslog_active'] and checks['nfdump_available'] and disk_status != 'critical'
+    
+    status_code = 200 if all_ok else 503
+    status_text = 'healthy' if all_ok else 'degraded'
+    
+    return jsonify({
+        'status': status_text,
+        'checks': checks,
+        'timestamp': datetime.now().isoformat()
+    }), status_code
+
+
 # ===== SNMP Integration =====
 import subprocess
 import time
