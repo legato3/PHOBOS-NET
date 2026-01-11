@@ -12,29 +12,40 @@
     <!-- Resource hints for better performance -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
+    
+    <!-- Critical JavaScript modules - Preload for faster execution -->
     <link rel="preload" href="/static/js/utils.js" as="script">
     <link rel="preload" href="/static/js/widgets.js" as="script">
+    <link rel="preload" href="/static/js/lazy-load.js" as="script">
+    
+    <!-- CSS - Critical render path, load first -->
+    <link rel="stylesheet" href="/static/style.min.css?v=3.0.0">
+    <!-- Widget-specific enhancements -->
+    <link rel="stylesheet" href="/static/conversations.css?v=1">
 
     <!-- External Libs (bundled locally to reduce CDN dependency) - Defer all heavy libraries -->
     <script src="/static/chart.min.js" defer></script>
     <script src="/static/chartjs-chart-sankey.min.js" defer></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
-    <!-- Modular JavaScript - Load modules before app -->
+    
+    <!-- Modular JavaScript - Load modules before app (critical path) -->
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/widgets.js"></script>
     <script src="/static/js/lazy-load.js"></script>
-    <!-- Register app component BEFORE Alpine starts so alpine:init is caught -->
-    <script src="/static/app.js?v=2.7.0"></script>
+    
+    <!-- Main app - Register BEFORE Alpine starts so alpine:init is caught -->
+    <script src="/static/app.js?v=3.0.0"></script>
+    
+    <!-- Alpine.js - Defer to allow app.js to register -->
     <script src="/static/alpine.min.js" defer></script>
+    
     <!-- Heavy visualization libraries - Defer until needed -->
     <script src="/static/vis-network.min.js" defer></script>
 
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Leaflet - External CDN, defer CSS and JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""></noscript>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-
-    <!-- CSS - Using minified version for production -->
-    <link rel="stylesheet" href="/static/style.min.css?v=2.6.1">
     <!-- Widget-specific enhancements -->
     <link rel="stylesheet" href="/static/conversations.css?v=1">
 </head>
