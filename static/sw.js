@@ -4,9 +4,10 @@
 const CACHE_NAME = 'netflow-dashboard-v2.6.1';
 const STATIC_ASSETS = [
     '/',
-    '/static/style.css',
-    '/static/app.js',
+    '/static/style.min.css',
+    '/static/app.min.js',
     '/static/chart.min.js',
+    '/static/chartjs-chart-sankey.min.js',
     '/static/alpine.min.js',
     '/static/alpine-collapse.min.js',
     '/static/vis-network.min.js'
