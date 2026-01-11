@@ -4,27 +4,28 @@
        Design System v3.0
        ============================================ */
     
-    /* Base Colors - Termix style dark theme */
-    --bg-primary: #1a1a1a;              /* Dark grey base (Termix style) */
-    --bg-secondary: #1e1e1e;            /* Slightly lighter for depth */
-    --bg-elevated: #242424;             /* Cards and elevated surfaces (Termix style) */
-    --bg-overlay: rgba(10, 10, 10, 0.95); /* Overlays and modals */
+    /* Base Colors - Darker theme with pixel art aesthetic */
+    --bg-primary: #0d0d0d;              /* Near-black base (darker) */
+    --bg-secondary: #111111;            /* Slightly lighter for depth */
+    --bg-elevated: #1a1a1a;             /* Cards and elevated surfaces (darker) */
+    --bg-overlay: rgba(5, 5, 5, 0.98);  /* Overlays and modals (darker) */
     
-    /* Glass Morphism - Premium subtle effects */
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-bg-hover: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(0, 243, 255, 0.08);
-    --glass-border-hover: rgba(0, 243, 255, 0.15);
-    --glass-blur: 12px;
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    /* Enhanced Glass Morphism - More pronounced effects */
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-bg-hover: rgba(255, 255, 255, 0.09);
+    --glass-border: rgba(0, 243, 255, 0.15);
+    --glass-border-hover: rgba(0, 243, 255, 0.25);
+    --glass-blur: 16px;
+    --glass-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 243, 255, 0.1);
+    --glass-shadow-hover: 0 16px 64px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 243, 255, 0.15);
     
-    /* Card System - Termix style minimal aesthetic (colors preserved) */
-    --card-bg: #242424;
-    --card-bg-hover: #2a2a2a;
-    --card-border: rgba(255, 255, 255, 0.08);
-    --card-border-hover: rgba(255, 255, 255, 0.12);
-    --card-shadow: none;
-    --card-shadow-hover: none;
+    /* Card System - Enhanced with glass and shadows */
+    --card-bg: rgba(20, 20, 20, 0.7);
+    --card-bg-hover: rgba(25, 25, 25, 0.8);
+    --card-border: rgba(0, 243, 255, 0.12);
+    --card-border-hover: rgba(0, 243, 255, 0.2);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --card-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     
     /* Functional Accents - Subtle, purposeful only */
     --accent-primary: #00f3ff;          /* Cyan - Primary actions, highlights */
@@ -129,13 +130,15 @@
     --radius-2xl: 16px;
     --radius-full: 9999px;
     
-    /* Shadows - Subtle, minimal for hacker aesthetic */
-    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25);
-    --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.3);
-    --shadow-glow-primary: 0 0 4px var(--accent-primary-glow);
-    --shadow-glow-danger: 0 0 4px var(--accent-danger-glow);
+    /* Enhanced Shadows - Layered depth with glow effects */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.7), 0 6px 12px rgba(0, 0, 0, 0.6);
+    --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.7);
+    --shadow-glow-primary: 0 0 8px var(--accent-primary-glow), 0 0 16px var(--accent-primary-glow-strong);
+    --shadow-glow-danger: 0 0 8px var(--accent-danger-glow), 0 0 16px rgba(255, 0, 60, 0.3);
+    --shadow-glow-secondary: 0 0 8px var(--accent-secondary-glow), 0 0 16px rgba(255, 0, 255, 0.25);
     
     /* Transitions - Subtle, purposeful motion */
     --motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -177,6 +180,13 @@
 
 body {
     background-color: var(--bg-primary);
+    background-image: 
+        /* Pixel grid pattern */
+        linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px),
+        /* Scanline effect */
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px);
+    background-size: 20px 20px, 20px 20px, 100% 4px;
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 14px; /* Body text: 13-14px */
@@ -189,6 +199,11 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Pixel art crisp edges */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
 }
 
 /* Skip to content link for accessibility */
@@ -270,18 +285,21 @@ body {
     margin: 0;
 }
 
-/* Sidebar - Modern, Clean Design */
+/* Sidebar - Enhanced glass effect with shadows */
 .sidebar {
     width: 220px;
     flex-shrink: 0;
-    background: var(--bg-elevated);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(20, 20, 20, 0.75);
+    border-right: 1px solid rgba(0, 243, 255, 0.15);
     padding: var(--space-5) 0;
     height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px));
     position: sticky;
     top: calc(var(--header-height, 80px) + var(--space-6, 24px));
     overflow-y: auto;
     overflow-x: hidden;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 243, 255, 0.1);
 }
 
 .sidebar-nav {
@@ -366,7 +384,11 @@ body {
     padding: var(--space-4) 0;
     min-height: var(--header-height);
     position: relative;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+    background: rgba(13, 13, 13, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(0, 243, 255, 0.1);
 }
 
 .header-top {
@@ -591,38 +613,65 @@ button.active {
 
 .card {
     background: var(--card-bg);
-    border: none; /* Removed border - using elevation instead */
+    border: 1px solid var(--card-border);
     border-radius: var(--radius-md);
     padding: 20px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--card-shadow);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: background-color var(--motion-base), box-shadow var(--motion-base);
+    transition: background-color var(--motion-base), box-shadow var(--motion-base), border-color var(--motion-base);
     overflow: hidden;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    /* Pixel art scanline effect */
+    background-image: 
+        linear-gradient(transparent 50%, rgba(0, 243, 255, 0.02) 50%),
+        linear-gradient(90deg, transparent 50%, rgba(0, 243, 255, 0.01) 50%);
+    background-size: 100% 2px, 2px 100%;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.card > * {
+    position: relative;
+    z-index: 1;
 }
 
 .card:hover {
     background: var(--card-bg-hover);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+    border-color: var(--card-border-hover);
+    box-shadow: var(--card-shadow-hover);
 }
 
-/* Primary focus cards - higher elevation */
+/* Primary focus cards - higher elevation with enhanced shadows */
 .primary-column .card {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 243, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-color: rgba(0, 243, 255, 0.15);
 }
 
 .primary-column .card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.14), 0 8px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 14px 56px rgba(0, 0, 0, 0.7), 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 32px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-color: rgba(0, 243, 255, 0.25);
 }
 
-/* Secondary cards - lower elevation */
+/* Secondary cards - enhanced shadows */
 .secondary-column .card {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .secondary-column .card:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .card:focus-within {
@@ -1174,15 +1223,16 @@ tr:hover td {
     box-shadow: 0 0 4px rgba(255, 0, 60, 0.5);
 }
 
-/* Dropdown */
+/* Dropdown - Enhanced glass effect */
 .dropdown-menu {
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(20, 20, 20, 0.85);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
     padding: var(--space-1) 0;
     min-width: 200px;
@@ -1375,9 +1425,11 @@ tr:hover td {
     align-items: center;
 }
 .modal-content {
-    background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: none;
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid rgba(0, 243, 255, 0.25);
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 48px rgba(0, 243, 255, 0.2);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     width: 90%; 
     max-width: 800px;
     max-height: 90vh;
