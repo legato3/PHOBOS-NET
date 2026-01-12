@@ -328,11 +328,11 @@ body.sidebar-collapsed .layout-wrapper {
 
 /* Sidebar - Floating overlay that expands on hover */
 .sidebar {
-    width: var(--sidebar-width);
+    width: 180px; /* More compact width */
     flex-shrink: 0;
     background: rgba(20, 20, 20, 0.95);
     border-right: 1px solid rgba(0, 243, 255, 0.15);
-    padding: var(--space-4) 0;
+    padding: var(--space-2) 0;
     height: auto;
     max-height: calc(100vh - 140px - 60px);
     position: fixed;
@@ -350,108 +350,105 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar.collapsed {
-    width: 60px;
+    width: 50px; /* More compact when collapsed */
 }
 
 /* Expand sidebar on hover when collapsed (overlay behavior) */
 .sidebar.collapsed:hover {
-    width: var(--sidebar-width);
+    width: 180px;
     z-index: 200;
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.7), inset -1px 0 0 rgba(0, 243, 255, 0.2);
+}
+
+/* Subtle indicator that sidebar expands on hover */
+.sidebar.collapsed::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 30px;
+    background: rgba(0, 243, 255, 0.3);
+    border-radius: 1px;
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 .sidebar-nav {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    padding: 0 var(--space-2);
-}
-
-.sidebar-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: var(--space-2);
-    margin-bottom: var(--space-2);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(0, 243, 255, 0.2);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-}
-
-.sidebar-toggle:hover {
-    background: rgba(0, 243, 255, 0.1);
-    border-color: rgba(0, 243, 255, 0.3);
-    color: var(--accent-primary);
-}
-
-.sidebar.collapsed .sidebar-toggle {
-    margin: 0 auto var(--space-2);
-    width: 32px;
-    padding: var(--space-1);
-    justify-content: center;
+    padding: 0;
 }
 
 .sidebar-item {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    gap: 4px;
+    padding: var(--space-2) var(--space-1);
     background: transparent;
     border: none;
     border-radius: var(--radius-md);
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-align: left;
+    text-align: center;
     width: 100%;
     font-family: var(--font-sans);
     pointer-events: auto;
     -webkit-user-select: none;
     user-select: none;
     position: relative;
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 .sidebar.collapsed .sidebar-item {
-    justify-content: center;
-    padding: var(--space-3) 0;
-    width: 44px;
-    margin: 0 auto;
+    padding: var(--space-2) 0;
+    width: 100%;
 }
 
 /* When collapsed sidebar is hovered, adjust items to show labels */
 .sidebar.collapsed:hover .sidebar-item {
+    flex-direction: row;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-2);
     justify-content: flex-start;
-    padding: var(--space-3) var(--space-4);
-    width: 100%;
-    margin: 0;
+}
+
+.sidebar.collapsed:hover .sidebar-item:hover {
+    transform: translateX(2px);
 }
 
 .sidebar-item:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
-    transform: translateX(2px);
 }
 
 .sidebar.collapsed .sidebar-item:hover {
-    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-item.active {
-    background: rgba(0, 243, 255, 0.12);
+    background: rgba(0, 243, 255, 0.15);
     color: var(--accent-primary);
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0, 243, 255, 0.15);
 }
 
 .sidebar-item.active::before {
+    display: none; /* Remove left border indicator for centered layout */
+}
+
+.sidebar.collapsed .sidebar-item.active {
+    background: rgba(0, 243, 255, 0.2);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+}
+
+/* When hovered and expanded, show left border indicator */
+.sidebar.collapsed:hover .sidebar-item.active::before {
     content: '';
     position: absolute;
     left: 0;
@@ -461,40 +458,25 @@ body.sidebar-collapsed .layout-wrapper {
     height: 60%;
     background: var(--accent-primary);
     border-radius: 0 2px 2px 0;
-}
-
-.sidebar.collapsed .sidebar-item.active::before {
-    display: none;
-}
-
-.sidebar.collapsed .sidebar-item.active {
-    background: rgba(0, 243, 255, 0.2);
-    box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+    display: block;
 }
 
 .sidebar-icon {
     font-size: 18px;
-    width: 24px;
+    width: auto;
     text-align: center;
     flex-shrink: 0;
     line-height: 1;
 }
 
-.sidebar.collapsed .sidebar-icon {
-    width: auto;
-    margin: 0;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
 .sidebar-label {
-    flex: 1;
+    flex: 0;
     letter-spacing: 0.01em;
     overflow: hidden;
     white-space: nowrap;
     transition: opacity 0.2s ease;
+    text-align: center;
+    line-height: 1.2;
 }
 
 .sidebar.collapsed .sidebar-label {
@@ -504,6 +486,8 @@ body.sidebar-collapsed .layout-wrapper {
 /* Show labels when collapsed sidebar is hovered */
 .sidebar.collapsed:hover .sidebar-label {
     display: block;
+    flex: 1;
+    text-align: left;
 }
 
 /* Main Content */
@@ -511,7 +495,7 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
-    margin-left: 76px; /* Always account for collapsed sidebar (60px + 16px gap) */
+    margin-left: 66px; /* Always account for collapsed sidebar (50px + 16px gap) */
     transition: margin-left 0.3s ease;
 }
 
