@@ -3292,6 +3292,7 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.fetchRecentBlocks();
                 this.fetchAlertCorrelation();
+                this.fetchThreatActivityTimeline();
                 // Start auto-refresh for firewall logs
                 this.startRecentBlocksAutoRefresh();
             }
