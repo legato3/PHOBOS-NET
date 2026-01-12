@@ -7631,3 +7631,76 @@ body.compact-mode {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding-bottom: var(--space-2);
 }
+
+/* ====================================
+   Insights Row Styles
+   ==================================== */
+
+.w-100 {
+    width: 100%;
+}
+
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+
+.text-success {
+    color: var(--accent-success);
+}
+
+.text-danger {
+    color: var(--accent-danger);
+}
+
+.font-mono {
+    font-family: var(--font-mono);
+}
+
+.py-4 {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.list-check {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+.list-item span:first-child {
+    font-size: 1.1em;
+}
+
+.empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-muted);
+    font-style: italic;
+}

@@ -940,6 +940,12 @@ document.addEventListener('alpine:init', () => {
             this.fetchSources(); // Top 10 sources
             this.fetchDestinations(); // Top 10 dests
             this.fetchPorts();
+
+            // Fetch Overview Widgets (New)
+            if (this.isVisible('protoMix')) this.fetchProtoMix();
+            if (this.isVisible('talkers')) this.fetchTalkers();
+            if (this.isVisible('netHealth')) this.fetchNetHealth();
+
             if (!this.firewallStreamActive) this.fetchFirewall();
 
             // Smart Loading via Polling: Check if sections are visible AND stale
