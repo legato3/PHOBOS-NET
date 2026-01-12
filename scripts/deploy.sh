@@ -4,109 +4,114 @@
 
 set -e
 
+# --- Configuration ---
 SSH_KEY="${HOME}/.ssh/id_ed25519_192.168.0.70"
 SSH_USER="root"
 SSH_HOST="192.168.0.70"
 LXC_ID="122"
+CONTAINER_IP="192.168.0.74"
 REPO_PATH="/repo"
 DEPLOY_PATH="/root"
+
+# --- Main Script ---
 
 echo "🚀 Starting deployment..."
 
 # Ensure we're in the repo root
 cd "$(dirname "$0")/.."
 
-# Check for uncommitted changes and auto-commit them
-UNCOMMITTED=$(git status --porcelain)
-if [ -n "$UNCOMMITTED" ]; then
-    echo "📝 Detected uncommitted changes. Auto-committing before deployment..."
-    echo "   Files with changes:"
-    echo "$UNCOMMITTED" | sed 's/^/   - /'
-    
-    # Stage all changes
-    git add -A
-    
-    # Create commit with descriptive message (only if there are changes to commit)
-    if ! git diff --cached --quiet; then
-        COMMIT_MSG="Auto-commit before deployment: $(date '+%Y-%m-%d %H:%M:%S')"
-        git commit -m "$COMMIT_MSG" || {
-            echo "❌ Failed to commit changes. Please resolve conflicts manually."
-            exit 1
-        }
-        echo "✅ Changes committed successfully"
-    else
-        echo "ℹ️  No changes to commit (all changes already staged)"
-    fi
-fi
-
-# Push changes to GitHub with automatic rebase handling
-echo "📤 Pushing changes to GitHub..."
-if ! git push origin main 2>&1 | tee /tmp/git_push_output; then
-    # Check if the error is due to remote changes
-    if grep -q "Updates were rejected" /tmp/git_push_output || grep -q "fetch first" /tmp/git_push_output; then
-        echo "🔄 Remote has changes, pulling and rebasing..."
-        git fetch origin main
-        if git rebase origin/main; then
-            echo "✅ Rebase successful, pushing again..."
-            git push origin main
-        else
-            echo "❌ Rebase failed. Please resolve conflicts manually:"
-            echo "   1. Resolve conflicts in the files listed above"
-            echo "   2. Run: git rebase --continue"
-            echo "   3. Run: git push origin main"
-            echo "   4. Run this deployment script again"
-            exit 1
-        fi
-    else
-        echo "❌ Push failed for unknown reason. See error above."
+# 1. Check for uncommitted changes (Safety Check)
+if [ -n "$(git status --porcelain)" ]; then
+    echo "⚠️  Uncommitted changes detected:"
+    git status --short
+    read -p "❓ Continue deployment anyway? (y/N) " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Deployment aborted."
         exit 1
     fi
+    echo "⚠️  Proceeding with uncommitted changes (local files will be deployed)..."
 fi
-rm -f /tmp/git_push_output
 
-# SSH to server and deploy using tar (more reliable than git fetch for auth issues)
-echo "📥 Syncing files to server repository..."
-tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' --exclude='.venv' -czf - . | \
+# 2. Push changes to GitHub (Optional but recommended)
+echo "📤 Pushing changes to GitHub..."
+git push origin main || echo "⚠️  Git push failed. Continuing with local file sync..."
+
+# 3. SSH to server and deploy
+echo "📥 Syncing files to server container..."
+
+# Create a tarball of the current directory, excluding unnecessary files
+# We stream this directly to the SSH command -> pct exec -> tar extract
+tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' \
+    --exclude='.venv' --exclude='.DS_Store' --exclude='tests' \
+    -czf - . | \
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
+    set -e
+    
+    # 3a. Setup Repo/Staging Area
     mkdir -p ${REPO_PATH}
     cd ${REPO_PATH}
+    
+    echo \"📦 Extracting files...\"
     tar -xzf -
-    echo \"✅ Files synced to ${REPO_PATH}\"
     
-    echo \"📋 Copying files to deployment directory...\"
+    # 3b. Install Dependencies
+    echo \"📦 Installing dependencies...\"
+    # Assuming system python as per service file (ExecStart=/usr/bin/python3)
+    # Using --break-system-packages if needed for newer Debian/Ubuntu, or standard pip otherwise
+    if pip3 install --break-system-packages -r requirements.txt 2>/dev/null; then
+        echo \"✅ Dependencies installed (using --break-system-packages)\"
+    else
+        pip3 install -r requirements.txt
+        echo \"✅ Dependencies installed\"
+    fi
     
-    # Copy Python application
+    echo \"📋 Updating deployment directory...\"
+    
+    # 3c. Clean and Copy Files
+    # Remove old static/templates to ensure clean state (no stale files)
+    rm -rf ${DEPLOY_PATH}/static ${DEPLOY_PATH}/templates
+    
+    # Copy new files
     cp -f netflow-dashboard.py ${DEPLOY_PATH}/
+    cp -f requirements.txt ${DEPLOY_PATH}/
     
-    # Copy static files
     mkdir -p ${DEPLOY_PATH}/static
     cp -rf static/* ${DEPLOY_PATH}/static/
     
-    # Copy templates
     mkdir -p ${DEPLOY_PATH}/templates
     cp -rf templates/* ${DEPLOY_PATH}/templates/
     
-    # Copy scripts if needed
-    if [ -d scripts ]; then
+    # Gunicorn config if applicable
+    if [ -d scripts ] && [ -f scripts/gunicorn_config.py ]; then
         mkdir -p ${DEPLOY_PATH}/scripts
-        cp -f scripts/gunicorn_config.py ${DEPLOY_PATH}/ 2>/dev/null || true
+        cp -f scripts/gunicorn_config.py ${DEPLOY_PATH}/scripts/
     fi
     
-    echo \"✅ Files copied to deployment directory\"
-    echo \"📊 Deployment summary:\"
-    ls -lh ${DEPLOY_PATH}/netflow-dashboard.py 2>/dev/null | awk \"{print \\\$9, \\\$5}\"
-    ls -lh ${DEPLOY_PATH}/static/*.js ${DEPLOY_PATH}/static/*.css 2>/dev/null | awk \"{print \\\$9, \\\$5}\" | head -5
+    echo \"✅ Files updated in ${DEPLOY_PATH}\"
     
-    echo \"\"
+    # 3d. Restart Service
     echo \"🔄 Restarting netflow-dashboard service...\"
     systemctl restart netflow-dashboard
-    sleep 2
     
-    echo \"\"
+    # Wait a moment for service to come up
+    sleep 3
+    
     echo \"📋 Service Status:\"
-    systemctl status netflow-dashboard --no-pager -l | head -15
+    systemctl is-active netflow-dashboard
 '"
 
+# 4. Verify deployment (Health Check)
+echo "🔍 Verifying deployment at http://${CONTAINER_IP}:8080..."
+
+if curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${CONTAINER_IP}:8080" | grep -q "200"; then
+    echo "✅ Health check passed! Site is reachable."
+else
+    echo "⚠️  Health check failed. Site might be down or starting up slow."
+    echo "   Check logs on server: ssh ${SSH_USER}@${SSH_HOST} \"pct exec ${LXC_ID} -- journalctl -u netflow-dashboard -n 50\""
+fi
+
 echo ""
-echo "✅ Deployment completed successfully!"
-echo "🌐 Dashboard URL: http://192.168.0.74:8080"
+echo "✅ Deployment completed!"
+echo "🌐 Dashboard URL: http://${CONTAINER_IP}:8080"
+
