@@ -50,8 +50,17 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     echo \"📊 Deployment summary:\"
     ls -lh ${DEPLOY_PATH}/netflow-dashboard.py 2>/dev/null | awk \"{print \\\$9, \\\$5}\"
     ls -lh ${DEPLOY_PATH}/static/*.js ${DEPLOY_PATH}/static/*.css 2>/dev/null | awk \"{print \\\$9, \\\$5}\" | head -5
+    
+    echo \"\"
+    echo \"🔄 Restarting netflow-dashboard service...\"
+    systemctl restart netflow-dashboard
+    sleep 2
+    
+    echo \"\"
+    echo \"📋 Service Status:\"
+    systemctl status netflow-dashboard --no-pager -l | head -15
 '"
 
 echo ""
 echo "✅ Deployment completed successfully!"
-echo "💡 Note: Restart the service manually if needed: systemctl restart netflow-dashboard"
+echo "🌐 Dashboard URL: http://192.168.0.74:8080"
