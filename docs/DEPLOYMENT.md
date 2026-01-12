@@ -1,184 +1,182 @@
 # Deployment Instructions for PROX_NFDUMP Dashboard
 
-## Quick Deployment (When You Push New Code to GitHub)
+## Quick Deployment (Recommended Method)
 
-Deployment is done over SSH to the Proxmox server, then executing commands in the LXC container.
+Use the automated deployment script for the easiest and most reliable deployment process.
 
-### Step 1: SSH to Proxmox Server
+### Using the Deployment Script
 
-```bash
-ssh user@192.168.0.70
-```
-
-### Step 2: Deploy to Container 122
-
-Once connected to the Proxmox server, run these commands to deploy to the LXC container:
+From your local repository directory:
 
 ```bash
-# 1. Pull latest code from GitHub into container
-pct exec 122 -- bash -c "cd /tmp/repo && git pull"
-
-# 2. Copy files to production location
-pct exec 122 -- bash -c "cp /tmp/repo/netflow-dashboard.py /root/ && \
-cp /tmp/repo/static/*.js /root/static/ && \
-cp /tmp/repo/static/*.css /root/static/ && \
-cp -r /tmp/repo/static/js /root/static/ 2>/dev/null || true && \
-cp /tmp/repo/templates/*.html /root/templates/"
-
-# 3. Update CSS cache version (increment the number)
-pct exec 122 -- sed -i 's/v=2\.7\.0/v=2.8.0/' /root/templates/index.html
-
-# 4. Restart the service
-pct exec 122 -- systemctl restart netflow-dashboard
-
-# 5. Verify it's running
-pct exec 122 -- systemctl status netflow-dashboard --no-pager -l
+./scripts/deploy.sh
 ```
+
+This script will:
+1. Push your changes to GitHub
+2. Sync files to `/repo` on the server using tar
+3. Copy files from `/repo` to the production directory (`/root`)
+4. Show a summary of deployed files
+
+**Note**: The script requires SSH access configured with key `~/.ssh/id_ed25519_192.168.0.70`.
 
 ---
 
-## Step-by-Step Explanation
+## Manual Deployment (Alternative Method)
 
-### Step 1: SSH to Proxmox Server
-```bash
-ssh user@192.168.0.70
-```
-- Connect to the Proxmox host server
-- Replace `user` with your SSH username
+If you need to deploy manually or troubleshoot, follow these steps:
 
-### Step 2: Pull Latest Code
-```bash
-pct exec 122 -- bash -c "cd /tmp/repo && git pull"
-```
-- Fetches your latest code from GitHub
-- Updates the `/tmp/repo` directory inside container 122
+### Step 1: Push Changes to GitHub
 
-### Step 3: Copy Files to Production
 ```bash
-pct exec 122 -- bash -c "cp /tmp/repo/netflow-dashboard.py /root/ && \
-cp /tmp/repo/static/*.js /root/static/ && \
-cp /tmp/repo/static/*.css /root/static/ && \
-cp -r /tmp/repo/static/js /root/static/ 2>/dev/null || true && \
-cp /tmp/repo/templates/*.html /root/templates/"
+git add .
+git commit -m "Your commit message"
+git push origin main
 ```
-- Copies updated Python backend to `/root/`
-- Copies updated JavaScript files to `/root/static/`
-- Copies updated CSS files to `/root/static/`
-- Copies JavaScript modules from `/static/js/` directory
-- Copies updated HTML templates to `/root/templates/`
 
-### Step 4: Update CSS Version (Cache Busting)
+### Step 2: SSH to Proxmox Server
+
 ```bash
-pct exec 122 -- sed -i 's/v=2\.7\.0/v=2.8.0/' /root/templates/index.html
+ssh -i ~/.ssh/id_ed25519_192.168.0.70 root@192.168.0.70
 ```
-- Forces browsers to reload CSS by incrementing version
-- Change `2.7.0` to current version and `2.8.0` to next version
-- This prevents browser caching issues
+
+### Step 3: Sync Repository on Server
+
+```bash
+# Sync files to /repo using tar (from your local machine)
+cd /path/to/PROX_NFDUMP
+tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' --exclude='.venv' -czf - . | \
+ssh -i ~/.ssh/id_ed25519_192.168.0.70 root@192.168.0.70 "pct exec 122 -- bash -c 'cd /repo && tar -xzf -'"
+```
+
+### Step 4: Deploy to Production
+
+```bash
+# Copy files from /repo to production directory
+pct exec 122 -- bash -c "cp -f /repo/netflow-dashboard.py /root/ && \
+cp -rf /repo/static/* /root/static/ && \
+cp -rf /repo/templates/* /root/templates/"
+```
 
 ### Step 5: Restart Service
+
 ```bash
 pct exec 122 -- systemctl restart netflow-dashboard
 ```
-- Stops and starts the Python Flask application
-- Loads new code into memory
 
 ### Step 6: Verify
+
 ```bash
 pct exec 122 -- systemctl status netflow-dashboard --no-pager -l
 ```
-- Should show "active (running)" in green
-- Check for any errors in the output
 
 ---
 
-## Alternative: Deploy from Inside Container
+## Deployment Script Details
 
-You can also SSH directly into the container (if SSH is enabled) or enter it interactively:
+The `scripts/deploy.sh` script automates the deployment process:
 
+**Configuration** (at the top of the script):
+- `SSH_KEY`: Path to SSH key (`~/.ssh/id_ed25519_192.168.0.70`)
+- `SSH_USER`: SSH username (`root`)
+- `SSH_HOST`: Proxmox server IP (`192.168.0.70`)
+- `LXC_ID`: Container ID (`122`)
+- `REPO_PATH`: Repository path on server (`/repo`)
+- `DEPLOY_PATH`: Production directory (`/root`)
+
+**What it does**:
+1. Pushes local changes to GitHub
+2. Uses `tar` to sync files to `/repo` (avoids Git authentication issues)
+3. Copies files from `/repo` to production directories
+4. Displays a deployment summary
+
+**File Exclusions** (to reduce transfer size):
+- `.git` directory
+- `.Jules` directory
+- `*.pyc` files
+- `__pycache__` directories
+- `.venv` virtual environment
+
+---
+
+## Repository Setup on Server
+
+The server maintains a Git repository at `/repo` that serves as a staging area for deployments.
+
+**Initial Setup** (already completed):
 ```bash
-# 1. SSH to Proxmox server
-ssh user@192.168.0.70
-
-# 2. Enter the container
-pct exec 122 -- bash
-
-# 3. Pull latest code
-cd /tmp/repo && git pull
-
-# 4. Copy files
-cp netflow-dashboard.py /root/
-cp static/*.js static/*.css /root/static/
-cp -r static/js /root/static/ 2>/dev/null || true
-cp templates/*.html /root/templates/
-
-# 5. Update CSS version
-sed -i 's/v=2\.7\.0/v=2.8.0/' /root/templates/index.html
-
-# 6. Restart service
-systemctl restart netflow-dashboard
-
-# 7. Check status
-systemctl status netflow-dashboard --no-pager -l
-
-# 8. View logs if needed
-journalctl -u netflow-dashboard -n 50 --no-pager
-
-# 9. Exit container
-exit
+# Repository is initialized at /repo
+# Remote points to: https://github.com/legato3/PROX_NFDUMP.git
+# Files are synced using tar to avoid GitHub authentication issues
 ```
 
----
-
-## Quick One-Liner (All Steps Combined)
-
-After SSH'ing to the Proxmox server:
-
-```bash
-pct exec 122 -- bash -c "cd /tmp/repo && git pull && \
-cp netflow-dashboard.py /root/ && \
-cp static/*.js static/*.css /root/static/ && \
-cp -r static/js /root/static/ 2>/dev/null || true && \
-cp templates/*.html /root/templates/ && \
-sed -i 's/v=2\.7\.0/v=2.8.0/' /root/templates/index.html && \
-systemctl restart netflow-dashboard && \
-sleep 2 && \
-systemctl status netflow-dashboard --no-pager -l"
-```
+**Repository Structure**:
+- `/repo` - Git repository (staging area)
+- `/root` - Production directory (actual deployment)
+- Files are copied from `/repo` to `/root` during deployment
 
 ---
 
-## Files to Deploy (Reference)
+## Files Deployed
 
-| File | Source | Destination |
-|------|--------|-------------|
-| Backend | `/tmp/repo/netflow-dashboard.py` | `/root/netflow-dashboard.py` |
-| JavaScript | `/tmp/repo/static/app.js` | `/root/static/app.js` |
-| JavaScript (min) | `/tmp/repo/static/app.min.js` | `/root/static/app.min.js` |
-| JavaScript modules | `/tmp/repo/static/js/` | `/root/static/js/` |
-| CSS | `/tmp/repo/static/style.css` | `/root/static/style.css` |
-| CSS (min) | `/tmp/repo/static/style.min.css` | `/root/static/style.min.css` |
-| HTML | `/tmp/repo/templates/index.html` | `/root/templates/index.html` |
+| File Type | Source | Destination |
+|-----------|--------|-------------|
+| Backend | `/repo/netflow-dashboard.py` | `/root/netflow-dashboard.py` |
+| JavaScript | `/repo/static/app.js` | `/root/static/app.js` |
+| JavaScript (min) | `/repo/static/app.min.js` | `/root/static/app.min.js` |
+| JavaScript modules | `/repo/static/js/` | `/root/static/js/` |
+| CSS | `/repo/static/style.css` | `/root/static/style.css` |
+| CSS (min) | `/repo/static/style.min.css` | `/root/static/style.min.css` |
+| HTML | `/repo/templates/index.html` | `/root/templates/index.html` |
+| Config | `/repo/scripts/gunicorn_config.py` | `/root/gunicorn_config.py` |
 
 ---
 
 ## Troubleshooting
 
-### Check if Service Failed
+### Deployment Script Fails
+
+**Check SSH connectivity**:
+```bash
+ssh -i ~/.ssh/id_ed25519_192.168.0.70 root@192.168.0.70 "pct exec 122 -- echo 'Connection OK'"
+```
+
+**Check repository exists**:
+```bash
+ssh -i ~/.ssh/id_ed25519_192.168.0.70 root@192.168.0.70 "pct exec 122 -- ls -la /repo"
+```
+
+**Manual file sync**:
+```bash
+# From local repository
+tar --exclude='.git' -czf - . | \
+ssh -i ~/.ssh/id_ed25519_192.168.0.70 root@192.168.0.70 \
+"pct exec 122 -- bash -c 'cd /repo && tar -xzf -'"
+```
+
+### Service Fails After Deployment
+
+**Check service status**:
 ```bash
 pct exec 122 -- systemctl status netflow-dashboard --no-pager -l
 ```
 
-### View Recent Logs
+**View recent logs**:
 ```bash
 pct exec 122 -- journalctl -u netflow-dashboard -n 100 --no-pager
 ```
 
-### View Error Logs Only
+**View error logs only**:
 ```bash
 pct exec 122 -- journalctl -u netflow-dashboard --no-pager | grep -i error
 ```
 
-### Test Dashboard is Responding
+**Check Python syntax**:
+```bash
+pct exec 122 -- python3 -m py_compile /root/netflow-dashboard.py
+```
+
+**Test dashboard response**:
 ```bash
 pct exec 122 -- curl -s http://localhost:8080/ | head -5
 ```
@@ -188,47 +186,56 @@ Or from your local machine:
 curl -s http://192.168.0.74:8080/ | head -5
 ```
 
-### Check Python Syntax
+### Files Not Updating
+
+**Verify files were copied**:
 ```bash
-pct exec 122 -- python3 -m py_compile /root/netflow-dashboard.py
+pct exec 122 -- ls -lh /root/netflow-dashboard.py /root/static/app.js /root/templates/index.html
 ```
 
----
-
-## Current Version Tracking
-
-When incrementing CSS version, check current version first:
+**Check file modification times**:
 ```bash
-pct exec 122 -- grep "style.css?v=" /root/templates/index.html
+pct exec 122 -- stat /root/netflow-dashboard.py /root/static/app.js
 ```
 
-Update pattern:
-- Current: `v=2.7.0` → Next: `v=2.8.0`
-- Current: `v=2.8.0` → Next: `v=2.9.0`
-- Current: `v=2.9.0` → Next: `v=3.0.0`
+**Compare with repository**:
+```bash
+pct exec 122 -- diff /repo/netflow-dashboard.py /root/netflow-dashboard.py
+```
 
 ---
 
 ## System Information
 
 - **Proxmox Server**: 192.168.0.70
+- **SSH User**: root
+- **SSH Key**: ~/.ssh/id_ed25519_192.168.0.70
 - **LXC Container**: 122 (PROX-NFDUMP)
 - **Container IP**: 192.168.0.74
 - **Dashboard URL**: http://192.168.0.74:8080
 - **Service Name**: netflow-dashboard
-- **Repository**: /tmp/repo (inside container)
-- **Production**: /root/ (inside container)
+- **Repository Path**: /repo (inside container)
+- **Production Path**: /root (inside container)
 
 ---
 
-## Summary Checklist
+## Deployment Checklist
 
-- [ ] SSH to Proxmox server: `ssh user@192.168.0.70`
-- [ ] Pull code: `pct exec 122 -- bash -c "cd /tmp/repo && git pull"`
-- [ ] Copy Python backend
-- [ ] Copy static files (JS/CSS)
-- [ ] Copy HTML templates
-- [ ] Increment CSS version
-- [ ] Restart service
-- [ ] Verify service is running
-- [ ] Test dashboard in browser (http://192.168.0.74:8080)
+- [ ] Commit and push changes to GitHub
+- [ ] Run deployment script: `./scripts/deploy.sh`
+- [ ] Verify deployment script completed successfully
+- [ ] Check service status: `systemctl status netflow-dashboard`
+- [ ] Test dashboard in browser: http://192.168.0.74:8080
+- [ ] Check for errors in logs if issues occur
+
+---
+
+## Notes
+
+- **Cache Busting**: The deployment script does not automatically increment CSS/JS version numbers. If you experience caching issues, manually update version numbers in `templates/index.html`.
+- **Service Restart**: The deployment script does not automatically restart the service. Restart manually if needed: `systemctl restart netflow-dashboard`
+- **File Permissions**: Files are copied with existing permissions. Ensure production files have correct ownership.
+- **Rollback**: To rollback, check out a previous commit in `/repo` and redeploy:
+  ```bash
+  pct exec 122 -- bash -c "cd /repo && git checkout <commit-hash> && cp -f netflow-dashboard.py /root/ && cp -rf static/* /root/static/ && cp -rf templates/* /root/templates/"
+  ```

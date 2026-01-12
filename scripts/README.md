@@ -4,6 +4,12 @@ Utility scripts for deployment, maintenance, and development.
 
 ## Deployment Scripts
 
+- **deploy.sh** - Automated deployment script using Git repository on server
+  - Pushes changes to GitHub
+  - Syncs files to `/repo` on server using tar
+  - Copies files to production directory (`/root`)
+  - See [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for usage instructions
+
 - **optimize_environment.sh** - Automated environment optimization (Gunicorn, systemd, resource limits)
 
 ## Maintenance Scripts
