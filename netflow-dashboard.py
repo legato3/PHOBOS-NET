@@ -936,26 +936,21 @@ def _get_firewall_block_stats(hours=1):
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
-                # Total blocks
+                # Combined query for total blocks, unique IPs, and threat blocks
+                # Optimized to reduce DB round-trips from 3 to 1
                 cur = conn.execute("""
-                    SELECT COUNT(*) FROM fw_logs 
+                    SELECT
+                        COUNT(*),
+                        COUNT(DISTINCT src_ip),
+                        SUM(CASE WHEN is_threat = 1 THEN 1 ELSE 0 END)
+                    FROM fw_logs
                     WHERE timestamp > ? AND action IN ('block', 'reject')
                 """, (cutoff,))
-                blocks = cur.fetchone()[0] or 0
                 
-                # Unique blocked IPs
-                cur = conn.execute("""
-                    SELECT COUNT(DISTINCT src_ip) FROM fw_logs 
-                    WHERE timestamp > ? AND action IN ('block', 'reject')
-                """, (cutoff,))
-                unique_ips = cur.fetchone()[0] or 0
-                
-                # Threat IPs blocked (matched threat feed)
-                cur = conn.execute("""
-                    SELECT COUNT(*) FROM fw_logs 
-                    WHERE timestamp > ? AND action IN ('block', 'reject') AND is_threat = 1
-                """, (cutoff,))
-                threats_blocked = cur.fetchone()[0] or 0
+                row = cur.fetchone()
+                blocks = row[0] or 0
+                unique_ips = row[1] or 0
+                threats_blocked = row[2] or 0
                 
                 return {
                     'blocks': blocks,
