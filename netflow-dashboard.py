@@ -5263,26 +5263,31 @@ def api_forensics_flow_search():
 def api_forensics_alert_correlation():
     """Correlate alerts to identify attack chains and multi-stage attacks."""
     range_val = request.args.get('range', '24h')
+    range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_val, 86400)
+    now = time.time()
+    cutoff = now - range_seconds
 
-    # Get alerts from history
-    alerts = list(_alert_history)
+    # Get alerts from history filtered by time range
+    with _alert_history_lock:
+        alerts = [a for a in _alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
 
     # Group alerts by IP and time proximity (within 1 hour)
     chains = {}
     time_threshold = 3600  # 1 hour in seconds
 
-    for alert in sorted(alerts, key=lambda x: x.get('timestamp', 0)):
+    for alert in sorted(alerts, key=lambda x: x.get('timestamp', 0) or x.get('ts', 0)):
         ip = alert.get('ip') or alert.get('source_ip')
         if not ip:
             continue
 
-        timestamp = alert.get('timestamp', 0)
+        timestamp = alert.get('timestamp', 0) or alert.get('ts', 0)
 
         # Find if this IP has an existing chain within time threshold
         found_chain = False
         for chain_ip, chain_data in chains.items():
             if chain_ip == ip:
-                last_alert_time = chain_data['alerts'][-1].get('timestamp', 0)
+                last_alert = chain_data['alerts'][-1]
+                last_alert_time = last_alert.get('timestamp', 0) or last_alert.get('ts', 0)
                 if timestamp - last_alert_time <= time_threshold:
                     chain_data['alerts'].append(alert)
                     chain_data['end_time'] = timestamp
@@ -5305,10 +5310,10 @@ def api_forensics_alert_correlation():
             result_chains.append({
                 'ip': ip,
                 'alerts': [{
-                    'id': f"{a.get('type', 'alert')}_{a.get('timestamp', 0)}",
+                    'id': f"{a.get('type', 'alert')}_{a.get('timestamp', 0) or a.get('ts', 0)}",
                     'type': a.get('type', 'unknown'),
                     'message': a.get('msg', 'Alert'),
-                    'time': datetime.fromtimestamp(a.get('timestamp', 0)).strftime('%H:%M:%S') if a.get('timestamp') else 'recent'
+                    'time': datetime.fromtimestamp(a.get('timestamp', 0) or a.get('ts', 0)).strftime('%H:%M:%S') if (a.get('timestamp') or a.get('ts')) else 'recent'
                 } for a in chain_data['alerts']],
                 'timespan': f"{len(chain_data['alerts'])} alerts over {int((chain_data['end_time'] - chain_data['start_time']) / 60)}min"
             })
