@@ -17,27 +17,15 @@ echo "🚀 Starting deployment..."
 echo "📤 Pushing changes to GitHub..."
 git push origin main
 
-# SSH to server and deploy
-echo "📥 Updating repository on server..."
+# SSH to server and deploy using tar (more reliable than git fetch for auth issues)
+echo "📥 Syncing files to server repository..."
+cd "$(dirname "$0")/.."
+tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' --exclude='.venv' -czf - . | \
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
-    # Initialize repo if it doesn't exist
-    if [ ! -d ${REPO_PATH}/.git ]; then
-        echo \"Initializing repository...\"
-        mkdir -p ${REPO_PATH}
-        cd ${REPO_PATH}
-        git init
-        git remote add origin https://github.com/legato3/PROX_NFDUMP.git 2>/dev/null || git remote set-url origin https://github.com/legato3/PROX_NFDUMP.git
-    fi
-    
+    mkdir -p ${REPO_PATH}
     cd ${REPO_PATH}
-    # Try to fetch, but continue if it fails (network/auth issues)
-    git fetch origin 2>/dev/null || echo \"Note: Could not fetch from GitHub (may require auth). Using local files.\"
-    # If we have a remote branch reference, use it, otherwise just use current files
-    if git rev-parse --verify origin/main >/dev/null 2>&1; then
-        git reset --hard origin/main
-    else
-        echo \"Using local repository files...\"
-    fi
+    tar -xzf -
+    echo \"✅ Files synced to ${REPO_PATH}\"
     
     echo \"📋 Copying files to deployment directory...\"
     
@@ -58,9 +46,10 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
         cp -f scripts/gunicorn_config.py ${DEPLOY_PATH}/ 2>/dev/null || true
     fi
     
-    echo \"✅ Files copied successfully\"
-    echo \"📊 Deployment path contents:\"
-    ls -lh ${DEPLOY_PATH}/netflow-dashboard.py ${DEPLOY_PATH}/static/*.js ${DEPLOY_PATH}/static/*.css 2>/dev/null | head -10
+    echo \"✅ Files copied to deployment directory\"
+    echo \"📊 Deployment summary:\"
+    ls -lh ${DEPLOY_PATH}/netflow-dashboard.py 2>/dev/null | awk \"{print \\\$9, \\\$5}\"
+    ls -lh ${DEPLOY_PATH}/static/*.js ${DEPLOY_PATH}/static/*.css 2>/dev/null | awk \"{print \\\$9, \\\$5}\" | head -5
 '"
 
 echo ""
