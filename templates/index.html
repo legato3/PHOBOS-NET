@@ -1901,9 +1901,9 @@
 </section>
 
 <!-- Threat Activity Timeline -->
-    <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: 24px;">
     <template x-if="isVisible('threatActivityTimeline')">
-        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('threatActivityTimeline') }" style="max-width: 100%; padding: 24px;">
+        <div class="card wide-card" :class="{ 'widget-minimized': isMinimized('threatActivityTimeline') }" style="max-width: 100%; padding: var(--space-3);">
             <h2>
                 <span>📈 Threat Activity Timeline</span>
                 <div class="card-actions">
@@ -1919,7 +1919,7 @@
             </h2>
             <div x-show="!isMinimized('threatActivityTimeline')">
                 <!-- Time Range Selector -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); flex-wrap: wrap; gap: var(--space-2);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); flex-wrap: wrap; gap: var(--space-1);">
                     <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
                         <button @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()"
                                 :class="{ 'btn--primary': threatActivityTimeline.timeRange === '1h', 'btn--secondary': threatActivityTimeline.timeRange !== '1h' }"
@@ -1957,42 +1957,42 @@
                 </div>
 
                 <!-- Stats Summary -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-3);">
-                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-2);">
+                    <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;">
                         <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Total Threats</div>
-                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="threatActivityTimeline.total_24h || 0"></div>
+                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="threatActivityTimeline.total_24h || 0"></div>
                     </div>
-                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;" x-show="threatActivityTimeline.peak_hour">
+                    <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;" x-show="threatActivityTimeline.peak_hour">
                         <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Peak Hour</div>
-                        <div style="font-size: var(--text-base); font-weight: var(--font-weight-semibold); color: var(--neon-red);" x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
+                        <div style="font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--neon-red);" x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
                         <div style="font-size: var(--text-xs); color: var(--text-muted);" x-text="(threatActivityTimeline.peak_count || 0) + ' threats'"></div>
                     </div>
-                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;" x-show="threatActivityTimeline.has_fw_data">
+                    <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;" x-show="threatActivityTimeline.has_fw_data">
                         <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">FW Blocks</div>
-                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-green);" x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
+                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);" x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
                     </div>
                 </div>
 
                 <!-- Chart -->
-                <div class="chart-wrapper" style="height: 250px; margin-bottom: var(--space-3);" x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
+                <div class="chart-wrapper" style="height: 200px; margin-bottom: var(--space-2);" x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
                     <canvas id="threatActivityTimelineChart"></canvas>
                 </div>
 
                 <!-- Description (Collapsible) -->
-                <div style="padding: var(--space-2) var(--space-3); background: rgba(0, 243, 255, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(0, 243, 255, 0.08);">
-                    <button @click="threatActivityTimeline.showDescription = !threatActivityTimeline.showDescription" style="display: flex; align-items: center; gap: var(--space-2); width: 100%; background: none; border: none; color: var(--neon-cyan); cursor: pointer; padding: 0; font-size: var(--text-xs);">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :style="'transform: rotate(' + (threatActivityTimeline.showDescription ? '90' : '0') + 'deg); transition: transform 0.2s;'"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                <div style="padding: var(--space-1) var(--space-2); background: rgba(0, 243, 255, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(0, 243, 255, 0.08);">
+                    <button @click="threatActivityTimeline.showDescription = !threatActivityTimeline.showDescription" style="display: flex; align-items: center; gap: var(--space-1); width: 100%; background: none; border: none; color: var(--neon-cyan); cursor: pointer; padding: 0; font-size: var(--text-xs);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :style="'transform: rotate(' + (threatActivityTimeline.showDescription ? '90' : '0') + 'deg); transition: transform 0.2s;'"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         <span style="font-weight: var(--font-weight-semibold);">📊 About this timeline</span>
                     </button>
-                    <div x-show="threatActivityTimeline.showDescription" style="margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5;">
+                    <div x-show="threatActivityTimeline.showDescription" style="margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.4;">
                         Shows threat activity patterns over time. Stacked bars show threats by severity (Critical, High, Medium, Low), with firewall blocks as a green line overlay. Use to correlate threat activity with Alert Correlation data.
                     </div>
                 </div>
 
                 <!-- Empty State -->
-                <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)" style="text-align: center; padding: var(--space-4) var(--space-3); color: var(--text-muted);">
-                    <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📈</div>
-                    <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Threat Activity Data</p>
+                <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)" style="text-align: center; padding: var(--space-3) var(--space-2); color: var(--text-muted);">
+                    <div style="font-size: 24px; margin-bottom: var(--space-1);" aria-hidden="true">📈</div>
+                    <p style="font-size: var(--text-sm); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Threat Activity Data</p>
                     <p style="font-size: var(--text-xs); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
                         No threat activity detected in the selected time range. Network appears secure or activity is low.
                     </p>
@@ -3192,52 +3192,44 @@
     </div>
 
     <!-- Sticky Status Bar -->
-    <div class="status-bar">
+    <div class="status-bar" style="display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: var(--space-3);">
         <!-- System Metrics -->
-        <div class="status-bar-group">
-            <div class="status-bar-item">
-                <span class="status-bar-dot" :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
-                <span class="label">CPU:</span>
-                <span class="value" :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }" x-text="(firewall.cpu_percent || '--') + '%'"></span>
-            </div>
-            <div class="status-bar-item">
-                <span class="label">MEM:</span>
-                <span class="value" :class="{ 'warning': firewall.mem_percent >= 70, 'critical': firewall.mem_percent >= 90 }" x-text="(firewall.mem_percent || '--') + '%'"></span>
-            </div>
+        <div class="status-bar-item">
+            <span class="status-bar-dot" :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
+            <span class="label">CPU:</span>
+            <span class="value" :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }" x-text="(firewall.cpu_percent || '--') + '%'"></span>
+        </div>
+        <div class="status-bar-item">
+            <span class="label">MEM:</span>
+            <span class="value" :class="{ 'warning': firewall.mem_percent >= 70, 'critical': firewall.mem_percent >= 90 }" x-text="(firewall.mem_percent || '--') + '%'"></span>
         </div>
         <!-- Network Metrics -->
-        <div class="status-bar-group">
-            <div class="status-bar-item">
-                <span class="label">Threats:</span>
-                <span class="value" :class="{ 'critical': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
-            </div>
-            <div class="status-bar-item">
-                <span class="label">Flows:</span>
-                <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
-            </div>
+        <div class="status-bar-item">
+            <span class="label">Threats:</span>
+            <span class="value" :class="{ 'critical': threats.hits.length > 0 }" x-text="threats.hits.length"></span>
+        </div>
+        <div class="status-bar-item">
+            <span class="label">Flows:</span>
+            <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
         </div>
         <!-- Status -->
-        <div class="status-bar-group">
-            <div class="status-bar-item">
-                <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
-                <span class="label">Status:</span>
-                <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
-            </div>
+        <div class="status-bar-item">
+            <span class="status-bar-dot" :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
+            <span class="label">Status:</span>
+            <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
         </div>
         <!-- Performance & Timing -->
-        <div class="status-bar-group">
-            <div class="status-bar-item latency-indicator" x-show="avgLatency !== null">
-                <span class="label">API:</span>
-                <span class="value" :class="latencyClass" x-text="avgLatency + 'ms'"></span>
-            </div>
-            <div class="status-bar-item">
-                <span class="label">Next:</span>
-                <span class="value" style="color: var(--text-muted);" x-text="paused ? '--' : refreshCountdown + 's'"></span>
-            </div>
-            <div class="status-bar-item">
-                <span class="label">Up:</span>
-                <span class="value" style="color: var(--text-muted); font-size: 0.65rem;" x-text="lastUpdate"></span>
-            </div>
+        <div class="status-bar-item latency-indicator" x-show="avgLatency !== null">
+            <span class="label">API:</span>
+            <span class="value" :class="latencyClass" x-text="avgLatency + 'ms'"></span>
+        </div>
+        <div class="status-bar-item">
+            <span class="label">Next:</span>
+            <span class="value" style="color: var(--text-muted);" x-text="paused ? '--' : refreshCountdown + 's'"></span>
+        </div>
+        <div class="status-bar-item">
+            <span class="label">Up:</span>
+            <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
         </div>
     </div>
 
