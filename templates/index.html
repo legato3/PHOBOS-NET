@@ -2444,38 +2444,29 @@
                         </div>
                     </div>
 
-                    <!-- Network Statistics -->
-                    <div class="server-stat-card" x-show="serverHealth.network && serverHealth.network.interfaces && Object.keys(serverHealth.network.interfaces || {}).length > 0">
+                    <!-- Network Statistics (eth0 only) -->
+                    <div class="server-stat-card" x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
                         <div class="server-stat-header">
-                            <span>🌐 Network Interfaces</span>
+                            <span>🌐 Network Interface (eth0)</span>
                             <span class="server-stat-badge badge-success">ACTIVE</span>
                         </div>
-                        <div class="server-stat-details" style="gap: var(--space-4);">
-                            <template x-for="ifaceName in Object.keys(serverHealth.network.interfaces || {})">
-                                <div style="padding: var(--space-3); background: rgba(255, 255, 255, 0.03); border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.05);">
-                                    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--accent-cyan); font-family: var(--font-mono);" x-text="ifaceName"></div>
-                                    <template x-if="serverHealth.network.interfaces[ifaceName]">
-                                        <div>
-                                            <div>
-                                                <span>RX:</span>
-                                                <span x-text="serverHealth.network.interfaces[ifaceName].rx_bytes ? (serverHealth.network.interfaces[ifaceName].rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span>TX:</span>
-                                                <span x-text="serverHealth.network.interfaces[ifaceName].tx_bytes ? (serverHealth.network.interfaces[ifaceName].tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span>RX Packets:</span>
-                                                <span x-text="serverHealth.network.interfaces[ifaceName].rx_packets ? serverHealth.network.interfaces[ifaceName].rx_packets.toLocaleString() : '0'"></span>
-                                            </div>
-                                            <div>
-                                                <span>TX Packets:</span>
-                                                <span x-text="serverHealth.network.interfaces[ifaceName].tx_packets ? serverHealth.network.interfaces[ifaceName].tx_packets.toLocaleString() : '0'"></span>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
+                        <div class="server-stat-details">
+                            <div>
+                                <span>RX:</span>
+                                <span x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                            </div>
+                            <div>
+                                <span>TX:</span>
+                                <span x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                            </div>
+                            <div>
+                                <span>RX Packets:</span>
+                                <span x-text="serverHealth.network.interfaces.eth0.rx_packets ? serverHealth.network.interfaces.eth0.rx_packets.toLocaleString() : '0'"></span>
+                            </div>
+                            <div>
+                                <span>TX Packets:</span>
+                                <span x-text="serverHealth.network.interfaces.eth0.tx_packets ? serverHealth.network.interfaces.eth0.tx_packets.toLocaleString() : '0'"></span>
+                            </div>
                         </div>
                     </div>
 
