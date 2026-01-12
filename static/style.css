@@ -32,8 +32,8 @@
 
     /* Surfaces & Borders */
     --card-bg: var(--bg-secondary);
-    --card-border: rgba(255, 255, 240, 0.05);
-    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     --card-radius: 4px;
 
     /* Accent Palette */
@@ -514,7 +514,7 @@ body.sidebar-collapsed .main-content {
     align-items: center;
     padding: 0 var(--space-6);
     height: var(--header-height);
-    background: var(--bg-secondary);
+    background: var(--bg-elevated);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: fixed;
     top: 0;
@@ -589,9 +589,10 @@ body.sidebar-collapsed .header {
 }
 
 .header-center {
-    flex: 2;
+    flex: 1;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-left: var(--space-4);
 }
 
 .page-title {
@@ -629,7 +630,7 @@ body.sidebar-collapsed .header {
 .search-wrapper {
     position: relative;
     width: 100%;
-    max-width: 440px;
+    max-width: 400px;
     display: flex;
     align-items: center;
 }
@@ -643,7 +644,7 @@ body.sidebar-collapsed .header {
 
 .global-search {
     width: 100%;
-    background: rgba(0, 0, 0, 0.2) !important;
+    background: var(--bg-primary) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 4px !important;
     padding: 6px 12px 6px 36px !important;
@@ -653,9 +654,10 @@ body.sidebar-collapsed .header {
 }
 
 .global-search:focus {
-    background: rgba(0, 0, 0, 0.3) !important;
+    background: var(--bg-primary) !important;
     border-color: var(--true-blue) !important;
     box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.1) !important;
+    outline: none !important;
 }
 
 .search-shortcut {
@@ -882,72 +884,39 @@ body.sidebar-collapsed .header {
 .card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: var(--radius-md);
-    padding: 20px;
+    border-radius: var(--card-radius);
+    padding: var(--space-6);
     box-shadow: var(--card-shadow);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: background-color var(--motion-base), box-shadow var(--motion-base), border-color var(--motion-base);
+    transition: border-color var(--motion-base);
     overflow: hidden;
-    /* Solid background - no transparency */
-    /* Pixel art scanline effect */
-    background-image:
-        linear-gradient(transparent 50%, rgba(255, 255, 255, 0.02) 50%),
-        linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.01) 50%);
-    background-size: 100% 2px, 2px 100%;
 }
 
-.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%);
-    pointer-events: none;
-    z-index: 0;
-}
-
-.card>* {
-    position: relative;
-    z-index: 1;
-}
+/* Card styling - TrueNAS style - clean and minimal */
 
 .card:hover {
-    background-color: var(--card-bg-hover);
-    background-image:
-        linear-gradient(transparent 50%, rgba(0, 243, 255, 0.04) 50%),
-        linear-gradient(90deg, transparent 50%, rgba(0, 243, 255, 0.02) 50%);
-    border-color: var(--card-border-hover);
-    box-shadow: var(--card-shadow-hover);
-}
-
-/* Primary focus cards - higher elevation with enhanced shadows */
-.primary-column .card {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 243, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.primary-column .card:hover {
-    box-shadow: 0 14px 56px rgba(0, 0, 0, 0.7), 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 32px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border-color: var(--accent-primary);
-}
-
-/* Secondary cards - enhanced shadows */
+/* Primary focus cards - higher elevation with enhanced shadows */
+/* Primary and secondary cards use same styling - TrueNAS style */
+.primary-column .card,
 .secondary-column .card {
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: var(--card-shadow);
+    border-color: var(--card-border);
 }
 
+.primary-column .card:hover,
 .secondary-column .card:hover {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .card:focus-within {
     border-color: var(--accent-primary);
-    outline: 2px solid var(--accent-primary);
-    outline-offset: -2px;
+    outline: 1px solid var(--accent-primary);
+    outline-offset: -1px;
 }
 
 .card.widget-minimized {
