@@ -198,7 +198,7 @@ _agg_thread_started = False
 PORTS = {20:"FTP-DATA",21:"FTP",22:"SSH",23:"Telnet",25:"SMTP",53:"DNS",80:"HTTP",110:"POP3",143:"IMAP",443:"HTTPS",465:"SMTPS",587:"SMTP",993:"IMAPS",995:"POP3S",3306:"MySQL",5432:"PostgreSQL",6379:"Redis",8080:"HTTP-Alt",8443:"HTTPS-Alt",3389:"RDP",5900:"VNC",27017:"MongoDB",1194:"OpenVPN",51820:"WireGuard"}
 PROTOS = {1:"ICMP",6:"TCP",17:"UDP",47:"GRE",50:"ESP",51:"AH"}
 SUSPICIOUS_PORTS = [4444,5555,6667,8888,9001,9050,9150,31337,12345,1337,666,6666]
-INTERNAL_NETS = ["192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31."]
+INTERNAL_NETS = ("192.168.","10.","172.16.","172.17.","172.18.","172.19.","172.20.","172.21.","172.22.","172.23.","172.24.","172.25.","172.26.","172.27.","172.28.","172.29.","172.30.","172.31.")
 
 # Auth/brute-force ports to monitor
 BRUTE_FORCE_PORTS = [22, 23, 3389, 5900, 21, 25, 110, 143, 993, 995, 3306, 5432]  # SSH, Telnet, RDP, VNC, FTP, Mail, DBs
@@ -253,7 +253,7 @@ def resolve_hostname(ip):
 # ------------------ Helpers ------------------
 
 def is_internal(ip):
-    return any(ip.startswith(net) for net in INTERNAL_NETS)
+    return ip.startswith(INTERNAL_NETS)
 
 # Region mappings based on country ISO codes
 REGION_MAPPING = {
@@ -310,8 +310,13 @@ def load_asn_db():
 
 def lookup_geo(ip):
     now = time.time()
+    # Optimistic check
     if ip in _geo_cache and now - _geo_cache[ip]['ts'] < _geo_cache_ttl:
-        return _geo_cache[ip]['data']
+        # Move to end (MRU) - Upgrade to true LRU
+        val = _geo_cache.pop(ip, None)
+        if val:
+            _geo_cache[ip] = val
+            return val['data']
     city_db = load_city_db()
     asn_db = load_asn_db()
     res = {}
@@ -354,13 +359,18 @@ def lookup_geo(ip):
         res['asn_org'] = orgs[seed % len(orgs)]
         res['asn'] = 1000 + (seed % 5000)
 
+    # Optimistic LRU: Move to end (most recent)
+    if ip in _geo_cache:
+        del _geo_cache[ip]
     _geo_cache[ip] = {'ts': now, 'data': res if res else None}
-    # LRU-style prune by timestamp if too big
+
+    # LRU-style prune by insertion order if too big
     if len(_geo_cache) > GEO_CACHE_MAX:
         # Drop oldest 5% to reduce churn
         drop = max(1, GEO_CACHE_MAX // 20)
-        oldest = sorted(_geo_cache.items(), key=lambda kv: kv[1]['ts'])[:drop]
-        for k, _ in oldest:
+        # In Python 3.7+, dicts preserve insertion order. First items are oldest.
+        keys_to_drop = list(_geo_cache.keys())[:drop]
+        for k in keys_to_drop:
             _geo_cache.pop(k, None)
     return _geo_cache[ip]['data']
 
@@ -1223,7 +1233,7 @@ def detect_port_scan(flow_data):
             continue
         
         # Only track external IPs scanning internal
-        if not any(src_ip.startswith(net) for net in INTERNAL_NETS):
+        if not is_internal(src_ip):
             if src_ip not in _port_scan_tracker:
                 _port_scan_tracker[src_ip] = {'ports': set(), 'first_seen': current_time}
             
@@ -1289,12 +1299,12 @@ def detect_data_exfiltration(sources_data, destinations_data):
     
     for item in sources_data:
         ip = item.get('key')
-        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+        if ip and is_internal(ip):
             internal_traffic[ip]['out'] += item.get('bytes', 0)
     
     for item in (destinations_data or []):
         ip = item.get('key')
-        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+        if ip and is_internal(ip):
             internal_traffic[ip]['in'] += item.get('bytes', 0)
     
     for ip, traffic in internal_traffic.items():
@@ -1370,7 +1380,7 @@ def detect_new_external(sources_data, destinations_data):
         all_ips.add(item.get('key'))
     
     for ip in all_ips:
-        if not ip or any(ip.startswith(net) for net in INTERNAL_NETS):
+        if not ip or is_internal(ip):
             continue
         
         geo = lookup_geo(ip)
@@ -1420,8 +1430,8 @@ def detect_lateral_movement(flow_data):
         if not src_ip or not dst_ip:
             continue
         
-        src_internal = any(src_ip.startswith(net) for net in INTERNAL_NETS)
-        dst_internal = any(dst_ip.startswith(net) for net in INTERNAL_NETS)
+        src_internal = is_internal(src_ip)
+        dst_internal = is_internal(dst_ip)
         
         if src_internal and dst_internal and src_ip != dst_ip:
             pair_key = f"{src_ip}->{dst_ip}"
@@ -1498,7 +1508,7 @@ def detect_off_hours_activity(sources_data):
         mb = bytes_val / (1024 * 1024)
         
         # Only internal hosts
-        if ip and any(ip.startswith(net) for net in INTERNAL_NETS):
+        if ip and is_internal(ip):
             if mb >= OFF_HOURS_THRESHOLD_MB:
                 alerts.append({
                     "type": "off_hours",
