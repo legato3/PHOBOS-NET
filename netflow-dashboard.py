@@ -5567,7 +5567,7 @@ def health_check():
 
 
 @app.route('/api/server/health')
-@throttle(5, 10)
+@throttle(10, 5)  # Allow 10 requests per 5 seconds (2 req/sec) for 1-2 sec refresh
 def api_server_health():
     """Comprehensive server health statistics for the dashboard server."""
     data = {

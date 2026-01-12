@@ -2142,7 +2142,11 @@ document.addEventListener('alpine:init', () => {
         },
 
         async fetchServerHealth() {
-            this.serverHealth.loading = true;
+            // Only set loading on initial fetch (prevent flickering on refresh)
+            const isInitialLoad = !this.serverHealth.timestamp;
+            if (isInitialLoad) {
+                this.serverHealth.loading = true;
+            }
             this.serverHealth.error = null;
             try {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
@@ -2176,7 +2180,7 @@ document.addEventListener('alpine:init', () => {
             // Initial fetch
             this.fetchServerHealth();
             
-            // Set up 1-second interval refresh
+            // Set up 2-second interval refresh (less aggressive, avoids rate limits)
             this.serverHealthRefreshTimer = setInterval(() => {
                 if (this.activeTab === 'server' && !this.paused) {
                     this.fetchServerHealth();
@@ -2187,7 +2191,7 @@ document.addEventListener('alpine:init', () => {
                         this.serverHealthRefreshTimer = null;
                     }
                 }
-            }, 1000);
+            }, 2000);
         },
 
         async fetchBandwidth() {
