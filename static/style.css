@@ -2270,6 +2270,8 @@ table[style*="table-layout:fixed"] td:first-child {
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
     gap: var(--space-4);
@@ -2300,6 +2302,8 @@ table[style*="table-layout:fixed"] td:first-child {
 /* Status bar visual grouping */
 .status-bar-group {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
     gap: var(--space-3);
     padding: 0 var(--space-2);
