@@ -1,7 +1,6 @@
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 from flask_compress import Compress
-import subprocess, time, os, json, smtplib
-from email.message import EmailMessage
+import subprocess, time, os, json
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
 from functools import wraps
@@ -30,8 +29,6 @@ app.config['COMPRESS_MIN_SIZE'] = 500  # Only compress responses >500 bytes
 
 # ------------------ Constants ------------------
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
-CACHE_TTL_MEDIUM = 60       # 1 minute for most stats
-CACHE_TTL_LONG = 300        # 5 minutes for slow-changing data
 CACHE_TTL_THREAT = 900      # 15 minutes for threat feeds
 DEFAULT_TIMEOUT = 25        # subprocess timeout
 MAX_RESULTS = 100           # default limit for API results
@@ -115,21 +112,6 @@ MITRE_MAPPINGS = {
     'TOR': {'technique': 'T1090', 'tactic': 'Command and Control', 'name': 'Proxy'},
 }
 
-_spark_cache = {"src": {"labels": [], "data": {}, "ts": 0}, "dst": {"labels": [], "data": {}, "ts": 0}}
-_spark_cache_ttl = 600  # seconds
-_spark_bucket_minutes = 180
-_spark_bucket_count = 8
-_spark_lock = threading.Lock()
-
-_alert_type_ts = {}
-_alert_day_counts = defaultdict(int)
-ALERT_TYPE_MIN_INTERVAL = {'threat_ip': 120, 'suspicious_port': 300, 'large_transfer': 300, 'default': 300}
-ALERT_DAILY_CAP = 30
-ALERT_LOG = '/root/netflow-alerts.log'
-
-_ip_detail_cache = {}
-_ip_detail_ttl = 180  # seconds
-
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
 COMMON_DATA_CACHE_MAX = 100  # Maximum cache entries (4 types * 25 time ranges)
@@ -143,8 +125,6 @@ _metric_nfdump_calls = 0
 _metric_stats_cache_hits = 0
 _metric_bw_cache_hits = 0
 _metric_conv_cache_hits = 0
-_metric_spark_hits = 0
-_metric_spark_misses = 0
 _metric_http_429 = 0
 
 MMDB_CITY = "/root/GeoLite2-City.mmdb"
@@ -222,7 +202,6 @@ OFF_HOURS_THRESHOLD_MB = 100  # MB during off-hours to alert
 
 # Tracking for advanced detection
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
-_connection_tracker = {}  # {ip: {count: int, bytes: int}}
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
 
@@ -573,27 +552,6 @@ def mock_nfdump(args):
 
     return ""
 
-def validate_ip(ip_str):
-    """Validate and sanitize IP address to prevent injection."""
-    if not ip_str:
-        return None
-    try:
-        # This will raise ValueError for invalid IPs
-        ip_obj = ipaddress.ip_address(ip_str.strip())
-        return str(ip_obj)
-    except ValueError:
-        return None
-
-def validate_filter(filter_str):
-    """Validate nfdump filter string for safety."""
-    if not filter_str:
-        return ""
-    # Allowlist of safe characters for nfdump filters
-    # Only allow: alphanumeric, spaces, dots, colons, and common operators
-    import re
-    if re.match(r'^[a-zA-Z0-9\s\.\:\-\_\>\<\=\!\(\)\[\]\/\,]+$', filter_str):
-        return filter_str
-    return ""
 
 def run_nfdump(args, tf=None):
     global _metric_nfdump_calls
@@ -1111,20 +1069,6 @@ def start_threat_thread():
     t = threading.Thread(target=loop, daemon=True, name='ThreatFeedThread')
     t.start()
 
-# Cache pre-warming thread (note: start_agg_thread already handles common data pre-computation)
-# This thread is kept for potential future enhancements but currently the agg_thread handles pre-warming
-_cache_prewarm_thread_started = False
-
-def start_cache_prewarm_thread():
-    """Start background thread to pre-warm caches (currently handled by agg_thread, but kept for extensibility)."""
-    global _cache_prewarm_thread_started
-    if _cache_prewarm_thread_started:
-        return
-    _cache_prewarm_thread_started = True
-    # Note: start_agg_thread() already pre-computes common data every 60s
-    # This thread is a placeholder for future cache optimization strategies
-    # For now, we rely on the existing agg_thread for cache pre-warming
-
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
     alerts = []
     seen = set()
@@ -1592,12 +1536,6 @@ def fmt_bytes(b):
     return f"{b} B"
 
 
-def load_smtp_cfg():
-    if not os.path.exists(SMTP_CFG_PATH): return None
-    try:
-        with open(SMTP_CFG_PATH,'r') as f: return json.load(f)
-    except: return None
-
 def load_notify_cfg():
     default = {"email": True, "webhook": True, "mute_until": 0}
     if not os.path.exists(NOTIFY_CFG_PATH): return default
@@ -1668,14 +1606,6 @@ def save_thresholds(cfg):
     except:
         return load_thresholds()
 
-def send_email(alerts):
-    notify = load_notify_cfg()
-    if not notify.get("email", True): return
-    cfg = load_smtp_cfg()
-    if not cfg or not alerts: return
-    # ... basic smtp logic ...
-    pass
-
 def send_webhook(alerts):
     notify = load_notify_cfg()
     if not notify.get("webhook", True): return
@@ -1705,7 +1635,6 @@ def send_notifications(alerts):
     now = time.time()
     if now - _alert_sent_ts < 60: return
     send_webhook(filtered)
-    send_email(filtered)
     record_history(filtered)
     _alert_sent_ts = now
 
@@ -3378,7 +3307,6 @@ def _flush_syslog_buffer():
 
 def _insert_fw_log(parsed: dict, raw_log: str):
     """Insert parsed firewall log into database with enrichment (buffered batch insert)."""
-    global _syslog_flush_timer
     now = time.time()
     now_iso = datetime.fromtimestamp(now).isoformat()
     
@@ -5429,8 +5357,6 @@ def metrics():
     add_metric('netflow_stats_cache_hits_total', _metric_stats_cache_hits, 'Cache hits for stats endpoints', 'counter')
     add_metric('netflow_bw_cache_hits_total', _metric_bw_cache_hits, 'Cache hits for bandwidth endpoint', 'counter')
     add_metric('netflow_conv_cache_hits_total', _metric_conv_cache_hits, 'Cache hits for conversations endpoint', 'counter')
-    add_metric('netflow_spark_cache_hits_total', _metric_spark_hits, 'Sparkline cache hits', 'counter')
-    add_metric('netflow_spark_cache_misses_total', _metric_spark_misses, 'Sparkline cache misses', 'counter')
     add_metric('netflow_http_429_total', _metric_http_429, 'HTTP 429 rate-limit responses', 'counter')
     # Cache sizes
     add_metric('netflow_common_cache_size', len(_common_data_cache))
@@ -6401,7 +6327,6 @@ if __name__=="__main__":
     start_trends_thread()
     start_agg_thread()
     start_syslog_thread()  # OPNsense firewall log receiver
-    start_cache_prewarm_thread()  # Pre-warm caches before expiry
     
     # Run Flask app (auto-pick next free port if requested one is busy)
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
