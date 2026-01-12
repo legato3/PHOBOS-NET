@@ -4538,57 +4538,110 @@ def api_export_threats():
 @app.route('/api/security/attack-timeline')
 @throttle(5, 10)
 def api_attack_timeline():
-    """Get attack timeline data for visualization (24h hourly breakdown)."""
+    """Get attack timeline data for visualization with configurable time range."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 86400)
     now = time.time()
-    cutoff = now - 86400  # 24 hours
+    cutoff = now - range_seconds
     
     with _alert_history_lock:
         recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
     
+    # Determine bucket size based on range
+    if range_key == '1h':
+        bucket_size = 300  # 5-minute buckets for 1 hour (12 buckets)
+        bucket_label_format = '%H:%M'
+    elif range_key == '6h':
+        bucket_size = 1800  # 30-minute buckets for 6 hours (12 buckets)
+        bucket_label_format = '%H:%M'
+    elif range_key == '24h':
+        bucket_size = 3600  # 1-hour buckets for 24 hours (24 buckets)
+        bucket_label_format = '%H:00'
+    elif range_key == '7d':
+        bucket_size = 86400  # 1-day buckets for 7 days (7 buckets)
+        bucket_label_format = '%m/%d'
+    else:
+        bucket_size = 3600
+        bucket_label_format = '%H:00'
+    
+    num_buckets = int(range_seconds / bucket_size)
+    
     # Get firewall block counts from syslog (if available)
-    fw_hourly_blocks = {}
+    fw_buckets = {}
     try:
         db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
             cutoff_int = int(cutoff)
-            cur.execute("""
-                SELECT strftime('%H', datetime(timestamp, 'unixepoch', 'localtime')) as hour,
-                       COUNT(*) as blocks,
-                       SUM(is_threat) as threat_blocks
-                FROM fw_logs
-                WHERE action = 'block' AND timestamp >= ?
-                GROUP BY hour
-            """, (cutoff_int,))
-            for row in cur.fetchall():
-                fw_hourly_blocks[row[0] + ':00'] = {'blocks': row[1], 'threat_blocks': row[2] or 0}
+            
+            if range_key == '7d':
+                # Daily buckets for 7 days
+                cur.execute("""
+                    SELECT strftime('%Y-%m-%d', datetime(timestamp, 'unixepoch', 'localtime')) as day,
+                           COUNT(*) as blocks,
+                           SUM(is_threat) as threat_blocks
+                    FROM fw_logs
+                    WHERE action = 'block' AND timestamp >= ?
+                    GROUP BY day
+                """, (cutoff_int,))
+                for row in cur.fetchall():
+                    day_str = time.strftime('%m/%d', time.strptime(row[0], '%Y-%m-%d'))
+                    fw_buckets[day_str] = {'blocks': row[1], 'threat_blocks': row[2] or 0}
+            elif range_key == '24h':
+                # Hourly buckets for 24h
+                cur.execute("""
+                    SELECT strftime('%H', datetime(timestamp, 'unixepoch', 'localtime')) as hour,
+                           COUNT(*) as blocks,
+                           SUM(is_threat) as threat_blocks
+                    FROM fw_logs
+                    WHERE action = 'block' AND timestamp >= ?
+                    GROUP BY hour
+                """, (cutoff_int,))
+                for row in cur.fetchall():
+                    fw_buckets[row[0] + ':00'] = {'blocks': row[1], 'threat_blocks': row[2] or 0}
+            else:
+                # For 1h and 6h, fetch all blocks and group by bucket
+                cur.execute("""
+                    SELECT timestamp, is_threat
+                    FROM fw_logs
+                    WHERE action = 'block' AND timestamp >= ?
+                """, (cutoff_int,))
+                for row in cur.fetchall():
+                    bucket_start = int(row[0] / bucket_size) * bucket_size
+                    bucket_label = time.strftime(bucket_label_format, time.localtime(bucket_start))
+                    if bucket_label not in fw_buckets:
+                        fw_buckets[bucket_label] = {'blocks': 0, 'threat_blocks': 0}
+                    fw_buckets[bucket_label]['blocks'] += 1
+                    if row[1]:
+                        fw_buckets[bucket_label]['threat_blocks'] += 1
             conn.close()
-    except:
+    except Exception:
         pass
     
-    # Build hourly buckets
+    # Build timeline buckets
     timeline = []
-    for i in range(24):
-        hour_start = now - ((23 - i) * 3600)
-        hour_end = hour_start + 3600
-        hour_label = time.strftime('%H:00', time.localtime(hour_start))
+    for i in range(num_buckets):
+        bucket_start = now - ((num_buckets - 1 - i) * bucket_size)
+        bucket_end = bucket_start + bucket_size
+        bucket_label = time.strftime(bucket_label_format, time.localtime(bucket_start))
         
-        hour_alerts = [a for a in recent if hour_start <= a.get('ts', 0) < hour_end]
+        # Filter alerts for this bucket
+        bucket_alerts = [a for a in recent if bucket_start <= a.get('ts', 0) < bucket_end]
         
         by_type = defaultdict(int)
         by_severity = defaultdict(int)
-        for a in hour_alerts:
+        for a in bucket_alerts:
             by_type[a.get('type', 'unknown')] += 1
             by_severity[a.get('severity', 'low')] += 1
         
         # Add firewall block data
-        fw_data = fw_hourly_blocks.get(hour_label, {'blocks': 0, 'threat_blocks': 0})
+        fw_data = fw_buckets.get(bucket_label, {'blocks': 0, 'threat_blocks': 0})
         
         timeline.append({
-            'hour': hour_label,
-            'timestamp': hour_start,
-            'total': len(hour_alerts),
+            'hour': bucket_label,  # Keep 'hour' key for compatibility, but contains appropriate label
+            'timestamp': bucket_start,
+            'total': len(bucket_alerts),
             'by_type': dict(by_type),
             'by_severity': dict(by_severity),
             'critical': by_severity.get('critical', 0),
@@ -4599,15 +4652,15 @@ def api_attack_timeline():
             'fw_threat_blocks': fw_data['threat_blocks']
         })
     
-    # Peak hour
+    # Peak bucket
     peak = max(timeline, key=lambda x: x['total']) if timeline else None
     total_fw_blocks = sum(t['fw_blocks'] for t in timeline)
     
     return jsonify({
         'timeline': timeline,
-        'peak_hour': peak.get('hour') if peak else None,
-        'peak_count': peak.get('total') if peak else 0,
-        'total_24h': sum(t['total'] for t in timeline),
+        'total_24h': len(recent),  # Keep key for compatibility, but contains data for selected range
+        'peak_hour': peak['hour'] if peak else None,
+        'peak_count': peak['total'] if peak else 0,
         'fw_blocks_24h': total_fw_blocks,
         'has_fw_data': total_fw_blocks > 0
     })
