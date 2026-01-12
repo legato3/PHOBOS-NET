@@ -3897,10 +3897,67 @@ def api_bandwidth():
 
         # Parallel compute missing buckets
         if missing_buckets:
-            # Use a reasonable number of workers to avoid overloading the system
-            # 8 workers allows decent parallelism without excessive context switching
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+            # Optimization for Mock Mode:
+            # If we don't have real nfdump, we are using static sample data.
+            # Calculating 288 buckets (24h) of identical static data is wasteful.
+            # Calculate once and replicate.
+            global _has_nfdump
+            if _has_nfdump is None:
+                _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+
+            if _has_nfdump is False and len(missing_buckets) > 1:
+                # Compute the first one to prime the data
+                ref_dt = missing_buckets[0]
+                _ensure_rollup_for_bucket(ref_dt)
+
+                # Copy result to all other buckets
+                ref_ts = int(ref_dt.timestamp())
+
+                with _trends_db_lock:
+                    conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                    try:
+                        # Fetch the computed reference data
+                        cur = conn.execute("SELECT bytes, flows FROM traffic_rollups WHERE bucket_end=?", (ref_ts,))
+                        roll_row = cur.fetchone()
+
+                        cur = conn.execute("SELECT ip, bytes, flows FROM top_sources WHERE bucket_end=?", (ref_ts,))
+                        src_rows = cur.fetchall()
+
+                        cur = conn.execute("SELECT ip, bytes, flows FROM top_dests WHERE bucket_end=?", (ref_ts,))
+                        dst_rows = cur.fetchall()
+
+                        # Bulk insert for all other missing buckets
+                        if roll_row:
+                            params = []
+                            for dt in missing_buckets[1:]:
+                                params.append((int(dt.timestamp()), roll_row[0], roll_row[1]))
+                            conn.executemany("INSERT OR REPLACE INTO traffic_rollups(bucket_end, bytes, flows) VALUES (?,?,?)", params)
+
+                        if src_rows:
+                            params = []
+                            for dt in missing_buckets[1:]:
+                                ts = int(dt.timestamp())
+                                for r in src_rows:
+                                    params.append((ts, r[0], r[1], r[2]))
+                            conn.executemany("INSERT OR REPLACE INTO top_sources(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)", params)
+
+                        if dst_rows:
+                            params = []
+                            for dt in missing_buckets[1:]:
+                                ts = int(dt.timestamp())
+                                for r in dst_rows:
+                                    params.append((ts, r[0], r[1], r[2]))
+                            conn.executemany("INSERT OR REPLACE INTO top_dests(bucket_end, ip, bytes, flows) VALUES (?,?,?,?)", params)
+
+                        conn.commit()
+                    finally:
+                        conn.close()
+            else:
+                # Normal behavior (or single bucket)
+                # Use a reasonable number of workers to avoid overloading the system
+                # 8 workers allows decent parallelism without excessive context switching
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
 
             # Re-fetch data after computation
             with _trends_db_lock:
