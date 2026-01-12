@@ -1782,7 +1782,10 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     const data = await res.json();
                     this.countries = { ...data };
-                    this.updateCountriesChart(data);
+                    // Defer chart update to ensure canvas is visible
+                    this.$nextTick(() => {
+                        setTimeout(() => this.updateCountriesChart(data), 100);
+                    });
                 }
             } catch (e) { console.error(e); } finally { this.countries.loading = false; }
         },
@@ -2030,7 +2033,10 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     const data = await res.json();
                     this.hourlyTraffic = { ...data };
-                    this.updateHourlyChart(data);
+                    // Defer chart update to ensure canvas is visible
+                    this.$nextTick(() => {
+                        setTimeout(() => this.updateHourlyChart(data), 100);
+                    });
                 }
             } catch (e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
         },
@@ -2039,6 +2045,13 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('hourlyChart');
                 if (!ctx || !data || !data.labels) return;
+
+                // Check if canvas is visible (has dimensions)
+                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
+                    // Canvas not visible yet, defer initialization
+                    setTimeout(() => this.updateHourlyChart(data), 200);
+                    return;
+                }
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2107,7 +2120,10 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     const data = await res.json();
                     this.protoMix = { ...data };
-                    this.updateProtoMixChart(data);
+                    // Defer chart update to ensure canvas is visible
+                    this.$nextTick(() => {
+                        setTimeout(() => this.updateProtoMixChart(data), 100);
+                    });
                 }
             } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
         },
@@ -2116,6 +2132,13 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('protoMixChart');
                 if (!ctx) return;
+
+                // Check if canvas is visible (has dimensions)
+                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
+                    // Canvas not visible yet, defer initialization
+                    setTimeout(() => this.updateProtoMixChart(data), 200);
+                    return;
+                }
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2359,7 +2382,10 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     const data = await res.json();
                     this.packetSizes = { ...data };
-                    this.updatePktSizeChart(data);
+                    // Defer chart update to ensure canvas is visible
+                    this.$nextTick(() => {
+                        setTimeout(() => this.updatePktSizeChart(data), 100);
+                    });
                 }
             } catch (e) { console.error(e); } finally { this.packetSizes.loading = false; }
         },
@@ -2368,6 +2394,13 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('pktSizeChart');
                 if (!ctx || !data || !data.labels) return;
+
+                // Check if canvas is visible (has dimensions)
+                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
+                    // Canvas not visible yet, defer initialization
+                    setTimeout(() => this.updatePktSizeChart(data), 200);
+                    return;
+                }
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2423,6 +2456,13 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('countriesChart');
                 if (!ctx || !data) return;
+
+                // Check if canvas is visible (has dimensions)
+                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
+                    // Canvas not visible yet, defer initialization
+                    setTimeout(() => this.updateCountriesChart(data), 200);
+                    return;
+                }
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -3533,6 +3573,15 @@ document.addEventListener('alpine:init', () => {
                     this.fetchHourlyTraffic();
                     this.lastFetch.network = now;
                 }
+                // Re-render charts when network tab becomes visible
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        if (this.countries && this.countries.labels) this.updateCountriesChart(this.countries);
+                        if (this.protoMix && this.protoMix.labels) this.updateProtoMixChart(this.protoMix);
+                        if (this.hourlyTraffic && this.hourlyTraffic.labels) this.updateHourlyChart(this.hourlyTraffic);
+                        if (this.packetSizes && this.packetSizes.labels) this.updatePktSizeChart(this.packetSizes);
+                    }, 200);
+                });
             } else if (tab === 'forensics') {
                 if (now - this.lastFetch.conversations > this.mediumTTL) {
                     this.fetchConversations();
