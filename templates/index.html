@@ -2207,28 +2207,10 @@
                                     'text-red': serverHealth.memory.pressure === 'high'
                                 }" x-text="serverHealth.memory.pressure ? serverHealth.memory.pressure.toUpperCase() : 'N/A'"></span>
                             </div>
-                            <!-- Swap Statistics -->
-                            <template x-if="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0">
-                                <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid rgba(255, 255, 255, 0.06);">
-                                    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--text-muted);">Swap</div>
-                                    <div x-show="serverHealth.memory.swap_percent">
-                                        <span>Usage:</span>
-                                        <span x-text="serverHealth.memory.swap_percent + '%'"></span>
-                                    </div>
-                                    <div>
-                                        <span>Used:</span>
-                                        <span x-text="serverHealth.memory.swap_used_gb + ' GB'"></span>
-                                    </div>
-                                    <div>
-                                        <span>Free:</span>
-                                        <span x-text="serverHealth.memory.swap_free_gb + ' GB'"></span>
-                                    </div>
-                                    <div>
-                                        <span>Total:</span>
-                                        <span x-text="serverHealth.memory.swap_total_gb + ' GB'"></span>
-                                    </div>
-                                </div>
-                            </template>
+                            <div x-show="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0 && serverHealth.memory.swap_percent !== undefined">
+                                <span>Swap:</span>
+                                <span x-text="serverHealth.memory.swap_percent + '%'"></span>
+                            </div>
                         </div>
                     </div>
 
