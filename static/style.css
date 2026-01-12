@@ -293,15 +293,17 @@ body.sidebar-collapsed .layout-wrapper {
     background: rgba(20, 20, 20, 0.75);
     border-right: 1px solid rgba(0, 243, 255, 0.15);
     padding: var(--space-4) 0;
-    height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px));
+    height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px) - var(--status-bar-height, 40px) - var(--space-4, 16px));
     position: sticky;
     top: calc(var(--header-height, 80px) + var(--space-6, 24px));
+    margin-bottom: var(--space-4);
     overflow-y: auto;
     overflow-x: hidden;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 243, 255, 0.1);
     transition: width 0.3s ease;
+    border-radius: var(--radius-md);
 }
 
 .sidebar.collapsed {
