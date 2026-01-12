@@ -2382,41 +2382,7 @@
                         </div>
                     </div>
 
-                    <!-- System Uptime -->
-                    <div class="server-stat-card" x-show="serverHealth.system && serverHealth.system.uptime_formatted && !serverHealth.system.error">
-                        <div class="server-stat-header">
-                            <span>⏱️ Uptime</span>
-                            <span class="server-stat-badge badge-success">RUNNING</span>
-                        </div>
-                        <div class="server-stat-value" x-text="serverHealth.system.uptime_formatted || 'N/A'"></div>
-                        <div class="server-stat-details">
-                            <div x-show="serverHealth.system.uptime_seconds">
-                                <span>Total:</span>
-                                <span x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Process Information -->
-                    <div class="server-stat-card" x-show="serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error">
-                        <div class="server-stat-header">
-                            <span>⚙️ Process</span>
-                            <span class="server-stat-badge badge-success">ACTIVE</span>
-                        </div>
-                        <div class="server-stat-value" x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></div>
-                        <div class="server-stat-details">
-                            <div>
-                                <span>Threads:</span>
-                                <span x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></span>
-                            </div>
-                            <div x-show="serverHealth.system.process_name">
-                                <span>Process:</span>
-                                <span x-text="serverHealth.system.process_name || 'N/A'" style="font-size: 0.85em;"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- System Information -->
+                    <!-- System Information (Combined with Uptime) -->
                     <div class="server-stat-card" x-show="serverHealth.system && !serverHealth.system.error">
                         <div class="server-stat-header">
                             <span>🖥️ System</span>
@@ -2424,6 +2390,14 @@
                         </div>
                         <div class="server-stat-value" x-text="serverHealth.system.hostname || 'N/A'" style="font-size: 1.2em;"></div>
                         <div class="server-stat-details">
+                            <div x-show="serverHealth.system.uptime_formatted">
+                                <span>Uptime:</span>
+                                <span x-text="serverHealth.system.uptime_formatted || 'N/A'"></span>
+                            </div>
+                            <div x-show="serverHealth.system.uptime_seconds">
+                                <span>Total Uptime:</span>
+                                <span x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
+                            </div>
                             <div x-show="serverHealth.system.boot_time_formatted">
                                 <span>Boot Time:</span>
                                 <span x-text="serverHealth.system.boot_time_formatted"></span>
@@ -2439,6 +2413,33 @@
                             <div x-show="serverHealth.timestamp">
                                 <span>Last Update:</span>
                                 <span x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process/Application Information (Combined) -->
+                    <div class="server-stat-card" x-show="(serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error) || serverHealth.process">
+                        <div class="server-stat-header">
+                            <span>⚙️ Process</span>
+                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                        </div>
+                        <div class="server-stat-value" x-text="serverHealth.process && serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : (serverHealth.system && serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() + ' threads' : 'N/A')"></div>
+                        <div class="server-stat-details">
+                            <div x-show="serverHealth.process && serverHealth.process.process_memory_mb">
+                                <span>Memory:</span>
+                                <span x-text="serverHealth.process.process_memory_mb + ' MB'"></span>
+                            </div>
+                            <div x-show="serverHealth.process && serverHealth.process.threads">
+                                <span>Threads:</span>
+                                <span x-text="serverHealth.process.threads.toLocaleString()"></span>
+                            </div>
+                            <div x-show="serverHealth.system && serverHealth.system.process_threads !== undefined">
+                                <span>System Threads:</span>
+                                <span x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></span>
+                            </div>
+                            <div x-show="serverHealth.system && serverHealth.system.process_name">
+                                <span>Process:</span>
+                                <span x-text="serverHealth.system.process_name || 'N/A'" style="font-size: 0.85em;"></span>
                             </div>
                         </div>
                     </div>
@@ -2505,28 +2506,6 @@
                         </div>
                     </div>
 
-                    <!-- Process/Application Metrics -->
-                    <div class="server-stat-card" x-show="serverHealth.process">
-                        <div class="server-stat-header">
-                            <span>⚙️ Application</span>
-                            <span class="server-stat-badge badge-success">RUNNING</span>
-                        </div>
-                        <div class="server-stat-value" x-text="serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : 'N/A'"></div>
-                        <div class="server-stat-details">
-                            <div x-show="serverHealth.process.process_memory_mb">
-                                <span>Memory:</span>
-                                <span x-text="serverHealth.process.process_memory_mb + ' MB'"></span>
-                            </div>
-                            <div x-show="serverHealth.process.threads">
-                                <span>Threads:</span>
-                                <span x-text="serverHealth.process.threads.toLocaleString()"></span>
-                            </div>
-                            <div x-show="serverHealth.system && serverHealth.system.process_name">
-                                <span>Process:</span>
-                                <span x-text="serverHealth.system.process_name" style="font-size: 0.85em;"></span>
-                            </div>
-                        </div>
-                    </div>
 
                 </div>
             </template>

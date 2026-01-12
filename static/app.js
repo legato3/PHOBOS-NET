@@ -2215,7 +2215,7 @@ document.addEventListener('alpine:init', () => {
             // Initial fetch
             this.fetchServerHealth();
             
-            // Set up 1-second interval refresh for real-time updates
+            // Set up 2-second interval refresh for real-time updates (independent of global refresh)
             this.serverHealthRefreshTimer = setInterval(() => {
                 if (this.activeTab === 'server' && !this.paused) {
                     this.fetchServerHealth();
@@ -2226,7 +2226,7 @@ document.addEventListener('alpine:init', () => {
                         this.serverHealthRefreshTimer = null;
                     }
                 }
-            }, 1000);
+            }, 2000);
         },
 
         async fetchBandwidth() {
@@ -3476,7 +3476,7 @@ document.addEventListener('alpine:init', () => {
                     }, 200);
                 });
             } else if (tab === 'server') {
-                this.fetchServerHealth();
+                this.startServerHealthAutoRefresh();
             } else if (tab === 'security') {
                 if (now - this.lastFetch.security > this.heavyTTL) {
                     this.fetchSecurityScore();
