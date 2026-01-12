@@ -96,6 +96,7 @@ document.addEventListener('alpine:init', () => {
         watchlistInput: '',
         alertHistoryOpen: false,
         watchlistModalOpen: false,
+        ipInvestigationModalOpen: false,
         threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
         topThreatIPs: { ips: [], loading: true },
         riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
@@ -590,6 +591,7 @@ document.addEventListener('alpine:init', () => {
                         this.widgetManagerOpen = false;
                         this.expandedModalOpen = false;
                         this.networkGraphOpen = false;
+                        this.ipInvestigationModalOpen = false;
                         this.closeFullscreenChart();
                         // Return focus to a safe element
                         document.activeElement?.blur();
@@ -2617,6 +2619,9 @@ document.addEventListener('alpine:init', () => {
         async investigateIP() {
             if (!this.ipInvestigation.searchIP.trim()) return;
 
+            // Open modal first
+            this.ipInvestigationModalOpen = true;
+
             this.ipInvestigation.loading = true;
             this.ipInvestigation.result = null;
 
@@ -2643,6 +2648,19 @@ document.addEventListener('alpine:init', () => {
                 alert('Failed to investigate IP');
             } finally {
                 this.ipInvestigation.loading = false;
+            }
+        },
+
+        openIPInvestigationModal(ip = null) {
+            if (ip) {
+                this.ipInvestigation.searchIP = ip;
+            }
+            this.ipInvestigationModalOpen = true;
+            // If IP is provided, automatically trigger investigation
+            if (ip) {
+                this.$nextTick(() => {
+                    this.investigateIP();
+                });
             }
         },
 
