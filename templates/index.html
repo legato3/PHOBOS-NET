@@ -220,27 +220,31 @@
         <!-- Layout with Sidebar -->
         <div class="layout-wrapper">
             <!-- Left Sidebar Menu -->
-            <aside class="sidebar">
+            <aside class="sidebar" :class="{ 'collapsed': sidebarCollapsed }">
                 <nav class="sidebar-nav" role="tablist" aria-orientation="vertical" aria-label="Main navigation">
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="tab" :aria-selected="activeTab === 'overview'" id="overview-tab-btn" aria-controls="overview-tab">
+                    <button type="button" class="sidebar-toggle" @click="toggleSidebar()" :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'" aria-label="Toggle sidebar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="!sidebarCollapsed"><path d="M15 18l-6-6 6-6"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="sidebarCollapsed"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" role="tab" :aria-selected="activeTab === 'overview'" id="overview-tab-btn" aria-controls="overview-tab" :title="sidebarCollapsed ? 'Overview' : ''">
                         <span class="sidebar-icon">📊</span>
-                        <span class="sidebar-label">Overview</span>
+                        <span class="sidebar-label" x-show="!sidebarCollapsed">Overview</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="tab" :aria-selected="activeTab === 'security'" id="security-tab-btn" aria-controls="security-tab">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" role="tab" :aria-selected="activeTab === 'security'" id="security-tab-btn" aria-controls="security-tab" :title="sidebarCollapsed ? 'Security' : ''">
                         <span class="sidebar-icon">🛡️</span>
-                        <span class="sidebar-label">Security</span>
+                        <span class="sidebar-label" x-show="!sidebarCollapsed">Security</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="tab" :aria-selected="activeTab === 'network'" id="network-tab-btn" aria-controls="network-tab">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" role="tab" :aria-selected="activeTab === 'network'" id="network-tab-btn" aria-controls="network-tab" :title="sidebarCollapsed ? 'Network' : ''">
                         <span class="sidebar-icon">🕸️</span>
-                        <span class="sidebar-label">Network</span>
+                        <span class="sidebar-label" x-show="!sidebarCollapsed">Network</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'" id="forensics-tab-btn" aria-controls="forensics-tab">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'" id="forensics-tab-btn" aria-controls="forensics-tab" :title="sidebarCollapsed ? 'Forensics' : ''">
                         <span class="sidebar-icon">🔍</span>
-                        <span class="sidebar-label">Forensics</span>
+                        <span class="sidebar-label" x-show="!sidebarCollapsed">Forensics</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'" id="server-tab-btn" aria-controls="server-tab">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'" id="server-tab-btn" aria-controls="server-tab" :title="sidebarCollapsed ? 'Server' : ''">
                         <span class="sidebar-icon">🖥️</span>
-                        <span class="sidebar-label">Server</span>
+                        <span class="sidebar-label" x-show="!sidebarCollapsed">Server</span>
                     </button>
                 </nav>
             </aside>
@@ -2664,25 +2668,25 @@
 
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-nav">
-        <button class="mobile-nav-item" @click="document.querySelector('.container').scrollTo({top: 0, behavior: 'smooth'})" title="Top">
+        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'overview' }" @click="loadTab('overview')" title="Overview">
             <span class="mobile-nav-icon">📊</span>
             <span class="mobile-nav-label">Overview</span>
         </button>
-        <button class="mobile-nav-item" @click="document.querySelector('#section-security').scrollIntoView({behavior: 'smooth'})" title="Security">
+        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'security' }" @click="loadTab('security')" title="Security">
             <span class="mobile-nav-icon">🛡️</span>
             <span class="mobile-nav-label">Security</span>
         </button>
-        <button class="mobile-nav-item" :class="{ 'active': !paused }" @click="togglePause()" title="Toggle refresh">
-            <span class="mobile-nav-icon" x-text="paused ? '▶️' : '⏸️'"></span>
-            <span class="mobile-nav-label" x-text="paused ? 'Resume' : 'Pause'"></span>
+        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'network' }" @click="loadTab('network')" title="Network">
+            <span class="mobile-nav-icon">🕸️</span>
+            <span class="mobile-nav-label">Network</span>
         </button>
-        <button class="mobile-nav-item" @click="refreshData()" title="Refresh now">
-            <span class="mobile-nav-icon">🔄</span>
-            <span class="mobile-nav-label">Refresh</span>
+        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }" @click="loadTab('forensics')" title="Forensics">
+            <span class="mobile-nav-icon">🔍</span>
+            <span class="mobile-nav-label">Forensics</span>
         </button>
-        <button class="mobile-nav-item" @click="showSettingsModal = true" title="Settings">
-            <span class="mobile-nav-icon">⚙️</span>
-            <span class="mobile-nav-label">Settings</span>
+        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')" title="Server">
+            <span class="mobile-nav-icon">🖥️</span>
+            <span class="mobile-nav-label">Server</span>
         </button>
     </nav>
 

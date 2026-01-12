@@ -47,6 +47,9 @@ document.addEventListener('alpine:init', () => {
         // Compact mode
         compactMode: false,
 
+        // Sidebar collapse state
+        sidebarCollapsed: false,
+
         // Mobile UI state
         showMobileFilters: false,
 
@@ -350,6 +353,7 @@ document.addEventListener('alpine:init', () => {
             idleCallback(() => {
                 this.loadWidgetPreferences();
                 this.loadCompactMode();
+                this.loadSidebarState();
                 this.startIntersectionObserver();
                 // Defer data loading slightly to allow initial paint
                 setTimeout(() => {
@@ -397,6 +401,10 @@ document.addEventListener('alpine:init', () => {
             this.$watch('compactMode', (v) => {
                 document.body.classList.toggle('compact-mode', v);
                 localStorage.setItem('compactMode', v ? '1' : '0');
+            });
+            this.$watch('sidebarCollapsed', (v) => {
+                document.body.classList.toggle('sidebar-collapsed', v);
+                localStorage.setItem('sidebarCollapsed', v ? '1' : '0');
             });
             this.$watch('lowPower', (v) => {
                 if (v) {
@@ -2801,6 +2809,19 @@ document.addEventListener('alpine:init', () => {
 
         toggleCompactMode() {
             this.compactMode = !this.compactMode;
+        },
+
+        // Sidebar Collapse
+        loadSidebarState() {
+            const saved = localStorage.getItem('sidebarCollapsed');
+            this.sidebarCollapsed = saved === '1';
+            if (this.sidebarCollapsed) {
+                document.body.classList.add('sidebar-collapsed');
+            }
+        },
+
+        toggleSidebar() {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
         },
 
         // Widget Management Methods - Using DashboardWidgets module
