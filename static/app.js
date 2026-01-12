@@ -2046,9 +2046,10 @@ document.addEventListener('alpine:init', () => {
                 const ctx = document.getElementById('hourlyChart');
                 if (!ctx || !data || !data.labels) return;
 
-                // Check if canvas is visible (has dimensions)
-                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
-                    // Canvas not visible yet, defer initialization
+                // Check if canvas parent container is visible
+                const container = ctx.closest('.widget-body, .chart-wrapper-small');
+                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                    // Container not visible yet, defer initialization
                     setTimeout(() => this.updateHourlyChart(data), 200);
                     return;
                 }
@@ -2133,9 +2134,10 @@ document.addEventListener('alpine:init', () => {
                 const ctx = document.getElementById('protoMixChart');
                 if (!ctx) return;
 
-                // Check if canvas is visible (has dimensions)
-                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
-                    // Canvas not visible yet, defer initialization
+                // Check if canvas parent container is visible
+                const container = ctx.closest('.widget-body, .chart-wrapper-small');
+                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                    // Container not visible yet, defer initialization
                     setTimeout(() => this.updateProtoMixChart(data), 200);
                     return;
                 }
@@ -2395,9 +2397,10 @@ document.addEventListener('alpine:init', () => {
                 const ctx = document.getElementById('pktSizeChart');
                 if (!ctx || !data || !data.labels) return;
 
-                // Check if canvas is visible (has dimensions)
-                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
-                    // Canvas not visible yet, defer initialization
+                // Check if canvas parent container is visible
+                const container = ctx.closest('.widget-body, .chart-wrapper-small');
+                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                    // Container not visible yet, defer initialization
                     setTimeout(() => this.updatePktSizeChart(data), 200);
                     return;
                 }
@@ -2457,9 +2460,10 @@ document.addEventListener('alpine:init', () => {
                 const ctx = document.getElementById('countriesChart');
                 if (!ctx || !data) return;
 
-                // Check if canvas is visible (has dimensions)
-                if (ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
-                    // Canvas not visible yet, defer initialization
+                // Check if canvas parent container is visible
+                const container = ctx.closest('.widget-body, .chart-wrapper-small');
+                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                    // Container not visible yet, defer initialization
                     setTimeout(() => this.updateCountriesChart(data), 200);
                     return;
                 }
