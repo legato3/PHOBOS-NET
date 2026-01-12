@@ -1919,76 +1919,82 @@
             </h2>
             <div x-show="!isMinimized('threatActivityTimeline')">
                 <!-- Time Range Selector -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-3);">
-                    <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                        <button @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()" 
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); flex-wrap: wrap; gap: var(--space-2);">
+                    <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
+                        <button @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()"
                                 :class="{ 'btn--primary': threatActivityTimeline.timeRange === '1h', 'btn--secondary': threatActivityTimeline.timeRange !== '1h' }"
-                                class="btn" 
-                                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);">
+                                class="btn"
+                                style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
                             1 Hour
                         </button>
-                        <button @click="threatActivityTimeline.timeRange = '6h'; fetchThreatActivityTimeline()" 
+                        <button @click="threatActivityTimeline.timeRange = '6h'; fetchThreatActivityTimeline()"
                                 :class="{ 'btn--primary': threatActivityTimeline.timeRange === '6h', 'btn--secondary': threatActivityTimeline.timeRange !== '6h' }"
-                                class="btn" 
-                                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);">
+                                class="btn"
+                                style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
                             6 Hours
                         </button>
-                        <button @click="threatActivityTimeline.timeRange = '24h'; fetchThreatActivityTimeline()" 
+                        <button @click="threatActivityTimeline.timeRange = '24h'; fetchThreatActivityTimeline()"
                                 :class="{ 'btn--primary': threatActivityTimeline.timeRange === '24h', 'btn--secondary': threatActivityTimeline.timeRange !== '24h' }"
-                                class="btn" 
-                                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);">
+                                class="btn"
+                                style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
                             24 Hours
                         </button>
-                        <button @click="threatActivityTimeline.timeRange = '7d'; fetchThreatActivityTimeline()" 
+                        <button @click="threatActivityTimeline.timeRange = '7d'; fetchThreatActivityTimeline()"
                                 :class="{ 'btn--primary': threatActivityTimeline.timeRange === '7d', 'btn--secondary': threatActivityTimeline.timeRange !== '7d' }"
-                                class="btn" 
-                                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);">
+                                class="btn"
+                                style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
                             7 Days
                         </button>
                     </div>
-                    <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                        <button @click="exportThreatActivityTimeline('csv')" class="btn btn--secondary" style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);" :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
+                    <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
+                        <button @click="exportThreatActivityTimeline('csv')" class="btn btn--secondary" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);" :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
                             📥 CSV
                         </button>
-                        <button @click="exportThreatActivityTimeline('json')" class="btn btn--secondary" style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3);" :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
+                        <button @click="exportThreatActivityTimeline('json')" class="btn btn--secondary" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);" :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
                             📥 JSON
                         </button>
                     </div>
                 </div>
 
                 <!-- Stats Summary -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4);">
-                    <div class="card" style="padding: var(--space-3); text-align: center;">
-                        <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">Total Threats</div>
-                        <div style="font-size: var(--text-2xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="threatActivityTimeline.total_24h || 0"></div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-3);">
+                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;">
+                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Total Threats</div>
+                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="threatActivityTimeline.total_24h || 0"></div>
                     </div>
-                    <div class="card" style="padding: var(--space-3); text-align: center;" x-show="threatActivityTimeline.peak_hour">
-                        <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">Peak Hour</div>
-                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-red);" x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
-                        <div style="font-size: var(--text-sm); color: var(--text-muted);" x-text="(threatActivityTimeline.peak_count || 0) + ' threats'"></div>
+                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;" x-show="threatActivityTimeline.peak_hour">
+                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Peak Hour</div>
+                        <div style="font-size: var(--text-base); font-weight: var(--font-weight-semibold); color: var(--neon-red);" x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted);" x-text="(threatActivityTimeline.peak_count || 0) + ' threats'"></div>
                     </div>
-                    <div class="card" style="padding: var(--space-3); text-align: center;" x-show="threatActivityTimeline.has_fw_data">
-                        <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">FW Blocks</div>
-                        <div style="font-size: var(--text-2xl); font-weight: var(--font-weight-bold); color: var(--neon-green);" x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
+                    <div class="card" style="padding: var(--space-2) var(--space-3); text-align: center;" x-show="threatActivityTimeline.has_fw_data">
+                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">FW Blocks</div>
+                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-green);" x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
                     </div>
                 </div>
 
                 <!-- Chart -->
-                <div class="chart-wrapper" style="height: 300px; margin-bottom: var(--space-4);">
+                <div class="chart-wrapper" style="height: 250px; margin-bottom: var(--space-3);" x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
                     <canvas id="threatActivityTimelineChart"></canvas>
                 </div>
 
-                <!-- Description -->
-                <div style="padding: var(--space-3); background: rgba(0, 243, 255, 0.05); border-radius: var(--radius-md); border: 1px solid rgba(0, 243, 255, 0.1); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6;">
-                    <strong style="color: var(--neon-cyan);">📊 About this timeline:</strong> This chart shows threat activity patterns over time, helping identify attack waves, quiet periods, and escalation patterns. The stacked bars show threats by severity (Critical, High, Medium, Low), and the green line overlay shows firewall blocks when available. Use this to correlate threat activity with Alert Correlation data and identify temporal attack patterns.
+                <!-- Description (Collapsible) -->
+                <div style="padding: var(--space-2) var(--space-3); background: rgba(0, 243, 255, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(0, 243, 255, 0.08);">
+                    <button @click="threatActivityTimeline.showDescription = !threatActivityTimeline.showDescription" style="display: flex; align-items: center; gap: var(--space-2); width: 100%; background: none; border: none; color: var(--neon-cyan); cursor: pointer; padding: 0; font-size: var(--text-xs);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :style="'transform: rotate(' + (threatActivityTimeline.showDescription ? '90' : '0') + 'deg); transition: transform 0.2s;'"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        <span style="font-weight: var(--font-weight-semibold);">📊 About this timeline</span>
+                    </button>
+                    <div x-show="threatActivityTimeline.showDescription" style="margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5;">
+                        Shows threat activity patterns over time. Stacked bars show threats by severity (Critical, High, Medium, Low), with firewall blocks as a green line overlay. Use to correlate threat activity with Alert Correlation data.
+                    </div>
                 </div>
 
                 <!-- Empty State -->
-                <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)" style="text-align: center; padding: 60px 30px; color: var(--text-muted);">
-                    <div style="font-size: 48px; margin-bottom: var(--space-4);" aria-hidden="true">📈</div>
-                    <p style="font-size: var(--text-lg); margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold);">No Threat Activity Data</p>
-                    <p style="font-size: var(--text-sm); color: var(--text-tertiary); max-width: 500px; margin: 0 auto;">
-                        No threat activity has been detected in the selected time range. This could indicate a secure network or a period of low activity.
+                <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)" style="text-align: center; padding: var(--space-4) var(--space-3); color: var(--text-muted);">
+                    <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📈</div>
+                    <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Threat Activity Data</p>
+                    <p style="font-size: var(--text-xs); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
+                        No threat activity detected in the selected time range. Network appears secure or activity is low.
                     </p>
                 </div>
             </div>
