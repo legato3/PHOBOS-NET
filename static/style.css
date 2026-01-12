@@ -1,18 +1,46 @@
 :root {
     /* ============================================
-       PREMIUM CYBERPUNK OPERATIONS CONSOLE
-       Design System v3.0
+       TrueNAS STYLE CONSOLE
+       Design System v4.0
        ============================================ */
 
-    /* Base Colors - Darker theme with pixel art aesthetic */
-    --bg-primary: #0d0d0d;
-    /* Near-black base (darker) */
-    --bg-secondary: #111111;
-    /* Slightly lighter for depth */
-    --bg-elevated: #1a1a1a;
-    /* Cards and elevated surfaces (darker) */
-    --bg-overlay: rgba(5, 5, 5, 0.98);
-    /* Overlays and modals (darker) */
+    /* Base Colors - TrueNAS Theme */
+    --bg-primary: #151522;
+    /* Deep dark blue-grey */
+    --bg-secondary: #1d1d2b;
+    /* Slightly lighter for cards/sidebar */
+    --bg-elevated: #252535;
+    /* Header and hover states */
+    --bg-overlay: rgba(10, 10, 20, 0.95);
+
+    /* TrueNAS Brand Accents */
+    --true-blue: #00a2ff;
+    --true-blue-hover: #0088d6;
+    --accent-primary: var(--true-blue);
+    --accent-primary-hover: var(--true-blue-hover);
+
+    /* Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    --font-heading: var(--font-sans);
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
+
+    /* Spacing & Sizes */
+    --sidebar-width: 240px;
+    --sidebar-collapsed: 70px;
+    --header-height: 60px;
+    --container-padding: 32px;
+    --container-max-width: 1600px;
+
+    /* Surfaces & Borders */
+    --card-bg: var(--bg-secondary);
+    --card-border: rgba(255, 255, 240, 0.05);
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --card-radius: 4px;
+
+    /* TrueNAS Brand Colors */
+    --true-blue: #00a2ff;
+    --true-blue-hover: #1ab0ff;
+    --accent-cyan: var(--true-blue);
 
     /* Enhanced Glass Morphism - More pronounced effects */
     --glass-bg: rgba(255, 255, 255, 0.06);
@@ -24,18 +52,11 @@
     --glass-shadow-hover: 0 16px 64px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 243, 255, 0.15);
 
     /* Card System - Enhanced with glass and shadows */
-    --card-bg: rgb(20, 20, 20);
     --card-bg-hover: rgb(25, 25, 25);
-    --card-border: rgba(255, 255, 255, 0.1);
     --card-border-hover: rgba(0, 243, 255, 0.3);
-    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --card-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
     /* Functional Accents - Subtle, purposeful only */
-    --accent-primary: #00f3ff;
-    /* Cyan - Primary actions, highlights */
-    --accent-primary-hover: #00d4e6;
-    /* Slightly darker on hover */
     --accent-primary-glow: rgba(0, 243, 255, 0.15);
     --accent-primary-glow-strong: rgba(0, 243, 255, 0.25);
 
@@ -59,8 +80,7 @@
     --accent-warning-hover: #cc9300;
     --accent-warning-glow: rgba(255, 184, 0, 0.15);
 
-    /* Core Palette Fixes - Missing definitions referenced in app */
-    --accent-cyan: #00f3ff;
+    /* TrueNAS Brand Colors */
     --accent-magenta: #ff00ff;
 
     /* Legacy compatibility (deprecated, use semantic aliases) */
@@ -200,11 +220,12 @@
     --z-notification: 1200;
 
     /* Layout Constraints */
-    --container-max-width: 1920px;
-    --container-padding: var(--space-4);
-    --header-height: 64px;
+    --container-max-width: 100%;
+    --container-padding: var(--space-6);
+    --header-height: 56px;
     --status-bar-height: 40px;
-    --sidebar-width: 220px;
+    --sidebar-width: 240px;
+    --sidebar-collapsed-width: 70px;
 
     /* Typography sizes (deprecated, use text scale) */
     --font-size-xs: var(--text-xs);
@@ -323,56 +344,68 @@ body.sidebar-collapsed .layout-wrapper {
     gap: 0;
 }
 
-/* Sidebar - Floating overlay that expands on hover */
+/* Sidebar - Integrated TrueNAS-style sidebar */
 .sidebar {
-    width: 180px;
-    /* More compact width */
+    width: var(--sidebar-width);
     flex-shrink: 0;
-    background: rgba(20, 20, 20, 0.95);
-    border-right: 1px solid rgba(0, 243, 255, 0.15);
-    padding: var(--space-2) 0;
-    height: auto;
-    max-height: calc(100vh - 140px - 60px);
+    background: var(--bg-secondary);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    height: 100vh;
     position: fixed;
-    top: 140px;
-    /* Start below header to avoid overlapping title */
-    left: var(--space-4);
-    margin-bottom: var(--space-4);
+    top: 0;
+    left: 0;
+    margin: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 243, 255, 0.1);
-    transition: width 0.3s ease, z-index 0.3s ease;
-    border-radius: var(--radius-md);
-    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
 }
 
 .sidebar.collapsed {
-    width: 50px;
-    /* More compact when collapsed */
+    width: var(--sidebar-collapsed-width);
 }
 
-/* Expand sidebar on hover when collapsed (overlay behavior) */
-.sidebar.collapsed:hover {
-    width: 180px;
-    z-index: 200;
-    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.7), inset -1px 0 0 rgba(0, 243, 255, 0.2);
+.sidebar-header {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
 }
 
-/* Subtle indicator that sidebar expands on hover */
-.sidebar.collapsed::after {
-    content: '';
-    position: absolute;
-    right: 2px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 30px;
-    background: rgba(0, 243, 255, 0.3);
-    border-radius: 1px;
-    opacity: 0.5;
-    pointer-events: none;
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    white-space: nowrap;
+}
+
+.logo-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--true-blue);
+    letter-spacing: 0.05em;
+}
+
+.sidebar-toggle-thin {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    padding: 4px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle-thin:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
 }
 
 .sidebar-nav {
@@ -384,111 +417,101 @@ body.sidebar-collapsed .layout-wrapper {
 
 .sidebar-item {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: var(--space-2) var(--space-1);
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
     background: transparent;
     border: none;
-    border-radius: var(--radius-md);
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-align: center;
     width: 100%;
     font-family: var(--font-sans);
-    pointer-events: auto;
-    -webkit-user-select: none;
-    user-select: none;
     position: relative;
-    justify-content: center;
-}
-
-.sidebar.collapsed .sidebar-item {
-    padding: var(--space-2) 0;
-    width: 100%;
-}
-
-/* When collapsed sidebar is hovered, adjust items to show labels */
-.sidebar.collapsed:hover .sidebar-item {
-    flex-direction: row;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-2);
     justify-content: flex-start;
-}
-
-.sidebar.collapsed:hover .sidebar-item:hover {
-    transform: translateX(2px);
+    border-left: 4px solid transparent;
 }
 
 .sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     color: var(--text-primary);
 }
 
-.sidebar.collapsed .sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
-
 .sidebar-item.active {
-    background: rgba(0, 243, 255, 0.15);
-    color: var(--accent-primary);
-    font-weight: 600;
+    background: var(--true-blue);
+    color: #fff;
+    border-left-color: #fff;
 }
 
-.sidebar-item.active::before {
-    display: none;
-    /* Remove left border indicator for centered layout */
+.sidebar-item.active .sidebar-icon,
+.sidebar-item.active .sidebar-item-text {
+    color: #fff;
 }
 
-.sidebar.collapsed .sidebar-item.active {
-    background: rgba(0, 243, 255, 0.2);
-    box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+.sidebar-arrow {
+    margin-left: auto;
+    color: var(--text-tertiary);
+    transition: transform 0.2s ease;
 }
 
-/* When hovered and expanded, show left border indicator */
-.sidebar.collapsed:hover .sidebar-item.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 60%;
-    background: var(--accent-primary);
-    border-radius: 0 2px 2px 0;
-    display: block;
+.sidebar-item:hover .sidebar-arrow {
+    color: var(--text-secondary);
 }
 
-.sidebar-icon {
-    font-size: 18px;
-    width: auto;
-    text-align: center;
-    flex-shrink: 0;
-    line-height: 1;
+.sidebar-item.active .sidebar-arrow {
+    color: rgba(255, 255, 255, 0.8);
 }
 
-.sidebar-label {
-    flex: 0;
-    letter-spacing: 0.01em;
-    overflow: hidden;
+.sidebar-item-text {
     white-space: nowrap;
+    opacity: 1;
     transition: opacity 0.2s ease;
-    text-align: center;
-    line-height: 1.2;
 }
 
-.sidebar.collapsed .sidebar-label {
+.sidebar.collapsed .sidebar-item-text,
+.sidebar.collapsed .sidebar-arrow,
+.sidebar.collapsed .logo-text {
     display: none;
 }
 
-/* Show labels when collapsed sidebar is hovered */
-.sidebar.collapsed:hover .sidebar-label {
-    display: block;
-    flex: 1;
-    text-align: left;
+.sidebar-footer {
+    margin-top: auto;
+    padding: var(--space-6) var(--space-4);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar.collapsed .sidebar-footer {
+    display: none;
+}
+
+.system-info {
+    margin-bottom: var(--space-4);
+}
+
+.system-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.edition-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.footer-copy {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.4;
 }
 
 /* Main Content */
@@ -496,39 +519,77 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
-    margin-left: 66px;
-    /* Always account for collapsed sidebar (50px + 16px gap) */
-    transition: margin-left 0.3s ease;
+    margin-left: var(--sidebar-width);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.content-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-6);
-    padding: var(--space-4) 0;
-    min-height: var(--header-height);
-    position: relative;
-    border-bottom: 1px solid rgba(0, 243, 255, 0.15);
-    background: rgba(13, 13, 13, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(0, 243, 255, 0.1);
+    padding: 0 var(--space-6);
+    height: var(--header-height);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 900;
 }
 
-.header-top {
-    display: contents;
+.header-left,
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex: 1;
 }
 
-.title {
-    font-size: 22px;
-    /* Page titles: 20-24px */
+.header-right {
+    justify-content: flex-end;
+}
+
+.header-center {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+}
+
+.page-title {
+    font-size: 18px;
     font-weight: 600;
-    /* Page titles: 600 */
-    letter-spacing: -0.02em;
     color: var(--text-primary);
-    line-height: 1.3;
-    font-family: var(--font-sans);
+    margin: 0;
+}
+
+.header-action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: var(--space-2);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.header-action-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
 }
 
 .controls {
@@ -538,44 +599,46 @@ body.sidebar-collapsed .layout-wrapper {
     flex-wrap: wrap;
 }
 
-/* Clean Inputs - Material Design */
-select,
-button,
-input {
-    background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--text-primary);
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 14px;
-    /* Body text */
-    font-weight: 400;
-    /* Body weight */
-    cursor: pointer;
-    transition: border-color var(--motion-base), background-color var(--motion-base);
-    font-family: var(--font-sans);
+.search-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    align-items: center;
 }
 
-select:hover,
-button:hover,
-input:hover {
-    border-color: rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.03);
+.search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-tertiary);
+    pointer-events: none;
 }
 
-select:focus,
-button:focus,
-input:focus {
-    border-color: var(--accent-primary);
-    outline: none;
-    background: var(--bg-elevated);
+.global-search {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 4px !important;
+    padding: 6px 12px 6px 36px !important;
+    color: var(--text-primary) !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
 }
 
-button.active {
-    background: var(--accent-primary);
-    color: var(--text-inverse);
-    font-weight: var(--font-weight-semibold);
-    border-color: var(--accent-primary);
+.global-search:focus {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border-color: var(--true-blue) !important;
+    box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.1) !important;
+}
+
+.search-shortcut {
+    position: absolute;
+    right: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    pointer-events: none;
 }
 
 .icon-btn {
@@ -959,57 +1022,12 @@ button.active {
     background: rgba(0, 243, 255, 0.12);
 }
 
-/* Stat Box Polish */
-.stat-box {
-    text-align: center;
-    justify-content: center;
-    align-items: center;
-    min-height: 75px;
-    padding: 12px 8px;
-}
-
-.stat-box .value {
-    font-size: 22px;
-    /* Numbers lead - larger, bolder */
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-}
-
-.stat-box .label {
-    font-size: 10px;
-    /* Labels support - smaller, lighter */
-    color: var(--text-muted);
-    text-transform: none;
-    letter-spacing: 0.01em;
-    margin-top: 3px;
-    font-family: var(--font-sans);
-    font-weight: 400;
-    opacity: 0.8;
-}
-
-.stat-box .value.grade-a,
-.stat-box .value.grade-b {
-    color: var(--accent-primary);
-}
-
-.stat-box .value.grade-c,
-.stat-box .value.grade-d {
-    color: var(--accent-secondary);
-}
-
-.stat-box .value.grade-f {
-    color: var(--accent-danger);
-}
-
+/* Stat Box Polish - Integrated TrueNAS Style (Legacy removal) */
 .stat-box .sublabel {
-    font-size: 12px;
-    /* Metadata: 12px */
+    font-size: 10px;
     color: var(--text-muted);
-    margin-top: 3px;
+    margin-top: 2px;
     opacity: 0.8;
-    font-family: var(--font-sans);
 }
 
 /* Table Density & Polish */
@@ -6434,6 +6452,54 @@ body.compact-mode {
     font-size: 0.85em;
     color: var(--text-muted);
     margin-bottom: 10px;
+}
+
+/* Summary Stats Grid - Integrated TrueNAS Style */
+.summary-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.stat-box {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-box:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.stat-box .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.stat-box .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+.stat-box.status-warning .value {
+    color: var(--accent-warning);
+}
+
+.stat-box.status-error .value {
+    color: var(--accent-error);
 }
 
 .mitre-grid {
