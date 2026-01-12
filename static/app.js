@@ -36,7 +36,9 @@ document.addEventListener('alpine:init', () => {
             worldmap: 0,
             network: 0,
             security: 0,
-            conversations: 0
+            conversations: 0,
+            alertCorrelation: 0,
+            threatActivityTimeline: 0
         },
         heavyTTL: 60000, // 60s for heavy widgets
         mediumTTL: 30000, // 30s for conversations
@@ -115,6 +117,7 @@ document.addEventListener('alpine:init', () => {
         ipInvestigation: { searchIP: '', result: null, loading: false },
         flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
         alertCorrelation: { chains: [], loading: false },
+        threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h' },
 
         // Alert Filtering
         alertFilter: { severity: 'all', type: 'all' },
@@ -162,6 +165,8 @@ document.addEventListener('alpine:init', () => {
                 topThreatIPs: 'Top Threat IPs',
                 riskIndex: 'Network Risk Index',
                 conversations: 'Recent Conversations',
+                alertCorrelation: 'Alert Correlation & Attack Chains',
+                threatActivityTimeline: 'Threat Activity Timeline',
                 talkers: 'Top Talkers',
                 services: 'Top Services',
                 hourlyTraffic: 'Traffic by Hour',
@@ -887,6 +892,18 @@ document.addEventListener('alpine:init', () => {
                     this.fetchFeedHealth();
                     this.fetchWatchlist();
                     this.lastFetch.security = now;
+                }
+            }
+            if (sectionId === 'section-alert-correlation' && this.isVisible('alertCorrelation')) {
+                if (now - (this.lastFetch.alertCorrelation || 0) > this.mediumTTL) {
+                    this.fetchAlertCorrelation();
+                    this.lastFetch.alertCorrelation = now;
+                }
+            }
+            if (sectionId === 'section-threat-activity-timeline' && this.isVisible('threatActivityTimeline')) {
+                if (now - (this.lastFetch.threatActivityTimeline || 0) > this.mediumTTL) {
+                    this.fetchThreatActivityTimeline();
+                    this.lastFetch.threatActivityTimeline = now;
                 }
             }
             if (sectionId === 'section-conversations' && this.isVisible('conversations')) {
@@ -2833,6 +2850,213 @@ document.addEventListener('alpine:init', () => {
                     }));
             } finally {
                 this.alertCorrelation.loading = false;
+            }
+        },
+
+        async fetchThreatActivityTimeline() {
+            this.threatActivityTimeline.loading = true;
+            try {
+                const res = await fetch(`/api/security/attack-timeline?range=${this.threatActivityTimeline.timeRange || '24h'}`);
+                if (res.ok) {
+                    const d = await res.json();
+                    // Calculate peak hour
+                    let peak_count = 0;
+                    let peak_hour = null;
+                    if (d.timeline && d.timeline.length > 0) {
+                        const peak = d.timeline.reduce((max, item) => {
+                            const total = item.total || 0;
+                            return total > max.total ? { hour: item.hour, total: total } : max;
+                        }, { hour: null, total: 0 });
+                        peak_count = peak.total;
+                        peak_hour = peak.hour;
+                    }
+                    
+                    this.threatActivityTimeline = {
+                        ...d,
+                        peak_count,
+                        peak_hour,
+                        loading: false
+                    };
+                    this.$nextTick(() => {
+                        this.renderThreatActivityTimelineChart();
+                    });
+                }
+            } catch (e) {
+                console.error('Threat activity timeline fetch error:', e);
+            } finally {
+                this.threatActivityTimeline.loading = false;
+            }
+        },
+
+        renderThreatActivityTimelineChart() {
+            try {
+                const canvas = document.getElementById('threatActivityTimelineChart');
+                if (!canvas || !this.threatActivityTimeline.timeline) return;
+
+                // Check if Chart.js is loaded
+                if (typeof Chart === 'undefined') {
+                    setTimeout(() => this.renderThreatActivityTimelineChart(), 100);
+                    return;
+                }
+
+                const ctx = canvas.getContext('2d');
+                if (this._threatActivityTimelineChart) this._threatActivityTimelineChart.destroy();
+
+                const labels = this.threatActivityTimeline.timeline.map(t => t.hour);
+                const critical = this.threatActivityTimeline.timeline.map(t => t.critical || 0);
+                const high = this.threatActivityTimeline.timeline.map(t => t.high || 0);
+                const medium = this.threatActivityTimeline.timeline.map(t => t.medium || 0);
+                const low = this.threatActivityTimeline.timeline.map(t => t.low || 0);
+                const fwBlocks = this.threatActivityTimeline.timeline.map(t => t.fw_blocks || 0);
+
+                const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
+                const hasFwData = this.threatActivityTimeline.has_fw_data;
+
+                const datasets = [
+                    { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 2 },
+                    { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 2 },
+                    { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 2 },
+                    { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 2 }
+                ];
+
+                // Add firewall blocks as a line overlay if data exists
+                if (hasFwData) {
+                    datasets.push({
+                        label: '🔥 FW Blocks',
+                        data: fwBlocks,
+                        type: 'line',
+                        borderColor: 'rgba(0, 255, 100, 1)',
+                        backgroundColor: 'rgba(0, 255, 100, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointBackgroundColor: 'rgba(0, 255, 100, 1)',
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y1',
+                        order: 1
+                    });
+                }
+
+                this._threatActivityTimelineChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: this.getCssVar('--text-secondary') || '#888',
+                                    boxWidth: 12,
+                                    padding: 8
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(20, 24, 33, 0.95)',
+                                titleColor: this.getCssVar('--text-primary') || '#fff',
+                                bodyColor: this.getCssVar('--text-secondary') || '#ccc',
+                                borderColor: 'rgba(0, 243, 255, 0.3)',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                grid: { display: false },
+                                ticks: {
+                                    color: this.getCssVar('--text-muted') || '#666',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: this.getCssVar('--text-muted') || '#666' },
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Threats',
+                                    color: this.getCssVar('--text-secondary') || '#888'
+                                }
+                            },
+                            ...(hasFwData ? {
+                                y1: {
+                                    grid: { display: false },
+                                    ticks: { color: 'rgba(0, 255, 100, 0.8)' },
+                                    position: 'right',
+                                    title: {
+                                        display: true,
+                                        text: 'FW Blocks',
+                                        color: 'rgba(0, 255, 100, 0.8)'
+                                    }
+                                }
+                            } : {})
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Threat activity timeline chart render error:', e);
+            }
+        },
+
+        exportThreatActivityTimeline(format) {
+            if (!this.threatActivityTimeline.timeline || this.threatActivityTimeline.timeline.length === 0) {
+                this.showToast('No timeline data to export', 'warning');
+                return;
+            }
+
+            const timeline = this.threatActivityTimeline.timeline;
+
+            if (format === 'csv') {
+                const lines = [
+                    'Hour,Total Threats,Critical,High,Medium,Low,Firewall Blocks'
+                ];
+                timeline.forEach(item => {
+                    lines.push([
+                        item.hour,
+                        item.total || 0,
+                        item.critical || 0,
+                        item.high || 0,
+                        item.medium || 0,
+                        item.low || 0,
+                        item.fw_blocks || 0
+                    ].join(','));
+                });
+
+                const csvStr = lines.join('\n');
+                const blob = new Blob([csvStr], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `threat-activity-timeline-${Date.now()}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Timeline data exported as CSV', 'success');
+            } else if (format === 'json') {
+                const jsonStr = JSON.stringify({
+                    timeRange: this.threatActivityTimeline.timeRange,
+                    total_24h: this.threatActivityTimeline.total_24h,
+                    peak_hour: this.threatActivityTimeline.peak_hour,
+                    peak_count: this.threatActivityTimeline.peak_count,
+                    timeline: timeline
+                }, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `threat-activity-timeline-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Timeline data exported as JSON', 'success');
             }
         },
 
