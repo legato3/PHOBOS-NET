@@ -722,6 +722,13 @@ button.active {
         align-items: start;
     }
 
+    .layout-symmetric {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-6);
+        align-items: start;
+    }
+
     .primary-column {
         display: flex;
         flex-direction: column;
@@ -1036,37 +1043,24 @@ table {
 
 /* Design tokens for endpoint widgets */
 :root {
-    /* Endpoint widget spacing */
-    --endpoint-row-padding-y: var(--space-4);
-    /* 16px vertical padding */
-    --endpoint-row-padding-x: var(--space-4);
-    /* 16px horizontal padding */
-    --endpoint-row-padding-y-primary: var(--space-5);
-    /* 20px for primary rows */
-    --endpoint-row-gap: var(--space-3);
-    /* 12px gap between rows */
-    --endpoint-row-gap-primary: var(--space-4);
-    /* 16px for primary row spacing */
-    --endpoint-cell-gap: var(--space-2);
-    /* 8px gap within cells */
-    --endpoint-meta-gap: var(--space-2);
-    /* 8px gap for metadata */
+    /* Endpoint widget spacing - Condensed */
+    --endpoint-row-padding-y: 6px;
+    --endpoint-row-padding-x: 12px;
+    --endpoint-row-padding-y-primary: 8px;
+    /* Slightly more for primary row */
+    --endpoint-row-gap: 2px;
+    --endpoint-row-gap-primary: 4px;
+    --endpoint-cell-gap: 6px;
+    --endpoint-meta-gap: 2px;
 
-    /* Endpoint typography */
-    --endpoint-ip-size: var(--text-base);
-    /* 16px IP address */
-    --endpoint-ip-size-primary: var(--text-lg);
-    /* 18px for primary row */
-    --endpoint-ip-weight: var(--font-weight-semibold);
-    /* 600 */
-    --endpoint-meta-size: var(--text-xs);
-    /* 12px metadata */
-    --endpoint-value-size: var(--text-lg);
-    /* 18px traffic value */
-    --endpoint-value-size-primary: var(--text-xl);
-    /* 20px for primary row */
-    --endpoint-flows-size: var(--text-xs);
-    /* 12px flows count */
+    /* Endpoint typography - Condensed */
+    --endpoint-ip-size: 13px;
+    --endpoint-ip-size-primary: 14px;
+    --endpoint-ip-weight: var(--font-weight-medium);
+    --endpoint-meta-size: 11px;
+    --endpoint-value-size: 15px;
+    --endpoint-value-size-primary: 16px;
+    --endpoint-flows-size: 11px;
 
     /* Endpoint surfaces - depth-based hierarchy */
     --endpoint-surface-base: rgba(255, 255, 255, 0.01);
@@ -1238,7 +1232,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     font-size: var(--endpoint-meta-size);
     color: var(--text-muted);
     line-height: var(--line-height-normal);
-    margin-bottom: var(--space-2);
+    margin-bottom: var(--space-1);
 }
 
 .endpoint-meta-sparkline {
