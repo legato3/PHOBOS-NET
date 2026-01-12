@@ -114,7 +114,7 @@ document.addEventListener('alpine:init', () => {
         recentBlocksRefreshTimer: null,
 
         // Forensics Investigation Tools
-        ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false } },
+        ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
         flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
         alertCorrelation: { chains: [], loading: false, showExplanation: false },
         threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h', showDescription: false },
@@ -2783,29 +2783,34 @@ document.addEventListener('alpine:init', () => {
             if (!ip) return;
             this.ipInvestigation.timeline.loading = true;
             try {
+                const compareParam = this.ipInvestigation.timeline.compareHistory ? '&compare=true' : '';
                 // Try source timeline first (more common)
-                const res = await fetch(`/api/trends/source/${encodeURIComponent(ip)}?range=${this.timeRange}`);
+                const res = await fetch(`/api/trends/source/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
                 if (res.ok) {
                     const data = await res.json();
                     this.ipInvestigation.timeline = {
                         labels: data.labels || [],
                         bytes: data.bytes || [],
                         flows: data.flows || [],
-                        loading: false
+                        comparison: data.comparison || null,
+                        loading: false,
+                        compareHistory: this.ipInvestigation.timeline.compareHistory
                     };
                     this.$nextTick(() => {
                         this.renderIPTimelineChart();
                     });
                 } else {
                     // Try destination timeline as fallback
-                    const resDest = await fetch(`/api/trends/dest/${encodeURIComponent(ip)}?range=${this.timeRange}`);
+                    const resDest = await fetch(`/api/trends/dest/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
                     if (resDest.ok) {
                         const data = await resDest.json();
                         this.ipInvestigation.timeline = {
                             labels: data.labels || [],
                             bytes: data.bytes || [],
                             flows: data.flows || [],
-                            loading: false
+                            comparison: data.comparison || null,
+                            loading: false,
+                            compareHistory: this.ipInvestigation.timeline.compareHistory
                         };
                         this.$nextTick(() => {
                             this.renderIPTimelineChart();
@@ -2836,31 +2841,60 @@ document.addEventListener('alpine:init', () => {
                 const labels = this.ipInvestigation.timeline.labels;
                 const bytes = this.ipInvestigation.timeline.bytes;
                 const flows = this.ipInvestigation.timeline.flows;
+                const comparison = this.ipInvestigation.timeline.comparison;
+
+                const datasets = [
+                    {
+                        label: 'Bytes',
+                        data: bytes,
+                        borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
+                        backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Flows',
+                        data: flows,
+                        borderColor: this.getCssVar('--neon-green') || 'rgba(0, 255, 136, 1)',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        yAxisID: 'y1',
+                        tension: 0.3,
+                        fill: false
+                    }
+                ];
+
+                // Add comparison data if available
+                if (comparison && comparison.bytes) {
+                    datasets.push({
+                        label: 'Bytes (Previous Period)',
+                        data: comparison.bytes,
+                        borderColor: 'rgba(255, 152, 0, 0.6)',
+                        backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                        yAxisID: 'y',
+                        tension: 0.3,
+                        fill: false,
+                        borderDash: [5, 5]
+                    });
+                    if (comparison.flows) {
+                        datasets.push({
+                            label: 'Flows (Previous Period)',
+                            data: comparison.flows,
+                            borderColor: 'rgba(156, 39, 176, 0.6)',
+                            backgroundColor: 'rgba(156, 39, 176, 0.05)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            fill: false,
+                            borderDash: [5, 5]
+                        });
+                    }
+                }
 
                 this._ipInvestigationTimelineChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [
-                            {
-                                label: 'Bytes',
-                                data: bytes,
-                                borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
-                                backgroundColor: 'rgba(0, 243, 255, 0.1)',
-                                yAxisID: 'y',
-                                tension: 0.3,
-                                fill: true
-                            },
-                            {
-                                label: 'Flows',
-                                data: flows,
-                                borderColor: this.getCssVar('--neon-green') || 'rgba(0, 255, 136, 1)',
-                                backgroundColor: 'rgba(0, 255, 136, 0.1)',
-                                yAxisID: 'y1',
-                                tension: 0.3,
-                                fill: false
-                            }
-                        ]
+                        datasets: datasets
                     },
                     options: {
                         responsive: true,

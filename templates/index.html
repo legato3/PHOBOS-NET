@@ -2774,12 +2774,19 @@
                     
                     <!-- Activity Timeline -->
                     <div class="card" style="margin-bottom: var(--space-6);" x-show="ipInvestigation.timeline.labels && ipInvestigation.timeline.labels.length > 0">
-                        <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">📈 Activity Timeline</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                            <h4 style="margin: 0; font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">📈 Activity Timeline</h4>
+                            <label style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); cursor: pointer;">
+                                <input type="checkbox" x-model="ipInvestigation.timeline.compareHistory" @change="loadIPTimeline(ipInvestigation.searchIP)" style="cursor: pointer;">
+                                <span>Compare with previous period</span>
+                            </label>
+                        </div>
                         <div class="chart-wrapper" style="height: 250px;">
                             <canvas id="ipInvestigationTimelineChart"></canvas>
                         </div>
                         <p style="margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); text-align: center;">
                             Traffic patterns over the selected time range (bytes and flow counts)
+                            <span x-show="ipInvestigation.timeline.compareHistory"> • Dashed lines show previous period</span>
                         </p>
                     </div>
 

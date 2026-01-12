@@ -4330,6 +4330,7 @@ def api_ip_detail(ip):
 def api_trends_source(ip):
     """Return 5-min rollup trend for a source IP over the requested range (default 24h)."""
     range_key = request.args.get('range', '24h')
+    compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()
     minutes = {'15m': 15, '30m': 30, '1h': 60, '6h': 360, '24h': 1440}.get(range_key, 1440)
     end_dt = _get_bucket_end(now)
@@ -4345,18 +4346,42 @@ def api_trends_source(ip):
                 (ip, start_ts, end_ts)
             )
             rows = cur.fetchall()
+            
+            # Historical comparison: get same duration from previous period
+            comparison = None
+            if compare and rows:
+                prev_end_dt = start_dt
+                prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
+                prev_start_ts = int(prev_start_dt.timestamp())
+                prev_end_ts = int(prev_end_dt.timestamp())
+                
+                prev_cur = conn.execute(
+                    "SELECT bucket_end, bytes, flows FROM top_sources WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                    (ip, prev_start_ts, prev_end_ts)
+                )
+                prev_rows = prev_cur.fetchall()
+                if prev_rows:
+                    comparison = {
+                        "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
+                        "bytes": [r[1] for r in prev_rows],
+                        "flows": [r[2] for r in prev_rows]
+                    }
         finally:
             conn.close()
     labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
     bytes_arr = [r[1] for r in rows]
     flows_arr = [r[2] for r in rows]
-    return jsonify({"labels": labels, "bytes": bytes_arr, "flows": flows_arr})
+    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr}
+    if comparison:
+        result["comparison"] = comparison
+    return jsonify(result)
 
 
 @app.route("/api/trends/dest/<ip>")
 def api_trends_dest(ip):
     """Return 5-min rollup trend for a destination IP over the requested range (default 24h)."""
     range_key = request.args.get('range', '24h')
+    compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()
     minutes = {'15m': 15, '30m': 30, '1h': 60, '6h': 360, '24h': 1440}.get(range_key, 1440)
     end_dt = _get_bucket_end(now)
@@ -4372,12 +4397,35 @@ def api_trends_dest(ip):
                 (ip, start_ts, end_ts)
             )
             rows = cur.fetchall()
+            
+            # Historical comparison: get same duration from previous period
+            comparison = None
+            if compare and rows:
+                prev_end_dt = start_dt
+                prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
+                prev_start_ts = int(prev_start_dt.timestamp())
+                prev_end_ts = int(prev_end_dt.timestamp())
+                
+                prev_cur = conn.execute(
+                    "SELECT bucket_end, bytes, flows FROM top_dests WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                    (ip, prev_start_ts, prev_end_ts)
+                )
+                prev_rows = prev_cur.fetchall()
+                if prev_rows:
+                    comparison = {
+                        "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
+                        "bytes": [r[1] for r in prev_rows],
+                        "flows": [r[2] for r in prev_rows]
+                    }
         finally:
             conn.close()
     labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
     bytes_arr = [r[1] for r in rows]
     flows_arr = [r[2] for r in rows]
-    return jsonify({"labels": labels, "bytes": bytes_arr, "flows": flows_arr})
+    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr}
+    if comparison:
+        result["comparison"] = comparison
+    return jsonify(result)
 
 @app.route("/api/export")
 def export_csv():
