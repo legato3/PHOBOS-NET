@@ -1740,22 +1740,44 @@ document.addEventListener('alpine:init', () => {
 
         renderWorldMap() {
             const container = document.getElementById('world-map-svg');
-            if (!container) return;
+            if (!container) {
+                console.warn('[WorldMap] Container not found');
+                return;
+            }
             
             // Check if container is visible (x-show might hide it initially)
             const containerParent = container.closest('.world-map-container');
-            if (containerParent && containerParent.offsetParent === null) {
-                // Container is hidden, wait a bit and try again
-                setTimeout(() => this.renderWorldMap(), 200);
+            const isVisible = containerParent && containerParent.offsetParent !== null && 
+                             containerParent.offsetWidth > 0 && containerParent.offsetHeight > 0;
+            
+            if (!isVisible) {
+                // Container is hidden, wait a bit and try again (max 5 attempts)
+                if (!this._mapRenderAttempts) this._mapRenderAttempts = 0;
+                if (this._mapRenderAttempts < 5) {
+                    this._mapRenderAttempts++;
+                    setTimeout(() => this.renderWorldMap(), 300);
+                } else {
+                    console.warn('[WorldMap] Container not visible after multiple attempts');
+                    this._mapRenderAttempts = 0;
+                }
                 return;
             }
+            this._mapRenderAttempts = 0; // Reset on success
             
             // Check if Leaflet is loaded
-            if (typeof L === 'undefined') {
-                console.warn('Leaflet not loaded yet, deferring map render');
-                setTimeout(() => this.renderWorldMap(), 100);
+            if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+                console.warn('[WorldMap] Leaflet not loaded yet, deferring map render');
+                if (!this._leafletWaitAttempts) this._leafletWaitAttempts = 0;
+                if (this._leafletWaitAttempts < 20) { // Wait up to 2 seconds (20 * 100ms)
+                    this._leafletWaitAttempts++;
+                    setTimeout(() => this.renderWorldMap(), 100);
+                } else {
+                    console.error('[WorldMap] Leaflet failed to load after multiple attempts');
+                    this._leafletWaitAttempts = 0;
+                }
                 return;
             }
+            this._leafletWaitAttempts = 0; // Reset on success
 
             // Initialize Leaflet if not already done
             if (!this.map) {
@@ -1768,6 +1790,14 @@ document.addEventListener('alpine:init', () => {
                 container.innerHTML = '';
 
                 try {
+                    // Ensure container has dimensions before initialization
+                    const containerRect = container.getBoundingClientRect();
+                    if (containerRect.width === 0 || containerRect.height === 0) {
+                        console.warn('[WorldMap] Container has zero dimensions, retrying...');
+                        setTimeout(() => this.renderWorldMap(), 200);
+                        return;
+                    }
+
                     this.map = L.map('world-map-svg', {
                         center: [20, 0],
                         zoom: 2,
@@ -1783,34 +1813,45 @@ document.addEventListener('alpine:init', () => {
                     const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                         subdomains: 'abcd',
-                        maxZoom: 19
+                        maxZoom: 19,
+                        errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' // Transparent 1px GIF as fallback
                     });
                     
                     tileLayer.addTo(this.map);
                     
                     // Debug: Log tile loading errors
                     tileLayer.on('tileerror', (error, tile) => {
-                        console.error('Tile loading error:', error, tile);
+                        console.error('[WorldMap] Tile loading error:', error, tile);
                     });
                     
                     // Invalidate size to ensure map renders correctly
                     this.map.whenReady(() => {
+                        if (!this.map) return;
                         this.map.invalidateSize();
                         // Force a view reset after a short delay to ensure tiles load
                         setTimeout(() => {
                             if (this.map) {
                                 this.map.invalidateSize();
                                 this.map.setView([20, 0], 2);
+                                console.log('[WorldMap] Map initialized successfully');
                             }
-                        }, 100);
+                        }, 150);
                     });
 
                 } catch (e) {
-                    console.error('Leaflet init failed:', e);
+                    console.error('[WorldMap] Leaflet init failed:', e);
                     // Attempt recovery: remove any existing map instance on this container ID
                     if (this.map) { 
-                        this.map.remove(); 
+                        try {
+                            this.map.remove(); 
+                        } catch (removeError) {
+                            console.error('[WorldMap] Error removing map:', removeError);
+                        }
                         this.map = null; 
+                    }
+                    // Clear container state
+                    if (container._leaflet_id) {
+                        container._leaflet_id = null;
                     }
                     return;
                 }
@@ -1820,10 +1861,10 @@ document.addEventListener('alpine:init', () => {
             if (this.map) {
                 // Use setTimeout to ensure DOM has updated and container is visible
                 setTimeout(() => {
-                    if (this.map) {
+                    if (this.map && container.offsetWidth > 0 && container.offsetHeight > 0) {
                         this.map.invalidateSize();
                     }
-                }, 50);
+                }, 100);
             }
 
             // Clear existing layers
@@ -2824,8 +2865,13 @@ document.addEventListener('alpine:init', () => {
                     setTimeout(() => {
                         if (this.map) {
                             this.map.invalidateSize();
+                            // Also re-render to ensure markers are visible
+                            this.renderWorldMap();
+                        } else {
+                            // If map doesn't exist yet, try to initialize it
+                            this.renderWorldMap();
                         }
-                    }, 100);
+                    }, 200);
                 });
             } else if (tab === 'server') {
                 this.fetchServerHealth();
