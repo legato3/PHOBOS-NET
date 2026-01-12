@@ -334,9 +334,9 @@ body.sidebar-collapsed .layout-wrapper {
     border-right: 1px solid rgba(0, 243, 255, 0.15);
     padding: var(--space-4) 0;
     height: auto;
-    max-height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px) - 60px);
+    max-height: calc(100vh - 140px - 60px);
     position: fixed;
-    top: calc(var(--header-height, 80px) + var(--space-6, 24px));
+    top: 140px; /* Start below header to avoid overlapping title */
     left: var(--space-4);
     margin-bottom: var(--space-4);
     overflow-y: auto;
@@ -426,6 +426,14 @@ body.sidebar-collapsed .layout-wrapper {
     margin: 0 auto;
 }
 
+/* When collapsed sidebar is hovered, adjust items to show labels */
+.sidebar.collapsed:hover .sidebar-item {
+    justify-content: flex-start;
+    padding: var(--space-3) var(--space-4);
+    width: 100%;
+    margin: 0;
+}
+
 .sidebar-item:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
@@ -490,9 +498,12 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar.collapsed .sidebar-label {
-    width: 0;
-    opacity: 0;
-    overflow: hidden;
+    display: none;
+}
+
+/* Show labels when collapsed sidebar is hovered */
+.sidebar.collapsed:hover .sidebar-label {
+    display: block;
 }
 
 /* Main Content */
