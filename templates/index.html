@@ -961,13 +961,50 @@
                                     <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_dst || 0).toLocaleString()"></strong> Dst</span>
                                 </div>
                                 <div class="log-controls">
-                                    <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || recentBlocks.blocks.length, recentBlocks.blocks.length).toLocaleString() + ' / ' + (recentBlocks.blocks.length || 0).toLocaleString()"></span>
+                                    <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || filteredRecentBlocks.length, filteredRecentBlocks.length).toLocaleString() + ' / ' + (filteredRecentBlocks.length || 0).toLocaleString() + ' (of ' + (recentBlocks.blocks.length || 0).toLocaleString() + ' total)'"></span>
                                     <div class="log-range">
                                         <button :class="{ 'active': recentBlocksView === 50 }" @click="setRecentBlocksView(50)">50</button>
                                         <button :class="{ 'active': recentBlocksView === 200 }" @click="setRecentBlocksView(200)">200</button>
                                         <button :class="{ 'active': recentBlocksView === 1000 }" @click="setRecentBlocksView(1000)">1000</button>
                                     </div>
                                 </div>
+                            </div>
+                            <!-- Enhanced Filters -->
+                            <div class="log-filters" style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.05);">
+                                <select x-model="recentBlocksFilter.action" class="filter-select" style="min-width: 120px;" aria-label="Filter by action">
+                                    <option value="all">All Actions</option>
+                                    <option value="block">Block</option>
+                                    <option value="reject">Reject</option>
+                                    <option value="pass">Pass</option>
+                                </select>
+                                <input type="text" 
+                                       x-model="recentBlocksFilter.searchIP" 
+                                       placeholder="Search IP address..." 
+                                       class="search-box" 
+                                       style="flex: 1; min-width: 200px; max-width: 300px;"
+                                       aria-label="Search by IP address">
+                                <input type="text" 
+                                       x-model="recentBlocksFilter.port" 
+                                       placeholder="Filter by port..." 
+                                       class="search-box" 
+                                       style="min-width: 120px; max-width: 150px;"
+                                       aria-label="Filter by port">
+                                <select x-model="recentBlocksFilter.protocol" class="filter-select" style="min-width: 120px;" aria-label="Filter by protocol">
+                                    <option value="all">All Protocols</option>
+                                    <option value="TCP">TCP</option>
+                                    <option value="UDP">UDP</option>
+                                    <option value="ICMP">ICMP</option>
+                                </select>
+                                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; white-space: nowrap;">
+                                    <input type="checkbox" x-model="recentBlocksFilter.threatOnly" style="cursor: pointer;">
+                                    <span style="color: var(--text-secondary); font-size: var(--text-sm);">Threats Only</span>
+                                </label>
+                                <button @click="recentBlocksFilter = { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false }" 
+                                        class="btn btn--secondary" 
+                                        style="white-space: nowrap;"
+                                        :disabled="recentBlocksFilter.action === 'all' && !recentBlocksFilter.searchIP && !recentBlocksFilter.port && recentBlocksFilter.protocol === 'all' && !recentBlocksFilter.threatOnly">
+                                    Clear Filters
+                                </button>
                             </div>
 
                             <div class="log-table-wrapper">
@@ -984,7 +1021,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <template x-for="block in recentBlocks.blocks.slice(0, recentBlocksView || recentBlocks.blocks.length)" :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
+                                        <template x-for="block in filteredRecentBlocks.slice(0, recentBlocksView || filteredRecentBlocks.length)" :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
                                             <tr :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }">
                                                 <td style="font-size: 0.85em; color: var(--text-muted);">
                                                     <div x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp"></div>
@@ -996,12 +1033,12 @@
                                                         <span class="log-sub" x-text="block.interface || '-'" style="display:block;"></span>
                                                     </div>
                                                 </td>
-                                                <td @click="openIPModal(block.src_ip)" style="cursor: pointer;">
+                                                <td @click="openIPInvestigationModal(block.src_ip)" style="cursor: pointer;" title="Click to investigate IP">
                                                     <div class="truncate"><strong class="text-green" x-text="block.src_ip || '--'"></strong></div>
                                                     <div class="log-sub" x-text="block.src_port ? 'Port ' + block.src_port : ''"></div>
                                                 </td>
                                                 <td style="text-align: center; color: var(--text-muted);">→</td>
-                                                <td @click="openIPModal(block.dst_ip)" style="cursor: pointer;">
+                                                <td @click="openIPInvestigationModal(block.dst_ip)" style="cursor: pointer;" title="Click to investigate IP">
                                                     <div class="truncate">
                                                         <span class="text-cyan" x-text="block.dst_ip || '192.168.0.1'"></span>
                                                         <span class="port-badge" style="margin-left: 4px;" x-show="block.dst_port" x-text=":" + block.dst_port></span>
@@ -1635,7 +1672,7 @@
                             <span class="log-chip log-chip-slate"><strong x-text="(recentBlocks.stats?.unique_dst || 0).toLocaleString()"></strong> Dst</span>
                         </div>
                         <div class="log-controls">
-                            <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || recentBlocks.blocks.length, recentBlocks.blocks.length).toLocaleString() + ' / ' + (recentBlocks.blocks.length || 0).toLocaleString()"></span>
+                            <span class="log-count" x-text="'Showing ' + Math.min(recentBlocksView || filteredRecentBlocks.length, filteredRecentBlocks.length).toLocaleString() + ' / ' + (filteredRecentBlocks.length || 0).toLocaleString() + ' (of ' + (recentBlocks.blocks.length || 0).toLocaleString() + ' total)'"></span>
                             <span class="log-update-time" x-show="recentBlocks.lastUpdate" :title="recentBlocks.lastUpdate" x-text="'Updated ' + timeAgo(new Date(recentBlocks.lastUpdate).getTime() / 1000)"></span>
                             <div class="log-range">
                                 <button :class="{ 'active': recentBlocksView === 50 }" @click="setRecentBlocksView(50)">50</button>
@@ -1643,6 +1680,43 @@
                                 <button :class="{ 'active': recentBlocksView === 1000 }" @click="setRecentBlocksView(1000)">1000</button>
                             </div>
                         </div>
+                    </div>
+                    <!-- Enhanced Filters -->
+                    <div class="log-filters" style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.05);">
+                        <select x-model="recentBlocksFilter.action" class="filter-select" style="min-width: 120px;" aria-label="Filter by action">
+                            <option value="all">All Actions</option>
+                            <option value="block">Block</option>
+                            <option value="reject">Reject</option>
+                            <option value="pass">Pass</option>
+                        </select>
+                        <input type="text" 
+                               x-model="recentBlocksFilter.searchIP" 
+                               placeholder="Search IP address..." 
+                               class="search-box" 
+                               style="flex: 1; min-width: 200px; max-width: 300px;"
+                               aria-label="Search by IP address">
+                        <input type="text" 
+                               x-model="recentBlocksFilter.port" 
+                               placeholder="Filter by port..." 
+                               class="search-box" 
+                               style="min-width: 120px; max-width: 150px;"
+                               aria-label="Filter by port">
+                        <select x-model="recentBlocksFilter.protocol" class="filter-select" style="min-width: 120px;" aria-label="Filter by protocol">
+                            <option value="all">All Protocols</option>
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                            <option value="ICMP">ICMP</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; white-space: nowrap;">
+                            <input type="checkbox" x-model="recentBlocksFilter.threatOnly" style="cursor: pointer;">
+                            <span style="color: var(--text-secondary); font-size: var(--text-sm);">Threats Only</span>
+                        </label>
+                        <button @click="recentBlocksFilter = { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false }" 
+                                class="btn btn--secondary" 
+                                style="white-space: nowrap;"
+                                :disabled="recentBlocksFilter.action === 'all' && !recentBlocksFilter.searchIP && !recentBlocksFilter.port && recentBlocksFilter.protocol === 'all' && !recentBlocksFilter.threatOnly">
+                            Clear Filters
+                        </button>
                     </div>
 
                     <div class="log-table-wrapper">
@@ -1671,12 +1745,12 @@
                                                 <span class="log-sub" x-text="block.interface || '-'" style="display:block;"></span>
                                             </div>
                                         </td>
-                                        <td @click="openIPModal(block.src_ip)" style="cursor: pointer;">
+                                        <td @click="openIPInvestigationModal(block.src_ip)" style="cursor: pointer;" title="Click to investigate IP">
                                             <div class="truncate"><strong class="text-green" x-text="block.src_ip || '--'"></strong></div>
                                             <div class="log-sub" x-text="block.src_port ? 'Port ' + block.src_port : ''"></div>
                                         </td>
                                         <td style="text-align: center; color: var(--text-muted);">→</td>
-                                        <td @click="openIPModal(block.dst_ip)" style="cursor: pointer;">
+                                        <td @click="openIPInvestigationModal(block.dst_ip)" style="cursor: pointer;" title="Click to investigate IP">
                                             <div class="truncate">
                                                 <span class="text-cyan" x-text="block.dst_ip || '192.168.0.1'"></span>
                                                 <span class="port-badge" style="margin-left: 4px;" x-show="block.dst_port" x-text="':' + block.dst_port"></span>
@@ -2544,15 +2618,23 @@
                             <div style="display: flex; flex-direction: column; gap: var(--space-3);">
                                 <div>
                                     <strong style="color: var(--text-secondary);">Country:</strong>
-                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.country || 'N/A'"></span>
+                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.geo?.country || ipInvestigation.result?.country || 'N/A'"></span>
                                 </div>
                                 <div>
                                     <strong style="color: var(--text-secondary);">Region:</strong>
-                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.region || 'N/A'"></span>
+                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.region || ipInvestigation.result?.geo?.region || 'N/A'"></span>
+                                </div>
+                                <div>
+                                    <strong style="color: var(--text-secondary);">City:</strong>
+                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.geo?.city || 'N/A'"></span>
                                 </div>
                                 <div>
                                     <strong style="color: var(--text-secondary);">ASN:</strong>
-                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.asn || 'N/A'"></span>
+                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.geo?.asn || ipInvestigation.result?.asn || 'N/A'"></span>
+                                </div>
+                                <div x-show="ipInvestigation.result?.geo?.org">
+                                    <strong style="color: var(--text-secondary);">Organization:</strong>
+                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.geo?.org"></span>
                                 </div>
                             </div>
                         </div>
@@ -2560,12 +2642,16 @@
                             <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">Activity Summary</h4>
                             <div style="display: flex; flex-direction: column; gap: var(--space-3);">
                                 <div>
-                                    <strong style="color: var(--text-secondary);">First Seen:</strong>
-                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.first_seen || 'N/A'"></span>
+                                    <strong style="color: var(--text-secondary);">Hostname:</strong>
+                                    <span style="margin-left: var(--space-2); font-family: var(--font-mono);" x-text="ipInvestigation.result?.hostname || 'N/A'"></span>
                                 </div>
                                 <div>
-                                    <strong style="color: var(--text-secondary);">Last Seen:</strong>
-                                    <span style="margin-left: var(--space-2);" x-text="ipInvestigation.result?.last_seen || 'N/A'"></span>
+                                    <strong style="color: var(--text-secondary);">Classification:</strong>
+                                    <span style="margin-left: var(--space-2);" :class="ipInvestigation.result?.classification === 'Internal' ? 'text-green' : 'text-purple'" x-text="ipInvestigation.result?.classification || (ipInvestigation.result?.internal ? 'Internal' : 'External')"></span>
+                                </div>
+                                <div>
+                                    <strong style="color: var(--text-secondary);">Total Traffic:</strong>
+                                    <span style="margin-left: var(--space-2);" class="text-cyan" x-text="ipInvestigation.result?.total_bytes_fmt || 'N/A'"></span>
                                 </div>
                                 <div>
                                     <strong style="color: var(--text-secondary);">Total Flows:</strong>
@@ -2573,6 +2659,37 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Related Entities Card -->
+                        <div class="card" x-show="ipInvestigation.result?.src_ports?.length || ipInvestigation.result?.dst_ports?.length || ipInvestigation.result?.protocols?.length">
+                            <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">Network Activity</h4>
+                            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                                <div x-show="ipInvestigation.result?.protocols?.length">
+                                    <strong style="color: var(--text-secondary); display: block; margin-bottom: var(--space-2);">Top Protocols:</strong>
+                                    <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+                                        <template x-for="(proto, idx) in (ipInvestigation.result?.protocols || []).slice(0, 5)" :key="idx">
+                                            <span class="badge" style="background: rgba(0,243,255,0.15); color: var(--neon-cyan);" x-text="proto.proto_name || proto.key"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div x-show="ipInvestigation.result?.src_ports?.length || ipInvestigation.result?.dst_ports?.length">
+                                    <strong style="color: var(--text-secondary); display: block; margin-bottom: var(--space-2);">Active Ports:</strong>
+                                    <div style="font-size: var(--text-sm); color: var(--text-secondary);" x-text="((ipInvestigation.result?.src_ports?.length || 0) + (ipInvestigation.result?.dst_ports?.length || 0)) + ' ports'"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Export Actions -->
+                    <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-6); flex-wrap: wrap;">
+                        <button @click="exportInvestigationResults('json')" class="btn btn--secondary" :disabled="!ipInvestigation.result">
+                            📥 Export JSON
+                        </button>
+                        <button @click="exportInvestigationResults('csv')" class="btn btn--secondary" :disabled="!ipInvestigation.result">
+                            📥 Export CSV
+                        </button>
+                        <button @click="copyInvestigationIP()" class="btn btn--secondary" :disabled="!ipInvestigation.searchIP">
+                            📋 Copy IP
+                        </button>
                     </div>
                 </div>
 

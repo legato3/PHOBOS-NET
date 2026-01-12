@@ -107,7 +107,7 @@ document.addEventListener('alpine:init', () => {
         protocolAnomalies: { protocols: [], anomaly_count: 0, loading: true },
         recentBlocks: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 }, lastUpdate: null },
         recentBlocksView: 50,
-        recentBlocksFilter: { action: 'all', searchIP: '', threatOnly: false },
+        recentBlocksFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
         recentBlocksAutoRefresh: true,
         recentBlocksRefreshTimer: null,
 
@@ -1393,6 +1393,22 @@ document.addEventListener('alpine:init', () => {
                 );
             }
             
+            // Apply port filter
+            if (this.recentBlocksFilter.port) {
+                const port = this.recentBlocksFilter.port.toString();
+                filtered = filtered.filter(b => 
+                    (b.src_port && b.src_port.toString().includes(port)) ||
+                    (b.dst_port && b.dst_port.toString().includes(port))
+                );
+            }
+            
+            // Apply protocol filter
+            if (this.recentBlocksFilter.protocol !== 'all') {
+                filtered = filtered.filter(b => 
+                    (b.proto && b.proto.toUpperCase() === this.recentBlocksFilter.protocol.toUpperCase())
+                );
+            }
+            
             return filtered;
         },
 
@@ -2636,12 +2652,18 @@ document.addEventListener('alpine:init', () => {
                 // Check if it's a threat
                 const isThreat = this.threats.hits.some(t => t.ip === ip);
 
+                // Calculate total traffic
+                const totalBytes = (data.direction?.upload || 0) + (data.direction?.download || 0);
+                
                 this.ipInvestigation.result = {
                     ...data,
                     classification: isInternal ? 'Internal' : 'External',
                     is_threat: isThreat,
-                    total_bytes_fmt: this.fmtBytes(data.direction?.upload + data.direction?.download || 0),
-                    flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0)
+                    total_bytes_fmt: this.fmtBytes(totalBytes),
+                    flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0),
+                    country: data.geo?.country || data.country,
+                    region: data.region || data.geo?.region,
+                    asn: data.geo?.asn || data.asn
                 };
             } catch (err) {
                 console.error('IP investigation failed:', err);
@@ -2662,6 +2684,57 @@ document.addEventListener('alpine:init', () => {
                     this.investigateIP();
                 });
             }
+        },
+        
+        exportInvestigationResults(format) {
+            if (!this.ipInvestigation.result) return;
+            
+            const data = this.ipInvestigation.result;
+            const ip = this.ipInvestigation.searchIP;
+            
+            if (format === 'json') {
+                const jsonStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ip-investigation-${ip}-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Investigation data exported as JSON', 'success');
+            } else if (format === 'csv') {
+                // Create CSV with key information
+                const lines = [
+                    'Field,Value',
+                    `IP Address,${ip}`,
+                    `Classification,${data.classification || 'N/A'}`,
+                    `Threat Status,${data.is_threat ? 'THREAT' : 'Clean'}`,
+                    `Country,${data.country || data.geo?.country || 'N/A'}`,
+                    `Region,${data.region || data.geo?.region || 'N/A'}`,
+                    `ASN,${data.asn || data.geo?.asn || 'N/A'}`,
+                    `Hostname,${data.hostname || 'N/A'}`,
+                    `Total Traffic,${data.total_bytes_fmt || 'N/A'}`,
+                    `Total Flows,${data.flow_count || 0}`
+                ];
+                const csvStr = lines.join('\n');
+                const blob = new Blob([csvStr], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ip-investigation-${ip}-${Date.now()}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Investigation data exported as CSV', 'success');
+            }
+        },
+        
+        copyInvestigationIP() {
+            if (!this.ipInvestigation.searchIP) return;
+            navigator.clipboard.writeText(this.ipInvestigation.searchIP).then(() => {
+                this.showToast('IP address copied to clipboard', 'success');
+            }).catch(() => {
+                this.showToast('Failed to copy IP address', 'error');
+            });
         },
 
         async searchFlows() {
