@@ -189,6 +189,10 @@ DNS_SERVER=192.168.0.6          # For PTR lookups
 SNMP_HOST=192.168.0.1           # Firewall IP
 SNMP_COMMUNITY=Phoboshomesnmp_3 # SNMP community string
 
+# Threat Intelligence APIs (optional)
+VIRUSTOTAL_API_KEY=c480490e31bfbacf2ff9adc040312c254097c38d0037ccf4676200cbb2860632
+ABUSEIPDB_API_KEY=6bec8cdb5f6e384445ad212a77d920c96f43a2c84f8060b76f6d358f04dc007eaf733e509f87da76
+
 # Paths
 SMTP_CFG_PATH=/root/netflow-smtp.json
 NOTIFY_CFG_PATH=/root/netflow-notify.json

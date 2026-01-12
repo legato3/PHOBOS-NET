@@ -6,6 +6,8 @@ After=network.target
 Type=notify
 User=root
 WorkingDirectory=/root
+Environment="VIRUSTOTAL_API_KEY=c480490e31bfbacf2ff9adc040312c254097c38d0037ccf4676200cbb2860632"
+Environment="ABUSEIPDB_API_KEY=6bec8cdb5f6e384445ad212a77d920c96f43a2c84f8060b76f6d358f04dc007eaf733e509f87da76"
 ExecStart=/usr/bin/python3 -m gunicorn --bind 0.0.0.0:8080 \
     --workers 1 \
     --threads 8 \

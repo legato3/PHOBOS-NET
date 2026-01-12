@@ -74,6 +74,41 @@ The investigation results show:
   - Protocol distribution
   - Port activity breakdown
 
+## Configuration
+
+### Threat Intelligence API Keys
+
+The IP Investigation feature supports optional threat intelligence integration via VirusTotal and AbuseIPDB APIs. To enable these features:
+
+1. **Get API Keys:**
+   - VirusTotal: Sign up at https://www.virustotal.com/ (free tier: 500 requests/day)
+   - AbuseIPDB: Sign up at https://www.abuseipdb.com/ (free tier: 1,000 checks/day)
+
+2. **Configure via Systemd Service:**
+   
+   Edit the systemd service file (`/etc/systemd/system/netflow-dashboard.service`) and add:
+   ```ini
+   [Service]
+   Environment="VIRUSTOTAL_API_KEY=your_virustotal_api_key"
+   Environment="ABUSEIPDB_API_KEY=your_abuseipdb_api_key"
+   ```
+   
+   Then reload and restart:
+   ```bash
+   systemctl daemon-reload
+   systemctl restart netflow-dashboard
+   ```
+
+3. **Or Configure via Environment Variables:**
+   
+   Export before starting the service:
+   ```bash
+   export VIRUSTOTAL_API_KEY=your_virustotal_api_key
+   export ABUSEIPDB_API_KEY=your_abuseipdb_api_key
+   ```
+
+**Note:** The feature works without API keys (graceful degradation), but threat intelligence data will not be available.
+
 ## Technical Details
 
 ### API Endpoint
