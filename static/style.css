@@ -537,6 +537,54 @@ body.sidebar-collapsed .header {
     justify-content: flex-end;
 }
 
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-right: var(--space-2);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: var(--space-4);
+}
+
+.header-control-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.control-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.header-select {
+    background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 60px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.header-select:hover,
+.header-select:focus {
+    border-color: var(--true-blue);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
 .header-center {
     flex: 2;
     display: flex;
