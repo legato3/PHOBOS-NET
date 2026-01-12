@@ -114,7 +114,7 @@ document.addEventListener('alpine:init', () => {
         recentBlocksRefreshTimer: null,
 
         // Forensics Investigation Tools
-        ipInvestigation: { searchIP: '', result: null, loading: false },
+        ipInvestigation: { searchIP: '', result: null, loading: false, error: null },
         flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
         alertCorrelation: { chains: [], loading: false, showExplanation: false },
         threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h', showDescription: false },
@@ -2657,21 +2657,35 @@ document.addEventListener('alpine:init', () => {
 
             this.ipInvestigation.loading = true;
             this.ipInvestigation.result = null;
+            this.ipInvestigation.error = null;
 
             try {
-                const res = await fetch(`/api/ip_detail/${this.ipInvestigation.searchIP}?range=${this.timeRange}`);
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+                const res = await fetch(`/api/ip_detail/${encodeURIComponent(this.ipInvestigation.searchIP)}?range=${this.timeRange}`, {
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
                 const data = await res.json();
 
                 // Determine classification
                 const ip = this.ipInvestigation.searchIP;
-                const isInternal = ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.');
+                const isInternal = ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || ip.startsWith('172.31.');
 
                 // Check if it's a threat
                 const isThreat = this.threats.hits.some(t => t.ip === ip);
 
                 // Calculate total traffic
                 const totalBytes = (data.direction?.upload || 0) + (data.direction?.download || 0);
-                
+
                 this.ipInvestigation.result = {
                     ...data,
                     classification: isInternal ? 'Internal' : 'External',
@@ -2684,7 +2698,12 @@ document.addEventListener('alpine:init', () => {
                 };
             } catch (err) {
                 console.error('IP investigation failed:', err);
-                alert('Failed to investigate IP');
+                if (err.name === 'AbortError') {
+                    this.ipInvestigation.error = 'Request timed out. The IP investigation is taking too long. Try a shorter time range.';
+                } else {
+                    this.ipInvestigation.error = err.message || 'Failed to investigate IP. Please try again.';
+                }
+                this.showToast(this.ipInvestigation.error, 'error');
             } finally {
                 this.ipInvestigation.loading = false;
             }

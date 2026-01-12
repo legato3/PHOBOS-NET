@@ -4078,13 +4078,28 @@ def api_conversations():
 @app.route("/api/ip_detail/<ip>")
 @throttle(5,10)
 def api_ip_detail(ip):
+    """Get detailed information about an IP address including traffic patterns, ports, protocols, and geo data."""
     start_threat_thread()
+    
+    # Support range parameter (default to 1h for backwards compatibility)
+    range_key = request.args.get('range', '1h')
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
     dt = datetime.now()
-    tf = f"{(dt-timedelta(hours=1)).strftime('%Y/%m/%d.%H:%M:%S')}-{dt.strftime('%Y/%m/%d.%H:%M:%S')}"
-    direction = get_traffic_direction(ip, tf)
-    src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf), expected_key='dp')
-    dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf), expected_key='sp')
-    protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf), expected_key='proto')
+    start_dt = dt - timedelta(seconds=range_seconds)
+    tf = f"{start_dt.strftime('%Y/%m/%d.%H:%M:%S')}-{dt.strftime('%Y/%m/%d.%H:%M:%S')}"
+    
+    try:
+        direction = get_traffic_direction(ip, tf)
+        src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf), expected_key='dp')
+        dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf), expected_key='sp')
+        protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf), expected_key='proto')
+    except Exception as e:
+        # If nfdump fails, return partial data
+        direction = {"upload": 0, "download": 0}
+        src_ports = []
+        dst_ports = []
+        protocols = []
+        print(f"Warning: nfdump query failed for IP {ip}: {e}")
 
     # Enrich
     for p in protocols:
