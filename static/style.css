@@ -59,6 +59,10 @@
     --accent-warning-hover: #cc9300;
     --accent-warning-glow: rgba(255, 184, 0, 0.15);
 
+    /* Core Palette Fixes - Missing definitions referenced in app */
+    --accent-cyan: #00f3ff;
+    --accent-magenta: #ff00ff;
+
     /* Legacy compatibility (deprecated, use semantic aliases) */
     --bg-dark: var(--bg-primary);
     --neon-cyan: var(--accent-primary);
@@ -6854,19 +6858,23 @@ body.compact-mode {
 .server-stat-progress {
     width: 100%;
     height: 8px;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.1);
+    /* Slightly lighter for track visibility */
     border-radius: 4px;
     overflow: hidden;
     margin: var(--space-3) 0;
     position: relative;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .server-stat-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-magenta) 100%);
+    background: var(--accent-cyan);
+    /* Solid cyan for maximum clarity */
     border-radius: 4px;
-    transition: width 0.3s ease;
-    box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+    /* Increased glow */
 }
 
 .server-stat-progress-bar.warning {
