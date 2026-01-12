@@ -13,13 +13,44 @@ DEPLOY_PATH="/root"
 
 echo "🚀 Starting deployment..."
 
-# Push changes to GitHub first
+# Ensure we're in the repo root
+cd "$(dirname "$0")/.."
+
+# Check for uncommitted changes
+if ! git diff-index --quiet HEAD --; then
+    echo "⚠️  Warning: You have uncommitted changes. Please commit or stash them first."
+    echo "   Uncommitted files:"
+    git diff --name-only
+    exit 1
+fi
+
+# Push changes to GitHub with automatic rebase handling
 echo "📤 Pushing changes to GitHub..."
-git push origin main
+if ! git push origin main 2>&1 | tee /tmp/git_push_output; then
+    # Check if the error is due to remote changes
+    if grep -q "Updates were rejected" /tmp/git_push_output || grep -q "fetch first" /tmp/git_push_output; then
+        echo "🔄 Remote has changes, pulling and rebasing..."
+        git fetch origin main
+        if git rebase origin/main; then
+            echo "✅ Rebase successful, pushing again..."
+            git push origin main
+        else
+            echo "❌ Rebase failed. Please resolve conflicts manually:"
+            echo "   1. Resolve conflicts in the files listed above"
+            echo "   2. Run: git rebase --continue"
+            echo "   3. Run: git push origin main"
+            echo "   4. Run this deployment script again"
+            exit 1
+        fi
+    else
+        echo "❌ Push failed for unknown reason. See error above."
+        exit 1
+    fi
+fi
+rm -f /tmp/git_push_output
 
 # SSH to server and deploy using tar (more reliable than git fetch for auth issues)
 echo "📥 Syncing files to server repository..."
-cd "$(dirname "$0")/.."
 tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' --exclude='.venv' -czf - . | \
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     mkdir -p ${REPO_PATH}
