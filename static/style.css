@@ -587,6 +587,13 @@ button.active {
     }
 }
 
+/* Summary Stats Grid - 3 column horizontal layout */
+.summary-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+}
+
 /* Responsive: Stack columns on smaller screens */
 @media (max-width: 1199px) {
     .layout-primary-focus {
@@ -598,6 +605,17 @@ button.active {
     .primary-column,
     .secondary-column {
         width: 100%;
+    }
+    
+    /* Summary stats: 2 columns on medium screens, 1 column on small */
+    .summary-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .summary-stats-grid {
+        grid-template-columns: 1fr;
     }
 }
 

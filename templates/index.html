@@ -303,17 +303,19 @@
 
                     <!-- Secondary Column: Summary Stats -->
                     <div class="secondary-column">
-                        <div class="card stat-box">
-                            <div class="value" x-text="summary.totals.bytes_fmt">...</div>
-                            <div class="label">Total Traffic</div>
-                        </div>
-                        <div class="card stat-box">
-                            <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
-                            <div class="label">Total Flows</div>
-                        </div>
-                        <div class="card stat-box">
-                            <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
-                            <div class="label">Avg Packet Size</div>
+                        <div class="summary-stats-grid">
+                            <div class="card stat-box">
+                                <div class="value" x-text="summary.totals.bytes_fmt">...</div>
+                                <div class="label">Total Traffic</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
+                                <div class="label">Total Flows</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
+                                <div class="label">Avg Packet Size</div>
+                            </div>
                         </div>
                     </div>
                 </div>
