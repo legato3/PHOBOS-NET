@@ -18,11 +18,26 @@ echo "📤 Pushing changes to GitHub..."
 git push origin main
 
 # SSH to server and deploy
-echo "📥 Pulling latest changes on server..."
+echo "📥 Updating repository on server..."
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
+    # Initialize repo if it doesn't exist
+    if [ ! -d ${REPO_PATH}/.git ]; then
+        echo \"Initializing repository...\"
+        mkdir -p ${REPO_PATH}
+        cd ${REPO_PATH}
+        git init
+        git remote add origin https://github.com/legato3/PROX_NFDUMP.git 2>/dev/null || git remote set-url origin https://github.com/legato3/PROX_NFDUMP.git
+    fi
+    
     cd ${REPO_PATH}
-    git fetch origin
-    git reset --hard origin/main
+    # Try to fetch, but continue if it fails (network/auth issues)
+    git fetch origin 2>/dev/null || echo \"Note: Could not fetch from GitHub (may require auth). Using local files.\"
+    # If we have a remote branch reference, use it, otherwise just use current files
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        git reset --hard origin/main
+    else
+        echo \"Using local repository files...\"
+    fi
     
     echo \"📋 Copying files to deployment directory...\"
     
