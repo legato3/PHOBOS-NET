@@ -2437,13 +2437,38 @@ def api_stats_worldmap():
         except:
             pass
         
+        # Calculate totals for percentage calculations
+        total_source_bytes = sum(v["bytes"] for v in source_countries.values())
+        total_dest_bytes = sum(v["bytes"] for v in dest_countries.values())
+        
+        # Build country lists with percentages
+        source_countries_list = []
+        for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]:
+            pct = round((v["bytes"] / total_source_bytes * 100), 1) if total_source_bytes > 0 else 0
+            source_countries_list.append({
+                "iso": k,
+                **v,
+                "bytes_fmt": fmt_bytes(v["bytes"]),
+                "pct": pct
+            })
+        
+        dest_countries_list = []
+        for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]:
+            pct = round((v["bytes"] / total_dest_bytes * 100), 1) if total_dest_bytes > 0 else 0
+            dest_countries_list.append({
+                "iso": k,
+                **v,
+                "bytes_fmt": fmt_bytes(v["bytes"]),
+                "pct": pct
+            })
+        
         data = {
             "sources": source_points[:30],
             "destinations": dest_points[:30],
             "threats": threat_points[:30],
             "blocked": blocked_points[:30],
-            "source_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(source_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
-            "dest_countries": [{"iso": k, **v, "bytes_fmt": fmt_bytes(v["bytes"])} for k, v in sorted(dest_countries.items(), key=lambda x: x[1]["bytes"], reverse=True)[:15]],
+            "source_countries": source_countries_list,
+            "dest_countries": dest_countries_list,
             "threat_countries": [{"iso": k, **v} for k, v in sorted(threat_countries.items(), key=lambda x: x[1]["count"], reverse=True)[:10]],
             "blocked_countries": [{"iso": k, **v} for k, v in sorted(blocked_countries.items(), key=lambda x: x[1]["blocks"], reverse=True)[:10]],
             "summary": {
@@ -2451,7 +2476,11 @@ def api_stats_worldmap():
                 "total_destinations": len(dest_points),
                 "total_threats": len(threat_points),
                 "total_blocked": len(blocked_points),
-                "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys())))
+                "countries_reached": len(set(list(source_countries.keys()) + list(dest_countries.keys()))),
+                "total_source_bytes": total_source_bytes,
+                "total_source_bytes_fmt": fmt_bytes(total_source_bytes),
+                "total_dest_bytes": total_dest_bytes,
+                "total_dest_bytes_fmt": fmt_bytes(total_dest_bytes)
             }
         }
     except Exception as e:

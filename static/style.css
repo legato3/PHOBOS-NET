@@ -6415,6 +6415,35 @@ body.compact-mode {
     font-weight: 600;
 }
 
+.world-map-countries.compact-grid .wm-c-data {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+}
+
+.world-map-countries.compact-grid .wm-c-pct {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+
+.world-map-countries.compact-grid .wm-c-count {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+    margin-left: 0.2rem;
+}
+
+.world-map-update-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: 0.8;
+}
+
 /* Country stats below map - legacy */
 .world-map-country-stats {
     display: grid;

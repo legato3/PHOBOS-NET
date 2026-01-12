@@ -323,9 +323,10 @@
 
             <!-- World Map Section -->
             <section id="section-worldmap" class="scroll-section" style="margin-bottom: 32px;">
-        <div class="section-header">
+        <div class="section-header" style="position: relative;">
             <span class="section-icon">🗺️</span>
             <h3>Traffic World Map</h3>
+            <span class="world-map-update-time" x-show="worldMap.lastUpdate" x-text="'Updated ' + timeAgo(new Date(worldMap.lastUpdate).getTime() / 1000)" style="position: absolute; right: 0; font-size: 0.75rem; color: var(--text-muted);"></span>
         </div>
         
         <div class="card wide-card world-map-card" :class="{ 'widget-minimized': isMinimized('worldmap') }">
@@ -336,19 +337,19 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-show="isMinimized('worldmap')"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
                     <div class="world-map-stats-badges" x-show="worldMap.summary && !isMinimized('worldmap')">
-                        <span class="wm-badge wm-badge-cyan" :title="worldMap.summary?.countries_reached + ' Countries'">
+                        <span class="wm-badge wm-badge-cyan" :title="worldMap.summary?.countries_reached + ' unique countries with traffic activity'">
                             <span class="wm-badge-icon">🌍</span>
                             <span class="wm-badge-value" x-text="worldMap.summary?.countries_reached || 0"></span>
                         </span>
-                        <span class="wm-badge wm-badge-green" :title="worldMap.summary?.total_sources + ' Sources'">
+                        <span class="wm-badge wm-badge-green" :title="'⬆️ ' + (worldMap.summary?.total_sources || 0) + ' source IPs\nTotal: ' + (worldMap.summary?.total_source_bytes_fmt || '0 B')">
                             <span class="wm-badge-icon">⬆️</span>
                             <span class="wm-badge-value" x-text="worldMap.summary?.total_sources || 0"></span>
                         </span>
-                        <span class="wm-badge wm-badge-purple" :title="worldMap.summary?.total_destinations + ' Destinations'">
+                        <span class="wm-badge wm-badge-purple" :title="'⬇️ ' + (worldMap.summary?.total_destinations || 0) + ' destination IPs\nTotal: ' + (worldMap.summary?.total_dest_bytes_fmt || '0 B')">
                             <span class="wm-badge-icon">⬇️</span>
                             <span class="wm-badge-value" x-text="worldMap.summary?.total_destinations || 0"></span>
                         </span>
-                        <span class="wm-badge wm-badge-red" x-show="worldMap.summary?.total_threats > 0" :title="worldMap.summary?.total_threats + ' Threats'">
+                        <span class="wm-badge wm-badge-red" x-show="worldMap.summary?.total_threats > 0" :title="'⚠️ ' + (worldMap.summary?.total_threats || 0) + ' threat IPs detected from threat feeds'">
                             <span class="wm-badge-icon">⚠️</span>
                             <span class="wm-badge-value" x-text="worldMap.summary?.total_threats || 0"></span>
                         </span>
@@ -388,27 +389,35 @@
                 <div class="wm-country-col">
                     <h4>🔼 Sources</h4>
                     <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso">
-                        <div class="wm-country-row">
+                        <div class="wm-country-row" :title="c.name + ': ' + c.bytes_fmt + ' (' + c.pct + '% of total)' + (c.count ? ' - ' + c.count + ' IPs' : '')">
                             <span x-text="flagFromIso(c.iso)"></span>
                             <span class="wm-c-name" x-text="c.name"></span>
-                            <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
+                            <div class="wm-c-data">
+                                <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
+                                <span class="wm-c-pct" x-text="c.pct + '%'" x-show="c.pct"></span>
+                            </div>
+                            <span class="wm-c-count" x-text="'(' + (c.count || 0) + ')'" x-show="c.count"></span>
                         </div>
                     </template>
                 </div>
                 <div class="wm-country-col">
                     <h4>🔽 Destinations</h4>
                     <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso">
-                        <div class="wm-country-row">
+                        <div class="wm-country-row" :title="c.name + ': ' + c.bytes_fmt + ' (' + c.pct + '% of total)' + (c.count ? ' - ' + c.count + ' IPs' : '')">
                             <span x-text="flagFromIso(c.iso)"></span>
                             <span class="wm-c-name" x-text="c.name"></span>
-                            <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
+                            <div class="wm-c-data">
+                                <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
+                                <span class="wm-c-pct" x-text="c.pct + '%'" x-show="c.pct"></span>
+                            </div>
+                            <span class="wm-c-count" x-text="'(' + (c.count || 0) + ')'" x-show="c.count"></span>
                         </div>
                     </template>
                 </div>
                 <div class="wm-country-col" x-show="worldMap.threat_countries?.length > 0">
                     <h4>⚠️ Threats</h4>
                     <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
-                        <div class="wm-country-row">
+                        <div class="wm-country-row" :title="c.name + ': ' + c.count + ' threat IP' + (c.count !== 1 ? 's' : '')">
                             <span x-text="flagFromIso(c.iso)"></span>
                             <span class="wm-c-name" x-text="c.name"></span>
                             <span class="wm-c-val text-red" x-text="c.count"></span>

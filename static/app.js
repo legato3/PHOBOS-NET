@@ -318,7 +318,7 @@ document.addEventListener('alpine:init', () => {
         sankeyChartInstance: null,
 
         // World Map
-        worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null },
+        worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
         worldMapLayers: { sources: true, destinations: true, threats: true, blocked: true },
 
         bwChartInstance: null,
@@ -1727,7 +1727,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
                 if(res.ok) {
                     const data = await res.json();
-                    this.worldMap = { ...data };
+                    this.worldMap = { ...data, lastUpdate: new Date().toISOString() };
                 } else {
                     console.error('[WorldMap] API error:', res.status);
                 }
