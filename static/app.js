@@ -337,6 +337,7 @@ document.addEventListener('alpine:init', () => {
         flagsChartInstance: null,
         pktSizeChartInstance: null,
         hourlyChartInstance: null,
+        hourlyChart2Instance: null,
         protoMixChartInstance: null,
         trendModalOpen: false,
         trendIP: null,
@@ -693,6 +694,7 @@ document.addEventListener('alpine:init', () => {
                 case 'flagsChart': return this.flagsChartInstance;
                 case 'pktSizeChart': return this.pktSizeChartInstance;
                 case 'hourlyChart': return this.hourlyChartInstance;
+                case 'hourlyChart2': return this.hourlyChart2Instance;
                 case 'protoMixChart': return this.protoMixChartInstance;
                 case 'countriesChart': return this.countriesChartInstance;
                 case 'blocklistChart': return this.blocklistChartInstance;
@@ -2043,7 +2045,13 @@ document.addEventListener('alpine:init', () => {
 
         updateHourlyChart(data) {
             try {
-                const ctx = document.getElementById('hourlyChart');
+                // Try both canvas IDs (for backward compatibility with overview widget)
+                let ctx = document.getElementById('hourlyChart');
+                let chartId = 'hourlyChart';
+                if (!ctx) {
+                    ctx = document.getElementById('hourlyChart2');
+                    chartId = 'hourlyChart2';
+                }
                 if (!ctx || !data || !data.labels) return;
 
                 // Check if canvas parent container is visible
@@ -2063,12 +2071,16 @@ document.addEventListener('alpine:init', () => {
                 const peakColor = this.getCssVar('--neon-green') || '#00ff88';
                 const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
 
-                if (this.hourlyChartInstance) {
-                    this.hourlyChartInstance.data.labels = data.labels;
-                    this.hourlyChartInstance.data.datasets[0].data = data.bytes;
-                    this.hourlyChartInstance.update();
+                // Use different chart instances for different canvas IDs
+                const instanceKey = chartId === 'hourlyChart2' ? 'hourlyChart2Instance' : 'hourlyChartInstance';
+                const chartInstance = this[instanceKey];
+
+                if (chartInstance) {
+                    chartInstance.data.labels = data.labels;
+                    chartInstance.data.datasets[0].data = data.bytes;
+                    chartInstance.update();
                 } else {
-                    this.hourlyChartInstance = new Chart(ctx, {
+                    const newChart = new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: data.labels,
@@ -2100,6 +2112,7 @@ document.addEventListener('alpine:init', () => {
                             }
                         }
                     });
+                    this[instanceKey] = newChart;
                 }
             } catch (e) {
                 console.error('Chart render error:', e);
