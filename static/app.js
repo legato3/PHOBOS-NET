@@ -116,7 +116,7 @@ document.addEventListener('alpine:init', () => {
         // Forensics Investigation Tools
         ipInvestigation: { searchIP: '', result: null, loading: false },
         flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
-        alertCorrelation: { chains: [], loading: false },
+        alertCorrelation: { chains: [], loading: false, showExplanation: false },
         threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h' },
 
         // Alert Filtering
