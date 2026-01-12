@@ -5951,6 +5951,11 @@ def api_server_health():
     except Exception:
         data['process'] = {}
     
+    # Cache the result
+    with _cache_lock:
+        _server_health_cache["data"] = data
+        _server_health_cache["ts"] = now
+    
     return jsonify(data)
 
 
