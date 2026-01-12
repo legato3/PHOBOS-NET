@@ -21,7 +21,7 @@ git push origin main
 echo "📥 Pulling latest changes on server..."
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     cd ${REPO_PATH}
-    git fetch origin main
+    git fetch origin
     git reset --hard origin/main
     
     echo \"📋 Copying files to deployment directory...\"
