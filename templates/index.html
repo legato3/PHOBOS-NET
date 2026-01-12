@@ -2783,6 +2783,44 @@
                         </p>
                     </div>
 
+                    <!-- Threat Intelligence -->
+                    <div class="card" style="margin-bottom: var(--space-6);" x-show="ipInvestigation.result?.threat_intel?.enabled">
+                        <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">🛡️ Threat Intelligence</h4>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                            <!-- VirusTotal -->
+                            <div x-show="ipInvestigation.result?.threat_intel?.virustotal">
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                    <strong style="color: var(--text-secondary);">VirusTotal:</strong>
+                                    <span x-show="ipInvestigation.result.threat_intel.virustotal.status === 'found'" class="badge" :class="(ipInvestigation.result.threat_intel.virustotal.malicious || 0) > 0 ? 'badge--danger' : 'badge--success'" x-text="(ipInvestigation.result.threat_intel.virustotal.malicious || 0) + ' malicious'"></span>
+                                    <span x-show="ipInvestigation.result.threat_intel.virustotal.status === 'rate_limited'" class="badge badge--warning" x-text="'Rate Limited'"></span>
+                                    <span x-show="ipInvestigation.result.threat_intel.virustotal.status === 'not_found'" class="badge" x-text="'Not Found'"></span>
+                                </div>
+                                <div x-show="ipInvestigation.result.threat_intel.virustotal.status === 'found'" style="font-size: var(--text-sm); color: var(--text-secondary); margin-left: var(--space-4);">
+                                    <div>Reputation: <span x-text="ipInvestigation.result.threat_intel.virustotal.reputation || 0"></span></div>
+                                    <div>Harmless: <span x-text="ipInvestigation.result.threat_intel.virustotal.harmless || 0"></span> • Suspicious: <span x-text="ipInvestigation.result.threat_intel.virustotal.suspicious || 0"></span></div>
+                                    <div x-show="ipInvestigation.result.threat_intel.virustotal.as_owner">AS Owner: <span x-text="ipInvestigation.result.threat_intel.virustotal.as_owner"></span></div>
+                                </div>
+                            </div>
+                            <!-- AbuseIPDB -->
+                            <div x-show="ipInvestigation.result?.threat_intel?.abuseipdb">
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                    <strong style="color: var(--text-secondary);">AbuseIPDB:</strong>
+                                    <span x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'found'" class="badge" :class="(ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) > 50 ? 'badge--danger' : (ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) > 25 ? 'badge--warning' : 'badge--success'" x-text="'Confidence: ' + (ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) + '%'"></span>
+                                    <span x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'rate_limited'" class="badge badge--warning" x-text="'Rate Limited'"></span>
+                                </div>
+                                <div x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'found'" style="font-size: var(--text-sm); color: var(--text-secondary); margin-left: var(--space-4);">
+                                    <div>Reports: <span x-text="ipInvestigation.result.threat_intel.abuseipdb.num_reports || 0"></span></div>
+                                    <div x-show="ipInvestigation.result.threat_intel.abuseipdb.usage_type">Usage: <span x-text="ipInvestigation.result.threat_intel.abuseipdb.usage_type"></span></div>
+                                    <div x-show="ipInvestigation.result.threat_intel.abuseipdb.isp">ISP: <span x-text="ipInvestigation.result.threat_intel.abuseipdb.isp"></span></div>
+                                    <div x-show="ipInvestigation.result.threat_intel.abuseipdb.is_known_attacker" class="badge badge--danger" style="margin-top: var(--space-1);">Known Attacker</div>
+                                </div>
+                            </div>
+                            <div x-show="!ipInvestigation.result?.threat_intel?.enabled" style="font-size: var(--text-xs); color: var(--text-muted);">
+                                Threat intelligence APIs not configured. Set VIRUSTOTAL_API_KEY and/or ABUSEIPDB_API_KEY environment variables to enable.
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Related IPs -->
                     <div class="card" style="margin-bottom: var(--space-6);" x-show="ipInvestigation.result?.related_ips && ipInvestigation.result.related_ips.length > 0">
                         <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">🔗 Related IPs</h4>

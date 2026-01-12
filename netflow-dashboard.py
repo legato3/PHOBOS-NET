@@ -213,6 +213,13 @@ _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
 # Allow override via environment variable, default per project docs
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 
+# Threat Intelligence API Keys (optional)
+VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
+_threat_intel_cache = {}  # Cache for threat intelligence results (IP -> {vt: {...}, abuse: {...}, ts: ...})
+_threat_intel_cache_lock = threading.Lock()
+_threat_intel_cache_ttl = 3600  # Cache for 1 hour
+
 # Global resolver instance to avoid re-initialization overhead (reading /etc/resolv.conf)
 _shared_resolver = dns.resolver.Resolver()
 _shared_resolver.nameservers = [DNS_SERVER]
@@ -357,6 +364,141 @@ def lookup_geo(ip):
         for k in keys_to_drop:
             _geo_cache.pop(k, None)
     return _geo_cache[ip]['data']
+
+def lookup_threat_intelligence(ip):
+    """Lookup IP reputation from VirusTotal and AbuseIPDB (optional, requires API keys)."""
+    # Skip internal IPs
+    if is_internal(ip):
+        return {"enabled": False, "reason": "Internal IP"}
+    
+    # Check cache first
+    now = time.time()
+    with _threat_intel_cache_lock:
+        if ip in _threat_intel_cache:
+            cached = _threat_intel_cache[ip]
+            if now - cached.get('ts', 0) < _threat_intel_cache_ttl:
+                return cached.get('data', {})
+    
+    result = {
+        "enabled": False,
+        "virustotal": None,
+        "abuseipdb": None
+    }
+    
+    # VirusTotal lookup
+    if VIRUSTOTAL_API_KEY:
+        try:
+            vt_result = query_virustotal(ip)
+            result["virustotal"] = vt_result
+            result["enabled"] = True
+        except Exception as e:
+            result["virustotal"] = {"error": str(e)}
+    
+    # AbuseIPDB lookup
+    if ABUSEIPDB_API_KEY:
+        try:
+            abuse_result = query_abuseipdb(ip)
+            result["abuseipdb"] = abuse_result
+            result["enabled"] = True
+        except Exception as e:
+            result["abuseipdb"] = {"error": str(e)}
+    
+    # Cache result
+    with _threat_intel_cache_lock:
+        _threat_intel_cache[ip] = {"data": result, "ts": now}
+        # Simple cache size limit (keep last 1000)
+        if len(_threat_intel_cache) > 1000:
+            oldest = min(_threat_intel_cache.items(), key=lambda x: x[1].get('ts', 0))
+            _threat_intel_cache.pop(oldest[0], None)
+    
+    return result
+
+def query_virustotal(ip, timeout=5):
+    """Query VirusTotal API for IP reputation."""
+    if not VIRUSTOTAL_API_KEY:
+        return None
+    
+    try:
+        url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
+        headers = {
+            "x-apikey": VIRUSTOTAL_API_KEY,
+            "Accept": "application/json"
+        }
+        response = requests.get(url, headers=headers, timeout=timeout)
+        
+        if response.status_code == 200:
+            data = response.json()
+            attr = data.get("data", {}).get("attributes", {})
+            stats = attr.get("last_analysis_stats", {})
+            
+            return {
+                "reputation": attr.get("reputation", 0),
+                "harmless": stats.get("harmless", 0),
+                "malicious": stats.get("malicious", 0),
+                "suspicious": stats.get("suspicious", 0),
+                "undetected": stats.get("undetected", 0),
+                "asn": attr.get("asn"),
+                "as_owner": attr.get("as_owner", ""),
+                "country": attr.get("country", ""),
+                "last_analysis_date": attr.get("last_analysis_date"),
+                "whois": attr.get("whois", "")[:200] if attr.get("whois") else "",  # Truncate
+                "status": "found"
+            }
+        elif response.status_code == 404:
+            return {"status": "not_found"}
+        elif response.status_code == 429:
+            return {"status": "rate_limited", "error": "Rate limit exceeded"}
+        else:
+            return {"status": "error", "error": f"HTTP {response.status_code}"}
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "Request timed out"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+def query_abuseipdb(ip, timeout=5):
+    """Query AbuseIPDB API for IP reputation."""
+    if not ABUSEIPDB_API_KEY:
+        return None
+    
+    try:
+        url = "https://api.abuseipdb.com/api/v2/check"
+        headers = {
+            "Key": ABUSEIPDB_API_KEY,
+            "Accept": "application/json"
+        }
+        params = {
+            "ipAddress": ip,
+            "maxAgeInDays": 90,
+            "verbose": ""
+        }
+        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+        
+        if response.status_code == 200:
+            data = response.json()
+            result = data.get("data", {})
+            
+            return {
+                "abuse_confidence_score": result.get("abuseConfidenceScore", 0),
+                "usage_type": result.get("usageType", ""),
+                "isp": result.get("isp", ""),
+                "domain": result.get("domain", ""),
+                "country_code": result.get("countryCode", ""),
+                "is_whitelisted": result.get("isWhitelisted", False),
+                "is_public": result.get("isPublic", False),
+                "is_tor": result.get("isTor", False),
+                "is_known_attacker": result.get("isKnownAttacker", False),
+                "num_reports": result.get("numReports", 0),
+                "last_reported_at": result.get("lastReportedAt"),
+                "status": "found"
+            }
+        elif response.status_code == 429:
+            return {"status": "rate_limited", "error": "Rate limit exceeded"}
+        else:
+            return {"status": "error", "error": f"HTTP {response.status_code}"}
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "Request timed out"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 def throttle(max_calls=20, time_window=10):
     def decorator(func):
@@ -4110,6 +4252,9 @@ def api_ip_detail(ip):
 
     geo = lookup_geo(ip)
     
+    # Threat Intelligence lookup (optional, graceful degradation if no API keys)
+    threat_intel = lookup_threat_intelligence(ip)
+    
     # Find related IPs (simplified: IPs that appear in conversations with this IP)
     # This finds IPs that directly communicate with this IP (as source or destination)
     related_ips = []
@@ -4175,7 +4320,8 @@ def api_ip_detail(ip):
         "dst_ports": dst_ports,
         "protocols": protocols,
         "threat": False,
-        "related_ips": related_ips
+        "related_ips": related_ips,
+        "threat_intel": threat_intel
     }
     return jsonify(data)
 
