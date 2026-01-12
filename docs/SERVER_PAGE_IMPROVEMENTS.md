@@ -3,7 +3,7 @@
 ## Current Issues Fixed
 1. ✅ CPU calculation - Now uses psutil for accurate real-time CPU percentage
 2. ✅ Database path - Fixed to use FIREWALL_DB_PATH instead of hardcoded path
-3. ✅ Auto-refresh - Added 1-second refresh interval when server tab is active
+3. ✅ Auto-refresh - Added 2-second refresh interval when server tab is active (independent of global refresh)
 4. ✅ Font styling - Updated to use monospace font for consistency
 
 ---
@@ -157,7 +157,7 @@ Group related metrics into sections:
 ### High Priority (Core Functionality)
 1. ✅ Fix CPU calculation accuracy
 2. ✅ Fix database connection status
-3. ✅ Add 1-second auto-refresh
+3. ✅ Add 2-second auto-refresh
 4. ✅ Fix font styling consistency
 5. Add swap memory statistics
 6. Add disk I/O statistics
@@ -189,7 +189,7 @@ Group related metrics into sections:
 - **smartmontools**: For disk health (optional)
 
 ### Performance
-- 1-second refresh rate is appropriate for server monitoring
+- 2-second refresh rate provides real-time updates while minimizing server load
 - Cache expensive operations (disk I/O, process enumeration)
 - Use async/background updates where possible
 

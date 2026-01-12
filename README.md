@@ -115,6 +115,7 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/stats/destinations` - Top destination IPs  
 - `/api/bandwidth` - Bandwidth time series
 - `/api/stats/firewall` - Firewall health metrics (SNMP)
+- `/api/server/health` - Dashboard server health (CPU, memory, disk, syslog, netflow, database)
 - `/api/alerts_history` - Historical alerts
 - `/api/thresholds` - GET current alert thresholds / POST to update
 - `/health` - Health check endpoint (database, disk space, syslog, nfdump status)

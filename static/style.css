@@ -24,8 +24,8 @@
     --glass-shadow-hover: 0 16px 64px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 243, 255, 0.15);
 
     /* Card System - Enhanced with glass and shadows */
-    --card-bg: rgba(20, 20, 20, 0.7);
-    --card-bg-hover: rgba(25, 25, 25, 0.8);
+    --card-bg: rgb(20, 20, 20);
+    --card-bg-hover: rgb(25, 25, 25);
     --card-border: rgba(0, 243, 255, 0.12);
     --card-border-hover: rgba(0, 243, 255, 0.2);
     --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -323,31 +323,41 @@ body {
 }
 
 body.sidebar-collapsed .layout-wrapper {
-    gap: var(--space-3);
+    gap: 0;
 }
 
-/* Sidebar - Enhanced glass effect with shadows */
+/* Sidebar - Floating overlay that expands on hover */
 .sidebar {
     width: var(--sidebar-width);
     flex-shrink: 0;
-    background: rgba(20, 20, 20, 0.75);
+    background: rgba(20, 20, 20, 0.95);
     border-right: 1px solid rgba(0, 243, 255, 0.15);
     padding: var(--space-4) 0;
-    height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px) - var(--status-bar-height, 40px) - var(--space-4, 16px));
-    position: sticky;
+    height: auto;
+    max-height: calc(100vh - var(--header-height, 80px) - var(--space-6, 24px) - 60px);
+    position: fixed;
     top: calc(var(--header-height, 80px) + var(--space-6, 24px));
+    left: var(--space-4);
     margin-bottom: var(--space-4);
     overflow-y: auto;
     overflow-x: hidden;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5), inset -1px 0 0 rgba(0, 243, 255, 0.1);
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, z-index 0.3s ease;
     border-radius: var(--radius-md);
+    z-index: 100;
 }
 
 .sidebar.collapsed {
     width: 60px;
+}
+
+/* Expand sidebar on hover when collapsed (overlay behavior) */
+.sidebar.collapsed:hover {
+    width: var(--sidebar-width);
+    z-index: 200;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.7), inset -1px 0 0 rgba(0, 243, 255, 0.2);
 }
 
 .sidebar-nav {
@@ -490,6 +500,8 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
+    margin-left: 76px; /* Always account for collapsed sidebar (60px + 16px gap) */
+    transition: margin-left 0.3s ease;
 }
 
 .header {
@@ -729,8 +741,8 @@ button.active {
 /* Summary Stats Grid - 3 column horizontal layout */
 .summary-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-3);
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-2);
 }
 
 /* Responsive: Stack columns on smaller screens */
@@ -746,9 +758,9 @@ button.active {
         width: 100%;
     }
 
-    /* Summary stats: 2 columns on medium screens, 1 column on small */
+    /* Summary stats: 3 columns on medium screens */
     .summary-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -780,8 +792,7 @@ button.active {
     flex-direction: column;
     transition: background-color var(--motion-base), box-shadow var(--motion-base), border-color var(--motion-base);
     overflow: hidden;
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    /* Solid background - no transparency */
     /* Pixel art scanline effect */
     background-image:
         linear-gradient(transparent 50%, rgba(0, 243, 255, 0.02) 50%),
@@ -942,12 +953,12 @@ button.active {
     text-align: center;
     justify-content: center;
     align-items: center;
-    min-height: 90px;
-    padding: 10px;
+    min-height: 75px;
+    padding: 12px 8px;
 }
 
 .stat-box .value {
-    font-size: 28px;
+    font-size: 22px;
     /* Numbers lead - larger, bolder */
     font-weight: 600;
     color: var(--text-primary);
@@ -956,12 +967,12 @@ button.active {
 }
 
 .stat-box .label {
-    font-size: 11px;
+    font-size: 10px;
     /* Labels support - smaller, lighter */
     color: var(--text-muted);
     text-transform: none;
     letter-spacing: 0.01em;
-    margin-top: 4px;
+    margin-top: 3px;
     font-family: var(--font-sans);
     font-weight: 400;
     opacity: 0.8;

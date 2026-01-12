@@ -368,7 +368,7 @@
                 <!-- Summary Stats & Bandwidth - Horizontal Layout -->
                 <section id="section-summary" class="scroll-section" style="margin-bottom: 32px;">
 
-                    <!-- Top Row: Summary Stats (Horizontal) -->
+                    <!-- Top Row: Summary Stats (Compact Horizontal) -->
                     <div class="summary-stats-grid" style="margin-bottom: 24px;">
                         <div class="card stat-box">
                             <div class="value" x-text="summary.totals.bytes_fmt">...</div>
@@ -382,8 +382,18 @@
                             <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
                             <div class="label">Avg Packet Size</div>
                         </div>
-                        <!-- Placeholder for potential 4th stat -->
-                        <!-- <div class="card stat-box">...</div> -->
+                        <div class="card stat-box" :class="{ 'status-warning': threats.hits.length > 0 }">
+                            <div class="value" :class="{ 'text-red': threats.hits.length > 0 }" x-text="threats.hits.length || 0">0</div>
+                            <div class="label">Threats</div>
+                        </div>
+                        <div class="card stat-box" x-show="firewall.cpu_percent !== null">
+                            <div class="value" x-text="(firewall.cpu_percent || 0) + '%'">--</div>
+                            <div class="label">Firewall CPU</div>
+                        </div>
+                        <div class="card stat-box" x-show="firewall.mem_percent !== null">
+                            <div class="value" x-text="(firewall.mem_percent || 0) + '%'">--</div>
+                            <div class="label">Firewall MEM</div>
+                        </div>
                     </div>
 
                     <!-- Main Chart: Bandwidth -->
@@ -422,108 +432,6 @@
                     </div>
                 </section>
 
-                <!-- New Insights Row (Protocols, Talkers, Health) -->
-                <section id="section-insights" class="scroll-section" style="margin-bottom: 32px;">
-                    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
-
-                        <!-- Protocol Mix (Doughnut) -->
-                        <div class="card">
-                            <h2>
-                                <span>🥧 Protocol Breakdown</span>
-                                <div class="card-actions">
-                                    <div class="spinner" x-show="protoMix.loading"></div>
-                                </div>
-                            </h2>
-                            <div class="chart-wrapper" style="height: 250px; position: relative;">
-                                <canvas id="protoMixChart"></canvas>
-                                <div x-show="!protoMix.loading && (!protoMix.labels || protoMix.labels.length === 0)"
-                                    class="empty-state">No protocol data</div>
-                            </div>
-                        </div>
-
-                        <!-- Top Talkers (List) -->
-                        <div class="card" style="max-height: 320px; display: flex; flex-direction: column;">
-                            <h2>
-                                <span>🗣️ Top Talkers</span>
-                                <div class="card-actions">
-                                    <div class="spinner" x-show="talkers.loading"></div>
-                                </div>
-                            </h2>
-                            <div class="table-container" style="flex: 1; overflow-y: auto;">
-                                <table class="w-100">
-                                    <thead>
-                                        <tr>
-                                            <th>Source</th>
-                                            <th></th>
-                                            <th>Dest</th>
-                                            <th class="text-right">Bytes</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template x-for="t in talkers.talkers" :key="t.src + t.dst">
-                                            <tr>
-                                                <td>
-                                                    <div class="truncate" style="max-width: 100px;"
-                                                        :title="t.src_hostname || t.src"
-                                                        x-text="t.src_hostname || t.src"></div>
-                                                </td>
-                                                <td class="text-center text-muted">→</td>
-                                                <td>
-                                                    <div class="truncate" style="max-width: 100px;"
-                                                        :title="t.dst_hostname || t.dst"
-                                                        x-text="t.dst_hostname || t.dst"></div>
-                                                </td>
-                                                <td class="text-right font-mono" style="color: var(--accent-primary);"
-                                                    x-text="fmtBytes(t.bytes)"></td>
-                                            </tr>
-                                        </template>
-                                        <tr x-show="!talkers.loading && talkers.talkers.length === 0">
-                                            <td colspan="4" class="text-center text-muted py-4">No talkers data</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Network Health (Status) -->
-                        <div class="card">
-                            <h2>
-                                <span>🏥 Network Health</span>
-                                <div class="card-actions">
-                                    <div class="badge"
-                                        :class="netHealth.status === 'healthy' ? 'badge-success' : (netHealth.status === 'warning' ? 'badge-warning' : 'badge-error')"
-                                        x-text="netHealth.status"></div>
-                                    <div class="spinner" x-show="netHealth.loading"></div>
-                                </div>
-                            </h2>
-                            <div class="health-score-ring"
-                                style="display: flex; justify-content: center; margin: 20px 0;">
-                                <div
-                                    style="position: relative; width: 120px; height: 120px; border-radius: 50%; border: 8px solid var(--bg-elevated); display: flex; align-items: center; justify-content: center;">
-                                    <div
-                                        style="position: absolute; inset: -8px; border-radius: 50%; border: 8px solid transparent; border-top-color: var(--accent-success); transform: rotate(45deg);">
-                                    </div>
-                                    <div style="text-align: center;">
-                                        <div style="font-size: 2rem; font-weight: bold;"
-                                            x-text="netHealth.health_score">100</div>
-                                        <div class="text-xs text-muted">Score</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="list-check">
-                                <template x-for="ind in netHealth.indicators" :key="ind.name">
-                                    <div class="list-item">
-                                        <span x-text="ind.icon"></span>
-                                        <span class="flex-1" x-text="ind.name"></span>
-                                        <span :class="ind.status === 'good' ? 'text-success' : 'text-danger'"
-                                            x-text="ind.value"></span>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                    </div>
-                </section>
 
                 <!-- World Map Section -->
                 <section id="section-worldmap" class="scroll-section" style="margin-bottom: 32px;">

@@ -53,6 +53,7 @@ Generated: 2026-01-10
 - `/api/stats/threats` - Security threats
 - `/api/bandwidth` - Bandwidth over time
 - `/api/conversations` - Top conversations
+- `/api/server/health` - Dashboard server health metrics
 
 ### To Collect Sample Responses
 ```bash
