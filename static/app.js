@@ -1779,6 +1779,11 @@ document.addEventListener('alpine:init', () => {
                     }).addTo(this.map);
 
                     // Add attribution manually to bottom-right if needed, or skip for cleaner UI
+                    
+                    // Invalidate size to ensure map renders correctly
+                    this.map.whenReady(() => {
+                        this.map.invalidateSize();
+                    });
 
                 } catch (e) {
                     console.error('Leaflet init failed:', e);
@@ -1789,6 +1794,13 @@ document.addEventListener('alpine:init', () => {
                     }
                     return;
                 }
+            }
+
+            // Ensure map size is correct (important when container visibility changes)
+            if (this.map) {
+                this.$nextTick(() => {
+                    this.map.invalidateSize();
+                });
             }
 
             // Clear existing layers
@@ -2784,6 +2796,14 @@ document.addEventListener('alpine:init', () => {
                     this.fetchWorldMap();
                     this.lastFetch.worldmap = now;
                 }
+                // Invalidate map size when overview tab becomes visible
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        if (this.map) {
+                            this.map.invalidateSize();
+                        }
+                    }, 100);
+                });
             } else if (tab === 'server') {
                 this.fetchServerHealth();
             } else if (tab === 'security') {
