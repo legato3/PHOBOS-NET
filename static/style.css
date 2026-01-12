@@ -6133,6 +6133,63 @@ body.compact-mode {
     font-family: var(--font-mono), monospace;
 }
 
+.server-stat-progress {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: var(--space-3) 0;
+    position: relative;
+}
+
+.server-stat-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-magenta) 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+}
+
+.server-stat-progress-bar.warning {
+    background: linear-gradient(90deg, var(--accent-warning) 0%, #ff9500 100%);
+    box-shadow: 0 0 8px rgba(255, 184, 0, 0.3);
+}
+
+.server-stat-progress-bar.error {
+    background: linear-gradient(90deg, var(--accent-danger) 0%, #ff0040 100%);
+    box-shadow: 0 0 8px rgba(255, 0, 60, 0.3);
+}
+
+.server-stat-per-core {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.server-stat-core-item {
+    text-align: center;
+    padding: var(--space-2);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.server-stat-core-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-bottom: var(--space-1);
+    font-family: var(--font-mono);
+}
+
+.server-stat-core-value {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
 /* ============================================
    SCROLL SPY NAVIGATION (DISABLED)
    ============================================ */

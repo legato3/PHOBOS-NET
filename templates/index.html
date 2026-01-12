@@ -1992,6 +1992,13 @@
                             }" x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></span>
                         </div>
                         <div class="server-stat-value" x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></div>
+                        <!-- Progress Bar -->
+                        <div class="server-stat-progress" x-show="serverHealth.cpu.percent !== undefined">
+                            <div class="server-stat-progress-bar" :class="{
+                                'warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
+                                'error': serverHealth.cpu.percent >= 90
+                            }" :style="'width: ' + (serverHealth.cpu.percent || 0) + '%'"></div>
+                        </div>
                         <div class="server-stat-details" x-show="serverHealth.cpu.load_1min">
                             <div>
                                 <span>Load 1m:</span>
@@ -2005,6 +2012,27 @@
                                 <span>Load 15m:</span>
                                 <span x-text="serverHealth.cpu.load_15min"></span>
                             </div>
+                            <div x-show="serverHealth.cpu.cores">
+                                <span>Cores:</span>
+                                <span x-text="serverHealth.cpu.cores"></span>
+                            </div>
+                            <div x-show="serverHealth.cpu.frequency_mhz">
+                                <span>Frequency:</span>
+                                <span x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
+                            </div>
+                            <div x-show="serverHealth.cpu.process_count">
+                                <span>Processes:</span>
+                                <span x-text="serverHealth.cpu.process_count.toLocaleString()"></span>
+                            </div>
+                        </div>
+                        <!-- Per-Core CPU Usage -->
+                        <div class="server-stat-per-core" x-show="serverHealth.cpu.per_core && serverHealth.cpu.per_core.length > 0">
+                            <template x-for="(core, index) in serverHealth.cpu.per_core">
+                                <div class="server-stat-core-item">
+                                    <div class="server-stat-core-label" x-text="'Core ' + index"></div>
+                                    <div class="server-stat-core-value" x-text="core + '%'"></div>
+                                </div>
+                            </template>
                         </div>
                     </div>
 
@@ -2019,6 +2047,13 @@
                             }" x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'"></span>
                         </div>
                         <div class="server-stat-value" x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'"></div>
+                        <!-- Progress Bar -->
+                        <div class="server-stat-progress" x-show="serverHealth.memory.percent !== undefined">
+                            <div class="server-stat-progress-bar" :class="{
+                                'warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
+                                'error': serverHealth.memory.percent >= 90
+                            }" :style="'width: ' + (serverHealth.memory.percent || 0) + '%'"></div>
+                        </div>
                         <div class="server-stat-details" x-show="serverHealth.memory.total_gb">
                             <div>
                                 <span>Used:</span>
@@ -2032,10 +2067,48 @@
                                 <span>Total:</span>
                                 <span x-text="serverHealth.memory.total_gb ? serverHealth.memory.total_gb + ' GB' : 'N/A'"></span>
                             </div>
+                            <div x-show="serverHealth.memory.buffers_gb">
+                                <span>Buffers:</span>
+                                <span x-text="serverHealth.memory.buffers_gb + ' GB'"></span>
+                            </div>
+                            <div x-show="serverHealth.memory.cached_gb">
+                                <span>Cached:</span>
+                                <span x-text="serverHealth.memory.cached_gb + ' GB'"></span>
+                            </div>
                             <div x-show="serverHealth.memory.process_mb">
                                 <span>Process:</span>
                                 <span x-text="serverHealth.memory.process_mb + ' MB'"></span>
                             </div>
+                            <div x-show="serverHealth.memory.pressure">
+                                <span>Pressure:</span>
+                                <span :class="{
+                                    'text-green': serverHealth.memory.pressure === 'low',
+                                    'text-yellow': serverHealth.memory.pressure === 'medium',
+                                    'text-red': serverHealth.memory.pressure === 'high'
+                                }" x-text="serverHealth.memory.pressure ? serverHealth.memory.pressure.toUpperCase() : 'N/A'"></span>
+                            </div>
+                            <!-- Swap Statistics -->
+                            <template x-if="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0">
+                                <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid rgba(255, 255, 255, 0.06);">
+                                    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--text-muted);">Swap</div>
+                                    <div x-show="serverHealth.memory.swap_percent">
+                                        <span>Usage:</span>
+                                        <span x-text="serverHealth.memory.swap_percent + '%'"></span>
+                                    </div>
+                                    <div>
+                                        <span>Used:</span>
+                                        <span x-text="serverHealth.memory.swap_used_gb + ' GB'"></span>
+                                    </div>
+                                    <div>
+                                        <span>Free:</span>
+                                        <span x-text="serverHealth.memory.swap_free_gb + ' GB'"></span>
+                                    </div>
+                                    <div>
+                                        <span>Total:</span>
+                                        <span x-text="serverHealth.memory.swap_total_gb + ' GB'"></span>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
 
@@ -2050,6 +2123,13 @@
                             }" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></span>
                         </div>
                         <div class="server-stat-value" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></div>
+                        <!-- Progress Bar -->
+                        <div class="server-stat-progress" x-show="serverHealth.disk.root.percent_used !== undefined">
+                            <div class="server-stat-progress-bar" :class="{
+                                'warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
+                                'error': serverHealth.disk.root.percent_used >= 90
+                            }" :style="'width: ' + (serverHealth.disk.root.percent_used || 0) + '%'"></div>
+                        </div>
                         <div class="server-stat-details">
                             <div>
                                 <span>Used:</span>
@@ -2077,6 +2157,13 @@
                             }" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></span>
                         </div>
                         <div class="server-stat-value" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></div>
+                        <!-- Progress Bar -->
+                        <div class="server-stat-progress" x-show="serverHealth.disk.nfdump.percent_used !== undefined">
+                            <div class="server-stat-progress-bar" :class="{
+                                'warning': serverHealth.disk.nfdump.percent_used >= 80 && serverHealth.disk.nfdump.percent_used < 90,
+                                'error': serverHealth.disk.nfdump.percent_used >= 90
+                            }" :style="'width: ' + (serverHealth.disk.nfdump.percent_used || 0) + '%'"></div>
+                        </div>
                         <div class="server-stat-details">
                             <div x-show="serverHealth.disk.nfdump_files !== undefined">
                                 <span>Files:</span>
@@ -2172,6 +2259,14 @@
                                 <span>Size:</span>
                                 <span x-text="serverHealth.database.size_mb + ' MB'"></span>
                             </div>
+                            <div x-show="serverHealth.database.growth_rate_per_hour !== undefined">
+                                <span>Growth (1h):</span>
+                                <span x-text="serverHealth.database.growth_rate_per_hour.toLocaleString() + ' logs'"></span>
+                            </div>
+                            <div x-show="serverHealth.database.growth_rate_per_day !== undefined">
+                                <span>Growth (24h):</span>
+                                <span x-text="serverHealth.database.growth_rate_per_day.toLocaleString() + ' logs'"></span>
+                            </div>
                             <div x-show="serverHealth.database.path">
                                 <span>Path:</span>
                                 <span x-text="serverHealth.database.path" style="font-size: 0.85em;"></span>
@@ -2214,16 +2309,113 @@
                     </div>
 
                     <!-- System Information -->
-                    <div class="server-stat-card" x-show="serverHealth.timestamp">
+                    <div class="server-stat-card" x-show="serverHealth.system && !serverHealth.system.error">
                         <div class="server-stat-header">
-                            <span>🕐 System</span>
+                            <span>🖥️ System</span>
                             <span class="server-stat-badge badge-success">ONLINE</span>
                         </div>
-                        <div class="server-stat-value" x-text="new Date(serverHealth.timestamp).toLocaleTimeString()"></div>
+                        <div class="server-stat-value" x-text="serverHealth.system.hostname || 'N/A'" style="font-size: 1.2em;"></div>
                         <div class="server-stat-details">
-                            <div>
+                            <div x-show="serverHealth.system.boot_time_formatted">
+                                <span>Boot Time:</span>
+                                <span x-text="serverHealth.system.boot_time_formatted"></span>
+                            </div>
+                            <div x-show="serverHealth.system.kernel_version">
+                                <span>Kernel:</span>
+                                <span x-text="serverHealth.system.kernel_version" style="font-size: 0.85em;"></span>
+                            </div>
+                            <div x-show="serverHealth.system.os_info">
+                                <span>OS:</span>
+                                <span x-text="serverHealth.system.os_info" style="font-size: 0.85em;"></span>
+                            </div>
+                            <div x-show="serverHealth.timestamp">
                                 <span>Last Update:</span>
                                 <span x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network Statistics -->
+                    <div class="server-stat-card" x-show="serverHealth.network && serverHealth.network.interfaces && Object.keys(serverHealth.network.interfaces || {}).length > 0">
+                        <div class="server-stat-header">
+                            <span>🌐 Network Interfaces</span>
+                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                        </div>
+                        <div class="server-stat-details" style="gap: var(--space-4);">
+                            <template x-for="ifaceName in Object.keys(serverHealth.network.interfaces || {})">
+                                <div style="padding: var(--space-3); background: rgba(255, 255, 255, 0.03); border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.05);">
+                                    <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--accent-cyan); font-family: var(--font-mono);" x-text="ifaceName"></div>
+                                    <template x-if="serverHealth.network.interfaces[ifaceName]">
+                                        <div>
+                                            <div>
+                                                <span>RX:</span>
+                                                <span x-text="serverHealth.network.interfaces[ifaceName].rx_bytes ? (serverHealth.network.interfaces[ifaceName].rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                            </div>
+                                            <div>
+                                                <span>TX:</span>
+                                                <span x-text="serverHealth.network.interfaces[ifaceName].tx_bytes ? (serverHealth.network.interfaces[ifaceName].tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                            </div>
+                                            <div>
+                                                <span>RX Packets:</span>
+                                                <span x-text="serverHealth.network.interfaces[ifaceName].rx_packets ? serverHealth.network.interfaces[ifaceName].rx_packets.toLocaleString() : '0'"></span>
+                                            </div>
+                                            <div>
+                                                <span>TX Packets:</span>
+                                                <span x-text="serverHealth.network.interfaces[ifaceName].tx_packets ? serverHealth.network.interfaces[ifaceName].tx_packets.toLocaleString() : '0'"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Cache Statistics -->
+                    <div class="server-stat-card" x-show="serverHealth.cache">
+                        <div class="server-stat-header">
+                            <span>💾 Cache</span>
+                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                        </div>
+                        <div class="server-stat-value" x-text="(serverHealth.cache.dns_cache_size || 0) + (serverHealth.cache.geo_cache_size || 0) + (serverHealth.cache.common_cache_size || 0) + ' entries'"></div>
+                        <div class="server-stat-details">
+                            <div x-show="serverHealth.cache.dns_cache_size !== undefined">
+                                <span>DNS Cache:</span>
+                                <span x-text="serverHealth.cache.dns_cache_size.toLocaleString() + ' entries'"></span>
+                            </div>
+                            <div x-show="serverHealth.cache.geo_cache_size !== undefined">
+                                <span>GeoIP Cache:</span>
+                                <span x-text="serverHealth.cache.geo_cache_size.toLocaleString() + ' entries'"></span>
+                            </div>
+                            <div x-show="serverHealth.cache.common_cache_size !== undefined">
+                                <span>Common Cache:</span>
+                                <span x-text="serverHealth.cache.common_cache_size.toLocaleString() + ' entries'"></span>
+                            </div>
+                            <div x-show="serverHealth.cache.bandwidth_history_size !== undefined">
+                                <span>Bandwidth History:</span>
+                                <span x-text="serverHealth.cache.bandwidth_history_size.toLocaleString() + ' entries'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process/Application Metrics -->
+                    <div class="server-stat-card" x-show="serverHealth.process">
+                        <div class="server-stat-header">
+                            <span>⚙️ Application</span>
+                            <span class="server-stat-badge badge-success">RUNNING</span>
+                        </div>
+                        <div class="server-stat-value" x-text="serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : 'N/A'"></div>
+                        <div class="server-stat-details">
+                            <div x-show="serverHealth.process.process_memory_mb">
+                                <span>Memory:</span>
+                                <span x-text="serverHealth.process.process_memory_mb + ' MB'"></span>
+                            </div>
+                            <div x-show="serverHealth.process.threads">
+                                <span>Threads:</span>
+                                <span x-text="serverHealth.process.threads.toLocaleString()"></span>
+                            </div>
+                            <div x-show="serverHealth.system && serverHealth.system.process_name">
+                                <span>Process:</span>
+                                <span x-text="serverHealth.system.process_name" style="font-size: 0.85em;"></span>
                             </div>
                         </div>
                     </div>

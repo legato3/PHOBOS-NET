@@ -147,6 +147,10 @@ _metric_spark_hits = 0
 _metric_spark_misses = 0
 _metric_http_429 = 0
 
+# CPU stat caching for accurate CPU percentage calculation
+_cpu_stat_prev = {'times': {}, 'ts': 0}
+_cpu_stat_lock = threading.Lock()
+
 MMDB_CITY = "/root/GeoLite2-City.mmdb"
 MMDB_ASN = "/root/GeoLite2-ASN.mmdb"
 THREATLIST_PATH = "/root/threat-ips.txt"
@@ -5414,6 +5418,78 @@ def check_disk_space(path='/var/cache/nfdump'):
     except Exception:
         return {'percent_used': 0, 'status': 'unknown'}
 
+def read_cpu_stat():
+    """Read CPU times from /proc/stat. Returns dict with cpu_id -> [times]."""
+    cpu_times = {}
+    try:
+        with open('/proc/stat', 'r') as f:
+            for line in f:
+                if line.startswith('cpu'):
+                    parts = line.split()
+                    cpu_id = parts[0]
+                    times = [int(x) for x in parts[1:8]]  # user, nice, system, idle, iowait, irq, softirq
+                    if len(times) >= 4:
+                        cpu_times[cpu_id] = times
+    except Exception:
+        pass
+    return cpu_times
+
+def calculate_cpu_percent_from_stat():
+    """Calculate CPU percentage using /proc/stat with cached previous reading."""
+    global _cpu_stat_prev, _cpu_stat_lock
+    now = time.time()
+    
+    with _cpu_stat_lock:
+        current_times = read_cpu_stat()
+        if not current_times or 'cpu' not in current_times:
+            return None, None, None
+        
+        # If we have previous data and it's recent (< 5 seconds old)
+        if _cpu_stat_prev['times'] and 'cpu' in _cpu_stat_prev['times'] and (now - _cpu_stat_prev['ts']) < 5:
+            prev = _cpu_stat_prev['times']['cpu']
+            curr = current_times['cpu']
+            
+            # Calculate deltas
+            prev_total = sum(prev[:4])  # user, nice, system, idle
+            curr_total = sum(curr[:4])
+            total_delta = curr_total - prev_total
+            
+            if total_delta > 0:
+                idle_delta = curr[3] - prev[3]  # idle is index 3
+                cpu_percent = 100.0 * (1.0 - (idle_delta / total_delta))
+                cpu_percent = max(0.0, min(100.0, cpu_percent))
+                
+                # Calculate per-core percentages
+                per_core = []
+                core_ids = [k for k in current_times.keys() if k.startswith('cpu') and k != 'cpu']
+                core_ids.sort(key=lambda x: int(x[3:]) if len(x) > 3 and x[3:].isdigit() else 999)
+                
+                for core_id in core_ids:
+                    if core_id in current_times and core_id in _cpu_stat_prev['times']:
+                        p = _cpu_stat_prev['times'][core_id]
+                        c = current_times[core_id]
+                        p_total = sum(p[:4])
+                        c_total = sum(c[:4])
+                        c_delta = c_total - p_total
+                        if c_delta > 0:
+                            c_idle_delta = c[3] - p[3]
+                            core_percent = 100.0 * (1.0 - (c_idle_delta / c_delta))
+                            per_core.append(max(0.0, min(100.0, core_percent)))
+                
+                # Count cores
+                num_cores = len(core_ids)
+                
+                # Update cache
+                _cpu_stat_prev = {'times': current_times, 'ts': now}
+                return round(cpu_percent, 1), per_core if per_core else None, num_cores
+        
+        # First run or cache expired - store current and return None
+        _cpu_stat_prev = {'times': current_times, 'ts': now}
+        # Count cores for first run
+        core_ids = [k for k in current_times.keys() if k.startswith('cpu') and k != 'cpu']
+        num_cores = len(core_ids)
+        return None, None, num_cores
+
 @app.route('/metrics')
 def metrics():
     """Prometheus-style metrics for basic instrumentation."""
@@ -5505,14 +5581,19 @@ def api_server_health():
         'timestamp': datetime.now().isoformat()
     }
     
-    # CPU Statistics - use psutil if available, otherwise /proc filesystem (Linux)
+    # CPU Statistics - use /proc filesystem (no psutil)
     try:
-        # Try psutil first for accurate real-time CPU percentage
+        # Get CPU percentage from /proc/stat (accurate method)
+        cpu_percent, per_core, num_cores = calculate_cpu_percent_from_stat()
+        if cpu_percent is not None:
+            data['cpu']['percent'] = cpu_percent
+        if per_core:
+            data['cpu']['per_core'] = [round(p, 1) for p in per_core]
+        if num_cores:
+            data['cpu']['cores'] = num_cores
+        
+        # Get load averages
         try:
-            import psutil
-            cpu_percent = psutil.cpu_percent(interval=0.1)  # Non-blocking sample
-            data['cpu']['percent'] = round(cpu_percent, 1)
-            # Get load averages for additional context
             loadavg = os.getloadavg() if hasattr(os, 'getloadavg') else None
             if loadavg:
                 data['cpu']['load_1min'] = round(loadavg[0], 2)
@@ -5520,35 +5601,49 @@ def api_server_health():
                 data['cpu']['load_15min'] = round(loadavg[2], 2)
             else:
                 # Fallback to /proc/loadavg
-                try:
-                    with open('/proc/loadavg', 'r') as f:
-                        loads = [float(x) for x in f.read().split()[:3]]
-                        data['cpu']['load_1min'] = round(loads[0], 2)
-                        data['cpu']['load_5min'] = round(loads[1], 2)
-                        data['cpu']['load_15min'] = round(loads[2], 2)
-                except:
-                    pass
-        except ImportError:
-            # Fallback: use /proc filesystem for load averages and approximate CPU
-            try:
                 with open('/proc/loadavg', 'r') as f:
                     loads = [float(x) for x in f.read().split()[:3]]
                     data['cpu']['load_1min'] = round(loads[0], 2)
                     data['cpu']['load_5min'] = round(loads[1], 2)
                     data['cpu']['load_15min'] = round(loads[2], 2)
-                    
-                    # Approximate CPU percent from load average (less accurate)
-                    try:
-                        with open('/proc/cpuinfo', 'r') as cf:
-                            cores = len([l for l in cf.readlines() if l.startswith('processor')])
-                        cores = max(cores, 1)
-                    except:
-                        cores = 4  # Default fallback
-                    data['cpu']['percent'] = min(round((loads[0] / cores) * 100, 1), 100.0)
-            except Exception as e:
-                data['cpu'] = {'percent': 0, 'error': str(e)}
-        except Exception as e:
-            data['cpu'] = {'percent': 0, 'error': str(e)}
+        except Exception:
+            pass
+        
+        # Get process count
+        try:
+            proc_count = len([d for d in os.listdir('/proc') if d.isdigit()])
+            data['cpu']['process_count'] = proc_count
+        except Exception:
+            pass
+        
+        # Get CPU frequency (if available)
+        try:
+            with open('/proc/cpuinfo', 'r') as f:
+                cpuinfo = f.read()
+                # Try to find frequency
+                import re
+                freq_match = re.search(r'cpu MHz\s*:\s*([\d.]+)', cpuinfo)
+                if freq_match:
+                    freq_mhz = float(freq_match.group(1))
+                    data['cpu']['frequency_mhz'] = round(freq_mhz, 0)
+        except Exception:
+            pass
+        
+        # Count CPU cores if not already set
+        if 'cores' not in data['cpu']:
+            try:
+                with open('/proc/cpuinfo', 'r') as cf:
+                    cores = len([l for l in cf.readlines() if l.startswith('processor')])
+                data['cpu']['cores'] = max(cores, 1)
+            except Exception:
+                data['cpu']['cores'] = 1
+        
+        # If CPU percent still not set, use load average approximation as fallback
+        if 'percent' not in data['cpu'] or data['cpu']['percent'] is None:
+            if 'load_1min' in data['cpu'] and 'cores' in data['cpu']:
+                cores = data['cpu']['cores']
+                load = data['cpu']['load_1min']
+                data['cpu']['percent'] = min(round((load / cores) * 100, 1), 100.0)
     except Exception as e:
         data['cpu'] = {'percent': 0, 'error': str(e)}
     
@@ -5583,6 +5678,33 @@ def api_server_health():
                 data['memory']['used_gb'] = round(used_kb / (1024 * 1024), 2)
                 data['memory']['available_gb'] = round(avail_kb / (1024 * 1024), 2)
                 data['memory']['percent'] = round((used_kb / total_kb) * 100, 1) if total_kb > 0 else 0
+                
+                # Memory breakdown
+                if 'MemFree' in meminfo:
+                    data['memory']['free_gb'] = round(meminfo['MemFree'] / (1024 * 1024), 2)
+                if 'Buffers' in meminfo:
+                    data['memory']['buffers_gb'] = round(meminfo['Buffers'] / (1024 * 1024), 2)
+                if 'Cached' in meminfo:
+                    data['memory']['cached_gb'] = round(meminfo['Cached'] / (1024 * 1024), 2)
+                
+                # Memory pressure indicator
+                if data['memory']['percent'] >= 90:
+                    data['memory']['pressure'] = 'high'
+                elif data['memory']['percent'] >= 75:
+                    data['memory']['pressure'] = 'medium'
+                else:
+                    data['memory']['pressure'] = 'low'
+            
+            # Swap statistics
+            if 'SwapTotal' in meminfo and 'SwapFree' in meminfo:
+                swap_total_kb = meminfo['SwapTotal']
+                swap_free_kb = meminfo['SwapFree']
+                swap_used_kb = swap_total_kb - swap_free_kb
+                if swap_total_kb > 0:
+                    data['memory']['swap_total_gb'] = round(swap_total_kb / (1024 * 1024), 2)
+                    data['memory']['swap_used_gb'] = round(swap_used_kb / (1024 * 1024), 2)
+                    data['memory']['swap_free_gb'] = round(swap_free_kb / (1024 * 1024), 2)
+                    data['memory']['swap_percent'] = round((swap_used_kb / swap_total_kb) * 100, 1)
         except Exception as e:
             pass
     except Exception as e:
@@ -5658,16 +5780,34 @@ def api_server_health():
                 
                 # Get database size
                 db_path = FIREWALL_DB_PATH
+                db_size = 0
                 if os.path.exists(db_path):
                     db_size = os.path.getsize(db_path)
-                    data['database'] = {
-                        'connected': True,
-                        'log_count': log_count,
-                        'size_mb': round(db_size / (1024 * 1024), 2),
-                        'path': db_path
-                    }
-                else:
-                    data['database'] = {'connected': True, 'log_count': log_count, 'path': db_path}
+                
+                db_info = {
+                    'connected': True,
+                    'log_count': log_count,
+                    'size_mb': round(db_size / (1024 * 1024), 2),
+                    'path': db_path
+                }
+                
+                # Get records from last 24h and 1h for growth rate calculation
+                try:
+                    now = time.time()
+                    cutoff_24h = now - 86400
+                    cutoff_1h = now - 3600
+                    cursor_24h = conn.execute("SELECT COUNT(*) FROM fw_logs WHERE timestamp > ?", (cutoff_24h,))
+                    count_24h = cursor_24h.fetchone()[0]
+                    cursor_1h = conn.execute("SELECT COUNT(*) FROM fw_logs WHERE timestamp > ?", (cutoff_1h,))
+                    count_1h = cursor_1h.fetchone()[0]
+                    db_info['logs_24h'] = count_24h
+                    db_info['logs_1h'] = count_1h
+                    db_info['growth_rate_per_hour'] = count_1h
+                    db_info['growth_rate_per_day'] = count_24h
+                except Exception:
+                    pass
+                
+                data['database'] = db_info
             finally:
                 conn.close()
     except Exception as e:
@@ -5689,7 +5829,6 @@ def api_server_health():
         
         # Get process/thread information using /proc
         try:
-            import os
             import glob
             pid = os.getpid()
             # Count threads in /proc/PID/task/
@@ -5704,8 +5843,103 @@ def api_server_health():
                 data['system']['process_name'] = 'python3'
         except Exception:
             data['system']['process_threads'] = 0
+        
+        # Get boot time
+        try:
+            with open('/proc/uptime', 'r') as f:
+                uptime_seconds = float(f.read().split()[0])
+            boot_time = time.time() - uptime_seconds
+            data['system']['boot_time'] = datetime.fromtimestamp(boot_time).isoformat()
+            data['system']['boot_time_formatted'] = datetime.fromtimestamp(boot_time).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            pass
+        
+        # Get kernel version
+        try:
+            with open('/proc/version', 'r') as f:
+                version_line = f.read().strip()
+                # Extract kernel version (e.g., "Linux version 5.10.0-...")
+                import re
+                kernel_match = re.search(r'Linux version ([^\s]+)', version_line)
+                if kernel_match:
+                    data['system']['kernel_version'] = kernel_match.group(1)
+                data['system']['os_info'] = version_line.split('(')[0].strip()
+        except Exception:
+            pass
+        
+        # Get hostname
+        try:
+            data['system']['hostname'] = socket_module.gethostname()
+        except Exception:
+            try:
+                with open('/etc/hostname', 'r') as f:
+                    data['system']['hostname'] = f.read().strip()
+            except Exception:
+                pass
     except Exception:
         data['system'] = {'error': 'Unable to read system stats'}
+    
+    # Network Statistics (from /proc/net/dev)
+    try:
+        interfaces = {}
+        with open('/proc/net/dev', 'r') as f:
+            for line in f:
+                if ':' in line:
+                    parts = line.split(':')
+                    iface_name = parts[0].strip()
+                    stats = parts[1].split()
+                    if len(stats) >= 16:
+                        interfaces[iface_name] = {
+                            'rx_bytes': int(stats[0]),
+                            'rx_packets': int(stats[1]),
+                            'tx_bytes': int(stats[8]),
+                            'tx_packets': int(stats[9])
+                        }
+        data['network'] = {'interfaces': interfaces}
+    except Exception:
+        data['network'] = {'interfaces': {}}
+    
+    # Cache Statistics
+    try:
+        with _cache_lock:
+            data['cache'] = {
+                'dns_cache_size': len(_dns_cache),
+                'geo_cache_size': len(_geo_cache),
+                'common_cache_size': len(_common_data_cache),
+                'bandwidth_history_size': len(_bandwidth_history_cache)
+            }
+    except Exception:
+        data['cache'] = {}
+    
+    # Process/Application Metrics
+    try:
+        import resource
+        pid = os.getpid()
+        
+        # Get process memory
+        mem_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        mem_mb = mem_kb / 1024
+        
+        process_metrics = {
+            'process_memory_mb': round(mem_mb, 1),
+            'threads': data.get('system', {}).get('process_threads', 0)
+        }
+        
+        # Get process stats from /proc/PID/stat
+        try:
+            with open(f'/proc/{pid}/stat', 'r') as f:
+                stat_parts = f.read().split()
+                if len(stat_parts) > 13:
+                    # utime + stime = total CPU time
+                    utime = int(stat_parts[13])
+                    stime = int(stat_parts[14])
+                    process_metrics['cpu_time'] = utime + stime
+        except Exception:
+            pass
+        
+        data['process'] = process_metrics
+    except Exception:
+        data['process'] = {}
     
     return jsonify(data)
 
