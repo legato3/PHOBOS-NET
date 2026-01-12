@@ -16,12 +16,22 @@ echo "🚀 Starting deployment..."
 # Ensure we're in the repo root
 cd "$(dirname "$0")/.."
 
-# Check for uncommitted changes
+# Check for uncommitted changes and auto-commit them
 if ! git diff-index --quiet HEAD --; then
-    echo "⚠️  Warning: You have uncommitted changes. Please commit or stash them first."
-    echo "   Uncommitted files:"
-    git diff --name-only
-    exit 1
+    echo "📝 Detected uncommitted changes. Auto-committing before deployment..."
+    echo "   Files with changes:"
+    git diff --name-only | sed 's/^/   - /'
+    
+    # Stage all changes
+    git add -A
+    
+    # Create commit with descriptive message
+    COMMIT_MSG="Auto-commit before deployment: $(date '+%Y-%m-%d %H:%M:%S')"
+    git commit -m "$COMMIT_MSG" || {
+        echo "❌ Failed to commit changes. Please resolve conflicts manually."
+        exit 1
+    }
+    echo "✅ Changes committed successfully"
 fi
 
 # Push changes to GitHub with automatic rebase handling
