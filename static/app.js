@@ -50,7 +50,7 @@ document.addEventListener('alpine:init', () => {
         compactMode: false,
 
         // Sidebar collapse state
-        sidebarCollapsed: false,
+        sidebarCollapsed: true,
 
         // Server health auto-refresh
         serverHealthRefreshTimer: null,
@@ -3394,7 +3394,8 @@ document.addEventListener('alpine:init', () => {
         // Sidebar Collapse
         loadSidebarState() {
             const saved = localStorage.getItem('sidebarCollapsed');
-            this.sidebarCollapsed = saved === '1';
+            // Default to collapsed (true) if no saved preference
+            this.sidebarCollapsed = saved !== null ? saved === '1' : true;
             if (this.sidebarCollapsed) {
                 document.body.classList.add('sidebar-collapsed');
             }
