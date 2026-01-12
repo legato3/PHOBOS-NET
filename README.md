@@ -5,7 +5,7 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 ## 🚀 Features
 
 ### Real-Time Monitoring
-- **Live Dashboard** with Alpine.js and Cyberpunk Glassmorphism theme
+- **Live Dashboard** with Alpine.js and TrueNAS-style theme
 - **Bandwidth Analytics** with 5-minute granular caching
 - **Top 10 Lists**: Sources, Destinations, Protocols, Ports
 - **Geo-Location**: Country and ASN tracking
@@ -45,7 +45,7 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 - **Notification Center**: Bell icon with dropdown alerts
 - **Alert Dismissal**: Client-side using localStorage  
 - **Grouped Alerts**: By severity (Critical, High, Medium, Low)
-- **Dark Glass Theme**: Neon accents with condensed tables
+- **TrueNAS-Style Theme**: Clean interface with TrueNAS blue accents and condensed tables
 - **Actions Menu**: Integrated controls
 
 ## 📋 Requirements
@@ -207,7 +207,7 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 - **CPU Optimization**: Granular caching, nfdump consolidation
 - **Multi-Feed Support**: Aggregate ~38K threat IPs from 4 sources
 - **Performance**: 60s caching, parallel processing
-- **UI Modernization**: Alpine.js, Cyberpunk theme
+- **UI Modernization**: Alpine.js, TrueNAS-style theme
 - **New Widgets**: TCP Flags, ASN, Duration analysis
 
 ## 🤝 Contributing

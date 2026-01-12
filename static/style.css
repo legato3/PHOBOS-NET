@@ -39,15 +39,18 @@
     /* Accent Palette */
     --accent-success: #00c853;
     --accent-danger: #ff1744;
+    --accent-error: var(--accent-danger);
     --accent-warning: #ffb300;
     --accent-info: #00b0ff;
-    --accent-primary-glow-strong: rgba(0, 243, 255, 0.25);
+    --accent-primary-glow-strong: rgba(0, 162, 255, 0.25);
 
     /* TrueNAS Brand Colors */
     --accent-magenta: #ff00ff;
+    --accent-secondary: var(--accent-magenta);
 
     /* Legacy compatibility (deprecated, use semantic aliases) */
     --bg-dark: var(--bg-primary);
+    --accent-cyan: var(--accent-primary);
     --neon-cyan: var(--accent-primary);
     --neon-purple: var(--accent-secondary);
     --neon-red: var(--accent-danger);
@@ -157,9 +160,9 @@
     --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.5);
     --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.7), 0 6px 12px rgba(0, 0, 0, 0.6);
     --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.7);
-    --shadow-glow-primary: 0 0 8px var(--accent-primary-glow), 0 0 16px var(--accent-primary-glow-strong);
-    --shadow-glow-danger: 0 0 8px var(--accent-danger-glow), 0 0 16px rgba(255, 0, 60, 0.3);
-    --shadow-glow-secondary: 0 0 8px var(--accent-secondary-glow), 0 0 16px rgba(255, 0, 255, 0.25);
+    --shadow-glow-primary: 0 0 8px rgba(0, 162, 255, 0.2), 0 0 16px var(--accent-primary-glow-strong);
+    --shadow-glow-danger: 0 0 8px rgba(255, 23, 68, 0.2), 0 0 16px rgba(255, 23, 68, 0.3);
+    --shadow-glow-secondary: 0 0 8px rgba(255, 0, 255, 0.2), 0 0 16px rgba(255, 0, 255, 0.25);
 
     /* Transitions - Subtle, purposeful motion */
     --motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -248,7 +251,7 @@ body {
 :where(a, button, [role="button"], input, select, textarea):focus-visible {
     outline: 1px solid var(--accent-primary);
     outline-offset: 1px;
-    box-shadow: 0 0 0 1px rgba(0, 243, 255, 0.3);
+    box-shadow: 0 0 0 1px rgba(0, 162, 255, 0.3);
     transition: outline var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -260,7 +263,7 @@ body {
 
 /* Selection color */
 ::selection {
-    background: rgba(0, 243, 255, 0.2);
+    background: rgba(0, 162, 255, 0.2);
     color: #fff;
 }
 
@@ -6953,11 +6956,11 @@ body.compact-mode {
 
 .server-stat-progress-bar {
     height: 100%;
-    background: var(--accent-cyan);
-    /* Solid cyan for maximum clarity */
+    background: var(--accent-primary);
+    /* TrueNAS blue for clarity */
     border-radius: 4px;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+    box-shadow: 0 0 12px rgba(0, 162, 255, 0.6);
     /* Increased glow */
 }
 

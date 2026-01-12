@@ -60,7 +60,7 @@ This checklist ensures all performance and accessibility optimizations are prope
 ### Visual Accessibility
 - [x] **Focus Visible**: `:focus-visible` for keyboard-only indicators
 - [x] **Reduced Motion**: `prefers-reduced-motion` media query
-- [x] **Color Contrast**: Cyberpunk theme meets WCAG contrast ratios
+- [x] **Color Contrast**: TrueNAS-style theme meets WCAG contrast ratios
 - [x] **Text Scaling**: Relative units (rem, em) for font sizes
 
 ## ✅ Code Organization

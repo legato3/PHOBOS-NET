@@ -68,7 +68,7 @@ This optimization effort focused on improving website performance, accessibility
 #### Visual Accessibility
 - ✅ `:focus-visible` for keyboard-only indicators
 - ✅ `prefers-reduced-motion` support
-- ✅ High contrast Cyberpunk theme (WCAG AA compliant)
+- ✅ High contrast TrueNAS-style theme (WCAG AA compliant)
 - ✅ Relative font sizing (rem/em units)
 
 ### 4. Code Organization

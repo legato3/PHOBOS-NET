@@ -10,7 +10,7 @@ PROX_NFDUMP/
 ├── netflow-dashboard.py      # Flask backend (main application)
 ├── static/
 │   ├── app.js                # Alpine.js frontend logic
-│   └── style.css             # Cyberpunk theme styles
+│   └── style.css             # TrueNAS-style theme styles
 ├── templates/
 │   └── index.html            # Single-page dashboard UI
 ├── threat-feeds.txt          # Multi-feed configuration
@@ -22,7 +22,7 @@ PROX_NFDUMP/
 - **Backend**: Flask (Python 3)
 - **Frontend**: Alpine.js (reactive framework)
 - **Data Source**: nfdump (NetFlow collector)
-- **Styling**: Custom CSS with Cyberpunk Glassmorphism theme
+- **Styling**: Custom CSS with TrueNAS-style theme
 - **Deployment**: Systemd service on Debian/Ubuntu LXC
 
 ## 📊 Data Flow
@@ -134,7 +134,7 @@ One IP per line, comments start with #:
    - Update Alpine.js state in app.js
    - Add API call in parallel fetch
    - Update template in index.html
-   - Maintain Cyberpunk theme in style.css
+   - Maintain TrueNAS-style theme in style.css
 
 3. **Testing**:
    - Test with empty nfdump results
@@ -158,7 +158,7 @@ When modifying code, verify:
 - [ ] Error handling for empty results
 - [ ] No hardcoded IPs/paths
 - [ ] Alpine.js reactivity preserved
-- [ ] Cyberpunk theme consistency
+- [ ] TrueNAS-style theme consistency
 
 ## 🧪 Testing with Sample Data
 
@@ -222,9 +222,9 @@ apt-get install snmp python3-pysnmp4
 
 ## 🎨 UI/UX Guidelines
 
-### Cyberpunk Theme
-- Dark backgrounds with neon accents (#0ff, #f0f, #ff0)
-- Glassmorphism effects (backdrop-filter: blur)
+### TrueNAS-Style Theme
+- Dark blue-grey backgrounds with TrueNAS blue accents (#00a2ff)
+- Clean, professional interface design
 - Monospace fonts for data tables
 - Condensed tables (Top 10 items)
 - Responsive bell icon for notifications
