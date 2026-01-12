@@ -28,8 +28,7 @@
     --sidebar-width: 240px;
     --sidebar-collapsed: 70px;
     --header-height: 60px;
-    --container-padding: 32px;
-    --container-max-width: 1600px;
+    --container-padding: 24px;
 
     /* Surfaces & Borders */
     --card-bg: var(--bg-secondary);
@@ -37,48 +36,12 @@
     --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     --card-radius: 4px;
 
-    /* TrueNAS Brand Colors */
-    --true-blue: #00a2ff;
-    --true-blue-hover: #1ab0ff;
-    --accent-cyan: var(--true-blue);
-
-    /* Enhanced Glass Morphism - More pronounced effects */
-    --glass-bg: rgba(255, 255, 255, 0.06);
-    --glass-bg-hover: rgba(255, 255, 255, 0.09);
-    --glass-border: rgba(0, 243, 255, 0.15);
-    --glass-border-hover: rgba(0, 243, 255, 0.25);
-    --glass-blur: 16px;
-    --glass-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 243, 255, 0.1);
-    --glass-shadow-hover: 0 16px 64px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 243, 255, 0.15);
-
-    /* Card System - Enhanced with glass and shadows */
-    --card-bg-hover: rgb(25, 25, 25);
-    --card-border-hover: rgba(0, 243, 255, 0.3);
-    --card-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-
-    /* Functional Accents - Subtle, purposeful only */
-    --accent-primary-glow: rgba(0, 243, 255, 0.15);
+    /* Accent Palette */
+    --accent-success: #00c853;
+    --accent-danger: #ff1744;
+    --accent-warning: #ffb300;
+    --accent-info: #00b0ff;
     --accent-primary-glow-strong: rgba(0, 243, 255, 0.25);
-
-    --accent-secondary: #ff00ff;
-    /* Magenta - Secondary actions, warnings */
-    --accent-secondary-hover: #cc00cc;
-    --accent-secondary-glow: rgba(255, 0, 255, 0.12);
-
-    --accent-danger: #ff003c;
-    /* Red - Critical alerts, errors */
-    --accent-danger-hover: #cc002e;
-    --accent-danger-glow: rgba(255, 0, 60, 0.2);
-
-    --accent-success: #00ff88;
-    /* Green - Success states, health */
-    --accent-success-hover: #00cc6a;
-    --accent-success-glow: rgba(0, 255, 136, 0.15);
-
-    --accent-warning: #ffb800;
-    /* Amber - Warnings */
-    --accent-warning-hover: #cc9300;
-    --accent-warning-glow: rgba(255, 184, 0, 0.15);
 
     /* TrueNAS Brand Colors */
     --accent-magenta: #ff00ff;
@@ -321,14 +284,13 @@ body {
     background-color: #5a5a5a;
 }
 
-/* Layout - Premium spacing and structure */
+/* Layout - Full width dashboard */
 .container {
-    max-width: var(--container-max-width);
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-    padding: 0 var(--container-padding);
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    display: block;
+    padding: 0;
 }
 
 /* Layout Wrapper with Sidebar */
@@ -364,7 +326,7 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar.collapsed {
-    width: var(--sidebar-collapsed-width);
+    width: var(--sidebar-collapsed);
 }
 
 .sidebar-header {
@@ -514,17 +476,22 @@ body.sidebar-collapsed .layout-wrapper {
     line-height: 1.4;
 }
 
-/* Main Content */
+/* Main Content Area */
 .main-content {
     flex: 1;
     min-width: 0;
     padding: 0;
     margin-left: var(--sidebar-width);
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
+    background: var(--bg-primary);
+}
+
+body.sidebar-collapsed .main-content {
+    margin-left: var(--sidebar-collapsed);
 }
 
 .content-scroll-area {
@@ -534,6 +501,8 @@ body.sidebar-collapsed .layout-wrapper {
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
+    margin-top: var(--header-height);
+    /* Offset for fixed header */
 }
 
 .header {
@@ -544,9 +513,16 @@ body.sidebar-collapsed .layout-wrapper {
     height: var(--header-height);
     background: var(--bg-secondary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    position: sticky;
+    position: fixed;
     top: 0;
+    right: 0;
+    left: var(--sidebar-width);
     z-index: 900;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.sidebar-collapsed .header {
+    left: var(--sidebar-collapsed);
 }
 
 .header-left,
