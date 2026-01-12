@@ -2188,7 +2188,21 @@ document.addEventListener('alpine:init', () => {
                 const res = await safeFetchFn('/api/server/health');
                 if(res.ok) {
                     const data = await res.json();
-                    this.serverHealth = { ...data, loading: false, error: null };
+                    // Update nested properties individually to ensure Alpine.js reactivity
+                    // This ensures all widget bindings (cpu.percent, memory.percent, etc.) are properly updated
+                    if (data.cpu) this.serverHealth.cpu = data.cpu;
+                    if (data.memory) this.serverHealth.memory = data.memory;
+                    if (data.disk) this.serverHealth.disk = data.disk;
+                    if (data.syslog) this.serverHealth.syslog = data.syslog;
+                    if (data.netflow) this.serverHealth.netflow = data.netflow;
+                    if (data.database) this.serverHealth.database = data.database;
+                    if (data.system) this.serverHealth.system = data.system;
+                    if (data.network) this.serverHealth.network = data.network;
+                    if (data.cache) this.serverHealth.cache = data.cache;
+                    if (data.process) this.serverHealth.process = data.process;
+                    if (data.timestamp) this.serverHealth.timestamp = data.timestamp;
+                    this.serverHealth.loading = false;
+                    this.serverHealth.error = null;
                 } else {
                     const errorMsg = `Server health fetch failed: ${res.status}`;
                     console.error(errorMsg);
