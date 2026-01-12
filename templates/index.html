@@ -2659,6 +2659,19 @@
                 <div x-show="ipInvestigation.loading" style="text-align: center; padding: 60px 20px;">
                     <div class="spinner" style="margin: 0 auto 20px;"></div>
                     <p style="color: var(--text-secondary);">Investigating IP address...</p>
+                    <p style="color: var(--text-tertiary); font-size: var(--text-xs); margin-top: var(--space-2);">This may take a few seconds...</p>
+                </div>
+
+                <!-- Error State -->
+                <div x-show="ipInvestigation.error && !ipInvestigation.loading" style="padding: var(--space-4); background: rgba(255, 0, 60, 0.1); border: 1px solid rgba(255, 0, 60, 0.3); border-radius: var(--radius-md); margin: var(--space-4) 0;">
+                    <div style="display: flex; align-items: flex-start; gap: var(--space-2);">
+                        <div style="font-size: 20px;">⚠️</div>
+                        <div style="flex: 1;">
+                            <strong style="color: var(--neon-red); display: block; margin-bottom: var(--space-1);">Investigation Failed</strong>
+                            <p style="color: var(--text-secondary); font-size: var(--text-sm); margin: 0 0 var(--space-3) 0;" x-text="ipInvestigation.error"></p>
+                            <button @click="investigateIP()" class="btn btn--secondary" style="font-size: var(--text-sm);">Retry Investigation</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Results -->
