@@ -2661,7 +2661,8 @@
                                         style="margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: var(--text-sm); line-height: 1.5;">
                                         <p style="margin: 0 0 var(--space-2) 0;">Analyzes security alerts to identify
                                             <strong>multi-stage attack chains</strong> by correlating related alerts
-                                            from the same IP address within a 1-hour time window.</p>
+                                            from the same IP address within a 1-hour time window.
+                                        </p>
                                         <div
                                             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2); font-size: var(--text-xs);">
                                             <div><strong style="color: var(--neon-cyan);">🔍 Detection:</strong> Groups
@@ -3107,15 +3108,15 @@
                             style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
 
                             <!-- CPU Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.cpu && !serverHealth.cpu.error">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.cpu && !serverHealth.cpu.error">
+                                <h2>
                                     <span>⚡ CPU</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.cpu.percent < 70,
                                 'badge-warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
                                 'badge-error': serverHealth.cpu.percent >= 90
                             }" x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></div>
                                 <!-- Progress Bar -->
@@ -3138,10 +3139,6 @@
                                         <span>Load 15m:</span>
                                         <span x-text="serverHealth.cpu.load_15min"></span>
                                     </div>
-                                    <div x-show="serverHealth.cpu.cores">
-                                        <span>Cores:</span>
-                                        <span x-text="serverHealth.cpu.cores"></span>
-                                    </div>
                                     <div x-show="serverHealth.cpu.frequency_mhz">
                                         <span>Frequency:</span>
                                         <span x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
@@ -3151,28 +3148,18 @@
                                         <span x-text="serverHealth.cpu.process_count.toLocaleString()"></span>
                                     </div>
                                 </div>
-                                <!-- Per-Core CPU Usage -->
-                                <div class="server-stat-per-core"
-                                    x-show="serverHealth.cpu.per_core && serverHealth.cpu.per_core.length > 0">
-                                    <template x-for="(core, index) in serverHealth.cpu.per_core">
-                                        <div class="server-stat-core-item">
-                                            <div class="server-stat-core-label" x-text="'Core ' + index"></div>
-                                            <div class="server-stat-core-value" x-text="core + '%'"></div>
-                                        </div>
-                                    </template>
-                                </div>
                             </div>
 
                             <!-- Memory Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.memory && !serverHealth.memory.error">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.memory && !serverHealth.memory.error">
+                                <h2>
                                     <span>💾 Memory</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.memory.percent < 80,
                                 'badge-warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
                                 'badge-error': serverHealth.memory.percent >= 90
                             }" x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'">
                                 </div>
@@ -3228,16 +3215,16 @@
                             </div>
 
                             <!-- Disk Statistics - Root -->
-                            <div class="server-stat-card"
+                            <div class="card"
                                 x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
-                                <div class="server-stat-header">
+                                <h2>
                                     <span>💿 Disk (Root)</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.disk.root.percent_used < 80,
                                 'badge-warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
                                 'badge-error': serverHealth.disk.root.percent_used >= 90
                             }" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'">
                                 </div>
@@ -3269,14 +3256,14 @@
                             </div>
 
                             <!-- NetFlow Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.netflow && !serverHealth.netflow.error">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.netflow && !serverHealth.netflow.error">
+                                <h2>
                                     <span>🌐 NetFlow</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.netflow.available,
                                 'badge-error': !serverHealth.netflow.available
                             }" x-text="serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() + ' files' : 'N/A'">
                                 </div>
@@ -3297,14 +3284,14 @@
                             </div>
 
                             <!-- Syslog Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.syslog && !serverHealth.syslog.error">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.syslog && !serverHealth.syslog.error">
+                                <h2>
                                     <span>📝 Syslog</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.syslog.active,
                                 'badge-error': !serverHealth.syslog.active
                             }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'">
                                 </div>
@@ -3334,14 +3321,14 @@
                             </div>
 
                             <!-- Database Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.database">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.database">
+                                <h2>
                                     <span>🗄️ Database</span>
                                     <span class="server-stat-badge" :class="{
                                 'badge-success': serverHealth.database.connected,
                                 'badge-error': !serverHealth.database.connected
                             }" x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'">
                                 </div>
@@ -3373,11 +3360,11 @@
                             </div>
 
                             <!-- System Information (Combined with Uptime) -->
-                            <div class="server-stat-card" x-show="serverHealth.system && !serverHealth.system.error">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.system && !serverHealth.system.error">
+                                <h2>
                                     <span>🖥️ System</span>
                                     <span class="server-stat-badge badge-success">ONLINE</span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value" x-text="serverHealth.system.hostname || 'N/A'"
                                     style="font-size: 1.2em;"></div>
                                 <div class="server-stat-details">
@@ -3412,12 +3399,12 @@
                             </div>
 
                             <!-- Process/Application Information (Combined) -->
-                            <div class="server-stat-card"
+                            <div class="card"
                                 x-show="(serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error) || serverHealth.process">
-                                <div class="server-stat-header">
+                                <h2>
                                     <span>⚙️ Process</span>
                                     <span class="server-stat-badge badge-success">ACTIVE</span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="serverHealth.process && serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : (serverHealth.system && serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() + ' threads' : 'N/A')">
                                 </div>
@@ -3445,12 +3432,12 @@
                             </div>
 
                             <!-- Network Statistics (eth0 only) -->
-                            <div class="server-stat-card"
+                            <div class="card"
                                 x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
-                                <div class="server-stat-header">
+                                <h2>
                                     <span>🌐 Network Interface (eth0)</span>
                                     <span class="server-stat-badge badge-success">ACTIVE</span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-details">
                                     <div>
                                         <span>RX:</span>
@@ -3476,11 +3463,11 @@
                             </div>
 
                             <!-- Cache Statistics -->
-                            <div class="server-stat-card" x-show="serverHealth.cache">
-                                <div class="server-stat-header">
+                            <div class="card" x-show="serverHealth.cache">
+                                <h2>
                                     <span>💾 Cache</span>
                                     <span class="server-stat-badge badge-success">ACTIVE</span>
-                                </div>
+                                </h2>
                                 <div class="server-stat-value"
                                     x-text="(serverHealth.cache.dns_cache_size || 0) + (serverHealth.cache.geo_cache_size || 0) + (serverHealth.cache.common_cache_size || 0) + ' entries'">
                                 </div>
@@ -4069,7 +4056,8 @@
                     <canvas id="fullscreenChartCanvas"></canvas>
                 </div>
                 <p style="text-align:center; color:var(--text-muted); font-size:0.8em; margin-top:12px;">Press
-                    <kbd>ESC</kbd> or click outside to close</p>
+                    <kbd>ESC</kbd> or click outside to close
+                </p>
             </div>
         </div>
 
