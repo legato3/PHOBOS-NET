@@ -1477,44 +1477,48 @@
                 <section id="section-network" class="scroll-section" style="margin-bottom: 32px;">
 
                     <!-- Primary Network Endpoints: Sources & Destinations -->
-                    <div class="layout-symmetric" style="margin-bottom: var(--space-6);">
-                        <!-- Primary Column: Sources -->
-                        <div class="primary-column">
-                            <template x-if="isVisible('sources')">
-                                <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
-                                    <h2>
-                                        <span>🔝 Top Sources</span>
-                                        <div class="card-actions">
-                                            <button class="icon-btn-small" @click="openExpandedTable('sources')"
-                                                title="View All" x-show="!isMinimized('sources')">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                                    <polyline points="9 21 3 21 3 15"></polyline>
-                                                    <line x1="21" y1="3" x2="14" y2="10"></line>
-                                                    <line x1="3" y1="21" x2="10" y2="14"></line>
-                                                </svg>
-                                            </button>
-                                            <button class="icon-btn-small" @click="toggleMinimize('sources')"
-                                                :title="isMinimized('sources') ? 'Expand' : 'Minimize'"
-                                                :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    x-show="!isMinimized('sources')">
-                                                    <path d="M3 12h18M12 3v18" />
-                                                </svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    x-show="isMinimized('sources')">
-                                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                                </svg>
-                                            </button>
-                                            <div class="spinner" x-show="sources.loading"></div>
-                                        </div>
-                                    </h2>
+
+
+                    <!-- Supporting Network Metrics -->
+                    <div class="grid" data-reorder="true" data-grid-id="network-overview"
+                        style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
+
+                        <!-- Top Sources -->
+                        <template x-if="isVisible('sources')">
+                            <div class="card" :class="{ 'widget-minimized': isMinimized('sources') }">
+                                <h2>
+                                    <span>🔝 Top Sources</span>
+                                    <div class="card-actions">
+                                        <button class="icon-btn-small" @click="openExpandedTable('sources')"
+                                            title="View All" x-show="!isMinimized('sources')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="15 3 21 3 21 9"></polyline>
+                                                <polyline points="9 21 3 21 3 15"></polyline>
+                                                <line x1="21" y1="3" x2="14" y2="10"></line>
+                                                <line x1="3" y1="21" x2="10" y2="14"></line>
+                                            </svg>
+                                        </button>
+                                        <button class="icon-btn-small" @click="toggleMinimize('sources')"
+                                            :title="isMinimized('sources') ? 'Expand' : 'Minimize'"
+                                            :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                x-show="!isMinimized('sources')">
+                                                <path d="M3 12h18M12 3v18" />
+                                            </svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                x-show="isMinimized('sources')">
+                                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            </svg>
+                                        </button>
+                                        <div class="spinner" x-show="sources.loading"></div>
+                                    </div>
+
                                     <table class="table-fixed table-compact" x-show="!isMinimized('sources')">
                                         <thead>
                                             <tr>
@@ -1573,7 +1577,8 @@
                                                         <div class="endpoint-cell endpoint-value-cell">
                                                             <div class="endpoint-value"
                                                                 :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}"
-                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                                            </div>
                                                             <div class="endpoint-flows" x-text="item.flows + ' flows'">
                                                             </div>
                                                         </div>
@@ -1582,122 +1587,114 @@
                                             </template>
                                         </tbody>
                                     </table>
-                                </div>
-                            </template>
-                        </div>
+                            </div>
+                        </template>
 
-                        <!-- Secondary Column: Destinations -->
-                        <div class="secondary-column">
-                            <template x-if="isVisible('destinations')">
-                                <div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
-                                    <h2>
-                                        <span>🎯 Top Destinations</span>
-                                        <div class="card-actions">
-                                            <button class="icon-btn-small" @click="openExpandedTable('destinations')"
-                                                title="View All" x-show="!isMinimized('destinations')">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                                    <polyline points="9 21 3 21 3 15"></polyline>
-                                                    <line x1="21" y1="3" x2="14" y2="10"></line>
-                                                    <line x1="3" y1="21" x2="10" y2="14"></line>
-                                                </svg>
-                                            </button>
-                                            <button class="icon-btn-small" @click="toggleMinimize('destinations')"
-                                                :title="isMinimized('destinations') ? 'Expand' : 'Minimize'"
-                                                :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    x-show="!isMinimized('destinations')">
-                                                    <path d="M3 12h18M12 3v18" />
-                                                </svg>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    x-show="isMinimized('destinations')">
-                                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                                </svg>
-                                            </button>
-                                            <div class="spinner" x-show="destinations.loading"></div>
-                                        </div>
-                                    </h2>
-                                    <table class="table-fixed table-compact" x-show="!isMinimized('destinations')">
-                                        <thead>
-                                            <tr>
-                                                <th style="width:50%;">IP Address</th>
-                                                <th style="width:50%;">Traffic</th>
+                        <!-- Top Destinations -->
+                        <template x-if="isVisible('destinations')">
+                            <div class="card" :class="{ 'widget-minimized': isMinimized('destinations') }">
+                                <h2>
+                                    <span>🎯 Top Destinations</span>
+                                    <div class="card-actions">
+                                        <button class="icon-btn-small" @click="openExpandedTable('destinations')"
+                                            title="View All" x-show="!isMinimized('destinations')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="15 3 21 3 21 9"></polyline>
+                                                <polyline points="9 21 3 21 3 15"></polyline>
+                                                <line x1="21" y1="3" x2="14" y2="10"></line>
+                                                <line x1="3" y1="21" x2="10" y2="14"></line>
+                                            </svg>
+                                        </button>
+                                        <button class="icon-btn-small" @click="toggleMinimize('destinations')"
+                                            :title="isMinimized('destinations') ? 'Expand' : 'Minimize'"
+                                            :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                x-show="!isMinimized('destinations')">
+                                                <path d="M3 12h18M12 3v18" />
+                                            </svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                x-show="isMinimized('destinations')">
+                                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            </svg>
+                                        </button>
+                                        <div class="spinner" x-show="destinations.loading"></div>
+                                    </div>
+                                </h2>
+                                <table class="table-fixed table-compact" x-show="!isMinimized('destinations')">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:50%;">IP Address</th>
+                                            <th style="width:50%;">Traffic</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="(item, index) in filteredDestinations" :key="index">
+                                            <tr @click="openIPModal(item.key)" class="network-endpoint-row"
+                                                :data-row-rank="index"
+                                                :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
+                                                :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
+                                                <td>
+                                                    <div class="endpoint-cell">
+                                                        <!-- Primary: IP Address -->
+                                                        <div class="endpoint-primary-line">
+                                                            <span x-text="item.flag" class="endpoint-flag"></span>
+                                                            <strong x-text="item.key" class="endpoint-ip"></strong>
+                                                            <button class="icon-btn-small endpoint-filter-btn"
+                                                                @click.stop="applyFilter(item.key)"
+                                                                title="Filter / Details"
+                                                                :aria-label="'View details for ' + item.key">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14"
+                                                                    height="14" viewBox="0 0 24 24" fill="none"
+                                                                    stroke="currentColor" stroke-width="2"
+                                                                    stroke-linecap="round" stroke-linejoin="round">
+                                                                    <circle cx="11" cy="11" r="8"></circle>
+                                                                    <line x1="21" y1="21" x2="16.65" y2="16.65">
+                                                                    </line>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <!-- Secondary: Metadata with inline sparkline -->
+                                                        <div class="endpoint-meta-line">
+                                                            <span x-text="item.region"></span>
+                                                            <span x-show="item.hostname"
+                                                                x-text="' • ' + item.hostname"></span>
+                                                            <span class="endpoint-meta-sparkline">
+                                                                <canvas class="spark spark-subtle" width="80"
+                                                                    height="14" :data-ip="item.key"
+                                                                    data-kind="dest"></canvas>
+                                                            </span>
+                                                        </div>
+                                                        <!-- Supporting: Badges -->
+                                                        <div class="endpoint-badges">
+                                                            <span class="badge"
+                                                                :class="item.internal ? 'internal' : 'external'"
+                                                                x-text="item.internal ? 'Internal' : 'External'"></span>
+                                                            <span class="badge threat"
+                                                                x-show="item.threat">THREAT</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="endpoint-cell endpoint-value-cell">
+                                                        <div class="endpoint-value"
+                                                            :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
+                                                            x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
+                                                        <div class="endpoint-flows" x-text="item.flows + ' flows'">
+                                                        </div>
+                                                    </div>
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            <template x-for="(item, index) in filteredDestinations" :key="index">
-                                                <tr @click="openIPModal(item.key)" class="network-endpoint-row"
-                                                    :data-row-rank="index"
-                                                    :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
-                                                    :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
-                                                    <td>
-                                                        <div class="endpoint-cell">
-                                                            <!-- Primary: IP Address -->
-                                                            <div class="endpoint-primary-line">
-                                                                <span x-text="item.flag" class="endpoint-flag"></span>
-                                                                <strong x-text="item.key" class="endpoint-ip"></strong>
-                                                                <button class="icon-btn-small endpoint-filter-btn"
-                                                                    @click.stop="applyFilter(item.key)"
-                                                                    title="Filter / Details"
-                                                                    :aria-label="'View details for ' + item.key">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14"
-                                                                        height="14" viewBox="0 0 24 24" fill="none"
-                                                                        stroke="currentColor" stroke-width="2"
-                                                                        stroke-linecap="round" stroke-linejoin="round">
-                                                                        <circle cx="11" cy="11" r="8"></circle>
-                                                                        <line x1="21" y1="21" x2="16.65" y2="16.65">
-                                                                        </line>
-                                                                    </svg>
-                                                                </button>
-                                                            </div>
-                                                            <!-- Secondary: Metadata with inline sparkline -->
-                                                            <div class="endpoint-meta-line">
-                                                                <span x-text="item.region"></span>
-                                                                <span x-show="item.hostname"
-                                                                    x-text="' • ' + item.hostname"></span>
-                                                                <span class="endpoint-meta-sparkline">
-                                                                    <canvas class="spark spark-subtle" width="80"
-                                                                        height="14" :data-ip="item.key"
-                                                                        data-kind="dest"></canvas>
-                                                                </span>
-                                                            </div>
-                                                            <!-- Supporting: Badges -->
-                                                            <div class="endpoint-badges">
-                                                                <span class="badge"
-                                                                    :class="item.internal ? 'internal' : 'external'"
-                                                                    x-text="item.internal ? 'Internal' : 'External'"></span>
-                                                                <span class="badge threat"
-                                                                    x-show="item.threat">THREAT</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="endpoint-cell endpoint-value-cell">
-                                                            <div class="endpoint-value"
-                                                                :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
-                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes)"></div>
-                                                            <div class="endpoint-flows" x-text="item.flows + ' flows'">
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <!-- Supporting Network Metrics -->
-                    <div class="grid" data-reorder="true" data-grid-id="network-overview"
-                        style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </template>
                         <!-- Top Ports -->
                         <template x-if="isVisible('ports')">
                             <div class="card" :class="{ 'widget-minimized': isMinimized('ports') }">
