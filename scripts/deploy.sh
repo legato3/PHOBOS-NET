@@ -42,7 +42,9 @@ echo "📥 Syncing files to server container..."
 
 # Create a tarball of the current directory, excluding unnecessary files
 # We stream this directly to the SSH command -> pct exec -> tar extract
-tar --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' \
+# Use COPYFILE_DISABLE=1 to prevent ._ AppleDouble files
+# Use --no-xattrs to prevent macOS extended attributes from being included in the archive
+COPYFILE_DISABLE=1 tar --no-xattrs --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' \
     --exclude='.venv' --exclude='.DS_Store' --exclude='tests' \
     -czf - . | \
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
@@ -53,7 +55,8 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     cd ${REPO_PATH}
     
     echo \"📦 Extracting files...\"
-    tar -xzf -
+    # Use --warning=no-unknown-keyword to suppress warnings about ignored extended headers (if any slip through)
+    tar --warning=no-unknown-keyword -xzf -
     
     # 3b. Install Dependencies
     echo \"📦 Installing dependencies...\"
