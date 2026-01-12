@@ -2185,7 +2185,7 @@
                             <span>⏱️ Uptime</span>
                             <span class="server-stat-badge badge-success">RUNNING</span>
                         </div>
-                        <div class="server-stat-value" style="font-size: 1.4em;" x-text="serverHealth.system.uptime_formatted || 'N/A'"></div>
+                        <div class="server-stat-value" x-text="serverHealth.system.uptime_formatted || 'N/A'"></div>
                         <div class="server-stat-details">
                             <div x-show="serverHealth.system.uptime_seconds">
                                 <span>Total:</span>
@@ -2219,7 +2219,7 @@
                             <span>🕐 System</span>
                             <span class="server-stat-badge badge-success">ONLINE</span>
                         </div>
-                        <div class="server-stat-value" style="font-size: 1.2em;" x-text="new Date(serverHealth.timestamp).toLocaleTimeString()"></div>
+                        <div class="server-stat-value" x-text="new Date(serverHealth.timestamp).toLocaleTimeString()"></div>
                         <div class="server-stat-details">
                             <div>
                                 <span>Last Update:</span>

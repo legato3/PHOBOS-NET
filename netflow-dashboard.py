@@ -5505,25 +5505,48 @@ def api_server_health():
         'timestamp': datetime.now().isoformat()
     }
     
-    # CPU Statistics - use /proc filesystem (Linux)
+    # CPU Statistics - use psutil if available, otherwise /proc filesystem (Linux)
     try:
-        # Get load averages and approximate CPU usage
+        # Try psutil first for accurate real-time CPU percentage
         try:
-            with open('/proc/loadavg', 'r') as f:
-                loads = [float(x) for x in f.read().split()[:3]]
-                data['cpu']['load_1min'] = round(loads[0], 2)
-                data['cpu']['load_5min'] = round(loads[1], 2)
-                data['cpu']['load_15min'] = round(loads[2], 2)
-                
-                # Approximate CPU percent from load average
-                # Load average / number of cores gives rough CPU usage
+            import psutil
+            cpu_percent = psutil.cpu_percent(interval=0.1)  # Non-blocking sample
+            data['cpu']['percent'] = round(cpu_percent, 1)
+            # Get load averages for additional context
+            loadavg = os.getloadavg() if hasattr(os, 'getloadavg') else None
+            if loadavg:
+                data['cpu']['load_1min'] = round(loadavg[0], 2)
+                data['cpu']['load_5min'] = round(loadavg[1], 2)
+                data['cpu']['load_15min'] = round(loadavg[2], 2)
+            else:
+                # Fallback to /proc/loadavg
                 try:
-                    with open('/proc/cpuinfo', 'r') as cf:
-                        cores = len([l for l in cf.readlines() if l.startswith('processor')])
-                    cores = max(cores, 1)
+                    with open('/proc/loadavg', 'r') as f:
+                        loads = [float(x) for x in f.read().split()[:3]]
+                        data['cpu']['load_1min'] = round(loads[0], 2)
+                        data['cpu']['load_5min'] = round(loads[1], 2)
+                        data['cpu']['load_15min'] = round(loads[2], 2)
                 except:
-                    cores = 4  # Default fallback
-                data['cpu']['percent'] = min(round((loads[0] / cores) * 100, 1), 100.0)
+                    pass
+        except ImportError:
+            # Fallback: use /proc filesystem for load averages and approximate CPU
+            try:
+                with open('/proc/loadavg', 'r') as f:
+                    loads = [float(x) for x in f.read().split()[:3]]
+                    data['cpu']['load_1min'] = round(loads[0], 2)
+                    data['cpu']['load_5min'] = round(loads[1], 2)
+                    data['cpu']['load_15min'] = round(loads[2], 2)
+                    
+                    # Approximate CPU percent from load average (less accurate)
+                    try:
+                        with open('/proc/cpuinfo', 'r') as cf:
+                            cores = len([l for l in cf.readlines() if l.startswith('processor')])
+                        cores = max(cores, 1)
+                    except:
+                        cores = 4  # Default fallback
+                    data['cpu']['percent'] = min(round((loads[0] / cores) * 100, 1), 100.0)
+            except Exception as e:
+                data['cpu'] = {'percent': 0, 'error': str(e)}
         except Exception as e:
             data['cpu'] = {'percent': 0, 'error': str(e)}
     except Exception as e:
@@ -5634,7 +5657,7 @@ def api_server_health():
                 log_count = cursor.fetchone()[0]
                 
                 # Get database size
-                db_path = '/root/firewall.db'
+                db_path = FIREWALL_DB_PATH
                 if os.path.exists(db_path):
                     db_size = os.path.getsize(db_path)
                     data['database'] = {

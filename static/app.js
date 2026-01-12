@@ -50,6 +50,9 @@ document.addEventListener('alpine:init', () => {
         // Sidebar collapse state
         sidebarCollapsed: false,
 
+        // Server health auto-refresh
+        serverHealthRefreshTimer: null,
+
         // Mobile UI state
         showMobileFilters: false,
 
@@ -391,6 +394,15 @@ document.addEventListener('alpine:init', () => {
                         if (this.recentBlocksRefreshTimer) {
                             clearInterval(this.recentBlocksRefreshTimer);
                             this.recentBlocksRefreshTimer = null;
+                        }
+                    }
+                    // Manage server health auto-refresh
+                    if (val === 'server') {
+                        this.startServerHealthAutoRefresh();
+                    } else {
+                        if (this.serverHealthRefreshTimer) {
+                            clearInterval(this.serverHealthRefreshTimer);
+                            this.serverHealthRefreshTimer = null;
                         }
                     }
                 });
@@ -2144,11 +2156,38 @@ document.addEventListener('alpine:init', () => {
                     this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load server health') || errorMsg;
                     this.serverHealth.loading = false;
                 }
-            } catch(e) { 
+            } catch(e) {
                 console.error('Server health fetch error:', e);
                 this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
                 this.serverHealth.loading = false;
             }
+        },
+
+        startServerHealthAutoRefresh() {
+            // Clear existing timer if any
+            if (this.serverHealthRefreshTimer) {
+                clearInterval(this.serverHealthRefreshTimer);
+                this.serverHealthRefreshTimer = null;
+            }
+            
+            // Only start if server tab is active
+            if (this.activeTab !== 'server') return;
+            
+            // Initial fetch
+            this.fetchServerHealth();
+            
+            // Set up 1-second interval refresh
+            this.serverHealthRefreshTimer = setInterval(() => {
+                if (this.activeTab === 'server' && !this.paused) {
+                    this.fetchServerHealth();
+                } else {
+                    // Clean up if tab changed or paused
+                    if (this.serverHealthRefreshTimer) {
+                        clearInterval(this.serverHealthRefreshTimer);
+                        this.serverHealthRefreshTimer = null;
+                    }
+                }
+            }, 1000);
         },
 
         async fetchBandwidth() {
