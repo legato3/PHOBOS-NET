@@ -500,6 +500,114 @@ def query_abuseipdb(ip, timeout=5):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+def detect_ip_anomalies(ip, tf, direction, src_ports, dst_ports, protocols):
+    """Detect traffic pattern anomalies for a specific IP."""
+    anomalies = []
+    
+    try:
+        # Anomaly 1: High upload/download ratio (potential data exfiltration)
+        upload = direction.get('upload', 0)
+        download = direction.get('download', 0)
+        if upload > 0 and download > 0:
+            ratio = upload / download
+            if ratio > 10:  # 10:1 upload to download ratio
+                anomalies.append({
+                    "type": "high_upload_ratio",
+                    "severity": "high",
+                    "message": f"High upload/download ratio ({ratio:.1f}:1) - potential data exfiltration",
+                    "upload_mb": round(upload / (1024*1024), 2),
+                    "download_mb": round(download / (1024*1024), 2),
+                    "ratio": round(ratio, 2)
+                })
+        
+        # Anomaly 2: High number of unique ports (potential port scan)
+        unique_ports = len(set([p.get('key', '') for p in (src_ports or [])] + [p.get('key', '') for p in (dst_ports or [])]))
+        if unique_ports > 20:
+            anomalies.append({
+                "type": "port_scan",
+                "severity": "medium",
+                "message": f"High number of unique ports ({unique_ports}) - potential port scan",
+                "port_count": unique_ports
+            })
+        
+        # Anomaly 3: Suspicious ports
+        suspicious_ports_found = []
+        for port_list in [src_ports or [], dst_ports or []]:
+            for p in port_list:
+                port_num = p.get('key', '')
+                try:
+                    port_int = int(port_num)
+                    if port_int in SUSPICIOUS_PORTS:
+                        suspicious_ports_found.append(port_int)
+                except (ValueError, TypeError):
+                    pass
+        
+        if suspicious_ports_found:
+            anomalies.append({
+                "type": "suspicious_ports",
+                "severity": "medium",
+                "message": f"Suspicious ports detected: {', '.join(map(str, set(suspicious_ports_found)))}",
+                "ports": list(set(suspicious_ports_found))
+            })
+        
+        # Anomaly 4: High traffic volume (if external IP)
+        if not is_internal(ip):
+            total_bytes = upload + download
+            total_mb = total_bytes / (1024*1024)
+            if total_mb > 1000:  # More than 1GB
+                anomalies.append({
+                    "type": "high_traffic_volume",
+                    "severity": "low",
+                    "message": f"High traffic volume ({total_mb:.0f} MB) from external IP",
+                    "total_mb": round(total_mb, 2)
+                })
+        
+        # Anomaly 5: ICMP-only or unusual protocol mix
+        proto_names = [p.get('proto_name', p.get('key', '')) for p in (protocols or [])]
+        if len(proto_names) == 1 and 'ICMP' in proto_names[0]:
+            anomalies.append({
+                "type": "icmp_only",
+                "severity": "low",
+                "message": "Traffic consists only of ICMP - potential reconnaissance",
+                "protocols": proto_names
+            })
+        
+    except Exception as e:
+        print(f"Warning: Anomaly detection failed for IP {ip}: {e}")
+    
+    return anomalies
+
+def generate_ip_anomaly_alerts(ip, anomalies, geo):
+    """Generate alerts for high-severity anomalies detected during IP investigation."""
+    if not anomalies:
+        return
+    
+    now = time.time()
+    with _alert_history_lock:
+        # Check if we've already alerted for this IP recently (within last hour)
+        recent_alerts = [a for a in list(_alert_history)[-50:] if a.get('ip') == ip and a.get('ts', 0) > now - 3600]
+        if recent_alerts:
+            return  # Already alerted recently
+        
+        # Generate alerts for high and medium severity anomalies
+        for anomaly in anomalies:
+            if anomaly.get('severity') in ('high', 'medium'):
+                alert = {
+                    "type": "ip_anomaly",
+                    "msg": f"⚠️ IP Investigation Anomaly: {anomaly.get('message', 'Unknown anomaly')}",
+                    "severity": anomaly.get('severity', 'medium'),
+                    "feed": "ip_investigation",
+                    "ip": ip,
+                    "category": anomaly.get('type', 'UNKNOWN'),
+                    "anomaly": anomaly,
+                    "country": geo.get('country_code', '--') if geo else '--',
+                    "ts": now
+                }
+                _alert_history.append(alert)
+                # Send notification if high severity
+                if anomaly.get('severity') == 'high':
+                    send_security_webhook(alert)
+
 def throttle(max_calls=20, time_window=10):
     def decorator(func):
         @wraps(func)
@@ -4255,6 +4363,12 @@ def api_ip_detail(ip):
     # Threat Intelligence lookup (optional, graceful degradation if no API keys)
     threat_intel = lookup_threat_intelligence(ip)
     
+    # Traffic pattern anomaly detection
+    anomalies = detect_ip_anomalies(ip, tf, direction, src_ports, dst_ports, protocols)
+    
+    # Generate alerts for high-severity anomalies
+    generate_ip_anomaly_alerts(ip, anomalies, geo)
+    
     # Find related IPs (simplified: IPs that appear in conversations with this IP)
     # This finds IPs that directly communicate with this IP (as source or destination)
     related_ips = []
@@ -4321,7 +4435,8 @@ def api_ip_detail(ip):
         "protocols": protocols,
         "threat": False,
         "related_ips": related_ips,
-        "threat_intel": threat_intel
+        "threat_intel": threat_intel,
+        "anomalies": anomalies
     }
     return jsonify(data)
 
