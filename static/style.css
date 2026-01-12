@@ -6057,31 +6057,37 @@ body.compact-mode {
    SERVER HEALTH SECTION
    ============================================ */
 .server-stat-card {
-    background: var(--bg-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: var(--radius-md);
-    padding: var(--space-6);
+    padding: var(--space-4);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: border-color var(--motion-base);
+    transition: border-color var(--motion-base), padding var(--motion-base);
     overflow: hidden;
 }
 
 .server-stat-card:hover {
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--card-border-hover);
+    padding: var(--space-5);
+}
+
+.server-stat-card:hover .server-stat-details {
+    max-height: 1000px;
+    opacity: 1;
 }
 
 .server-stat-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-2);
     font-weight: var(--font-weight-semibold);
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     color: var(--text-primary);
-    padding-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     letter-spacing: var(--letter-spacing-tight);
 }
@@ -6093,12 +6099,12 @@ body.compact-mode {
 }
 
 .server-stat-value {
-    font-size: var(--text-3xl);
+    font-size: var(--text-2xl);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-mono); /* Technical data - use monospace for consistency */
     color: var(--text-primary);
     letter-spacing: var(--letter-spacing-tight);
-    margin: var(--space-2) 0;
+    margin: var(--space-1) 0;
 }
 
 .server-stat-badge {
@@ -6133,9 +6139,17 @@ body.compact-mode {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--text-muted);
-    margin-top: var(--space-3);
+    margin-top: 0;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+}
+
+.server-stat-card:hover .server-stat-details {
+    margin-top: var(--space-2);
 }
 
 .server-stat-details > div {

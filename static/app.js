@@ -2215,7 +2215,7 @@ document.addEventListener('alpine:init', () => {
             // Initial fetch
             this.fetchServerHealth();
             
-            // Set up 2-second interval refresh (less aggressive, avoids rate limits)
+            // Set up 1-second interval refresh for real-time updates
             this.serverHealthRefreshTimer = setInterval(() => {
                 if (this.activeTab === 'server' && !this.paused) {
                     this.fetchServerHealth();
@@ -2226,7 +2226,7 @@ document.addEventListener('alpine:init', () => {
                         this.serverHealthRefreshTimer = null;
                     }
                 }
-            }, 2000);
+            }, 1000);
         },
 
         async fetchBandwidth() {

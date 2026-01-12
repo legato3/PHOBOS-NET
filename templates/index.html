@@ -2266,38 +2266,52 @@
                         </div>
                     </div>
 
-                    <!-- Disk Statistics - NetFlow -->
-                    <div class="server-stat-card" x-show="serverHealth.disk && serverHealth.disk.nfdump && !serverHealth.disk.error">
+                    <!-- NetFlow Statistics (Combined) -->
+                    <div class="server-stat-card" x-show="(serverHealth.netflow && !serverHealth.netflow.error) || (serverHealth.disk && serverHealth.disk.nfdump && !serverHealth.disk.error)">
                         <div class="server-stat-header">
-                            <span>📊 NetFlow Data</span>
+                            <span>🌐 NetFlow</span>
                             <span class="server-stat-badge" :class="{
-                                'badge-success': !serverHealth.disk.nfdump.percent_used || serverHealth.disk.nfdump.percent_used < 80,
-                                'badge-warning': serverHealth.disk.nfdump.percent_used >= 80 && serverHealth.disk.nfdump.percent_used < 90,
-                                'badge-error': serverHealth.disk.nfdump.percent_used >= 90
-                            }" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></span>
+                                'badge-success': serverHealth.netflow && serverHealth.netflow.available,
+                                'badge-error': serverHealth.netflow && !serverHealth.netflow.available
+                            }" x-text="serverHealth.netflow && serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></span>
                         </div>
-                        <div class="server-stat-value" x-text="serverHealth.disk.nfdump.percent_used ? serverHealth.disk.nfdump.percent_used + '%' : 'N/A'"></div>
-                        <!-- Progress Bar -->
-                        <div class="server-stat-progress" x-show="serverHealth.disk.nfdump.percent_used !== undefined">
+                        <div class="server-stat-value" x-text="serverHealth.netflow && serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() + ' files' : (serverHealth.disk && serverHealth.disk.nfdump_files !== undefined ? serverHealth.disk.nfdump_files.toLocaleString() + ' files' : 'N/A')"></div>
+                        <!-- Progress Bar (Disk Usage) -->
+                        <div class="server-stat-progress" x-show="serverHealth.disk && serverHealth.disk.nfdump && serverHealth.disk.nfdump.percent_used !== undefined">
                             <div class="server-stat-progress-bar" :class="{
                                 'warning': serverHealth.disk.nfdump.percent_used >= 80 && serverHealth.disk.nfdump.percent_used < 90,
                                 'error': serverHealth.disk.nfdump.percent_used >= 90
                             }" :style="'width: ' + (serverHealth.disk.nfdump.percent_used || 0) + '%'"></div>
                         </div>
                         <div class="server-stat-details">
-                            <div x-show="serverHealth.disk.nfdump_files !== undefined">
-                                <span>Files:</span>
-                                <span x-text="serverHealth.disk.nfdump_files ? serverHealth.disk.nfdump_files.toLocaleString() : '0'"></span>
+                            <!-- Service Status -->
+                            <div x-show="serverHealth.netflow && serverHealth.netflow.version">
+                                <span>Version:</span>
+                                <span x-text="serverHealth.netflow.version" style="font-size: 0.85em;"></span>
                             </div>
-                            <div x-show="serverHealth.disk.nfdump.used_gb">
+                            <div x-show="serverHealth.netflow && serverHealth.netflow.directory">
+                                <span>Directory:</span>
+                                <span x-text="serverHealth.netflow.directory" style="font-size: 0.85em;"></span>
+                            </div>
+                            <!-- File Count -->
+                            <div x-show="serverHealth.netflow && serverHealth.netflow.files_count !== undefined || serverHealth.disk && serverHealth.disk.nfdump_files !== undefined">
+                                <span>Files:</span>
+                                <span x-text="(serverHealth.netflow && serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count : (serverHealth.disk && serverHealth.disk.nfdump_files !== undefined ? serverHealth.disk.nfdump_files : 0)).toLocaleString()"></span>
+                            </div>
+                            <!-- Disk Usage -->
+                            <div x-show="serverHealth.disk && serverHealth.disk.nfdump && serverHealth.disk.nfdump.percent_used !== undefined">
+                                <span>Disk Usage:</span>
+                                <span x-text="serverHealth.disk.nfdump.percent_used + '%'"></span>
+                            </div>
+                            <div x-show="serverHealth.disk && serverHealth.disk.nfdump && serverHealth.disk.nfdump.used_gb">
                                 <span>Used:</span>
                                 <span x-text="serverHealth.disk.nfdump.used_gb + ' GB'"></span>
                             </div>
-                            <div x-show="serverHealth.disk.nfdump.free_gb">
+                            <div x-show="serverHealth.disk && serverHealth.disk.nfdump && serverHealth.disk.nfdump.free_gb">
                                 <span>Free:</span>
                                 <span x-text="serverHealth.disk.nfdump.free_gb + ' GB'"></span>
                             </div>
-                            <div x-show="serverHealth.disk.nfdump.total_gb">
+                            <div x-show="serverHealth.disk && serverHealth.disk.nfdump && serverHealth.disk.nfdump.total_gb">
                                 <span>Total:</span>
                                 <span x-text="serverHealth.disk.nfdump.total_gb + ' GB'"></span>
                             </div>
@@ -2330,32 +2344,6 @@
                             <div x-show="serverHealth.syslog.last_log">
                                 <span>Last Log:</span>
                                 <span x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- NetFlow Statistics -->
-                    <div class="server-stat-card" x-show="serverHealth.netflow && !serverHealth.netflow.error">
-                        <div class="server-stat-header">
-                            <span>🌐 NetFlow</span>
-                            <span class="server-stat-badge" :class="{
-                                'badge-success': serverHealth.netflow.available,
-                                'badge-error': !serverHealth.netflow.available
-                            }" x-text="serverHealth.netflow.available ? 'AVAILABLE' : 'UNAVAILABLE'"></span>
-                        </div>
-                        <div class="server-stat-value" x-text="serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></div>
-                        <div class="server-stat-details">
-                            <div x-show="serverHealth.netflow.version">
-                                <span>Version:</span>
-                                <span x-text="serverHealth.netflow.version" style="font-size: 0.85em;"></span>
-                            </div>
-                            <div x-show="serverHealth.netflow.directory">
-                                <span>Directory:</span>
-                                <span x-text="serverHealth.netflow.directory" style="font-size: 0.85em;"></span>
-                            </div>
-                            <div x-show="serverHealth.netflow.files_count !== undefined">
-                                <span>Files:</span>
-                                <span x-text="serverHealth.netflow.files_count.toLocaleString()"></span>
                             </div>
                         </div>
                     </div>
