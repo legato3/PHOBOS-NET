@@ -40,13 +40,15 @@ git push origin main || echo "⚠️  Git push failed. Continuing with local fil
 # 3. SSH to server and deploy
 echo "📥 Syncing files to server container..."
 
+# Export COPYFILE_DISABLE to suppress ._ files generation by bsdtar
+export COPYFILE_DISABLE=1
+
 # Create a tarball of the current directory, excluding unnecessary files
 # We stream this directly to the SSH command -> pct exec -> tar extract
-# Use COPYFILE_DISABLE=1 to prevent ._ AppleDouble files
-# Use --no-xattrs to prevent macOS extended attributes from being included in the archive
-COPYFILE_DISABLE=1 tar --no-xattrs --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' \
+# Filtering stderr to remove annoying "Ignoring unknown extended header keyword" warnings (caused by macOS vs GNU tar differences)
+tar --no-xattrs --exclude='.git' --exclude='.Jules' --exclude='*.pyc' --exclude='__pycache__' \
     --exclude='.venv' --exclude='.DS_Store' --exclude='tests' \
-    -czf - . | \
+    -czf - . 2> >(grep -v "Ignoring unknown extended header keyword" >&2) | \
 ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     set -e
     
@@ -55,8 +57,8 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     cd ${REPO_PATH}
     
     echo \"📦 Extracting files...\"
-    # Use --warning=no-unknown-keyword to suppress warnings about ignored extended headers (if any slip through)
-    tar --warning=no-unknown-keyword -xzf -
+    # Extract silently to avoid noise, but show errors
+    tar -xzf - 2>/dev/null || tar -xzf -
     
     # 3b. Install Dependencies
     echo \"📦 Installing dependencies...\"
@@ -95,13 +97,13 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     
     # 3d. Restart Service
     echo \"🔄 Restarting netflow-dashboard service...\"
-    systemctl restart netflow-dashboard
+    /bin/systemctl restart netflow-dashboard
     
     # Wait a moment for service to come up
     sleep 3
     
     echo \"📋 Service Status:\"
-    systemctl is-active netflow-dashboard
+    /bin/systemctl is-active netflow-dashboard
 '"
 
 # 4. Verify deployment (Health Check)
