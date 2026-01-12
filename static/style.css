@@ -6247,7 +6247,6 @@ body.compact-mode {
     aspect-ratio: 16 / 9;
     background: #000;
     overflow: hidden;
-    contain: layout style paint;
 }
 
 .world-map-svg {

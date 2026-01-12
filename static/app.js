@@ -1742,6 +1742,14 @@ document.addEventListener('alpine:init', () => {
             const container = document.getElementById('world-map-svg');
             if (!container) return;
             
+            // Check if container is visible (x-show might hide it initially)
+            const containerParent = container.closest('.world-map-container');
+            if (containerParent && containerParent.offsetParent === null) {
+                // Container is hidden, wait a bit and try again
+                setTimeout(() => this.renderWorldMap(), 200);
+                return;
+            }
+            
             // Check if Leaflet is loaded
             if (typeof L === 'undefined') {
                 console.warn('Leaflet not loaded yet, deferring map render');
@@ -1798,9 +1806,12 @@ document.addEventListener('alpine:init', () => {
 
             // Ensure map size is correct (important when container visibility changes)
             if (this.map) {
-                this.$nextTick(() => {
-                    this.map.invalidateSize();
-                });
+                // Use setTimeout to ensure DOM has updated and container is visible
+                setTimeout(() => {
+                    if (this.map) {
+                        this.map.invalidateSize();
+                    }
+                }, 50);
             }
 
             // Clear existing layers
