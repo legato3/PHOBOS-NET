@@ -73,6 +73,7 @@ _stats_hourly_cache = {"data": None, "ts": 0, "key": None}
 _stats_flow_stats_cache = {"data": None, "ts": 0, "key": None}
 _stats_proto_mix_cache = {"data": None, "ts": 0, "key": None}
 _stats_net_health_cache = {"data": None, "ts": 0, "key": None}
+_server_health_cache = {"data": None, "ts": 0}
 
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 # Lock for thread-safe access to mock data cache (performance optimization)
@@ -5570,6 +5571,15 @@ def health_check():
 @throttle(10, 5)  # Allow 10 requests per 5 seconds (2 req/sec) for 1-2 sec refresh
 def api_server_health():
     """Comprehensive server health statistics for the dashboard server."""
+    global _server_health_cache
+    now = time.time()
+    
+    # Use cache if data is fresh (1 second TTL for near-real-time updates)
+    SERVER_HEALTH_CACHE_TTL = 1.0
+    with _cache_lock:
+        if _server_health_cache["data"] and (now - _server_health_cache["ts"]) < SERVER_HEALTH_CACHE_TTL:
+            return jsonify(_server_health_cache["data"])
+    
     data = {
         'cpu': {},
         'memory': {},
