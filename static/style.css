@@ -6020,17 +6020,10 @@ body.compact-mode {
 }
 
 /* ============================================
-   SCROLL SPY NAVIGATION
+   SCROLL SPY NAVIGATION (DISABLED)
    ============================================ */
 .scroll-spy {
-    position: fixed;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 900;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: none !important;
 }
 
 .scroll-spy-track {

@@ -2221,24 +2221,6 @@
 
 </main>
 
-<!-- Scroll Spy Navigation -->
-    <nav class="scroll-spy" x-data="scrollSpy" x-show="showScrollSpy" x-transition.opacity>
-        <div class="scroll-spy-track">
-            <template x-for="section in sections" :key="section.id">
-                <a :href="'#' + section.id" 
-                   class="scroll-spy-item"
-                   :class="{ 'active': activeSection === section.id }"
-                   @click.prevent="scrollToSection(section.id)"
-                   :title="section.label">
-                    <span class="scroll-spy-dot"></span>
-                    <span class="scroll-spy-label" x-text="section.label"></span>
-                </a>
-            </template>
-        </div>
-        <div class="scroll-spy-progress">
-            <div class="scroll-spy-progress-bar" :style="'height: ' + scrollProgress + '%'"></div>
-        </div>
-    </nav>
 
     <!-- Expanded Table Modal -->
     <div class="modal" x-show="expandedModalOpen" style="display:none" :style="expandedModalOpen ? 'display:flex' : 'display:none'" @click.self="expandedModalOpen = false">

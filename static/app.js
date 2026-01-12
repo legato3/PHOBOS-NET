@@ -1780,17 +1780,29 @@ document.addEventListener('alpine:init', () => {
                     });
 
                     // Dark Matter Tiles (CartoDB) - Cyberpunk aesthetic match
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                         subdomains: 'abcd',
                         maxZoom: 19
-                    }).addTo(this.map);
-
-                    // Add attribution manually to bottom-right if needed, or skip for cleaner UI
+                    });
+                    
+                    tileLayer.addTo(this.map);
+                    
+                    // Debug: Log tile loading errors
+                    tileLayer.on('tileerror', (error, tile) => {
+                        console.error('Tile loading error:', error, tile);
+                    });
                     
                     // Invalidate size to ensure map renders correctly
                     this.map.whenReady(() => {
                         this.map.invalidateSize();
+                        // Force a view reset after a short delay to ensure tiles load
+                        setTimeout(() => {
+                            if (this.map) {
+                                this.map.invalidateSize();
+                                this.map.setView([20, 0], 2);
+                            }
+                        }, 100);
                     });
 
                 } catch (e) {
