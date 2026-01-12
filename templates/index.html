@@ -2752,7 +2752,7 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Related Entities Card -->
+                        <!-- Network Activity Card -->
                         <div class="card" x-show="ipInvestigation.result?.src_ports?.length || ipInvestigation.result?.dst_ports?.length || ipInvestigation.result?.protocols?.length">
                             <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">Network Activity</h4>
                             <div style="display: flex; flex-direction: column; gap: var(--space-3);">
@@ -2772,6 +2772,47 @@
                         </div>
                     </div>
                     
+                    <!-- Activity Timeline -->
+                    <div class="card" style="margin-bottom: var(--space-6);" x-show="ipInvestigation.timeline.labels && ipInvestigation.timeline.labels.length > 0">
+                        <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">📈 Activity Timeline</h4>
+                        <div class="chart-wrapper" style="height: 250px;">
+                            <canvas id="ipInvestigationTimelineChart"></canvas>
+                        </div>
+                        <p style="margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); text-align: center;">
+                            Traffic patterns over the selected time range (bytes and flow counts)
+                        </p>
+                    </div>
+
+                    <!-- Related IPs -->
+                    <div class="card" style="margin-bottom: var(--space-6);" x-show="ipInvestigation.result?.related_ips && ipInvestigation.result.related_ips.length > 0">
+                        <h4 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">🔗 Related IPs</h4>
+                        <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+                            IPs that directly communicate with this IP (as source or destination)
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                            <template x-for="(related, idx) in ipInvestigation.result.related_ips.slice(0, 10)" :key="idx">
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
+                                            <span class="text-cyan" style="font-family: var(--font-mono); font-weight: var(--font-weight-semibold); cursor: pointer;" @click="openIPInvestigationModal(related.ip)" x-text="related.ip" title="Click to investigate this IP"></span>
+                                            <span class="badge" style="background: rgba(0,243,255,0.15); color: var(--neon-cyan); font-size: var(--text-xs);" x-text="related.type === 'destination' ? 'Destination' : 'Source'"></span>
+                                            <span x-show="related.country_code" x-text="flagFromIso(related.country_code)" style="font-size: 16px;"></span>
+                                        </div>
+                                        <div style="font-size: var(--text-xs); color: var(--text-muted);">
+                                            <span x-text="fmtBytes(related.bytes)"></span>
+                                            <span style="margin: 0 var(--space-1);">•</span>
+                                            <span x-text="related.count + ' flows'"></span>
+                                            <span x-show="related.country" style="margin-left: var(--space-2);" x-text="related.country"></span>
+                                        </div>
+                                    </div>
+                                    <button @click="openIPInvestigationModal(related.ip)" class="btn btn--secondary" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2); white-space: nowrap;">
+                                        Investigate
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
                     <!-- Export Actions -->
                     <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-6); flex-wrap: wrap;">
                         <button @click="exportInvestigationResults('json')" class="btn btn--secondary" :disabled="!ipInvestigation.result">

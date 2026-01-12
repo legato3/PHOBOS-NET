@@ -4109,6 +4109,61 @@ def api_ip_detail(ip):
             p["proto_name"] = p["key"]
 
     geo = lookup_geo(ip)
+    
+    # Find related IPs (simplified: IPs that appear in conversations with this IP)
+    # This finds IPs that directly communicate with this IP (as source or destination)
+    related_ips = []
+    try:
+        # Get conversations involving this IP
+        convs_output = run_nfdump(["-a", f"ip {ip}", "-n", "500", "-o", "csv"], tf)
+        lines = convs_output.strip().split("\n")
+        if len(lines) > 1:
+            header = lines[0].split(',')
+            try:
+                sa_idx = header.index('sa')
+                da_idx = header.index('da')
+                ibyt_idx = header.index('ibyt')
+            except ValueError:
+                sa_idx, da_idx, ibyt_idx = 3, 4, 12
+            
+            # Track IPs that communicate with this IP
+            related_ip_stats = defaultdict(lambda: {'bytes': 0, 'count': 0, 'type': ''})
+            
+            for line in lines[1:]:
+                if not line or line.startswith('ts,'): continue
+                parts = line.split(',')
+                if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+                    try:
+                        src = parts[sa_idx].strip()
+                        dst = parts[da_idx].strip()
+                        bytes_val = int(parts[ibyt_idx]) if len(parts) > ibyt_idx and parts[ibyt_idx].strip().isdigit() else 0
+                        
+                        if src == ip and dst != ip:
+                            # This IP is source - track destination as related
+                            related_ip_stats[dst]['bytes'] += bytes_val
+                            related_ip_stats[dst]['count'] += 1
+                            related_ip_stats[dst]['type'] = 'destination'
+                        elif dst == ip and src != ip:
+                            # This IP is destination - track source as related
+                            related_ip_stats[src]['bytes'] += bytes_val
+                            related_ip_stats[src]['count'] += 1
+                            related_ip_stats[src]['type'] = 'source'
+                    except (ValueError, IndexError):
+                        pass
+            
+            # Get top related IPs (limit to 10)
+            related_ips = sorted([{'ip': ip_addr, 'bytes': data['bytes'], 'count': data['count'], 'type': data['type']} 
+                                for ip_addr, data in related_ip_stats.items()], 
+                               key=lambda x: x['bytes'], reverse=True)[:10]
+            
+            # Enrich related IPs with geo data
+            for r_ip in related_ips:
+                r_geo = lookup_geo(r_ip['ip'])
+                r_ip['country'] = r_geo.get('country', 'Unknown') if r_geo else 'Unknown'
+                r_ip['country_code'] = r_geo.get('country_code', '') if r_geo else ''
+    except Exception as e:
+        print(f"Warning: Related IPs discovery failed for IP {ip}: {e}")
+    
     data = {
         "ip": ip,
         "hostname": resolve_ip(ip),
@@ -4119,7 +4174,8 @@ def api_ip_detail(ip):
         "src_ports": src_ports,
         "dst_ports": dst_ports,
         "protocols": protocols,
-        "threat": False
+        "threat": False,
+        "related_ips": related_ips
     }
     return jsonify(data)
 

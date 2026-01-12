@@ -114,7 +114,7 @@ document.addEventListener('alpine:init', () => {
         recentBlocksRefreshTimer: null,
 
         // Forensics Investigation Tools
-        ipInvestigation: { searchIP: '', result: null, loading: false, error: null },
+        ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false } },
         flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
         alertCorrelation: { chains: [], loading: false, showExplanation: false },
         threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h', showDescription: false },
@@ -2694,8 +2694,14 @@ document.addEventListener('alpine:init', () => {
                     flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0),
                     country: data.geo?.country || data.country,
                     region: data.region || data.geo?.region,
-                    asn: data.geo?.asn || data.asn
+                    asn: data.geo?.asn || data.asn,
+                    related_ips: data.related_ips || []
                 };
+                
+                // Load timeline data if available
+                this.$nextTick(() => {
+                    this.loadIPTimeline(ip);
+                });
             } catch (err) {
                 console.error('IP investigation failed:', err);
                 if (err.name === 'AbortError') {
@@ -2771,6 +2777,169 @@ document.addEventListener('alpine:init', () => {
             }).catch(() => {
                 this.showToast('Failed to copy IP address', 'error');
             });
+        },
+
+        async loadIPTimeline(ip) {
+            if (!ip) return;
+            this.ipInvestigation.timeline.loading = true;
+            try {
+                // Try source timeline first (more common)
+                const res = await fetch(`/api/trends/source/${encodeURIComponent(ip)}?range=${this.timeRange}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    this.ipInvestigation.timeline = {
+                        labels: data.labels || [],
+                        bytes: data.bytes || [],
+                        flows: data.flows || [],
+                        loading: false
+                    };
+                    this.$nextTick(() => {
+                        this.renderIPTimelineChart();
+                    });
+                } else {
+                    // Try destination timeline as fallback
+                    const resDest = await fetch(`/api/trends/dest/${encodeURIComponent(ip)}?range=${this.timeRange}`);
+                    if (resDest.ok) {
+                        const data = await resDest.json();
+                        this.ipInvestigation.timeline = {
+                            labels: data.labels || [],
+                            bytes: data.bytes || [],
+                            flows: data.flows || [],
+                            loading: false
+                        };
+                        this.$nextTick(() => {
+                            this.renderIPTimelineChart();
+                        });
+                    } else {
+                        this.ipInvestigation.timeline.loading = false;
+                    }
+                }
+            } catch (err) {
+                console.error('IP timeline load error:', err);
+                this.ipInvestigation.timeline.loading = false;
+            }
+        },
+
+        renderIPTimelineChart() {
+            try {
+                const canvas = document.getElementById('ipInvestigationTimelineChart');
+                if (!canvas || !this.ipInvestigation.timeline.labels || this.ipInvestigation.timeline.labels.length === 0) return;
+
+                if (typeof Chart === 'undefined') {
+                    setTimeout(() => this.renderIPTimelineChart(), 100);
+                    return;
+                }
+
+                const ctx = canvas.getContext('2d');
+                if (this._ipInvestigationTimelineChart) this._ipInvestigationTimelineChart.destroy();
+
+                const labels = this.ipInvestigation.timeline.labels;
+                const bytes = this.ipInvestigation.timeline.bytes;
+                const flows = this.ipInvestigation.timeline.flows;
+
+                this._ipInvestigationTimelineChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Bytes',
+                                data: bytes,
+                                borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
+                                backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                                yAxisID: 'y',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Flows',
+                                data: flows,
+                                borderColor: this.getCssVar('--neon-green') || 'rgba(0, 255, 136, 1)',
+                                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                                yAxisID: 'y1',
+                                tension: 0.3,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: this.getCssVar('--text-secondary') || '#888',
+                                    boxWidth: 12,
+                                    padding: 8
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(20, 24, 33, 0.95)',
+                                titleColor: this.getCssVar('--text-primary') || '#fff',
+                                bodyColor: this.getCssVar('--text-secondary') || '#ccc',
+                                borderColor: 'rgba(0, 243, 255, 0.3)',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: (context) => {
+                                        if (context.datasetIndex === 0) {
+                                            return `Bytes: ${this.fmtBytes(context.parsed.y)}`;
+                                        } else {
+                                            return `Flows: ${context.parsed.y.toLocaleString()}`;
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: this.getCssVar('--text-muted') || '#666',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                position: 'left',
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: {
+                                    color: this.getCssVar('--text-muted') || '#666',
+                                    callback: (value) => this.fmtBytes(value)
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Bytes',
+                                    color: this.getCssVar('--text-secondary') || '#888'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                position: 'right',
+                                grid: { display: false },
+                                ticks: {
+                                    color: 'rgba(0, 255, 136, 0.8)'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Flows',
+                                    color: 'rgba(0, 255, 136, 0.8)'
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('IP timeline chart render error:', e);
+            }
         },
 
         async searchFlows() {
