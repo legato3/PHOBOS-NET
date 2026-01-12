@@ -2190,7 +2190,7 @@ document.addEventListener('alpine:init', () => {
             this.serverHealth.error = null;
             try {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
-                const res = await safeFetchFn('/api/server/health');
+                const res = await safeFetchFn(`/api/server/health?_=${Date.now()}`);
                 if (res.ok) {
                     const data = await res.json();
                     // Update nested properties individually to ensure Alpine.js reactivity

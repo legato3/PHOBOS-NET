@@ -1,7 +1,7 @@
 // Service Worker for NetFlow Analytics Dashboard
 // Provides offline caching for static assets and graceful degradation
 
-const CACHE_NAME = 'netflow-dashboard-v3.0.1';
+const CACHE_NAME = 'netflow-dashboard-v3.0.2';
 const STATIC_ASSETS = [
     '/',
     '/static/style.min.css',
@@ -46,13 +46,13 @@ self.addEventListener('activate', (event) => {
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    
+
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
-    
+
     // Skip SSE streams (firewall realtime)
     if (url.pathname.includes('/stream')) return;
-    
+
     // Static assets - cache first
     if (STATIC_ASSETS.some(asset => url.pathname.endsWith(asset) || url.pathname === asset)) {
         event.respondWith(
@@ -72,7 +72,7 @@ self.addEventListener('fetch', (event) => {
         );
         return;
     }
-    
+
     // API requests - network first with cache fallback
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
@@ -103,7 +103,7 @@ self.addEventListener('fetch', (event) => {
         );
         return;
     }
-    
+
     // Default - network first
     event.respondWith(
         fetch(event.request)
