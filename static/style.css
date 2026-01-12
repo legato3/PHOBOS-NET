@@ -26,8 +26,8 @@
     /* Card System - Enhanced with glass and shadows */
     --card-bg: rgb(20, 20, 20);
     --card-bg-hover: rgb(25, 25, 25);
-    --card-border: rgba(0, 243, 255, 0.12);
-    --card-border-hover: rgba(0, 243, 255, 0.2);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --card-border-hover: rgba(0, 243, 255, 0.3);
     --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --card-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 243, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
@@ -214,13 +214,6 @@
 
 body {
     background-color: var(--bg-primary);
-    background-image:
-        /* Pixel grid pattern */
-        linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px),
-        /* Scanline effect */
-        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px);
-    background-size: 20px 20px, 20px 20px, 100% 4px;
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -328,7 +321,8 @@ body.sidebar-collapsed .layout-wrapper {
 
 /* Sidebar - Floating overlay that expands on hover */
 .sidebar {
-    width: 180px; /* More compact width */
+    width: 180px;
+    /* More compact width */
     flex-shrink: 0;
     background: rgba(20, 20, 20, 0.95);
     border-right: 1px solid rgba(0, 243, 255, 0.15);
@@ -336,7 +330,8 @@ body.sidebar-collapsed .layout-wrapper {
     height: auto;
     max-height: calc(100vh - 140px - 60px);
     position: fixed;
-    top: 140px; /* Start below header to avoid overlapping title */
+    top: 140px;
+    /* Start below header to avoid overlapping title */
     left: var(--space-4);
     margin-bottom: var(--space-4);
     overflow-y: auto;
@@ -350,7 +345,8 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar.collapsed {
-    width: 50px; /* More compact when collapsed */
+    width: 50px;
+    /* More compact when collapsed */
 }
 
 /* Expand sidebar on hover when collapsed (overlay behavior) */
@@ -439,7 +435,8 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar-item.active::before {
-    display: none; /* Remove left border indicator for centered layout */
+    display: none;
+    /* Remove left border indicator for centered layout */
 }
 
 .sidebar.collapsed .sidebar-item.active {
@@ -495,7 +492,8 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
-    margin-left: 66px; /* Always account for collapsed sidebar (50px + 16px gap) */
+    margin-left: 66px;
+    /* Always account for collapsed sidebar (50px + 16px gap) */
     transition: margin-left 0.3s ease;
 }
 
@@ -627,6 +625,10 @@ button.active {
 
 /* Default header icon button color */
 .card h2 .icon-btn-small {
+    color: var(--text-muted);
+}
+
+.card:hover h2 .icon-btn-small {
     color: var(--accent-cyan);
 }
 
@@ -790,8 +792,8 @@ button.active {
     /* Solid background - no transparency */
     /* Pixel art scanline effect */
     background-image:
-        linear-gradient(transparent 50%, rgba(0, 243, 255, 0.02) 50%),
-        linear-gradient(90deg, transparent 50%, rgba(0, 243, 255, 0.01) 50%);
+        linear-gradient(transparent 50%, rgba(255, 255, 255, 0.02) 50%),
+        linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.01) 50%);
     background-size: 100% 2px, 2px 100%;
 }
 
@@ -813,7 +815,10 @@ button.active {
 }
 
 .card:hover {
-    background: var(--card-bg-hover);
+    background-color: var(--card-bg-hover);
+    background-image:
+        linear-gradient(transparent 50%, rgba(0, 243, 255, 0.04) 50%),
+        linear-gradient(90deg, transparent 50%, rgba(0, 243, 255, 0.02) 50%);
     border-color: var(--card-border-hover);
     box-shadow: var(--card-shadow-hover);
 }
@@ -821,12 +826,12 @@ button.active {
 /* Primary focus cards - higher elevation with enhanced shadows */
 .primary-column .card {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 243, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    border-color: rgba(0, 243, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .primary-column .card:hover {
     box-shadow: 0 14px 56px rgba(0, 0, 0, 0.7), 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 32px rgba(0, 243, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border-color: rgba(0, 243, 255, 0.25);
+    border-color: var(--accent-primary);
 }
 
 /* Secondary cards - enhanced shadows */

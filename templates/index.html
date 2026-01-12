@@ -391,8 +391,7 @@
                                     <span>📊 Bandwidth & Flow Rate</span>
                                     <div class="card-actions">
                                         <button class="icon-btn-small" @click="toggleMinimize('bandwidth')"
-                                            :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'"
-                                            style="color: var(--neon-cyan);">
+                                            :title="isMinimized('bandwidth') ? 'Expand' : 'Minimize'">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -434,8 +433,7 @@
                         <div class="world-map-header">
                             <div class="world-map-title-row">
                                 <button class="icon-btn-small" @click="toggleMinimize('worldmap')"
-                                    :title="isMinimized('worldmap') ? 'Expand' : 'Minimize'"
-                                    style="color: var(--neon-cyan);">
+                                    :title="isMinimized('worldmap') ? 'Expand' : 'Minimize'">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round" x-show="!isMinimized('worldmap')">
@@ -608,8 +606,7 @@
                                     <div class="card-actions">
                                         <button class="icon-btn-small" @click="toggleMinimize('securityScore')"
                                             :title="isMinimized('securityScore') ? 'Expand' : 'Minimize'"
-                                            :aria-label="isMinimized('securityScore') ? 'Expand ' + getWidgetLabel('securityScore') : 'Minimize ' + getWidgetLabel('securityScore')"
-                                            style="color: var(--neon-cyan);">
+                                            :aria-label="isMinimized('securityScore') ? 'Expand ' + getWidgetLabel('securityScore') : 'Minimize ' + getWidgetLabel('securityScore')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -658,7 +655,7 @@
                                                 <span style="color: var(--neon-green);">🔥 <span
                                                         x-text="securityScore.fw_blocks_1h?.toLocaleString() || 0"></span>
                                                     blocks/hr</span>
-                                                <span style="color: var(--neon-cyan);">🎯 <span
+                                                <span >🎯 <span
                                                         x-text="securityScore.fw_threats_blocked?.toLocaleString() || 0"></span>
                                                     threats blocked</span>
                                             </div>
@@ -676,8 +673,7 @@
                                     <div class="card-actions">
                                         <button class="icon-btn-small" @click="toggleMinimize('alertHistory')"
                                             :title="isMinimized('alertHistory') ? 'Expand' : 'Minimize'"
-                                            :aria-label="isMinimized('alertHistory') ? 'Expand ' + getWidgetLabel('alertHistory') : 'Minimize ' + getWidgetLabel('alertHistory')"
-                                            style="color: var(--neon-cyan);">
+                                            :aria-label="isMinimized('alertHistory') ? 'Expand ' + getWidgetLabel('alertHistory') : 'Minimize ' + getWidgetLabel('alertHistory')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -764,7 +760,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('threatsByCountry')"
                                             :title="isMinimized('threatsByCountry') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('threatsByCountry') ? 'Expand ' + getWidgetLabel('threatsByCountry') : 'Minimize ' + getWidgetLabel('threatsByCountry')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -841,7 +837,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('feedHealth')"
                                             :title="isMinimized('feedHealth') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('feedHealth') ? 'Expand ' + getWidgetLabel('feedHealth') : 'Minimize ' + getWidgetLabel('feedHealth')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -911,7 +907,7 @@
                                     <button class="icon-btn-small" @click="toggleMinimize('maliciousPorts')"
                                         :title="isMinimized('maliciousPorts') ? 'Expand' : 'Minimize'"
                                         :aria-label="isMinimized('maliciousPorts') ? 'Expand ' + getWidgetLabel('maliciousPorts') : 'Minimize ' + getWidgetLabel('maliciousPorts')"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -995,7 +991,7 @@
                                     <button class="icon-btn-small" @click="toggleMinimize('blocklist')"
                                         :title="isMinimized('blocklist') ? 'Expand' : 'Minimize'"
                                         :aria-label="isMinimized('blocklist') ? 'Expand ' + getWidgetLabel('blocklist') : 'Minimize ' + getWidgetLabel('blocklist')"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -1056,7 +1052,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('threatVelocity')"
                                             :title="isMinimized('threatVelocity') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('threatVelocity') ? 'Expand ' + getWidgetLabel('threatVelocity') : 'Minimize ' + getWidgetLabel('threatVelocity')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1112,7 +1108,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('topThreatIPs')"
                                             :title="isMinimized('topThreatIPs') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('topThreatIPs') ? 'Expand ' + getWidgetLabel('topThreatIPs') : 'Minimize ' + getWidgetLabel('topThreatIPs')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1169,7 +1165,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('riskIndex')"
                                             :title="isMinimized('riskIndex') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('riskIndex') ? 'Expand ' + getWidgetLabel('riskIndex') : 'Minimize ' + getWidgetLabel('riskIndex')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1235,7 +1231,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('protocolAnomalies')"
                                             :title="isMinimized('protocolAnomalies') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('protocolAnomalies') ? 'Expand ' + getWidgetLabel('protocolAnomalies') : 'Minimize ' + getWidgetLabel('protocolAnomalies')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1296,7 +1292,7 @@
                                     <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')"
                                         :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'"
                                         :aria-label="isMinimized('recentBlocks') ? 'Expand recent blocks' : 'Minimize recent blocks'"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -1498,7 +1494,7 @@
                                         <span>🔝 Top Sources</span>
                                         <div class="card-actions">
                                             <button class="icon-btn-small" @click="openExpandedTable('sources')"
-                                                title="View All" style="color: var(--neon-cyan);"
+                                                title="View All" 
                                                 x-show="!isMinimized('sources')">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1512,7 +1508,7 @@
                                             <button class="icon-btn-small" @click="toggleMinimize('sources')"
                                                 :title="isMinimized('sources') ? 'Expand' : 'Minimize'"
                                                 :aria-label="isMinimized('sources') ? 'Expand ' + getWidgetLabel('sources') : 'Minimize ' + getWidgetLabel('sources')"
-                                                style="color: var(--neon-cyan);">
+                                                >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -1608,7 +1604,7 @@
                                         <span>🎯 Top Destinations</span>
                                         <div class="card-actions">
                                             <button class="icon-btn-small" @click="openExpandedTable('destinations')"
-                                                title="View All" style="color: var(--neon-cyan);"
+                                                title="View All" 
                                                 x-show="!isMinimized('destinations')">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1622,7 +1618,7 @@
                                             <button class="icon-btn-small" @click="toggleMinimize('destinations')"
                                                 :title="isMinimized('destinations') ? 'Expand' : 'Minimize'"
                                                 :aria-label="isMinimized('destinations') ? 'Expand ' + getWidgetLabel('destinations') : 'Minimize ' + getWidgetLabel('destinations')"
-                                                style="color: var(--neon-cyan);">
+                                                >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -1721,7 +1717,7 @@
                                     <span>🔌 Top Ports</span>
                                     <div class="card-actions">
                                         <button class="icon-btn-small" @click="openExpandedTable('ports')"
-                                            title="View All" style="color: var(--neon-cyan);"
+                                            title="View All" 
                                             x-show="!isMinimized('ports')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -1735,7 +1731,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('ports')"
                                             :title="isMinimized('ports') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('ports') ? 'Expand ' + getWidgetLabel('ports') : 'Minimize ' + getWidgetLabel('ports')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1791,7 +1787,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('asns')"
                                             :title="isMinimized('asns') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('asns') ? 'Expand ' + getWidgetLabel('asns') : 'Minimize ' + getWidgetLabel('asns')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1835,7 +1831,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('countries')"
                                             :title="isMinimized('countries') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('countries') ? 'Expand ' + getWidgetLabel('countries') : 'Minimize ' + getWidgetLabel('countries')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1871,7 +1867,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('services')"
                                             :title="isMinimized('services') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('services') ? 'Expand ' + getWidgetLabel('services') : 'Minimize ' + getWidgetLabel('services')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1913,7 +1909,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')"
                                             :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('hourlyTraffic') ? 'Expand ' + getWidgetLabel('hourlyTraffic') : 'Minimize ' + getWidgetLabel('hourlyTraffic')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -1966,7 +1962,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('flags')"
                                             :title="isMinimized('flags') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('flags') ? 'Expand ' + getWidgetLabel('flags') : 'Minimize ' + getWidgetLabel('flags')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2011,7 +2007,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('packetSizes')"
                                             :title="isMinimized('packetSizes') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('packetSizes') ? 'Expand ' + getWidgetLabel('packetSizes') : 'Minimize ' + getWidgetLabel('packetSizes')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2045,7 +2041,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('protocols')"
                                             :title="isMinimized('protocols') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('protocols') ? 'Expand ' + getWidgetLabel('protocols') : 'Minimize ' + getWidgetLabel('protocols')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2100,7 +2096,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('insights')"
                                             :title="isMinimized('insights') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('insights') ? 'Expand ' + getWidgetLabel('insights') : 'Minimize ' + getWidgetLabel('insights')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2203,7 +2199,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('flowStats')"
                                             :title="isMinimized('flowStats') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('flowStats') ? 'Expand ' + getWidgetLabel('flowStats') : 'Minimize ' + getWidgetLabel('flowStats')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2278,7 +2274,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('protoMix')"
                                             :title="isMinimized('protoMix') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('protoMix') ? 'Expand ' + getWidgetLabel('protoMix') : 'Minimize ' + getWidgetLabel('protoMix')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2312,7 +2308,7 @@
                                         <button class="icon-btn-small" @click="toggleMinimize('netHealth')"
                                             :title="isMinimized('netHealth') ? 'Expand' : 'Minimize'"
                                             :aria-label="isMinimized('netHealth') ? 'Expand ' + getWidgetLabel('netHealth') : 'Minimize ' + getWidgetLabel('netHealth')"
-                                            style="color: var(--neon-cyan);">
+                                            >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
@@ -2384,7 +2380,7 @@
                                     <button class="icon-btn-small"
                                         @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()"
                                         :title="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -2403,7 +2399,7 @@
                                     </button>
                                     <button class="icon-btn-small" @click="toggleMinimize('recentBlocks')"
                                         :title="isMinimized('recentBlocks') ? 'Expand' : 'Minimize'"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -2620,7 +2616,7 @@
                                 <div class="card-actions">
                                     <button class="icon-btn-small" @click="toggleMinimize('alertCorrelation')"
                                         :title="isMinimized('alertCorrelation') ? 'Expand' : 'Minimize'"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -2661,11 +2657,11 @@
                                         </p>
                                         <div
                                             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2); font-size: var(--text-xs);">
-                                            <div><strong style="color: var(--neon-cyan);">🔍 Detection:</strong> Groups
+                                            <div><strong >🔍 Detection:</strong> Groups
                                                 by IP and time proximity</div>
-                                            <div><strong style="color: var(--neon-cyan);">⚡ Chains:</strong> Sequences
+                                            <div><strong >⚡ Chains:</strong> Sequences
                                                 of related security events</div>
-                                            <div><strong style="color: var(--neon-cyan);">🎯 Use:</strong> Identify
+                                            <div><strong >🎯 Use:</strong> Identify
                                                 attack progression patterns</div>
                                         </div>
                                     </div>
@@ -2802,7 +2798,7 @@
                                     </button>
                                     <button class="icon-btn-small" @click="toggleMinimize('threatActivityTimeline')"
                                         :title="isMinimized('threatActivityTimeline') ? 'Expand' : 'Minimize'"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -2984,7 +2980,7 @@
                                         </svg>
                                     </button>
                                     <button class="icon-btn-small" @click="openExpandedTable('conversations')"
-                                        title="View All" style="color: var(--neon-cyan);"
+                                        title="View All" 
                                         x-show="!isMinimized('conversations')">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -2998,7 +2994,7 @@
                                     <button class="icon-btn-small" @click="toggleMinimize('conversations')"
                                         :title="isMinimized('conversations') ? 'Expand' : 'Minimize'"
                                         :aria-label="isMinimized('conversations') ? 'Expand ' + getWidgetLabel('conversations') : 'Minimize ' + getWidgetLabel('conversations')"
-                                        style="color: var(--neon-cyan);">
+                                        >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
