@@ -89,7 +89,7 @@ document.addEventListener('alpine:init', () => {
         protoMix: { labels: [], bytes: [], percentages: [], colors: [], loading: true },
         netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
         serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
-        
+
         // Security Features
         securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
         alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
@@ -127,7 +127,7 @@ document.addEventListener('alpine:init', () => {
         notify: { email: true, webhook: true, muted: false },
         threatStatus: { status: '', last_ok: 0 },
         dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
-        
+
         // Widget Management
         widgetVisibility: {},
         minimizedWidgets: new Set(JSON.parse(localStorage.getItem('minimizedWidgets') || '[]')),
@@ -342,11 +342,11 @@ document.addEventListener('alpine:init', () => {
         trendIP: null,
         trendKind: 'source',
         trendChartInstance: null,
-        
+
         // Fullscreen Chart Mode
         fullscreenChart: null, // { chartId, title, chartInstance }
         fullscreenChartInstance: null,
-        
+
         // API Latency Tracking
         apiLatency: null,
         apiLatencyHistory: [],
@@ -354,10 +354,10 @@ document.addEventListener('alpine:init', () => {
         init() {
             // Polyfill requestIdleCallback for better browser support
             const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
-            
+
             // Mark as initialized immediately for rendering
             this.initDone = true;
-            
+
             // Defer heavy initialization to avoid blocking initial render
             idleCallback(() => {
                 this.loadWidgetPreferences();
@@ -414,11 +414,16 @@ document.addEventListener('alpine:init', () => {
                 });
             });
             this.$watch('refreshInterval', () => {
-                 this.startTimer();
+                this.startTimer();
             });
             this.$watch('compactMode', (v) => {
                 document.body.classList.toggle('compact-mode', v);
                 localStorage.setItem('compactMode', v ? '1' : '0');
+            });
+            this.$watch('paused', (val) => {
+                if (!val) {
+                    this.startServerHealthAutoRefresh();
+                }
             });
             this.$watch('sidebarCollapsed', (v) => {
                 document.body.classList.toggle('sidebar-collapsed', v);
@@ -441,7 +446,7 @@ document.addEventListener('alpine:init', () => {
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
             this.$watch('worldMapLayers.blocked', () => this.renderWorldMap());
-            
+
             // Render empty map on init (grid/background)
             this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
         },
@@ -494,13 +499,13 @@ document.addEventListener('alpine:init', () => {
             const order = ['critical', 'high', 'medium', 'low', 'info'];
 
             // Sort active alerts by order then group
-            const sorted = this.activeAlerts.sort((a,b) => {
+            const sorted = this.activeAlerts.sort((a, b) => {
                 return order.indexOf(a.severity) - order.indexOf(b.severity);
             });
 
             sorted.forEach(a => {
                 const s = a.severity.toUpperCase();
-                if(!groups[s]) groups[s] = [];
+                if (!groups[s]) groups[s] = [];
                 groups[s].push(a);
             });
             return groups;
@@ -544,16 +549,16 @@ document.addEventListener('alpine:init', () => {
             const elapsed = Math.floor((Date.now() - this.lastUpdateTs) / 1000);
             if (elapsed < 30) return { text: `${elapsed}s ago`, class: '' };
             if (elapsed < 60) return { text: `${elapsed}s ago`, class: 'stale' };
-            if (elapsed < 120) return { text: `${Math.floor(elapsed/60)}m ago`, class: 'stale' };
-            return { text: `${Math.floor(elapsed/60)}m ago`, class: 'error' };
+            if (elapsed < 120) return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'stale' };
+            return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'error' };
         },
 
         setupKeyboardShortcuts() {
             document.addEventListener('keydown', (e) => {
                 // Don't trigger if typing in input
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-                
-                switch(e.key.toLowerCase()) {
+
+                switch (e.key.toLowerCase()) {
                     case 'r':
                         if (!e.ctrlKey && !e.metaKey) {
                             e.preventDefault();
@@ -651,25 +656,25 @@ document.addEventListener('alpine:init', () => {
         openFullscreenChart(chartId, title) {
             const sourceChart = this.getChartInstance(chartId);
             if (!sourceChart) return;
-            
+
             this.fullscreenChart = { chartId, title };
-            
+
             // Clone chart to fullscreen modal after DOM updates
             this.$nextTick(() => {
                 const canvas = document.getElementById('fullscreenChartCanvas');
                 if (!canvas) return;
-                
+
                 // Destroy existing fullscreen chart if any
                 if (this.fullscreenChartInstance) {
                     this.fullscreenChartInstance.destroy();
                 }
-                
+
                 // Clone the chart configuration
                 const config = JSON.parse(JSON.stringify(sourceChart.config));
                 config.options = config.options || {};
                 config.options.responsive = true;
                 config.options.maintainAspectRatio = false;
-                
+
                 this.fullscreenChartInstance = new Chart(canvas, config);
             });
         },
@@ -683,7 +688,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         getChartInstance(chartId) {
-            switch(chartId) {
+            switch (chartId) {
                 case 'bwChart': return this.bwChartInstance;
                 case 'flagsChart': return this.flagsChartInstance;
                 case 'pktSizeChart': return this.pktSizeChartInstance;
@@ -748,7 +753,7 @@ document.addEventListener('alpine:init', () => {
                 const data = await res.json();
                 this.performanceMetrics.data = data;
                 this.performanceMetrics.error = null;
-            } catch(e) {
+            } catch (e) {
                 console.error('Failed to fetch performance metrics:', e);
                 this.performanceMetrics.error = window.DashboardUtils?.getUserFriendlyError(e, 'load performance metrics') || 'Failed to load performance metrics';
             } finally {
@@ -765,13 +770,13 @@ document.addEventListener('alpine:init', () => {
                     const t = await res.json();
                     this.thresholds = { ...this.thresholds, ...t };
                 }
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         async saveThresholds() {
             try {
                 const res = await fetch('/api/thresholds', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(this.thresholds)
                 });
                 if (res.ok) {
@@ -779,7 +784,7 @@ document.addEventListener('alpine:init', () => {
                     this.thresholds = { ...this.thresholds, ...t };
                     this.thresholdsModalOpen = false;
                 }
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         // Configuration Settings
@@ -792,7 +797,7 @@ document.addEventListener('alpine:init', () => {
                     const cfg = await res.json();
                     this.config = { ...this.config, ...cfg };
                 }
-            } catch(e) { console.error('Failed to load config:', e); }
+            } catch (e) { console.error('Failed to load config:', e); }
             this.configLoading = false;
         },
 
@@ -801,7 +806,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch('/api/config', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(this.config)
                 });
                 if (res.ok) {
@@ -815,7 +820,7 @@ document.addEventListener('alpine:init', () => {
                 } else {
                     this.showToast('Failed to save configuration', 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error('Failed to save config:', e);
                 this.showToast('Error saving configuration', 'error');
             }
@@ -995,21 +1000,21 @@ document.addEventListener('alpine:init', () => {
         },
 
         get filteredSources() {
-             let list = this.sources.sources;
-             if(this.searchQuery) {
-                 const q = this.searchQuery.toLowerCase();
-                 list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
-             }
-             return list.slice(0, 5);
+            let list = this.sources.sources;
+            if (this.searchQuery) {
+                const q = this.searchQuery.toLowerCase();
+                list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+            }
+            return list.slice(0, 5);
         },
 
         get filteredDestinations() {
-             let list = this.destinations.destinations;
-             if(this.searchQuery) {
-                 const q = this.searchQuery.toLowerCase();
-                 list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
-             }
-             return list.slice(0, 5);
+            let list = this.destinations.destinations;
+            if (this.searchQuery) {
+                const q = this.searchQuery.toLowerCase();
+                list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
+            }
+            return list.slice(0, 5);
         },
 
         async fetchSummary() {
@@ -1017,20 +1022,20 @@ document.addEventListener('alpine:init', () => {
             this.summary.error = null;
             try {
                 const res = await this.fetchWithLatency(`/api/stats/summary?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.summary = { ...data, error: null };
-                    if(data.threat_status) this.threatStatus = data.threat_status;
+                    if (data.threat_status) this.threatStatus = data.threat_status;
                 } else {
                     const errorMsg = `Summary fetch failed: ${res.status}`;
                     console.error(errorMsg);
                     this.summary.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load summary') || errorMsg;
                 }
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch summary:', e);
                 this.summary.error = window.DashboardUtils?.getUserFriendlyError(e, 'load summary') || 'Failed to load summary';
-            } finally { 
-                this.summary.loading = false; 
+            } finally {
+                this.summary.loading = false;
             }
         },
 
@@ -1041,10 +1046,10 @@ document.addEventListener('alpine:init', () => {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn(`/api/stats/sources?range=${this.timeRange}`);
                 this.sources = { ...(await res.json()), loading: false, error: null };
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch sources:', e);
                 this.sources.error = window.DashboardUtils?.getUserFriendlyError(e, 'load sources') || 'Failed to load sources';
-            } finally { 
+            } finally {
                 this.sources.loading = false;
                 // defer sparkline draw after DOM update
                 this.$nextTick(() => this.renderSparklines('source'));
@@ -1058,10 +1063,10 @@ document.addEventListener('alpine:init', () => {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn(`/api/stats/destinations?range=${this.timeRange}`);
                 this.destinations = { ...(await res.json()), loading: false, error: null };
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch destinations:', e);
                 this.destinations.error = window.DashboardUtils?.getUserFriendlyError(e, 'load destinations') || 'Failed to load destinations';
-            } finally { 
+            } finally {
                 this.destinations.loading = false;
                 this.$nextTick(() => this.renderSparklines('dest'));
             }
@@ -1074,11 +1079,11 @@ document.addEventListener('alpine:init', () => {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn(`/api/stats/ports?range=${this.timeRange}`);
                 this.ports = { ...(await res.json()), loading: false, error: null };
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch ports:', e);
                 this.ports.error = window.DashboardUtils?.getUserFriendlyError(e, 'load ports') || 'Failed to load ports';
-            } finally { 
-                this.ports.loading = false; 
+            } finally {
+                this.ports.loading = false;
             }
         },
 
@@ -1090,11 +1095,11 @@ document.addEventListener('alpine:init', () => {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn(`/api/stats/firewall?range=${this.timeRange}`);
                 this.firewall = { ...(await res.json()).firewall, loading: false, error: null };
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch firewall:', e);
                 this.firewall.error = window.DashboardUtils?.getUserFriendlyError(e, 'load firewall stats') || 'Failed to load firewall stats';
-            } finally { 
-                this.firewall.loading = false; 
+            } finally {
+                this.firewall.loading = false;
             }
         },
 
@@ -1116,12 +1121,12 @@ document.addEventListener('alpine:init', () => {
                 es.onerror = () => {
                     // Mark inactive and retry later
                     this.firewallStreamActive = false;
-                    try { es.close(); } catch(_){}
+                    try { es.close(); } catch (_) { }
                     this.firewallES = null;
                     // Retry after a delay
                     setTimeout(() => this.startFirewallStream(), 5000);
                 };
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         async fetchProtocols() {
@@ -1130,18 +1135,18 @@ document.addEventListener('alpine:init', () => {
             try {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn(`/api/stats/protocols?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     this.protocols = { ...(await res.json()), loading: false, error: null };
                 } else {
                     const errorMsg = `Protocols fetch failed: ${res.status}`;
                     console.error(errorMsg);
                     this.protocols.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load protocols') || errorMsg;
                 }
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch protocols:', e);
                 this.protocols.error = window.DashboardUtils?.getUserFriendlyError(e, 'load protocols') || 'Failed to load protocols';
-            } finally { 
-                this.protocols.loading = false; 
+            } finally {
+                this.protocols.loading = false;
             }
         },
 
@@ -1277,10 +1282,10 @@ document.addEventListener('alpine:init', () => {
                     const logs = d.logs || [];
                     const stats = d.stats || this.computeRecentBlockStats(logs);
 
-                    this.recentBlocks = { 
-                        blocks: logs, 
+                    this.recentBlocks = {
+                        blocks: logs,
                         stats,
-                        total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0, 
+                        total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0,
                         loading: false,
                         lastUpdate: new Date().toISOString()
                     };
@@ -1313,65 +1318,65 @@ document.addEventListener('alpine:init', () => {
             try {
                 const canvas = document.getElementById('attackTimelineChart');
                 if (!canvas || !this.attackTimeline.timeline) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.renderAttackTimelineChart(), 100);
                     return;
                 }
-                
+
                 const ctx = canvas.getContext('2d');
                 if (this._attackTimelineChart) this._attackTimelineChart.destroy();
-            
-            const labels = this.attackTimeline.timeline.map(t => t.hour);
-            const critical = this.attackTimeline.timeline.map(t => t.critical || 0);
-            const high = this.attackTimeline.timeline.map(t => t.high || 0);
-            const medium = this.attackTimeline.timeline.map(t => t.medium || 0);
-            const low = this.attackTimeline.timeline.map(t => t.low || 0);
-            const fwBlocks = this.attackTimeline.timeline.map(t => t.fw_blocks || 0);
-            
-            const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
-            const hasFwData = this.attackTimeline.has_fw_data;
 
-            const datasets = [
-                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'a', order: 2 },
-                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a', order: 2 },
-                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a', order: 2 },
-                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a', order: 2 }
-            ];
-            
-            // Add firewall blocks as a line overlay if data exists
-            if (hasFwData) {
-                datasets.push({
-                    label: '🔥 FW Blocks',
-                    data: fwBlocks,
-                    type: 'line',
-                    borderColor: 'rgba(0, 255, 100, 1)',
-                    backgroundColor: 'rgba(0, 255, 100, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointBackgroundColor: 'rgba(0, 255, 100, 1)',
-                    fill: false,
-                    tension: 0.3,
-                    yAxisID: 'y1',
-                    order: 1
-                });
-            }
+                const labels = this.attackTimeline.timeline.map(t => t.hour);
+                const critical = this.attackTimeline.timeline.map(t => t.critical || 0);
+                const high = this.attackTimeline.timeline.map(t => t.high || 0);
+                const medium = this.attackTimeline.timeline.map(t => t.medium || 0);
+                const low = this.attackTimeline.timeline.map(t => t.low || 0);
+                const fwBlocks = this.attackTimeline.timeline.map(t => t.fw_blocks || 0);
 
-            this._attackTimelineChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: true, position: 'top', labels: { color: '#888', boxWidth: 12, padding: 8 } } },
-                    scales: {
-                        x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
-                        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' }, position: 'left' },
-                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'FW Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
-                    }
+                const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
+                const hasFwData = this.attackTimeline.has_fw_data;
+
+                const datasets = [
+                    { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'a', order: 2 },
+                    { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'a', order: 2 },
+                    { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'a', order: 2 },
+                    { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'a', order: 2 }
+                ];
+
+                // Add firewall blocks as a line overlay if data exists
+                if (hasFwData) {
+                    datasets.push({
+                        label: '🔥 FW Blocks',
+                        data: fwBlocks,
+                        type: 'line',
+                        borderColor: 'rgba(0, 255, 100, 1)',
+                        backgroundColor: 'rgba(0, 255, 100, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointBackgroundColor: 'rgba(0, 255, 100, 1)',
+                        fill: false,
+                        tension: 0.3,
+                        yAxisID: 'y1',
+                        order: 1
+                    });
                 }
-            });
+
+                this._attackTimelineChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top', labels: { color: '#888', boxWidth: 12, padding: 8 } } },
+                        scales: {
+                            x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
+                            y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' }, position: 'left' },
+                            ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'FW Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
+                        }
+                    }
+                });
             } catch (e) {
                 console.error('Chart render error:', e);
             }
@@ -1390,42 +1395,42 @@ document.addEventListener('alpine:init', () => {
 
         get filteredRecentBlocks() {
             let filtered = this.recentBlocks.blocks || [];
-            
+
             // Apply action filter
             if (this.recentBlocksFilter.action !== 'all') {
                 filtered = filtered.filter(b => b.action === this.recentBlocksFilter.action);
             }
-            
+
             // Apply threat filter
             if (this.recentBlocksFilter.threatOnly) {
                 filtered = filtered.filter(b => b.is_threat);
             }
-            
+
             // Apply IP search filter
             if (this.recentBlocksFilter.searchIP) {
                 const searchIP = this.recentBlocksFilter.searchIP.toLowerCase();
-                filtered = filtered.filter(b => 
-                    (b.src_ip && b.src_ip.includes(searchIP)) || 
+                filtered = filtered.filter(b =>
+                    (b.src_ip && b.src_ip.includes(searchIP)) ||
                     (b.dst_ip && b.dst_ip.includes(searchIP))
                 );
             }
-            
+
             // Apply port filter
             if (this.recentBlocksFilter.port) {
                 const port = this.recentBlocksFilter.port.toString();
-                filtered = filtered.filter(b => 
+                filtered = filtered.filter(b =>
                     (b.src_port && b.src_port.toString().includes(port)) ||
                     (b.dst_port && b.dst_port.toString().includes(port))
                 );
             }
-            
+
             // Apply protocol filter
             if (this.recentBlocksFilter.protocol !== 'all') {
-                filtered = filtered.filter(b => 
+                filtered = filtered.filter(b =>
                     (b.proto && b.proto.toUpperCase() === this.recentBlocksFilter.protocol.toUpperCase())
                 );
             }
-            
+
             return filtered;
         },
 
@@ -1566,7 +1571,7 @@ document.addEventListener('alpine:init', () => {
         updateBlocklistChart(series) {
             const ctx = document.getElementById('blocklistChart');
             if (!ctx) return;
-            
+
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
                 setTimeout(() => this.renderBlocklistChart(), 100);
@@ -1577,11 +1582,11 @@ document.addEventListener('alpine:init', () => {
             const blocked = (series || []).map(s => s.blocked || 0);
             const hasFwData = this.blocklist.has_fw_data;
             const color = this.getCssVar('--neon-red') || '#ff003c';
-            
+
             const datasets = [
                 { label: 'Match %', data: values, borderColor: color, backgroundColor: 'rgba(255,0,60,0.12)', fill: true, tension: 0.3, yAxisID: 'y' }
             ];
-            
+
             // Add firewall blocks as second line if data exists
             if (hasFwData) {
                 datasets.push({
@@ -1596,7 +1601,7 @@ document.addEventListener('alpine:init', () => {
                     yAxisID: 'y1'
                 });
             }
-            
+
             if (this.blocklistChartInstance) {
                 this.blocklistChartInstance.data.labels = labels;
                 this.blocklistChartInstance.data.datasets = datasets;
@@ -1610,15 +1615,15 @@ document.addEventListener('alpine:init', () => {
                 this.blocklistChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: { labels, datasets },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { legend: { display: hasFwData, position: 'top', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10 } } } }, 
-                        scales: { 
-                            x: { ticks: { color: '#888' }, grid: { color: '#333' } }, 
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: hasFwData, position: 'top', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#888' }, grid: { color: '#333' } },
                             y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100, position: 'left' },
                             ...(hasFwData ? { y1: { ticks: { color: 'rgba(0, 255, 100, 0.8)' }, grid: { display: false }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)', font: { size: 10 } } } } : {})
-                        } 
+                        }
                     }
                 });
             }
@@ -1628,8 +1633,8 @@ document.addEventListener('alpine:init', () => {
             this.alerts.loading = true;
             try {
                 const res = await fetch(`/api/alerts?range=${this.timeRange}`);
-                if(res.ok) this.alerts = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.alerts.loading = false; }
+                if (res.ok) this.alerts = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
         },
 
         async fetchConversations() {
@@ -1638,14 +1643,14 @@ document.addEventListener('alpine:init', () => {
                 // Fetch more for Sankey/Graph
                 const limit = this.conversationView === 'sankey' ? 50 : 10;
                 const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=${limit}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.conversations = { ...data };
                     if (this.conversationView === 'sankey') {
                         this.$nextTick(() => this.renderSankey());
                     }
                 }
-            } catch(e) { console.error(e); } finally { this.conversations.loading = false; }
+            } catch (e) { console.error(e); } finally { this.conversations.loading = false; }
         },
 
         toggleConversationView(view) {
@@ -1743,50 +1748,50 @@ document.addEventListener('alpine:init', () => {
             this.flags.loading = true;
             try {
                 const res = await fetch(`/api/stats/flags?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.flags = { ...data };
                     this.updateFlagsChart(data.flags);
                 }
-            } catch(e) { console.error(e); } finally { this.flags.loading = false; }
+            } catch (e) { console.error(e); } finally { this.flags.loading = false; }
         },
 
         async fetchASNs() {
             this.asns.loading = true;
             try {
                 const res = await fetch(`/api/stats/asns?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     // Calc max for bar chart
                     const max = Math.max(...data.asns.map(a => a.bytes));
                     this.asns = { ...data, maxBytes: max };
                 }
-            } catch(e) { console.error(e); } finally { this.asns.loading = false; }
+            } catch (e) { console.error(e); } finally { this.asns.loading = false; }
         },
 
         async fetchCountries() {
             this.countries.loading = true;
             try {
                 const res = await fetch(`/api/stats/countries?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.countries = { ...data };
                     this.updateCountriesChart(data);
                 }
-            } catch(e) { console.error(e); } finally { this.countries.loading = false; }
+            } catch (e) { console.error(e); } finally { this.countries.loading = false; }
         },
 
         async fetchWorldMap() {
             this.worldMap.loading = true;
             try {
                 const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.worldMap = { ...data, lastUpdate: new Date().toISOString() };
                 } else {
                     console.error('[WorldMap] API error:', res.status);
                 }
-            } catch(e) { console.error('[WorldMap] Fetch error:', e); } finally { 
+            } catch (e) { console.error('[WorldMap] Fetch error:', e); } finally {
                 this.worldMap.loading = false;
                 // Always render map after fetch (even with no data to show grid)
                 this.$nextTick(() => this.renderWorldMap());
@@ -1799,12 +1804,12 @@ document.addEventListener('alpine:init', () => {
                 console.warn('[WorldMap] Container not found');
                 return;
             }
-            
+
             // Check if container is visible (x-show might hide it initially)
             const containerParent = container.closest('.world-map-container');
-            const isVisible = containerParent && containerParent.offsetParent !== null && 
-                             containerParent.offsetWidth > 0 && containerParent.offsetHeight > 0;
-            
+            const isVisible = containerParent && containerParent.offsetParent !== null &&
+                containerParent.offsetWidth > 0 && containerParent.offsetHeight > 0;
+
             if (!isVisible) {
                 // Container is hidden, wait a bit and try again (max 5 attempts)
                 if (!this._mapRenderAttempts) this._mapRenderAttempts = 0;
@@ -1818,7 +1823,7 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
             this._mapRenderAttempts = 0; // Reset on success
-            
+
             // Check if Leaflet is loaded
             if (typeof L === 'undefined' || typeof L.map === 'undefined') {
                 console.warn('[WorldMap] Leaflet not loaded yet, deferring map render');
@@ -1871,14 +1876,14 @@ document.addEventListener('alpine:init', () => {
                         maxZoom: 19,
                         errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' // Transparent 1px GIF as fallback
                     });
-                    
+
                     tileLayer.addTo(this.map);
-                    
+
                     // Debug: Log tile loading errors
                     tileLayer.on('tileerror', (error, tile) => {
                         console.error('[WorldMap] Tile loading error:', error, tile);
                     });
-                    
+
                     // Invalidate size to ensure map renders correctly
                     this.map.whenReady(() => {
                         if (!this.map) return;
@@ -1896,13 +1901,13 @@ document.addEventListener('alpine:init', () => {
                 } catch (e) {
                     console.error('[WorldMap] Leaflet init failed:', e);
                     // Attempt recovery: remove any existing map instance on this container ID
-                    if (this.map) { 
+                    if (this.map) {
                         try {
-                            this.map.remove(); 
+                            this.map.remove();
                         } catch (removeError) {
                             console.error('[WorldMap] Error removing map:', removeError);
                         }
-                        this.map = null; 
+                        this.map = null;
                     }
                     // Clear container state
                     if (container._leaflet_id) {
@@ -1951,14 +1956,14 @@ document.addEventListener('alpine:init', () => {
             dests.forEach(p => {
                 const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
                 addMarker(p.lat, p.lng, '#bc13fe', size,
-                    `<strong>DST: ${p.ip}</strong><br>${p.city||''}, ${p.country}<br>${p.bytes_fmt}`);
+                    `<strong>DST: ${p.ip}</strong><br>${p.city || ''}, ${p.country}<br>${p.bytes_fmt}`);
             });
 
             // Draw Sources (Cyan)
             sources.forEach(p => {
                 const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
                 addMarker(p.lat, p.lng, '#00f3ff', size,
-                    `<strong>SRC: ${p.ip}</strong><br>${p.city||''}, ${p.country}<br>${p.bytes_fmt}`);
+                    `<strong>SRC: ${p.ip}</strong><br>${p.city || ''}, ${p.country}<br>${p.bytes_fmt}`);
             });
 
             // Draw Threats (Red)
@@ -1971,7 +1976,7 @@ document.addEventListener('alpine:init', () => {
                     opacity: 1,
                     fillOpacity: 0.7
                 });
-                threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city||''}, ${p.country}`);
+                threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city || ''}, ${p.country}`);
                 // Make threat marker clickable - open IP investigation
                 threatMarker.on('click', () => {
                     this.openIPModal(p.ip);
@@ -1992,49 +1997,49 @@ document.addEventListener('alpine:init', () => {
             this.durations.loading = true;
             try {
                 const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
-                if(res.ok) this.durations = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.durations.loading = false; }
+                if (res.ok) this.durations = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.durations.loading = false; }
         },
 
         async fetchTalkers() {
             this.talkers.loading = true;
             try {
                 const res = await fetch(`/api/stats/talkers?range=${this.timeRange}`);
-                if(res.ok) this.talkers = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.talkers.loading = false; }
+                if (res.ok) this.talkers = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.talkers.loading = false; }
         },
 
         async fetchServices() {
             this.services.loading = true;
             try {
                 const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
-                if(res.ok) this.services = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.services.loading = false; }
+                if (res.ok) this.services = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.services.loading = false; }
         },
 
         async fetchHourlyTraffic() {
             this.hourlyTraffic.loading = true;
             try {
                 const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.hourlyTraffic = { ...data };
                     this.updateHourlyChart(data);
                 }
-            } catch(e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
+            } catch (e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
         },
 
         updateHourlyChart(data) {
             try {
                 const ctx = document.getElementById('hourlyChart');
                 if (!ctx || !data || !data.labels) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.updateHourlyChart(data), 100);
                     return;
                 }
-                
+
                 const peakColor = this.getCssVar('--neon-green') || '#00ff88';
                 const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
 
@@ -2043,39 +2048,39 @@ document.addEventListener('alpine:init', () => {
                     this.hourlyChartInstance.data.datasets[0].data = data.bytes;
                     this.hourlyChartInstance.update();
                 } else {
-                this.hourlyChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Traffic',
-                            data: data.bytes,
-                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
-                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: {
-                                ticks: { color: '#888', font: { size: 9 }, maxRotation: 45 },
-                                grid: { display: false }
-                            },
-                            y: {
-                                ticks: {
-                                    color: '#888',
-                                    font: { size: 9 },
-                                    callback: v => this.fmtBytes(v)
+                    this.hourlyChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'Traffic',
+                                data: data.bytes,
+                                backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                                borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: {
+                                    ticks: { color: '#888', font: { size: 9 }, maxRotation: 45 },
+                                    grid: { display: false }
                                 },
-                                grid: { color: 'rgba(255,255,255,0.05)' }
+                                y: {
+                                    ticks: {
+                                        color: '#888',
+                                        font: { size: 9 },
+                                        callback: v => this.fmtBytes(v)
+                                    },
+                                    grid: { color: 'rgba(255,255,255,0.05)' }
+                                }
                             }
                         }
-                    }
-                });
-            }
+                    });
+                }
             } catch (e) {
                 console.error('Chart render error:', e);
             }
@@ -2085,33 +2090,33 @@ document.addEventListener('alpine:init', () => {
             this.flowStats.loading = true;
             try {
                 const res = await fetch(`/api/stats/flow_stats?range=${this.timeRange}`);
-                if(res.ok) this.flowStats = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.flowStats.loading = false; }
+                if (res.ok) this.flowStats = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.flowStats.loading = false; }
         },
 
         async fetchProtoMix() {
             this.protoMix.loading = true;
             try {
                 const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.protoMix = { ...data };
                     this.updateProtoMixChart(data);
                 }
-            } catch(e) { console.error(e); } finally { this.protoMix.loading = false; }
+            } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
         },
 
         updateProtoMixChart(data) {
             try {
                 const ctx = document.getElementById('protoMixChart');
                 if (!ctx) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.updateProtoMixChart(data), 100);
                     return;
                 }
-                
+
                 // Validate data structure
                 if (!data || !data.labels || !data.bytes || data.labels.length === 0) {
                     console.warn('Protocol Mix: No data available');
@@ -2129,40 +2134,40 @@ document.addEventListener('alpine:init', () => {
                     this.protoMixChartInstance.data.datasets[0].backgroundColor = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
                     this.protoMixChartInstance.update();
                 } else {
-                this.protoMixChartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            data: data.bytes,
-                            backgroundColor: data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'],
-                            borderColor: 'rgba(0,0,0,0.3)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'right',
-                                labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12 }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
-                                        const pct = data.percentages ? data.percentages[context.dataIndex] : '';
-                                        return `${label}: ${value} (${pct}%)`;
+                    this.protoMixChartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                data: data.bytes,
+                                backgroundColor: data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'],
+                                borderColor: 'rgba(0,0,0,0.3)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'right',
+                                    labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12 }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            const label = context.label || '';
+                                            const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
+                                            const pct = data.percentages ? data.percentages[context.dataIndex] : '';
+                                            return `${label}: ${value} (${pct}%)`;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-            }
+                    });
+                }
             } catch (e) {
                 console.error('Protocol Mix chart error:', e);
             }
@@ -2172,8 +2177,8 @@ document.addEventListener('alpine:init', () => {
             this.netHealth.loading = true;
             try {
                 const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
-                if(res.ok) this.netHealth = { ...(await res.json()) };
-            } catch(e) { console.error(e); } finally { this.netHealth.loading = false; }
+                if (res.ok) this.netHealth = { ...(await res.json()) };
+            } catch (e) { console.error(e); } finally { this.netHealth.loading = false; }
         },
 
         async fetchServerHealth() {
@@ -2186,7 +2191,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const safeFetchFn = window.DashboardUtils?.safeFetch || fetch;
                 const res = await safeFetchFn('/api/server/health');
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     // Update nested properties individually to ensure Alpine.js reactivity
                     // This ensures all widget bindings (cpu.percent, memory.percent, etc.) are properly updated
@@ -2209,7 +2214,7 @@ document.addEventListener('alpine:init', () => {
                     this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load server health') || errorMsg;
                     this.serverHealth.loading = false;
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error('Server health fetch error:', e);
                 this.serverHealth.error = window.DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
                 this.serverHealth.loading = false;
@@ -2222,13 +2227,13 @@ document.addEventListener('alpine:init', () => {
                 clearInterval(this.serverHealthRefreshTimer);
                 this.serverHealthRefreshTimer = null;
             }
-            
+
             // Only start if server tab is active
             if (this.activeTab !== 'server') return;
-            
+
             // Initial fetch
             this.fetchServerHealth();
-            
+
             // Set up 2-second interval refresh for real-time updates (independent of global refresh)
             this.serverHealthRefreshTimer = setInterval(() => {
                 if (this.activeTab === 'server' && !this.paused) {
@@ -2252,11 +2257,11 @@ document.addEventListener('alpine:init', () => {
                 const data = await res.json();
                 this.bandwidth = { ...data, loading: false, error: null };
                 this.updateBwChart(data);
-            } catch(e) { 
+            } catch (e) {
                 console.error('Failed to fetch bandwidth:', e);
                 this.bandwidth.error = window.DashboardUtils?.getUserFriendlyError(e, 'load bandwidth') || 'Failed to load bandwidth';
-            } finally { 
-                this.bandwidth.loading = false; 
+            } finally {
+                this.bandwidth.loading = false;
             }
         },
 
@@ -2264,7 +2269,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('bwChart');
                 if (!ctx || !data || !data.labels) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     console.warn('Chart.js not loaded yet, deferring chart creation');
@@ -2345,19 +2350,19 @@ document.addEventListener('alpine:init', () => {
             this.packetSizes.loading = true;
             try {
                 const res = await fetch(`/api/stats/packet_sizes?range=${this.timeRange}`);
-                if(res.ok) {
+                if (res.ok) {
                     const data = await res.json();
                     this.packetSizes = { ...data };
                     this.updatePktSizeChart(data);
                 }
-            } catch(e) { console.error(e); } finally { this.packetSizes.loading = false; }
+            } catch (e) { console.error(e); } finally { this.packetSizes.loading = false; }
         },
 
         updatePktSizeChart(data) {
             try {
                 const ctx = document.getElementById('pktSizeChart');
                 if (!ctx || !data || !data.labels) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.updatePktSizeChart(data), 100);
@@ -2412,7 +2417,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('countriesChart');
                 if (!ctx || !data) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.updateCountriesChart(data), 100);
@@ -2457,7 +2462,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('flagsChart');
                 if (!ctx || !flagsData) return;
-                
+
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
                     setTimeout(() => this.updateFlagsChart(flagsData), 100);
@@ -2512,7 +2517,7 @@ document.addEventListener('alpine:init', () => {
                         muted: d.mute_until && d.mute_until > now
                     };
                 }
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         async toggleNotify(target) {
@@ -2520,11 +2525,11 @@ document.addEventListener('alpine:init', () => {
                 const currentState = target === 'email' ? this.notify.email : this.notify.webhook;
                 const res = await fetch('/api/notify_toggle', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ target: target, state: !currentState })
                 });
                 if (res.ok) this.loadNotifyStatus();
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         async muteAlerts() {
@@ -2532,11 +2537,11 @@ document.addEventListener('alpine:init', () => {
                 const body = this.notify.muted ? { mute: false } : { mute: true, minutes: 60 };
                 const res = await fetch('/api/notify_mute', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
-                if(res.ok) this.loadNotifyStatus();
-            } catch(e) { console.error(e); }
+                if (res.ok) this.loadNotifyStatus();
+            } catch (e) { console.error(e); }
         },
 
         // ---- Drag & Drop Reordering ----
@@ -2601,7 +2606,7 @@ document.addEventListener('alpine:init', () => {
             const ids = Array.from(grid.children)
                 .filter(el => el instanceof HTMLElement && !el.classList.contains('wide-card'))
                 .map(el => el.dataset.widgetId || '');
-            try { localStorage.setItem('gridOrder:' + gridId, JSON.stringify(ids)); } catch(e) { console.error(e); }
+            try { localStorage.setItem('gridOrder:' + gridId, JSON.stringify(ids)); } catch (e) { console.error(e); }
         },
 
         applyGridOrder(grid, gridId) {
@@ -2620,7 +2625,7 @@ document.addEventListener('alpine:init', () => {
                     const el = map.get(id);
                     if (el) grid.appendChild(el);
                 });
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         getCardAfterPosition(grid, y) {
@@ -2637,28 +2642,28 @@ document.addEventListener('alpine:init', () => {
         },
 
         async sendTestAlert() {
-             fetch('/api/test_alert').then(r=>r.json()).then(()=> {
-                 // Trigger refresh immediately to show it
-                 this.fetchAlerts();
-             }).catch(console.error);
+            fetch('/api/test_alert').then(r => r.json()).then(() => {
+                // Trigger refresh immediately to show it
+                this.fetchAlerts();
+            }).catch(console.error);
         },
 
         async refreshFeed() {
-             fetch('/api/threat_refresh', {method:'POST'}).then(r=>r.json()).then(d => {
-                 if(d.threat_status) this.threatStatus = d.threat_status;
-             }).catch(console.error);
+            fetch('/api/threat_refresh', { method: 'POST' }).then(r => r.json()).then(d => {
+                if (d.threat_status) this.threatStatus = d.threat_status;
+            }).catch(console.error);
         },
 
         exportCSV() {
-             window.location.href = '/api/export?range=' + this.timeRange;
+            window.location.href = '/api/export?range=' + this.timeRange;
         },
 
         exportJSON() {
-             window.location.href = '/api/export_json?range=' + this.timeRange;
+            window.location.href = '/api/export_json?range=' + this.timeRange;
         },
 
         exportAlerts(fmt) {
-             window.location.href = '/api/alerts_export?format=' + fmt;
+            window.location.href = '/api/alerts_export?format=' + fmt;
         },
 
         // === FORENSICS INVESTIGATION FUNCTIONS ===
@@ -2711,7 +2716,7 @@ document.addEventListener('alpine:init', () => {
                     asn: data.geo?.asn || data.asn,
                     related_ips: data.related_ips || []
                 };
-                
+
                 // Load timeline data if available
                 this.$nextTick(() => {
                     this.loadIPTimeline(ip);
@@ -2741,13 +2746,13 @@ document.addEventListener('alpine:init', () => {
                 });
             }
         },
-        
+
         exportInvestigationResults(format) {
             if (!this.ipInvestigation.result) return;
-            
+
             const data = this.ipInvestigation.result;
             const ip = this.ipInvestigation.searchIP;
-            
+
             if (format === 'json') {
                 const jsonStr = JSON.stringify(data, null, 2);
                 const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -2783,7 +2788,7 @@ document.addEventListener('alpine:init', () => {
                 this.showToast('Investigation data exported as CSV', 'success');
             }
         },
-        
+
         copyInvestigationIP() {
             if (!this.ipInvestigation.searchIP) return;
             navigator.clipboard.writeText(this.ipInvestigation.searchIP).then(() => {
@@ -3081,7 +3086,7 @@ document.addEventListener('alpine:init', () => {
                             time: a.time || a.timestamp
                         })),
                         timespan: alerts.length > 1 ?
-                            `${alerts[0].time || 'recent'} - ${alerts[alerts.length-1].time || 'recent'}` :
+                            `${alerts[0].time || 'recent'} - ${alerts[alerts.length - 1].time || 'recent'}` :
                             'recent'
                     }));
             } finally {
@@ -3106,7 +3111,7 @@ document.addEventListener('alpine:init', () => {
                         peak_count = peak.total;
                         peak_hour = peak.hour;
                     }
-                    
+
                     this.threatActivityTimeline = {
                         ...d,
                         peak_count,
@@ -3317,13 +3322,13 @@ document.addEventListener('alpine:init', () => {
                 clearInterval(this.recentBlocksRefreshTimer);
                 this.recentBlocksRefreshTimer = null;
             }
-            
+
             // Only start if auto-refresh is enabled
             if (!this.recentBlocksAutoRefresh) return;
-            
+
             // Initial fetch
             this.fetchRecentBlocks();
-            
+
             // Set up interval: refresh every 3 seconds for real-time feel
             const refreshInterval = 3000;
             this.recentBlocksRefreshTimer = setInterval(() => {
@@ -3349,21 +3354,21 @@ document.addEventListener('alpine:init', () => {
             if (this.activeTab !== 'forensics' || this.isMinimized('recentBlocks')) {
                 return;
             }
-            
+
             // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
             // This ensures we always have the latest data
             try {
                 const res = await fetch('/api/firewall/logs/recent?limit=1000');
-                
+
                 if (res.ok) {
                     const d = await res.json();
                     const newLogs = d.logs || [];
                     const stats = d.stats || this.computeRecentBlockStats(newLogs);
-                    
+
                     // Check if we have new data by comparing latest timestamp
                     const currentLatestTs = this.recentBlocks?.stats?.latest_ts || 0;
                     const newLatestTs = stats?.latest_ts || 0;
-                    
+
                     // Only update if we have newer data
                     if (newLatestTs > currentLatestTs || newLogs.length !== (this.recentBlocks?.blocks?.length || 0)) {
                         this.recentBlocks = {
@@ -3373,7 +3378,7 @@ document.addEventListener('alpine:init', () => {
                             loading: false,
                             lastUpdate: new Date().toISOString()
                         };
-                        
+
                         // Update view count if needed
                         const targetView = this.recentBlocksView || 50;
                         this.recentBlocksView = Math.min(targetView, newLogs.length || targetView, 1000);
@@ -3460,7 +3465,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/ip_detail/${ip}`);
                 if (res.ok) this.ipDetails = await res.json();
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
             this.ipLoading = false;
         },
 
@@ -3669,7 +3674,7 @@ document.addEventListener('alpine:init', () => {
                         });
                     } else {
                         nodes.get(c.src).value += 1;
-                        if(nodes.get(c.src).group === 'dest') nodes.get(c.src).group = 'both';
+                        if (nodes.get(c.src).group === 'dest') nodes.get(c.src).group = 'both';
                     }
 
                     // Dest Node
@@ -3683,7 +3688,7 @@ document.addEventListener('alpine:init', () => {
                         });
                     } else {
                         nodes.get(c.dst).value += 1;
-                        if(nodes.get(c.dst).group === 'source') nodes.get(c.dst).group = 'both';
+                        if (nodes.get(c.dst).group === 'source') nodes.get(c.dst).group = 'both';
                     }
 
                     // Edge
@@ -3724,7 +3729,7 @@ document.addEventListener('alpine:init', () => {
                 };
 
                 container.innerHTML = ''; // clear spinner
-                
+
                 this.networkGraphInstance = new vis.Network(container, data, options);
 
                 // Click handler
@@ -3763,43 +3768,43 @@ document.addEventListener('alpine:init', () => {
                         const arr = Array.isArray(data.bytes) ? data.bytes : [];
                         this.sparkCache[cacheKey] = { ts: now, bytes: arr };
                         this.drawSparkline(c, arr);
-                    }).catch(()=>{});
+                    }).catch(() => { });
                 }
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         drawSparkline(canvas, values) {
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             const w = canvas.width, h = canvas.height;
-            ctx.clearRect(0,0,w,h);
+            ctx.clearRect(0, 0, w, h);
             if (!values || values.length === 0) return;
             const max = Math.max(...values, 1);
             const step = w / Math.max(values.length - 1, 1);
             // Gradient neon line
-            const grad = ctx.createLinearGradient(0,0,w,0);
+            const grad = ctx.createLinearGradient(0, 0, w, 0);
             grad.addColorStop(0, '#00f3ff');
             grad.addColorStop(1, '#bc13fe');
             ctx.strokeStyle = grad;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            for (let i=0;i<values.length;i++) {
+            for (let i = 0; i < values.length; i++) {
                 const x = i * step;
-                const y = h - (values[i]/max) * (h-2) - 1;
-                if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                const y = h - (values[i] / max) * (h - 2) - 1;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             }
             ctx.stroke();
 
-                // Click to open trend modal
-                if (!canvas._trendBound) {
-                    canvas.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const ip = canvas.getAttribute('data-ip');
-                        const kind = canvas.getAttribute('data-kind') || 'source';
-                        if (ip) this.openTrendModal(kind, ip);
-                    });
-                    canvas._trendBound = true;
-                }
+            // Click to open trend modal
+            if (!canvas._trendBound) {
+                canvas.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const ip = canvas.getAttribute('data-ip');
+                    const kind = canvas.getAttribute('data-kind') || 'source';
+                    if (ip) this.openTrendModal(kind, ip);
+                });
+                canvas._trendBound = true;
+            }
         },
 
         openTrendModal(kind, ip) {
@@ -3817,7 +3822,7 @@ document.addEventListener('alpine:init', () => {
                 if (!res.ok) return;
                 const data = await res.json();
                 this.updateTrendChart(data);
-            } catch(e) { console.error(e); }
+            } catch (e) { console.error(e); }
         },
 
         updateTrendChart(data) {
@@ -3871,7 +3876,7 @@ document.addEventListener('alpine:init', () => {
         activeSection: 'section-summary',
         scrollProgress: 0,
         showScrollSpy: false,
-        
+
         init() {
             // Debounced scroll handler
             let scrollTimeout;
@@ -3879,23 +3884,23 @@ document.addEventListener('alpine:init', () => {
                 clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(() => this.updateScrollState(), 50);
             };
-            
+
             window.addEventListener('scroll', handleScroll, { passive: true });
-            
+
             // Initial state
             setTimeout(() => this.updateScrollState(), 100);
         },
-        
+
         updateScrollState() {
             const scrollTop = window.scrollY;
             const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            
+
             // Update progress
             this.scrollProgress = Math.min(100, (scrollTop / docHeight) * 100);
-            
+
             // Show/hide based on scroll position
             this.showScrollSpy = scrollTop > 300;
-            
+
             // Find active section
             let current = 'section-summary';
             for (const section of this.sections) {
@@ -3909,11 +3914,12 @@ document.addEventListener('alpine:init', () => {
             }
             this.activeSection = current;
         },
-        
+
         scrollToSection(sectionId) {
             const el = document.getElementById(sectionId);
             if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
-    }));});
+    }));
+});
