@@ -1909,22 +1909,10 @@ export const Store = () => ({
         if (!this.map) {
             mapJustCreated = true;
             
-            // Check container dimensions FIRST - don't initialize if container has no size
+            // Note: Container might have zero dimensions if tab is hidden
+            // Leaflet can initialize on a 0x0 container - we'll call invalidateSize() when visible
             const containerRect = container.getBoundingClientRect();
-            if (containerRect.width === 0 || containerRect.height === 0) {
-                console.log('[WorldMap] Container has zero dimensions, deferring initialization');
-                // Try again after a delay
-                if (!this._mapInitRetries) this._mapInitRetries = 0;
-                if (this._mapInitRetries < 5) {
-                    this._mapInitRetries++;
-                    setTimeout(() => this.renderWorldMap(), 500);
-                } else {
-                    console.warn('[WorldMap] Container still has zero dimensions after retries - map will initialize when tab becomes visible');
-                    this._mapInitRetries = 0;
-                }
-                return;
-            }
-            this._mapInitRetries = 0; // Reset on success
+            console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
             
             // Ensure no previous instance exists to prevent "Map container is already initialized" error
             if (container._leaflet_id) {
@@ -1979,17 +1967,15 @@ export const Store = () => ({
                 baseTileLayer.addTo(this.map);
                 console.log('[WorldMap] Base tile layer added to map');
 
-                // Invalidate size to ensure map renders correctly
+                // Invalidate size - even if container has 0 dimensions, Leaflet will handle it
                 this.map.whenReady(() => {
                     if (!this.map) return;
                     console.log('[WorldMap] Map whenReady callback fired');
-                    // Use requestAnimationFrame to ensure DOM has updated
-                    requestAnimationFrame(() => {
-                        if (this.map) {
-                            this.map.invalidateSize();
-                            console.log('[WorldMap] invalidateSize() called');
-                        }
-                    });
+                    // Call invalidateSize - will work even if container is temporarily 0x0
+                    if (this.map) {
+                        this.map.invalidateSize();
+                        console.log('[WorldMap] invalidateSize() called in whenReady');
+                    }
                     
                     // Try to load GeoJSON overlay (optional enhancement)
                     fetch('/static/world.geojson')
@@ -2019,7 +2005,7 @@ export const Store = () => ({
                     // Render markers after map is ready
                     this.renderWorldMapMarkers();
                     
-                    // Force a view reset and invalidateSize after a delay to ensure container is visible
+                    // Force a view reset and invalidateSize - this will work even if container is 0x0 initially
                     setTimeout(() => {
                         if (this.map) {
                             const rect = container.getBoundingClientRect();
@@ -2028,6 +2014,7 @@ export const Store = () => ({
                             this.map.setView([20, 0], 2);
                             this.mapStatus = ''; // Clear status on success
                             console.log('[WorldMap] Map initialized successfully, view set to [20, 0], zoom 2');
+                            // If container still has dimensions, great. If not, invalidateSize() will be called again when tab becomes visible
                         }
                     }, 300);
                 });
@@ -3683,42 +3670,18 @@ export const Store = () => ({
                 this.lastFetch.worldmap = now;
             }
             // Initialize map when overview tab becomes visible
-            // Use requestAnimationFrame to ensure Alpine.js has rendered the tab
+            // Initialize map even if container has 0 dimensions - Leaflet can handle it
             this.$nextTick(() => {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        // Double RAF ensures Alpine.js x-show has applied display styles
-                        const container = document.getElementById('world-map-svg');
-                        if (container) {
-                            const rect = container.getBoundingClientRect();
-                            console.log('[WorldMap] loadTab overview - Container dimensions:', rect.width, 'x', rect.height);
-                            if (rect.width > 0 && rect.height > 0) {
-                                if (this.map) {
-                                    this.map.invalidateSize();
-                                    this.renderWorldMap();
-                                } else {
-                                    // Initialize map now that container has dimensions
-                                    this.renderWorldMap();
-                                }
-                            } else {
-                                // Container still has zero dimensions - try one more time after a delay
-                                setTimeout(() => {
-                                    const container2 = document.getElementById('world-map-svg');
-                                    if (container2) {
-                                        const rect2 = container2.getBoundingClientRect();
-                                        if (rect2.width > 0 && rect2.height > 0) {
-                                            this.renderWorldMap();
-                                        } else {
-                                            console.warn('[WorldMap] Container still has zero dimensions - map initialization deferred');
-                                        }
-                                    }
-                                }, 500);
-                            }
-                        } else {
-                            console.warn('[WorldMap] Container not found in loadTab');
-                        }
-                    });
-                });
+                setTimeout(() => {
+                    if (this.map) {
+                        // Map exists - just invalidate size to update it
+                        this.map.invalidateSize();
+                        this.renderWorldMap();
+                    } else {
+                        // Map doesn't exist - initialize it (even if container has 0 dimensions)
+                        this.renderWorldMap();
+                    }
+                }, 100);
             });
         } else if (tab === 'server') {
             this.startServerHealthAutoRefresh();
