@@ -3,7 +3,7 @@ set -e
 
 # Start nfcapd in the background for NetFlow collection
 echo "Starting nfcapd NetFlow collector..."
-nfcapd -l /var/cache/nfdump -p 2055 -y -B 8388608 -e -t 300 -D -P /var/run/nfcapd.pid
+nfcapd -w -D -p 2055 -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid -l /var/cache/nfdump
 
 # Wait a moment for nfcapd to start
 sleep 1
