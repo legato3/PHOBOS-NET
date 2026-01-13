@@ -62,7 +62,7 @@ document.addEventListener('alpine:init', () => {
             loading: false,
             error: null,
             model: 'deepseek-coder-v2:16b',
-            availableModels: []
+            availableModels: ['deepseek-coder-v2:16b'] // Initialize with default model
         },
 
         // Mobile UI state
