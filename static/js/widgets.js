@@ -46,7 +46,17 @@ export const DashboardWidgets = {
         services: true,
         hourlyTraffic: true,
         insights: true,
-        serverHealth: true
+        serverHealth: true,
+        server_cpu: true,
+        server_memory: true,
+        server_disk: true,
+        server_netflow: true,
+        server_syslog: true,
+        server_database: true,
+        server_system: true,
+        server_process: true,
+        server_network: true,
+        server_cache: true
     },
 
     // Friendly labels for widgets
@@ -90,7 +100,18 @@ export const DashboardWidgets = {
         ipInvestigation: 'IP Deep Dive',
         flowSearch: 'Advanced Flow Search',
         alertCorrelation: 'Alert Correlation',
-        serverHealth: 'Server Health'
+        alertCorrelation: 'Alert Correlation',
+        serverHealth: 'Server Health',
+        server_cpu: 'CPU',
+        server_memory: 'Memory',
+        server_disk: 'Disk',
+        server_netflow: 'NetFlow Status',
+        server_syslog: 'Syslog Status',
+        server_database: 'Database Status',
+        server_system: 'System Info',
+        server_process: 'Process Info',
+        server_network: 'Network Info',
+        server_cache: 'Cache Info'
     },
 
     // Load widget preferences from localStorage
