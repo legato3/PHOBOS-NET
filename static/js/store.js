@@ -1949,10 +1949,24 @@ export const Store = () => ({
                 baseTileLayer.addTo(this.map);
                 console.log('[WorldMap] Base tile layer added to map');
 
+                // Force container to have dimensions if it doesn't
+                const containerRect = container.getBoundingClientRect();
+                console.log('[WorldMap] Container dimensions:', containerRect.width, 'x', containerRect.height);
+                if (containerRect.width === 0 || containerRect.height === 0) {
+                    console.warn('[WorldMap] Container has zero dimensions, will call invalidateSize when ready');
+                }
+
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
                     if (!this.map) return;
-                    this.map.invalidateSize();
+                    console.log('[WorldMap] Map whenReady callback fired');
+                    // Use requestAnimationFrame to ensure DOM has updated
+                    requestAnimationFrame(() => {
+                        if (this.map) {
+                            this.map.invalidateSize();
+                            console.log('[WorldMap] invalidateSize() called');
+                        }
+                    });
                     
                     // Try to load GeoJSON overlay (optional enhancement)
                     fetch('/static/world.geojson')
@@ -1982,15 +1996,17 @@ export const Store = () => ({
                     // Render markers after map is ready
                     this.renderWorldMapMarkers();
                     
-                    // Force a view reset after a short delay to ensure tiles load
+                    // Force a view reset and invalidateSize after a delay to ensure container is visible
                     setTimeout(() => {
                         if (this.map) {
+                            const rect = container.getBoundingClientRect();
+                            console.log('[WorldMap] Delayed check - Container dimensions:', rect.width, 'x', rect.height);
                             this.map.invalidateSize();
                             this.map.setView([20, 0], 2);
                             this.mapStatus = ''; // Clear status on success
-                            console.log('[WorldMap] Map initialized successfully');
+                            console.log('[WorldMap] Map initialized successfully, view set to [20, 0], zoom 2');
                         }
-                    }, 150);
+                    }, 300);
                 });
 
             } catch (e) {
