@@ -1956,42 +1956,46 @@ export const Store = () => ({
                 // Note: zoomControl was set to false in constructor, we can add it back
                 L.control.zoom({ position: 'topright' }).addTo(this.map);
 
+                // Add a base tile layer immediately so map is visible
+                const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap &copy; CARTO',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                });
+                baseTileLayer.addTo(this.map);
+
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
                     if (!this.map) return;
                     this.map.invalidateSize();
                     
-                    // Offline-ready Map: Use local GeoJSON (High contrast, Cyberpunk style)
+                    // Try to load GeoJSON overlay (optional enhancement)
                     fetch('/static/world.geojson')
-                        .then(r => r.json())
+                        .then(r => {
+                            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                            return r.json();
+                        })
                         .then(geoJsonData => {
                             if (!this.map) return;
-                            L.geoJSON(geoJsonData, {
+                            // Add GeoJSON as an overlay layer (optional styling enhancement)
+                            const geoJsonLayer = L.geoJSON(geoJsonData, {
                                 style: {
-                                    fillColor: '#1a1f2e',     // Dark background for countries
+                                    fillColor: '#1a1f2e',
                                     weight: 1,
-                                    opacity: 1,
-                                    color: '#2d3748',         // Subtle borders
-                                    fillOpacity: 0.7
+                                    opacity: 0.3,
+                                    color: '#2d3748',
+                                    fillOpacity: 0.1
                                 }
-                            }).addTo(this.map);
-
-                            // Render markers after base map is ready
-                            this.renderWorldMapMarkers();
+                            });
+                            geoJsonLayer.addTo(this.map);
                         })
                         .catch(e => {
-                            console.error('[WorldMap] Failed to load local GeoJSON:', e);
-                            if (!this.map) return;
-                            // Fallback to minimal tiles if GeoJSON fails
-                            const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                                attribution: '&copy; OpenStreetMap &copy; CARTO',
-                                subdomains: 'abcd',
-                                maxZoom: 19
-                            });
-                            tileLayer.addTo(this.map);
-                            // Render markers after tile layer is added
-                            this.renderWorldMapMarkers();
+                            // GeoJSON is optional, just log and continue
+                            console.warn('[WorldMap] GeoJSON overlay not available, using tiles only:', e.message);
                         });
+                    
+                    // Render markers after map is ready
+                    this.renderWorldMapMarkers();
                     
                     // Force a view reset after a short delay to ensure tiles load
                     setTimeout(() => {
