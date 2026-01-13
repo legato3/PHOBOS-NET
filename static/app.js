@@ -342,7 +342,7 @@ document.addEventListener('alpine:init', () => {
 
         // World Map
             worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
-            worldMapLayers: { sources: false, destinations: true, threats: true, blocked: true },
+            worldMapLayers: { sources: true, destinations: true, threats: true, blocked: false },
 
         bwChartInstance: null,
         flagsChartInstance: null,
@@ -454,9 +454,9 @@ document.addEventListener('alpine:init', () => {
                 this.startTimer();
             });
             // Watch for layer toggle changes to re-render map
+            this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
-            this.$watch('worldMapLayers.blocked', () => this.renderWorldMap());
 
             // Render empty map on init (grid/background)
             this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
@@ -1986,20 +1986,38 @@ document.addEventListener('alpine:init', () => {
             const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
             const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
             const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
-            const blocked = this.worldMapLayers.blocked ? (this.worldMap.blocked || []) : [];
 
-            // Draw Destinations (Purple)
-            dests.forEach(p => {
+            // Draw Sources (Green)
+            sources.forEach(p => {
                 const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
                 const marker = L.circleMarker([p.lat, p.lng], {
                     radius: size,
-                    fillColor: '#bc13fe',
-                    color: '#bc13fe',
+                    fillColor: '#00ff64',
+                    color: '#00ff64',
                     weight: 2,
                     opacity: 1,
                     fillOpacity: 0.7
                 });
-                marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:var(--accent-primary);border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+                marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+                marker.on('click', () => {
+                    this.openIPModal(p.ip);
+                });
+                marker.addTo(this.map);
+                this.mapLayers.push(marker);
+            });
+
+            // Draw Destinations (Blue)
+            dests.forEach(p => {
+                const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: size,
+                    fillColor: '#00f3ff',
+                    color: '#00f3ff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00f3ff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
                 marker.on('click', () => {
                     this.openIPModal(p.ip);
                 });
@@ -2023,25 +2041,6 @@ document.addEventListener('alpine:init', () => {
                 });
                 threatMarker.addTo(this.map);
                 this.mapLayers.push(threatMarker);
-            });
-
-            // Draw Blocked (Green)
-            blocked.forEach(p => {
-                const size = Math.min(10, Math.max(6, Math.log10(p.block_count + 1) * 2.5));
-                const marker = L.circleMarker([p.lat, p.lng], {
-                    radius: size,
-                    fillColor: '#00ff64',
-                    color: '#00ff64',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.7
-                });
-                marker.bindPopup(`<strong>🔥 BLOCKED: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country || ''}<br>🛡️ ${p.block_count} blocks<br>${p.unique_ips ? `📊 ${p.unique_ips} unique IPs<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
-                marker.on('click', () => {
-                    this.openIPModal(p.ip);
-                });
-                marker.addTo(this.map);
-                this.mapLayers.push(marker);
             });
         },
 

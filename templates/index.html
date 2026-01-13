@@ -417,9 +417,15 @@
                                     <div class="world-map-controls" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
                                         <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                                             <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);" 
-                                                :style="worldMapLayers.destinations ? 'background: rgba(188, 19, 254, 0.2); border-color: #bc13fe;' : ''">
+                                                :style="worldMapLayers.sources ? 'background: rgba(0, 255, 100, 0.2); border-color: #00ff64;' : ''">
+                                                <input type="checkbox" x-model="worldMapLayers.sources" style="cursor: pointer;">
+                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #00ff64;"></span>
+                                                <span>Sources</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);" 
+                                                :style="worldMapLayers.destinations ? 'background: rgba(0, 243, 255, 0.2); border-color: #00f3ff;' : ''">
                                                 <input type="checkbox" x-model="worldMapLayers.destinations" style="cursor: pointer;">
-                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #bc13fe;"></span>
+                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #00f3ff;"></span>
                                                 <span>Destinations</span>
                                             </label>
                                             <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);"
@@ -427,12 +433,6 @@
                                                 <input type="checkbox" x-model="worldMapLayers.threats" style="cursor: pointer;">
                                                 <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ff003c;"></span>
                                                 <span>Threats</span>
-                                            </label>
-                                            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);"
-                                                :style="worldMapLayers.blocked ? 'background: rgba(0, 255, 100, 0.2); border-color: #00ff64;' : ''">
-                                                <input type="checkbox" x-model="worldMapLayers.blocked" style="cursor: pointer;">
-                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #00ff64;"></span>
-                                                <span>Blocked</span>
                                             </label>
                                         </div>
                                         <button @click="resetWorldMapView()" 
