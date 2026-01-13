@@ -177,6 +177,10 @@ FIREWALL_RETENTION_DAYS = 7
 
 mmdb_city = None
 mmdb_asn = None
+_city_db_checked_ts = 0
+_asn_db_checked_ts = 0
+DB_CHECK_INTERVAL = 60
+
 _threat_thread_started = False
 _agg_thread_started = False
 
@@ -282,21 +286,29 @@ def flag_from_iso(iso):
     return chr(ord(iso[0].upper())+127397)+chr(ord(iso[1].upper())+127397)
 
 def load_city_db():
-    global mmdb_city
-    if mmdb_city is None and os.path.exists(MMDB_CITY):
-        try:
-            mmdb_city = maxminddb.open_database(MMDB_CITY)
-        except Exception:
-            mmdb_city = None
+    global mmdb_city, _city_db_checked_ts
+    if mmdb_city is None:
+        now = time.time()
+        if now - _city_db_checked_ts > DB_CHECK_INTERVAL:
+            _city_db_checked_ts = now
+            if os.path.exists(MMDB_CITY):
+                try:
+                    mmdb_city = maxminddb.open_database(MMDB_CITY)
+                except Exception:
+                    mmdb_city = None
     return mmdb_city
 
 def load_asn_db():
-    global mmdb_asn
-    if mmdb_asn is None and os.path.exists(MMDB_ASN):
-        try:
-            mmdb_asn = maxminddb.open_database(MMDB_ASN)
-        except Exception:
-            mmdb_asn = None
+    global mmdb_asn, _asn_db_checked_ts
+    if mmdb_asn is None:
+        now = time.time()
+        if now - _asn_db_checked_ts > DB_CHECK_INTERVAL:
+            _asn_db_checked_ts = now
+            if os.path.exists(MMDB_ASN):
+                try:
+                    mmdb_asn = maxminddb.open_database(MMDB_ASN)
+                except Exception:
+                    mmdb_asn = None
     return mmdb_asn
 
 def lookup_geo(ip):
