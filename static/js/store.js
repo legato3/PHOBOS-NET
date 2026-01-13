@@ -2350,6 +2350,10 @@ export const Store = () => ({
     },
 
     async fetchServerHealth() {
+        // Prevent concurrent requests
+        if (this._serverHealthFetching) return;
+        this._serverHealthFetching = true;
+
         // Only set loading on initial fetch (prevent flickering on refresh)
         const isInitialLoad = !this.serverHealth.timestamp;
         if (isInitialLoad) {
@@ -2376,6 +2380,14 @@ export const Store = () => ({
                 if (data.timestamp) this.serverHealth.timestamp = data.timestamp;
                 this.serverHealth.loading = false;
                 this.serverHealth.error = null;
+            } else if (res.status === 429) {
+                // Rate limited - pause auto-refresh temporarily
+                console.warn('Rate limited on server health, pausing auto-refresh');
+                if (this.serverHealthRefreshTimer) {
+                    clearInterval(this.serverHealthRefreshTimer);
+                    this.serverHealthRefreshTimer = null;
+                }
+                this.serverHealth.error = 'Rate limited - auto-refresh paused';
             } else {
                 const errorMsg = `Server health fetch failed: ${res.status}`;
                 console.error(errorMsg);
@@ -2385,7 +2397,9 @@ export const Store = () => ({
         } catch (e) {
             console.error('Server health fetch error:', e);
             this.serverHealth.error = DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
+        } finally {
             this.serverHealth.loading = false;
+            this._serverHealthFetching = false;
         }
     },
 

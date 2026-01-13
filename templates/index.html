@@ -2267,9 +2267,9 @@
                                                 <span>Frequency:</span>
                                                 <span x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
                                             </div>
-                                            <div x-show="serverHealth.cpu.process_count">
+                                            <div x-show="serverHealth.cpu?.process_count">
                                                 <span>Processes:</span>
-                                                <span x-text="serverHealth.cpu.process_count.toLocaleString()"></span>
+                                                <span x-text="serverHealth.cpu?.process_count?.toLocaleString()"></span>
                                             </div>
                                         </div>
                                         {% endcall %}
@@ -2481,15 +2481,15 @@
                                                 <span>Size:</span>
                                                 <span x-text="serverHealth.database.size_mb + ' MB'"></span>
                                             </div>
-                                            <div x-show="serverHealth.database.growth_rate_per_hour !== undefined">
+                                            <div x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
                                                 <span>Growth (1h):</span>
                                                 <span
-                                                    x-text="serverHealth.database.growth_rate_per_hour.toLocaleString() + ' logs'"></span>
+                                                    x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
                                             </div>
-                                            <div x-show="serverHealth.database.growth_rate_per_day !== undefined">
+                                            <div x-show="serverHealth.database?.growth_rate_per_day !== undefined">
                                                 <span>Growth (24h):</span>
                                                 <span
-                                                    x-text="serverHealth.database.growth_rate_per_day.toLocaleString() + ' logs'"></span>
+                                                    x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
                                             </div>
                                             <div x-show="serverHealth.database.path">
                                                 <span>Path:</span>
