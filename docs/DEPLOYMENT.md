@@ -249,5 +249,5 @@ For Docker-based deployment on PROX-DOCKER-2 (192.168.0.73), see **[DEPLOYMENT_D
 The Docker deployment uses:
 - **Server**: PROX-DOCKER-2 (192.168.0.73)
 - **Dashboard URL**: http://192.168.0.73:3434
-- **Container**: netflow-dashboard-test
+- **Container**: phobos-net
 - **Port**: 3434 (mapped to container port 8080)
