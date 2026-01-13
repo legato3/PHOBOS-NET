@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     dnsutils \
     curl \
     python3-pysnmp4 \
+    snmp \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
