@@ -3083,31 +3083,31 @@
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
                                         <strong style="color: var(--text-secondary);">VirusTotal:</strong>
-                                        <span x-show="ipInvestigation.result.threat_intel.virustotal.status === 'found'"
+                                        <span x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'found'"
                                             class="badge"
-                                            :class="(ipInvestigation.result.threat_intel.virustotal.malicious || 0) > 0 ? 'badge--danger' : 'badge--success'"
-                                            x-text="(ipInvestigation.result.threat_intel.virustotal.malicious || 0) + ' malicious'"></span>
+                                            :class="(ipInvestigation.result?.threat_intel?.virustotal?.malicious || 0) > 0 ? 'badge--danger' : 'badge--success'"
+                                            x-text="(ipInvestigation.result?.threat_intel?.virustotal?.malicious || 0) + ' malicious'"></span>
                                         <span
-                                            x-show="ipInvestigation.result.threat_intel.virustotal.status === 'rate_limited'"
+                                            x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'rate_limited'"
                                             class="badge badge--warning" x-text="'Rate Limited'"></span>
                                         <span
-                                            x-show="ipInvestigation.result.threat_intel.virustotal.status === 'not_found'"
+                                            x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'not_found'"
                                             class="badge" x-text="'Not Found'"></span>
                                     </div>
-                                    <div x-show="ipInvestigation.result.threat_intel.virustotal.status === 'found'"
+                                    <div x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'found'"
                                         style="font-size: var(--text-sm); color: var(--text-secondary); margin-left: var(--space-4);">
                                         <div>Reputation: <span
-                                                x-text="ipInvestigation.result.threat_intel.virustotal.reputation || 0"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.virustotal?.reputation || 0"></span>
                                         </div>
                                         <div>Harmless: <span
-                                                x-text="ipInvestigation.result.threat_intel.virustotal.harmless || 0"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.virustotal?.harmless || 0"></span>
                                             • Suspicious: <span
-                                                x-text="ipInvestigation.result.threat_intel.virustotal.suspicious || 0"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.virustotal?.suspicious || 0"></span>
                                         </div>
-                                        <div x-show="ipInvestigation.result.threat_intel.virustotal.as_owner">AS
+                                        <div x-show="ipInvestigation.result?.threat_intel?.virustotal?.as_owner">AS
                                             Owner:
                                             <span
-                                                x-text="ipInvestigation.result.threat_intel.virustotal.as_owner"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.virustotal?.as_owner"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -3116,28 +3116,28 @@
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
                                         <strong style="color: var(--text-secondary);">AbuseIPDB:</strong>
-                                        <span x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'found'"
+                                        <span x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.status === 'found'"
                                             class="badge"
-                                            :class="(ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) > 50 ? 'badge--danger' : (ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) > 25 ? 'badge--warning' : 'badge--success'"
-                                            x-text="'Confidence: ' + (ipInvestigation.result.threat_intel.abuseipdb.abuse_confidence_score || 0) + '%'"></span>
+                                            :class="(ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) > 50 ? 'badge--danger' : (ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) > 25 ? 'badge--warning' : 'badge--success'"
+                                            x-text="'Confidence: ' + (ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) + '%'"></span>
                                         <span
-                                            x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'rate_limited'"
+                                            x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.status === 'rate_limited'"
                                             class="badge badge--warning" x-text="'Rate Limited'"></span>
                                     </div>
-                                    <div x-show="ipInvestigation.result.threat_intel.abuseipdb.status === 'found'"
+                                    <div x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.status === 'found'"
                                         style="font-size: var(--text-sm); color: var(--text-secondary); margin-left: var(--space-4);">
                                         <div>Reports: <span
-                                                x-text="ipInvestigation.result.threat_intel.abuseipdb.num_reports || 0"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.abuseipdb?.num_reports || 0"></span>
                                         </div>
-                                        <div x-show="ipInvestigation.result.threat_intel.abuseipdb.usage_type">
+                                        <div x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.usage_type">
                                             Usage:
                                             <span
-                                                x-text="ipInvestigation.result.threat_intel.abuseipdb.usage_type"></span>
+                                                x-text="ipInvestigation.result?.threat_intel?.abuseipdb?.usage_type"></span>
                                         </div>
-                                        <div x-show="ipInvestigation.result.threat_intel.abuseipdb.isp">ISP: <span
-                                                x-text="ipInvestigation.result.threat_intel.abuseipdb.isp"></span>
+                                        <div x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.isp">ISP: <span
+                                                x-text="ipInvestigation.result?.threat_intel?.abuseipdb?.isp"></span>
                                         </div>
-                                        <div x-show="ipInvestigation.result.threat_intel.abuseipdb.is_known_attacker"
+                                        <div x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.is_known_attacker"
                                             class="badge badge--danger" style="margin-top: var(--space-1);">Known
                                             Attacker</div>
                                     </div>
@@ -3157,7 +3157,7 @@
                                 style="margin-top: 0; margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--font-weight-semibold);">
                                 ⚠️ Detected Anomalies</h4>
                             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                                <template x-for="(anomaly, idx) in ipInvestigation.result.anomalies" :key="idx">
+                                <template x-for="(anomaly, idx) in ipInvestigation.result?.anomalies || []" :key="idx">
                                     <div style="padding: var(--space-3); background: rgba(255, 152, 0, 0.1); border-left: 3px solid rgba(255, 152, 0, 0.8); border-radius: var(--radius-sm);"
                                         :style="anomaly.severity === 'high' ? 'background: rgba(255, 0, 60, 0.1); border-left-color: rgba(255, 0, 60, 0.8);' : anomaly.severity === 'medium' ? 'background: rgba(255, 152, 0, 0.1); border-left-color: rgba(255, 152, 0, 0.8);' : 'background: rgba(100, 181, 246, 0.1); border-left-color: rgba(100, 181, 246, 0.8);'">
                                         <div
@@ -3202,7 +3202,7 @@
                                 IPs that directly communicate with this IP (as source or destination)
                             </p>
                             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                                <template x-for="(related, idx) in ipInvestigation.result.related_ips.slice(0, 10)"
+                                <template x-for="(related, idx) in (ipInvestigation.result?.related_ips || []).slice(0, 10)"
                                     :key="idx">
                                     <div
                                         style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">

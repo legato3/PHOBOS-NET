@@ -1,5 +1,11 @@
 {% macro widget_card(id, title, icon, min_height='300px', extra_actions=None, show_spinner=False, card_class='',
 card_class_bind=None, footer_content=None) %}
+{%- set data_prop = id -%}
+{%- if id == 'worldmap' -%}
+    {%- set data_prop = 'worldMap' -%}
+{%- elif id == 'insights' -%}
+    {%- set data_prop = 'insights' -%}
+{%- endif -%}
 <div class="card {{ card_class }}" {% if card_class_bind %}:class="{{ card_class_bind }}" {% endif %}
     :class="{ 'widget-minimized': isMinimized('{{ id }}') }">
     <h2>
@@ -13,7 +19,7 @@ card_class_bind=None, footer_content=None) %}
             {% endif %}
 
             {% if show_spinner %}
-            <div class="spinner" x-show="{{ id }}.loading"></div>
+            <div class="spinner" x-show="{{ data_prop }}?.loading"></div>
             {% endif %}
 
             <button class="icon-btn-small" @click="toggleMinimize('{{ id }}')"
@@ -34,13 +40,13 @@ card_class_bind=None, footer_content=None) %}
     </h2>
     <div class="widget-body" x-show="!isMinimized('{{ id }}')" style="min-height: {{ min_height }}">
         <!-- Skeleton Loader -->
-        <div class="skeleton-container" x-show="{{ id }}.loading">
+        <div class="skeleton-container" x-show="{{ data_prop }}?.loading">
             <div class="skeleton-line title w-50"></div>
             <div class="skeleton-chart"></div>
         </div>
 
         <!-- Real Content -->
-        <div x-show="!{{ id }}.loading" style="display: none;" :style="!{{ id }}.loading ? 'display: block' : ''">
+        <div x-show="!{{ data_prop }}?.loading" style="display: none;" :style="!{{ data_prop }}?.loading ? 'display: block' : ''">
             {{ caller() }}
         </div>
     </div>

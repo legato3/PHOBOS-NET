@@ -350,6 +350,7 @@ export const Store = () => ({
     // World Map
     worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
     worldMapLayers: { sources: true, destinations: true, threats: true, blocked: false },
+    insights: { loading: false }, // Dummy object for insights widget (uses data from other widgets)
     map: null,
     mapLayers: [],
 
