@@ -2073,14 +2073,14 @@ document.addEventListener('alpine:init', () => {
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                     // Container not visible yet, defer initialization (limit retries)
                     if (!this._hourlyChartRetries) this._hourlyChartRetries = 0;
-                    if (this._hourlyChartRetries < 20) {
+                    if (this._hourlyChartRetries < 50) {
                         this._hourlyChartRetries++;
                         setTimeout(() => this.updateHourlyChart(data), 200);
+                        return;
                     } else {
-                        console.warn('Hourly chart container not visible after retries');
+                        console.warn('Hourly chart container not visible after retries, forcing render');
                         this._hourlyChartRetries = 0;
                     }
-                    return;
                 }
                 this._hourlyChartRetries = 0;
 
@@ -2175,14 +2175,14 @@ document.addEventListener('alpine:init', () => {
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                     // Container not visible yet, defer initialization (limit retries)
                     if (!this._protoMixRetries) this._protoMixRetries = 0;
-                    if (this._protoMixRetries < 20) {
+                    if (this._protoMixRetries < 50) {
                         this._protoMixRetries++;
                         setTimeout(() => this.updateProtoMixChart(data), 200);
+                        return;
                     } else {
-                        console.warn('ProtoMix chart container not visible after retries');
+                        console.warn('ProtoMix chart container not visible after retries, forcing render');
                         this._protoMixRetries = 0;
                     }
-                    return;
                 }
                 this._protoMixRetries = 0;
 
@@ -2447,14 +2447,14 @@ document.addEventListener('alpine:init', () => {
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                     // Container not visible yet, defer initialization (limit retries)
                     if (!this._pktSizeRetries) this._pktSizeRetries = 0;
-                    if (this._pktSizeRetries < 20) {
+                    if (this._pktSizeRetries < 50) {
                         this._pktSizeRetries++;
                         setTimeout(() => this.updatePktSizeChart(data), 200);
+                        return;
                     } else {
-                        console.warn('Packet Size chart container not visible after retries');
+                        console.warn('Packet Size chart container not visible after retries, forcing render');
                         this._pktSizeRetries = 0;
                     }
-                    return;
                 }
                 this._pktSizeRetries = 0;
 
@@ -2519,14 +2519,14 @@ document.addEventListener('alpine:init', () => {
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                     // Container not visible yet, defer initialization (limit retries)
                     if (!this._countriesRetries) this._countriesRetries = 0;
-                    if (this._countriesRetries < 20) {
+                    if (this._countriesRetries < 50) {
                         this._countriesRetries++;
                         setTimeout(() => this.updateCountriesChart(data), 200);
+                        return;
                     } else {
-                        console.warn('Countries chart container not visible after retries');
+                        console.warn('Countries chart container not visible after retries, forcing render');
                         this._countriesRetries = 0;
                     }
-                    return;
                 }
                 this._countriesRetries = 0;
 
@@ -2580,11 +2580,14 @@ document.addEventListener('alpine:init', () => {
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                     // Container not visible yet, defer initialization
                     if (!this._flagsRetries) this._flagsRetries = 0;
-                    if (this._flagsRetries < 20) {
+                    if (this._flagsRetries < 50) {
                         this._flagsRetries++;
                         setTimeout(() => this.updateFlagsChart(flagsData), 200);
+                        return;
+                    } else {
+                        console.warn('Flags chart container not visible after retries, forcing render');
+                        this._flagsRetries = 0;
                     }
-                    return;
                 }
                 this._flagsRetries = 0;
 
