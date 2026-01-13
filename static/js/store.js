@@ -486,11 +486,8 @@ export const Store = () => ({
             }
         });
 
-        // Initialize overview tab content (including map) since it's the default tab
-        // This ensures map initializes when the page loads
-        if (this.activeTab === 'overview') {
-            this.loadTab('overview');
-        }
+        // Don't initialize map here - let IntersectionObserver handle it when section becomes visible
+        // This is more reliable than trying to guess when Alpine.js has rendered the tab
     },
 
     startIntersectionObserver() {
@@ -909,6 +906,21 @@ export const Store = () => ({
             if (now - this.lastFetch.worldmap > this.heavyTTL) {
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
+            }
+            // Initialize map when section becomes visible
+            if (!this.map) {
+                this.$nextTick(() => {
+                    setTimeout(() => this.renderWorldMap(), 100);
+                });
+            } else {
+                // Map exists but might need size update
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        if (this.map) {
+                            this.map.invalidateSize();
+                        }
+                    }, 100);
+                });
             }
         }
         if (sectionId === 'section-network') {
@@ -3659,20 +3671,8 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
-            // Initialize map when overview tab becomes visible
-            // Initialize map even if container has 0 dimensions - Leaflet can handle it
-            this.$nextTick(() => {
-                setTimeout(() => {
-                    if (this.map) {
-                        // Map exists - just invalidate size to update it
-                        this.map.invalidateSize();
-                        this.renderWorldMap();
-                    } else {
-                        // Map doesn't exist - initialize it (even if container has 0 dimensions)
-                        this.renderWorldMap();
-                    }
-                }, 100);
-            });
+            // Map initialization is handled by IntersectionObserver when section becomes visible
+            // Just fetch data here if needed
         } else if (tab === 'server') {
             this.startServerHealthAutoRefresh();
         } else if (tab === 'security') {
