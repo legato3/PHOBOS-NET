@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  netflow-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netflow-dashboard-test
+    ports:
+      - "8080:8080"
+    environment:
+      # Flask settings
+      - FLASK_DEBUG=false
+      - PYTHONUNBUFFERED=1
+      
+      # Application settings (optional - defaults provided)
+      # - DNS_SERVER=192.168.0.6
+      # - SNMP_HOST=192.168.0.1
+      # - SNMP_COMMUNITY=Phoboshomesnmp_3
+      
+      # Database paths (use volumes for persistence if needed)
+      - FIREWALL_DB_PATH=/app/data/firewall.db
+      - TRENDS_DB_PATH=/app/data/netflow-trends.sqlite
+      
+      # Optional API keys
+      # - VIRUSTOTAL_API_KEY=
+      # - ABUSEIPDB_API_KEY=
+    volumes:
+      # Mount data directory for persistence (optional)
+      - ./docker-data:/app/data
+      # Mount sample data if you want to modify it
+      - ./sample_data:/app/sample_data:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -1,0 +1,74 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# System files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Data files (will be created at runtime or mounted as volumes)
+*.db
+*.sqlite
+*.sqlite3
+firewall.db
+netflow-trends.sqlite
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.min.js
+*.min.css
+
+# Test files
+test_*.py
+TESTING.md
+DEBUG*.md
+
+# Systemd
+systemd/
+
+# Scripts (not needed in container)
+scripts/
+
+# API samples (not needed in container)
+api-samples/
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+
+# Jules/Agent files
+.Jules/
+.jules/
