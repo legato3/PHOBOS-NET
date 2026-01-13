@@ -907,24 +907,39 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
-            // Initialize map when section becomes visible - wait for container to have dimensions
+            // Initialize map when section becomes visible
             if (!this.map) {
-                const initMapWhenReady = () => {
-                    const container = document.getElementById('world-map-svg');
-                    if (container) {
-                        const rect = container.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            console.log('[WorldMap] IntersectionObserver - Container has dimensions, initializing map');
-                            this.renderWorldMap();
-                        } else {
-                            console.log('[WorldMap] IntersectionObserver - Container still 0x0, retrying...');
-                            setTimeout(initMapWhenReady, 200);
+                const container = document.getElementById('world-map-svg');
+                if (container && !this._mapResizeObserver) {
+                    // Use ResizeObserver to detect when container gets dimensions
+                    this._mapResizeObserver = new ResizeObserver((entries) => {
+                        for (const entry of entries) {
+                            const { width, height } = entry.contentRect;
+                            if (width > 0 && height > 0 && !this.map) {
+                                console.log(`[WorldMap] ResizeObserver - Container has dimensions ${width}x${height}, initializing map`);
+                                this._mapResizeObserver.disconnect();
+                                this._mapResizeObserver = null;
+                                this.renderWorldMap();
+                                break;
+                            }
                         }
-                    }
-                };
-                this.$nextTick(() => {
-                    setTimeout(initMapWhenReady, 100);
-                });
+                    });
+                    this._mapResizeObserver.observe(container);
+                    console.log('[WorldMap] IntersectionObserver - Setting up ResizeObserver for container');
+                    
+                    // Also try immediately in case container already has dimensions
+                    this.$nextTick(() => {
+                        const rect = container.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0 && !this.map) {
+                            console.log('[WorldMap] Container already has dimensions, initializing immediately');
+                            if (this._mapResizeObserver) {
+                                this._mapResizeObserver.disconnect();
+                                this._mapResizeObserver = null;
+                            }
+                            this.renderWorldMap();
+                        }
+                    });
+                }
             } else {
                 // Map exists - invalidate size to update it
                 this.$nextTick(() => {
