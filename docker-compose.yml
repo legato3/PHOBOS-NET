@@ -5,7 +5,9 @@ services:
       dockerfile: Dockerfile
     container_name: netflow-dashboard-test
     ports:
-      - "8080:8080"
+      - "8080:8080"      # Web dashboard
+      - "2055:2055/udp"  # NetFlow collection (nfcapd)
+      - "514:514/udp"    # Syslog receiver
     environment:
       # Production settings
       - PYTHONUNBUFFERED=1
