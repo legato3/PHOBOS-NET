@@ -3,7 +3,15 @@ set -e
 
 # Start nfcapd in the background for NetFlow collection
 echo "Starting nfcapd NetFlow collector..."
-nfcapd -w -D -p 2055 -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid -l /var/cache/nfdump
+# -w: working directory (output directory for flow files)
+# -D: daemonize (run in background)
+# -p: port to listen on
+# -y: use LZ4 compression
+# -B: socket buffer size (8MB)
+# -e: enable auto-expire
+# -t: rotation interval (300 seconds = 5 minutes)
+# -P: PID file location
+nfcapd -w /var/cache/nfdump -D -p 2055 -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid
 
 # Wait a moment for nfcapd to start
 sleep 1

@@ -27,9 +27,9 @@ services:
       # - ABUSEIPDB_API_KEY=
     volumes:
       # Mount data directory for persistence (optional)
-      - ./docker-data:/app/data
+      - ../docker-data:/app/data
       # Mount sample data if you want to modify it
-      - ./sample_data:/app/sample_data:ro
+      - ../sample_data:/app/sample_data:ro
     restart: unless-stopped
     # Resource limits matching production (optional, can be adjusted)
     deploy:

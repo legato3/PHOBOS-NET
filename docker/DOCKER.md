@@ -6,8 +6,23 @@ This document describes how to run the NetFlow Dashboard in a Docker container f
 
 ### Using Docker Compose (Recommended)
 
+From the project root directory:
+
 ```bash
 # Build and start the container
+docker-compose -f docker/docker-compose.yml up -d
+
+# View logs
+docker-compose -f docker/docker-compose.yml logs -f
+
+# Stop the container
+docker-compose -f docker/docker-compose.yml down
+```
+
+Or from the `docker/` directory:
+
+```bash
+cd docker
 docker-compose up -d
 
 # View logs
@@ -21,14 +36,18 @@ The dashboard will be available at `http://localhost:8080`
 
 ### Using Docker directly
 
+From the project root directory:
+
 ```bash
 # Build the image
-docker build -t netflow-dashboard .
+docker build -f docker/Dockerfile -t netflow-dashboard .
 
 # Run the container
 docker run -d \
   --name netflow-dashboard-test \
   -p 8080:8080 \
+  -p 2055:2055/udp \
+  -p 514:514/udp \
   -v $(pwd)/docker-data:/app/data \
   netflow-dashboard
 
@@ -137,12 +156,24 @@ sudo chown -R $USER:$USER docker-data/
 
 ### Reset everything
 
+From the project root:
+
 ```bash
 # Stop and remove containers, volumes, and images
-docker-compose down -v
+docker-compose -f docker/docker-compose.yml down -v
 docker rmi netflow-dashboard-test netflow-dashboard
 
 # Rebuild from scratch
+docker-compose -f docker/docker-compose.yml build --no-cache
+docker-compose -f docker/docker-compose.yml up -d
+```
+
+Or from the `docker/` directory:
+
+```bash
+cd docker
+docker-compose down -v
+docker rmi netflow-dashboard-test netflow-dashboard
 docker-compose build --no-cache
 docker-compose up -d
 ```
