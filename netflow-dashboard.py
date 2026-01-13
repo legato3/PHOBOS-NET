@@ -6995,7 +6995,7 @@ def handle_exception(error):
     import traceback
     track_error()
     app.logger.error(f'Unhandled Exception: {error}\n{traceback.format_exc()}')
-    return jsonify({'error': f'An error occurred: {str(error)}'}), 500
+    return jsonify({'error': 'An error occurred'}), 500
 
 
 # Batch API endpoint for fetching multiple stats in one request
