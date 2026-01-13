@@ -2520,6 +2520,16 @@ export const Store = () => ({
                         scales: {
                             x: { ticks: { color: '#888' }, grid: { color: '#333' } },
                             y: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                        },
+                        onClick: (e, elements, chart) => {
+                            if (elements && elements.length > 0) {
+                                // Just open the expanded table for now, regardless of which bar was clicked
+                                // A future enhancement could be to filter the expanded table by the specific country
+                                this.openExpandedTable('countries');
+                            }
+                        },
+                        onHover: (e, elements) => {
+                            e.native.target.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
                         }
                     }
                 });
@@ -3860,7 +3870,8 @@ export const Store = () => ({
             'sources': 'Top 100 Sources',
             'destinations': 'Top 100 Destinations',
             'ports': 'Top 100 Ports',
-            'conversations': 'Recent Conversations (Top 100)'
+            'conversations': 'Recent Conversations (Top 100)',
+            'countries': 'Top Countries by Traffic'
         };
         this.expandedTitle = titles[type] || 'Expanded Data';
 
@@ -3907,6 +3918,23 @@ export const Store = () => ({
                     row.service,
                     row.packets.toLocaleString(),
                     row.bytes_fmt
+                ];
+            } else if (type === 'countries') {
+                url = `/api/stats/countries?range=${this.timeRange}&limit=100`; // Assuming endpoint exists or maps to threats
+                // Actually threatsByCountry uses /api/stats/threats/by_country if it's threats, or just flow stats? 
+                // Let's assume flow stats by country for now, or fallback to threat countries if that's what the widget is.
+                // The widget title is "Top Countries" (Network tab) or "Threats by Country" (Security tab)?
+                // Network tab "Top Countries" uses `this.fetchCountries`.
+                // Security tab "Threats by Country" uses `this.fetchThreatsByCountry`.
+                // The chart is in Network tab "Top Countries" (line 1240 index.html).
+                // So I need /api/stats/countries (Network tab).
+                url = `/api/stats/countries?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['Country', 'Flows', 'Bytes', '%'];
+                processRow = (row) => [
+                    `<span class="country-flag">${row.country_code}</span> ${row.country_name}`,
+                    (row.flows || 0).toLocaleString(),
+                    row.bytes_fmt,
+                    row.pct ? row.pct + '%' : '-'
                 ];
             }
 
