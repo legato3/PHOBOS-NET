@@ -743,6 +743,7 @@ export const Store = () => ({
             case 'hourlyChart2': return this.hourlyChart2Instance;
 
             case 'countriesChart': return this.countriesChartInstance;
+            case 'protoMixChart': return this.protoMixChartInstance;
             case 'blocklistChart': return this.blocklistChartInstance;
             default: return null;
         }
@@ -2346,7 +2347,14 @@ export const Store = () => ({
         this.protoMix.loading = true;
         try {
             const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
-            if (res.ok) this.protoMix = { ...(await res.json()) };
+            if (res.ok) {
+                const data = await res.json();
+                this.protoMix = { ...data };
+                // Defer chart update to ensure canvas is visible
+                this.$nextTick(() => {
+                    setTimeout(() => this.updateProtoMixChart(data), 100);
+                });
+            }
         } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
     },
 
@@ -2665,10 +2673,16 @@ export const Store = () => ({
 
     updateCountriesChart(data) {
         try {
-            const ctx = document.getElementById('countriesChart');
-            if (!ctx || !data) return;
+            // Prevent recursive updates
+            if (this._countriesUpdating) return;
+            this._countriesUpdating = true;
 
-            // Check if canvas parent container is visible
+            const ctx = document.getElementById('countriesChart');
+            if (!ctx || !data) {
+                this._countriesUpdating = false;
+                return;
+            }
+
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
@@ -2676,6 +2690,7 @@ export const Store = () => ({
                 if (!this._countriesRetries) this._countriesRetries = 0;
                 if (this._countriesRetries < 50) {
                     this._countriesRetries++;
+                    this._countriesUpdating = false;
                     setTimeout(() => this.updateCountriesChart(data), 200);
                     return;
                 } else {
@@ -2687,17 +2702,32 @@ export const Store = () => ({
 
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
+                this._countriesUpdating = false;
                 setTimeout(() => this.updateCountriesChart(data), 100);
                 return;
             }
+
             const labels = data.labels || [];
             const values = data.bytes || [];
             const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
+            
             if (this.countriesChartInstance) {
-                this.countriesChartInstance.data.labels = labels;
-                this.countriesChartInstance.data.datasets[0].data = values;
-                this.countriesChartInstance.update();
-            } else {
+                try {
+                    this.countriesChartInstance.data.labels = labels;
+                    this.countriesChartInstance.data.datasets[0].data = values;
+                    this.countriesChartInstance.update('none'); // 'none' mode prevents animation
+                } catch (e) {
+                    // Chart instance is corrupted, destroy and recreate
+                    console.warn('Countries chart instance corrupted, recreating:', e);
+                    try {
+                        this.countriesChartInstance.destroy();
+                    } catch {}
+                    this.countriesChartInstance = null;
+                }
+            }
+
+            // Create new chart if instance doesn't exist
+            if (!this.countriesChartInstance) {
                 this.countriesChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -2712,6 +2742,7 @@ export const Store = () => ({
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false, // Disable animation to prevent reactive loops
                         plugins: { legend: { display: false } },
                         scales: {
                             x: { ticks: { color: '#888' }, grid: { color: '#333' } },
@@ -2730,8 +2761,114 @@ export const Store = () => ({
                     }
                 });
             }
+            this._countriesUpdating = false;
         } catch (e) {
             console.error('Chart render error:', e);
+            this._countriesUpdating = false;
+        }
+    },
+
+    updateProtoMixChart(data) {
+        try {
+            // Prevent recursive updates
+            if (this._protoMixUpdating) return;
+            this._protoMixUpdating = true;
+
+            const ctx = document.getElementById('protoMixChart');
+            if (!ctx || !data || !data.labels) {
+                this._protoMixUpdating = false;
+                return;
+            }
+
+            // Check if canvas parent container is visible
+            const container = ctx.closest('.widget-body, .chart-wrapper-small');
+            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                // Container not visible yet, defer initialization (limit retries)
+                if (!this._protoMixRetries) this._protoMixRetries = 0;
+                if (this._protoMixRetries < 50) {
+                    this._protoMixRetries++;
+                    this._protoMixUpdating = false;
+                    setTimeout(() => this.updateProtoMixChart(data), 200);
+                    return;
+                } else {
+                    console.warn('Protocol Mix chart container not visible after retries, forcing render');
+                    this._protoMixRetries = 0;
+                }
+            }
+            this._protoMixRetries = 0;
+
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                this._protoMixUpdating = false;
+                setTimeout(() => this.updateProtoMixChart(data), 100);
+                return;
+            }
+
+            const labels = data.labels || [];
+            const bytes = data.bytes || [];
+            const colors = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
+
+            if (this.protoMixChartInstance) {
+                try {
+                    this.protoMixChartInstance.data.labels = labels;
+                    this.protoMixChartInstance.data.datasets[0].data = bytes;
+                    this.protoMixChartInstance.data.datasets[0].backgroundColor = colors;
+                    this.protoMixChartInstance.update('none'); // 'none' mode prevents animation
+                } catch (e) {
+                    // Chart instance is corrupted, destroy and recreate
+                    console.warn('Protocol Mix chart instance corrupted, recreating:', e);
+                    try {
+                        this.protoMixChartInstance.destroy();
+                    } catch {}
+                    this.protoMixChartInstance = null;
+                }
+            }
+
+            // Create new chart if instance doesn't exist
+            if (!this.protoMixChartInstance) {
+                this.protoMixChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: bytes,
+                            backgroundColor: colors,
+                            borderColor: 'rgba(0,0,0,0.3)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false, // Disable animation to prevent reactive loops
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'right',
+                                labels: {
+                                    color: '#aaa',
+                                    font: { size: 10 },
+                                    boxWidth: 12
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
+                                        const pct = data.percentages ? data.percentages[context.dataIndex] : '';
+                                        return `${label}: ${value}${pct ? ' (' + pct + '%)' : ''}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            this._protoMixUpdating = false;
+        } catch (e) {
+            console.error('Chart render error:', e);
+            this._protoMixUpdating = false;
         }
     },
 
