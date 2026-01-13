@@ -3637,10 +3637,24 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch('/api/ollama/models');
                 if (res.ok) {
                     const data = await res.json();
-                    this.ollamaChat.availableModels = data.models || [];
+                    const models = data.models || [];
+                    // Ensure default model is in the list if no models returned
+                    if (models.length === 0) {
+                        this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
+                    } else {
+                        // Ensure default model is included if not already present
+                        const defaultModel = 'deepseek-coder-v2:16b';
+                        if (!models.includes(defaultModel)) {
+                            this.ollamaChat.availableModels = [defaultModel, ...models];
+                        } else {
+                            this.ollamaChat.availableModels = models;
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Failed to fetch Ollama models:', e);
+                // Fallback to default model if fetch fails
+                this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
             }
         },
 
