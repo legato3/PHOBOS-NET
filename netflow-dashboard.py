@@ -6217,12 +6217,17 @@ def api_server_health():
     # Syslog Statistics
     try:
         with _syslog_stats_lock:
+            # Syslog is active if: thread is started AND (has received logs OR last parsed log within 5 min)
+            last_log_ts = _syslog_stats.get('last_log')
+            has_recent_logs = last_log_ts and (time.time() - last_log_ts) < 300
+            syslog_active = _syslog_thread_started and (has_recent_logs or _syslog_stats.get('received', 0) > 0)
+            
             data['syslog'] = {
                 'received': _syslog_stats.get('received', 0),
                 'parsed': _syslog_stats.get('parsed', 0),
                 'errors': _syslog_stats.get('errors', 0),
-                'last_log': _syslog_stats.get('last_log'),
-                'active': (time.time() - (_syslog_stats.get('last_log', 0) or 0)) < 300  # Active if last log within 5 min
+                'last_log': last_log_ts,
+                'active': syslog_active
             }
     except Exception:
         data['syslog'] = {'error': 'Unable to read syslog stats'}
