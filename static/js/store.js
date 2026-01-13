@@ -7,6 +7,18 @@ export const Store = () => ({
     initDone: false,
     activeTab: 'overview',
 
+    // Server Widget Aliases (for macro compatibility)
+    get server_cpu() { return { loading: this.serverHealth.loading }; },
+    get server_memory() { return { loading: this.serverHealth.loading }; },
+    get server_disk() { return { loading: this.serverHealth.loading }; },
+    get server_netflow() { return { loading: this.serverHealth.loading }; },
+    get server_syslog() { return { loading: this.serverHealth.loading }; },
+    get server_database() { return { loading: this.serverHealth.loading }; },
+    get server_system() { return { loading: this.serverHealth.loading }; },
+    get server_process() { return { loading: this.serverHealth.loading }; },
+    get server_network() { return { loading: this.serverHealth.loading }; },
+    get server_cache() { return { loading: this.serverHealth.loading }; },
+
     firewall: { cpu_percent: null, mem_percent: null, sys_uptime: null, loading: false, blocks_1h: 0, blocks_per_hour: 0, unique_blocked_ips: 0, threats_blocked: 0, syslog_active: false },
     firewallStreamActive: false,
     firewallES: null,
