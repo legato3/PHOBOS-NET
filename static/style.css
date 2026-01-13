@@ -1058,14 +1058,14 @@ table {
 /* Design tokens for endpoint widgets */
 :root {
     /* Endpoint widget spacing - Condensed */
-    --endpoint-row-padding-y: 6px;
+    --endpoint-row-padding-y: 8px;
     --endpoint-row-padding-x: 12px;
-    --endpoint-row-padding-y-primary: 8px;
+    --endpoint-row-padding-y-primary: 10px;
     /* Slightly more for primary row */
-    --endpoint-row-gap: 2px;
-    --endpoint-row-gap-primary: 4px;
-    --endpoint-cell-gap: 6px;
-    --endpoint-meta-gap: 2px;
+    --endpoint-row-gap: 4px;
+    --endpoint-row-gap-primary: 6px;
+    --endpoint-cell-gap: 8px;
+    --endpoint-meta-gap: 4px;
 
     /* Endpoint typography - Condensed */
     --endpoint-ip-size: 13px;
@@ -1212,6 +1212,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     gap: var(--endpoint-cell-gap);
     margin-bottom: var(--endpoint-meta-gap);
     justify-content: flex-start;
+    min-width: 0;
 }
 
 .endpoint-ip {
@@ -1250,10 +1251,11 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     gap: var(--space-2);
     font-size: var(--endpoint-meta-size);
     color: var(--text-muted);
-    line-height: var(--line-height-normal);
+    line-height: 1.4;
     margin-bottom: var(--space-1);
     justify-content: flex-start;
     text-align: left;
+    min-width: 0;
 }
 
 .endpoint-meta-sparkline {
@@ -1353,15 +1355,17 @@ tr:hover td {
 
 /* Badges */
 .badge {
-    padding: 3px 8px;
+    padding: 2px 6px;
     border-radius: var(--radius-sm);
-    font-size: 12px;
-    /* Metadata: 12px */
+    font-size: 11px;
+    /* Metadata: 11px - more compact */
     font-weight: 500;
     text-transform: none;
     /* Remove uppercase for calmer look */
-    margin-left: 5px;
+    margin-left: 0;
     font-family: var(--font-sans);
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* Selective color usage - only for important signals */
