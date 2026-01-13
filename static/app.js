@@ -1181,21 +1181,30 @@ document.addEventListener('alpine:init', () => {
             try {
                 const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`);
                 if (res.ok) {
-                    this.maliciousPorts = { ...(await res.json()) };
+                    const data = await res.json();
+                    this.maliciousPorts = { ...data, loading: false };
                     return;
                 }
-            } catch (e) { /* ignore and fallback */ }
-            finally { this.maliciousPorts.loading = false; }
+            } catch (e) {
+                console.error('Failed to fetch malicious ports:', e);
+            }
 
             // Fallback: filter existing ports for suspicious flag
-            const fallback = (this.ports.ports || []).filter(p => p.suspicious || p.threat).slice(0, 20).map(p => ({
-                port: p.key || 'n/a',
-                service: p.service || '',
-                bytes: p.bytes || 0,
-                bytes_fmt: p.bytes_fmt || this.fmtBytes(p.bytes || 0),
-                hits: p.hits || p.flows || 0
-            }));
-            this.maliciousPorts.ports = fallback;
+            try {
+                const fallback = (this.ports.ports || []).filter(p => p.suspicious || p.threat).slice(0, 20).map(p => ({
+                    port: p.key || 'n/a',
+                    service: p.service || '',
+                    bytes: p.bytes || 0,
+                    bytes_fmt: p.bytes_fmt || this.fmtBytes(p.bytes || 0),
+                    hits: p.hits || p.flows || 0
+                }));
+                this.maliciousPorts.ports = fallback;
+                this.maliciousPorts.has_syslog = false;
+            } catch (e) {
+                console.error('Fallback failed for malicious ports:', e);
+            } finally {
+                this.maliciousPorts.loading = false;
+            }
         },
 
         async fetchThreats() {
