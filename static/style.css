@@ -1098,6 +1098,7 @@ table:has(.network-endpoint-row) th {
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-wide);
     color: var(--text-muted);
+    text-align: left;
 }
 
 .thead-sticky thead {
@@ -1196,6 +1197,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     position: relative;
     z-index: 1;
     padding: var(--endpoint-row-padding-y) var(--endpoint-row-padding-x);
+    text-align: left;
 }
 
 /* Primary row cell - more padding */
@@ -1209,6 +1211,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     align-items: center;
     gap: var(--endpoint-cell-gap);
     margin-bottom: var(--endpoint-meta-gap);
+    justify-content: flex-start;
 }
 
 .endpoint-ip {
@@ -1216,7 +1219,9 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     font-weight: var(--endpoint-ip-weight);
     font-family: var(--font-mono);
     color: var(--text-primary);
-    flex: 1;
+    flex: 0 1 auto;
+    min-width: 0;
+    text-align: left;
 }
 
 .network-endpoint-row[data-row-rank="0"] .endpoint-ip {
@@ -1247,6 +1252,8 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     color: var(--text-muted);
     line-height: var(--line-height-normal);
     margin-bottom: var(--space-1);
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .endpoint-meta-sparkline {
@@ -1260,6 +1267,8 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     display: flex;
     gap: var(--space-1);
     flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: flex-start;
 }
 
 .endpoint-badges .badge {
