@@ -146,6 +146,12 @@
                         <span class="sidebar-icon">🔥</span>
                         <span class="sidebar-item-text">Firewall</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
+                        @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
+                        id="assistant-tab-btn" aria-controls="assistant-tab">
+                        <span class="sidebar-icon">🤖</span>
+                        <span class="sidebar-item-text">AI Assistant</span>
+                    </button>
                 </nav>
 
                 <div class="sidebar-footer">
@@ -4554,6 +4560,11 @@
                     title="Servers">
                     <span class="mobile-nav-icon">🖥️</span>
                     <span class="mobile-nav-label">Servers</span>
+                </button>
+                <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }" @click="loadTab('assistant')"
+                    title="AI Assistant">
+                    <span class="mobile-nav-icon">🤖</span>
+                    <span class="mobile-nav-label">AI</span>
                 </button>
             </nav>
 

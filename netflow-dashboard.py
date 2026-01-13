@@ -4567,6 +4567,107 @@ def api_threat_refresh():
     return jsonify({"status":"ok","threat_status": _threat_status})
 
 
+@app.route('/api/ollama/chat', methods=['POST'])
+@throttle(10, 60)  # 10 requests per minute
+def api_ollama_chat():
+    """Chat endpoint that proxies requests to local Ollama instance."""
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        model = data.get('model', 'llama3.2')  # Default model, can be overridden
+        stream = data.get('stream', False)
+        
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+        
+        # Ollama API endpoint (default: localhost:11434)
+        ollama_url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/chat')
+        
+        # Prepare request to Ollama
+        ollama_payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": message
+                }
+            ],
+            "stream": stream
+        }
+        
+        # Make request to Ollama
+        timeout = 120 if stream else 60  # Longer timeout for streaming
+        response = requests.post(
+            ollama_url,
+            json=ollama_payload,
+            timeout=timeout,
+            stream=stream
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Ollama API error: {response.status_code}",
+                "details": response.text[:200]
+            }), response.status_code
+        
+        if stream:
+            # For streaming, return Server-Sent Events
+            def generate():
+                for line in response.iter_lines():
+                    if line:
+                        yield f"data: {line.decode('utf-8')}\n\n"
+                yield "data: [DONE]\n\n"
+            
+            return Response(
+                generate(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no'
+                }
+            )
+        else:
+            # For non-streaming, return JSON response
+            return jsonify(response.json())
+    
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "error": "Cannot connect to Ollama. Make sure Ollama is running on localhost:11434"
+        }), 503
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "error": "Request to Ollama timed out"
+        }), 504
+    except Exception as e:
+        print(f"Ollama chat error: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "details": str(e)[:200]
+        }), 500
+
+
+@app.route('/api/ollama/models', methods=['GET'])
+@throttle(5, 60)
+def api_ollama_models():
+    """Get list of available Ollama models."""
+    try:
+        ollama_base = os.getenv('OLLAMA_URL', 'http://localhost:11434').replace('/api/chat', '')
+        response = requests.get(f"{ollama_base}/api/tags", timeout=10)
+        
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to fetch models"}), response.status_code
+        
+        data = response.json()
+        models = [model.get('name', '') for model in data.get('models', [])]
+        return jsonify({"models": models})
+    
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Cannot connect to Ollama", "models": []}), 503
+    except Exception as e:
+        print(f"Ollama models error: {e}")
+        return jsonify({"error": str(e), "models": []}), 500
+
+
 @app.route('/api/stats/threats')
 @throttle(5, 10)
 def api_threats():

@@ -55,6 +55,16 @@ document.addEventListener('alpine:init', () => {
         // Server health auto-refresh
         serverHealthRefreshTimer: null,
 
+        // Ollama chat state
+        ollamaChat: {
+            messages: [],
+            inputMessage: '',
+            loading: false,
+            error: null,
+            model: 'llama3.2',
+            availableModels: []
+        },
+
         // Mobile UI state
         showMobileFilters: false,
 
@@ -643,6 +653,12 @@ document.addEventListener('alpine:init', () => {
                         if (e.shiftKey && !e.ctrlKey) {
                             e.preventDefault();
                             this.activeTab = 'forensics';
+                        }
+                        break;
+                    case 'a':
+                        if (e.shiftKey && !e.ctrlKey) {
+                            e.preventDefault();
+                            this.activeTab = 'assistant';
                         }
                         break;
                 }
@@ -3609,7 +3625,103 @@ document.addEventListener('alpine:init', () => {
                 this.fetchThreatActivityTimeline();
                 // Start auto-refresh for firewall logs
                 this.startRecentBlocksAutoRefresh();
+            } else if (tab === 'assistant') {
+                // Load available models when assistant tab is opened
+                this.fetchOllamaModels();
             }
+        },
+
+        // ----- Ollama Chat Methods -----
+        async fetchOllamaModels() {
+            try {
+                const res = await fetch('/api/ollama/models');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.ollamaChat.availableModels = data.models || [];
+                }
+            } catch (e) {
+                console.error('Failed to fetch Ollama models:', e);
+            }
+        },
+
+        async sendChatMessage() {
+            const message = this.ollamaChat.inputMessage.trim();
+            if (!message || this.ollamaChat.loading) return;
+
+            // Add user message to chat
+            this.ollamaChat.messages.push({
+                role: 'user',
+                content: message,
+                timestamp: new Date().toLocaleTimeString()
+            });
+
+            // Clear input
+            this.ollamaChat.inputMessage = '';
+            this.ollamaChat.loading = true;
+            this.ollamaChat.error = null;
+
+            try {
+                const res = await fetch('/api/ollama/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        model: this.ollamaChat.model,
+                        stream: false
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                    throw new Error(errorData.error || `Request failed: ${res.status}`);
+                }
+
+                const data = await res.json();
+                
+                // Extract response message
+                let responseText = '';
+                if (data.message && data.message.content) {
+                    responseText = data.message.content;
+                } else if (data.response) {
+                    responseText = data.response;
+                } else if (typeof data === 'string') {
+                    responseText = data;
+                } else {
+                    responseText = JSON.stringify(data);
+                }
+
+                // Add assistant response to chat
+                this.ollamaChat.messages.push({
+                    role: 'assistant',
+                    content: responseText,
+                    timestamp: new Date().toLocaleTimeString()
+                });
+
+            } catch (e) {
+                console.error('Chat error:', e);
+                this.ollamaChat.error = e.message || 'Failed to get response from Ollama';
+                this.ollamaChat.messages.push({
+                    role: 'assistant',
+                    content: `Error: ${this.ollamaChat.error}`,
+                    timestamp: new Date().toLocaleTimeString()
+                });
+            } finally {
+                this.ollamaChat.loading = false;
+                // Scroll to bottom of chat
+                this.$nextTick(() => {
+                    const chatMessages = document.querySelector('.chat-messages');
+                    if (chatMessages) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                });
+            }
+        },
+
+        clearChat() {
+            this.ollamaChat.messages = [];
+            this.ollamaChat.error = null;
         },
 
         // ----- Expanded Views & Graph -----
