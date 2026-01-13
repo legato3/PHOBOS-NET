@@ -372,8 +372,13 @@
                             </svg>
                             {% endset %}
 
-                            {% call widget_card('worldmap', 'Traffic World Map', '🗺️', card_class='wide-card
-                            world-map-card', extra_actions=wm_actions) %}
+                            {% set wm_title %}
+                            <span>Traffic World Map</span>
+                            <span x-show="mapStatus" x-text="'[' + mapStatus + ']'"
+                                style="font-size:0.7em; color:yellow; margin-left:10px;"></span>
+                            {% endset %}
+                            {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
+                            extra_actions=wm_actions) %}
                             <!-- Map Controls -->
                             <div class="world-map-controls">
                                 <div class="world-map-layer-toggles">

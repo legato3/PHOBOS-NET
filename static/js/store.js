@@ -6,6 +6,7 @@ import * as DashboardUtils from './utils.js?v=3.0.3';
 export const Store = () => ({
     initDone: false,
     activeTab: 'overview',
+    mapStatus: '', // Debug status for map loading
 
     // Server Widget Aliases (for macro compatibility)
     get server_cpu() { return { loading: this.serverHealth.loading }; },
@@ -1859,7 +1860,18 @@ export const Store = () => ({
         }
     },
 
+    // Simplified Low-Res GeoJSON for fallback (North America, SA, Europe, Africa, Asia, Aus)
+    getFallbackGeoJSON() {
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                { "type": "Feature", "properties": { "name": "World" }, "geometry": { "type": "Polygon", "coordinates": [[[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]]] } }
+            ]
+        };
+    },
+
     renderWorldMap() {
+        this.mapStatus = "Checking Container...";
         const container = document.getElementById('world-map-svg');
         if (!container) {
             console.warn('[WorldMap] Container not found');
