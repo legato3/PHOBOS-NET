@@ -9,3 +9,7 @@
 ## 2024-05-22 - [Optimized LRU Cache Pruning]
 **Learning:** For LRU caches using dictionaries in Python 3.7+, insertion order is preserved. Pruning by popping the first key (`next(iter(d))`) is O(1) compared to sorting by timestamp which is O(N log N).
 **Action:** Rely on dictionary insertion order for LRU eviction. When updating an existing item, delete and re-insert it to move it to the end (MRU).
+
+## 2025-02-18 - [Optimized Missing File Checks]
+**Learning:** Checking for file existence (`os.path.exists`) in a hot loop (e.g., per-request or per-item) is expensive (syscall) if the file is permanently missing.
+**Action:** Implement "negative caching" or a backoff timer to check for the file's existence only periodically (e.g., every 60s) when it is missing.
