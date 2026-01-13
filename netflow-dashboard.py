@@ -6217,10 +6217,15 @@ def api_server_health():
     # Syslog Statistics
     try:
         with _syslog_stats_lock:
-            # Syslog is active if: thread is started AND (has received logs OR last parsed log within 5 min)
+            # Syslog is active if: thread is started (receiver is running)
+            # If logs have been received, also check if last log was recent (within 5 min)
             last_log_ts = _syslog_stats.get('last_log')
-            has_recent_logs = last_log_ts and (time.time() - last_log_ts) < 300
-            syslog_active = _syslog_thread_started and (has_recent_logs or _syslog_stats.get('received', 0) > 0)
+            if last_log_ts:
+                # If we have logs, check if they're recent
+                syslog_active = (time.time() - last_log_ts) < 300
+            else:
+                # If no logs yet, consider active if thread is running (receiver is listening)
+                syslog_active = _syslog_thread_started
             
             data['syslog'] = {
                 'received': _syslog_stats.get('received', 0),
