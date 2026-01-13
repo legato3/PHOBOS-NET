@@ -1946,18 +1946,8 @@ export const Store = () => ({
                 // Note: zoomControl was set to false in constructor, we can add it back
                 L.control.zoom({ position: 'topright' }).addTo(this.map);
 
-                // Check container dimensions BEFORE adding tiles
-                const containerRect = container.getBoundingClientRect();
-                console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
-                
-                if (containerRect.width === 0 || containerRect.height === 0) {
-                    console.warn('[WorldMap] Container has zero dimensions - deferring map initialization');
-                    // Try again after a delay - container might not be visible yet
-                    setTimeout(() => this.renderWorldMap(), 500);
-                    return;
-                }
-
                 // Add a base tile layer immediately so map is visible
+                // (Container might have 0 dimensions if tab is hidden - Leaflet handles this)
                 console.log('[WorldMap] Adding base tile layer...');
                 const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap &copy; CARTO',
