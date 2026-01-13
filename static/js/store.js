@@ -464,6 +464,25 @@ export const Store = () => ({
         this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
         this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
 
+        // Watch editMode to toggle draggable state
+        this.$watch('editMode', (val) => {
+            const grids = document.querySelectorAll('.grid[data-reorder="true"][data-grid-id]');
+            grids.forEach(grid => {
+                Array.from(grid.children).forEach(card => {
+                    if (!card.classList.contains('wide-card')) {
+                        card.setAttribute('draggable', val.toString());
+                    }
+                });
+            });
+
+            if (val) {
+                // Show notification or visual cue
+                document.body.classList.add('edit-mode-active');
+            } else {
+                document.body.classList.remove('edit-mode-active');
+            }
+        });
+
         // Render empty map on init (grid/background)
         this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
     },
