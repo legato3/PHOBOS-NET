@@ -69,6 +69,8 @@ docker rm netflow-dashboard-test
 
 You can override default settings using environment variables in `docker-compose.yml`:
 
+**Important**: By default, `FIREWALL_IP=0.0.0.0` is set to accept syslog from any source. For production, set this to your firewall's IP address for security.
+
 ```yaml
 environment:
   - DNS_SERVER=192.168.0.6

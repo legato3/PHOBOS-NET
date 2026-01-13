@@ -18,6 +18,12 @@ services:
       # - SNMP_HOST=192.168.0.1
       # - SNMP_COMMUNITY=Phoboshomesnmp_3
       
+      # Syslog settings
+      # FIREWALL_IP=0.0.0.0 accepts logs from any source (set to specific IP for production)
+      - FIREWALL_IP=0.0.0.0
+      - SYSLOG_BIND=0.0.0.0
+      - SYSLOG_PORT=514
+      
       # Database paths (use volumes for persistence if needed)
       - FIREWALL_DB_PATH=/app/data/firewall.db
       - TRENDS_DB_PATH=/app/data/netflow-trends.sqlite
