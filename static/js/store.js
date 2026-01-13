@@ -1894,6 +1894,7 @@ export const Store = () => ({
                 setTimeout(() => this.renderWorldMap(), 100);
             } else {
                 console.error('[WorldMap] Leaflet failed to load after multiple attempts');
+                this.worldMap.error = "Failed to load Map Library (Leaflet). Check connection.";
                 this._leafletWaitAttempts = 0;
             }
             return;

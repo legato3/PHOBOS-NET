@@ -58,7 +58,7 @@
 
     <!-- Leaflet - Local bundle -->
     <link rel="stylesheet" href="/static/leaflet.css">
-    <script src="/static/leaflet.js" defer></script>
+    <script src="/static/leaflet.js"></script>
 </head>
 
 <body class="antialiased" x-data="dashboard">
@@ -408,6 +408,12 @@
                             </div>
                             <div class="world-map-container">
                                 <div id="world-map-svg" class="world-map-svg"></div>
+                                <div x-show="worldMap.loading" class="spinner-overlay">
+                                    <div class="spinner"></div>
+                                </div>
+                                <div x-show="worldMap.error" class="error-overlay"
+                                    style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:red; display:flex; align-items:center; justify-content:center; z-index:10;"
+                                    x-text="worldMap.error"></div>
                             </div>
                             <!-- Country Stats -->
                             <div class="world-map-countries compact-grid">
