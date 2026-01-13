@@ -8,7 +8,7 @@ This document describes deploying the NetFlow Dashboard using Docker on PROX-DOC
 - **SSH User**: root
 - **SSH Key**: ~/.ssh/id_ed25519_192.168.0.73
 - **Dashboard URL**: http://192.168.0.73:3434
-- **Container Name**: netflow-dashboard-test
+- **Container Name**: phobos-net
 - **Docker Compose Version**: v5.0.1+ (use `docker compose` command, not `docker-compose`)
 
 ## Quick Deployment
@@ -124,10 +124,10 @@ After deployment, configure your OPNsense firewall:
 ### View Logs
 ```bash
 # Follow logs
-docker logs netflow-dashboard-test -f
+docker logs phobos-net -f
 
 # Last 100 lines
-docker logs netflow-dashboard-test --tail 100
+docker logs phobos-net --tail 100
 ```
 
 ### Restart Container
@@ -154,7 +154,7 @@ docker compose -f /root/netflow-dashboard/docker/docker-compose.yml ps
 
 ### Check Container Health
 ```bash
-docker ps | grep netflow-dashboard
+docker ps | grep phobos-net
 # Look for "healthy" or "starting" status
 ```
 
@@ -179,7 +179,7 @@ Expected output should show:
 
 ```bash
 # Check logs for errors
-docker logs netflow-dashboard-test
+docker logs phobos-net
 
 # Check if port is in use
 ss -tlnp | grep 3434
@@ -228,7 +228,7 @@ systemctl stop <service-name>
 
 5. **Check container logs:**
    ```bash
-   docker logs netflow-dashboard-test | grep -i syslog
+   docker logs phobos-net | grep -i syslog
    ```
 
 ### Rebuild After Changes

@@ -44,7 +44,7 @@ docker build -f docker/Dockerfile -t netflow-dashboard .
 
 # Run the container
 docker run -d \
-  --name netflow-dashboard-test \
+  --name phobos-net \
   -p 3434:8080 \
   -p 2055:2055/udp \
   -p 514:514/udp \
@@ -52,11 +52,11 @@ docker run -d \
   netflow-dashboard
 
 # View logs
-docker logs -f netflow-dashboard-test
+docker logs -f phobos-net
 
 # Stop and remove
-docker stop netflow-dashboard-test
-docker rm netflow-dashboard-test
+docker stop phobos-net
+docker rm phobos-net
 ```
 
 ## Features
@@ -132,7 +132,7 @@ The container includes a health check that verifies the `/health` endpoint. Chec
 
 ```bash
 docker ps  # Look for "healthy" status
-docker inspect netflow-dashboard-test | grep -A 10 Health
+docker inspect phobos-net | grep -A 10 Health
 ```
 
 ## Troubleshooting
@@ -163,7 +163,7 @@ From the project root:
 ```bash
 # Stop and remove containers, volumes, and images
 docker-compose -f docker/docker-compose.yml down -v
-docker rmi netflow-dashboard-test netflow-dashboard
+docker rmi phobos-net netflow-dashboard
 
 # Rebuild from scratch
 docker-compose -f docker/docker-compose.yml build --no-cache

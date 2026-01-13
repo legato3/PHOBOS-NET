@@ -3,7 +3,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: netflow-dashboard-test
+    container_name: phobos-net
     ports:
       - "3434:8080"      # Web dashboard
       - "2055:2055/udp"  # NetFlow collection (nfcapd)

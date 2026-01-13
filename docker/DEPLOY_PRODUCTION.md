@@ -31,8 +31,8 @@
 
 3. **Verify:**
    ```bash
-   docker ps | grep netflow-dashboard
-   docker logs netflow-dashboard-test -f
+   docker ps | grep phobos-net
+   docker logs phobos-net -f
    curl http://localhost:3434/api/server/health | python3 -m json.tool | grep -A 6 syslog
    ```
 
