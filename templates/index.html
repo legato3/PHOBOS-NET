@@ -30,8 +30,8 @@
         rel="stylesheet">
 
     <!-- Critical JavaScript modules - Preload for faster execution -->
-    <link rel="preload" href="/static/js/utils.js" as="script">
-    <link rel="preload" href="/static/js/widgets.js" as="script">
+    <!-- Note: widgets.js and utils.js are ES modules imported by app.js, so they're handled by the module graph -->
+    <!-- lazy-load.js is loaded as a regular script, so preloading it makes sense -->
     <link rel="preload" href="/static/js/lazy-load.js" as="script">
 
     <!-- CSS - Critical render path, load first -->
