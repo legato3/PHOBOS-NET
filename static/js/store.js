@@ -3,6 +3,9 @@ import { Charts } from './charts.js?v=3.0.3';
 import { DashboardWidgets } from './widgets.js?v=3.0.3';
 import * as DashboardUtils from './utils.js?v=3.0.3';
 
+// Module-level storage for Chart.js instances to avoid Alpine.js reactivity recursion
+const _chartInstances = {};
+
 export const Store = () => ({
     initDone: false,
     activeTab: 'overview',
@@ -355,11 +358,15 @@ export const Store = () => ({
     map: null,
     mapLayers: [],
 
-    bwChartInstance: null,
-    flagsChartInstance: null,
-    pktSizeChartInstance: null,
-    hourlyChartInstance: null,
-    hourlyChart2Instance: null,
+    map: null,
+    mapLayers: [],
+
+    // Chart instances are now stored in _chartInstances
+    // bwChartInstance: null,
+    // flagsChartInstance: null,
+    // pktSizeChartInstance: null,
+    // hourlyChartInstance: null,
+    // hourlyChart2Instance: null,
 
     trendModalOpen: false,
     trendIP: null,
@@ -735,18 +742,7 @@ export const Store = () => ({
     },
 
     getChartInstance(chartId) {
-        switch (chartId) {
-            case 'bwChart': return this.bwChartInstance;
-            case 'flagsChart': return this.flagsChartInstance;
-            case 'pktSizeChart': return this.pktSizeChartInstance;
-            case 'hourlyChart': return this.hourlyChartInstance;
-            case 'hourlyChart2': return this.hourlyChart2Instance;
-
-            case 'countriesChart': return this.countriesChartInstance;
-            case 'protoMixChart': return this.protoMixChartInstance;
-            case 'blocklistChart': return this.blocklistChartInstance;
-            default: return null;
-        }
+        return _chartInstances[chartId];
     },
 
     // API Latency tracking helper with enhanced error handling
@@ -915,18 +911,18 @@ export const Store = () => ({
                 const initMapWhenReady = () => {
                     const container = document.getElementById('world-map-svg');
                     if (!container) return;
-                    
+
                     // Use requestAnimationFrame multiple times to ensure browser has painted
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             const rect = container.getBoundingClientRect();
                             const parentRect = container.parentElement?.getBoundingClientRect();
-                            
+
                             // If container has dimensions, initialize
                             if (rect.width > 0 && rect.height > 0 && !this.map) {
                                 console.log(`[WorldMap] Container has dimensions ${rect.width}x${rect.height}, initializing map`);
                                 this.renderWorldMap();
-                            } 
+                            }
                             // If parent has dimensions but container doesn't, force container dimensions
                             else if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
                                 console.log(`[WorldMap] Parent has dimensions ${parentRect.width}x${parentRect.height}, forcing container dimensions`);
@@ -959,7 +955,7 @@ export const Store = () => ({
                         });
                     });
                 };
-                
+
                 this.$nextTick(() => {
                     setTimeout(initMapWhenReady, 50);
                 });
@@ -1729,17 +1725,17 @@ export const Store = () => ({
             });
         }
 
-        if (this.blocklistChartInstance) {
-            this.blocklistChartInstance.data.labels = labels;
-            this.blocklistChartInstance.data.datasets = datasets;
-            this.blocklistChartInstance.options.scales = {
+        if (_chartInstances['blocklistChartInstance']) {
+            _chartInstances['blocklistChartInstance'].data.labels = labels;
+            _chartInstances['blocklistChartInstance'].data.datasets = datasets;
+            _chartInstances['blocklistChartInstance'].options.scales = {
                 x: { ticks: { color: '#888' }, grid: { color: '#333' } },
                 y: { ticks: { color: '#888' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 100, position: 'left', title: { display: false } },
                 ...(hasFwData ? { y1: { ticks: { color: 'rgba(0, 255, 100, 0.8)' }, grid: { display: false }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)', font: { size: 10 } } } } : {})
             };
-            this.blocklistChartInstance.update();
+            _chartInstances['blocklistChartInstance'].update();
         } else {
-            this.blocklistChartInstance = new Chart(ctx, {
+            _chartInstances['blocklistChartInstance'] = new Chart(ctx, {
                 type: 'line',
                 data: { labels, datasets },
                 options: {
@@ -1792,9 +1788,9 @@ export const Store = () => ({
         if (!ctx) return;
 
         // Destroy existing
-        if (this.sankeyChartInstance) {
-            this.sankeyChartInstance.destroy();
-            this.sankeyChartInstance = null;
+        if (_chartInstances['sankeyChartInstance']) {
+            _chartInstances['sankeyChartInstance'].destroy();
+            _chartInstances['sankeyChartInstance'] = null;
         }
 
         const raw = this.conversations.conversations || [];
@@ -1869,6 +1865,7 @@ export const Store = () => ({
                 layout: { padding: 20 }
             }
         });
+        _chartInstances['sankeyChartInstance'] = this.sankeyChartInstance;
     },
 
     async fetchFlags() {
@@ -1947,7 +1944,7 @@ export const Store = () => ({
             return;
         }
         console.log('[WorldMap] Container found:', container);
-        
+
         // Don't check visibility strictly - Leaflet can initialize even if container is hidden
         // We'll call invalidateSize() when the container becomes visible
 
@@ -1971,12 +1968,12 @@ export const Store = () => ({
         let mapJustCreated = false;
         if (!this.map) {
             mapJustCreated = true;
-            
+
             // Note: Container might have zero dimensions if tab is hidden
             // Leaflet can initialize on a 0x0 container - we'll call invalidateSize() when visible
             const containerRect = container.getBoundingClientRect();
             console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
-            
+
             // Ensure no previous instance exists to prevent "Map container is already initialized" error
             if (container._leaflet_id) {
                 container._leaflet_id = null;
@@ -2029,7 +2026,7 @@ export const Store = () => ({
                         this.map.invalidateSize();
                         console.log('[WorldMap] invalidateSize() called in whenReady');
                     }
-                    
+
                     // Try to load GeoJSON overlay (optional enhancement)
                     fetch('/static/world.geojson')
                         .then(r => {
@@ -2054,10 +2051,10 @@ export const Store = () => ({
                             // GeoJSON is optional, just log and continue
                             console.warn('[WorldMap] GeoJSON overlay not available, using tiles only:', e.message);
                         });
-                    
+
                     // Render markers after map is ready
                     this.renderWorldMapMarkers();
-                    
+
                     // Force a view reset and invalidateSize - this will work even if container is 0x0 initially
                     setTimeout(() => {
                         if (this.map) {
@@ -2089,7 +2086,7 @@ export const Store = () => ({
                 }
                 return;
             }
-            
+
             // Don't continue to marker rendering if map was just created - markers will be rendered after tiles load
             return;
         }
@@ -2285,7 +2282,7 @@ export const Store = () => ({
 
             // Use different chart instances for different canvas IDs
             const instanceKey = 'hourlyChartInstance';
-            const chartInstance = this[instanceKey];
+            const chartInstance = _chartInstances[instanceKey];
 
             if (chartInstance) {
                 chartInstance.data.labels = data.labels;
@@ -2496,7 +2493,7 @@ export const Store = () => ({
                     console.warn('Bandwidth chart instance corrupted, recreating:', e);
                     try {
                         this.bwChartInstance.destroy();
-                    } catch {}
+                    } catch { }
                     this.bwChartInstance = null;
                 }
             }
@@ -2625,7 +2622,7 @@ export const Store = () => ({
                     console.warn('Packet Size chart instance corrupted, recreating:', e);
                     try {
                         this.pktSizeChartInstance.destroy();
-                    } catch {}
+                    } catch { }
                     this.pktSizeChartInstance = null;
                 }
             }
@@ -2710,7 +2707,7 @@ export const Store = () => ({
             const labels = data.labels || [];
             const values = data.bytes || [];
             const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
-            
+
             if (this.countriesChartInstance) {
                 try {
                     this.countriesChartInstance.data.labels = labels;
@@ -2721,7 +2718,7 @@ export const Store = () => ({
                     console.warn('Countries chart instance corrupted, recreating:', e);
                     try {
                         this.countriesChartInstance.destroy();
-                    } catch {}
+                    } catch { }
                     this.countriesChartInstance = null;
                 }
             }
@@ -2819,7 +2816,7 @@ export const Store = () => ({
                     console.warn('Protocol Mix chart instance corrupted, recreating:', e);
                     try {
                         this.protoMixChartInstance.destroy();
-                    } catch {}
+                    } catch { }
                     this.protoMixChartInstance = null;
                 }
             }
@@ -2853,7 +2850,7 @@ export const Store = () => ({
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
+                                    label: function (context) {
                                         const label = context.label || '';
                                         const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
                                         const pct = data.percentages ? data.percentages[context.dataIndex] : '';
@@ -2919,7 +2916,7 @@ export const Store = () => ({
                     console.warn('Flags chart instance corrupted, recreating:', e);
                     try {
                         this.flagsChartInstance.destroy();
-                    } catch {}
+                    } catch { }
                     this.flagsChartInstance = null;
                 }
             }
