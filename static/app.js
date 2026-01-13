@@ -63,7 +63,7 @@ document.addEventListener('alpine:init', () => {
             error: null,
             model: 'deepseek-coder-v2:16b',
             availableModels: ['deepseek-coder-v2:16b'], // Initialize with default model
-            includeContext: true // Include dashboard context in messages
+            includeContext: false // Include dashboard context in messages
         },
 
         // Mobile UI state
