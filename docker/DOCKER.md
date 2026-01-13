@@ -32,7 +32,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-The dashboard will be available at `http://localhost:8080`
+The dashboard will be available at `http://localhost:3434`
 
 ### Using Docker directly
 
@@ -45,7 +45,7 @@ docker build -f docker/Dockerfile -t netflow-dashboard .
 # Run the container
 docker run -d \
   --name netflow-dashboard-test \
-  -p 8080:8080 \
+  -p 3434:8080 \
   -p 2055:2055/udp \
   -p 514:514/udp \
   -v $(pwd)/docker-data:/app/data \
@@ -206,11 +206,13 @@ The Docker container runs multiple services:
 
 ## Ports Exposed
 
-- **8080/tcp** - Web dashboard (HTTP)
+- **3434/tcp** - Web dashboard (HTTP) - mapped to container port 8080
 - **2055/udp** - NetFlow collection (nfcapd)
 - **514/udp** - Syslog receiver
 
 To receive NetFlow data, configure your router/firewall to send NetFlow exports to the container's IP on port 2055.
+
+**Note**: The container runs the application on port 8080 internally. Port 3434 is used on the host to avoid conflicts with other services.
 
 ## Production Considerations
 

@@ -27,4 +27,13 @@ docker-compose -f docker/docker-compose.yml up -d --build
 
 ## Documentation
 
-See [DOCKER.md](DOCKER.md) for detailed usage instructions, configuration options, and troubleshooting.
+- **[DOCKER.md](DOCKER.md)** - Comprehensive Docker documentation and usage guide
+- **[DEPLOY_PRODUCTION.md](DEPLOY_PRODUCTION.md)** - Quick deployment guide for PROX-DOCKER-2
+- **[../docs/DEPLOYMENT_DOCKER.md](../docs/DEPLOYMENT_DOCKER.md)** - Complete Docker deployment instructions
+
+## Quick Reference
+
+- **Local Development**: `docker compose -f docker/docker-compose.yml up -d`
+- **Dashboard URL**: http://localhost:3434
+- **Production Server**: PROX-DOCKER-2 (192.168.0.73:3434)
+- **Ports**: 3434 (HTTP), 514 (UDP Syslog), 2055 (UDP NetFlow)

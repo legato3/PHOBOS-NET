@@ -7,39 +7,38 @@
    cd /Users/chris/Documents/GitHub/PROX_NFDUMP
    
    # Create directory on server
-   ssh root@192.168.0.73 "mkdir -p /root/netflow-dashboard/docker"
+   ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "mkdir -p /root/netflow-dashboard/docker/{templates,static,scripts,sample_data}"
    
    # Copy docker files
-   scp docker/docker-compose.yml docker/Dockerfile docker/docker-entrypoint.sh root@192.168.0.73:/root/netflow-dashboard/docker/
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 docker/docker-compose.yml docker/Dockerfile docker/docker-entrypoint.sh root@192.168.0.73:/root/netflow-dashboard/docker/
    
    # Copy application files
-   scp netflow-dashboard.py threat-feeds.txt requirements.txt root@192.168.0.73:/root/netflow-dashboard/
-   ssh root@192.168.0.73 "mkdir -p /root/netflow-dashboard/{templates,static,scripts,sample_data}"
-   scp -r templates/* root@192.168.0.73:/root/netflow-dashboard/templates/
-   scp -r static/* root@192.168.0.73:/root/netflow-dashboard/static/
-   scp scripts/gunicorn_config.py root@192.168.0.73:/root/netflow-dashboard/scripts/
-   scp -r sample_data/* root@192.168.0.73:/root/netflow-dashboard/sample_data/ 2>/dev/null || true
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py threat-feeds.txt requirements.txt root@192.168.0.73:/root/netflow-dashboard/
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 -r templates/* root@192.168.0.73:/root/netflow-dashboard/templates/
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 -r static/* root@192.168.0.73:/root/netflow-dashboard/static/
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 scripts/gunicorn_config.py root@192.168.0.73:/root/netflow-dashboard/scripts/
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 -r sample_data root@192.168.0.73:/root/netflow-dashboard/ 2>/dev/null || true
    ```
 
 2. **SSH to server and deploy:**
    ```bash
-   ssh root@192.168.0.73
+   ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73
    cd /root/netflow-dashboard
-   docker-compose -f docker/docker-compose.yml down 2>/dev/null || true
-   docker-compose -f docker/docker-compose.yml build --no-cache
-   docker-compose -f docker/docker-compose.yml up -d
+   docker compose -f docker/docker-compose.yml down 2>/dev/null || true
+   docker compose -f docker/docker-compose.yml build --no-cache
+   docker compose -f docker/docker-compose.yml up -d
    ```
 
 3. **Verify:**
    ```bash
    docker ps | grep netflow-dashboard
    docker logs netflow-dashboard-test -f
-   curl http://localhost:8080/api/server/health | grep -A 6 syslog
+   curl http://localhost:3434/api/server/health | python3 -m json.tool | grep -A 6 syslog
    ```
 
 ## Access
 
-- **Dashboard**: http://192.168.0.73:8080
+- **Dashboard**: http://192.168.0.73:3434
 - **Syslog**: UDP port 514 (configure firewall to send to 192.168.0.73:514)
 - **NetFlow**: UDP port 2055 (configure firewall to send NetFlow to 192.168.0.73:2055)
 
@@ -67,8 +66,8 @@ docker-compose -f /root/netflow-dashboard/docker/docker-compose.yml restart
 docker-compose -f /root/netflow-dashboard/docker/docker-compose.yml ps
 
 # Check syslog stats
-curl http://localhost:8080/api/server/health | python3 -m json.tool | grep -A 6 syslog
+curl http://localhost:3434/api/server/health | python3 -m json.tool | grep -A 6 syslog
 
 # Check firewall stats
-curl http://localhost:8080/api/stats/firewall | python3 -m json.tool
+curl http://localhost:3434/api/stats/firewall | python3 -m json.tool
 ```

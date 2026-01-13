@@ -239,3 +239,15 @@ pct exec 122 -- diff /repo/netflow-dashboard.py /root/netflow-dashboard.py
   ```bash
   pct exec 122 -- bash -c "cd /repo && git checkout <commit-hash> && cp -f netflow-dashboard.py /root/ && cp -rf static/* /root/static/ && cp -rf templates/* /root/templates/"
   ```
+
+---
+
+## Docker Deployment
+
+For Docker-based deployment on PROX-DOCKER-2 (192.168.0.73), see **[DEPLOYMENT_DOCKER.md](DEPLOYMENT_DOCKER.md)**.
+
+The Docker deployment uses:
+- **Server**: PROX-DOCKER-2 (192.168.0.73)
+- **Dashboard URL**: http://192.168.0.73:3434
+- **Container**: netflow-dashboard-test
+- **Port**: 3434 (mapped to container port 8080)
