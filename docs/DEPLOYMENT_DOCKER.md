@@ -84,13 +84,40 @@ This document describes deploying the NetFlow Dashboard using Docker on PROX-DOC
 
 ## Updating Deployment
 
-When updating the application:
+### Quick Update (Code Changes Only)
+
+For updates to `netflow-dashboard.py` or other application files (no Dockerfile changes):
+
+```bash
+# From local machine
+cd /path/to/PROX_NFDUMP
+
+# Commit and push changes (if not already done)
+git add -A
+git commit -m "Your commit message"
+git push origin main
+
+# Copy updated application file
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+
+# Restart container (picks up new code)
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+```
+
+**Note**: A restart is sufficient for code-only changes. The container will reload the updated Python file.
+
+### Full Rebuild (Dockerfile or Dependencies Changed)
+
+For changes to Dockerfile, requirements.txt, or other build-time dependencies:
 
 ```bash
 # From local machine
 cd /path/to/PROX_NFDUMP
 
 # Copy updated files (repeat relevant scp commands from initial deployment)
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 requirements.txt root@192.168.0.73:/root/netflow-dashboard/
+# ... copy other updated files as needed
 
 # SSH to server and rebuild
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73
@@ -99,6 +126,19 @@ docker compose -f docker/docker-compose.yml down
 docker compose -f docker/docker-compose.yml build --no-cache
 docker compose -f docker/docker-compose.yml up -d
 ```
+
+### What Requires Rebuild vs Restart?
+
+**Restart Only (Fast)**:
+- Changes to `netflow-dashboard.py`
+- Changes to templates, static files (if mounted)
+- Environment variable changes in docker-compose.yml
+
+**Full Rebuild Required**:
+- Changes to `Dockerfile`
+- Changes to `requirements.txt`
+- Changes to `docker-entrypoint.sh`
+- Changes to system dependencies
 
 ## Port Configuration
 
