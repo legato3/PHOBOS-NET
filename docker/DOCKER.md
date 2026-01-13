@@ -144,7 +144,7 @@ docker inspect netflow-dashboard-test | grep -A 10 Health
 docker-compose logs netflow-dashboard
 
 # Check if port is already in use
-lsof -i :8080
+lsof -i :3434
 ```
 
 ### Permission issues

@@ -4,7 +4,8 @@ This directory contains comprehensive documentation for the PROX_NFDUMP NetFlow 
 
 ## 📚 Quick Start Guides
 
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Step-by-step deployment instructions
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Step-by-step deployment instructions (LXC/Systemd)
+- **[DEPLOYMENT_DOCKER.md](DEPLOYMENT_DOCKER.md)** - Docker deployment instructions (PROX-DOCKER-2)
 - **[NFCAPD_SETUP.md](NFCAPD_SETUP.md)** - NetFlow collector (nfcapd) configuration
 - **[OPNSENSE_NETFLOW.md](OPNSENSE_NETFLOW.md)** - OPNsense firewall NetFlow setup
 
@@ -35,7 +36,8 @@ This directory contains comprehensive documentation for the PROX_NFDUMP NetFlow 
 - [OPNSENSE_NETFLOW.md](OPNSENSE_NETFLOW.md) - OPNsense NetFlow exporter setup
 
 ### Deployment & Operations
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment procedures
+- [DEPLOYMENT.md](DEPLOYMENT.md) - LXC/Systemd deployment procedures
+- [DEPLOYMENT_DOCKER.md](DEPLOYMENT_DOCKER.md) - Docker deployment procedures
 - [ENVIRONMENT_OPTIMIZATION.md](ENVIRONMENT_OPTIMIZATION.md) - Server optimization
 - [LOGGING_IMPROVEMENTS.md](LOGGING_IMPROVEMENTS.md) - Logging best practices
 
