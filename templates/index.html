@@ -2289,48 +2289,7 @@
                                     </div>
                                 </template>
 
-                                <!-- Traffic by Hour -->
-                                <template x-if="isVisible('hourlyTraffic')">
-                                    <div class="card" :class="{ 'widget-minimized': isMinimized('hourlyTraffic') }">
-                                        <h2>
-                                            <div class="card-title-content">
-                                                <span class="title-icon">⏰</span>
-                                                <span>Traffic by Hour</span>
-                                                <svg class="external-link-icon" width="12" height="12"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2">
-                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6">
-                                                    </path>
-                                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                                                </svg>
-                                            </div>
-                                            <div class="card-actions">
-                                                <div class="status-pills" x-show="!isMinimized('hourlyTraffic')">
-                                                    <span class="status-pill running">Live</span>
-                                                </div>
-                                                <button class="icon-btn-small" @click="toggleMinimize('hourlyTraffic')"
-                                                    :title="isMinimized('hourlyTraffic') ? 'Expand' : 'Minimize'">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                        stroke-width="2">
-                                                        <path d="M3 12h18M12 3v18"
-                                                            x-show="isMinimized('hourlyTraffic')" />
-                                                        <line x1="5" y1="12" x2="19" y2="12"
-                                                            x-show="!isMinimized('hourlyTraffic')" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </h2>
-                                        <div class="widget-body" x-show="!isMinimized('hourlyTraffic')">
-                                            <div class="chart-wrapper-small chart-expandable"
-                                                @click="openFullscreenChart('hourlyChart2', 'Traffic by Hour (Last 24h)')"
-                                                title="Click to expand">
-                                                <canvas id="hourlyChart2"></canvas>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </template>
+
 
                                 <!-- Network Health -->
                                 <template x-if="isVisible('netHealth')">

@@ -2065,19 +2065,24 @@ document.addEventListener('alpine:init', () => {
                 // Try both canvas IDs (for backward compatibility with overview widget)
                 let ctx = document.getElementById('hourlyChart');
                 let chartId = 'hourlyChart';
-                if (!ctx) {
-                    ctx = document.getElementById('hourlyChart2');
-                    chartId = 'hourlyChart2';
-                }
                 if (!ctx || !data || !data.labels) return;
 
                 // Check if canvas parent container is visible
+                // Check if canvas parent container is visible
                 const container = ctx.closest('.widget-body, .chart-wrapper-small');
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                    // Container not visible yet, defer initialization
-                    setTimeout(() => this.updateHourlyChart(data), 200);
+                    // Container not visible yet, defer initialization (limit retries)
+                    if (!this._hourlyChartRetries) this._hourlyChartRetries = 0;
+                    if (this._hourlyChartRetries < 20) {
+                        this._hourlyChartRetries++;
+                        setTimeout(() => this.updateHourlyChart(data), 200);
+                    } else {
+                        console.warn('Hourly chart container not visible after retries');
+                        this._hourlyChartRetries = 0;
+                    }
                     return;
                 }
+                this._hourlyChartRetries = 0;
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2089,7 +2094,7 @@ document.addEventListener('alpine:init', () => {
                 const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
 
                 // Use different chart instances for different canvas IDs
-                const instanceKey = chartId === 'hourlyChart2' ? 'hourlyChart2Instance' : 'hourlyChartInstance';
+                const instanceKey = 'hourlyChartInstance';
                 const chartInstance = this[instanceKey];
 
                 if (chartInstance) {
@@ -2165,12 +2170,21 @@ document.addEventListener('alpine:init', () => {
                 if (!ctx) return;
 
                 // Check if canvas parent container is visible
+                // Check if canvas parent container is visible
                 const container = ctx.closest('.widget-body, .chart-wrapper-small');
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                    // Container not visible yet, defer initialization
-                    setTimeout(() => this.updateProtoMixChart(data), 200);
+                    // Container not visible yet, defer initialization (limit retries)
+                    if (!this._protoMixRetries) this._protoMixRetries = 0;
+                    if (this._protoMixRetries < 20) {
+                        this._protoMixRetries++;
+                        setTimeout(() => this.updateProtoMixChart(data), 200);
+                    } else {
+                        console.warn('ProtoMix chart container not visible after retries');
+                        this._protoMixRetries = 0;
+                    }
                     return;
                 }
+                this._protoMixRetries = 0;
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2428,12 +2442,21 @@ document.addEventListener('alpine:init', () => {
                 if (!ctx || !data || !data.labels) return;
 
                 // Check if canvas parent container is visible
+                // Check if canvas parent container is visible
                 const container = ctx.closest('.widget-body, .chart-wrapper-small');
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                    // Container not visible yet, defer initialization
-                    setTimeout(() => this.updatePktSizeChart(data), 200);
+                    // Container not visible yet, defer initialization (limit retries)
+                    if (!this._pktSizeRetries) this._pktSizeRetries = 0;
+                    if (this._pktSizeRetries < 20) {
+                        this._pktSizeRetries++;
+                        setTimeout(() => this.updatePktSizeChart(data), 200);
+                    } else {
+                        console.warn('Packet Size chart container not visible after retries');
+                        this._pktSizeRetries = 0;
+                    }
                     return;
                 }
+                this._pktSizeRetries = 0;
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2491,12 +2514,21 @@ document.addEventListener('alpine:init', () => {
                 if (!ctx || !data) return;
 
                 // Check if canvas parent container is visible
+                // Check if canvas parent container is visible
                 const container = ctx.closest('.widget-body, .chart-wrapper-small');
                 if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                    // Container not visible yet, defer initialization
-                    setTimeout(() => this.updateCountriesChart(data), 200);
+                    // Container not visible yet, defer initialization (limit retries)
+                    if (!this._countriesRetries) this._countriesRetries = 0;
+                    if (this._countriesRetries < 20) {
+                        this._countriesRetries++;
+                        setTimeout(() => this.updateCountriesChart(data), 200);
+                    } else {
+                        console.warn('Countries chart container not visible after retries');
+                        this._countriesRetries = 0;
+                    }
                     return;
                 }
+                this._countriesRetries = 0;
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -2542,6 +2574,19 @@ document.addEventListener('alpine:init', () => {
             try {
                 const ctx = document.getElementById('flagsChart');
                 if (!ctx || !flagsData) return;
+
+                // Check if canvas parent container is visible
+                const container = ctx.closest('.widget-body, .chart-wrapper-small');
+                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                    // Container not visible yet, defer initialization
+                    if (!this._flagsRetries) this._flagsRetries = 0;
+                    if (this._flagsRetries < 20) {
+                        this._flagsRetries++;
+                        setTimeout(() => this.updateFlagsChart(flagsData), 200);
+                    }
+                    return;
+                }
+                this._flagsRetries = 0;
 
                 // Check if Chart.js is loaded
                 if (typeof Chart === 'undefined') {
@@ -3702,7 +3747,7 @@ document.addEventListener('alpine:init', () => {
             // Format context as a readable string for the LLM
             let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
             contextText += `Time Range: ${context.timeRange}\n\n`;
-            
+
             contextText += `### Security Metrics\n`;
             contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
             contextText += `- Active Threats Detected: ${context.security.threats}\n`;
@@ -3737,7 +3782,7 @@ document.addEventListener('alpine:init', () => {
             }
             contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
             contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
-            
+
             return contextText;
         },
 
@@ -3759,15 +3804,15 @@ document.addEventListener('alpine:init', () => {
 
             try {
                 let messageToSend = message;
-                
+
                 // Optionally include dashboard context
                 if (this.ollamaChat.includeContext) {
                     const context = this.getDashboardContext();
                     const contextText = this.formatDashboardContext(context);
-                    
+
                     // Create enhanced message with context
                     const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
-                    
+
                     messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
                 }
 
@@ -3789,7 +3834,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 const data = await res.json();
-                
+
                 // Extract response message
                 let responseText = '';
                 if (data.message && data.message.content) {
