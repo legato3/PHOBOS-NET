@@ -1871,10 +1871,10 @@ export const Store = () => ({
     },
 
     renderWorldMap() {
-        this.mapStatus = "Checking Container...";
         const container = document.getElementById('world-map-svg');
         if (!container) {
             console.warn('[WorldMap] Container not found');
+            this.mapStatus = '';
             return;
         }
 
@@ -1957,22 +1957,34 @@ export const Store = () => ({
                             }
                         }).addTo(this.map);
 
-                        // Trigger data render after base map is ready
-                        this.renderWorldMapData();
+                        // Render markers after base map is ready
+                        if (this.map) {
+                            this.renderWorldMapMarkers();
+                        }
                     })
                     .catch(e => {
                         console.error('[WorldMap] Failed to load local GeoJSON:', e);
                         // Fallback to minimal tiles if GeoJSON fails
-                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                             attribution: '&copy; OpenStreetMap &copy; CARTO',
                             subdomains: 'abcd',
                             maxZoom: 19
-                        }).addTo(this.map);
+                        });
+                        tileLayer.addTo(this.map);
+                        // Render markers after tile layer is added
+                        if (this.map) {
+                            this.renderWorldMapMarkers();
+                        }
                     });
 
                 // Enable zoom control for visibility confirmation
                 // Note: zoomControl was set to false in constructor, we can add it back
                 L.control.zoom({ position: 'topright' }).addTo(this.map);
+
+                // Initialize mapLayers array if not exists
+                if (!this.mapLayers) {
+                    this.mapLayers = [];
+                }
 
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
@@ -1983,6 +1995,7 @@ export const Store = () => ({
                         if (this.map) {
                             this.map.invalidateSize();
                             this.map.setView([20, 0], 2);
+                            this.mapStatus = ''; // Clear status on success
                             console.log('[WorldMap] Map initialized successfully');
                         }
                     }, 150);
@@ -2017,9 +2030,29 @@ export const Store = () => ({
             }, 100);
         }
 
+        // Render markers if map exists
+        if (this.map) {
+            this.renderWorldMapMarkers();
+        }
+    },
+
+    renderWorldMapMarkers() {
+        if (!this.map) return;
+
+        // Initialize mapLayers array if not exists
+        if (!this.mapLayers) {
+            this.mapLayers = [];
+        }
+
         // Clear existing layers
-        if (this.mapLayers) {
-            this.mapLayers.forEach(l => this.map.removeLayer(l));
+        if (this.mapLayers.length > 0) {
+            this.mapLayers.forEach(l => {
+                try {
+                    this.map.removeLayer(l);
+                } catch (e) {
+                    console.warn('[WorldMap] Error removing layer:', e);
+                }
+            });
         }
         this.mapLayers = [];
 
