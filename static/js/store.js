@@ -1881,35 +1881,9 @@ export const Store = () => ({
             return;
         }
         console.log('[WorldMap] Container found:', container);
-
-        // Check if container is visible (x-show might hide it initially)
-        // Use a more lenient check - just verify container exists and has dimensions
-        const containerRect = container.getBoundingClientRect();
-        const hasDimensions = containerRect.width > 0 && containerRect.height > 0;
-        const containerParent = container.closest('.world-map-container');
-        const parentVisible = containerParent && (
-            containerParent.offsetParent !== null || 
-            containerParent.style.display !== 'none'
-        );
         
-        // If container doesn't have dimensions yet, wait (but be more patient)
-        if (!hasDimensions || !parentVisible) {
-            // Container is hidden, wait a bit and try again (max 10 attempts, longer delay)
-            if (!this._mapRenderAttempts) this._mapRenderAttempts = 0;
-            if (this._mapRenderAttempts < 10) {
-                this._mapRenderAttempts++;
-                console.log(`[WorldMap] Container not ready (attempt ${this._mapRenderAttempts}/10), retrying...`);
-                setTimeout(() => this.renderWorldMap(), 500);
-            } else {
-                console.warn('[WorldMap] Container not visible after multiple attempts, forcing render anyway');
-                this._mapRenderAttempts = 0;
-                // Continue anyway - Leaflet can handle hidden containers and will render when shown
-            }
-            if (this._mapRenderAttempts < 10) {
-                return;
-            }
-        }
-        this._mapRenderAttempts = 0; // Reset on success
+        // Don't check visibility strictly - Leaflet can initialize even if container is hidden
+        // We'll call invalidateSize() when the container becomes visible
 
         // Check if Leaflet is loaded
         if (typeof L === 'undefined' || typeof L.map === 'undefined') {
@@ -1940,13 +1914,8 @@ export const Store = () => ({
             container.innerHTML = '';
 
             try {
-                // Ensure container has dimensions before initialization
-                const containerRect = container.getBoundingClientRect();
-                if (containerRect.width === 0 || containerRect.height === 0) {
-                    console.warn('[WorldMap] Container has zero dimensions, retrying...');
-                    setTimeout(() => this.renderWorldMap(), 200);
-                    return;
-                }
+                // Initialize map even if container has zero dimensions
+                // Leaflet will handle it and we'll call invalidateSize() when visible
 
                 console.log('[WorldMap] Creating Leaflet map instance...');
                 this.map = L.map('world-map-svg', {
