@@ -7877,6 +7877,7 @@ body.compact-mode {
     color: var(--text-muted);
     font-style: italic;
 }
+
 /* ====================================
    Configuration Settings Modal - Compact Layout
    ==================================== */
@@ -8033,6 +8034,43 @@ body.compact-mode {
 .chat-message-assistant .chat-message-time {
     text-align: left;
 }
+
+/* Edit Mode Styles */
+.edit-mode-active .card:not(.wide-card) {
+    border: 1px dashed var(--accent);
+    cursor: move;
+    animation: wiggle 0.3s ease-in-out;
+}
+
+.edit-mode-active .card:not(.wide-card):hover {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.05);
+}
+
+@keyframes wiggle {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(1deg);
+    }
+
+    75% {
+        transform: rotate(-1deg);
+    }
+
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+.icon-btn.active {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.15);
+    border-color: var(--accent);
+}
+
 /* Skeleton Loading Animation */
 .skeleton-container {
     padding: var(--space-4);
@@ -8056,9 +8094,17 @@ body.compact-mode {
     margin-bottom: var(--space-2);
 }
 
-.skeleton-line.w-50 { width: 50%; }
-.skeleton-line.w-75 { width: 75%; }
-.skeleton-line.w-25 { width: 25%; }
+.skeleton-line.w-50 {
+    width: 50%;
+}
+
+.skeleton-line.w-75 {
+    width: 75%;
+}
+
+.skeleton-line.w-25 {
+    width: 25%;
+}
 
 .skeleton-chart {
     flex: 1;
@@ -8077,12 +8123,10 @@ body.compact-mode {
     right: 0;
     bottom: 0;
     left: 0;
-    background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0.03) 50%,
-        rgba(255, 255, 255, 0) 100%
-    );
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.03) 50%,
+            rgba(255, 255, 255, 0) 100%);
     transform: translateX(-100%);
     animation: shimmer 2s infinite;
 }

@@ -58,6 +58,9 @@ export const Store = () => ({
     // Server health auto-refresh
     serverHealthRefreshTimer: null,
 
+    // Edit Mode (Layout)
+    editMode: false,
+
     // Ollama chat state
     ollamaChat: {
         messages: [],
@@ -2640,18 +2643,26 @@ export const Store = () => ({
 
     makeCardDraggable(card, gridId) {
         if (!(card instanceof HTMLElement) || card.classList.contains('wide-card')) return;
-        if (card.getAttribute('draggable') === 'true') return;
-        card.setAttribute('draggable', 'true');
+        // set draggable based on current mode
+        card.setAttribute('draggable', this.editMode.toString());
+
         if (!card.dataset.widgetId) card.dataset.widgetId = this.computeWidgetId(card, gridId);
-        card.addEventListener('dragstart', () => { card.classList.add('dragging'); });
-        card.addEventListener('dragend', () => {
-            card.classList.remove('dragging');
-            const grid = card.closest('.grid[data-grid-id]');
-            if (grid) {
-                const gid = grid.getAttribute('data-grid-id');
-                this.saveGridOrder(grid, gid);
-            }
-        });
+        // Add listeners once (idempotent setup is implied, but listeners are cheap)
+        if (!card._dragListenersAttached) {
+            card.addEventListener('dragstart', () => {
+                if (this.editMode) card.classList.add('dragging');
+                else e.preventDefault(); // Should not match here if draggable=false, but just in case
+            });
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                const grid = card.closest('.grid[data-grid-id]');
+                if (grid) {
+                    const gid = grid.getAttribute('data-grid-id');
+                    this.saveGridOrder(grid, gid);
+                }
+            });
+            card._dragListenersAttached = true;
+        }
     },
 
     computeWidgetId(card, gridId) {
