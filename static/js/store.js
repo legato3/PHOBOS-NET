@@ -104,6 +104,7 @@ export const Store = () => ({
     services: { services: [], maxBytes: 1, loading: true },
     hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
     flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
+    protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
@@ -2341,6 +2342,14 @@ export const Store = () => ({
 
 
 
+    async fetchProtoMix() {
+        this.protoMix.loading = true;
+        try {
+            const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
+            if (res.ok) this.protoMix = { ...(await res.json()) };
+        } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
+    },
+
     async fetchNetHealth() {
         this.netHealth.loading = true;
         try {
@@ -2459,16 +2468,33 @@ export const Store = () => ({
                 return;
             }
 
+            // Prevent recursive updates
+            if (this._bwUpdating) return;
+            this._bwUpdating = true;
+
             const colorArea = 'rgba(0, 243, 255, 0.2)';
             const colorLine = this.getCssVar('--neon-cyan') || '#00f3ff';
             const colorFlows = this.getCssVar('--neon-purple') || '#bc13fe';
 
+            // Destroy existing chart if it exists but is in bad state
             if (this.bwChartInstance) {
-                this.bwChartInstance.data.labels = data.labels;
-                this.bwChartInstance.data.datasets[0].data = data.bandwidth;
-                this.bwChartInstance.data.datasets[1].data = data.flows;
-                this.bwChartInstance.update();
-            } else {
+                try {
+                    this.bwChartInstance.data.labels = data.labels;
+                    this.bwChartInstance.data.datasets[0].data = data.bandwidth;
+                    this.bwChartInstance.data.datasets[1].data = data.flows;
+                    this.bwChartInstance.update('none'); // 'none' mode prevents animation
+                } catch (e) {
+                    // Chart instance is corrupted, destroy and recreate
+                    console.warn('Bandwidth chart instance corrupted, recreating:', e);
+                    try {
+                        this.bwChartInstance.destroy();
+                    } catch {}
+                    this.bwChartInstance = null;
+                }
+            }
+
+            // Create new chart if instance doesn't exist
+            if (!this.bwChartInstance) {
                 this.bwChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -2519,12 +2545,15 @@ export const Store = () => ({
                                 grid: { color: '#333' },
                                 ticks: { color: '#888' }
                             }
-                        }
+                        },
+                        animation: false // Disable animation to prevent reactive loops
                     }
                 });
             }
+            this._bwUpdating = false;
         } catch (e) {
             console.error('Chart render error:', e);
+            this._bwUpdating = false;
         }
     },
 
