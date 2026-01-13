@@ -414,31 +414,36 @@
                                 </h2>
                                 <div class="widget-body" x-show="!isMinimized('worldmap')">
                                     <!-- Map Controls -->
-                                    <div class="world-map-controls" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
-                                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                                            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);" 
-                                                :style="worldMapLayers.sources ? 'background: rgba(0, 255, 100, 0.2); border-color: #00ff64;' : ''">
-                                                <input type="checkbox" x-model="worldMapLayers.sources" style="cursor: pointer;">
-                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #00ff64;"></span>
-                                                <span>Sources</span>
+                                    <div class="world-map-controls">
+                                        <div class="world-map-layer-toggles">
+                                            <label class="world-map-layer-toggle" 
+                                                :class="{ 'active': worldMapLayers.sources }"
+                                                title="Toggle Sources layer">
+                                                <input type="checkbox" x-model="worldMapLayers.sources">
+                                                <span class="layer-dot" style="background: #00ff64;"></span>
+                                                <span class="layer-label">Sources</span>
                                             </label>
-                                            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);" 
-                                                :style="worldMapLayers.destinations ? 'background: rgba(0, 243, 255, 0.2); border-color: #00f3ff;' : ''">
-                                                <input type="checkbox" x-model="worldMapLayers.destinations" style="cursor: pointer;">
-                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #00f3ff;"></span>
-                                                <span>Destinations</span>
+                                            <label class="world-map-layer-toggle" 
+                                                :class="{ 'active': worldMapLayers.destinations }"
+                                                title="Toggle Destinations layer">
+                                                <input type="checkbox" x-model="worldMapLayers.destinations">
+                                                <span class="layer-dot" style="background: #00f3ff;"></span>
+                                                <span class="layer-label">Destinations</span>
                                             </label>
-                                            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);"
-                                                :style="worldMapLayers.threats ? 'background: rgba(255, 0, 60, 0.2); border-color: #ff003c;' : ''">
-                                                <input type="checkbox" x-model="worldMapLayers.threats" style="cursor: pointer;">
-                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ff003c;"></span>
-                                                <span>Threats</span>
+                                            <label class="world-map-layer-toggle" 
+                                                :class="{ 'active': worldMapLayers.threats }"
+                                                title="Toggle Threats layer">
+                                                <input type="checkbox" x-model="worldMapLayers.threats">
+                                                <span class="layer-dot" style="background: #ff003c;"></span>
+                                                <span class="layer-label">Threats</span>
                                             </label>
                                         </div>
-                                        <button @click="resetWorldMapView()" 
-                                            style="padding: 4px 12px; font-size: var(--text-xs); background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); border-radius: 4px; color: var(--text-secondary); cursor: pointer;"
-                                            title="Reset map view">
-                                            🎯 Reset View
+                                        <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <path d="M12 6v6l4 2"></path>
+                                            </svg>
+                                            Reset View
                                         </button>
                                     </div>
                                     <div class="world-map-container">
