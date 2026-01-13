@@ -9,3 +9,7 @@
 ## 2026-01-11 - [ARIA Tabs Pattern]
 **Learning:** When using Alpine.js for tab interfaces, `aria-selected` must be bound with a colon (`:aria-selected`) to evaluate the boolean expression. Using a static attribute results in the string "activeTab === 'x'" being read by screen readers.
 **Action:** Verify all dynamic ARIA states in Alpine.js templates use `x-bind` (colon prefix). Also, use proper `role="tablist"` and `role="tab"` for view-switching sidebars instead of generic navigation roles.
+
+## 2026-01-13 - [Header Button Accessibility]
+**Learning:** Icon-only buttons in the application header relied solely on `title` attributes, which are often ignored by screen readers and touch devices. Adding explicit `aria-label` attributes ensures all interactive elements have accessible names. Additionally, toggle buttons (like Pause/Resume) benefit from `aria-pressed` to communicate state changes.
+**Action:** Audit all icon-only buttons for `aria-label` and use `aria-pressed` for any button that functions as a toggle.

@@ -207,7 +207,9 @@
                             </div>
                             <!-- Pause Button -->
                             <button class="header-action-btn" :class="{ 'paused': paused }" @click="togglePause()"
-                                :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
+                                :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
+                                :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
+                                :aria-pressed="paused">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2" x-show="!paused">
                                     <rect x="6" y="4" width="4" height="16"></rect>
@@ -221,7 +223,7 @@
                         </div>
 
                         <div class="header-actions">
-                            <button class="header-action-btn" title="Refresh" @click="dataRefresh()">
+                            <button class="header-action-btn" title="Refresh" aria-label="Refresh Data" @click="dataRefresh()">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <path d="M23 4v6h-6"></path>
@@ -230,7 +232,7 @@
                                     </path>
                                 </svg>
                             </button>
-                            <button class="header-action-btn" title="Alerts" @click="openAlerts()">
+                            <button class="header-action-btn" title="Alerts" aria-label="View Alerts" @click="openAlerts()">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -239,14 +241,15 @@
                             </button>
                             <button class="header-action-btn" title="Edit Layout" @click="editMode = !editMode"
                                 :class="{ 'active': editMode }"
-                                :aria-label="editMode ? 'Finish Editing' : 'Edit Layout'">
+                                :aria-label="editMode ? 'Finish Editing' : 'Edit Layout'"
+                                :aria-pressed="editMode">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                 </svg>
                             </button>
-                            <button class="header-action-btn" title="Settings" @click="openConfig()">
+                            <button class="header-action-btn" title="Settings" aria-label="Open Settings" @click="openConfig()">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <circle cx="12" cy="12" r="3"></circle>
