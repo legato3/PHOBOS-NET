@@ -1905,6 +1905,24 @@ export const Store = () => ({
         let mapJustCreated = false;
         if (!this.map) {
             mapJustCreated = true;
+            
+            // Check container dimensions FIRST - don't initialize if container has no size
+            const containerRect = container.getBoundingClientRect();
+            if (containerRect.width === 0 || containerRect.height === 0) {
+                console.log('[WorldMap] Container has zero dimensions, deferring initialization');
+                // Try again after a delay
+                if (!this._mapInitRetries) this._mapInitRetries = 0;
+                if (this._mapInitRetries < 5) {
+                    this._mapInitRetries++;
+                    setTimeout(() => this.renderWorldMap(), 500);
+                } else {
+                    console.warn('[WorldMap] Container still has zero dimensions after retries - map will initialize when tab becomes visible');
+                    this._mapInitRetries = 0;
+                }
+                return;
+            }
+            this._mapInitRetries = 0; // Reset on success
+            
             // Ensure no previous instance exists to prevent "Map container is already initialized" error
             if (container._leaflet_id) {
                 container._leaflet_id = null;
@@ -1914,8 +1932,6 @@ export const Store = () => ({
             container.innerHTML = '';
 
             try {
-                // Initialize map even if container has zero dimensions
-                // Leaflet will handle it and we'll call invalidateSize() when visible
 
                 console.log('[WorldMap] Creating Leaflet map instance...');
                 this.map = L.map('world-map-svg', {
@@ -1939,6 +1955,17 @@ export const Store = () => ({
                 // Note: zoomControl was set to false in constructor, we can add it back
                 L.control.zoom({ position: 'topright' }).addTo(this.map);
 
+                // Check container dimensions BEFORE adding tiles
+                const containerRect = container.getBoundingClientRect();
+                console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
+                
+                if (containerRect.width === 0 || containerRect.height === 0) {
+                    console.warn('[WorldMap] Container has zero dimensions - deferring map initialization');
+                    // Try again after a delay - container might not be visible yet
+                    setTimeout(() => this.renderWorldMap(), 500);
+                    return;
+                }
+
                 // Add a base tile layer immediately so map is visible
                 console.log('[WorldMap] Adding base tile layer...');
                 const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -1948,13 +1975,6 @@ export const Store = () => ({
                 });
                 baseTileLayer.addTo(this.map);
                 console.log('[WorldMap] Base tile layer added to map');
-
-                // Force container to have dimensions if it doesn't
-                const containerRect = container.getBoundingClientRect();
-                console.log('[WorldMap] Container dimensions:', containerRect.width, 'x', containerRect.height);
-                if (containerRect.width === 0 || containerRect.height === 0) {
-                    console.warn('[WorldMap] Container has zero dimensions, will call invalidateSize when ready');
-                }
 
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
