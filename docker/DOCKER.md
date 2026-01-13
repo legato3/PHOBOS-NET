@@ -103,12 +103,16 @@ Note: The Flask development server will auto-reload on file changes when `FLASK_
 
 ## Data Persistence
 
-Database files and other data are stored in the `docker-data/` directory:
+Database files and NetFlow data are stored in the `docker-data/` directory:
 
 ```
 docker-data/
 ├── firewall.db          # Firewall syslog database
-└── netflow-trends.sqlite # NetFlow trends database
+├── netflow-trends.sqlite # NetFlow trends database
+└── nfdump/              # NetFlow data files (nfcapd storage)
+    ├── nfcapd.202601131800
+    ├── nfcapd.202601131805
+    └── ...
 ```
 
 To reset the test environment, simply delete the `docker-data/` directory:

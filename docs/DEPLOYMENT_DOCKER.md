@@ -264,9 +264,12 @@ The Docker container runs multiple services:
 
 ## Data Persistence
 
-Database files are stored in the mounted volume:
+Database files and NetFlow data are stored in mounted volumes:
 - Location: `/root/netflow-dashboard/docker-data` (on host)
-- Files: `firewall.db`, `netflow-trends.sqlite`
+- Database files: `firewall.db`, `netflow-trends.sqlite`
+- NetFlow data: `nfdump/` directory (contains nfcapd flow files)
+
+Both databases and NetFlow data files persist across container restarts and updates.
 
 To reset data:
 ```bash

@@ -32,8 +32,10 @@ services:
       # - VIRUSTOTAL_API_KEY=
       # - ABUSEIPDB_API_KEY=
     volumes:
-      # Mount data directory for persistence (optional)
+      # Mount data directory for database persistence
       - ../docker-data:/app/data
+      # Mount NetFlow data directory for persistence (nfcapd stores data here)
+      - ../docker-data/nfdump:/var/cache/nfdump
       # Mount sample data if you want to modify it
       - ../sample_data:/app/sample_data:ro
     restart: unless-stopped
