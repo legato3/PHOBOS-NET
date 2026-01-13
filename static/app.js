@@ -1,6 +1,7 @@
 import { Store } from './js/store.js?v=3.0.3';
 import * as DashboardUtils from './js/utils.js?v=3.0.3';
 import { DashboardWidgets } from './js/widgets.js?v=3.0.3';
+import ScrollSpy from './js/components/scroll-spy.js?v=3.0.3';
 
 // Expose globals for potential legacy script compatibility
 window.DashboardUtils = DashboardUtils;
@@ -24,61 +25,5 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('dashboard', Store);
 
     // Scroll Spy Navigation Component
-    Alpine.data('scrollSpy', () => ({
-        sections: [
-            { id: 'section-summary', label: 'Summary' },
-            { id: 'section-worldmap', label: 'World Map' },
-            { id: 'section-network', label: 'Network' },
-            { id: 'section-security', label: 'Security' },
-            { id: 'section-conversations', label: 'Conversations' }
-        ],
-        activeSection: 'section-summary',
-        scrollProgress: 0,
-        showScrollSpy: false,
-
-        init() {
-            // Debounced scroll handler
-            let scrollTimeout;
-            const handleScroll = () => {
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(() => this.updateScrollState(), 50);
-            };
-
-            window.addEventListener('scroll', handleScroll, { passive: true });
-
-            // Initial state
-            setTimeout(() => this.updateScrollState(), 100);
-        },
-
-        updateScrollState() {
-            const scrollTop = window.scrollY;
-            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-
-            // Update progress
-            this.scrollProgress = Math.min(100, (scrollTop / docHeight) * 100);
-
-            // Show/hide based on scroll position
-            this.showScrollSpy = scrollTop > 300;
-
-            // Find active section
-            let current = 'section-summary';
-            for (const section of this.sections) {
-                const el = document.getElementById(section.id);
-                if (el) {
-                    const rect = el.getBoundingClientRect();
-                    if (rect.top <= 150) {
-                        current = section.id;
-                    }
-                }
-            }
-            this.activeSection = current;
-        },
-
-        scrollToSection(sectionId) {
-            const el = document.getElementById(sectionId);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-    }));
+    Alpine.data('scrollSpy', ScrollSpy);
 });
