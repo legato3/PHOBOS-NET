@@ -2535,7 +2535,6 @@ export const Store = () => ({
             if (!ctx || !data || !data.labels) return;
 
             // Check if canvas parent container is visible
-            // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
                 // Container not visible yet, defer initialization (limit retries)
@@ -2557,14 +2556,31 @@ export const Store = () => ({
                 return;
             }
 
+            // Prevent recursive updates
+            if (this._pktSizeUpdating) return;
+            this._pktSizeUpdating = true;
+
             // Cyberpunk palette
             const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
 
+            // Destroy existing chart if it exists but is in bad state
             if (this.pktSizeChartInstance) {
-                this.pktSizeChartInstance.data.labels = data.labels;
-                this.pktSizeChartInstance.data.datasets[0].data = data.data;
-                this.pktSizeChartInstance.update();
-            } else {
+                try {
+                    this.pktSizeChartInstance.data.labels = data.labels;
+                    this.pktSizeChartInstance.data.datasets[0].data = data.data;
+                    this.pktSizeChartInstance.update('none'); // 'none' mode prevents animation that might trigger reactivity
+                } catch (e) {
+                    // Chart instance is corrupted, destroy and recreate
+                    console.warn('Packet Size chart instance corrupted, recreating:', e);
+                    try {
+                        this.pktSizeChartInstance.destroy();
+                    } catch {}
+                    this.pktSizeChartInstance = null;
+                }
+            }
+
+            // Create new chart if instance doesn't exist
+            if (!this.pktSizeChartInstance) {
                 this.pktSizeChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -2580,6 +2596,7 @@ export const Store = () => ({
                         indexAxis: 'y', // Horizontal bar
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false, // Disable animation to prevent reactive loops
                         plugins: {
                             legend: { display: false }
                         },
@@ -2596,8 +2613,10 @@ export const Store = () => ({
                     }
                 });
             }
+            this._pktSizeUpdating = false;
         } catch (e) {
             console.error('Chart render error:', e);
+            this._pktSizeUpdating = false;
         }
     },
 
@@ -2700,16 +2719,33 @@ export const Store = () => ({
                 return;
             }
 
+            // Prevent recursive updates
+            if (this._flagsUpdating) return;
+            this._flagsUpdating = true;
+
             const labels = flagsData.map(f => f.flag);
             const data = flagsData.map(f => f.count);
             // Cyberpunk palette
             const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
 
+            // Destroy existing chart if it exists but is in bad state
             if (this.flagsChartInstance) {
-                this.flagsChartInstance.data.labels = labels;
-                this.flagsChartInstance.data.datasets[0].data = data;
-                this.flagsChartInstance.update();
-            } else {
+                try {
+                    this.flagsChartInstance.data.labels = labels;
+                    this.flagsChartInstance.data.datasets[0].data = data;
+                    this.flagsChartInstance.update('none'); // 'none' mode prevents animation
+                } catch (e) {
+                    // Chart instance is corrupted, destroy and recreate
+                    console.warn('Flags chart instance corrupted, recreating:', e);
+                    try {
+                        this.flagsChartInstance.destroy();
+                    } catch {}
+                    this.flagsChartInstance = null;
+                }
+            }
+
+            // Create new chart if instance doesn't exist
+            if (!this.flagsChartInstance) {
                 this.flagsChartInstance = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
@@ -2723,14 +2759,17 @@ export const Store = () => ({
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false, // Disable animation to prevent reactive loops
                         plugins: {
                             legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
                         }
                     }
                 });
             }
+            this._flagsUpdating = false;
         } catch (e) {
             console.error('Chart render error:', e);
+            this._flagsUpdating = false;
         }
     },
 
@@ -3373,6 +3412,12 @@ export const Store = () => ({
             const canvas = document.getElementById('threatActivityTimelineChart');
             if (!canvas || !this.threatActivityTimeline.timeline) return;
 
+            // Check if canvas is actually in the DOM and has dimensions
+            if (!canvas.getContext) {
+                console.warn('Threat Activity Timeline chart canvas not ready');
+                return;
+            }
+
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
                 setTimeout(() => this.renderThreatActivityTimelineChart(), 100);
@@ -3380,7 +3425,18 @@ export const Store = () => ({
             }
 
             const ctx = canvas.getContext('2d');
-            if (this._threatActivityTimelineChart) this._threatActivityTimelineChart.destroy();
+            if (!ctx) {
+                console.warn('Threat Activity Timeline chart: could not get 2d context');
+                return;
+            }
+
+            if (this._threatActivityTimelineChart) {
+                try {
+                    this._threatActivityTimelineChart.destroy();
+                } catch (e) {
+                    console.warn('Error destroying threat activity timeline chart:', e);
+                }
+            }
 
             const labels = this.threatActivityTimeline.timeline.map(t => t.hour);
             const critical = this.threatActivityTimeline.timeline.map(t => t.critical || 0);
@@ -3594,6 +3650,10 @@ export const Store = () => ({
             return;
         }
 
+        // Prevent concurrent requests
+        if (this._recentBlocksFetching) return;
+        this._recentBlocksFetching = true;
+
         // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
         // This ensures we always have the latest data
         try {
@@ -3622,9 +3682,19 @@ export const Store = () => ({
                     const targetView = this.recentBlocksView || 50;
                     this.recentBlocksView = Math.min(targetView, newLogs.length || targetView, 1000);
                 }
+            } else if (res.status === 429) {
+                // Rate limited - back off by stopping auto-refresh temporarily
+                console.warn('Rate limited on firewall logs, pausing auto-refresh');
+                this.recentBlocksAutoRefresh = false;
+                if (this.recentBlocksRefreshTimer) {
+                    clearInterval(this.recentBlocksRefreshTimer);
+                    this.recentBlocksRefreshTimer = null;
+                }
             }
         } catch (e) {
             console.error('Incremental recent blocks fetch error:', e);
+        } finally {
+            this._recentBlocksFetching = false;
         }
     },
 
