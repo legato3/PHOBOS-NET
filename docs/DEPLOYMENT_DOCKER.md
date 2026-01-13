@@ -13,6 +13,28 @@ This document describes deploying the NetFlow Dashboard using Docker on PROX-DOC
 
 ## Quick Deployment
 
+### Enable World Map (GeoIP)
+
+The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, these cannot be bundled.
+
+1. **Download Databases**:
+   - Sign up for a free account at [MaxMind](https://www.maxmind.com).
+   - Download `GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb`.
+
+2. **Place Files on Server**:
+   - Put them in the `docker-data/` directory on the host (which is mounted to volume).
+   - Ensure they are named exactly `GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb`.
+   
+   ```bash
+   # Example copy to server
+   scp GeoLite2-*.mmdb root@192.168.0.73:/root/netflow-dashboard/docker-data/
+   ```
+
+3. **Restart Container**:
+   ```bash
+   docker compose -f docker/docker-compose.yml restart
+   ```
+
 ### Initial Deployment
 
 1. **Copy files to server:**

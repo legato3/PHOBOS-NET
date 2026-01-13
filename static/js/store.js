@@ -719,8 +719,8 @@ export const Store = () => ({
             if (!canvas) return;
 
             // Destroy existing fullscreen chart if any
-            if (this.fullscreenChartInstance) {
-                this.fullscreenChartInstance.destroy();
+            if (_chartInstances['fullscreenChartInstance']) {
+                _chartInstances['fullscreenChartInstance'].destroy();
             }
 
             // Clone the chart configuration
@@ -729,14 +729,14 @@ export const Store = () => ({
             config.options.responsive = true;
             config.options.maintainAspectRatio = false;
 
-            this.fullscreenChartInstance = new Chart(canvas, config);
+            _chartInstances['fullscreenChartInstance'] = new Chart(canvas, config);
         });
     },
 
     closeFullscreenChart() {
-        if (this.fullscreenChartInstance) {
-            this.fullscreenChartInstance.destroy();
-            this.fullscreenChartInstance = null;
+        if (_chartInstances['fullscreenChartInstance']) {
+            _chartInstances['fullscreenChartInstance'].destroy();
+            _chartInstances['fullscreenChartInstance'] = null;
         }
         this.fullscreenChart = null;
     },
@@ -1449,7 +1449,7 @@ export const Store = () => ({
             }
 
             const ctx = canvas.getContext('2d');
-            if (this._attackTimelineChart) this._attackTimelineChart.destroy();
+            if (_chartInstances['_attackTimelineChart']) _chartInstances['_attackTimelineChart'].destroy();
 
             const labels = this.attackTimeline.timeline.map(t => t.hour);
             const critical = this.attackTimeline.timeline.map(t => t.critical || 0);
@@ -1486,7 +1486,7 @@ export const Store = () => ({
                 });
             }
 
-            this._attackTimelineChart = new Chart(ctx, {
+            _chartInstances['_attackTimelineChart'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels, datasets },
                 options: {
@@ -2321,7 +2321,7 @@ export const Store = () => ({
                         }
                     }
                 });
-                this[instanceKey] = newChart;
+                _chartInstances[instanceKey] = newChart;
             }
         } catch (e) {
             console.error('Chart render error:', e);
@@ -2482,25 +2482,25 @@ export const Store = () => ({
             const colorFlows = this.getCssVar('--neon-purple') || '#bc13fe';
 
             // Destroy existing chart if it exists but is in bad state
-            if (this.bwChartInstance) {
+            if (_chartInstances['bwChartInstance']) {
                 try {
-                    this.bwChartInstance.data.labels = data.labels;
-                    this.bwChartInstance.data.datasets[0].data = data.bandwidth;
-                    this.bwChartInstance.data.datasets[1].data = data.flows;
-                    this.bwChartInstance.update('none'); // 'none' mode prevents animation
+                    _chartInstances['bwChartInstance'].data.labels = data.labels;
+                    _chartInstances['bwChartInstance'].data.datasets[0].data = data.bandwidth;
+                    _chartInstances['bwChartInstance'].data.datasets[1].data = data.flows;
+                    _chartInstances['bwChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
                     console.warn('Bandwidth chart instance corrupted, recreating:', e);
                     try {
-                        this.bwChartInstance.destroy();
+                        _chartInstances['bwChartInstance'].destroy();
                     } catch { }
-                    this.bwChartInstance = null;
+                    _chartInstances['bwChartInstance'] = null;
                 }
             }
 
             // Create new chart if instance doesn't exist
-            if (!this.bwChartInstance) {
-                this.bwChartInstance = new Chart(ctx, {
+            if (!_chartInstances['bwChartInstance']) {
+                _chartInstances['bwChartInstance'] = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: data.labels,
@@ -2612,24 +2612,24 @@ export const Store = () => ({
             const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
 
             // Destroy existing chart if it exists but is in bad state
-            if (this.pktSizeChartInstance) {
+            if (_chartInstances['pktSizeChartInstance']) {
                 try {
-                    this.pktSizeChartInstance.data.labels = data.labels;
-                    this.pktSizeChartInstance.data.datasets[0].data = data.data;
-                    this.pktSizeChartInstance.update('none'); // 'none' mode prevents animation that might trigger reactivity
+                    _chartInstances['pktSizeChartInstance'].data.labels = data.labels;
+                    _chartInstances['pktSizeChartInstance'].data.datasets[0].data = data.data;
+                    _chartInstances['pktSizeChartInstance'].update('none'); // 'none' mode prevents animation that might trigger reactivity
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
                     console.warn('Packet Size chart instance corrupted, recreating:', e);
                     try {
-                        this.pktSizeChartInstance.destroy();
+                        _chartInstances['pktSizeChartInstance'].destroy();
                     } catch { }
-                    this.pktSizeChartInstance = null;
+                    _chartInstances['pktSizeChartInstance'] = null;
                 }
             }
 
             // Create new chart if instance doesn't exist
-            if (!this.pktSizeChartInstance) {
-                this.pktSizeChartInstance = new Chart(ctx, {
+            if (!_chartInstances['pktSizeChartInstance']) {
+                _chartInstances['pktSizeChartInstance'] = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: data.labels,
@@ -2708,24 +2708,24 @@ export const Store = () => ({
             const values = data.bytes || [];
             const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
 
-            if (this.countriesChartInstance) {
+            if (_chartInstances['countriesChartInstance']) {
                 try {
-                    this.countriesChartInstance.data.labels = labels;
-                    this.countriesChartInstance.data.datasets[0].data = values;
-                    this.countriesChartInstance.update('none'); // 'none' mode prevents animation
+                    _chartInstances['countriesChartInstance'].data.labels = labels;
+                    _chartInstances['countriesChartInstance'].data.datasets[0].data = values;
+                    _chartInstances['countriesChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
                     console.warn('Countries chart instance corrupted, recreating:', e);
                     try {
-                        this.countriesChartInstance.destroy();
+                        _chartInstances['countriesChartInstance'].destroy();
                     } catch { }
-                    this.countriesChartInstance = null;
+                    _chartInstances['countriesChartInstance'] = null;
                 }
             }
 
             // Create new chart if instance doesn't exist
-            if (!this.countriesChartInstance) {
-                this.countriesChartInstance = new Chart(ctx, {
+            if (!_chartInstances['countriesChartInstance']) {
+                _chartInstances['countriesChartInstance'] = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels,
@@ -2805,25 +2805,25 @@ export const Store = () => ({
             const bytes = data.bytes || [];
             const colors = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
 
-            if (this.protoMixChartInstance) {
+            if (_chartInstances['protoMixChartInstance']) {
                 try {
-                    this.protoMixChartInstance.data.labels = labels;
-                    this.protoMixChartInstance.data.datasets[0].data = bytes;
-                    this.protoMixChartInstance.data.datasets[0].backgroundColor = colors;
-                    this.protoMixChartInstance.update('none'); // 'none' mode prevents animation
+                    _chartInstances['protoMixChartInstance'].data.labels = labels;
+                    _chartInstances['protoMixChartInstance'].data.datasets[0].data = bytes;
+                    _chartInstances['protoMixChartInstance'].data.datasets[0].backgroundColor = colors;
+                    _chartInstances['protoMixChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
                     console.warn('Protocol Mix chart instance corrupted, recreating:', e);
                     try {
-                        this.protoMixChartInstance.destroy();
+                        _chartInstances['protoMixChartInstance'].destroy();
                     } catch { }
-                    this.protoMixChartInstance = null;
+                    _chartInstances['protoMixChartInstance'] = null;
                 }
             }
 
             // Create new chart if instance doesn't exist
-            if (!this.protoMixChartInstance) {
-                this.protoMixChartInstance = new Chart(ctx, {
+            if (!_chartInstances['protoMixChartInstance']) {
+                _chartInstances['protoMixChartInstance'] = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: labels,
@@ -2906,24 +2906,24 @@ export const Store = () => ({
             const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
 
             // Destroy existing chart if it exists but is in bad state
-            if (this.flagsChartInstance) {
+            if (_chartInstances['flagsChartInstance']) {
                 try {
-                    this.flagsChartInstance.data.labels = labels;
-                    this.flagsChartInstance.data.datasets[0].data = data;
-                    this.flagsChartInstance.update('none'); // 'none' mode prevents animation
+                    _chartInstances['flagsChartInstance'].data.labels = labels;
+                    _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
+                    _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
                     console.warn('Flags chart instance corrupted, recreating:', e);
                     try {
-                        this.flagsChartInstance.destroy();
+                        _chartInstances['flagsChartInstance'].destroy();
                     } catch { }
-                    this.flagsChartInstance = null;
+                    _chartInstances['flagsChartInstance'] = null;
                 }
             }
 
             // Create new chart if instance doesn't exist
-            if (!this.flagsChartInstance) {
-                this.flagsChartInstance = new Chart(ctx, {
+            if (!_chartInstances['flagsChartInstance']) {
+                _chartInstances['flagsChartInstance'] = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: labels,
@@ -3310,7 +3310,7 @@ export const Store = () => ({
             }
 
             const ctx = canvas.getContext('2d');
-            if (this._ipInvestigationTimelineChart) this._ipInvestigationTimelineChart.destroy();
+            if (_chartInstances['_ipInvestigationTimelineChart']) _chartInstances['_ipInvestigationTimelineChart'].destroy();
 
             const labels = this.ipInvestigation.timeline.labels;
             const bytes = this.ipInvestigation.timeline.bytes;
@@ -3364,7 +3364,7 @@ export const Store = () => ({
                 }
             }
 
-            this._ipInvestigationTimelineChart = new Chart(ctx, {
+            _chartInstances['_ipInvestigationTimelineChart'] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -3607,9 +3607,9 @@ export const Store = () => ({
                 return;
             }
 
-            if (this._threatActivityTimelineChart) {
+            if (_chartInstances['_threatActivityTimelineChart']) {
                 try {
-                    this._threatActivityTimelineChart.destroy();
+                    _chartInstances['_threatActivityTimelineChart'].destroy();
                 } catch (e) {
                     console.warn('Error destroying threat activity timeline chart:', e);
                 }
@@ -3650,7 +3650,7 @@ export const Store = () => ({
                 });
             }
 
-            this._threatActivityTimelineChart = new Chart(ctx, {
+            _chartInstances['_threatActivityTimelineChart'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels, datasets },
                 options: {

@@ -38,6 +38,9 @@ services:
       - ../docker-data/nfdump:/var/cache/nfdump
       # Mount sample data if you want to modify it
       - ../sample_data:/app/sample_data:ro
+      # Mount GeoIP databases (required for World Map)
+      - ../docker-data/GeoLite2-City.mmdb:/root/GeoLite2-City.mmdb:ro
+      - ../docker-data/GeoLite2-ASN.mmdb:/root/GeoLite2-ASN.mmdb:ro
     restart: unless-stopped
     # Resource limits matching production (optional, can be adjusted)
     deploy:

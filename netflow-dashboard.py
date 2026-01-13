@@ -993,7 +993,8 @@ def fetch_threat_feed():
         
         # Support multiple feeds from threat-feeds.txt
         feed_entries = []
-        feeds_file = '/root/threat-feeds.txt'
+        # Try /app first (Docker), then /root (production)
+        feeds_file = '/app/threat-feeds.txt' if os.path.exists('/app/threat-feeds.txt') else '/root/threat-feeds.txt'
         if os.path.exists(feeds_file):
             with open(feeds_file, 'r') as f:
                 for line in f:
@@ -2920,15 +2921,28 @@ def api_stats_flow_stats():
         packets_list = []
         lines = output.strip().split("\n")
         header = lines[0].split(',')
+
         try:
-            td_idx = header.index('td')
-            ibyt_idx = header.index('ibyt')
-            ipkt_idx = header.index('ipkt')
+            # Try 1.7+ standard tags
+            if 'td' in header: td_idx = header.index('td')
+            elif 'duration' in header: td_idx = header.index('duration')
+            else: raise ValueError("Time duration column not found")
+
+            if 'ibyt' in header: ibyt_idx = header.index('ibyt')
+            elif 'bytes' in header: ibyt_idx = header.index('bytes')
+            else: raise ValueError("Bytes column not found")
+
+            if 'ipkt' in header: ipkt_idx = header.index('ipkt')
+            elif 'packets' in header: ipkt_idx = header.index('packets')
+            else: raise ValueError("Packets column not found")
         except:
-            td_idx, ibyt_idx, ipkt_idx = 2, 12, 11
+            # Fallback to defaults or specific index map if header parsing fails completely
+            # Based on log: ['firstseen', 'duration', 'proto', 'srcaddr', 'srcport', 'dstaddr', 'dstport', 'packets', 'bytes', 'flows']
+            # duration=1, packets=7, bytes=8
+            td_idx, ipkt_idx, ibyt_idx = 1, 7, 8
 
         for line in lines[1:]:
-            if not line or line.startswith('ts,'): continue
+            if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
             parts = line.split(',')
             if len(parts) > max(td_idx, ibyt_idx, ipkt_idx):
                 try:
@@ -5761,63 +5775,88 @@ def api_forensics_flow_search():
 @app.route('/api/forensics/alert-correlation')
 def api_forensics_alert_correlation():
     """Correlate alerts to identify attack chains and multi-stage attacks."""
-    range_val = request.args.get('range', '24h')
-    range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_val, 86400)
-    now = time.time()
-    cutoff = now - range_seconds
+    try:
+        range_val = request.args.get('range', '24h')
+        range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_val, 86400)
+        now = time.time()
+        cutoff = now - range_seconds
 
-    # Get alerts from history filtered by time range
-    with _alert_history_lock:
-        alerts = [a for a in _alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
+        # Get alerts from history filtered by time range
+        with _alert_history_lock:
+            alerts = [a for a in _alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
 
-    # Group alerts by IP and time proximity (within 1 hour)
-    chains = {}
-    time_threshold = 3600  # 1 hour in seconds
+        # Group alerts by IP and time proximity (within 1 hour)
+        chains = {}
+        time_threshold = 3600  # 1 hour in seconds
 
-    for alert in sorted(alerts, key=lambda x: x.get('timestamp', 0) or x.get('ts', 0)):
-        ip = alert.get('ip') or alert.get('source_ip')
-        if not ip:
-            continue
+        for alert in sorted(alerts, key=lambda x: float(x.get('timestamp', 0) or x.get('ts', 0))):
+            ip = alert.get('ip') or alert.get('source_ip')
+            if not ip:
+                continue
 
-        timestamp = alert.get('timestamp', 0) or alert.get('ts', 0)
+            # Ensure timestamp is float
+            try:
+                timestamp = float(alert.get('timestamp', 0) or alert.get('ts', 0))
+            except (ValueError, TypeError):
+                continue
 
-        # Find if this IP has an existing chain within time threshold
-        found_chain = False
-        for chain_ip, chain_data in chains.items():
-            if chain_ip == ip:
+            # Find if this IP has an existing chain within time threshold
+            found_chain = False
+            
+            # Optimization: Direct lookup instead of iteration
+            if ip in chains:
+                chain_data = chains[ip]
                 last_alert = chain_data['alerts'][-1]
-                last_alert_time = last_alert.get('timestamp', 0) or last_alert.get('ts', 0)
-                if timestamp - last_alert_time <= time_threshold:
-                    chain_data['alerts'].append(alert)
-                    chain_data['end_time'] = timestamp
-                    found_chain = True
-                    break
+                try:
+                    last_alert_time = float(last_alert.get('timestamp', 0) or last_alert.get('ts', 0))
+                    if timestamp - last_alert_time <= time_threshold:
+                        chain_data['alerts'].append(alert)
+                        chain_data['end_time'] = timestamp
+                        found_chain = True
+                except (ValueError, TypeError):
+                    pass
 
-        # Create new chain if not found
-        if not found_chain and ip:
-            chains[ip] = {
-                'ip': ip,
-                'alerts': [alert],
-                'start_time': timestamp,
-                'end_time': timestamp
-            }
+            # Create new chain if not found (or time gap too large - overwrites old chain logic preserved for now to avoid logic drift)
+            if not found_chain:
+                # If we are overwriting, we effectively split the chain and keep the latest segment.
+                # Ideally we should store a list of chains, but for now let's just be robust.
+                chains[ip] = {
+                    'ip': ip,
+                    'alerts': [alert],
+                    'start_time': timestamp,
+                    'end_time': timestamp
+                }
 
-    # Filter chains with multiple alerts and format response
-    result_chains = []
-    for ip, chain_data in chains.items():
-        if len(chain_data['alerts']) > 1:  # Only chains with multiple related alerts
-            result_chains.append({
-                'ip': ip,
-                'alerts': [{
-                    'id': f"{a.get('type', 'alert')}_{a.get('timestamp', 0) or a.get('ts', 0)}",
-                    'type': a.get('type', 'unknown'),
-                    'message': a.get('msg', 'Alert'),
-                    'time': datetime.fromtimestamp(a.get('timestamp', 0) or a.get('ts', 0)).strftime('%H:%M:%S') if (a.get('timestamp') or a.get('ts')) else 'recent'
-                } for a in chain_data['alerts']],
-                'timespan': f"{len(chain_data['alerts'])} alerts over {int((chain_data['end_time'] - chain_data['start_time']) / 60)}min"
-            })
+        # Filter chains with multiple alerts and format response
+        result_chains = []
+        for ip, chain_data in chains.items():
+            if len(chain_data['alerts']) > 1:  # Only chains with multiple related alerts
+                formatted_alerts = []
+                for a in chain_data['alerts']:
+                    try:
+                        ts_val = float(a.get('timestamp', 0) or a.get('ts', 0))
+                        time_str = datetime.fromtimestamp(ts_val).strftime('%H:%M:%S')
+                    except Exception:
+                        time_str = 'recent'
+                        ts_val = 0
+                    
+                    formatted_alerts.append({
+                        'id': f"{a.get('type', 'alert')}_{ts_val}",
+                        'type': a.get('type', 'unknown'),
+                        'message': a.get('msg', 'Alert'),
+                        'time': time_str
+                    })
 
-    return jsonify({'chains': result_chains, 'count': len(result_chains)})
+                result_chains.append({
+                    'ip': ip,
+                    'alerts': formatted_alerts,
+                    'timespan': f"{len(chain_data['alerts'])} alerts over {int((chain_data['end_time'] - chain_data['start_time']) / 60)}min"
+                })
+
+        return jsonify({'chains': result_chains, 'count': len(result_chains)})
+    except Exception as e:
+        print(f"Error in alert correlation: {e}")
+        return jsonify({'chains': [], 'count': 0, 'error': str(e)}), 500
 
 
 # ===== Configuration Settings =====

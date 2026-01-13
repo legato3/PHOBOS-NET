@@ -53,17 +53,41 @@ After deployment, update your OPNsense firewall syslog target:
 5. **Transport**: `UDP`
 6. Click **Save** and **Apply**
 
+## Updating Deployment
+
+When you have code changes to deploy:
+
+```bash
+# From your local machine
+cd /path/to/PROX_NFDUMP
+
+# Commit and push changes (if not already done)
+git add -A
+git commit -m "Your commit message"
+git push origin main
+
+# Copy updated application file
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+
+# Restart container (picks up new code)
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+```
+
+**Note**: For code-only changes (like `netflow-dashboard.py`), a restart is usually sufficient. Only rebuild if you changed the Dockerfile, requirements.txt, or other build-time dependencies.
+
+See **[UPDATING.md](UPDATING.md)** for detailed update procedures.
+
 ## Useful Commands
 
 ```bash
 # View logs
-docker logs netflow-dashboard-test -f
+docker logs phobos-net -f
 
 # Restart container
-docker-compose -f /root/netflow-dashboard/docker/docker-compose.yml restart
+docker compose -f /root/netflow-dashboard/docker/docker-compose.yml restart
 
 # Check status
-docker-compose -f /root/netflow-dashboard/docker/docker-compose.yml ps
+docker compose -f /root/netflow-dashboard/docker/docker-compose.yml ps
 
 # Check syslog stats
 curl http://localhost:3434/api/server/health | python3 -m json.tool | grep -A 6 syslog
@@ -71,3 +95,5 @@ curl http://localhost:3434/api/server/health | python3 -m json.tool | grep -A 6 
 # Check firewall stats
 curl http://localhost:3434/api/stats/firewall | python3 -m json.tool
 ```
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+run_terminal_cmd

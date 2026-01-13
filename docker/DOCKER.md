@@ -109,11 +109,15 @@ Database files and NetFlow data are stored in the `docker-data/` directory:
 docker-data/
 ├── firewall.db          # Firewall syslog database
 ├── netflow-trends.sqlite # NetFlow trends database
+├── GeoLite2-City.mmdb   # MaxMind GeoIP City DB (Required for Map)
+├── GeoLite2-ASN.mmdb    # MaxMind GeoIP ASN DB (Required for Map)
 └── nfdump/              # NetFlow data files (nfcapd storage)
     ├── nfcapd.202601131800
     ├── nfcapd.202601131805
     └── ...
 ```
+
+**Note**: You must download the `GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb` files from [MaxMind](https://www.maxmind.com) and place them in `docker-data/` to enable the World Map.
 
 To reset the test environment, simply delete the `docker-data/` directory:
 
