@@ -3683,29 +3683,42 @@ export const Store = () => ({
                 this.lastFetch.worldmap = now;
             }
             // Initialize map when overview tab becomes visible
-            // Wait for DOM to update so container has dimensions
+            // Use requestAnimationFrame to ensure Alpine.js has rendered the tab
             this.$nextTick(() => {
-                setTimeout(() => {
-                    const container = document.getElementById('world-map-svg');
-                    if (container) {
-                        const rect = container.getBoundingClientRect();
-                        console.log('[WorldMap] loadTab overview - Container dimensions:', rect.width, 'x', rect.height);
-                        if (rect.width > 0 && rect.height > 0) {
-                            if (this.map) {
-                                this.map.invalidateSize();
-                                this.renderWorldMap();
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // Double RAF ensures Alpine.js x-show has applied display styles
+                        const container = document.getElementById('world-map-svg');
+                        if (container) {
+                            const rect = container.getBoundingClientRect();
+                            console.log('[WorldMap] loadTab overview - Container dimensions:', rect.width, 'x', rect.height);
+                            if (rect.width > 0 && rect.height > 0) {
+                                if (this.map) {
+                                    this.map.invalidateSize();
+                                    this.renderWorldMap();
+                                } else {
+                                    // Initialize map now that container has dimensions
+                                    this.renderWorldMap();
+                                }
                             } else {
-                                // Initialize map now that container has dimensions
-                                this.renderWorldMap();
+                                // Container still has zero dimensions - try one more time after a delay
+                                setTimeout(() => {
+                                    const container2 = document.getElementById('world-map-svg');
+                                    if (container2) {
+                                        const rect2 = container2.getBoundingClientRect();
+                                        if (rect2.width > 0 && rect2.height > 0) {
+                                            this.renderWorldMap();
+                                        } else {
+                                            console.warn('[WorldMap] Container still has zero dimensions - map initialization deferred');
+                                        }
+                                    }
+                                }, 500);
                             }
                         } else {
-                            console.warn('[WorldMap] Container has zero dimensions in loadTab - map will initialize when container becomes visible');
-                            // Don't retry here - renderWorldMap() has its own retry logic
+                            console.warn('[WorldMap] Container not found in loadTab');
                         }
-                    } else {
-                        console.warn('[WorldMap] Container not found in loadTab');
-                    }
-                }, 300);
+                    });
+                });
             });
         } else if (tab === 'server') {
             this.startServerHealthAutoRefresh();
