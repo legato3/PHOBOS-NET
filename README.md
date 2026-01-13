@@ -23,10 +23,33 @@ NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic moni
 - **Per-Feed Error Handling**: Continues if individual feeds fail
 - **Real-Time Matching**: Alerts on threat IP detection
 
+### Security Center
+- **Risk Index**: Real-time network risk scoring (0-100) based on traffic patterns
+- **MITRE ATT&CK**: Heatmap visualization of detected techniques
+- **Attack Timeline**: 24-hour hourly breakdown of security events
+- **Anomaly Detection**:
+  - Port Scans & Brute Force
+  - Data Exfiltration
+  - DNS Tunneling
+  - Lateral Movement
+  - Protocol Anomalies
+  - Off-Hours Activity
+
+### Forensics
+- **Flow Search**: Advanced multi-criteria search for investigation
+- **Alert Correlation**: Group related alerts into attack chains
+- **IP Investigation**: Detailed IP drill-down with traffic patterns and related IPs
+
+### AI Assistant
+- **Integrated Chat**: DeepSeek Coder v2 integration via Ollama
+- **Context Aware**: Helper for analyzing network patterns and explaining alerts
+- **Streaming Support**: Real-time response streaming
+
 ### Performance Optimizations
 - **Asset Minification**: 38% smaller CSS/JS (-90 KB total)
 - **60-second Server-Side Caching**: All stats endpoints
 - **Granular Bandwidth Caching**: Efficient historical data
+- **Batch API**: Fetch multiple datasets in a single HTTP request
 - **nfdump Call Consolidation**: Reduced redundant queries
 - **Parallel Processing**: ThreadPoolExecutor for concurrent operations
 - **Request Coalescing**: Prevents thundering herd problems
@@ -110,16 +133,41 @@ Dashboard: `http://<LXC-IP>:8080`
 
 ## 📊 Key API Endpoints
 
+### Core Statistics
 - `/api/stats/summary` - Overview statistics
 - `/api/stats/sources` - Top source IPs
-- `/api/stats/destinations` - Top destination IPs  
+- `/api/stats/destinations` - Top destination IPs
+- `/api/stats/ports` - Top ports
+- `/api/stats/protocols` - Protocol usage
 - `/api/bandwidth` - Bandwidth time series
-- `/api/stats/firewall` - Firewall health metrics (SNMP)
-- `/api/server/health` - Dashboard server health (CPU, memory, disk, syslog, netflow, database)
-- `/api/alerts_history` - Historical alerts
-- `/api/thresholds` - GET current alert thresholds / POST to update
-- `/health` - Health check endpoint (database, disk space, syslog, nfdump status)
-- `/metrics` - Prometheus-style metrics endpoint
+
+### Security Center
+- `/api/security/score` - Current security score (0-100)
+- `/api/security/risk_index` - Detailed risk factors
+- `/api/security/mitre-heatmap` - MITRE ATT&CK coverage
+- `/api/security/attack-timeline` - 24h attack timeline
+- `/api/stats/threats` - Active detected threats
+
+### Forensics
+- `/api/forensics/flow-search` - Search flows by IP, port, protocol
+- `/api/forensics/alert_correlation` - Correlated alert chains
+- `/api/ip_detail/<ip>` - Deep dive IP investigation
+
+### Firewall Integration
+- `/api/stats/firewall` - Health metrics (SNMP)
+- `/api/firewall/logs/stats` - Block statistics
+- `/api/firewall/logs/recent` - Recent block logs
+
+### AI Assistant
+- `/api/ollama/chat` - Chat interface with LLM
+- `/api/ollama/models` - Available models
+
+### System & Performance
+- `/api/server/health` - Dashboard server health
+- `/api/stats/batch` - Batch data fetching
+- `/api/performance/metrics` - API latency and cache stats
+- `/health` - Service health check
+- `/metrics` - Prometheus metrics
 
 ## 🔍 Sample Data
 
@@ -225,9 +273,11 @@ The dashboard supports configuration via environment variables:
 - `SNMP_HOST` (default: 192.168.0.1)
 - `SNMP_COMMUNITY` (default: Phoboshomesnmp_3)
 - `DNS_SERVER` (default: 192.168.0.6)
+- `OLLAMA_URL` (default: http://192.168.0.88:11434)
 - `SMTP_CFG_PATH` (default: /root/netflow-smtp.json)
 - `NOTIFY_CFG_PATH` (default: /root/netflow-notify.json)
 - `THRESHOLDS_CFG_PATH` (default: /root/netflow-thresholds.json)
+- `FIREWALL_DB_PATH` (default: /root/firewall.db)
 
 Thresholds API payload example (POST /api/thresholds):
 ```json
@@ -272,4 +322,3 @@ For a complete list, see [docs/README.md](docs/README.md).
 ### Accessibility Score
 - **WCAG 2.1 Level AA Compliant**
 - **24/24 Validation Tests Passed**
-
