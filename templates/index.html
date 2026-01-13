@@ -56,16 +56,9 @@
     <!-- Heavy visualization libraries - Defer until needed -->
     <script src="/static/vis-network.min.js" defer></script>
 
-    <!-- Leaflet - External CDN, defer CSS and JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" media="print"
-        onload="this.media='all'">
-    <noscript>
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-            integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-    </noscript>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+    <!-- Leaflet - Local bundle -->
+    <link rel="stylesheet" href="/static/leaflet.css">
+    <script src="/static/leaflet.js" defer></script>
 </head>
 
 <body class="antialiased" x-data="dashboard">
