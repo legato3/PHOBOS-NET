@@ -1873,12 +1873,14 @@ export const Store = () => ({
     },
 
     renderWorldMap() {
+        console.log('[WorldMap] renderWorldMap() called');
         const container = document.getElementById('world-map-svg');
         if (!container) {
             console.warn('[WorldMap] Container not found');
             this.mapStatus = '';
             return;
         }
+        console.log('[WorldMap] Container found:', container);
 
         // Check if container is visible (x-show might hide it initially)
         const containerParent = container.closest('.world-map-container');
@@ -1936,6 +1938,7 @@ export const Store = () => ({
                     return;
                 }
 
+                console.log('[WorldMap] Creating Leaflet map instance...');
                 this.map = L.map('world-map-svg', {
                     center: [20, 0],
                     zoom: 2,
@@ -1946,6 +1949,7 @@ export const Store = () => ({
                     preferCanvas: true, // Use canvas for better performance
                     renderer: L.canvas()
                 });
+                console.log('[WorldMap] Map instance created:', this.map);
 
                 // Initialize mapLayers array if not exists
                 if (!this.mapLayers) {
@@ -1957,12 +1961,14 @@ export const Store = () => ({
                 L.control.zoom({ position: 'topright' }).addTo(this.map);
 
                 // Add a base tile layer immediately so map is visible
+                console.log('[WorldMap] Adding base tile layer...');
                 const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap &copy; CARTO',
                     subdomains: 'abcd',
                     maxZoom: 19
                 });
                 baseTileLayer.addTo(this.map);
+                console.log('[WorldMap] Base tile layer added to map');
 
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
