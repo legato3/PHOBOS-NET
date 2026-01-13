@@ -1916,7 +1916,9 @@ export const Store = () => ({
         this._leafletWaitAttempts = 0; // Reset on success
 
         // Initialize Leaflet if not already done
+        let mapJustCreated = false;
         if (!this.map) {
+            mapJustCreated = true;
             // Ensure no previous instance exists to prevent "Map container is already initialized" error
             if (container._leaflet_id) {
                 container._leaflet_id = null;
@@ -1945,53 +1947,52 @@ export const Store = () => ({
                     renderer: L.canvas()
                 });
 
-                // Offline-ready Map: Use local GeoJSON (High contrast, Cyberpunk style)
-                fetch('/static/world.geojson')
-                    .then(r => r.json())
-                    .then(geoJsonData => {
-                        L.geoJSON(geoJsonData, {
-                            style: {
-                                fillColor: '#1a1f2e',     // Dark background for countries
-                                weight: 1,
-                                opacity: 1,
-                                color: '#2d3748',         // Subtle borders
-                                fillOpacity: 0.7
-                            }
-                        }).addTo(this.map);
-
-                        // Render markers after base map is ready
-                        if (this.map) {
-                            this.renderWorldMapMarkers();
-                        }
-                    })
-                    .catch(e => {
-                        console.error('[WorldMap] Failed to load local GeoJSON:', e);
-                        // Fallback to minimal tiles if GeoJSON fails
-                        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                            attribution: '&copy; OpenStreetMap &copy; CARTO',
-                            subdomains: 'abcd',
-                            maxZoom: 19
-                        });
-                        tileLayer.addTo(this.map);
-                        // Render markers after tile layer is added
-                        if (this.map) {
-                            this.renderWorldMapMarkers();
-                        }
-                    });
-
-                // Enable zoom control for visibility confirmation
-                // Note: zoomControl was set to false in constructor, we can add it back
-                L.control.zoom({ position: 'topright' }).addTo(this.map);
-
                 // Initialize mapLayers array if not exists
                 if (!this.mapLayers) {
                     this.mapLayers = [];
                 }
 
+                // Enable zoom control for visibility confirmation
+                // Note: zoomControl was set to false in constructor, we can add it back
+                L.control.zoom({ position: 'topright' }).addTo(this.map);
+
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
                     if (!this.map) return;
                     this.map.invalidateSize();
+                    
+                    // Offline-ready Map: Use local GeoJSON (High contrast, Cyberpunk style)
+                    fetch('/static/world.geojson')
+                        .then(r => r.json())
+                        .then(geoJsonData => {
+                            if (!this.map) return;
+                            L.geoJSON(geoJsonData, {
+                                style: {
+                                    fillColor: '#1a1f2e',     // Dark background for countries
+                                    weight: 1,
+                                    opacity: 1,
+                                    color: '#2d3748',         // Subtle borders
+                                    fillOpacity: 0.7
+                                }
+                            }).addTo(this.map);
+
+                            // Render markers after base map is ready
+                            this.renderWorldMapMarkers();
+                        })
+                        .catch(e => {
+                            console.error('[WorldMap] Failed to load local GeoJSON:', e);
+                            if (!this.map) return;
+                            // Fallback to minimal tiles if GeoJSON fails
+                            const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                                subdomains: 'abcd',
+                                maxZoom: 19
+                            });
+                            tileLayer.addTo(this.map);
+                            // Render markers after tile layer is added
+                            this.renderWorldMapMarkers();
+                        });
+                    
                     // Force a view reset after a short delay to ensure tiles load
                     setTimeout(() => {
                         if (this.map) {
@@ -2020,6 +2021,9 @@ export const Store = () => ({
                 }
                 return;
             }
+            
+            // Don't continue to marker rendering if map was just created - markers will be rendered after tiles load
+            return;
         }
 
         // Ensure map size is correct (important when container visibility changes)
