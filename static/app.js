@@ -97,7 +97,7 @@ document.addEventListener('alpine:init', () => {
         services: { services: [], maxBytes: 1, loading: true },
         hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
         flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
-        protoMix: { labels: [], bytes: [], percentages: [], colors: [], loading: true },
+
         netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
         serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
 
@@ -182,7 +182,7 @@ document.addEventListener('alpine:init', () => {
                 services: 'Top Services',
                 hourlyTraffic: 'Traffic by Hour',
                 flowStats: 'Flow Statistics',
-                protoMix: 'Protocol Mix',
+
                 netHealth: 'Network Health',
                 insights: 'Traffic Insights',
                 mitreHeatmap: 'MITRE ATT&CK Coverage',
@@ -349,7 +349,7 @@ document.addEventListener('alpine:init', () => {
         pktSizeChartInstance: null,
         hourlyChartInstance: null,
         hourlyChart2Instance: null,
-        protoMixChartInstance: null,
+
         trendModalOpen: false,
         trendIP: null,
         trendKind: 'source',
@@ -712,7 +712,7 @@ document.addEventListener('alpine:init', () => {
                 case 'pktSizeChart': return this.pktSizeChartInstance;
                 case 'hourlyChart': return this.hourlyChartInstance;
                 case 'hourlyChart2': return this.hourlyChart2Instance;
-                case 'protoMixChart': return this.protoMixChartInstance;
+
                 case 'countriesChart': return this.countriesChartInstance;
                 case 'blocklistChart': return this.blocklistChartInstance;
                 default: return null;
@@ -896,7 +896,7 @@ document.addEventListener('alpine:init', () => {
                     if (this.isVisible('packetSizes')) this.fetchPacketSizes();
                     if (this.isVisible('protocols')) this.fetchProtocols();
                     if (this.isVisible('flowStats')) this.fetchFlowStats();
-                    if (this.isVisible('protoMix')) this.fetchProtoMix();
+
                     if (this.isVisible('netHealth')) this.fetchNetHealth();
                     this.lastFetch.network = now;
                 }
@@ -961,7 +961,7 @@ document.addEventListener('alpine:init', () => {
             this.fetchPorts();
 
             // Fetch Overview Widgets (New)
-            if (this.isVisible('protoMix')) this.fetchProtoMix();
+
             if (this.isVisible('talkers')) this.fetchTalkers();
             if (this.isVisible('netHealth')) this.fetchNetHealth();
 
@@ -982,7 +982,7 @@ document.addEventListener('alpine:init', () => {
                     this.fetchPacketSizes(),
                     this.fetchProtocols(),
                     this.fetchFlowStats(),
-                    this.fetchProtoMix(),
+
                     this.fetchNetHealth(),
                     this.fetchASNs(),
                     this.fetchCountries(),
@@ -2158,104 +2158,9 @@ document.addEventListener('alpine:init', () => {
             } catch (e) { console.error(e); } finally { this.flowStats.loading = false; }
         },
 
-        async fetchProtoMix() {
-            this.protoMix.loading = true;
-            try {
-                const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    this.protoMix = { ...data };
-                    // Defer chart update to ensure canvas is visible
-                    this.$nextTick(() => {
-                        setTimeout(() => this.updateProtoMixChart(data), 100);
-                    });
-                }
-            } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
-        },
 
-        updateProtoMixChart(data) {
-            try {
-                const ctx = document.getElementById('protoMixChart');
-                if (!ctx) return;
 
-                // Check if canvas parent container is visible
-                // Check if canvas parent container is visible
-                const container = ctx.closest('.widget-body, .chart-wrapper-small');
-                if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                    // Container not visible yet, defer initialization (limit retries)
-                    if (!this._protoMixRetries) this._protoMixRetries = 0;
-                    if (this._protoMixRetries < 50) {
-                        this._protoMixRetries++;
-                        setTimeout(() => this.updateProtoMixChart(data), 200);
-                        return;
-                    } else {
-                        console.warn('ProtoMix chart container not visible after retries, forcing render');
-                        this._protoMixRetries = 0;
-                    }
-                }
-                this._protoMixRetries = 0;
 
-                // Check if Chart.js is loaded
-                if (typeof Chart === 'undefined') {
-                    setTimeout(() => this.updateProtoMixChart(data), 100);
-                    return;
-                }
-
-                // Validate data structure
-                if (!data || !data.labels || !data.bytes || data.labels.length === 0) {
-                    console.warn('Protocol Mix: No data available');
-                    // Clear existing chart if no data
-                    if (this.protoMixChartInstance) {
-                        this.protoMixChartInstance.destroy();
-                        this.protoMixChartInstance = null;
-                    }
-                    return;
-                }
-
-                if (this.protoMixChartInstance) {
-                    this.protoMixChartInstance.data.labels = data.labels;
-                    this.protoMixChartInstance.data.datasets[0].data = data.bytes;
-                    this.protoMixChartInstance.data.datasets[0].backgroundColor = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
-                    this.protoMixChartInstance.update();
-                } else {
-                    this.protoMixChartInstance = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: data.labels,
-                            datasets: [{
-                                data: data.bytes,
-                                backgroundColor: data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'],
-                                borderColor: 'rgba(0,0,0,0.3)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'right',
-                                    labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12 }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function (context) {
-                                            const label = context.label || '';
-                                            const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
-                                            const pct = data.percentages ? data.percentages[context.dataIndex] : '';
-                                            return `${label}: ${value} (${pct}%)`;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error('Protocol Mix chart error:', e);
-            }
-        },
 
         async fetchNetHealth() {
             this.netHealth.loading = true;
