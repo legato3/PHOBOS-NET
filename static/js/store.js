@@ -4041,4 +4041,4 @@ export const Store = () => ({
         const ctx = document.getElementById('ipTrendChart');
         this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
     }
-}))
+});
