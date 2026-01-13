@@ -61,7 +61,7 @@ document.addEventListener('alpine:init', () => {
             inputMessage: '',
             loading: false,
             error: null,
-            model: 'llama3.2',
+            model: 'deepseek-coder-v2:16b',
             availableModels: []
         },
 

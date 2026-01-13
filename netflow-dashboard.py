@@ -4574,7 +4574,7 @@ def api_ollama_chat():
     try:
         data = request.get_json()
         message = data.get('message', '').strip()
-        model = data.get('model', 'llama3.2')  # Default model, can be overridden
+        model = data.get('model', 'deepseek-coder-v2:16b')  # Default model, can be overridden
         stream = data.get('stream', False)
         
         if not message:
