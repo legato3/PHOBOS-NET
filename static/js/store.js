@@ -909,37 +909,57 @@ export const Store = () => ({
             }
             // Initialize map when section becomes visible
             if (!this.map) {
-                const container = document.getElementById('world-map-svg');
-                if (container && !this._mapResizeObserver) {
-                    // Use ResizeObserver to detect when container gets dimensions
-                    this._mapResizeObserver = new ResizeObserver((entries) => {
-                        for (const entry of entries) {
-                            const { width, height } = entry.contentRect;
-                            if (width > 0 && height > 0 && !this.map) {
-                                console.log(`[WorldMap] ResizeObserver - Container has dimensions ${width}x${height}, initializing map`);
-                                this._mapResizeObserver.disconnect();
-                                this._mapResizeObserver = null;
-                                this.renderWorldMap();
-                                break;
-                            }
-                        }
-                    });
-                    this._mapResizeObserver.observe(container);
-                    console.log('[WorldMap] IntersectionObserver - Setting up ResizeObserver for container');
+                const initMapWhenReady = () => {
+                    const container = document.getElementById('world-map-svg');
+                    if (!container) return;
                     
-                    // Also try immediately in case container already has dimensions
-                    this.$nextTick(() => {
-                        const rect = container.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0 && !this.map) {
-                            console.log('[WorldMap] Container already has dimensions, initializing immediately');
-                            if (this._mapResizeObserver) {
-                                this._mapResizeObserver.disconnect();
-                                this._mapResizeObserver = null;
+                    // Use requestAnimationFrame multiple times to ensure browser has painted
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            const rect = container.getBoundingClientRect();
+                            const parentRect = container.parentElement?.getBoundingClientRect();
+                            
+                            // If container has dimensions, initialize
+                            if (rect.width > 0 && rect.height > 0 && !this.map) {
+                                console.log(`[WorldMap] Container has dimensions ${rect.width}x${rect.height}, initializing map`);
+                                this.renderWorldMap();
+                            } 
+                            // If parent has dimensions but container doesn't, force container dimensions
+                            else if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
+                                console.log(`[WorldMap] Parent has dimensions ${parentRect.width}x${parentRect.height}, forcing container dimensions`);
+                                container.style.width = parentRect.width + 'px';
+                                container.style.height = parentRect.height + 'px';
+                                // Wait one more frame for style to apply
+                                requestAnimationFrame(() => {
+                                    if (!this.map) {
+                                        this.renderWorldMap();
+                                    }
+                                });
                             }
-                            this.renderWorldMap();
-                        }
+                            // If still no dimensions, use ResizeObserver as fallback
+                            else if (!this._mapResizeObserver) {
+                                console.log('[WorldMap] No dimensions yet, setting up ResizeObserver');
+                                this._mapResizeObserver = new ResizeObserver((entries) => {
+                                    for (const entry of entries) {
+                                        const { width, height } = entry.contentRect;
+                                        if (width > 0 && height > 0 && !this.map) {
+                                            console.log(`[WorldMap] ResizeObserver - Container has dimensions ${width}x${height}, initializing map`);
+                                            this._mapResizeObserver.disconnect();
+                                            this._mapResizeObserver = null;
+                                            this.renderWorldMap();
+                                            break;
+                                        }
+                                    }
+                                });
+                                this._mapResizeObserver.observe(container);
+                            }
+                        });
                     });
-                }
+                };
+                
+                this.$nextTick(() => {
+                    setTimeout(initMapWhenReady, 50);
+                });
             } else {
                 // Map exists - invalidate size to update it
                 this.$nextTick(() => {
