@@ -1889,7 +1889,7 @@ export const Store = () => ({
         if (typeof L === 'undefined' || typeof L.map === 'undefined') {
             console.warn('[WorldMap] Leaflet not loaded yet, deferring map render');
             if (!this._leafletWaitAttempts) this._leafletWaitAttempts = 0;
-            if (this._leafletWaitAttempts < 20) { // Wait up to 2 seconds (20 * 100ms)
+            if (this._leafletWaitAttempts < 100) { // Wait up to 10 seconds (100 * 100ms)
                 this._leafletWaitAttempts++;
                 setTimeout(() => this.renderWorldMap(), 100);
             } else {

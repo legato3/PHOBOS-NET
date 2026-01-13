@@ -162,19 +162,30 @@ export const DashboardWidgets = {
         }
         localStorage.setItem('minimizedWidgets', JSON.stringify([...context.minimizedWidgets]));
         // Trigger chart redraw if needed (using $nextTick if available)
+        // Trigger chart redraw if needed (using $nextTick if available)
+        const triggerResize = () => {
+            if (widgetId === 'bandwidth' && context.bwChartInstance) {
+                context.bwChartInstance.resize();
+            } else if (widgetId === 'worldmap' && context.renderWorldMap) {
+                // World map needs explicit render/invalidateSize when becoming visible
+                context.renderWorldMap();
+            } else if (['hourlyTraffic', 'flags', 'packetSizes'].includes(widgetId)) {
+                // Resize generic charts if they exist
+                const chartMap = {
+                    'hourlyTraffic': 'hourlyChartInstance',
+                    'flags': 'flagsChartInstance',
+                    'packetSizes': 'pktSizeChartInstance'
+                };
+                const instanceName = chartMap[widgetId];
+                if (context[instanceName]) context[instanceName].resize();
+            }
+        };
+
         if (context.$nextTick) {
-            context.$nextTick(() => {
-                if (widgetId === 'bandwidth' && context.bwChartInstance) {
-                    context.bwChartInstance.resize();
-                }
-            });
+            context.$nextTick(triggerResize);
         } else {
             // Fallback if $nextTick not available
-            setTimeout(() => {
-                if (widgetId === 'bandwidth' && context.bwChartInstance) {
-                    context.bwChartInstance.resize();
-                }
-            }, 0);
+            setTimeout(triggerResize, 50);
         }
     },
 
