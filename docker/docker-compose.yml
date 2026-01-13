@@ -1,8 +1,8 @@
 services:
   netflow-dashboard:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: netflow-dashboard-test
     ports:
       - "8080:8080"      # Web dashboard
