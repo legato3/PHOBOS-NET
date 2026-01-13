@@ -5,8 +5,8 @@
 
 // Format bytes to human-readable string
 function fmtBytes(bytes) {
-    if (bytes >= 1024**3) return (bytes / 1024**3).toFixed(2) + ' GB';
-    if (bytes >= 1024**2) return (bytes / 1024**2).toFixed(2) + ' MB';
+    if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + ' GB';
+    if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(2) + ' MB';
     if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
     return bytes + ' B';
 }
@@ -82,32 +82,32 @@ function getErrorMessage(error, defaultMessage = 'An error occurred') {
 
 function getUserFriendlyError(error, context = '') {
     const message = getErrorMessage(error);
-    
+
     // Network errors
     if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
         return context ? `Network error: Unable to ${context}. Please check your connection.` : 'Network error: Please check your connection.';
     }
-    
+
     // Timeout errors
     if (message.includes('timeout') || message.includes('Timeout')) {
         return context ? `Request timeout: ${context} took too long. Please try again.` : 'Request timeout: Please try again.';
     }
-    
+
     // 404 errors
     if (message.includes('404') || message.includes('Not Found')) {
         return context ? `Not found: ${context} is not available.` : 'Resource not found.';
     }
-    
+
     // 500 errors
     if (message.includes('500') || message.includes('Internal Server Error')) {
         return context ? `Server error: ${context} failed. Please try again later.` : 'Server error: Please try again later.';
     }
-    
+
     // Rate limiting
     if (message.includes('429') || message.includes('Rate limit')) {
         return 'Too many requests. Please wait a moment and try again.';
     }
-    
+
     // Generic error
     return context ? `${context}: ${message}` : message;
 }
@@ -119,25 +119,25 @@ const _inFlightRequests = new Map();
 async function safeFetch(url, options = {}) {
     // Create request key for deduplication (URL + method)
     const requestKey = `${options.method || 'GET'}:${url}`;
-    
+
     // If same request is already in flight, reuse the promise
     if (_inFlightRequests.has(requestKey)) {
         return _inFlightRequests.get(requestKey);
     }
-    
+
     // Create new request promise
     const fetchPromise = (async () => {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
-            
+
             const response = await fetch(url, {
                 ...options,
                 signal: controller.signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!response.ok) {
                 let errorData;
                 try {
@@ -147,7 +147,7 @@ async function safeFetch(url, options = {}) {
                 }
                 throw errorData;
             }
-            
+
             return response;
         } catch (error) {
             if (error.name === 'AbortError') {
@@ -159,15 +159,15 @@ async function safeFetch(url, options = {}) {
             _inFlightRequests.delete(requestKey);
         }
     })();
-    
+
     // Store in-flight request
     _inFlightRequests.set(requestKey, fetchPromise);
-    
+
     return fetchPromise;
 }
 
-// Export utilities to global namespace
-window.DashboardUtils = {
+// Export utilities
+export {
     fmtBytes,
     formatBytes,
     timeAgo,

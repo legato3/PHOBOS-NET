@@ -45,12 +45,10 @@
     <script src="/static/alpine-collapse.min.js" defer></script>
 
     <!-- Modular JavaScript - Load modules before app (critical path) -->
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/widgets.js"></script>
     <script src="/static/js/lazy-load.js"></script>
 
     <!-- Main app - Register BEFORE Alpine starts so alpine:init is caught -->
-    <script src="/static/app.js?v=3.0.2"></script>
+    <script type="module" src="/static/app.js?v=3.0.2"></script>
 
     <!-- Alpine.js - Defer to allow app.js to register -->
     <script src="/static/alpine.min.js" defer></script>

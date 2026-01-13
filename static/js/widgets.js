@@ -3,7 +3,7 @@
  * Handles widget visibility, minimization, and preferences
  */
 
-window.DashboardWidgets = {
+export const DashboardWidgets = {
     // Default widget visibility settings
     defaultVisibility: {
         summary: true,
