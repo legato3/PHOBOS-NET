@@ -350,6 +350,8 @@ export const Store = () => ({
     // World Map
     worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
     worldMapLayers: { sources: true, destinations: true, threats: true, blocked: false },
+    map: null,
+    mapLayers: [],
 
     bwChartInstance: null,
     flagsChartInstance: null,
