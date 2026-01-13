@@ -907,13 +907,26 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
-            // Initialize map when section becomes visible
+            // Initialize map when section becomes visible - wait for container to have dimensions
             if (!this.map) {
+                const initMapWhenReady = () => {
+                    const container = document.getElementById('world-map-svg');
+                    if (container) {
+                        const rect = container.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            console.log('[WorldMap] IntersectionObserver - Container has dimensions, initializing map');
+                            this.renderWorldMap();
+                        } else {
+                            console.log('[WorldMap] IntersectionObserver - Container still 0x0, retrying...');
+                            setTimeout(initMapWhenReady, 200);
+                        }
+                    }
+                };
                 this.$nextTick(() => {
-                    setTimeout(() => this.renderWorldMap(), 100);
+                    setTimeout(initMapWhenReady, 100);
                 });
             } else {
-                // Map exists but might need size update
+                // Map exists - invalidate size to update it
                 this.$nextTick(() => {
                     setTimeout(() => {
                         if (this.map) {
