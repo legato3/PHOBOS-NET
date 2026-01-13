@@ -29,6 +29,7 @@ docker-compose -f docker/docker-compose.yml up -d --build
 
 - **[DOCKER.md](DOCKER.md)** - Comprehensive Docker documentation and usage guide
 - **[DEPLOY_PRODUCTION.md](DEPLOY_PRODUCTION.md)** - Quick deployment guide for PROX-DOCKER-2
+- **[UPDATING.md](UPDATING.md)** - **How to update the container when you have code changes**
 - **[../docs/DEPLOYMENT_DOCKER.md](../docs/DEPLOYMENT_DOCKER.md)** - Complete Docker deployment instructions
 
 ## Quick Reference
