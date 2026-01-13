@@ -1,6 +1,6 @@
 # PROX_NFDUMP
 
-NetFlow Analytics Dashboard for Proxmox LXC 122 - Real-time network traffic monitoring using nfdump, Flask, GeoIP, and threat intelligence.
+PHOBOS-NET - Real-time network traffic monitoring dashboard for Proxmox LXC 122 using nfdump, Flask, GeoIP, and threat intelligence.
 
 ## 🚀 Features
 

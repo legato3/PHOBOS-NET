@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-NetFlow Analytics Dashboard - A real-time network traffic monitoring system designed for Proxmox LXC environments. This is a Flask-based web application that analyzes NetFlow data using nfdump, provides threat intelligence via multi-feed aggregation, and displays cyberpunk-themed analytics with Alpine.js.
+PHOBOS-NET - A real-time network traffic monitoring system designed for Proxmox LXC environments. This is a Flask-based web application that analyzes NetFlow data using nfdump, provides threat intelligence via multi-feed aggregation, and displays cyberpunk-themed analytics with Alpine.js.
 
 **Target Environment**: LXC Container 122 on Proxmox (Debian/Ubuntu-based)  
 **Production IP**: 192.168.0.74  

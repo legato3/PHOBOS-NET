@@ -1,6 +1,6 @@
 # Documentation Index
 
-This directory contains comprehensive documentation for the PROX_NFDUMP NetFlow Analytics Dashboard.
+This directory contains comprehensive documentation for PHOBOS-NET (PROX_NFDUMP NetFlow Analytics Dashboard).
 
 ## 📚 Quick Start Guides
 
