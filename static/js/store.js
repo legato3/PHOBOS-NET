@@ -486,8 +486,11 @@ export const Store = () => ({
             }
         });
 
-        // Render empty map on init (grid/background)
-        this.$nextTick(() => setTimeout(() => this.renderWorldMap(), 500));
+        // Initialize overview tab content (including map) since it's the default tab
+        // This ensures map initializes when the page loads
+        if (this.activeTab === 'overview') {
+            this.loadTab('overview');
+        }
     },
 
     startIntersectionObserver() {
@@ -3679,18 +3682,30 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
-            // Invalidate map size when overview tab becomes visible
+            // Initialize map when overview tab becomes visible
+            // Wait for DOM to update so container has dimensions
             this.$nextTick(() => {
                 setTimeout(() => {
-                    if (this.map) {
-                        this.map.invalidateSize();
-                        // Also re-render to ensure markers are visible
-                        this.renderWorldMap();
+                    const container = document.getElementById('world-map-svg');
+                    if (container) {
+                        const rect = container.getBoundingClientRect();
+                        console.log('[WorldMap] loadTab overview - Container dimensions:', rect.width, 'x', rect.height);
+                        if (rect.width > 0 && rect.height > 0) {
+                            if (this.map) {
+                                this.map.invalidateSize();
+                                this.renderWorldMap();
+                            } else {
+                                // Initialize map now that container has dimensions
+                                this.renderWorldMap();
+                            }
+                        } else {
+                            console.warn('[WorldMap] Container still has zero dimensions in loadTab, retrying...');
+                            setTimeout(() => this.loadTab('overview'), 300);
+                        }
                     } else {
-                        // If map doesn't exist yet, try to initialize it
-                        this.renderWorldMap();
+                        console.warn('[WorldMap] Container not found in loadTab');
                     }
-                }, 200);
+                }, 300);
             });
         } else if (tab === 'server') {
             this.startServerHealthAutoRefresh();
