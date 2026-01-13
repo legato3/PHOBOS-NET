@@ -1883,21 +1883,31 @@ export const Store = () => ({
         console.log('[WorldMap] Container found:', container);
 
         // Check if container is visible (x-show might hide it initially)
+        // Use a more lenient check - just verify container exists and has dimensions
+        const containerRect = container.getBoundingClientRect();
+        const hasDimensions = containerRect.width > 0 && containerRect.height > 0;
         const containerParent = container.closest('.world-map-container');
-        const isVisible = containerParent && containerParent.offsetParent !== null &&
-            containerParent.offsetWidth > 0 && containerParent.offsetHeight > 0;
-
-        if (!isVisible) {
-            // Container is hidden, wait a bit and try again (max 5 attempts)
+        const parentVisible = containerParent && (
+            containerParent.offsetParent !== null || 
+            containerParent.style.display !== 'none'
+        );
+        
+        // If container doesn't have dimensions yet, wait (but be more patient)
+        if (!hasDimensions || !parentVisible) {
+            // Container is hidden, wait a bit and try again (max 10 attempts, longer delay)
             if (!this._mapRenderAttempts) this._mapRenderAttempts = 0;
-            if (this._mapRenderAttempts < 5) {
+            if (this._mapRenderAttempts < 10) {
                 this._mapRenderAttempts++;
-                setTimeout(() => this.renderWorldMap(), 300);
+                console.log(`[WorldMap] Container not ready (attempt ${this._mapRenderAttempts}/10), retrying...`);
+                setTimeout(() => this.renderWorldMap(), 500);
             } else {
-                console.warn('[WorldMap] Container not visible after multiple attempts');
+                console.warn('[WorldMap] Container not visible after multiple attempts, forcing render anyway');
                 this._mapRenderAttempts = 0;
+                // Continue anyway - Leaflet can handle hidden containers and will render when shown
             }
-            return;
+            if (this._mapRenderAttempts < 10) {
+                return;
+            }
         }
         this._mapRenderAttempts = 0; // Reset on success
 
