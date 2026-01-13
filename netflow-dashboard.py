@@ -4635,7 +4635,7 @@ def api_ollama_chat():
     
     except requests.exceptions.ConnectionError:
         return jsonify({
-            "error": "Cannot connect to Ollama. Make sure Ollama is running on localhost:11434"
+            "error": f"Cannot connect to Ollama at {ollama_url}. Make sure Ollama is running and accessible."
         }), 503
     except requests.exceptions.Timeout:
         return jsonify({
