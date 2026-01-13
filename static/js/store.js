@@ -3699,8 +3699,8 @@ export const Store = () => ({
                                 this.renderWorldMap();
                             }
                         } else {
-                            console.warn('[WorldMap] Container still has zero dimensions in loadTab, retrying...');
-                            setTimeout(() => this.loadTab('overview'), 300);
+                            console.warn('[WorldMap] Container has zero dimensions in loadTab - map will initialize when container becomes visible');
+                            // Don't retry here - renderWorldMap() has its own retry logic
                         }
                     } else {
                         console.warn('[WorldMap] Container not found in loadTab');
