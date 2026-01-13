@@ -58,8 +58,9 @@ DEBUG*.md
 # Systemd
 systemd/
 
-# Scripts (not needed in container)
+# Scripts (not needed in container, except gunicorn_config.py)
 scripts/
+!scripts/gunicorn_config.py
 
 # API samples (not needed in container)
 api-samples/
