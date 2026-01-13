@@ -1930,20 +1930,36 @@ export const Store = () => ({
                     renderer: L.canvas()
                 });
 
-                // Dark Matter Tiles (CartoDB) - Cyberpunk aesthetic match
-                const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                    subdomains: 'abcd',
-                    maxZoom: 19,
-                    errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' // Transparent 1px GIF as fallback
-                });
+                // Offline-ready Map: Use local GeoJSON (High contrast, Cyberpunk style)
+                fetch('/static/world.geojson')
+                    .then(r => r.json())
+                    .then(geoJsonData => {
+                        L.geoJSON(geoJsonData, {
+                            style: {
+                                fillColor: '#1a1f2e',     // Dark background for countries
+                                weight: 1,
+                                opacity: 1,
+                                color: '#2d3748',         // Subtle borders
+                                fillOpacity: 0.7
+                            }
+                        }).addTo(this.map);
 
-                tileLayer.addTo(this.map);
+                        // Trigger data render after base map is ready
+                        this.renderWorldMapData();
+                    })
+                    .catch(e => {
+                        console.error('[WorldMap] Failed to load local GeoJSON:', e);
+                        // Fallback to minimal tiles if GeoJSON fails
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                            attribution: '&copy; OpenStreetMap &copy; CARTO',
+                            subdomains: 'abcd',
+                            maxZoom: 19
+                        }).addTo(this.map);
+                    });
 
-                // Debug: Log tile loading errors
-                tileLayer.on('tileerror', (error, tile) => {
-                    console.error('[WorldMap] Tile loading error:', error, tile);
-                });
+                // Enable zoom control for visibility confirmation
+                // Note: zoomControl was set to false in constructor, we can add it back
+                L.control.zoom({ position: 'topright' }).addTo(this.map);
 
                 // Invalidate size to ensure map renders correctly
                 this.map.whenReady(() => {
