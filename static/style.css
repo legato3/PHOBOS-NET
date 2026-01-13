@@ -7857,3 +7857,81 @@ body.compact-mode {
     margin-top: var(--space-3) !important;
     padding-top: var(--space-3) !important;
 }
+
+/* ============================================
+   CHAT INTERFACE STYLES (Ollama AI Assistant)
+   ============================================ */
+.chat-messages {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-message {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.chat-message-user {
+    align-self: flex-end;
+    background: rgba(0, 162, 255, 0.15);
+    border: 1px solid rgba(0, 162, 255, 0.3);
+    margin-left: auto;
+}
+
+.chat-message-assistant {
+    align-self: flex-start;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+}
+
+.chat-message-error {
+    align-self: flex-start;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    color: var(--accent-danger);
+}
+
+.chat-message-role {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.chat-message-content {
+    color: var(--text-primary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.chat-message-time {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: var(--space-2);
+    text-align: right;
+}
+
+.chat-message-assistant .chat-message-time {
+    text-align: left;
+}
