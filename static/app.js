@@ -1,6 +1,6 @@
-import { Store } from './js/store.js';
-import * as DashboardUtils from './js/utils.js';
-import { DashboardWidgets } from './js/widgets.js';
+import { Store } from './js/store.js?v=3.0.3';
+import * as DashboardUtils from './js/utils.js?v=3.0.3';
+import { DashboardWidgets } from './js/widgets.js?v=3.0.3';
 
 // Expose globals for potential legacy script compatibility
 window.DashboardUtils = DashboardUtils;

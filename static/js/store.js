@@ -1,7 +1,7 @@
-import { API } from './api.js';
-import { Charts } from './charts.js';
-import { DashboardWidgets } from './widgets.js';
-import * as DashboardUtils from './utils.js';
+import { API } from './api.js?v=3.0.3';
+import { Charts } from './charts.js?v=3.0.3';
+import { DashboardWidgets } from './widgets.js?v=3.0.3';
+import * as DashboardUtils from './utils.js?v=3.0.3';
 
 export const Store = () => ({
     initDone: false,

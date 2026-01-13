@@ -1,4 +1,4 @@
-import { safeFetch } from './utils.js';
+import { safeFetch } from './utils.js?v=3.0.3';
 
 export const API = {
     latencyHistory: [],
