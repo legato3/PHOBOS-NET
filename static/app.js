@@ -341,8 +341,8 @@ document.addEventListener('alpine:init', () => {
         sankeyChartInstance: null,
 
         // World Map
-        worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
-        worldMapLayers: { sources: true, destinations: true, threats: true, blocked: true },
+            worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
+            worldMapLayers: { sources: false, destinations: true, threats: true, blocked: true },
 
         bwChartInstance: null,
         flagsChartInstance: null,
@@ -454,7 +454,6 @@ document.addEventListener('alpine:init', () => {
                 this.startTimer();
             });
             // Watch for layer toggle changes to re-render map
-            this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
             this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
             this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
             this.$watch('worldMapLayers.blocked', () => this.renderWorldMap());
@@ -1991,30 +1990,34 @@ document.addEventListener('alpine:init', () => {
 
             // Draw Destinations (Purple)
             dests.forEach(p => {
-                const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
-                addMarker(p.lat, p.lng, '#bc13fe', size,
-                    `<strong>DST: ${p.ip}</strong><br>${p.city || ''}, ${p.country}<br>${p.bytes_fmt}`);
-            });
-
-            // Draw Sources (Cyan)
-            sources.forEach(p => {
-                const size = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
-                addMarker(p.lat, p.lng, '#00f3ff', size,
-                    `<strong>SRC: ${p.ip}</strong><br>${p.city || ''}, ${p.country}<br>${p.bytes_fmt}`);
+                const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: size,
+                    fillColor: '#bc13fe',
+                    color: '#bc13fe',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:var(--accent-primary);border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+                marker.on('click', () => {
+                    this.openIPModal(p.ip);
+                });
+                marker.addTo(this.map);
+                this.mapLayers.push(marker);
             });
 
             // Draw Threats (Red)
             threats.forEach(p => {
                 const threatMarker = L.circleMarker([p.lat, p.lng], {
-                    radius: 6,
+                    radius: 8,
                     fillColor: '#ff003c',
                     color: '#ff003c',
-                    weight: 1,
+                    weight: 2,
                     opacity: 1,
-                    fillOpacity: 0.7
+                    fillOpacity: 0.8
                 });
-                threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>${p.city || ''}, ${p.country}`);
-                // Make threat marker clickable - open IP investigation
+                threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff003c;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
                 threatMarker.on('click', () => {
                     this.openIPModal(p.ip);
                 });
@@ -2024,10 +2027,28 @@ document.addEventListener('alpine:init', () => {
 
             // Draw Blocked (Green)
             blocked.forEach(p => {
-                const size = Math.min(8, Math.max(5, Math.log10(p.block_count + 1) * 2));
-                addMarker(p.lat, p.lng, '#00ff64', size,
-                    `<strong>🔥 BLOCKED: ${p.ip}</strong><br>${p.block_count} blocks`);
+                const size = Math.min(10, Math.max(6, Math.log10(p.block_count + 1) * 2.5));
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: size,
+                    fillColor: '#00ff64',
+                    color: '#00ff64',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                marker.bindPopup(`<strong>🔥 BLOCKED: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country || ''}<br>🛡️ ${p.block_count} blocks<br>${p.unique_ips ? `📊 ${p.unique_ips} unique IPs<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+                marker.on('click', () => {
+                    this.openIPModal(p.ip);
+                });
+                marker.addTo(this.map);
+                this.mapLayers.push(marker);
             });
+        },
+
+        resetWorldMapView() {
+            if (this.map) {
+                this.map.setView([20, 0], 2);
+            }
         },
 
         async fetchDurations() {
