@@ -42,6 +42,21 @@ API Request → Flask Route → nfdump CLI → CSV Parser → JSON Response
 External Feeds → fetch_threat_feed() → /root/threat-ips.txt → Alert Detection
 ```
 
+### 4. AI Assistant
+```
+Frontend Chat → /api/ollama/chat → Ollama Instance (DeepSeek Coder) → Streaming Response
+```
+
+### 5. Security Center
+```
+NetFlow/Syslog Data → Anomaly Detection Algorithms → /api/security/* → Risk Score & Alerts
+```
+
+### 6. Forensics
+```
+Investigator → /api/forensics/* → Advanced Search & Correlation → Attack Chains
+```
+
 ## 🔍 Key Data Formats
 
 ### nfdump CSV Output
@@ -99,6 +114,11 @@ One IP per line, comments start with #:
 - **Implementation**: threading.Lock for thread-safe cache
 - **Key**: Cache keys aligned to 60s windows for better hit rates
 
+#### Detection Algorithms
+- **Location**: `run_all_detections` and `detect_*` functions
+- **Purpose**: Analyze traffic for specific threat patterns (Scan, Exfil, Tunneling, etc.)
+- **Output**: Generates alerts stored in `_alert_history`
+
 ## 🚨 Common Pitfalls
 
 ### 1. Column Index Assumptions
@@ -146,7 +166,8 @@ One IP per line, comments start with #:
 
 - **nfdump calls are expensive**: Cache aggressively
 - **Parallel processing**: Use ThreadPoolExecutor
-- **Frontend**: Batch API calls with Promise.all()
+- **Frontend**: Batch API calls with Promise.all() or `/api/stats/batch`
+- **Batch API**: Consolidate multiple stats requests into a single HTTP call
 - **Avoid**: N+1 queries, redundant nfdump calls
 
 ## 📝 Modification Checklist
@@ -175,6 +196,7 @@ Use `sample_data/` directory:
 - **MaxMind GeoIP**: Database location `/usr/share/GeoIP/*.mmdb`
 - **Threat Feeds**: External URLs, may be temporarily unavailable
 - **Flask**: Development mode only (use gunicorn for production)
+- **Ollama**: Local AI Inference (optional, for Chat Assistant)
 
 ## 💡 Pro Tips for AI Agents
 
@@ -287,7 +309,7 @@ apt-get install snmp python3-pysnmp4
 - **Traffic Insights** - Dynamic insights about network behavior
 - **Flow Statistics** - Avg duration, avg size, bytes/packet, duration distribution
 - **Protocol Mix** - Pie chart visualization of protocol traffic
-- **Network Health** - Health score with indicators (resets, SYN-only, ICMP, tiny flows)
+- **Network Health** - Health score (0-100) with indicators (resets, SYN-only, ICMP, tiny flows)
 
 ### Top Stats Section (8 widgets)
 - **Top Sources** - IP tables with geo, sparklines
@@ -396,6 +418,6 @@ OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (fire
 
 ---
 
-**Last Updated**: January 10, 2026 (v3.0 - Full Syslog Integration)  
+**Last Updated**: January 11, 2026 (v3.0 - Full Syslog Integration & AI Assistant)
 **Maintained By**: Human + AI Collaboration (Warp/Jules/Claude)  
 **For AI Agents**: Read sample_data/README.md for detailed format docs
