@@ -3602,6 +3602,11 @@
                                                 <option :value="model" x-text="model"></option>
                                             </template>
                                         </select>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer;"
+                                            title="Include current dashboard data as context">
+                                            <input type="checkbox" x-model="ollamaChat.includeContext" style="cursor: pointer;">
+                                            <span>Use Context</span>
+                                        </label>
                                         <button class="btn btn--secondary" @click="clearChat()" title="Clear chat">
                                             Clear
                                         </button>

@@ -62,7 +62,8 @@ document.addEventListener('alpine:init', () => {
             loading: false,
             error: null,
             model: 'deepseek-coder-v2:16b',
-            availableModels: ['deepseek-coder-v2:16b'] // Initialize with default model
+            availableModels: ['deepseek-coder-v2:16b'], // Initialize with default model
+            includeContext: true // Include dashboard context in messages
         },
 
         // Mobile UI state
@@ -3658,6 +3659,88 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        getDashboardContext() {
+            // Gather current dashboard data for context
+            const context = {
+                timestamp: new Date().toISOString(),
+                timeRange: this.timeRange,
+                security: {
+                    score: this.securityScore?.score || 0,
+                    grade: this.securityScore?.grade || 'N/A',
+                    status: this.securityScore?.status || 'unknown',
+                    threats: this.threats?.hits?.length || 0,
+                    threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
+                    alerts: this.alertHistory?.alerts?.length || 0
+                },
+                network: {
+                    totalFlows: this.summary?.total_flows || 0,
+                    totalBytes: this.summary?.total_bytes_fmt || this.summary?.total_bytes || 0,
+                    totalPackets: this.summary?.total_packets || 0,
+                    topSources: (this.sources?.sources?.slice(0, 5) || []).map(s => ({
+                        ip: s.key,
+                        bytes: s.bytes_fmt || s.bytes,
+                        flows: s.flows
+                    })),
+                    topDestinations: (this.destinations?.destinations?.slice(0, 5) || []).map(d => ({
+                        ip: d.key,
+                        bytes: d.bytes_fmt || d.bytes,
+                        flows: d.flows
+                    }))
+                },
+                firewall: {
+                    cpu: this.firewall?.cpu_percent || null,
+                    memory: this.firewall?.mem_percent || null,
+                    uptime: this.firewall?.sys_uptime || null,
+                    blocksLastHour: this.firewall?.blocks_1h || 0,
+                    syslogActive: this.firewall?.syslog_active || false
+                }
+            };
+            return context;
+        },
+
+        formatDashboardContext(context) {
+            // Format context as a readable string for the LLM
+            let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
+            contextText += `Time Range: ${context.timeRange}\n\n`;
+            
+            contextText += `### Security Metrics\n`;
+            contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
+            contextText += `- Active Threats Detected: ${context.security.threats}\n`;
+            if (context.security.threatsBlocked > 0) {
+                contextText += `- Threats Blocked by Firewall: ${context.security.threatsBlocked}\n`;
+            }
+            if (context.security.alerts > 0) {
+                contextText += `- Recent Alerts: ${context.security.alerts}\n`;
+            }
+            contextText += `\n### Network Statistics\n`;
+            if (context.network.totalFlows > 0) {
+                contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
+            }
+            if (context.network.totalBytes) {
+                contextText += `- Total Traffic: ${context.network.totalBytes}\n`;
+            }
+            if (context.network.totalPackets > 0) {
+                contextText += `- Total Packets: ${context.network.totalPackets.toLocaleString()}\n`;
+            }
+            if (context.network.topSources.length > 0) {
+                contextText += `- Top Sources: ${context.network.topSources.map(s => `${s.ip} (${s.bytes}, ${s.flows} flows)`).join(', ')}\n`;
+            }
+            if (context.network.topDestinations.length > 0) {
+                contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
+            }
+            contextText += `\n### Firewall Status\n`;
+            if (context.firewall.cpu !== null) {
+                contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
+            }
+            if (context.firewall.memory !== null) {
+                contextText += `- Memory Usage: ${context.firewall.memory}%\n`;
+            }
+            contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
+            contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
+            
+            return contextText;
+        },
+
         async sendChatMessage() {
             const message = this.ollamaChat.inputMessage.trim();
             if (!message || this.ollamaChat.loading) return;
@@ -3675,13 +3758,26 @@ document.addEventListener('alpine:init', () => {
             this.ollamaChat.error = null;
 
             try {
+                let messageToSend = message;
+                
+                // Optionally include dashboard context
+                if (this.ollamaChat.includeContext) {
+                    const context = this.getDashboardContext();
+                    const contextText = this.formatDashboardContext(context);
+                    
+                    // Create enhanced message with context
+                    const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
+                    
+                    messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
+                }
+
                 const res = await fetch('/api/ollama/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: message,
+                        message: messageToSend,
                         model: this.ollamaChat.model,
                         stream: false
                     })
