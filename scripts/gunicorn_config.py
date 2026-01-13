@@ -3,7 +3,11 @@
 # With 1 worker, this ensures threads start only once
 
 import sys
-sys.path.insert(0, '/root')
+import os
+
+# Support both production (/root) and Docker (/app) paths
+work_dir = os.getenv('WORKDIR', '/app')
+sys.path.insert(0, work_dir)
 
 def post_worker_init(worker):
     """Called just after a worker has initialized the application."""
