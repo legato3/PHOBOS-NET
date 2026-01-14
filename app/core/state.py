@@ -96,10 +96,16 @@ _syslog_buffer_lock = threading.Lock()
 _syslog_buffer_size = 100
 
 # ==================== SNMP State ====================
-_snmp_cache = None
+_snmp_cache = {"data": None, "ts": 0}
 _snmp_cache_lock = threading.Lock()
-_snmp_prev_sample = None
-_snmp_backoff = {}
+_snmp_prev_sample = {"ts": 0, "wan_in": 0, "wan_out": 0, "lan_in": 0, "lan_out": 0}
+_snmp_backoff = {
+    "failures": 0,
+    "max_failures": 5,
+    "base_delay": 2,  # seconds
+    "max_delay": 60,  # max backoff delay
+    "last_failure": 0
+}
 
 # ==================== Application State ====================
 _has_nfdump = None  # Cache nfdump availability

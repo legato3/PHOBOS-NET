@@ -47,6 +47,63 @@ SYSLOG_BUFFER_SIZE = 100
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 DNS_CACHE_MAX = 5000
 
+# SNMP Configuration
+SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
+SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "Phoboshomesnmp_3")
+SNMP_POLL_INTERVAL = float(os.getenv("SNMP_POLL_INTERVAL", "2"))  # seconds
+SNMP_CACHE_TTL = float(os.getenv("SNMP_CACHE_TTL", str(max(1.0, SNMP_POLL_INTERVAL))))
+
+# SNMP OIDs
+SNMP_OIDS = {
+    "cpu_load_1min": ".1.3.6.1.4.1.2021.10.1.3.1",
+    "cpu_load_5min": ".1.3.6.1.4.1.2021.10.1.3.2",
+    "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
+    "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
+    "mem_buffer": ".1.3.6.1.4.1.2021.4.11.0",       # Buffer memory KB
+    "mem_cached": ".1.3.6.1.4.1.2021.4.15.0",       # Cached memory KB
+    # Swap
+    "swap_total": ".1.3.6.1.4.1.2021.4.3.0",       # Total swap KB
+    "swap_avail": ".1.3.6.1.4.1.2021.4.4.0",       # Available swap KB
+    "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
+    "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
+    "tcp_active_opens": ".1.3.6.1.2.1.6.5.0",      # tcpActiveOpens
+    "tcp_estab_resets": ".1.3.6.1.2.1.6.8.0",      # tcpEstabResets
+    "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
+    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
+    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
+    "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
+    "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
+    # IP stack
+    "ip_in_discards": ".1.3.6.1.2.1.4.8.0",        # ipInDiscards
+    "ip_in_hdr_errors": ".1.3.6.1.2.1.4.4.0",      # ipInHdrErrors
+    "ip_in_addr_errors": ".1.3.6.1.2.1.4.5.0",     # ipInAddrErrors
+    "ip_forw_datagrams": ".1.3.6.1.2.1.4.6.0",     # ipForwDatagrams
+    "ip_in_delivers": ".1.3.6.1.2.1.4.9.0",        # ipInDelivers
+    "ip_out_requests": ".1.3.6.1.2.1.4.10.0",      # ipOutRequests
+    # ICMP
+    "icmp_in_errors": ".1.3.6.1.2.1.5.2.0",        # icmpInErrors
+    "wan_in": ".1.3.6.1.2.1.31.1.1.1.6.1",         # igc0 in
+    "wan_out": ".1.3.6.1.2.1.31.1.1.1.10.1",       # igc0 out
+    "lan_in": ".1.3.6.1.2.1.31.1.1.1.6.2",         # igc1 in
+    "lan_out": ".1.3.6.1.2.1.31.1.1.1.10.2",       # igc1 out
+    # Interface speeds (Mbps)
+    "wan_speed": ".1.3.6.1.2.1.31.1.1.1.15.1",     # ifHighSpeed WAN
+    "lan_speed": ".1.3.6.1.2.1.31.1.1.1.15.2",     # ifHighSpeed LAN
+    # Interface errors/discards (32-bit but fine for error counters)
+    "wan_in_err": ".1.3.6.1.2.1.2.2.1.14.1",
+    "wan_out_err": ".1.3.6.1.2.1.2.2.1.20.1",
+    "wan_in_disc": ".1.3.6.1.2.1.2.2.1.13.1",
+    "wan_out_disc": ".1.3.6.1.2.1.2.2.1.19.1",
+    "lan_in_err": ".1.3.6.1.2.1.2.2.1.14.2",
+    "lan_out_err": ".1.3.6.1.2.1.2.2.1.20.2",
+    "lan_in_disc": ".1.3.6.1.2.1.2.2.1.13.2",
+    "lan_out_disc": ".1.3.6.1.2.1.2.2.1.19.2",
+    "disk_read": ".1.3.6.1.4.1.2021.13.15.1.1.12.2", # nda0 read bytes
+    "disk_write": ".1.3.6.1.4.1.2021.13.15.1.1.13.2", # nda0 write bytes
+    "udp_in": ".1.3.6.1.2.1.7.1.0",                # udpInDatagrams
+    "udp_out": ".1.3.6.1.2.1.7.4.0",               # udpOutDatagrams
+}
+
 # Threat Intelligence API Keys (optional)
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")

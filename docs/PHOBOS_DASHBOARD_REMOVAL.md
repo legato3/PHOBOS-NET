@@ -13,25 +13,25 @@ This document outlines what needs to be done before `phobos_dashboard.py` can be
 
 ### 1. Decorators
 - ✅ **DONE**: Performance tracking functions → `app/services/metrics.py`
-- ⏭️ **TODO**: `throttle` decorator → `app/utils/decorators.py`
-  - Currently used in `routes.py` via bridge
-  - Calls `track_error()` and `track_performance()` from metrics module
-  - Uses `_throttle_lock` and `_request_times` globals
+- ✅ **DONE**: `throttle` decorator → `app/utils/decorators.py`
+  - Extracted to `app/utils/decorators.py`
+  - Updated `routes.py` to import from new module
+  - Uses `_throttle_lock` and `_request_times` from `app.core.state`
 
 ### 2. Functions Still Imported from Bridge
 
 #### Thread Functions (in `app/main.py`)
-- `start_threat_thread`
-- `start_trends_thread`
-- `start_agg_thread`
-- `start_syslog_thread`
-- `_flush_syslog_buffer`
-- `_shutdown_event`
+- ✅ `start_threat_thread` → `app/core/threads.py`
+- ✅ `start_trends_thread` → `app/core/threads.py`
+- ✅ `start_agg_thread` → `app/core/threads.py`
+- ⏭️ `start_syslog_thread` (still in `phobos_dashboard.py` - complex dependencies)
+- ⏭️ `_flush_syslog_buffer` (still in `phobos_dashboard.py` - complex dependencies)
+- ✅ `_shutdown_event` → `app/core/state.py`
 
 #### SNMP Functions (in `app/api/routes.py`)
-- `calculate_cpu_percent_from_stat`
-- `get_snmp_data`
-- `start_snmp_thread`
+- ⏭️ `calculate_cpu_percent_from_stat` (still in `phobos_dashboard.py`)
+- ✅ `get_snmp_data` → `app/services/snmp.py`
+- ✅ `start_snmp_thread` → `app/services/snmp.py`
 
 #### Config Functions (in `app/api/routes.py`)
 - `load_config`
@@ -92,16 +92,17 @@ Keep state in modules where it's used:
 ## Steps to Remove phobos_dashboard.py
 
 1. ✅ **Extract all functions** to appropriate modules (mostly done)
-2. ⏭️ **Extract throttle decorator** to `app/utils/decorators.py`
-3. ⏭️ **Extract thread functions** to `app/core/threads.py` or similar
-4. ⏭️ **Extract SNMP functions** to `app/services/snmp.py`
+2. ✅ **Extract throttle decorator** to `app/utils/decorators.py`
+3. ✅ **Extract thread functions** to `app/core/threads.py` (threat, trends, agg threads)
+4. ✅ **Extract SNMP functions** to `app/services/snmp.py` (get_snmp_data, start_snmp_thread)
 5. ⏭️ **Extract config functions** to `app/utils/config_helpers.py` (partially done)
-6. ⏭️ **Migrate all globals** to state management module(s)
-7. ⏭️ **Remove Flask routes** from `phobos_dashboard.py` (not used anyway)
-8. ⏭️ **Remove Flask app instance** from `phobos_dashboard.py`
-9. ⏭️ **Update all imports** in `app/api/routes.py` and `app/main.py`
-10. ⏭️ **Remove `phobos_dashboard.py`** file
-11. ⏭️ **Test thoroughly** to ensure nothing breaks
+6. ⏭️ **Extract CPU stat functions** (`calculate_cpu_percent_from_stat`, `read_cpu_stat`)
+7. ⏭️ **Migrate all globals** to state management module(s)
+8. ⏭️ **Remove Flask routes** from `phobos_dashboard.py` (not used anyway)
+9. ⏭️ **Remove Flask app instance** from `phobos_dashboard.py`
+10. ✅ **Update all imports** in `app/api/routes.py` and `app/main.py` (thread functions, SNMP functions, throttle)
+11. ⏭️ **Remove `phobos_dashboard.py`** file
+12. ⏭️ **Test thoroughly** to ensure nothing breaks
 
 ## Estimated Effort
 
@@ -123,11 +124,15 @@ Keep state in modules where it's used:
 - ✅ Performance metrics extracted
 - ✅ Database functions extracted
 - ✅ Threat functions extracted
+- ✅ Throttle decorator extracted
+- ✅ Thread functions extracted (threat, trends, agg threads)
+- ✅ SNMP functions extracted (get_snmp_data, start_snmp_thread)
+- ✅ SNMP constants added to `app/config.py`
+- ✅ SNMP state initialized in `app/core/state.py`
 - ⏭️ Still ~50+ global variables to migrate
-- ⏭️ Thread functions to extract
-- ⏭️ SNMP functions to extract
-- ⏭️ Config functions to extract
-- ⏭️ Throttle decorator to extract
+- ⏭️ Config functions to extract (load_config, save_config, get_default_config)
+- ⏭️ CPU stat functions to extract (calculate_cpu_percent_from_stat, read_cpu_stat)
+- ⏭️ Syslog thread functions (complex dependencies, deferred)
 - ⏭️ State management to organize
 
 **Conclusion**: `phobos_dashboard.py` cannot be removed yet. It's still providing critical infrastructure via the bridge pattern. Full removal requires significant additional refactoring work.

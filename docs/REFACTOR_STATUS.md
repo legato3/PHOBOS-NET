@@ -224,9 +224,16 @@ All major refactoring milestones have been completed:
   - ✅ Extracted `_get_bucket_end()` and `_ensure_rollup_for_bucket()` to `app/db/sqlite.py`
   - ✅ Fixed `_threat_timeline` usage: now accessed via `threats_module._threat_timeline` instead of `_phobos`
   - ✅ Extracted `track_performance()`, `track_error()`, and performance metrics state to `app/services/metrics.py`
+  - ✅ Extracted `throttle` decorator to `app/utils/decorators.py`
+  - ✅ Extracted thread functions (`start_threat_thread`, `start_trends_thread`, `start_agg_thread`) to `app/core/threads.py`
+  - ✅ Extracted SNMP functions (`get_snmp_data`, `start_snmp_thread`) to `app/services/snmp.py`
+  - ✅ Added SNMP constants (`SNMP_HOST`, `SNMP_COMMUNITY`, `SNMP_OIDS`, `SNMP_POLL_INTERVAL`, `SNMP_CACHE_TTL`) to `app/config.py`
+  - ✅ Fixed SNMP state initialization in `app/core/state.py` (`_snmp_cache`, `_snmp_prev_sample`, `_snmp_backoff`)
+  - ✅ Updated `app/api/routes.py` to import thread functions from `app/core/threads.py`
+  - ✅ Updated `app/api/routes.py` to import SNMP functions from `app/services/snmp.py`
   - ⏭️ Still remaining: `load_config`, `save_config`, `get_default_config` (modify globals, more complex)
   - ⏭️ Other helper functions that can be extracted:
-    - `get_snmp_data`, `calculate_cpu_percent_from_stat` - SNMP functions with many global dependencies
+    - `calculate_cpu_percent_from_stat`, `read_cpu_stat` - CPU stat functions with state dependencies
 - ⏭️ Create state management module for globals (if desired)
 - ⏭️ Remove unused code from `phobos_dashboard.py`:
   - **Note**: Functions that have been extracted are still present in `phobos_dashboard.py` because:

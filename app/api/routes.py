@@ -30,6 +30,8 @@ from app.services.threats import (
 )
 from app.services.stats import calculate_security_score
 from app.services.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
+from app.services.snmp import get_snmp_data, start_snmp_thread
+from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.core.state import (
     _shutdown_event,
@@ -87,14 +89,12 @@ try:
     # format_duration now imported from app.utils.helpers
     # check_disk_space now imported from app.utils.helpers
     calculate_cpu_percent_from_stat = getattr(_phobos, 'calculate_cpu_percent_from_stat', None)
-    get_snmp_data = getattr(_phobos, 'get_snmp_data', None)
+    # get_snmp_data now imported from app.services.snmp
     # track_performance, track_error now imported from app.services.metrics
     # _get_bucket_end, _ensure_rollup_for_bucket now imported from app.db.sqlite
     
-    # Thread functions
-    start_threat_thread = _phobos.start_threat_thread
-    start_trends_thread = _phobos.start_trends_thread
-    start_agg_thread = _phobos.start_agg_thread
+    # Thread functions - now imported from app.core.threads
+    # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
     start_syslog_thread = getattr(_phobos, 'start_syslog_thread', None)
     
     # Global variables - now imported from app.core.state and app.db.sqlite
@@ -105,7 +105,7 @@ try:
     # Functions still needed from bridge
     load_config = getattr(_phobos, 'load_config', None)
     save_config = getattr(_phobos, 'save_config', None)
-    start_snmp_thread = getattr(_phobos, 'start_snmp_thread', None)
+    # start_snmp_thread now imported from app.services.snmp
     _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
     DEBUG_MODE = getattr(_phobos, 'DEBUG_MODE', False)
     
@@ -115,9 +115,7 @@ except ImportError as e:
     # Fallback if phobos_dashboard cannot be imported
     print(f"Warning: Could not import from phobos_dashboard: {e}")
     # throttle is imported from app.utils.decorators, not from _phobos
-    start_threat_thread = None
-    start_trends_thread = None
-    start_agg_thread = None
+    # Thread functions are imported from app.core.threads, not from _phobos
     # Set globals to None or empty defaults
     _lock_summary = _lock_sources = _lock_dests = None
     _stats_summary_cache = _stats_sources_cache = None
