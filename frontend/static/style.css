@@ -1094,6 +1094,7 @@ table:has(.network-endpoint-row) td {
     border-bottom: none;
     padding: 0;
     vertical-align: top;
+    text-align: left;
     /* Padding handled by .endpoint-cell */
 }
 
