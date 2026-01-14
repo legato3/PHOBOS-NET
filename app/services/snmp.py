@@ -15,10 +15,15 @@ from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL,
 
 # Import formatters
 from app.utils.formatters import format_uptime
+from app.utils.observability import instrument_service
 
 
+@instrument_service('get_snmp_data')
 def get_snmp_data():
-    """Fetch SNMP data from OPNsense firewall with exponential backoff"""
+    """Fetch SNMP data from OPNsense firewall with exponential backoff.
+    
+    OBSERVABILITY: Instrumented to track execution time and call frequency.
+    """
     now = time.time()
     
     with state._snmp_cache_lock:

@@ -4554,7 +4554,12 @@ def api_stats_batch():
 @bp.route("/api/performance/metrics")
 @throttle(10, 60)
 def api_performance_metrics():
-    """Get performance metrics."""
+    """Get performance metrics including observability data."""
+    from app.utils.observability import check_cache_miss_rate
+    
+    # Check cache miss rate guardrail (triggers warning if threshold exceeded)
+    check_cache_miss_rate()
+    
     metrics = get_performance_metrics()
 
     # Calculate statistics
@@ -4582,6 +4587,37 @@ def api_performance_metrics():
     error_rate = 0.0
     if metrics['request_count'] > 0:
         error_rate = metrics['error_count'] / metrics['request_count'] * 100
+    
+    # OBSERVABILITY: Subprocess metrics
+    subprocess_stats = {}
+    if metrics.get('subprocess_calls', 0) > 0:
+        avg_subprocess_time = metrics['subprocess_total_time'] / metrics['subprocess_calls']
+        subprocess_times = metrics.get('subprocess_times', [])
+        subprocess_stats = {
+            'total_calls': metrics['subprocess_calls'],
+            'success_count': metrics.get('subprocess_success', 0),
+            'failure_count': metrics.get('subprocess_failures', 0),
+            'timeout_count': metrics.get('subprocess_timeouts', 0),
+            'avg_ms': round(avg_subprocess_time * 1000, 2),
+            'max_ms': round(max(subprocess_times) * 1000, 2) if subprocess_times else 0,
+            'p95_ms': round(sorted(subprocess_times)[int(len(subprocess_times) * 0.95)] * 1000, 2) if len(subprocess_times) > 1 else (round(subprocess_times[0] * 1000, 2) if subprocess_times else 0),
+            'success_rate_percent': round(metrics.get('subprocess_success', 0) / metrics['subprocess_calls'] * 100, 2)
+        }
+    
+    # OBSERVABILITY: Service function metrics
+    service_stats = {}
+    for service_name, times in metrics.get('service_times', {}).items():
+        if times:
+            calls = metrics['service_calls'].get(service_name, 0)
+            total_time = metrics['service_total_time'].get(service_name, 0.0)
+            service_stats[service_name] = {
+                'call_count': calls,
+                'avg_ms': round((total_time / calls) * 1000, 2) if calls > 0 else 0,
+                'total_time_ms': round(total_time * 1000, 2),
+                'min_ms': round(min(times) * 1000, 2),
+                'max_ms': round(max(times) * 1000, 2),
+                'p95_ms': round(sorted(times)[int(len(times) * 0.95)] * 1000, 2) if len(times) > 1 else round(times[0] * 1000, 2)
+            }
 
     return jsonify({
         'summary': {
@@ -4591,9 +4627,12 @@ def api_performance_metrics():
             'error_rate_percent': round(error_rate, 2),
             'cache_hit_rate_percent': round(cache_hit_rate, 2),
             'cache_hits': metrics['cache_hits'],
-            'cache_misses': metrics['cache_misses']
+            'cache_misses': metrics['cache_misses'],
+            'slow_requests': metrics.get('slow_requests', 0)
         },
-        'endpoints': endpoint_stats
+        'endpoints': endpoint_stats,
+        'subprocess': subprocess_stats,
+        'services': service_stats
     })
 
 

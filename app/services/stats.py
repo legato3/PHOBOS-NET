@@ -2,6 +2,7 @@
 import time
 import threading
 from app.db.sqlite import _get_firewall_block_stats
+from app.utils.observability import instrument_service
 # Import threat module to access globals
 import app.services.threats as threats_module
 
@@ -11,8 +12,12 @@ _security_score_lock = threading.Lock()
 _SECURITY_SCORE_CACHE_TTL = 30  # 30 seconds
 
 
+@instrument_service('calculate_security_score')
 def calculate_security_score():
-    """Calculate 0-100 security score based on current threat state and firewall activity"""
+    """Calculate 0-100 security score based on current threat state and firewall activity.
+    
+    OBSERVABILITY: Instrumented to track execution time and call frequency.
+    """
     # PERFORMANCE: Cache result for 30s to reduce redundant DB queries and timeline iterations
     now = time.time()
     with _security_score_lock:

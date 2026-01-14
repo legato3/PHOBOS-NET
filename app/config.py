@@ -8,6 +8,13 @@ DEFAULT_TIMEOUT = 25        # subprocess timeout
 MAX_RESULTS = 100           # default limit for API results
 DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
 
+# Observability thresholds (configurable via environment variables)
+OBS_NFDUMP_WARN_MS = float(os.getenv('OBS_NFDUMP_WARN_MS', '5000'))  # Warn if nfdump > 5s
+OBS_CACHE_MISS_RATE_WARN = float(os.getenv('OBS_CACHE_MISS_RATE_WARN', '0.5'))  # Warn if miss rate > 50%
+OBS_ROUTE_SLOW_MS = float(os.getenv('OBS_ROUTE_SLOW_MS', '1000'))  # Flag route as slow if > 1s
+OBS_ROUTE_SLOW_WARN_MS = float(os.getenv('OBS_ROUTE_SLOW_WARN_MS', '2000'))  # Warn if route > 2s
+OBS_SERVICE_SLOW_MS = float(os.getenv('OBS_SERVICE_SLOW_MS', '500'))  # Warn if service function > 500ms
+
 # Paths
 MMDB_CITY = "/root/GeoLite2-City.mmdb"
 MMDB_ASN = "/root/GeoLite2-ASN.mmdb"

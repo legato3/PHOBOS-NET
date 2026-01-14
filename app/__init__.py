@@ -2,7 +2,8 @@
 
 This module creates and configures the Flask application instance.
 """
-from flask import Flask, request
+import time
+from flask import Flask, request, g
 from flask_compress import Compress
 
 def create_app():
@@ -25,6 +26,39 @@ def create_app():
     app.register_blueprint(routes_bp)
     
     # Setup middleware
+    @app.before_request
+    def track_request_start():
+        """OBSERVABILITY: Track request start time for duration measurement."""
+        g.request_start_time = time.time()
+    
+    @app.after_request
+    def track_request_performance(response):
+        """OBSERVABILITY: Track request duration and flag slow requests."""
+        from app.services.metrics import track_performance, track_slow_request
+        from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
+        from app.utils.observability import _logger
+        
+        if hasattr(g, 'request_start_time'):
+            duration = time.time() - g.request_start_time
+            duration_ms = duration * 1000
+            
+            # Track performance metrics
+            endpoint = request.endpoint or 'unknown'
+            is_cached = response.status_code == 304 or 'cache' in response.headers.get('Cache-Control', '').lower()
+            track_performance(endpoint, duration, cached=is_cached)
+            
+            # Guardrail: Track and warn on slow requests
+            if duration_ms > OBS_ROUTE_SLOW_MS:
+                track_slow_request()
+                
+                if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
+                    _logger.warning(
+                        f"Slow request detected: {endpoint} took {duration_ms:.1f}ms "
+                        f"(threshold: {OBS_ROUTE_SLOW_WARN_MS}ms) - {request.path}"
+                    )
+        
+        return response
+    
     @app.after_request
     def set_security_headers(response):
         """Add security headers and cache headers to all responses."""

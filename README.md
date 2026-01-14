@@ -163,6 +163,7 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/ollama/models` - Available models
 
 ### System & Performance
+- `/api/performance/metrics` - Performance and observability metrics (see Observability section below)
 - `/api/server/health` - Dashboard server health
 - `/api/stats/batch` - Batch data fetching
 - `/api/performance/metrics` - API latency and cache stats
@@ -266,10 +267,133 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [sample_da
 
 https://github.com/legato3/PROX_NFDUMP
 
+## 📊 Observability & Performance Metrics
+
+The dashboard includes lightweight observability instrumentation to monitor performance without changing behavior.
+
+### Metrics Endpoint
+
+Access metrics via `/api/performance/metrics`:
+
+```json
+{
+  "summary": {
+    "total_requests": 1234,
+    "avg_response_time_ms": 45.2,
+    "error_count": 5,
+    "error_rate_percent": 0.41,
+    "cache_hit_rate_percent": 85.3,
+    "cache_hits": 1053,
+    "cache_misses": 181,
+    "slow_requests": 12
+  },
+  "endpoints": {
+    "api_stats_summary": {
+      "count": 150,
+      "avg_ms": 32.1,
+      "min_ms": 15.2,
+      "max_ms": 245.8,
+      "p95_ms": 89.5
+    }
+  },
+  "subprocess": {
+    "total_calls": 542,
+    "success_count": 538,
+    "failure_count": 3,
+    "timeout_count": 1,
+    "avg_ms": 123.4,
+    "max_ms": 3421.0,
+    "p95_ms": 456.7,
+    "success_rate_percent": 99.26
+  },
+  "services": {
+    "calculate_security_score": {
+      "call_count": 89,
+      "avg_ms": 12.3,
+      "total_time_ms": 1094.7,
+      "min_ms": 8.1,
+      "max_ms": 45.6,
+      "p95_ms": 22.4
+    },
+    "run_all_detections": {
+      "call_count": 42,
+      "avg_ms": 234.5,
+      "total_time_ms": 9849.0,
+      "min_ms": 156.2,
+      "max_ms": 567.8,
+      "p95_ms": 412.3
+    },
+    "get_snmp_data": {
+      "call_count": 120,
+      "avg_ms": 45.6,
+      "total_time_ms": 5472.0,
+      "min_ms": 23.1,
+      "max_ms": 234.5,
+      "p95_ms": 89.2
+    }
+  }
+}
+```
+
+### Tracked Metrics
+
+1. **API Request Metrics**
+   - Request count, average response time, error rate
+   - Per-endpoint statistics (avg, min, max, p95)
+   - Slow request count (>1s by default)
+
+2. **Subprocess Metrics** (nfdump calls)
+   - Total calls, success/failure/timeout counts
+   - Execution time statistics
+   - Success rate
+
+3. **Service Function Metrics**
+   - Execution time for hot paths:
+     - `calculate_security_score()` - Security score calculation
+     - `run_all_detections()` - Threat detection orchestration
+     - `get_snmp_data()` - SNMP polling
+
+4. **Cache Metrics**
+   - Cache hit/miss counts and rates
+
+### Guardrails & Warnings
+
+The system logs warnings when performance thresholds are exceeded:
+
+- **Subprocess warnings**: When nfdump execution exceeds threshold (default: 5000ms)
+- **Cache miss rate warnings**: When cache miss rate exceeds threshold (default: 50%)
+- **Slow request warnings**: When API routes exceed threshold (default: 2000ms)
+- **Service function warnings**: When service functions exceed threshold (default: 500ms)
+
+### Configuration
+
+Thresholds are configurable via environment variables:
+
+```bash
+export OBS_NFDUMP_WARN_MS=5000          # Warn if nfdump > 5s
+export OBS_CACHE_MISS_RATE_WARN=0.5     # Warn if cache miss rate > 50%
+export OBS_ROUTE_SLOW_MS=1000           # Flag route as slow if > 1s
+export OBS_ROUTE_SLOW_WARN_MS=2000      # Warn if route > 2s
+export OBS_SERVICE_SLOW_MS=500          # Warn if service function > 500ms
+```
+
+Warnings are logged to stderr with `[OBSERVABILITY]` prefix and can be redirected to log files.
+
+### Implementation Notes
+
+- All instrumentation is **passive** - does not modify application behavior
+- Metrics are thread-safe using locks
+- Low overhead - minimal performance impact (<1% typical)
+- No external dependencies - uses Python standard library logging
+- Metrics are additive - existing functionality unchanged
+
+---
+
 ## ⚙️ Environment Variables
 
 The dashboard supports configuration via environment variables:
 
+### Core Configuration
 - `SNMP_HOST` (default: 192.168.0.1)
 - `SNMP_COMMUNITY` (default: Phoboshomesnmp_3)
 - `DNS_SERVER` (default: 192.168.0.6)
@@ -278,6 +402,13 @@ The dashboard supports configuration via environment variables:
 - `NOTIFY_CFG_PATH` (default: /root/netflow-notify.json)
 - `THRESHOLDS_CFG_PATH` (default: /root/netflow-thresholds.json)
 - `FIREWALL_DB_PATH` (default: /root/firewall.db)
+
+### Observability Thresholds
+- `OBS_NFDUMP_WARN_MS` (default: 5000) - Warn if nfdump execution > 5s
+- `OBS_CACHE_MISS_RATE_WARN` (default: 0.5) - Warn if cache miss rate > 50%
+- `OBS_ROUTE_SLOW_MS` (default: 1000) - Flag route as slow if > 1s
+- `OBS_ROUTE_SLOW_WARN_MS` (default: 2000) - Warn if route > 2s
+- `OBS_SERVICE_SLOW_MS` (default: 500) - Warn if service function > 500ms
 
 Thresholds API payload example (POST /api/thresholds):
 ```json

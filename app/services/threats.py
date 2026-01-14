@@ -6,6 +6,7 @@ import requests
 import threading
 from datetime import datetime, timezone
 from collections import defaultdict, deque
+from app.utils.observability import instrument_service
 from app.config import (
     WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
     SECURITY_WEBHOOK_PATH, WEBHOOK_PATH, PORTS, SUSPICIOUS_PORTS, BRUTE_FORCE_PORTS,
@@ -670,8 +671,12 @@ def detect_off_hours_activity(sources_data):
     return alerts
 
 
+@instrument_service('run_all_detections')
 def run_all_detections(ports_data, sources_data, destinations_data, protocols_data, flow_data=None):
-    """Run all detection algorithms and aggregate alerts."""
+    """Run all detection algorithms and aggregate alerts.
+    
+    OBSERVABILITY: Instrumented to track execution time and call frequency.
+    """
     all_alerts = []
     
     # Basic flow data (simplified if not provided)

@@ -122,34 +122,64 @@ def mock_nfdump(args):
 
 
 def run_nfdump(args, tf=None):
-    """Run nfdump command and return CSV output."""
+    """Run nfdump command and return CSV output.
+    
+    OBSERVABILITY: Instrumented to track execution time, success/failure, and timeouts.
+    """
     global _metric_nfdump_calls
     _metric_nfdump_calls += 1
     
-    # PERFORMANCE: Check nfdump availability once and cache result (expensive subprocess call)
-    if state._has_nfdump is None:
-        try:
-            subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=2)
-            state._has_nfdump = True
-        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            state._has_nfdump = False
+    # OBSERVABILITY: Track subprocess execution with timing
+    from app.utils.observability import instrument_subprocess
+    from app.services.metrics import track_subprocess
     
-    # Try running actual nfdump first
-    if state._has_nfdump:
-        try:
-            cmd = ["nfdump", "-R", "/var/cache/nfdump", "-o", "csv"]
-            if tf:
-                cmd.extend(["-t", tf])
-            cmd.extend(args)
-            
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
-            if r.returncode == 0 and r.stdout:
-                return r.stdout
-        except Exception:
-            pass
+    start_time = time.time()
+    success = False
+    timeout = False
     
-    # Fallback to mock
-    return mock_nfdump(args)
+    try:
+        # PERFORMANCE: Check nfdump availability once and cache result (expensive subprocess call)
+        if state._has_nfdump is None:
+            try:
+                subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=2)
+                state._has_nfdump = True
+            except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                state._has_nfdump = False
+        
+        # Try running actual nfdump first
+        if state._has_nfdump:
+            try:
+                cmd = ["nfdump", "-R", "/var/cache/nfdump", "-o", "csv"]
+                if tf:
+                    cmd.extend(["-t", tf])
+                cmd.extend(args)
+                
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
+                if r.returncode == 0 and r.stdout:
+                    success = True
+                    result = r.stdout
+                else:
+                    # Subprocess ran but failed
+                    result = None
+            except subprocess.TimeoutExpired:
+                timeout = True
+                result = None
+            except Exception:
+                result = None
+        else:
+            result = None
+        
+        # Fallback to mock if nfdump failed or unavailable
+        if result is None:
+            result = mock_nfdump(args)
+            if result:
+                success = True
+        
+        return result
+    finally:
+        # OBSERVABILITY: Track subprocess metrics
+        duration = time.time() - start_time
+        track_subprocess(duration, success, timeout)
 
 
 def parse_csv(output, expected_key=None):
