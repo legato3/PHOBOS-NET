@@ -3669,6 +3669,24 @@ def api_forensics_alert_correlation():
         now = time.time()
         cutoff = now - range_seconds
 
+        def _parse_ts(val):
+            """Safely convert timestamps to float seconds since epoch."""
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                # Try plain float first
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    pass
+                # Try common datetime string formats
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+                    try:
+                        return datetime.strptime(val, fmt).timestamp()
+                    except (ValueError, TypeError):
+                        continue
+            return None
+
         # Get alerts from history filtered by time range
         with threats_module._alert_history_lock:
             alerts = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
@@ -3677,15 +3695,14 @@ def api_forensics_alert_correlation():
         chains = {}
         time_threshold = 3600  # 1 hour in seconds
 
-        for alert in sorted(alerts, key=lambda x: float(x.get('timestamp', 0) or x.get('ts', 0))):
+        for alert in sorted(alerts, key=lambda x: _parse_ts(x.get('timestamp', 0) or x.get('ts', 0)) or 0):
             ip = alert.get('ip') or alert.get('source_ip')
             if not ip:
                 continue
 
             # Ensure timestamp is float
-            try:
-                timestamp = float(alert.get('timestamp', 0) or alert.get('ts', 0))
-            except (ValueError, TypeError):
+            timestamp = _parse_ts(alert.get('timestamp', 0) or alert.get('ts', 0))
+            if timestamp is None:
                 continue
 
             # Find if this IP has an existing chain within time threshold
@@ -3695,14 +3712,11 @@ def api_forensics_alert_correlation():
             if ip in chains:
                 chain_data = chains[ip]
                 last_alert = chain_data['alerts'][-1]
-                try:
-                    last_alert_time = float(last_alert.get('timestamp', 0) or last_alert.get('ts', 0))
-                    if timestamp - last_alert_time <= time_threshold:
-                        chain_data['alerts'].append(alert)
-                        chain_data['end_time'] = timestamp
-                        found_chain = True
-                except (ValueError, TypeError):
-                    pass
+                last_alert_time = _parse_ts(last_alert.get('timestamp', 0) or last_alert.get('ts', 0))
+                if last_alert_time is not None and timestamp - last_alert_time <= time_threshold:
+                    chain_data['alerts'].append(alert)
+                    chain_data['end_time'] = timestamp
+                    found_chain = True
 
             # Create new chain if not found (or time gap too large - overwrites old chain logic preserved for now to avoid logic drift)
             if not found_chain:
@@ -3721,12 +3735,12 @@ def api_forensics_alert_correlation():
             if len(chain_data['alerts']) > 1:  # Only chains with multiple related alerts
                 formatted_alerts = []
                 for a in chain_data['alerts']:
-                    try:
-                        ts_val = float(a.get('timestamp', 0) or a.get('ts', 0))
-                        time_str = datetime.fromtimestamp(ts_val).strftime('%H:%M:%S')
-                    except Exception:
+                    ts_val = _parse_ts(a.get('timestamp', 0) or a.get('ts', 0))
+                    if ts_val is None:
                         time_str = 'recent'
                         ts_val = 0
+                    else:
+                        time_str = datetime.fromtimestamp(ts_val).strftime('%H:%M:%S')
 
                     formatted_alerts.append({
                         'id': f"{a.get('type', 'alert')}_{ts_val}",
