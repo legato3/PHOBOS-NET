@@ -34,9 +34,9 @@ scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev
 
 # Build and start container
 echo "🔨 Building and starting container..."
-ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker-compose -f docker/docker-compose.yml down 2>/dev/null || true"
-ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker-compose -f docker/docker-compose.yml build --no-cache"
-ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker-compose -f docker/docker-compose.yml up -d"
+ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker compose -f docker/docker-compose.yml down 2>/dev/null || true"
+ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker compose -f docker/docker-compose.yml build --no-cache"
+ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker compose -f docker/docker-compose.yml up -d"
 
 # Wait for container to start
 echo "⏳ Waiting for container to start..."
@@ -44,7 +44,7 @@ sleep 5
 
 # Check status
 echo "📊 Container status:"
-ssh -i "$SSH_KEY" $USER@$SERVER "docker ps | grep netflow-dashboard || docker-compose -f $REMOTE_DIR/docker/docker-compose.yml ps"
+ssh -i "$SSH_KEY" $USER@$SERVER "docker ps | grep netflow-dashboard || docker compose -f $REMOTE_DIR/docker/docker-compose.yml ps"
 
 echo ""
 echo "✅ Deployment complete!"
