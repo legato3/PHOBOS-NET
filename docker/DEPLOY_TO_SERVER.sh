@@ -35,14 +35,21 @@ scp -i "$SSH_KEY" docker/Dockerfile $USER@$SERVER:$REMOTE_DIR/docker/
 scp -i "$SSH_KEY" docker/docker-entrypoint.sh $USER@$SERVER:$REMOTE_DIR/docker/
 scp -i "$SSH_KEY" docker/.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
 
-# Copy application files
+# Copy application files (new modular structure)
 echo "📦 Copying application files..."
-ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{templates,static,scripts,sample_data}"
-scp -i "$SSH_KEY" netflow-dashboard.py $USER@$SERVER:$REMOTE_DIR/
-scp -i "$SSH_KEY" -r templates/* $USER@$SERVER:$REMOTE_DIR/templates/
-scp -i "$SSH_KEY" -r static/* $USER@$SERVER:$REMOTE_DIR/static/
+ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{app,frontend/{templates,static},scripts,sample_data,docker-data}"
+# Copy app directory (modular structure)
+scp -i "$SSH_KEY" -r app/ $USER@$SERVER:$REMOTE_DIR/
+# Copy phobos_dashboard.py (renamed from netflow-dashboard.py)
+scp -i "$SSH_KEY" phobos_dashboard.py $USER@$SERVER:$REMOTE_DIR/
+# Copy frontend directory
+scp -i "$SSH_KEY" -r frontend/templates/* $USER@$SERVER:$REMOTE_DIR/frontend/templates/ 2>/dev/null || true
+scp -i "$SSH_KEY" -r frontend/static/* $USER@$SERVER:$REMOTE_DIR/frontend/static/ 2>/dev/null || true
+# Copy scripts and sample data
 scp -i "$SSH_KEY" scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
 scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
+# Copy threat-feeds.txt if it exists in docker-data
+scp -i "$SSH_KEY" docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
 if [ "$REBUILD" = true ]; then
     # Full rebuild (needed for Dockerfile/requirements.txt changes)
@@ -58,21 +65,9 @@ else
         # Fast update: Inject files directly into running container
         echo "⚡ Fast update: Injecting files into running container..."
         
-        # Copy files to temp directory on server
-        ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p /tmp/netflow-deploy"
-        scp -i "$SSH_KEY" netflow-dashboard.py $USER@$SERVER:/tmp/netflow-deploy/
-        scp -i "$SSH_KEY" -r templates/* $USER@$SERVER:/tmp/netflow-deploy/templates/ 2>/dev/null || true
-        scp -i "$SSH_KEY" -r static/* $USER@$SERVER:/tmp/netflow-deploy/static/ 2>/dev/null || true
-        
-        # Inject files into container using docker cp
-        ssh -i "$SSH_KEY" $USER@$SERVER "
-            docker cp /tmp/netflow-deploy/netflow-dashboard.py ${CONTAINER_NAME}:/app/netflow-dashboard.py 2>/dev/null || echo '⚠️  Container not running, will start it...'
-            docker cp /tmp/netflow-deploy/templates/index.html ${CONTAINER_NAME}:/app/templates/index.html 2>/dev/null || true
-            docker cp /tmp/netflow-deploy/static/js/store.js ${CONTAINER_NAME}:/app/static/js/store.js 2>/dev/null || true
-            docker cp /tmp/netflow-deploy/static/style.css ${CONTAINER_NAME}:/app/static/style.css 2>/dev/null || true
-            docker exec ${CONTAINER_NAME} chown root:root /app/netflow-dashboard.py /app/templates/index.html /app/static/js/store.js /app/static/style.css 2>/dev/null || true
-            rm -rf /tmp/netflow-deploy
-        "
+        # For new modular structure, we need to rebuild since structure changed
+        echo "⚠️  Modular structure changes detected - rebuilding container..."
+        REBUILD=true
         
         # Restart container to pick up changes
         echo "🔄 Restarting container..."

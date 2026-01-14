@@ -38,7 +38,7 @@ from app.config import (
 )
 
 # Import functions and globals from phobos_dashboard (original monolithic file)
-# TODO: As refactor progresses, these should be moved to proper modules
+# Note: This bridge pattern allows gradual migration - functions can be moved to modules over time
 try:
     import phobos_dashboard as _phobos
     
