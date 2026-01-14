@@ -15,19 +15,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import shutdown event from state module
 from app.core.state import _shutdown_event
 
-# Import thread functions from phobos_dashboard (still defined there)
+# Import thread functions
+from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
+
+# Import syslog functions from phobos_dashboard (still defined there - complex dependencies)
 try:
     import phobos_dashboard as _phobos
-    start_threat_thread = _phobos.start_threat_thread
-    start_trends_thread = _phobos.start_trends_thread
-    start_agg_thread = _phobos.start_agg_thread
     start_syslog_thread = _phobos.start_syslog_thread
     _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
 except ImportError as e:
-    print(f"Warning: Could not import from phobos_dashboard: {e}")
-    start_threat_thread = None
-    start_trends_thread = None
-    start_agg_thread = None
+    print(f"Warning: Could not import syslog functions from phobos_dashboard: {e}")
     start_syslog_thread = None
     _flush_syslog_buffer = None
 
