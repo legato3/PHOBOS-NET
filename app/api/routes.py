@@ -166,10 +166,7 @@ except ImportError as e:
     # Fallback if phobos_dashboard cannot be imported
     print(f"Warning: Could not import from phobos_dashboard: {e}")
     throttle = None
-    load_notify_cfg = None
     calculate_security_score = None
-    load_threatlist = None
-    format_duration = None
     start_threat_thread = None
     start_trends_thread = None
     start_agg_thread = None
