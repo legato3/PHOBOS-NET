@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 
 # Copy application files
 COPY netflow-dashboard.py .
-COPY sample_data/threat-feeds.txt .
+COPY docker-data/threat-feeds.txt .
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY templates/ ./templates/
