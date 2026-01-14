@@ -1100,11 +1100,49 @@ table:has(.network-endpoint-row) td {
     /* Padding handled by .endpoint-cell */
 }
 
-/* Explicitly force 50/50 split on these specific tables to fight the collapse */
-table:has(.network-endpoint-row) th:first-child,
-table:has(.network-endpoint-row) td:first-child {
+/* ==========================================================================
+   FLEXBOX REFACTOR for Endpoint Widgets
+   bypasses table-layout issues to guarantee 50/50 columns + card styling
+   ========================================================================== */
+table:has(.network-endpoint-row) {
+    display: flex;
+    /* Turn table into flex container */
+    flex-direction: column;
+    width: 100%;
+}
+
+table:has(.network-endpoint-row) thead,
+table:has(.network-endpoint-row) tbody {
+    display: flex;
+    /* Sections are column stacks */
+    flex-direction: column;
+    width: 100%;
+}
+
+table:has(.network-endpoint-row) tr {
+    display: flex;
+    /* Rows are flex containers */
+    width: 100%;
+    align-items: flex-start;
+    /* Top align content */
+}
+
+/* Cells: Enforce rigid 50% split */
+table:has(.network-endpoint-row) th,
+table:has(.network-endpoint-row) td {
+    display: block;
+    /* Behave like divs */
     width: 50% !important;
     max-width: 50% !important;
+    flex: 0 0 50%;
+    /* Flex sizing */
+    box-sizing: border-box;
+    text-align: left !important;
+}
+
+/* Ensure header row still has a border since we lost table borders */
+table:has(.network-endpoint-row) thead tr {
+    border-bottom: 1px solid var(--endpoint-surface-separator);
 }
 
 table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
