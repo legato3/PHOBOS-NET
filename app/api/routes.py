@@ -108,7 +108,7 @@ try:
     
     # State
     _threat_status = _phobos._threat_status
-    _threat_timeline = getattr(_phobos, '_threat_timeline', {})
+    # _threat_timeline now accessed via threats_module._threat_timeline
     _syslog_stats = getattr(_phobos, '_syslog_stats', {})
     _performance_metrics = getattr(_phobos, '_performance_metrics', {})
     _metric_http_429 = getattr(_phobos, '_metric_http_429', 0)
@@ -2933,7 +2933,7 @@ def api_export_threats():
     # Get recent threats
     now = time.time()
     threats = []
-    for ip, timeline in _threat_timeline.items():
+    for ip, timeline in threats_module._threat_timeline.items():
         if now - timeline['last_seen'] < 86400:  # Last 24h
             info = get_threat_info(ip)
             geo = lookup_geo(ip) or {}
@@ -3268,7 +3268,7 @@ def api_threats_by_country():
     except:
         pass
 
-    for ip, timeline in _threat_timeline.items():
+    for ip, timeline in threats_module._threat_timeline.items():
         if time.time() - timeline['last_seen'] < 86400:
             geo = lookup_geo(ip) or {}
             country = geo.get('country_code', 'XX')
@@ -3374,7 +3374,7 @@ def api_top_threat_ips():
 
     # Get IPs with timeline data from last 24h
     threat_ips = []
-    for ip, timeline in _threat_timeline.items():
+    for ip, timeline in threats_module._threat_timeline.items():
         if now - timeline['last_seen'] < 86400:
             info = get_threat_info(ip)
             geo = lookup_geo(ip) or {}
