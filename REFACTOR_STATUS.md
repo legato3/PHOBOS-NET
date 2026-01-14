@@ -118,11 +118,7 @@
   8. Forensics Routes (2)
   9. Ollama Routes (2)
 
-**Note:** Routes have been extracted but still reference globals and helper functions from the main file. These dependencies will be resolved when `app/__init__.py` is created and globals/helpers are organized.
-
-**Next Steps:**
-- Routes need access to: `throttle` decorator, global variables (caches, locks, state), helper functions (load_notify_cfg, calculate_security_score, etc.), thread functions (start_threat_thread, etc.)
-- This will be handled in the next phase when creating `app/__init__.py`
+**Note:** Routes import functions and globals from `phobos_dashboard.py` using a bridge pattern for backward compatibility.
 
 ## In Progress
 
@@ -144,33 +140,11 @@
 - ✅ Background services startup
 - ✅ Flask app execution
 
-### 10. Frontend Migration
+### 10. Frontend Migration ✅
+- ✅ Moved `static/` to `frontend/static/`
+- ✅ Moved `templates/` to `frontend/templates/`
+- ✅ Updated paths in Flask app configuration
 
-- Move `static/` to `frontend/static/`
-- Move `templates/` to `frontend/templates/`
-- Update paths in code
-
-## Notes
-
-The original `netflow-dashboard.py` file is 7,426 lines. The refactoring involves:
-
-1. **Extracting services** - Moving business logic out of routes
-2. **Separating concerns** - Utils, services, database, API
-3. **Creating proper structure** - Following Python package conventions
-4. **Maintaining functionality** - All existing features must work
-
-## Next Steps
-
-1. Complete remaining service modules (threats, stats)
-2. Extract and organize API routes
-3. Create Flask app initialization
-4. Move frontend assets
-5. Update all imports in netflow-dashboard.py to use new modules
-6. Test the refactored application
-
-## Files to Extract From
-
-- `netflow-dashboard.py` (7,426 lines) - Main source file
 
 ## Key Functions to Extract
 
@@ -213,21 +187,10 @@ The original `netflow-dashboard.py` file is 7,426 lines. The refactoring involve
 - `_get_firewall_block_stats()` - Extracted to `app/db/sqlite.py`
 - `_cleanup_old_fw_logs()` - Extracted to `app/db/sqlite.py`
 
-## Route Extraction Plan
-
-**Status:** ✅ Routes extracted - see `docs/RUNNING_THE_APP.md` for details
-
-**Approach:**
-- Single Flask Blueprint for all 68 routes
-- Preserve decorators, middleware, and order exactly
-- Leave global state access unchanged
-- Extraction only, not redesign
-
-**Challenge:** This is a massive task (68 routes, thousands of lines) that requires systematic extraction while maintaining all dependencies on globals and helper functions.
 
 ## Refactoring Complete
 
-The refactoring is **~85% complete**. All major milestones achieved:
+All major refactoring milestones have been completed:
 - ✅ Configuration module (`app/config.py`)
 - ✅ Utilities module (`app/utils/` - helpers, geoip, dns, formatters)
 - ✅ NetFlow service module (`app/services/netflow.py`)
