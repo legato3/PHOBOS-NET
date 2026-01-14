@@ -7171,34 +7171,8 @@ def api_stats_blocklist_rate():
     })
 
 # Performance metrics tracking
-_performance_metrics = {
-    'request_count': 0,
-    'total_response_time': 0.0,
-    'endpoint_times': defaultdict(list),
-    'error_count': 0,
-    'cache_hits': 0,
-    'cache_misses': 0
-}
-_performance_lock = threading.Lock()
-
-def track_performance(endpoint, duration, cached=False):
-    """Track performance metrics for an endpoint."""
-    with _performance_lock:
-        _performance_metrics['request_count'] += 1
-        _performance_metrics['total_response_time'] += duration
-        _performance_metrics['endpoint_times'][endpoint].append(duration)
-        # Keep only last 100 samples per endpoint
-        if len(_performance_metrics['endpoint_times'][endpoint]) > 100:
-            _performance_metrics['endpoint_times'][endpoint].pop(0)
-        if cached:
-            _performance_metrics['cache_hits'] += 1
-        else:
-            _performance_metrics['cache_misses'] += 1
-
-def track_error():
-    """Track error occurrence."""
-    with _performance_lock:
-        _performance_metrics['error_count'] += 1
+# Performance metrics tracking moved to app.services.metrics
+# Functions imported by throttle decorator as needed
 
 # Security headers and cache headers for all responses
 @app.after_request
