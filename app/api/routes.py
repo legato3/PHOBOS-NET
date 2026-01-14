@@ -29,6 +29,7 @@ from app.services.threats import (
     lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts
 )
 from app.services.stats import calculate_security_score
+from app.services.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
 from app.utils.formatters import format_time_ago, format_uptime
@@ -56,8 +57,7 @@ try:
     # check_disk_space now imported from app.utils.helpers
     calculate_cpu_percent_from_stat = getattr(_phobos, 'calculate_cpu_percent_from_stat', None)
     get_snmp_data = getattr(_phobos, 'get_snmp_data', None)
-    track_performance = getattr(_phobos, 'track_performance', None)
-    track_error = getattr(_phobos, 'track_error', None)
+    # track_performance, track_error now imported from app.services.metrics
     # _get_bucket_end, _ensure_rollup_for_bucket now imported from app.db.sqlite
     
     # Thread functions
@@ -110,7 +110,7 @@ try:
     _threat_status = _phobos._threat_status
     # _threat_timeline now accessed via threats_module._threat_timeline
     _syslog_stats = getattr(_phobos, '_syslog_stats', {})
-    _performance_metrics = getattr(_phobos, '_performance_metrics', {})
+    # _performance_metrics now accessed via get_performance_metrics() from app.services.metrics
     _metric_http_429 = getattr(_phobos, '_metric_http_429', 0)
     _metric_bw_cache_hits = getattr(_phobos, '_metric_bw_cache_hits', 0)
     _metric_flow_cache_hits = getattr(_phobos, '_metric_flow_cache_hits', 0)
@@ -4639,8 +4639,7 @@ def api_stats_batch():
 @throttle(10, 60)
 def api_performance_metrics():
     """Get performance metrics."""
-    with _performance_lock:
-        metrics = dict(_performance_metrics)
+    metrics = get_performance_metrics()
 
     # Calculate statistics
     avg_response_time = 0.0
