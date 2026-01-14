@@ -215,9 +215,12 @@ def _insert_fw_log(parsed: dict, raw_log: str):
                 'source': 'firewall'
             }
             with _alert_history_lock:
+                # PERFORMANCE: Convert deque to list once instead of per-iteration
                 # Dedupe: don't add if same IP/port in last 60 seconds
-                recent_keys = {(a.get('ip'), a.get('port')) for a in list(_alert_history)[-20:] 
-                              if a.get('ts', 0) > now - 60}
+                recent_history = list(_alert_history)[-20:]  # Convert once
+                cutoff_ts = now - 60
+                recent_keys = {(a.get('ip'), a.get('port')) for a in recent_history 
+                              if a.get('ts', 0) > cutoff_ts}
                 if (src_ip, dst_port) not in recent_keys:
                     _alert_history.append(alert)
     

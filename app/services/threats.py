@@ -337,12 +337,14 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
 
     # Add all alerts to history
     # PERFORMANCE: Compute timestamp once instead of per-alert if missing
+    # PERFORMANCE: Convert deque to list once instead of per-alert check (O(n) -> O(1) after conversion)
     now_ts = time.time()
     with _alert_history_lock:
+        history_list = list(_alert_history)  # Convert once for membership check
         for alert in alerts:
             if 'ts' not in alert:
                 alert['ts'] = now_ts
-            if alert not in list(_alert_history):
+            if alert not in history_list:
                 _alert_history.append(alert)
 
     return alerts
@@ -405,6 +407,8 @@ def detect_brute_force(flow_data):
             auth_attempts[src_ip]['count'] += flow.get('flows', 1)
             auth_attempts[src_ip]['port'] = dst_port
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for ip, data in auth_attempts.items():
         if data['count'] >= 50:  # 50+ connection attempts
             service = PORTS.get(data['port'], f"Port {data['port']}")
@@ -415,7 +419,7 @@ def detect_brute_force(flow_data):
                 "ip": ip,
                 "port": data['port'],
                 "attempts": data['count'],
-                "ts": time.time(),
+                "ts": now_ts,
                 "mitre": "T1110"  # Brute Force
             })
     
@@ -439,6 +443,8 @@ def detect_data_exfiltration(sources_data, destinations_data):
         if ip and is_internal(ip):
             internal_traffic[ip]['in'] += item.get('bytes', 0)
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for ip, traffic in internal_traffic.items():
         out_mb = traffic['out'] / (1024 * 1024)
         in_mb = max(traffic['in'] / (1024 * 1024), 0.1)  # Avoid div by 0
@@ -452,7 +458,7 @@ def detect_data_exfiltration(sources_data, destinations_data):
                 "ip": ip,
                 "bytes_out": traffic['out'],
                 "ratio": ratio,
-                "ts": time.time(),
+                "ts": now_ts,
                 "mitre": "T1041"  # Exfiltration Over C2 Channel
             })
         elif ratio >= EXFIL_RATIO_THRESHOLD and out_mb >= 50:  # At least 50MB with high ratio
@@ -463,7 +469,7 @@ def detect_data_exfiltration(sources_data, destinations_data):
                 "ip": ip,
                 "bytes_out": traffic['out'],
                 "ratio": ratio,
-                "ts": time.time(),
+                "ts": now_ts,
                 "mitre": "T1041"
             })
     
@@ -485,6 +491,8 @@ def detect_dns_anomaly(flow_data):
         except (ValueError, TypeError):
             continue
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for ip, count in dns_queries.items():
         if count >= DNS_QUERY_THRESHOLD:
             alerts.append({
@@ -493,7 +501,7 @@ def detect_dns_anomaly(flow_data):
                 "severity": "medium",
                 "ip": ip,
                 "query_count": count,
-                "ts": time.time(),
+                "ts": now_ts,
                 "mitre": "T1071.004"  # DNS Protocol
             })
     
@@ -511,6 +519,8 @@ def detect_new_external(sources_data, destinations_data):
     for item in (destinations_data or []):
         all_ips.add(item.get('key'))
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for ip in all_ips:
         if not ip or is_internal(ip):
             continue
@@ -530,7 +540,7 @@ def detect_new_external(sources_data, destinations_data):
                         "severity": "low",
                         "ip": ip,
                         "country": country,
-                        "ts": time.time(),
+                        "ts": now_ts,
                         "mitre": "T1071"
                     })
             
@@ -543,7 +553,7 @@ def detect_new_external(sources_data, destinations_data):
                         "severity": "low",
                         "ip": ip,
                         "asn": asn,
-                        "ts": time.time(),
+                        "ts": now_ts,
                         "mitre": "T1071"
                     })
     
@@ -572,6 +582,8 @@ def detect_lateral_movement(flow_data):
             internal_pairs[pair_key]['src'] = src_ip
             internal_pairs[pair_key]['dst'] = dst_ip
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for pair, data in internal_pairs.items():
         mb = data['bytes'] / (1024 * 1024)
         if mb >= 100 or data['flows'] >= 1000:  # 100MB or 1000 flows internal
@@ -583,7 +595,7 @@ def detect_lateral_movement(flow_data):
                 "dst_ip": data['dst'],
                 "bytes": data['bytes'],
                 "flows": data['flows'],
-                "ts": time.time(),
+                "ts": now_ts,
                 "mitre": "T1021"  # Remote Services
             })
     
@@ -618,7 +630,7 @@ def detect_protocol_anomaly(protocols_data):
                     "protocol": proto_name,
                     "bytes": proto_bytes,
                     "avg_bytes": avg,
-                    "ts": time.time(),
+                    "ts": time.time(),  # Keep per-alert for anomaly timing precision
                     "mitre": "T1095"  # Non-Application Layer Protocol
                 })
     
@@ -634,6 +646,8 @@ def detect_off_hours_activity(sources_data):
     if current_hour >= BUSINESS_HOURS_START and current_hour < BUSINESS_HOURS_END:
         return alerts  # During business hours, no alerts
     
+    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
+    now_ts = time.time()
     for item in sources_data:
         ip = item.get('key')
         bytes_val = item.get('bytes', 0)
@@ -649,7 +663,7 @@ def detect_off_hours_activity(sources_data):
                     "ip": ip,
                     "bytes": bytes_val,
                     "hour": current_hour,
-                    "ts": time.time(),
+                    "ts": now_ts,
                     "mitre": "T1029"  # Scheduled Transfer
                 })
     
@@ -706,14 +720,17 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
     
     # Add all new alerts to history
     # PERFORMANCE: Compute timestamp once for all alerts missing timestamps
+    # PERFORMANCE: Convert deque to list once instead of per-alert (slicing deque is O(n))
     now_ts = time.time()
     with _alert_history_lock:
+        recent_history = list(_alert_history)[-50:]  # Convert once, get last 50
+        existing_keys = {(a.get('type'), a.get('ip'), a.get('msg')) for a in recent_history}
         for alert in all_alerts:
             if 'ts' not in alert:
                 alert['ts'] = now_ts
             # Avoid duplicates in recent history
-            existing_keys = {(a.get('type'), a.get('ip'), a.get('msg')) for a in list(_alert_history)[-50:]}
-            if (alert.get('type'), alert.get('ip'), alert.get('msg')) not in existing_keys:
+            alert_key = (alert.get('type'), alert.get('ip'), alert.get('msg'))
+            if alert_key not in existing_keys:
                 _alert_history.append(alert)
     
     return all_alerts
@@ -1015,9 +1032,12 @@ def generate_ip_anomaly_alerts(ip, anomalies, geo):
         return
     
     now = time.time()
+    hour_ago = now - 3600
     with _alert_history_lock:
+        # PERFORMANCE: Convert deque to list once and filter in single pass
         # Check if we've already alerted for this IP recently (within last hour)
-        recent_alerts = [a for a in list(_alert_history)[-50:] if a.get('ip') == ip and a.get('ts', 0) > now - 3600]
+        recent_history = list(_alert_history)[-50:]  # Convert once
+        recent_alerts = [a for a in recent_history if a.get('ip') == ip and a.get('ts', 0) > hour_ago]
         if recent_alerts:
             return  # Already alerted recently
         
