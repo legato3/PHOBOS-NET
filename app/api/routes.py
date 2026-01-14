@@ -32,12 +32,12 @@ from app.services.stats import calculate_security_score
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
 from app.utils.formatters import format_time_ago, format_uptime
-from app.utils.geoip import lookup_geo
+from app.utils.geoip import lookup_geo, load_city_db
 from app.utils.dns import resolve_ip
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
-    NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH
+    NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST
 )
 
 # Import functions and globals from phobos_dashboard (original monolithic file)
@@ -137,13 +137,13 @@ try:
     # get_traffic_direction now imported from app.services.netflow
     # lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts now imported from app.services.threats
     # load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds now imported from app.utils.config_helpers
+    # load_city_db now imported from app.utils.geoip
     load_config = getattr(_phobos, 'load_config', None)
     save_config = getattr(_phobos, 'save_config', None)
-    load_city_db = getattr(_phobos, 'load_city_db', None)
     start_snmp_thread = getattr(_phobos, 'start_snmp_thread', None)
     
     # Constants
-    THREAT_WHITELIST = getattr(_phobos, 'THREAT_WHITELIST', None)
+    # THREAT_WHITELIST now imported from app.config
     
     # Additional state variables
     _alert_history = getattr(_phobos, '_alert_history', None)
