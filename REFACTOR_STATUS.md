@@ -224,7 +224,15 @@ All major refactoring milestones have been completed:
   - ⏭️ Other helper functions that can be extracted:
     - `get_snmp_data`, `calculate_cpu_percent_from_stat` - SNMP functions with many global dependencies
 - ⏭️ Create state management module for globals (if desired)
-- ⏭️ Remove unused code from `phobos_dashboard.py` (when ready)
+- ⏭️ Remove unused code from `phobos_dashboard.py`:
+  - **Note**: Functions that have been extracted are still present in `phobos_dashboard.py` because:
+    1. The file still serves as a bridge via `import phobos_dashboard as _phobos`
+    2. Many functions are still called from within `phobos_dashboard.py` itself (internal dependencies)
+    3. The file still contains Flask routes (though the app uses Blueprint from `app/api/routes.py`)
+  - Safe cleanup can only be done after verifying:
+    - Routes in `phobos_dashboard.py` are no longer used (app uses Blueprint)
+    - No internal dependencies on extracted functions
+    - Bridge pattern dependencies are fully migrated
 - ⏭️ Update deployment documentation
 
 ## Summary
