@@ -29,8 +29,12 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 - **[DOCKER.md](DOCKER.md)** - Comprehensive Docker documentation and usage guide
 - **[DEPLOY_PRODUCTION.md](DEPLOY_PRODUCTION.md)** - Quick deployment guide for PROX-DOCKER-2
-- **[UPDATING.md](UPDATING.md)** - **How to update the container when you have code changes**
+- **[UPDATING.md](UPDATING.md)** - **How to update the container when you have code changes** (includes fast `docker cp` method)
 - **[../docs/DEPLOYMENT_DOCKER.md](../docs/DEPLOYMENT_DOCKER.md)** - Complete Docker deployment instructions
+
+## Quick Update Tip
+
+For fastest updates, use `docker cp` to inject files directly into the running container (~5 seconds vs 15-20 seconds for rebuild). See [UPDATING.md](UPDATING.md) for details.
 
 ## Quick Reference
 

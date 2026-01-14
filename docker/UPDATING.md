@@ -4,7 +4,9 @@ This guide explains how to update the Docker container when you have code change
 
 ## Quick Reference
 
-### For Code Changes Only (Most Common)
+### Fast Update Method (Recommended - No Rebuild Needed)
+
+For code, templates, or static file changes, use `docker cp` to inject files directly into the running container. This is **much faster** than rebuilding (2-3 seconds vs 15-20 seconds).
 
 ```bash
 # 1. Commit and push changes
@@ -13,14 +15,31 @@ git add -A
 git commit -m "Your commit message"
 git push origin main
 
-# 2. Copy updated file to server
+# 2. Copy files to server temp directory
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/
+# For templates/static files:
+# scp -i ~/.ssh/id_ed25519_192.168.0.73 templates/index.html root@192.168.0.73:/tmp/
+# scp -i ~/.ssh/id_ed25519_192.168.0.73 static/js/store.js root@192.168.0.73:/tmp/
+
+# 3. Inject files directly into container and restart
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && docker exec phobos-net chown root:root /app/netflow-dashboard.py && cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+```
+
+**Time**: ~5 seconds total (vs 15-20 seconds for rebuild)
+
+### Alternative: Copy to Host Then Restart
+
+If you prefer copying to the host filesystem first:
+
+```bash
+# 1. Copy updated file to server
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
 
-# 3. Restart container
+# 2. Restart container
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
 ```
 
-That's it! The container will reload the updated Python file.
+**Note**: This method works for `netflow-dashboard.py` because it's loaded at runtime. For templates/static files that are copied into the image during build, use the `docker cp` method above.
 
 ## Detailed Steps
 
@@ -35,30 +54,57 @@ git commit -m "Description of your changes"
 git push origin main
 ```
 
-### Step 2: Copy Updated Files to Server
+### Step 2: Deploy Updated Files
 
-For code-only changes, you typically only need to update `netflow-dashboard.py`:
+You have two options:
+
+#### Option A: Fast Method - Direct Container Injection (Recommended)
+
+Use `docker cp` to inject files directly into the running container. This is fastest and works for all file types:
+
+```bash
+# Copy files to server temp directory
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/
+
+# For templates/static files:
+scp -i ~/.ssh/id_ed25519_192.168.0.73 templates/index.html root@192.168.0.73:/tmp/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 static/js/store.js root@192.168.0.73:/tmp/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 static/style.css root@192.168.0.73:/tmp/
+
+# Inject into container, set permissions, and restart
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "
+  docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && \
+  docker cp /tmp/index.html phobos-net:/app/templates/index.html && \
+  docker cp /tmp/store.js phobos-net:/app/static/js/store.js && \
+  docker cp /tmp/style.css phobos-net:/app/static/style.css && \
+  docker exec phobos-net chown root:root /app/netflow-dashboard.py /app/templates/index.html /app/static/js/store.js /app/static/style.css && \
+  cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart
+"
+```
+
+**Advantages**: 
+- ✅ Works for all file types (Python, templates, static files)
+- ✅ No rebuild needed
+- ✅ Very fast (~5 seconds)
+- ✅ Files are immediately available in container
+
+#### Option B: Copy to Host Filesystem
+
+For `netflow-dashboard.py` only (since it's loaded at runtime):
 
 ```bash
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
 ```
 
-If you also changed templates or static files:
-
-```bash
-scp -i ~/.ssh/id_ed25519_192.168.0.73 -r templates/* root@192.168.0.73:/root/netflow-dashboard/templates/
-scp -i ~/.ssh/id_ed25519_192.168.0.73 -r static/* root@192.168.0.73:/root/netflow-dashboard/static/
-```
+**Note**: Templates and static files copied into the image during build won't be updated this way. Use Option A for those.
 
 ### Step 3: Restart the Container
-
-For code-only changes, a simple restart is sufficient:
 
 ```bash
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
 ```
 
-The container will reload the Python application without rebuilding the image.
+The container will reload the updated files without rebuilding the image.
 
 ### Step 4: Verify Deployment
 
@@ -184,7 +230,19 @@ docker compose -f docker/docker-compose.yml restart
 
 ## One-Liner Quick Update
 
-For the fastest update (code changes only):
+### Fastest Method (Direct Container Injection)
+
+For code, templates, or static files - injects directly into container:
+
+```bash
+cd /path/to/PROX_NFDUMP && \
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/ && \
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && docker exec phobos-net chown root:root /app/netflow-dashboard.py && cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+```
+
+### Alternative (Host Filesystem Method)
+
+For Python code only:
 
 ```bash
 cd /path/to/PROX_NFDUMP && \
@@ -194,7 +252,16 @@ ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashbo
 
 ## Summary
 
-- **Most updates**: Copy file → Restart container (30 seconds)
-- **Docker changes**: Copy files → Rebuild container (2-5 minutes)
+- **Fast updates**: Use `docker cp` to inject files → Restart container (~5 seconds)
+- **Python code only**: Copy to host → Restart container (~10 seconds)
+- **Docker changes**: Copy files → Rebuild container (15-20 seconds)
 - **Data always persists**: No data loss on updates
 - **Always verify**: Check logs and health endpoint after update
+
+## File Update Methods Comparison
+
+| Method | Speed | Works For | When to Use |
+|--------|-------|-----------|-------------|
+| `docker cp` | ~5 sec | All files | **Recommended** - Fastest, works for everything |
+| Copy to host + restart | ~10 sec | Python code only | Alternative for Python files |
+| Full rebuild | 15-20 sec | Dockerfile/deps | Only when Dockerfile or requirements.txt changes |

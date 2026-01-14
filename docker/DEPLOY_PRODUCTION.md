@@ -55,7 +55,11 @@ After deployment, update your OPNsense firewall syslog target:
 
 ## Updating Deployment
 
-When you have code changes to deploy:
+When you have code changes to deploy, use the **fast update method**:
+
+### Fast Update (Recommended - No Rebuild)
+
+Use `docker cp` to inject files directly into the running container. This works for all file types and is much faster than rebuilding:
 
 ```bash
 # From your local machine
@@ -66,16 +70,25 @@ git add -A
 git commit -m "Your commit message"
 git push origin main
 
-# Copy updated application file
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+# Copy files to server temp directory
+scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/
+# For templates/static files:
+# scp -i ~/.ssh/id_ed25519_192.168.0.73 templates/index.html root@192.168.0.73:/tmp/
+# scp -i ~/.ssh/id_ed25519_192.168.0.73 static/js/store.js root@192.168.0.73:/tmp/
 
-# Restart container (picks up new code)
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+# Inject into container and restart (takes ~5 seconds)
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "
+  docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && \
+  docker exec phobos-net chown root:root /app/netflow-dashboard.py && \
+  cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart
+"
 ```
 
-**Note**: For code-only changes (like `netflow-dashboard.py`), a restart is usually sufficient. Only rebuild if you changed the Dockerfile, requirements.txt, or other build-time dependencies.
+**Time**: ~5 seconds (vs 15-20 seconds for rebuild)
 
-See **[UPDATING.md](UPDATING.md)** for detailed update procedures.
+**Note**: Only rebuild if you changed the Dockerfile, requirements.txt, or other build-time dependencies.
+
+See **[UPDATING.md](UPDATING.md)** for detailed update procedures and all available methods.
 
 ## Useful Commands
 
