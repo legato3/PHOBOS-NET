@@ -9,7 +9,7 @@ This document describes deploying the NetFlow Dashboard using Docker on PROX-DOC
 - **SSH Key**: ~/.ssh/id_ed25519_192.168.0.73
 - **Dashboard URL**: http://192.168.0.73:3434
 - **Container Name**: phobos-net
-- **Docker Compose Version**: v5.0.1+ (use `docker compose` command, not `docker-compose`)
+- **Docker Compose Version**: v5.0.1+ (use `docker compose` command, not `docker compose`)
 
 ## Quick Deployment
 
@@ -32,7 +32,7 @@ The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, thes
 
 3. **Restart Container**:
    ```bash
-   docker compose -f docker/docker-compose.yml restart
+   docker compose -f docker/docker compose.yml restart
    ```
 
 ### Initial Deployment
@@ -47,7 +47,7 @@ The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, thes
    
    # Copy Docker configuration files
    scp -i ~/.ssh/id_ed25519_192.168.0.73 \
-     docker/docker-compose.yml \
+     docker/docker compose.yml \
      docker/Dockerfile \
      docker/docker-entrypoint.sh \
      root@192.168.0.73:/root/netflow-dashboard/docker/
@@ -55,9 +55,13 @@ The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, thes
    # Copy application files
    scp -i ~/.ssh/id_ed25519_192.168.0.73 \
      netflow-dashboard.py \
-     threat-feeds.txt \
-     requirements.txt \
      root@192.168.0.73:/root/netflow-dashboard/
+
+   # Copy sample data requirements and threat feeds to root for build context
+   scp -i ~/.ssh/id_ed25519_192.168.0.73 \
+     sample_data/threat-feeds.txt \
+     sample_data/requirements.txt \
+     root@192.168.0.73:/root/netflow-dashboard/sample_data/
    
    # Copy templates, static files, scripts, and sample data
    scp -i ~/.ssh/id_ed25519_192.168.0.73 -r \
@@ -83,13 +87,13 @@ The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, thes
    cd /root/netflow-dashboard
    
    # Stop any existing container
-   docker compose -f docker/docker-compose.yml down 2>/dev/null || true
+   docker compose -f docker/docker compose.yml down 2>/dev/null || true
    
    # Build image
-   docker compose -f docker/docker-compose.yml build --no-cache
+   docker compose -f docker/docker compose.yml build --no-cache
    
    # Start container
-   docker compose -f docker/docker-compose.yml up -d
+   docker compose -f docker/docker compose.yml up -d
    ```
 
 3. **Verify deployment:**
@@ -123,7 +127,7 @@ git push origin main
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
 
 # Restart container (picks up new code)
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker compose.yml restart"
 ```
 
 **Note**: A restart is sufficient for code-only changes. The container will reload the updated Python file.
@@ -144,9 +148,9 @@ scp -i ~/.ssh/id_ed25519_192.168.0.73 requirements.txt root@192.168.0.73:/root/n
 # SSH to server and rebuild
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73
 cd /root/netflow-dashboard
-docker compose -f docker/docker-compose.yml down
-docker compose -f docker/docker-compose.yml build --no-cache
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker compose.yml down
+docker compose -f docker/docker compose.yml build --no-cache
+docker compose -f docker/docker compose.yml up -d
 ```
 
 ### What Requires Rebuild vs Restart?
@@ -154,7 +158,7 @@ docker compose -f docker/docker-compose.yml up -d
 **Restart Only (Fast)**:
 - Changes to `netflow-dashboard.py`
 - Changes to templates, static files (if mounted)
-- Environment variable changes in docker-compose.yml
+- Environment variable changes in docker compose.yml
 
 **Full Rebuild Required**:
 - Changes to `Dockerfile`
@@ -194,22 +198,22 @@ docker logs phobos-net --tail 100
 
 ### Restart Container
 ```bash
-docker compose -f /root/netflow-dashboard/docker/docker-compose.yml restart
+docker compose -f /root/netflow-dashboard/docker/docker compose.yml restart
 ```
 
 ### Stop Container
 ```bash
-docker compose -f /root/netflow-dashboard/docker/docker-compose.yml down
+docker compose -f /root/netflow-dashboard/docker/docker compose.yml down
 ```
 
 ### Start Container
 ```bash
-docker compose -f /root/netflow-dashboard/docker/docker-compose.yml up -d
+docker compose -f /root/netflow-dashboard/docker/docker compose.yml up -d
 ```
 
 ### Check Status
 ```bash
-docker compose -f /root/netflow-dashboard/docker/docker-compose.yml ps
+docker compose -f /root/netflow-dashboard/docker/docker compose.yml ps
 ```
 
 ## Health Checks
@@ -248,7 +252,7 @@ ss -tlnp | grep 3434
 netstat -tlnp | grep 3434
 
 # Check Docker Compose configuration
-docker compose -f /root/netflow-dashboard/docker/docker-compose.yml config
+docker compose -f /root/netflow-dashboard/docker/docker compose.yml config
 ```
 
 ### Port Already in Use
@@ -297,9 +301,9 @@ systemctl stop <service-name>
 
 ```bash
 cd /root/netflow-dashboard
-docker compose -f docker/docker-compose.yml down
-docker compose -f docker/docker-compose.yml build --no-cache
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker compose.yml down
+docker compose -f docker/docker compose.yml build --no-cache
+docker compose -f docker/docker compose.yml up -d
 ```
 
 ## Services Running in Container

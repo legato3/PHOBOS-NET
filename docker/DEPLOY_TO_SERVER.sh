@@ -48,10 +48,10 @@ ssh -i "$SSH_KEY" $USER@$SERVER "docker ps | grep netflow-dashboard || docker co
 
 echo ""
 echo "✅ Deployment complete!"
-echo "🌐 Dashboard should be available at: http://192.168.0.73:8080"
+echo "🌐 Dashboard should be available at: http://192.168.0.73:3434"
 echo ""
 echo "To view logs:"
-echo "  ssh $USER@$SERVER 'docker logs phobos-net -f'"
+echo "  ssh -i \"$SSH_KEY\" $USER@$SERVER 'docker logs phobos-net -f'"
 echo ""
 echo "To check syslog status:"
-echo "  ssh $USER@$SERVER 'curl -s http://localhost:8080/api/server/health | grep -A 6 syslog'"
+echo "  ssh -i \"$SSH_KEY\" $USER@$SERVER 'curl -s http://localhost:8080/api/server/health | grep -A 6 syslog'"

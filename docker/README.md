@@ -16,13 +16,13 @@ From the project root directory:
 
 ```bash
 cd docker
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Or from the project root:
 
 ```bash
-docker-compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker/docker-compose.yml up -d --build
 ```
 
 ## Documentation
