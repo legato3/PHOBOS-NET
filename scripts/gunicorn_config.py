@@ -15,10 +15,9 @@ def post_worker_init(worker):
     # With 1 worker, this runs once and threads are shared
     try:
         from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
-        # Import syslog thread from phobos_dashboard (still there due to complex dependencies)
+        # Import syslog thread from new service module
         try:
-            import phobos_dashboard as _phobos
-            start_syslog_thread = getattr(_phobos, 'start_syslog_thread', None)
+            from app.services.syslog import start_syslog_thread
         except ImportError:
             start_syslog_thread = None
         

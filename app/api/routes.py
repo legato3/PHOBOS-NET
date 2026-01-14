@@ -61,6 +61,7 @@ from app.core.state import (
 )
 # Import threats module to access threat state
 import app.services.threats as threats_module
+import app.core.state as state
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
 from app.utils.formatters import format_time_ago, format_uptime
 from app.utils.geoip import lookup_geo, load_city_db
@@ -95,7 +96,8 @@ try:
     
     # Thread functions - now imported from app.core.threads
     # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
-    start_syslog_thread = getattr(_phobos, 'start_syslog_thread', None)
+    # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
+    from app.services.syslog import start_syslog_thread
     
     # Global variables - now imported from app.core.state and app.db.sqlite
     # All locks, caches, and state variables are imported at the top of this file
@@ -1899,11 +1901,14 @@ def api_bandwidth():
             # If we don't have real nfdump, we are using static sample data.
             # Calculating 288 buckets (24h) of identical static data is wasteful.
             # Calculate once and replicate.
-            global _has_nfdump
-            if _has_nfdump is None:
-                _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+            if state._has_nfdump is None:
+                try:
+                    subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    state._has_nfdump = True
+                except (OSError, subprocess.CalledProcessError):
+                    state._has_nfdump = False
 
-            if _has_nfdump is False and len(missing_buckets) > 1:
+            if state._has_nfdump is False and len(missing_buckets) > 1:
                 # Compute the first one to prime the data
                 ref_dt = missing_buckets[0]
                 _ensure_rollup_for_bucket(ref_dt)
@@ -3817,7 +3822,7 @@ def health_check():
         'database': False,
         'disk_space': check_disk_space('/var/cache/nfdump'),
         'syslog_active': _syslog_stats.get('received', 0) > 0,
-        'nfdump_available': _has_nfdump,
+        'nfdump_available': state._has_nfdump,
         'memory_usage_mb': 0
     }
 
@@ -4041,7 +4046,7 @@ def api_server_health():
                 syslog_active = (time.time() - last_log_ts) < 300
             else:
                 # If no logs yet, consider active if thread is running (receiver is listening)
-                syslog_active = _syslog_thread_started
+                syslog_active = state._syslog_thread_started
 
             data['syslog'] = {
                 'received': _syslog_stats.get('received', 0),
@@ -4057,7 +4062,7 @@ def api_server_health():
     try:
         nfdump_dir = '/var/cache/nfdump'
         netflow_data = {
-            'available': _has_nfdump if _has_nfdump is not None else False,
+            'available': state._has_nfdump if state._has_nfdump is not None else False,
             'directory': nfdump_dir,
             'disk_usage': data['disk'].get('nfdump', {}),
             'files_count': data['disk'].get('nfdump_files', 0)

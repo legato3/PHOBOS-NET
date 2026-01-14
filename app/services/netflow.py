@@ -10,7 +10,7 @@ from app.utils.helpers import get_time_range
 # Global state for nfdump service
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 _mock_lock = threading.Lock()
-_has_nfdump = None
+import app.core.state as state
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
 _metric_nfdump_calls = 0
@@ -123,7 +123,7 @@ def mock_nfdump(args):
 
 def run_nfdump(args, tf=None):
     """Run nfdump command and return CSV output."""
-    global _metric_nfdump_calls, _has_nfdump
+    global _metric_nfdump_calls
     _metric_nfdump_calls += 1
     
     # Try running actual nfdump first
@@ -133,10 +133,14 @@ def run_nfdump(args, tf=None):
             cmd.extend(["-t", tf])
         cmd.extend(args)
         
-        if _has_nfdump is None:
-            _has_nfdump = (subprocess.call(["which", "nfdump"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+        if state._has_nfdump is None:
+            try:
+                subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                state._has_nfdump = True
+            except (OSError, subprocess.CalledProcessError):
+                state._has_nfdump = False
         
-        if _has_nfdump:
+        if state._has_nfdump:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
