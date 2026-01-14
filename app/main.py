@@ -12,7 +12,10 @@ import socket as socket_module
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import thread functions and shutdown handler from phobos_dashboard
+# Import shutdown event from state module
+from app.core.state import _shutdown_event
+
+# Import thread functions from phobos_dashboard (still defined there)
 try:
     import phobos_dashboard as _phobos
     start_threat_thread = _phobos.start_threat_thread
@@ -20,7 +23,6 @@ try:
     start_agg_thread = _phobos.start_agg_thread
     start_syslog_thread = _phobos.start_syslog_thread
     _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
-    _shutdown_event = _phobos._shutdown_event
 except ImportError as e:
     print(f"Warning: Could not import from phobos_dashboard: {e}")
     start_threat_thread = None
@@ -28,7 +30,6 @@ except ImportError as e:
     start_agg_thread = None
     start_syslog_thread = None
     _flush_syslog_buffer = None
-    _shutdown_event = None
 
 if __name__ == "__main__":
     from app import app

@@ -22,7 +22,7 @@ from .state import (
     _request_times,
     # Metrics Counters
     _metric_nfdump_calls, _metric_stats_cache_hits, _metric_bw_cache_hits,
-    _metric_conv_cache_hits, _metric_http_429,
+    _metric_conv_cache_hits, _metric_flow_cache_hits, _metric_http_429,
     # CPU Stat Caching
     _cpu_stat_prev,
     # Thread Management
@@ -61,7 +61,7 @@ __all__ = [
     '_request_times',
     # Metrics Counters
     '_metric_nfdump_calls', '_metric_stats_cache_hits', '_metric_bw_cache_hits',
-    '_metric_conv_cache_hits', '_metric_http_429',
+    '_metric_conv_cache_hits', '_metric_flow_cache_hits', '_metric_http_429',
     # CPU Stat Caching
     '_cpu_stat_prev',
     # Thread Management

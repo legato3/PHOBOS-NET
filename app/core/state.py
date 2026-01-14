@@ -75,6 +75,7 @@ _metric_nfdump_calls = 0
 _metric_stats_cache_hits = 0
 _metric_bw_cache_hits = 0
 _metric_conv_cache_hits = 0
+_metric_flow_cache_hits = 0
 _metric_http_429 = 0
 
 # ==================== CPU Stat Caching ====================

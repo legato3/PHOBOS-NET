@@ -31,11 +31,41 @@ from app.services.threats import (
 from app.services.stats import calculate_security_score
 from app.services.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
+from app.core.state import (
+    _shutdown_event,
+    _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
+    _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
+    _lock_flows, _lock_countries, _lock_worldmap, _cache_lock, _mock_lock,
+    _throttle_lock, _common_data_lock, _cpu_stat_lock,
+    _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
+    _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
+    _stats_flags_cache, _stats_asns_cache, _stats_durations_cache,
+    _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
+    _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
+    _stats_proto_mix_cache, _stats_net_health_cache, _server_health_cache,
+    _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
+    _flows_cache, _common_data_cache,
+    _request_times,
+    _metric_nfdump_calls, _metric_stats_cache_hits, _metric_bw_cache_hits,
+    _metric_conv_cache_hits, _metric_flow_cache_hits, _metric_http_429,
+    _cpu_stat_prev,
+    _threat_thread_started, _trends_thread_started, _agg_thread_started,
+    _syslog_thread_started, _snmp_thread_started,
+    _syslog_stats, _syslog_stats_lock, _syslog_buffer, _syslog_buffer_lock,
+    _syslog_buffer_size,
+    _snmp_cache, _snmp_cache_lock, _snmp_prev_sample, _snmp_backoff,
+    _has_nfdump,
+    _dns_resolver_executor,
+)
+# Import threats module to access threat state
+import app.services.threats as threats_module
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
 from app.utils.formatters import format_time_ago, format_uptime
 from app.utils.geoip import lookup_geo, load_city_db
+import app.utils.geoip as geoip_module
 from app.utils.dns import resolve_ip
-from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket
+import app.utils.dns as dns_module
+from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
     NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST
@@ -66,97 +96,16 @@ try:
     start_agg_thread = _phobos.start_agg_thread
     start_syslog_thread = getattr(_phobos, 'start_syslog_thread', None)
     
-    # Global variables (access via _phobos module)
-    # Locks
-    _lock_summary = _phobos._lock_summary
-    _lock_sources = _phobos._lock_sources
-    _lock_dests = _phobos._lock_dests
-    _lock_ports = _phobos._lock_ports
-    _lock_protocols = _phobos._lock_protocols
-    _lock_alerts = _phobos._lock_alerts
-    _lock_flags = _phobos._lock_flags
-    _lock_asns = _phobos._lock_asns
-    _lock_durations = _phobos._lock_durations
-    _lock_bandwidth = _phobos._lock_bandwidth
-    _lock_flows = _phobos._lock_flows
-    _lock_countries = _phobos._lock_countries
-    _cache_lock = _phobos._cache_lock
+    # Global variables - now imported from app.core.state and app.db.sqlite
+    # All locks, caches, and state variables are imported at the top of this file
+    # Threat state accessed via threats_module (imported above)
+    # DNS/Geo caches accessed via module imports (app.utils.dns, app.utils.geoip)
     
-    # Caches
-    _stats_summary_cache = _phobos._stats_summary_cache
-    _stats_sources_cache = _phobos._stats_sources_cache
-    _stats_dests_cache = _phobos._stats_dests_cache
-    _stats_ports_cache = _phobos._stats_ports_cache
-    _stats_protocols_cache = _phobos._stats_protocols_cache
-    _stats_alerts_cache = _phobos._stats_alerts_cache
-    _stats_flags_cache = _phobos._stats_flags_cache
-    _stats_asns_cache = _phobos._stats_asns_cache
-    _stats_durations_cache = _phobos._stats_durations_cache
-    _stats_pkts_cache = _phobos._stats_pkts_cache
-    _stats_countries_cache = _phobos._stats_countries_cache
-    _stats_talkers_cache = _phobos._stats_talkers_cache
-    _stats_services_cache = _phobos._stats_services_cache
-    _stats_hourly_cache = _phobos._stats_hourly_cache
-    _stats_flow_stats_cache = _phobos._stats_flow_stats_cache
-    _stats_proto_mix_cache = _phobos._stats_proto_mix_cache
-    _stats_net_health_cache = _phobos._stats_net_health_cache
-    _server_health_cache = _phobos._server_health_cache
-    _bandwidth_cache = _phobos._bandwidth_cache
-    _bandwidth_history_cache = _phobos._bandwidth_history_cache
-    _flows_cache = _phobos._flows_cache
-    _mock_data_cache = _phobos._mock_data_cache
-    
-    # State
-    _threat_status = _phobos._threat_status
-    # _threat_timeline now accessed via threats_module._threat_timeline
-    _syslog_stats = getattr(_phobos, '_syslog_stats', {})
-    # _performance_metrics now accessed via get_performance_metrics() from app.services.metrics
-    _metric_http_429 = getattr(_phobos, '_metric_http_429', 0)
-    _metric_bw_cache_hits = getattr(_phobos, '_metric_bw_cache_hits', 0)
-    _metric_flow_cache_hits = getattr(_phobos, '_metric_flow_cache_hits', 0)
-    _metric_nfdump_calls = getattr(_phobos, '_metric_nfdump_calls', 0)
-    _metric_stats_cache_hits = getattr(_phobos, '_metric_stats_cache_hits', 0)
-    _has_nfdump = getattr(_phobos, '_has_nfdump', None)
-    
-    # Additional locks and caches
-    _firewall_db_lock = _phobos._firewall_db_lock
-    _trends_db_lock = _phobos._trends_db_lock
-    _common_data_cache = _phobos._common_data_cache
-    _common_data_lock = _phobos._common_data_lock
-    _snmp_cache = getattr(_phobos, '_snmp_cache', None)
-    _snmp_cache_lock = getattr(_phobos, '_snmp_cache_lock', None)
-    _snmp_prev_sample = getattr(_phobos, '_snmp_prev_sample', None)
-    _snmp_thread_started = getattr(_phobos, '_snmp_thread_started', False)
-    _snmp_backoff = getattr(_phobos, '_snmp_backoff', {})
-    
-    # Helper functions
-    # load_list, check_disk_space now imported from app.utils.helpers
-    # format_time_ago, format_uptime now imported from app.utils.formatters
-    # send_notifications, get_feed_label now imported from app.services.threats
-    # get_traffic_direction now imported from app.services.netflow
-    # lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts now imported from app.services.threats
-    # load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds now imported from app.utils.config_helpers
-    # load_city_db now imported from app.utils.geoip
+    # Functions still needed from bridge
     load_config = getattr(_phobos, 'load_config', None)
     save_config = getattr(_phobos, 'save_config', None)
     start_snmp_thread = getattr(_phobos, 'start_snmp_thread', None)
-    
-    # Constants
-    # THREAT_WHITELIST now imported from app.config
-    
-    # Additional state variables
-    _alert_history = getattr(_phobos, '_alert_history', None)
-    _alert_history_lock = getattr(_phobos, '_alert_history_lock', None)
-    _syslog_stats_lock = getattr(_phobos, '_syslog_stats_lock', None)
-    _dns_cache = getattr(_phobos, '_dns_cache', {})
-    _geo_cache = getattr(_phobos, '_geo_cache', {})
-    _threat_thread_started = getattr(_phobos, '_threat_thread_started', False)
-    _trends_thread_started = getattr(_phobos, '_trends_thread_started', False)
-    _agg_thread_started = getattr(_phobos, '_agg_thread_started', False)
-    _syslog_thread_started = getattr(_phobos, '_syslog_thread_started', False)
-    _shutdown_event = getattr(_phobos, '_shutdown_event', None)
     _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
-    _trends_db_connect = getattr(_phobos, '_trends_db_connect', None)
     DEBUG_MODE = getattr(_phobos, 'DEBUG_MODE', False)
     
     # Flask app instance (for backward compatibility - routes should use Blueprint)
@@ -171,7 +120,6 @@ except ImportError as e:
     # Set globals to None or empty defaults
     _lock_summary = _lock_sources = _lock_dests = None
     _stats_summary_cache = _stats_sources_cache = None
-    _threat_status = {}
 
 # Create Blueprint
 bp = Blueprint('routes', __name__)
@@ -212,7 +160,7 @@ def api_stats_summary():
             "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0
         },
         "notify": load_notify_cfg(),
-        "threat_status": _threat_status
+        "threat_status": threats_module._threat_status
     }
     with _lock_summary:
         _stats_summary_cache["data"] = data
@@ -2436,7 +2384,7 @@ def api_test_alert():
 @bp.route('/api/threat_refresh', methods=['POST'])
 def api_threat_refresh():
     fetch_threat_feed()
-    return jsonify({"status":"ok","threat_status": _threat_status})
+    return jsonify({"status":"ok","threat_status": threats_module._threat_status})
 
 
 
@@ -2619,8 +2567,8 @@ def api_threats():
         "hits": hits[:20],
         "total_threats": len(hits),
         "total_blocked": total_blocked,
-        "feed_ips": _threat_status.get("size", 0),
-        "threat_status": _threat_status
+        "feed_ips": threats_module._threat_status.get("size", 0),
+        "threat_status": threats_module._threat_status
     })
 
 
@@ -2850,7 +2798,7 @@ def api_malicious_ports():
 def api_feed_status():
     """Get per-feed health status"""
     feeds = []
-    for name, info in _feed_status.items():
+    for name, info in threats_module._feed_status.items():
         last_ok = info.get('last_ok', 0)
         feeds.append({
             "name": name,
@@ -2871,8 +2819,8 @@ def api_feed_status():
             "total": len(feeds),
             "ok": sum(1 for f in feeds if f["status"] == "ok"),
             "error": sum(1 for f in feeds if f["status"] == "error"),
-            "total_ips": _threat_status.get("size", 0),
-            "last_refresh": format_time_ago(_threat_status.get("last_ok", 0)) if _threat_status.get("last_ok") else "never"
+            "total_ips": threats_module._threat_status.get("size", 0),
+            "last_refresh": format_time_ago(threats_module._threat_status.get("last_ok", 0)) if threats_module._threat_status.get("last_ok") else "never"
         }
     })
 
@@ -2893,8 +2841,8 @@ def api_alert_history():
     now = time.time()
     cutoff = now - 86400  # 24 hours
 
-    with _alert_history_lock:
-        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    with threats_module._alert_history_lock:
+        recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
 
     # Sort by timestamp descending
     recent.sort(key=lambda x: x.get('ts', 0), reverse=True)
@@ -2982,8 +2930,8 @@ def api_attack_timeline():
     now = time.time()
     cutoff = now - range_seconds
 
-    with _alert_history_lock:
-        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    with threats_module._alert_history_lock:
+        recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
 
     # Determine bucket size based on range
     if range_key == '1h':
@@ -3112,8 +3060,8 @@ def api_mitre_heatmap():
     now = time.time()
     cutoff = now - 86400  # 24 hours
 
-    with _alert_history_lock:
-        recent = [a for a in _alert_history if a.get('ts', 0) > cutoff]
+    with threats_module._alert_history_lock:
+        recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
 
     # Count by MITRE technique
     techniques = defaultdict(lambda: {'count': 0, 'alerts': [], 'tactic': '', 'name': ''})
@@ -3179,7 +3127,6 @@ def api_mitre_heatmap():
 @throttle(5, 10)
 def api_protocol_anomalies():
     """Get protocol anomaly data for Security Center."""
-    global _protocol_baseline
 
     range_key = request.args.get('range', '1h')
     protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
@@ -3189,7 +3136,7 @@ def api_protocol_anomalies():
         proto_name = proto.get('key') or proto.get('proto')
         proto_bytes = proto.get('bytes', 0)
 
-        baseline = _protocol_baseline.get(proto_name, {})
+        baseline = threats_module._protocol_baseline.get(proto_name, {})
         avg = baseline.get('total_bytes', proto_bytes) / max(baseline.get('samples', 1), 1)
 
         deviation = (proto_bytes / avg) if avg > 0 else 1
@@ -3211,7 +3158,7 @@ def api_protocol_anomalies():
     return jsonify({
         'protocols': anomalies,
         'anomaly_count': sum(1 for a in anomalies if a['is_anomaly']),
-        'baseline_samples': sum(b.get('samples', 0) for b in _protocol_baseline.values())
+        'baseline_samples': sum(b.get('samples', 0) for b in threats_module._protocol_baseline.values())
     })
 
 
@@ -3332,8 +3279,8 @@ def api_threat_velocity():
     total_24h = 0
     hourly_counts = defaultdict(int)
 
-    with _alert_history_lock:
-        for alert in _alert_history:
+    with threats_module._alert_history_lock:
+        for alert in threats_module._alert_history:
             ts = alert.get('ts', 0)
             if ts > day_ago:
                 total_24h += 1
@@ -3408,7 +3355,7 @@ def api_risk_index():
     risk_score = 0
 
     # Factor 1: Active threats (0-30 points)
-    threat_count = len(_threat_timeline)
+    threat_count = len(threats_module._threat_timeline)
     if threat_count == 0:
         risk_factors.append({'factor': 'Active Threats', 'value': 'None', 'impact': 'low', 'points': 0})
     elif threat_count <= 5:
@@ -3424,8 +3371,8 @@ def api_risk_index():
     # Factor 2: Threat velocity (0-20 points)
     # Count threats seen in the last hour
     one_hour_ago = time.time() - 3600
-    hourly_threats = len([ip for ip in _threat_timeline
-                          if _threat_timeline[ip]['last_seen'] >= one_hour_ago])
+    hourly_threats = len([ip for ip in threats_module._threat_timeline
+                          if threats_module._threat_timeline[ip]['last_seen'] >= one_hour_ago])
     if hourly_threats == 0:
         risk_factors.append({'factor': 'Threat Velocity', 'value': '0/hr', 'impact': 'low', 'points': 0})
     elif hourly_threats <= 5:
@@ -3439,10 +3386,9 @@ def api_risk_index():
         risk_factors.append({'factor': 'Threat Velocity', 'value': f'{hourly_threats}/hr', 'impact': 'critical', 'points': 20})
 
     # Factor 3: Feed coverage (0-15 points for poor coverage)
-    global _feed_status
-    if _feed_status:
-        ok_feeds = sum(1 for f in _feed_status.values() if f.get('status') == 'ok')
-        total_feeds = len(_feed_status)
+    if threats_module._feed_status:
+        ok_feeds = sum(1 for f in threats_module._feed_status.values() if f.get('status') == 'ok')
+        total_feeds = len(threats_module._feed_status)
         if total_feeds > 0:
             coverage = ok_feeds / total_feeds
             if coverage >= 0.9:
@@ -3564,12 +3510,12 @@ def api_notify_toggle():
 
 @bp.route("/api/alerts_history")
 def api_alerts_history():
-    return jsonify(list(_alert_history))
+    return jsonify(list(threats_module._alert_history))
 
 
 @bp.route('/api/alerts_export')
 def api_alerts_export():
-    return jsonify(list(_alert_history))
+    return jsonify(list(threats_module._alert_history))
 
 
 @bp.route('/api/notify_mute', methods=['POST'])
@@ -3725,8 +3671,8 @@ def api_forensics_alert_correlation():
         cutoff = now - range_seconds
 
         # Get alerts from history filtered by time range
-        with _alert_history_lock:
-            alerts = [a for a in _alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
+        with threats_module._alert_history_lock:
+            alerts = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff or a.get('timestamp', 0) > cutoff]
 
         # Group alerts by IP and time proximity (within 1 hour)
         chains = {}
@@ -3837,8 +3783,8 @@ def metrics():
     add_metric('netflow_http_429_total', _metric_http_429, 'HTTP 429 rate-limit responses', 'counter')
     # Cache sizes
     add_metric('netflow_common_cache_size', len(_common_data_cache))
-    add_metric('netflow_dns_cache_size', len(_dns_cache))
-    add_metric('netflow_geo_cache_size', len(_geo_cache))
+    add_metric('netflow_dns_cache_size', len(dns_module._dns_cache))
+    add_metric('netflow_geo_cache_size', len(geoip_module._geo_cache))
     add_metric('netflow_bandwidth_history_size', len(_bandwidth_history_cache))
     # Threads status
     add_metric('netflow_threat_thread_started', 1 if _threat_thread_started else 0)
@@ -4251,8 +4197,8 @@ def api_server_health():
     try:
         with _cache_lock:
             data['cache'] = {
-                'dns_cache_size': len(_dns_cache),
-                'geo_cache_size': len(_geo_cache),
+                'dns_cache_size': len(dns_module._dns_cache),
+                'geo_cache_size': len(geoip_module._geo_cache),
                 'common_cache_size': len(_common_data_cache),
                 'bandwidth_history_size': len(_bandwidth_history_cache)
             }
