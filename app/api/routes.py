@@ -25,7 +25,8 @@ from app.services.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     detect_anomalies, run_all_detections,
-    load_threatlist, get_feed_label, send_notifications
+    load_threatlist, get_feed_label, send_notifications,
+    lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts
 )
 from app.services.stats import calculate_security_score
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
@@ -134,9 +135,7 @@ try:
     # format_time_ago, format_uptime now imported from app.utils.formatters
     # send_notifications, get_feed_label now imported from app.services.threats
     # get_traffic_direction now imported from app.services.netflow
-    lookup_threat_intelligence = getattr(_phobos, 'lookup_threat_intelligence', None)
-    detect_ip_anomalies = getattr(_phobos, 'detect_ip_anomalies', None)
-    generate_ip_anomaly_alerts = getattr(_phobos, 'generate_ip_anomaly_alerts', None)
+    # lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts now imported from app.services.threats
     # load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds now imported from app.utils.config_helpers
     load_config = getattr(_phobos, 'load_config', None)
     save_config = getattr(_phobos, 'save_config', None)

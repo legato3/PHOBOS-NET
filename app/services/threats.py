@@ -10,7 +10,8 @@ from app.config import (
     WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
     SECURITY_WEBHOOK_PATH, WEBHOOK_PATH, PORTS, SUSPICIOUS_PORTS, BRUTE_FORCE_PORTS,
     PORT_SCAN_THRESHOLD, PORT_SCAN_WINDOW, EXFIL_THRESHOLD_MB, EXFIL_RATIO_THRESHOLD,
-    DNS_QUERY_THRESHOLD, BUSINESS_HOURS_START, BUSINESS_HOURS_END, OFF_HOURS_THRESHOLD_MB
+    DNS_QUERY_THRESHOLD, BUSINESS_HOURS_START, BUSINESS_HOURS_END, OFF_HOURS_THRESHOLD_MB,
+    VIRUSTOTAL_API_KEY, ABUSEIPDB_API_KEY
 )
 from app.utils.helpers import is_internal, fmt_bytes
 from app.utils.geoip import lookup_geo
@@ -31,6 +32,11 @@ _alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
+
+# Threat intelligence cache
+_threat_intel_cache = {}  # Cache for threat intelligence results (IP -> {vt: {...}, abuse: {...}, ts: ...})
+_threat_intel_cache_lock = threading.Lock()
+_threat_intel_cache_ttl = 3600  # Cache for 1 hour
 
 
 def parse_feed_line(line):
@@ -779,3 +785,251 @@ def send_notifications(alerts):
     send_webhook(filtered)
     record_history(filtered)
     _alert_sent_ts = now
+
+
+def query_virustotal(ip, timeout=5):
+    """Query VirusTotal API for IP reputation."""
+    if not VIRUSTOTAL_API_KEY:
+        return None
+    
+    try:
+        url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
+        headers = {
+            "x-apikey": VIRUSTOTAL_API_KEY,
+            "Accept": "application/json"
+        }
+        response = requests.get(url, headers=headers, timeout=timeout)
+        
+        if response.status_code == 200:
+            data = response.json()
+            attr = data.get("data", {}).get("attributes", {})
+            stats = attr.get("last_analysis_stats", {})
+            
+            return {
+                "reputation": attr.get("reputation", 0),
+                "harmless": stats.get("harmless", 0),
+                "malicious": stats.get("malicious", 0),
+                "suspicious": stats.get("suspicious", 0),
+                "undetected": stats.get("undetected", 0),
+                "asn": attr.get("asn"),
+                "as_owner": attr.get("as_owner", ""),
+                "country": attr.get("country", ""),
+                "last_analysis_date": attr.get("last_analysis_date"),
+                "whois": attr.get("whois", "")[:200] if attr.get("whois") else "",  # Truncate
+                "status": "found"
+            }
+        elif response.status_code == 404:
+            return {"status": "not_found"}
+        elif response.status_code == 429:
+            return {"status": "rate_limited", "error": "Rate limit exceeded"}
+        else:
+            return {"status": "error", "error": f"HTTP {response.status_code}"}
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "Request timed out"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+def query_abuseipdb(ip, timeout=5):
+    """Query AbuseIPDB API for IP reputation."""
+    if not ABUSEIPDB_API_KEY:
+        return None
+    
+    try:
+        url = "https://api.abuseipdb.com/api/v2/check"
+        headers = {
+            "Key": ABUSEIPDB_API_KEY,
+            "Accept": "application/json"
+        }
+        params = {
+            "ipAddress": ip,
+            "maxAgeInDays": 90,
+            "verbose": ""
+        }
+        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+        
+        if response.status_code == 200:
+            data = response.json()
+            result = data.get("data", {})
+            
+            return {
+                "abuse_confidence_score": result.get("abuseConfidenceScore", 0),
+                "usage_type": result.get("usageType", ""),
+                "isp": result.get("isp", ""),
+                "domain": result.get("domain", ""),
+                "country_code": result.get("countryCode", ""),
+                "is_whitelisted": result.get("isWhitelisted", False),
+                "is_public": result.get("isPublic", False),
+                "is_tor": result.get("isTor", False),
+                "is_known_attacker": result.get("isKnownAttacker", False),
+                "num_reports": result.get("numReports", 0),
+                "last_reported_at": result.get("lastReportedAt"),
+                "status": "found"
+            }
+        elif response.status_code == 429:
+            return {"status": "rate_limited", "error": "Rate limit exceeded"}
+        else:
+            return {"status": "error", "error": f"HTTP {response.status_code}"}
+    except requests.exceptions.Timeout:
+        return {"status": "timeout", "error": "Request timed out"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+def lookup_threat_intelligence(ip):
+    """Lookup IP reputation from VirusTotal and AbuseIPDB (optional, requires API keys)."""
+    # Skip internal IPs
+    if is_internal(ip):
+        return {"enabled": False, "reason": "Internal IP"}
+    
+    # Check cache first
+    now = time.time()
+    with _threat_intel_cache_lock:
+        if ip in _threat_intel_cache:
+            cached = _threat_intel_cache[ip]
+            if now - cached.get('ts', 0) < _threat_intel_cache_ttl:
+                return cached.get('data', {})
+    
+    result = {
+        "enabled": False,
+        "virustotal": None,
+        "abuseipdb": None
+    }
+    
+    # VirusTotal lookup
+    if VIRUSTOTAL_API_KEY:
+        try:
+            vt_result = query_virustotal(ip)
+            result["virustotal"] = vt_result
+            result["enabled"] = True
+        except Exception as e:
+            result["virustotal"] = {"error": str(e)}
+    
+    # AbuseIPDB lookup
+    if ABUSEIPDB_API_KEY:
+        try:
+            abuse_result = query_abuseipdb(ip)
+            result["abuseipdb"] = abuse_result
+            result["enabled"] = True
+        except Exception as e:
+            result["abuseipdb"] = {"error": str(e)}
+    
+    # Cache result
+    with _threat_intel_cache_lock:
+        _threat_intel_cache[ip] = {"data": result, "ts": now}
+        # Simple cache size limit (keep last 1000)
+        if len(_threat_intel_cache) > 1000:
+            oldest = min(_threat_intel_cache.items(), key=lambda x: x[1].get('ts', 0))
+            _threat_intel_cache.pop(oldest[0], None)
+    
+    return result
+
+
+def detect_ip_anomalies(ip, tf, direction, src_ports, dst_ports, protocols):
+    """Detect traffic pattern anomalies for a specific IP."""
+    anomalies = []
+    
+    try:
+        # Anomaly 1: High upload/download ratio (potential data exfiltration)
+        upload = direction.get('upload', 0)
+        download = direction.get('download', 0)
+        if upload > 0 and download > 0:
+            ratio = upload / download
+            if ratio > 10:  # 10:1 upload to download ratio
+                anomalies.append({
+                    "type": "high_upload_ratio",
+                    "severity": "high",
+                    "message": f"High upload/download ratio ({ratio:.1f}:1) - potential data exfiltration",
+                    "upload_mb": round(upload / (1024*1024), 2),
+                    "download_mb": round(download / (1024*1024), 2),
+                    "ratio": round(ratio, 2)
+                })
+        
+        # Anomaly 2: High number of unique ports (potential port scan)
+        unique_ports = len(set([p.get('key', '') for p in (src_ports or [])] + [p.get('key', '') for p in (dst_ports or [])]))
+        if unique_ports > 20:
+            anomalies.append({
+                "type": "port_scan",
+                "severity": "medium",
+                "message": f"High number of unique ports ({unique_ports}) - potential port scan",
+                "port_count": unique_ports
+            })
+        
+        # Anomaly 3: Suspicious ports
+        suspicious_ports_found = []
+        for port_list in [src_ports or [], dst_ports or []]:
+            for p in port_list:
+                port_num = p.get('key', '')
+                try:
+                    port_int = int(port_num)
+                    if port_int in SUSPICIOUS_PORTS:
+                        suspicious_ports_found.append(port_int)
+                except (ValueError, TypeError):
+                    pass
+        
+        if suspicious_ports_found:
+            anomalies.append({
+                "type": "suspicious_ports",
+                "severity": "medium",
+                "message": f"Suspicious ports detected: {', '.join(map(str, set(suspicious_ports_found)))}",
+                "ports": list(set(suspicious_ports_found))
+            })
+        
+        # Anomaly 4: High traffic volume (if external IP)
+        if not is_internal(ip):
+            total_bytes = upload + download
+            total_mb = total_bytes / (1024*1024)
+            if total_mb > 1000:  # More than 1GB
+                anomalies.append({
+                    "type": "high_traffic_volume",
+                    "severity": "low",
+                    "message": f"High traffic volume ({total_mb:.0f} MB) from external IP",
+                    "total_mb": round(total_mb, 2)
+                })
+        
+        # Anomaly 5: ICMP-only or unusual protocol mix
+        proto_names = [p.get('proto_name', p.get('key', '')) for p in (protocols or [])]
+        if len(proto_names) == 1 and 'ICMP' in proto_names[0]:
+            anomalies.append({
+                "type": "icmp_only",
+                "severity": "low",
+                "message": "Traffic consists only of ICMP - potential reconnaissance",
+                "protocols": proto_names
+            })
+        
+    except Exception as e:
+        print(f"Warning: Anomaly detection failed for IP {ip}: {e}")
+    
+    return anomalies
+
+
+def generate_ip_anomaly_alerts(ip, anomalies, geo):
+    """Generate alerts for high-severity anomalies detected during IP investigation."""
+    if not anomalies:
+        return
+    
+    now = time.time()
+    with _alert_history_lock:
+        # Check if we've already alerted for this IP recently (within last hour)
+        recent_alerts = [a for a in list(_alert_history)[-50:] if a.get('ip') == ip and a.get('ts', 0) > now - 3600]
+        if recent_alerts:
+            return  # Already alerted recently
+        
+        # Generate alerts for high and medium severity anomalies
+        for anomaly in anomalies:
+            if anomaly.get('severity') in ('high', 'medium'):
+                alert = {
+                    "type": "ip_anomaly",
+                    "msg": f"⚠️ IP Investigation Anomaly: {anomaly.get('message', 'Unknown anomaly')}",
+                    "severity": anomaly.get('severity', 'medium'),
+                    "feed": "ip_investigation",
+                    "ip": ip,
+                    "category": anomaly.get('type', 'UNKNOWN'),
+                    "anomaly": anomaly,
+                    "country": geo.get('country_code', '--') if geo else '--',
+                    "ts": now
+                }
+                _alert_history.append(alert)
+                # Send notification if high severity
+                if anomaly.get('severity') == 'high':
+                    send_security_webhook(alert)
