@@ -19,20 +19,18 @@ COPY sample_data/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 
 # Copy application files
-COPY netflow-dashboard.py .
+# Copy the entire app directory structure
+COPY app/ ./app/
+COPY phobos_dashboard.py .
 COPY docker-data/threat-feeds.txt .
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
-COPY templates/ ./templates/
-COPY static/ ./static/
+COPY frontend/templates/ ./frontend/templates/
+COPY frontend/static/ ./frontend/static/
 COPY sample_data/ ./sample_data/
 
 # Make entrypoint script executable
 RUN chmod +x docker-entrypoint.sh
-
-# Create symlink for module import (netflow_dashboard:app)
-# Production uses netflow_dashboard:app but file is netflow-dashboard.py
-RUN ln -s netflow-dashboard.py netflow_dashboard.py
 
 # Create directories for data (if needed)
 RUN mkdir -p /var/cache/nfdump /root /var/run

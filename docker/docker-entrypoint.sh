@@ -34,4 +34,4 @@ exec python3 -m gunicorn \
     --log-level info \
     --name netflow-dashboard \
     -c /app/gunicorn_config.py \
-    netflow_dashboard:app
+    app:app
