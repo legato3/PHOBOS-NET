@@ -4952,16 +4952,48 @@ def api_malicious_ports():
         pass  # Syslog not available, continue with NetFlow only
     
     # Merge with threat traffic from NetFlow
-    # Optimized: limit threat IP processing to prevent timeouts
+    # Get NetFlow data for ports that were blocked (more efficient than querying by threat IP)
     try:
         tf = get_time_range(range_key)
+        
+        # If we have blocked ports, get NetFlow stats for those specific ports
+        if port_data:
+            # Build filter for blocked ports (limit to top 20 to avoid huge query)
+            blocked_ports = sorted(port_data.keys(), key=lambda p: port_data[p]['blocked'], reverse=True)[:20]
+            
+            if blocked_ports:
+                # Create port filter: "dst port X or src port X"
+                port_filters = " or ".join([f"dst port {p} or src port {p}" for p in blocked_ports[:10]])  # Limit to 10 for query size
+                
+                # Get port stats from NetFlow for these blocked ports
+                port_output = run_nfdump(["-o", "csv", "-n", "50", "-s", "port/bytes", port_filters], tf)
+                port_lines = port_output.strip().split('\n')
+                
+                if len(port_lines) > 1:
+                    p_header = [c.strip().lower() for c in port_lines[0].split(',')]
+                    p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
+                    p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes')), None)
+                    p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
+                    
+                    if p_idx is not None:
+                        for pline in port_lines[1:]:
+                            pparts = pline.split(',')
+                            try:
+                                if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
+                                    port = int(pparts[p_idx].strip())
+                                    if port in port_data:  # Only update ports we already have from firewall
+                                        bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
+                                        flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
+                                        port_data[port]['netflow_bytes'] += bytes_val
+                                        port_data[port]['netflow_flows'] += flows_val
+                            except (ValueError, IndexError):
+                                pass
+        
+        # Also try to get data from threat IPs (if threat list exists)
         threat_set = load_threatlist()
-        if not threat_set:
-            # No threats, skip NetFlow processing
-            pass
-        else:
-            # Get top threat IPs by bytes (limit to top 15 to prevent timeout)
-            output = run_nfdump(["-o", "csv", "-n", "50", "-s", "ip/bytes"], tf)
+        if threat_set:
+            # Get top threat IPs by bytes (limit to top 10 to prevent timeout)
+            output = run_nfdump(["-o", "csv", "-n", "30", "-s", "ip/bytes"], tf)
             
             lines = output.strip().split('\n')
             if len(lines) > 1:
@@ -4970,9 +5002,9 @@ def api_malicious_ports():
                 byt_idx = next((i for i, h in enumerate(header) if h in ('ibyt', 'bytes')), None)
                 
                 if ip_idx is not None:
-                    # Collect top threat IPs (limit to 15 to prevent timeout)
+                    # Collect top threat IPs (limit to 10 to prevent timeout)
                     threat_ips = []
-                    for line in lines[1:16]:  # Limit to top 15 threat IPs
+                    for line in lines[1:11]:  # Limit to top 10 threat IPs
                         parts = line.split(',')
                         if len(parts) > max(ip_idx, byt_idx or 0):
                             ip = parts[ip_idx].strip()
@@ -4983,12 +5015,10 @@ def api_malicious_ports():
                                 except (ValueError, IndexError):
                                     pass
                     
-                    # Process threat IPs with individual queries (limited count prevents timeout)
-                    # Each query is fast, and we limit to 15 IPs max
-                    for ip, _ in threat_ips[:15]:  # Safety limit
+                    # Process threat IPs (limit to 5 to prevent timeout)
+                    for ip, _ in threat_ips[:5]:
                         try:
-                            # Get port info for this threat IP (limit to top 5 ports per IP)
-                            port_output = run_nfdump(["-o", "csv", "-n", "5", "-s", "port/bytes", f"src ip {ip} or dst ip {ip}"], tf)
+                            port_output = run_nfdump(["-o", "csv", "-n", "3", "-s", "port/bytes", f"src ip {ip} or dst ip {ip}"], tf)
                             port_lines = port_output.strip().split('\n')
                             
                             if len(port_lines) > 1:
@@ -5022,12 +5052,42 @@ def api_malicious_ports():
                                             pass
                         except Exception as e:
                             # Continue with next IP if this one fails
-                            print(f"Warning: Failed to get ports for threat IP {ip}: {e}")
                             continue
     except Exception as e:
         # Log error but don't fail completely - return what we have from syslog
         print(f"Warning: Failed to fetch threat port data: {e}")
         pass
+    
+    # Common port to service name mapping (fallback if socket.getservbyport fails)
+    COMMON_PORTS = {
+        20: 'FTP-Data', 21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP', 53: 'DNS',
+        80: 'HTTP', 110: 'POP3', 143: 'IMAP', 443: 'HTTPS', 445: 'SMB', 993: 'IMAPS',
+        995: 'POP3S', 1433: 'MSSQL', 1521: 'Oracle', 3306: 'MySQL', 3389: 'RDP',
+        5432: 'PostgreSQL', 5900: 'VNC', 6379: 'Redis', 8080: 'HTTP-Alt', 8443: 'HTTPS-Alt',
+        27017: 'MongoDB', 11211: 'Memcached', 1900: 'UPnP', 6881: 'BitTorrent',
+        4444: 'Metasploit', 5555: 'Android ADB', 6666: 'IRC', 6667: 'IRC', 31337: 'Back Orifice'
+    }
+    
+    # Update service names for all ports using socket.getservbyport when possible
+    import socket
+    for port in port_data:
+        if port_data[port]['service'] == 'Unknown':
+            service_name = None
+            # Try TCP first (most common)
+            try:
+                service_name = socket.getservbyport(port, 'tcp')
+            except (OSError, socket.error):
+                # Try UDP
+                try:
+                    service_name = socket.getservbyport(port, 'udp')
+                except (OSError, socket.error):
+                    pass
+            
+            # Fallback to common ports dict or generic name
+            if not service_name:
+                service_name = COMMON_PORTS.get(port, f'Port {port}')
+            
+            port_data[port]['service'] = service_name
     
     # Convert to list and sort by total activity (blocked + flows)
     ports = list(port_data.values())
@@ -5038,7 +5098,7 @@ def api_malicious_ports():
     ports.sort(key=lambda x: x['total_score'], reverse=True)
     
     return jsonify({
-        "ports": ports[:20],
+        "ports": ports[:10],  # Limit to top 10
         "total": len(ports),
         "has_syslog": any(p['blocked'] > 0 for p in ports)
     })
