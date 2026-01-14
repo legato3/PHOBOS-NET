@@ -652,12 +652,18 @@ def api_stats_worldmap():
         source_countries = {}
         dest_countries = {}
         threat_countries = {}
+        
+        # PERFORMANCE: Cache geo lookups to avoid duplicate lookups when IP appears in both sources and dests
+        geo_cache = {}
 
         for item in sources:
             ip = item.get("key")
             if is_internal(ip):
                 continue
-            geo = lookup_geo(ip) or {}
+            # PERFORMANCE: Use cached geo lookup if already fetched
+            if ip not in geo_cache:
+                geo_cache[ip] = lookup_geo(ip) or {}
+            geo = geo_cache[ip]
             if geo.get('lat') and geo.get('lng'):
                 point = {
                     "ip": ip,
@@ -684,7 +690,10 @@ def api_stats_worldmap():
             ip = item.get("key")
             if is_internal(ip):
                 continue
-            geo = lookup_geo(ip) or {}
+            # PERFORMANCE: Reuse cached geo lookup if already fetched for sources
+            if ip not in geo_cache:
+                geo_cache[ip] = lookup_geo(ip) or {}
+            geo = geo_cache[ip]
             if geo.get('lat') and geo.get('lng'):
                 point = {
                     "ip": ip,
@@ -707,8 +716,11 @@ def api_stats_worldmap():
                     dest_countries[iso]["count"] += 1
 
         # Threat points with geo
+        # PERFORMANCE: Reuse geo cache if threat IP was already looked up
         for tip in list(threat_set)[:100]:
-            geo = lookup_geo(tip) or {}
+            if tip not in geo_cache:
+                geo_cache[tip] = lookup_geo(tip) or {}
+            geo = geo_cache[tip]
             if geo.get('lat') and geo.get('lng'):
                 threat_points.append({
                     "ip": tip,

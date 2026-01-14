@@ -309,7 +309,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                     "mitre": info.get('mitre_technique', ''),
                     "country": geo.get('country_code', '--'),
                     "bytes": item.get('bytes', 0),
-                    "ts": time.time()
+                    "ts": time.time()  # Keep per-alert timestamp for precise timing
                 }
                 alerts.append(alert)
                 seen.add(alert_key)
@@ -331,15 +331,17 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                     "severity": "medium",
                     "feed": "watchlist",
                     "ip": item["key"],
-                    "ts": time.time()
+                    "ts": time.time()  # Keep per-alert timestamp for precise timing
                 })
                 seen.add(alert_key)
 
     # Add all alerts to history
+    # PERFORMANCE: Compute timestamp once instead of per-alert if missing
+    now_ts = time.time()
     with _alert_history_lock:
         for alert in alerts:
             if 'ts' not in alert:
-                alert['ts'] = time.time()
+                alert['ts'] = now_ts
             if alert not in list(_alert_history):
                 _alert_history.append(alert)
 
@@ -703,10 +705,12 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
         print(f"Off-hours detection error: {e}")
     
     # Add all new alerts to history
+    # PERFORMANCE: Compute timestamp once for all alerts missing timestamps
+    now_ts = time.time()
     with _alert_history_lock:
         for alert in all_alerts:
             if 'ts' not in alert:
-                alert['ts'] = time.time()
+                alert['ts'] = now_ts
             # Avoid duplicates in recent history
             existing_keys = {(a.get('type'), a.get('ip'), a.get('msg')) for a in list(_alert_history)[-50:]}
             if (alert.get('type'), alert.get('ip'), alert.get('msg')) not in existing_keys:
