@@ -5,6 +5,7 @@ import time
 import os
 from datetime import datetime, timedelta
 from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH, FIREWALL_RETENTION_DAYS
+from app.services.netflow import run_nfdump, parse_csv
 
 # Database locks
 _trends_db_lock = threading.Lock()
@@ -135,6 +136,48 @@ def _cleanup_old_fw_logs():
         try:
             conn.execute("DELETE FROM fw_logs WHERE timestamp < ?", (cutoff,))
             conn.execute("VACUUM")
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def _get_bucket_end(dt=None):
+    """Get the end datetime for the current 5-minute bucket."""
+    dt = dt or datetime.now()
+    # Align to nearest 5 minutes upper boundary
+    remainder = dt.minute % 5
+    current_bucket_end = dt.replace(minute=dt.minute - remainder, second=0, microsecond=0) + timedelta(minutes=5)
+    return current_bucket_end
+
+
+def _ensure_rollup_for_bucket(bucket_end_dt):
+    """Ensure we have a rollup for the given completed bucket end (datetime)."""
+    bucket_end_ts = int(bucket_end_dt.timestamp())
+    # Check if exists
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute("SELECT 1 FROM traffic_rollups WHERE bucket_end=?", (bucket_end_ts,))
+            row = cur.fetchone()
+            if row:
+                return
+        finally:
+            conn.close()
+    
+    # Compute using nfdump over the 5-min interval ending at bucket_end_dt
+    st = bucket_end_dt - timedelta(minutes=5)
+    tf_key = f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{bucket_end_dt.strftime('%Y/%m/%d.%H:%M:%S')}"
+    
+    output = run_nfdump(["-s", "proto/bytes/flows", "-n", "100"], tf_key)
+    stats = parse_csv(output, expected_key='proto')
+    total_b = sum(s.get("bytes", 0) for s in stats)
+    total_f = sum(s.get("flows", 0) for s in stats)
+    
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            conn.execute("INSERT OR REPLACE INTO traffic_rollups(bucket_end, bytes, flows) VALUES (?,?,?)",
+                        (bucket_end_ts, int(total_b), int(total_f)))
             conn.commit()
         finally:
             conn.close()

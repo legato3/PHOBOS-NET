@@ -34,7 +34,7 @@ from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thre
 from app.utils.formatters import format_time_ago, format_uptime
 from app.utils.geoip import lookup_geo, load_city_db
 from app.utils.dns import resolve_ip
-from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init
+from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
     NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST
@@ -58,8 +58,7 @@ try:
     get_snmp_data = getattr(_phobos, 'get_snmp_data', None)
     track_performance = getattr(_phobos, 'track_performance', None)
     track_error = getattr(_phobos, 'track_error', None)
-    _get_bucket_end = getattr(_phobos, '_get_bucket_end', None)
-    _ensure_rollup_for_bucket = getattr(_phobos, '_ensure_rollup_for_bucket', None)
+    # _get_bucket_end, _ensure_rollup_for_bucket now imported from app.db.sqlite
     
     # Thread functions
     start_threat_thread = _phobos.start_threat_thread
