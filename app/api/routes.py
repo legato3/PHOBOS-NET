@@ -118,9 +118,10 @@ except ImportError as e:
     print(f"Warning: Could not import from phobos_dashboard: {e}")
     # throttle is imported from app.utils.decorators, not from _phobos
     # Thread functions are imported from app.core.threads, not from _phobos
-    # Set globals to None or empty defaults
-    _lock_summary = _lock_sources = _lock_dests = None
-    _stats_summary_cache = _stats_sources_cache = None
+    
+    # We must NOT set locks to None as they are imported from app.core.state
+    # _lock_summary = _lock_sources = _lock_dests = None
+    # _stats_summary_cache = _stats_sources_cache = None
 
 # Create Blueprint
 bp = Blueprint('routes', __name__)
