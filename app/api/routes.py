@@ -4547,17 +4547,6 @@ def api_stats_blocklist_rate():
         "has_fw_data": total_blocked > 0
     })
 
-# Performance metrics tracking
-_performance_metrics = {
-    'request_count': 0,
-    'total_response_time': 0.0,
-    'endpoint_times': defaultdict(list),
-    'error_count': 0,
-    'cache_hits': 0,
-    'cache_misses': 0
-}
-_performance_lock = threading.Lock()
-
 
 @bp.route("/api/stats/batch", methods=['POST'])
 @throttle(10, 20)

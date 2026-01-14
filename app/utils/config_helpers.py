@@ -2,6 +2,7 @@
 import os
 import json
 from app.config import NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, DEFAULT_THRESHOLDS
+from app.config import DNS_SERVER as DEFAULT_DNS_SERVER
 
 
 def load_notify_cfg():
