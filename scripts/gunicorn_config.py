@@ -14,10 +14,18 @@ def post_worker_init(worker):
     # Start background threads (happens once per worker)
     # With 1 worker, this runs once and threads are shared
     try:
-        import netflow_dashboard
-        netflow_dashboard.start_threat_thread()
-        netflow_dashboard.start_trends_thread()
-        netflow_dashboard.start_agg_thread()
-        netflow_dashboard.start_syslog_thread()
+        from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
+        # Import syslog thread from phobos_dashboard (still there due to complex dependencies)
+        try:
+            import phobos_dashboard as _phobos
+            start_syslog_thread = getattr(_phobos, 'start_syslog_thread', None)
+        except ImportError:
+            start_syslog_thread = None
+        
+        start_threat_thread()
+        start_trends_thread()
+        start_agg_thread()
+        if start_syslog_thread:
+            start_syslog_thread()
     except Exception as e:
         worker.log.error(f"Error starting background threads: {e}")
