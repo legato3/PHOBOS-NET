@@ -1,5 +1,7 @@
 # Deploy to PROX-DOCKER-2 (192.168.0.73)
 
+> **Note**: The legacy `netflow-dashboard.py` entrypoint has been removed. Prefer `docker/DEPLOY_TO_SERVER.sh` to deploy the modular `app/` and `frontend/` structure.
+
 ## Quick Deploy
 
 1. **Copy files to server:**

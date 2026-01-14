@@ -2,6 +2,8 @@
 
 This guide explains how to update the Docker container when you have code changes.
 
+> **Important**: The legacy `netflow-dashboard.py` entrypoint has been removed. Use `docker/DEPLOY_TO_SERVER.sh` (optionally with `--rebuild`) to deploy the modular `app/` and `frontend/` directories. The manual `netflow-dashboard.py` copy commands below are legacy-only and should be considered deprecated.
+
 ## Quick Reference
 
 ### Fast Update Method (Recommended - No Rebuild Needed)

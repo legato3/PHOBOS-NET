@@ -118,7 +118,7 @@
   8. Forensics Routes (2)
   9. Ollama Routes (2)
 
-**Note:** Routes import functions and globals from `phobos_dashboard.py` using a bridge pattern for backward compatibility.
+**Note:** Routes now import functions directly from modular services; the legacy `phobos_dashboard.py` entrypoint has been removed.
 
 ## In Progress
 
@@ -135,7 +135,7 @@
 #### app/main.py ✅
 - ✅ Created entry point structure
 - ✅ Port finding logic (`_find_open_port`)
-- ✅ Import thread functions from `phobos_dashboard`
+- ✅ Import thread functions from `app/core/threads.py`
 - ✅ Graceful shutdown handler implemented
 - ✅ Background services startup
 - ✅ Flask app execution
@@ -203,9 +203,9 @@ All major refactoring milestones have been completed:
 - ✅ Extract 68 Flask routes to `app/api/routes.py` (COMPLETED - 4,593 lines)
 - ✅ Create `app/__init__.py` (Flask app initialization and Blueprint registration)
 - ✅ Create `app/main.py` (WSGI entry point)
-- ✅ Resolve route dependencies (routes now import from phobos_dashboard) - Bridge pattern implemented
+- ✅ Resolve route dependencies (routes now import from modular services)
 - ✅ Migrate frontend assets (`static/` and `templates/` to `frontend/`)
-- ✅ Rename `netflow-dashboard.py` to `phobos_dashboard.py` for Python imports
+- ✅ Retired legacy monolithic entrypoint
 
 **Optional Future Tasks - In Progress:**
 - ✅ Further extraction continued:
@@ -231,23 +231,15 @@ All major refactoring milestones have been completed:
   - ✅ Fixed SNMP state initialization in `app/core/state.py` (`_snmp_cache`, `_snmp_prev_sample`, `_snmp_backoff`)
   - ✅ Updated `app/api/routes.py` to import thread functions from `app/core/threads.py`
   - ✅ Updated `app/api/routes.py` to import SNMP functions from `app/services/snmp.py`
+  - ✅ Extracted syslog service to `app/services/syslog.py` and updated imports
+  - ✅ Extracted CPU stat helpers to `app/services/cpu.py` (`read_cpu_stat`, `calculate_cpu_percent_from_stat`)
+  - ✅ Extracted config helpers to `app/utils/config_helpers.py` (`get_default_config`, `load_config`, `save_config`)
   - ✅ Fixed missing variable imports in `app/api/routes.py`:
     - Fixed `_feed_status` usage: now accessed via `threats_module._feed_status` in `api_feed_status()` and `api_risk_index()`
     - Fixed `_protocol_baseline` usage: now accessed via `threats_module._protocol_baseline` in `api_protocol_anomalies()`
   - ✅ Fixed alert-correlation timestamp parsing: added `_parse_ts()` helper to handle datetime strings (e.g., `"2026-01-14 15:23:50"`) in `api_forensics_alert_correlation()`
-  - ⏭️ Still remaining: `load_config`, `save_config`, `get_default_config` (modify globals, more complex)
-  - ⏭️ Other helper functions that can be extracted:
-    - `calculate_cpu_percent_from_stat`, `read_cpu_stat` - CPU stat functions with state dependencies
 - ⏭️ Create state management module for globals (if desired)
-- ⏭️ Remove unused code from `phobos_dashboard.py`:
-  - **Note**: Functions that have been extracted are still present in `phobos_dashboard.py` because:
-    1. The file still serves as a bridge via `import phobos_dashboard as _phobos`
-    2. Many functions are still called from within `phobos_dashboard.py` itself (internal dependencies)
-    3. The file still contains Flask routes (though the app uses Blueprint from `app/api/routes.py`)
-  - Safe cleanup can only be done after verifying:
-    - Routes in `phobos_dashboard.py` are no longer used (app uses Blueprint)
-    - No internal dependencies on extracted functions
-    - Bridge pattern dependencies are fully migrated
+- ✅ Removed legacy `phobos_dashboard.py` entrypoint (modular runtime only)
 - ⏭️ Update deployment documentation
 
 ## Recent Bug Fixes (January 2026)
@@ -273,6 +265,6 @@ All major refactoring milestones have been completed:
 - ✅ Frontend assets migrated
 - ✅ Dependencies resolved via bridge pattern
 
-The application is now organized into a clean, modular architecture following Python best practices. Routes import from `phobos_dashboard.py` (renamed from `netflow-dashboard.py`) to access globals and functions, using a pragmatic bridge pattern that allows the refactoring to work immediately.
+The application is now organized into a clean, modular architecture following Python best practices. Routes and background threads use modular services directly; the legacy monolithic entrypoint has been removed.
 
 The refactoring is complete and ready for testing. See `docs/RUNNING_THE_APP.md` for instructions on running the application.

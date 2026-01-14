@@ -2,6 +2,8 @@
 
 This document describes deploying the NetFlow Dashboard using Docker on PROX-DOCKER-2.
 
+> **Note**: The legacy `netflow-dashboard.py` entrypoint has been removed. Use `docker/DEPLOY_TO_SERVER.sh` (and `--rebuild` when needed) to deploy the modular `app/` and `frontend/` structure.
+
 ## System Information
 
 - **Server**: PROX-DOCKER-2 (192.168.0.73)

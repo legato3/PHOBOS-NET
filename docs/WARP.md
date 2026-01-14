@@ -16,7 +16,7 @@ PHOBOS-NET - A real-time network traffic monitoring system designed for Proxmox 
 
 ```bash
 # Run development server (on MacOS for local testing)
-python3 netflow-dashboard.py
+python3 -m app.main
 
 # The app falls back to sample data if nfdump is not available
 # Sample data: sample_data/nfdump_flows.csv (6,808 real NetFlow records)
@@ -35,7 +35,7 @@ systemctl status systemd/netflow-dashboard.service
 journalctl -u systemd/netflow-dashboard.service -f
 
 # Manual run for debugging
-cd /root && python3 netflow-dashboard.py
+cd /root/netflow-dashboard && python3 -m app.main
 ```
 
 ### Asset Management
@@ -91,7 +91,7 @@ sqlite3 netflow-trends.sqlite
 ### Backend (Flask + Python)
 
 **Core Components**:
-- `netflow-dashboard.py` - Single monolithic Flask application (~3700 lines)
+- `app/` - Modular Flask backend (routes, services, utils)
 - `run_nfdump()` - Wrapper for nfdump CLI, falls back to mock data from sample_data/
 - `parse_csv()` - **Dynamic column detection** - NEVER hardcode indices, always parse header
 - `fetch_threat_feed()` - Multi-feed aggregator with per-feed error handling
@@ -209,7 +209,7 @@ FIREWALL_IP=192.168.0.1         # Only accept logs from this IP
 
 ```
 /root/
-├── netflow-dashboard.py        # Main application
+├── app/                        # Main application (modular)
 ├── threat-feeds.txt            # Multi-feed URLs
 ├── threat-ips.txt              # Aggregated blocklist (~38K IPs)
 ├── threat-whitelist.txt        # False positive exclusions
@@ -290,7 +290,7 @@ URL|CATEGORY|NAME
 
 ### Adding a New Widget
 
-1. **Backend**: Add API endpoint in `netflow-dashboard.py`
+1. **Backend**: Add API endpoint in `app/api/routes.py`
    - Create dedicated lock and cache dict
    - Use 60s TTL with window alignment
    - Return consistent JSON format

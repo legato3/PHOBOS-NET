@@ -40,8 +40,6 @@ echo "📦 Copying application files..."
 ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{app,frontend/{templates,static},scripts,sample_data,docker-data}"
 # Copy app directory (modular structure)
 scp -i "$SSH_KEY" -r app/ $USER@$SERVER:$REMOTE_DIR/
-# Copy phobos_dashboard.py (renamed from netflow-dashboard.py)
-scp -i "$SSH_KEY" phobos_dashboard.py $USER@$SERVER:$REMOTE_DIR/
 # Copy frontend directory
 scp -i "$SSH_KEY" -r frontend/templates/* $USER@$SERVER:$REMOTE_DIR/frontend/templates/ 2>/dev/null || true
 scp -i "$SSH_KEY" -r frontend/static/* $USER@$SERVER:$REMOTE_DIR/frontend/static/ 2>/dev/null || true
