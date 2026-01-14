@@ -216,7 +216,9 @@ All major refactoring milestones have been completed:
   - ✅ Routes now import these functions directly instead of from phobos_dashboard
   - ✅ Extracted `load_threatlist()`, `get_feed_label()`, `send_notifications()` (and dependencies) to `app/services/threats.py`
   - ⏭️ Still remaining: `load_config`, `save_config`, `get_default_config` (modify globals, more complex)
-  - ⏭️ Other helper functions that can be extracted (e.g., `calculate_security_score`, SNMP functions)
+  - ⏭️ Other helper functions that can be extracted:
+    - `calculate_security_score` - depends on multiple modules (threats, db, globals)
+    - `get_snmp_data`, `calculate_cpu_percent_from_stat` - SNMP functions with many global dependencies
 - ⏭️ Create state management module for globals (if desired)
 - ⏭️ Remove unused code from `phobos_dashboard.py` (when ready)
 - ⏭️ Update deployment documentation
