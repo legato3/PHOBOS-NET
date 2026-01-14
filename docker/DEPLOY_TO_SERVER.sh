@@ -25,8 +25,7 @@ scp docker/.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
 echo "📦 Copying application files..."
 ssh $USER@$SERVER "mkdir -p $REMOTE_DIR/{templates,static,scripts,sample_data}"
 scp netflow-dashboard.py $USER@$SERVER:$REMOTE_DIR/
-scp threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/
-scp requirements.txt $USER@$SERVER:$REMOTE_DIR/
+
 scp -r templates/* $USER@$SERVER:$REMOTE_DIR/templates/
 scp -r static/* $USER@$SERVER:$REMOTE_DIR/static/
 scp scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/
