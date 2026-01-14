@@ -36,7 +36,7 @@
     <link rel="preload" href="/static/js/lazy-load.js" as="script">
 
     <!-- CSS - Critical render path, load first -->
-    <link rel="stylesheet" href="/static/style.css?v=3.1.4">
+    <link rel="stylesheet" href="/static/style.css?v=3.1.5">
     <!-- Widget-specific enhancements -->
 
 
@@ -996,80 +996,74 @@
                                     {% call widget_card('sources', 'Top Sources', '🔼', extra_actions=src_actions,
                                     footer_content=src_footer) %}
                                     <div class="widget-body-inner">
-                                        <table class="table-fixed table-compact">
-                                            <thead>
-                                                <tr>
-                                                    <th class="w-50">Source Address</th>
-                                                    <th class="w-50">Traffic</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <template x-for="(item, index) in filteredSources" :key="index">
-                                                    <tr @click="openIPModal(item.key)" class="network-endpoint-row"
-                                                        :data-row-rank="index"
-                                                        :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0"
-                                                        :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
-                                                        <td>
-                                                            <div class="endpoint-cell">
-                                                                <!-- Primary: IP Address -->
-                                                                <div class="endpoint-primary-line">
-                                                                    <span x-text="item.flag"
-                                                                        class="endpoint-flag"></span>
-                                                                    <strong x-text="item.key"
-                                                                        class="endpoint-ip"></strong>
-                                                                    <button class="icon-btn-small endpoint-filter-btn"
-                                                                        @click.stop="applyFilter(item.key)"
-                                                                        title="Filter / Details"
-                                                                        :aria-label="'View details for ' + item.key">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg"
-                                                                            width="14" height="14" viewBox="0 0 24 24"
-                                                                            fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round"
-                                                                            stroke-linejoin="round">
-                                                                            <circle cx="11" cy="11" r="8"></circle>
-                                                                            <line x1="21" y1="21" x2="16.65" y2="16.65">
-                                                                            </line>
-                                                                        </svg>
-                                                                    </button>
-                                                                </div>
-                                                                <!-- Secondary: Metadata with inline sparkline -->
-                                                                <div class="endpoint-meta-line">
-                                                                    <span x-text="item.region"></span>
-                                                                    <span
-                                                                        x-show="item.hostname && item.hostname !== item.key"
-                                                                        x-text="' • ' + item.hostname"></span>
-                                                                    <span class="endpoint-meta-sparkline">
-                                                                        <canvas class="spark spark-subtle" width="80"
-                                                                            height="14" :data-ip="item.key"
-                                                                            data-kind="source"></canvas>
-                                                                    </span>
-                                                                </div>
-                                                                <!-- Supporting: Badges -->
-                                                                <div class="endpoint-badges">
-                                                                    <span class="badge"
-                                                                        :class="item.internal ? 'internal' : 'external'"
-                                                                        x-text="item.internal ? 'Internal' : 'External'"></span>
-                                                                    <span class="badge threat"
-                                                                        x-show="item.threat">THREAT</span>
-                                                                </div>
+                                        <div class="endpoint-grid-header">
+                                            <div class="grid-th w-50">Source Address</div>
+                                            <div class="grid-th w-50">Traffic</div>
+                                        </div>
+                                        <div class="endpoint-grid-body">
+                                            <template x-for="(item, index) in filteredSources" :key="index">
+                                                <div @click="openIPModal(item.key)"
+                                                    class="network-endpoint-row grid-row" :data-row-rank="index"
+                                                    :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0"
+                                                    :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell">
+                                                            <!-- Primary: IP Address -->
+                                                            <div class="endpoint-primary-line">
+                                                                <span x-text="item.flag" class="endpoint-flag"></span>
+                                                                <strong x-text="item.key" class="endpoint-ip"></strong>
+                                                                <button class="icon-btn-small endpoint-filter-btn"
+                                                                    @click.stop="applyFilter(item.key)"
+                                                                    title="Filter / Details"
+                                                                    :aria-label="'View details for ' + item.key">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14"
+                                                                        height="14" viewBox="0 0 24 24" fill="none"
+                                                                        stroke="currentColor" stroke-width="2"
+                                                                        stroke-linecap="round" stroke-linejoin="round">
+                                                                        <circle cx="11" cy="11" r="8"></circle>
+                                                                        <line x1="21" y1="21" x2="16.65" y2="16.65">
+                                                                        </line>
+                                                                    </svg>
+                                                                </button>
                                                             </div>
-                                                        </td>
-                                                        <td>
-                                                            <div class="endpoint-cell endpoint-value-cell">
-                                                                <div class="endpoint-value"
-                                                                    :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}"
-                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
-                                                                </div>
-                                                                <div class="endpoint-flows"
-                                                                    x-text="(item.flows || 0) + ' flows'">
-                                                                </div>
+                                                            <!-- Secondary: Metadata with inline sparkline -->
+                                                            <div class="endpoint-meta-line">
+                                                                <span x-text="item.region"></span>
+                                                                <span
+                                                                    x-show="item.hostname && item.hostname !== item.key"
+                                                                    x-text="' • ' + item.hostname"></span>
+                                                                <span class="endpoint-meta-sparkline">
+                                                                    <canvas class="spark spark-subtle" width="80"
+                                                                        height="14" :data-ip="item.key"
+                                                                        data-kind="source"></canvas>
+                                                                </span>
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                </template>
-                                            </tbody>
-                                        </table>
-                                        </table>
+                                                            <!-- Supporting: Badges -->
+                                                            <div class="endpoint-badges">
+                                                                <span class="badge"
+                                                                    :class="item.internal ? 'internal' : 'external'"
+                                                                    x-text="item.internal ? 'Internal' : 'External'"></span>
+                                                                <span class="badge threat"
+                                                                    x-show="item.threat">THREAT</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell endpoint-value-cell">
+                                                            <div class="endpoint-value"
+                                                                :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}"
+                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
+                                                            </div>
+                                                            <div class="endpoint-flows"
+                                                                x-text="(item.flows || 0) + ' flows'">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </div>
                                     {% endcall %}
                                 </template>
@@ -1089,79 +1083,74 @@
                                     extra_actions=dst_actions,
                                     footer_content=dst_footer) %}
                                     <div class="widget-body-inner">
-                                        <table class="table-fixed table-compact">
-                                            <thead>
-                                                <tr>
-                                                    <th class="w-50">IP Address</th>
-                                                    <th class="w-50">Traffic</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <template x-for="(item, index) in filteredDestinations" :key="index">
-                                                    <tr @click="openIPModal(item.key)" class="network-endpoint-row"
-                                                        :data-row-rank="index"
-                                                        :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
-                                                        :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
-                                                        <td>
-                                                            <div class="endpoint-cell">
-                                                                <!-- Primary: IP Address -->
-                                                                <div class="endpoint-primary-line">
-                                                                    <span x-text="item.flag"
-                                                                        class="endpoint-flag"></span>
-                                                                    <strong x-text="item.key"
-                                                                        class="endpoint-ip"></strong>
-                                                                    <button class="icon-btn-small endpoint-filter-btn"
-                                                                        @click.stop="applyFilter(item.key)"
-                                                                        title="Filter / Details"
-                                                                        :aria-label="'View details for ' + item.key">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg"
-                                                                            width="14" height="14" viewBox="0 0 24 24"
-                                                                            fill="none" stroke="currentColor"
-                                                                            stroke-width="2" stroke-linecap="round"
-                                                                            stroke-linejoin="round">
-                                                                            <circle cx="11" cy="11" r="8"></circle>
-                                                                            <line x1="21" y1="21" x2="16.65" y2="16.65">
-                                                                            </line>
-                                                                        </svg>
-                                                                    </button>
-                                                                </div>
-                                                                <!-- Secondary: Metadata with inline sparkline -->
-                                                                <div class="endpoint-meta-line">
-                                                                    <span x-text="item.region"></span>
-                                                                    <span
-                                                                        x-show="item.hostname && item.hostname !== item.key"
-                                                                        x-text="' • ' + item.hostname"></span>
-                                                                    <span class="endpoint-meta-sparkline">
-                                                                        <canvas class="spark spark-subtle" width="80"
-                                                                            height="14" :data-ip="item.key"
-                                                                            data-kind="dest"></canvas>
-                                                                    </span>
-                                                                </div>
-                                                                <!-- Supporting: Badges -->
-                                                                <div class="endpoint-badges">
-                                                                    <span class="badge"
-                                                                        :class="item.internal ? 'internal' : 'external'"
-                                                                        x-text="item.internal ? 'Internal' : 'External'"></span>
-                                                                    <span class="badge threat"
-                                                                        x-show="item.threat">THREAT</span>
-                                                                </div>
+                                        <div class="endpoint-grid-header">
+                                            <div class="grid-th w-50">IP Address</div>
+                                            <div class="grid-th w-50">Traffic</div>
+                                        </div>
+                                        <div class="endpoint-grid-body">
+                                            <template x-for="(item, index) in filteredDestinations" :key="index">
+                                                <div @click="openIPModal(item.key)"
+                                                    class="network-endpoint-row grid-row" :data-row-rank="index"
+                                                    :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
+                                                    :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell">
+                                                            <!-- Primary: IP Address -->
+                                                            <div class="endpoint-primary-line">
+                                                                <span x-text="item.flag" class="endpoint-flag"></span>
+                                                                <strong x-text="item.key" class="endpoint-ip"></strong>
+                                                                <button class="icon-btn-small endpoint-filter-btn"
+                                                                    @click.stop="applyFilter(item.key)"
+                                                                    title="Filter / Details"
+                                                                    :aria-label="'View details for ' + item.key">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14"
+                                                                        height="14" viewBox="0 0 24 24" fill="none"
+                                                                        stroke="currentColor" stroke-width="2"
+                                                                        stroke-linecap="round" stroke-linejoin="round">
+                                                                        <circle cx="11" cy="11" r="8"></circle>
+                                                                        <line x1="21" y1="21" x2="16.65" y2="16.65">
+                                                                        </line>
+                                                                    </svg>
+                                                                </button>
                                                             </div>
-                                                        </td>
-                                                        <td>
-                                                            <div class="endpoint-cell endpoint-value-cell">
-                                                                <div class="endpoint-value"
-                                                                    :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
-                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
-                                                                </div>
-                                                                <div class="endpoint-flows"
-                                                                    x-text="(item.flows || 0) + ' flows'">
-                                                                </div>
+                                                            <!-- Secondary: Metadata with inline sparkline -->
+                                                            <div class="endpoint-meta-line">
+                                                                <span x-text="item.region"></span>
+                                                                <span
+                                                                    x-show="item.hostname && item.hostname !== item.key"
+                                                                    x-text="' • ' + item.hostname"></span>
+                                                                <span class="endpoint-meta-sparkline">
+                                                                    <canvas class="spark spark-subtle" width="80"
+                                                                        height="14" :data-ip="item.key"
+                                                                        data-kind="dest"></canvas>
+                                                                </span>
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                </template>
-                                            </tbody>
-                                        </table>
+                                                            <!-- Supporting: Badges -->
+                                                            <div class="endpoint-badges">
+                                                                <span class="badge"
+                                                                    :class="item.internal ? 'internal' : 'external'"
+                                                                    x-text="item.internal ? 'Internal' : 'External'"></span>
+                                                                <span class="badge threat"
+                                                                    x-show="item.threat">THREAT</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell endpoint-value-cell">
+                                                            <div class="endpoint-value"
+                                                                :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
+                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
+                                                            </div>
+                                                            <div class="endpoint-flows"
+                                                                x-text="(item.flows || 0) + ' flows'">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
                                         </table>
                                     </div>
                                     {% endcall %}

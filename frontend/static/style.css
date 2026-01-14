@@ -1101,48 +1101,46 @@ table:has(.network-endpoint-row) td {
 }
 
 /* ==========================================================================
-   FLEXBOX REFACTOR for Endpoint Widgets
-   bypasses table-layout issues to guarantee 50/50 columns + card styling
+   ENDPOINT GRID SYSTEM (Replaces table layout)
    ========================================================================== */
-table:has(.network-endpoint-row) {
+.endpoint-grid-header {
     display: flex;
-    /* Turn table into flex container */
+    width: 100%;
+    border-bottom: 1px solid var(--endpoint-surface-separator);
+}
+
+.endpoint-grid-body {
+    display: flex;
     flex-direction: column;
     width: 100%;
 }
 
-table:has(.network-endpoint-row) thead,
-table:has(.network-endpoint-row) tbody {
+.grid-row {
     display: flex;
-    /* Sections are column stacks */
-    flex-direction: column;
-    width: 100%;
-}
-
-table:has(.network-endpoint-row) tr {
-    display: flex;
-    /* Rows are flex containers */
     width: 100%;
     align-items: flex-start;
-    /* Top align content */
 }
 
-/* Cells: Enforce rigid 50% split */
-table:has(.network-endpoint-row) th,
-table:has(.network-endpoint-row) td {
+.grid-th {
+    padding: var(--space-3) var(--space-4);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+    color: var(--text-muted);
+    text-align: left;
+}
+
+.grid-td {
     display: block;
-    /* Behave like divs */
-    width: 50% !important;
-    max-width: 50% !important;
-    flex: 0 0 50%;
-    /* Flex sizing */
     box-sizing: border-box;
-    text-align: left !important;
+    text-align: left;
+    padding: 0;
 }
 
-/* Ensure header row still has a border since we lost table borders */
-table:has(.network-endpoint-row) thead tr {
-    border-bottom: 1px solid var(--endpoint-surface-separator);
+/* Ensure padding inside the cell container, not the grid cell itself for hover effects */
+.grid-td .endpoint-cell {
+    height: 100%;
 }
 
 table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
