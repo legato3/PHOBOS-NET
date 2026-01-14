@@ -998,6 +998,7 @@ export const Store = () => ({
                 this.fetchRecentBlocks();
                 this.fetchFeedHealth();
                 this.fetchWatchlist();
+                this.fetchMaliciousPorts();
                 this.lastFetch.security = now;
             }
         }
@@ -1090,7 +1091,8 @@ export const Store = () => ({
                 this.fetchProtocolAnomalies(),
                 this.fetchRecentBlocks(),
                 this.fetchFeedHealth(),
-                this.fetchWatchlist()
+                this.fetchWatchlist(),
+                this.fetchMaliciousPorts()
             ]);
             this.lastFetch.security = now;
         }
@@ -3959,6 +3961,7 @@ export const Store = () => ({
                 this.fetchProtocolAnomalies();
                 this.fetchFeedHealth();
                 this.fetchWatchlist();
+                this.fetchMaliciousPorts();
                 this.lastFetch.security = now;
             }
         } else if (tab === 'network') {
