@@ -64,10 +64,10 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     echo \"📦 Installing dependencies...\"
     # Assuming system python as per service file (ExecStart=/usr/bin/python3)
     # Using --break-system-packages if needed for newer Debian/Ubuntu, or standard pip otherwise
-    if pip3 install --break-system-packages -r requirements.txt 2>/dev/null; then
+    if pip3 install --break-system-packages -r sample_data/requirements.txt 2>/dev/null; then
         echo \"✅ Dependencies installed (using --break-system-packages)\"
     else
-        pip3 install -r requirements.txt
+        pip3 install -r sample_data/requirements.txt
         echo \"✅ Dependencies installed\"
     fi
     
@@ -79,7 +79,7 @@ ssh -i "$SSH_KEY" "${SSH_USER}@${SSH_HOST}" "pct exec ${LXC_ID} -- bash -c '
     
     # Copy new files
     cp -f netflow-dashboard.py ${DEPLOY_PATH}/
-    cp -f requirements.txt ${DEPLOY_PATH}/
+    cp -f sample_data/requirements.txt ${DEPLOY_PATH}/
     
     mkdir -p ${DEPLOY_PATH}/static
     cp -rf static/* ${DEPLOY_PATH}/static/
