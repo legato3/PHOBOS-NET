@@ -292,8 +292,13 @@ body {
     width: 100%;
     max-width: none;
     margin: 0;
-    display: block;
+    display: none;
     padding: 0;
+}
+
+/* Show when Alpine.js x-show makes it visible (removes display: none) */
+.container:not([style*="display: none"]) {
+    display: block;
 }
 
 /* Layout Wrapper with Sidebar */
@@ -1472,6 +1477,158 @@ tr:hover td {
     margin-bottom: 0.5rem;
 }
 
+.mb-8 {
+    margin-bottom: 2rem;
+}
+
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+
+.mb-1 {
+    margin-bottom: 0.25rem;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.ml-2 {
+    margin-left: 0.5rem;
+}
+
+.ml-1 {
+    margin-left: 0.25rem;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.text-xs {
+    font-size: 0.75rem;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+}
+
+.text-yellow {
+    color: yellow;
+}
+
+.text-green {
+    color: var(--neon-green);
+}
+
+.text-pink {
+    color: var(--neon-pink);
+}
+
+.h-25 {
+    height: 100px;
+}
+
+.layer-dot-green {
+    background: #00ff64;
+}
+
+.layer-dot-cyan {
+    background: #00f3ff;
+}
+
+.layer-dot-red {
+    background: #ff003c;
+}
+
+.opacity-50 {
+    opacity: 0.5;
+}
+
+.grid-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.text-7 {
+    font-size: 0.7em;
+}
+
+.text-75 {
+    font-size: 0.75em;
+}
+
+.text-8 {
+    font-size: 0.8em;
+}
+
+.text-85 {
+    font-size: 0.85em;
+}
+
+.text-9 {
+    font-size: 0.9em;
+}
+
+.text-32 {
+    font-size: 32px;
+}
+
+.w-50 {
+    width: 50%;
+}
+
+.w-70 {
+    width: 70%;
+}
+
+.w-30 {
+    width: 30%;
+}
+
+.w-16 {
+    width: 16%;
+}
+
+.w-13 {
+    width: 13%;
+}
+
+.w-22 {
+    width: 22%;
+}
+
+.w-4 {
+    width: 4%;
+}
+
+.h-200 {
+    height: 200px;
+}
+
+.h-250 {
+    height: 250px;
+}
+
+.h-full {
+    height: 100%;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
 .flag {
     font-size: 1.2em;
     margin-right: 5px;
@@ -1610,8 +1767,13 @@ tr:hover td {
     overflow-x: hidden;
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow: none;
-    scrollbar-width: thin;
-    scrollbar-color: #4a4a4a #1e1e21;
+}
+
+@supports (scrollbar-width: thin) {
+    .dropdown-menu.settings-panel {
+        scrollbar-width: thin;
+        scrollbar-color: #4a4a4a #1e1e21;
+    }
 }
 
 .dropdown-menu.settings-panel::-webkit-scrollbar {
@@ -1826,13 +1988,18 @@ tr:hover td {
     height: 100%;
     background: var(--bg-primary);
     z-index: 2000;
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     color: var(--neon-cyan);
     font-family: var(--font-mono);
     font-size: 1.5em;
     letter-spacing: 3px;
+}
+
+/* Show when Alpine.js x-show makes it visible (removes display: none) */
+.loading-screen:not([style*="display: none"]) {
+    display: flex;
 }
 
 .pill {
@@ -5154,8 +5321,13 @@ body.compact-mode {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         white-space: nowrap;
-        scrollbar-width: thin;
-        scrollbar-color: #4a4a4a #1e1e21;
+    }
+
+    @supports (scrollbar-width: thin) {
+        .card table {
+            scrollbar-width: thin;
+            scrollbar-color: #4a4a4a #1e1e21;
+        }
     }
 
     .card table::-webkit-scrollbar {
@@ -7489,11 +7661,16 @@ body.compact-mode {
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     padding-bottom: 0;
     overflow-x: auto;
-    scrollbar-width: none;
-    /* Firefox */
     -ms-overflow-style: none;
     /* IE/Edge */
     padding: 0;
+}
+
+@supports (scrollbar-width: none) {
+    .tabs {
+        scrollbar-width: none;
+        /* Firefox */
+    }
 }
 
 .tabs::-webkit-scrollbar {
@@ -7752,9 +7929,11 @@ body.compact-mode {
 /* ============================================
    CHAT INTERFACE STYLES (Ollama AI Assistant)
    ============================================ */
-.chat-messages {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+@supports (scrollbar-width: thin) {
+    .chat-messages {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
 }
 
 .chat-messages::-webkit-scrollbar {
