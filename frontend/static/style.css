@@ -1093,6 +1093,7 @@ td {
 table:has(.network-endpoint-row) td {
     border-bottom: none;
     padding: 0;
+    vertical-align: top;
     /* Padding handled by .endpoint-cell */
 }
 
@@ -1245,8 +1246,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 }
 
 .endpoint-value-cell {
-    text-align: right;
-    vertical-align: middle;
+    text-align: left;
 }
 
 .endpoint-value {
