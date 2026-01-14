@@ -96,8 +96,8 @@ try:
     
     # Thread functions - now imported from app.core.threads
     # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
-    # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
-    from app.services.syslog import start_syslog_thread
+    # Syslog functions - now imported from app.services.syslog
+    from app.services.syslog import start_syslog_thread, _flush_syslog_buffer
     
     # Global variables - now imported from app.core.state and app.db.sqlite
     # All locks, caches, and state variables are imported at the top of this file
@@ -108,7 +108,6 @@ try:
     load_config = getattr(_phobos, 'load_config', None)
     save_config = getattr(_phobos, 'save_config', None)
     # start_snmp_thread now imported from app.services.snmp
-    _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
     DEBUG_MODE = getattr(_phobos, 'DEBUG_MODE', False)
     
     # Flask app instance (for backward compatibility - routes should use Blueprint)

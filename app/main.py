@@ -18,13 +18,11 @@ from app.core.state import _shutdown_event
 # Import thread functions
 from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
 
-# Import syslog functions from phobos_dashboard (still defined there - complex dependencies)
+# Import syslog functions from app/services/syslog
 try:
-    import phobos_dashboard as _phobos
-    start_syslog_thread = _phobos.start_syslog_thread
-    _flush_syslog_buffer = getattr(_phobos, '_flush_syslog_buffer', None)
+    from app.services.syslog import start_syslog_thread, _flush_syslog_buffer
 except ImportError as e:
-    print(f"Warning: Could not import syslog functions from phobos_dashboard: {e}")
+    print(f"Warning: Could not import syslog functions: {e}")
     start_syslog_thread = None
     _flush_syslog_buffer = None
 
