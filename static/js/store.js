@@ -1115,7 +1115,7 @@ export const Store = () => ({
             const q = this.searchQuery.toLowerCase();
             list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
         }
-        return list.slice(0, 10);
+        return list.slice(0, 5);
     },
 
     get filteredDestinations() {
@@ -1124,7 +1124,7 @@ export const Store = () => ({
             const q = this.searchQuery.toLowerCase();
             list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
         }
-        return list.slice(0, 10);
+        return list.slice(0, 5);
     },
 
     async fetchSummary() {
