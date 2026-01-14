@@ -65,6 +65,7 @@ from app.utils.geoip import lookup_geo, load_city_db
 import app.utils.geoip as geoip_module
 from app.utils.dns import resolve_ip
 import app.utils.dns as dns_module
+from app.utils.decorators import throttle
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
@@ -76,8 +77,8 @@ from app.config import (
 try:
     import phobos_dashboard as _phobos
     
-    # Decorator
-    throttle = _phobos.throttle
+    # Decorator - now imported from app.utils.decorators
+    # throttle = _phobos.throttle
     
     # Helper functions
     # load_notify_cfg now imported from app.utils.config_helpers
@@ -113,7 +114,7 @@ try:
 except ImportError as e:
     # Fallback if phobos_dashboard cannot be imported
     print(f"Warning: Could not import from phobos_dashboard: {e}")
-    throttle = None
+    # throttle is imported from app.utils.decorators, not from _phobos
     start_threat_thread = None
     start_trends_thread = None
     start_agg_thread = None
