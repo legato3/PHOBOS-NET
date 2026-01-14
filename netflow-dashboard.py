@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 from flask_compress import Compress
 import subprocess, time, os, json
+import socket # Added as per instruction
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
 from functools import wraps
@@ -49,7 +50,7 @@ _lock_flags = threading.Lock()
 _lock_asns = threading.Lock()
 _lock_durations = threading.Lock()
 _lock_bandwidth = threading.Lock()
-_lock_conversations = threading.Lock()
+_lock_flows = threading.Lock()
 _lock_countries = threading.Lock()
 _cache_lock = threading.Lock()  # generic small cache lock (e.g., packet sizes)
 # Caches for new endpoints
@@ -78,7 +79,7 @@ _mock_lock = threading.Lock()
 
 _bandwidth_cache = {"data": None, "ts": 0}
 _bandwidth_history_cache = {}
-_conversations_cache = {"data": None, "ts": 0}
+_flows_cache = {"data": None, "ts": 0}
 _request_times = defaultdict(list)
 _throttle_lock = threading.Lock()
 _dns_cache, _dns_ttl = {}, {}
@@ -837,8 +838,13 @@ def run_nfdump(args, tf=None):
         if _has_nfdump:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
+                # DEBUG: Log successful nfdump
+                # print(f"DEBUG: nfdump success len={len(r.stdout)}")
                 return r.stdout
-    except Exception:
+            else:
+                 print(f"DEBUG: nfdump failed RC={r.returncode} STDERR={r.stderr} CMD={cmd}")
+    except Exception as e:
+        print(f"DEBUG: run_nfdump exception {e}")
         pass
 
     # Fallback to Mock
@@ -1797,6 +1803,14 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
     return all_alerts
 
 
+def format_duration(seconds):
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    elif seconds < 3600:
+        return f"{int(seconds)//60}m"
+    else:
+        return f"{int(seconds)//3600}h"
+
 def fmt_bytes(b):
     if b >= 1024**3: return f"{b/1024**3:.2f} GB"
     elif b >= 1024**2: return f"{b/1024**2:.2f} MB"
@@ -2368,6 +2382,8 @@ def api_stats_packet_sizes():
 
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
+    tf = get_time_range(range_key)
+    # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
 
     # Buckets
@@ -2379,17 +2395,25 @@ def api_stats_packet_sizes():
         "Jumbo (>1513B)": 0
     }
 
+    # NFDump CSV usually has no header, or specific columns: ts,td,pr,sa,sp,da,dp,ipkt,ibyt,fl
+    # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
+    ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx, fl_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+
     try:
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
-        try:
-            ibyt_idx = header.index('ibyt')
-            ipkt_idx = header.index('ipkt')
-        except:
-             # Fallback
-            ibyt_idx, ipkt_idx = 12, 11
+        # Check if first line looks like a header
+        if lines and 'ibyt' in lines[0]:
+             header = lines[0].split(',')
+             try:
+                 ibyt_idx = header.index('ibyt')
+                 ipkt_idx = header.index('ipkt')
+             except:
+                 pass
+             start_idx = 1
+        else:
+             start_idx = 0
 
-        for line in lines[1:]:
+        for line in lines[start_idx:]:
             if not line or line.startswith('ts,'): continue
             parts = line.split(',')
             if len(parts) > max(ibyt_idx, ipkt_idx):
@@ -2722,60 +2746,105 @@ def api_stats_talkers():
             return jsonify(_stats_talkers_cache["data"])
 
     tf = get_time_range(range_key)
-    output = run_nfdump(["-O", "bytes", "-n", "100"], tf)
+    # Sort by bytes (already sorted by nfdump, but we limits)
+    # nfdump -O bytes -n 100 returns top 100 flows sorted by bytes
+    # DEBUG: temporarily disabling tf to see if time filtering is the issue
+    output = run_nfdump(["-O", "bytes", "-n", "50"], None)
 
-    pairs = {}
+    flows = []
+    # NFDump CSV indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
+    ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8
+
     try:
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
-        try:
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            ibyt_idx = header.index('ibyt')
-        except:
-            sa_idx, da_idx, ibyt_idx = 3, 4, 12
-
-        for line in lines[1:]:
-            if not line or line.startswith('ts,'): continue
-            parts = line.split(',')
-            if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+        # Header check skip logic
+        start_idx = 0
+        if lines:
+            line0 = lines[0]
+            if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                header = line0.split(',')
+                # Map headers to indices if possible, else rely on defaults
                 try:
-                    src = parts[sa_idx]
-                    dst = parts[da_idx]
-                    b = int(parts[ibyt_idx])
-                    pair_key = f"{src}→{dst}"
-                    if pair_key in pairs:
-                        pairs[pair_key]["bytes"] += b
-                    else:
-                        pairs[pair_key] = {"src": src, "dst": dst, "bytes": b}
-                except: pass
+                    # check for common variances
+                    sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                    da_key = 'da' if 'da' in header else 'dstAddr'
+                    ibyt_key = 'ibyt' if 'ibyt' in header else 'bytes'
+                    
+                    if sa_key in header: sa_idx = header.index(sa_key)
+                    if da_key in header: da_idx = header.index(da_key)
+                    if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
+                    start_idx = 1
+                except:
+                    pass
 
-        # Sort by bytes and get top 10
-        sorted_pairs = sorted(pairs.values(), key=lambda x: x["bytes"], reverse=True)[:10]
-        talkers = []
-        for p in sorted_pairs:
-            src_geo = lookup_geo(p["src"])
-            dst_geo = lookup_geo(p["dst"])
-            talkers.append({
-                "src": p["src"],
-                "dst": p["dst"],
-                "src_hostname": resolve_ip(p["src"]),
-                "dst_hostname": resolve_ip(p["dst"]),
-                "bytes": p["bytes"],
-                "bytes_fmt": fmt_bytes(p["bytes"]),
-                "src_region": get_region(p["src"], src_geo.get('country_iso') if src_geo else None),
-                "dst_region": get_region(p["dst"], dst_geo.get('country_iso') if dst_geo else None)
-            })
-        data = {"talkers": talkers}
-    except:
-        data = {"talkers": []}
+        for line in lines[start_idx:]:
+            if not line or line.startswith('ts,') or line.startswith('firstSeen,'): continue
+            parts = line.split(',')
+            if len(parts) > 8:
+                try:
+                    ts_str = parts[ts_idx]
+                    duration = float(parts[td_idx])
+                    proto_val = parts[pr_idx]
+                    src = parts[sa_idx]
+                    src_port = parts[sp_idx]
+                    dst = parts[da_idx]
+                    dst_port = parts[dp_idx]
+                    pkts = int(parts[ipkt_idx])
+                    b = int(parts[ibyt_idx])
+                    
+                    # Calculate Age
+                    # ts format often: 2026-01-13 19:42:15.000
+                    try:
+                        # strip fractional seconds for parsing if needed, or simple str parse
+                        # fast simplified parsing
+                        if '.' in ts_str: ts_str = ts_str.split('.')[0]
+                        flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
+                        age_sec = now - flow_time
+                    except:
+                        age_sec = 0
+                    
+                    # Enrich with Geo
+                    src_geo = lookup_geo(src) or {}
+                    dst_geo = lookup_geo(dst) or {}
+                    
+                    # Resolve Service Name
+                    try: 
+                        svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
+                    except: 
+                        svc = dst_port
+
+                    flows.append({
+                        "ts": ts_str,
+                        "age": format_duration(age_sec) + " ago" if age_sec < 3600 else ts_str.split(' ')[1],
+                        "duration": f"{duration:.2f}s",
+                        "proto": proto_val, 
+                        "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
+                        "src": src,
+                        "src_port": src_port,
+                        "src_flag": src_geo.get('flag', ''),
+                        "src_country": src_geo.get('country', ''),
+                        "dst": dst,
+                        "dst_port": dst_port,
+                        "dst_flag": dst_geo.get('flag', ''),
+                        "dst_country": dst_geo.get('country', ''),
+                        "service": svc,
+                        "bytes": b,
+                        "bytes_fmt": fmt_bytes(b),
+                        "packets": pkts
+                    })
+                except Exception:
+                    pass
+
+    except Exception as e:
+        print(f"Error parsing talkers: {e}")
+        pass
 
     with _cache_lock:
-        _stats_talkers_cache["data"] = data
+        _stats_talkers_cache["data"] = {"flows": flows}
         _stats_talkers_cache["ts"] = now
         _stats_talkers_cache["key"] = range_key
         _stats_talkers_cache["win"] = win
-    return jsonify(data)
+    return jsonify({"flows": flows})
 
 
 @app.route("/api/stats/services")
@@ -2845,16 +2914,25 @@ def api_stats_hourly():
     hourly_bytes = {h: 0 for h in range(24)}
     hourly_flows = {h: 0 for h in range(24)}
 
+    # NFDump CSV usually has no header
+    # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
+    ts_idx, ibyt_idx = 0, 8
+
     try:
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
-        try:
-            ts_idx = header.index('ts')
-            ibyt_idx = header.index('ibyt')
-        except:
-            ts_idx, ibyt_idx = 0, 12
+        # Check if first line looks like a header
+        if lines and 'ibyt' in lines[0]:
+            header = lines[0].split(',')
+            try:
+                ts_idx = header.index('ts')
+                ibyt_idx = header.index('ibyt')
+            except:
+                pass
+            start_idx = 1
+        else:
+            start_idx = 0
 
-        for line in lines[1:]:
+        for line in lines[start_idx:]:
             if not line or line.startswith('ts,'): continue
             parts = line.split(',')
             if len(parts) > max(ts_idx, ibyt_idx):
@@ -2920,28 +2998,31 @@ def api_stats_flow_stats():
         bytes_list = []
         packets_list = []
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
+        
+        # NFDump CSV usually has no header
+        # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
+        td_idx, ipkt_idx, ibyt_idx = 1, 7, 8
+        start_idx = 0
 
-        try:
-            # Try 1.7+ standard tags
-            if 'td' in header: td_idx = header.index('td')
-            elif 'duration' in header: td_idx = header.index('duration')
-            else: raise ValueError("Time duration column not found")
+        # Check if first line looks like a header
+        if lines and ('td' in lines[0] or 'duration' in lines[0]):
+            header = lines[0].split(',')
+            try:
+                # Try 1.7+ standard tags
+                if 'td' in header: td_idx = header.index('td')
+                elif 'duration' in header: td_idx = header.index('duration')
 
-            if 'ibyt' in header: ibyt_idx = header.index('ibyt')
-            elif 'bytes' in header: ibyt_idx = header.index('bytes')
-            else: raise ValueError("Bytes column not found")
+                if 'ibyt' in header: ibyt_idx = header.index('ibyt')
+                elif 'bytes' in header: ibyt_idx = header.index('bytes')
 
-            if 'ipkt' in header: ipkt_idx = header.index('ipkt')
-            elif 'packets' in header: ipkt_idx = header.index('packets')
-            else: raise ValueError("Packets column not found")
-        except:
-            # Fallback to defaults or specific index map if header parsing fails completely
-            # Based on log: ['firstseen', 'duration', 'proto', 'srcaddr', 'srcport', 'dstaddr', 'dstport', 'packets', 'bytes', 'flows']
-            # duration=1, packets=7, bytes=8
-            td_idx, ipkt_idx, ibyt_idx = 1, 7, 8
+                if 'ipkt' in header: ipkt_idx = header.index('ipkt')
+                elif 'packets' in header: ipkt_idx = header.index('packets')
+                
+                start_idx = 1
+            except:
+                pass
 
-        for line in lines[1:]:
+        for line in lines[start_idx:]:
             if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
             parts = line.split(',')
             if len(parts) > max(td_idx, ibyt_idx, ipkt_idx):
@@ -3110,7 +3191,7 @@ def api_stats_net_health():
             pr_idx = header.index('pr') if 'pr' in header else header.index('proto') if 'proto' in header else -1
             ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else header.index('bytes') if 'bytes' in header else -1
             
-            if flg_idx == -1 or pr_idx == -1 or ibyt_idx == -1:
+            if pr_idx == -1 or ibyt_idx == -1:
                 raise ValueError(f"Required columns not found. Header: {header}")
         except Exception as e:
             print(f"Column detection error: {e}")
@@ -4246,9 +4327,9 @@ def api_bandwidth():
     except Exception:
         return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
 
-@app.route("/api/conversations")
+@app.route("/api/flows")
 @throttle(10,30)
-def api_conversations():
+def api_flows():
     range_key = request.args.get('range', '1h')
     try:
         limit = int(request.args.get('limit', 10))
@@ -4258,97 +4339,132 @@ def api_conversations():
     cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
-    with _lock_conversations:
-        if _conversations_cache.get("data") and _conversations_cache.get("key") == cache_key_local and _conversations_cache.get("win") == win:
-            global _metric_conv_cache_hits
-            _metric_conv_cache_hits += 1
-            return jsonify(_conversations_cache["data"])
+    with _lock_flows:
+        if _flows_cache.get("data") and _flows_cache.get("key") == cache_key_local and _flows_cache.get("win") == win:
+            global _metric_flow_cache_hits
+            _metric_flow_cache_hits += 1
+            return jsonify(_flows_cache["data"])
     tf = get_time_range(range_key)
 
     # Fetch raw flows to get actual conversation partners
     # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
     # If limit > 100, we might need more data.
+    # Fetch raw flows to get actual conversation partners
+    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
+    # If limit > 100, we might need more data.
     fetch_limit = str(max(100, limit))
-    output = run_nfdump(["-O", "bytes", "-n", fetch_limit], tf)
+    # Aggregate by 5-tuple to merge duplicate/fragmented flows
+    output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", fetch_limit], tf)
 
     convs = []
+    # NFDump CSV indices defaults
+    ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8
+
     try:
-        rows = []
         lines = output.strip().split("\n")
-        header = lines[0].split(',')
-        try:
-            ts_idx = header.index('ts')
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            dp_idx = header.index('dp')
-            pr_idx = header.index('proto')
-            ibyt_idx = header.index('ibyt')
-            ipkt_idx = header.index('ipkt')
-        except:
-             # Fallback indices (based on mock/nfdump std)
-            sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
-
-        seen_flows = set()
-        for line in lines[1:]:
-            if not line or line.startswith('ts,'): continue
-            parts = line.split(',')
-            if len(parts) > max(sa_idx, da_idx, ibyt_idx):
+        start_idx = 0
+        if lines:
+            line0 = lines[0]
+            if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                header = line0.split(',')
                 try:
+                    # check for common variances
+                    sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                    if 'srcaddr' in header: sa_key = 'srcaddr'
+                    da_key = 'da' if 'da' in header else 'dstAddr'
+                    if 'dstaddr' in header: da_key = 'dstaddr'
+                    ibyt_key = 'ibyt' if 'ibyt' in header else 'bytes'
+                    
+                    if sa_key in header: sa_idx = header.index(sa_key)
+                    if da_key in header: da_idx = header.index(da_key)
+                    if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
+                    
+                    # Try to map others if present
+                    if 'ts' in header: ts_idx = header.index('ts')
+                    if 'firstSeen' in header: ts_idx = header.index('firstSeen')
+                    if 'firstseen' in header: ts_idx = header.index('firstseen')
+                    if 'td' in header: td_idx = header.index('td')
+                    if 'duration' in header: td_idx = header.index('duration')
+                    if 'pr' in header: pr_idx = header.index('pr')
+                    if 'proto' in header: pr_idx = header.index('proto')
+                    if 'sp' in header: sp_idx = header.index('sp')
+                    if 'srcPort' in header: sp_idx = header.index('srcPort')
+                    if 'srcport' in header: sp_idx = header.index('srcport')
+                    if 'dp' in header: dp_idx = header.index('dp')
+                    if 'dstPort' in header: dp_idx = header.index('dstPort')
+                    if 'dstport' in header: dp_idx = header.index('dstport')
+                    if 'ipkt' in header: ipkt_idx = header.index('ipkt')
+                    if 'packets' in header: ipkt_idx = header.index('packets')
+                    start_idx = 1
+                except:
+                    pass
+
+        for line in lines[start_idx:]:
+            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+            parts = line.split(',')
+            if len(parts) > 7:
+                try:
+                    ts_str = parts[ts_idx] if len(parts) > ts_idx else ""
+                    duration = float(parts[td_idx]) if len(parts) > td_idx else 0.0
+                    proto_val = parts[pr_idx] if len(parts) > pr_idx else "0"
                     src = parts[sa_idx]
+                    src_port = parts[sp_idx] if len(parts) > sp_idx else "0"
                     dst = parts[da_idx]
-                    # Simple dedup based on src/dst/bytes (not perfect but avoids exact dups)
-                    flow_key = (src, dst, parts[pr_idx], parts[dp_idx])
-                    if flow_key in seen_flows: continue
-                    seen_flows.add(flow_key)
+                    dst_port = parts[dp_idx] if len(parts) > dp_idx else "0"
+                    pkts = int(parts[ipkt_idx]) if len(parts) > ipkt_idx else 0
+                    b = int(parts[ibyt_idx])
+                    
+                    # Calculate Age
+                    try:
+                        if '.' in ts_str: ts_str = ts_str.split('.')[0]
+                        flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
+                        age_sec = now - flow_time
+                    except:
+                        age_sec = 0
 
-                    rows.append({
-                        "src": src, "dst": dst,
-                        "dst_port": parts[dp_idx],
-                        "proto": parts[pr_idx],
-                        "bytes": int(parts[ibyt_idx]),
-                        "packets": int(parts[ipkt_idx]) if len(parts) > ipkt_idx else 0
+                    if age_sec < 0: age_sec = 0
+                    
+                    # Enrich with Geo
+                    src_geo = lookup_geo(src) or {}
+                    dst_geo = lookup_geo(dst) or {}
+                    
+                    # Resolve Service Name
+                    try: 
+                        svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
+                    except: 
+                        svc = dst_port
+
+                    convs.append({
+                        "ts": ts_str,
+                        "age": format_duration(age_sec) + " ago" if age_sec < 86400 else ts_str,
+                        "duration": f"{duration:.2f}s",
+                        "proto": proto_val, 
+                        "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
+                        "src": src,
+                        "src_port": src_port,
+                        "src_flag": src_geo.get('flag', ''),
+                        "src_country": src_geo.get('country', ''),
+                        "dst": dst,
+                        "dst_port": dst_port,
+                        "dst_flag": dst_geo.get('flag', ''),
+                        "dst_country": dst_geo.get('country', ''),
+                        "service": svc,
+                        "bytes": b,
+                        "bytes_fmt": fmt_bytes(b),
+                        "packets": pkts
                     })
-                except: pass
+                except:
+                    pass
 
-        # Sort by bytes descending
-        rows.sort(key=lambda x: x['bytes'], reverse=True)
-        top_rows = rows[:limit]
 
-        for r in top_rows:
-            # Map Proto
-            proto_val = r['proto']
-            if proto_val.isdigit():
-                 r['proto_name'] = PROTOS.get(int(proto_val), proto_val)
-            else:
-                 r['proto_name'] = proto_val
-
-            # Map Service
-            try:
-                port = int(r['dst_port'])
-                r['service'] = PORTS.get(port, str(port))
-            except:
-                r['service'] = r['dst_port']
-
-            convs.append({
-                "src": r['src'], "dst": r['dst'],
-                "src_hostname": resolve_ip(r['src']),
-                "dst_hostname": resolve_ip(r['dst']),
-                "bytes": r['bytes'], "bytes_fmt": fmt_bytes(r['bytes']),
-                "src_region": get_region(r['src']),  # GeoIP lookup done inside get_region if needed
-                "dst_region": get_region(r['dst']),  # GeoIP lookup done inside get_region if needed
-                "proto": r['proto_name'],
-                "port": r['dst_port'],
-                "service": r['service'],
-                "packets": r['packets']
-            })
     except:
         pass  # Parsing error
-    data = {"conversations":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
-    with _lock_conversations:
-        _conversations_cache["data"] = data
-        _conversations_cache["ts"] = now
-        _conversations_cache["key"] = cache_key_local
-        _conversations_cache["win"] = win
+    data = {"flows":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
+    with _lock_flows:
+        _flows_cache["data"] = data
+        _flows_cache["ts"] = now
+        _flows_cache["key"] = cache_key_local
+        _flows_cache["win"] = win
     return jsonify(data)
 
 @app.route("/api/ip_detail/<ip>")
@@ -6029,7 +6145,7 @@ def metrics():
     add_metric('netflow_nfdump_calls_total', _metric_nfdump_calls, 'Total number of nfdump calls', 'counter')
     add_metric('netflow_stats_cache_hits_total', _metric_stats_cache_hits, 'Cache hits for stats endpoints', 'counter')
     add_metric('netflow_bw_cache_hits_total', _metric_bw_cache_hits, 'Cache hits for bandwidth endpoint', 'counter')
-    add_metric('netflow_conv_cache_hits_total', _metric_conv_cache_hits, 'Cache hits for conversations endpoint', 'counter')
+    add_metric('netflow_flow_cache_hits_total', _metric_flow_cache_hits, 'Cache hits for flows endpoint', 'counter')
     add_metric('netflow_http_429_total', _metric_http_429, 'HTTP 429 rate-limit responses', 'counter')
     # Cache sizes
     add_metric('netflow_common_cache_size', len(_common_data_cache))

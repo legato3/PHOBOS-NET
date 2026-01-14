@@ -37,24 +37,22 @@
     <!-- CSS - Critical render path, load first -->
     <link rel="stylesheet" href="/static/style.css?v=3.1.0">
     <!-- Widget-specific enhancements -->
-    <link rel="stylesheet" href="/static/conversations.css?v=1">
+    <link rel="stylesheet" href="/static/flows.css?v=1">
 
     <!-- External Libs (bundled locally to reduce CDN dependency) - Defer all heavy libraries -->
     <script src="/static/chart.min.js" defer></script>
-    <script src="/static/chartjs-chart-sankey.min.js" defer></script>
     <script src="/static/alpine-collapse.min.js" defer></script>
 
     <!-- Modular JavaScript - Load modules before app (critical path) -->
     <script src="/static/js/lazy-load.js"></script>
 
     <!-- Main app - Register BEFORE Alpine starts so alpine:init is caught -->
-    <script type="module" src="/static/app.js?v=3.1.0"></script>
+    <script type="module" src="/static/app.js?v=3.1.8"></script>
 
     <!-- Alpine.js - Defer to allow app.js to register -->
     <script src="/static/alpine.min.js" defer></script>
 
     <!-- Heavy visualization libraries - Defer until needed -->
-    <script src="/static/vis-network.min.js" defer></script>
 
     <!-- Leaflet - Local bundle -->
     <link rel="stylesheet" href="/static/leaflet.css">
@@ -1361,6 +1359,13 @@
                                 <!-- Protocols -->
                                 <template x-if="isVisible('protocols')">
                                     {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True) %}
+                                    <div class="chart-wrapper-small chart-expandable"
+                                        style="margin-bottom: 12px; height: 160px;"
+                                        x-show="protoMix && protoMix.labels && protoMix.labels.length > 0"
+                                        @click="openFullscreenChart('protoMixChart', 'Protocol Distribution')"
+                                        title="Click to expand">
+                                        <canvas id="protoMixChart"></canvas>
+                                    </div>
                                     <table class="table-fixed table-compact"
                                         x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
                                         <thead>
@@ -2096,93 +2101,95 @@
                         </section>
 
                         <!-- Recent Conversations (Existing Widget) -->
-                        <section id="section-conversations" class="scroll-section" style="margin-bottom: 32px;">
+                        <section id="section-flows" class="scroll-section" style="margin-bottom: 32px;">
                             {% set conv_actions %}
                             <!-- View Toggle -->
-                            <div class="view-toggle"
-                                style="display:flex; background:rgba(0,0,0,0.3); border-radius:4px; padding:2px; margin-right:8px;"
-                                x-show="!isMinimized('conversations')">
-                                <button id="btn-view-list" @click="toggleConversationView('list')"
-                                    :class="{ 'active': conversationView === 'list' }"
-                                    style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;"
-                                    :style="conversationView === 'list' ? 'color:var(--neon-cyan); font-weight:bold' : ''">List</button>
-                                <div style="width:1px; background:rgba(255,255,255,0.1); margin:2px 0;">
-                                </div>
-                                <button id="btn-view-flow" @click="toggleConversationView('sankey')"
-                                    :class="{ 'active': conversationView === 'sankey' }"
-                                    style="background:none; border:none; padding:4px 8px; color:var(--text-muted); cursor:pointer; font-size:0.85em;"
-                                    :style="conversationView === 'sankey' ? 'color:var(--neon-cyan); font-weight:bold' : ''">Flow</button>
-                            </div>
 
-                            <button class="icon-btn-small" @click="openNetworkGraph()" title="Graph View"
-                                style="color: var(--neon-purple);" x-show="!isMinimized('conversations')">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <circle cx="18" cy="5" r="3"></circle>
-                                    <circle cx="6" cy="12" r="3"></circle>
-                                    <circle cx="18" cy="19" r="3"></circle>
-                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                </svg>
-                            </button>
-                            <button class="icon-btn-small" @click="openExpandedTable('conversations')" title="View All"
-                                x-show="!isMinimized('conversations')">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <polyline points="15 3 21 3 21 9"></polyline>
-                                    <polyline points="9 21 3 21 3 15"></polyline>
-                                    <line x1="21" y1="3" x2="14" y2="10"></line>
-                                    <line x1="3" y1="21" x2="10" y2="14"></line>
-                                </svg>
-                            </button>
                             {% endset %}
-                            {% call widget_card('conversations', 'Recent Conversations', '💬', card_class='wide-card',
-                            extra_actions=conv_actions, show_spinner=True) %}
+                            {% call widget_card('flows', 'Active Flows', '⚡', card_class='wide-card',
+                            extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True) %}
                             <!-- List View -->
-                            <table class="table-fixed table-compact"
-                                x-show="!isMinimized('conversations') && conversationView === 'list'">
+                            <table class="table-fixed table-compact" x-show="!isMinimized('flows')">
                                 <thead>
                                     <tr>
-                                        <th style="width: 35%;">Source</th>
-                                        <th style="width: 4%;"></th>
-                                        <th style="width: 35%;">Destination</th>
-                                        <th style="width: 13%;">App</th>
-                                        <th style="width: 13%;">Traffic</th>
+                                        <th style="width: 15%; cursor: pointer;" @click="sortFlows('age')">
+                                            Age <span x-show="flows.sortKey==='age'"
+                                                x-text="flows.sortDesc ? '▼' : '▲'"></span>
+                                        </th>
+                                        <th style="width: 30%; cursor: pointer;" @click="sortFlows('src')">
+                                            Source <span x-show="flows.sortKey==='src'"
+                                                x-text="flows.sortDesc ? '▼' : '▲'"></span>
+                                        </th>
+                                        <th style="width: 5%;"></th>
+                                        <th style="width: 30%; cursor: pointer;" @click="sortFlows('dst')">
+                                            Destination <span x-show="flows.sortKey==='dst'"
+                                                x-text="flows.sortDesc ? '▼' : '▲'"></span>
+                                        </th>
+                                        <th style="width: 10%; cursor: pointer;" @click="sortFlows('proto_name')">
+                                            Proto <span x-show="flows.sortKey==='proto_name'"
+                                                x-text="flows.sortDesc ? '▼' : '▲'"></span>
+                                        </th>
+                                        <th style="width: 10%; cursor: pointer;" @click="sortFlows('bytes')">
+                                            Stats <span x-show="flows.sortKey==='bytes'"
+                                                x-text="flows.sortDesc ? '▼' : '▲'"></span>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template x-for="conv in conversations.conversations"
-                                        :key="conv.src + conv.dst + conv.port">
-                                        <tr>
-                                            <td @click="openIPModal(conv.src)" style="overflow: hidden;">
-                                                <strong class="text-cyan truncate" x-text="conv.src"></strong>
-                                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-text="conv.src_region"></div>
-                                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-show="conv.src_hostname" x-text="conv.src_hostname"
-                                                    :title="conv.src_hostname"></div>
+                                    <template x-for="(flow, idx) in flows.flows" :key="idx">
+                                        <tr class="flow-item">
+                                            <td class="text-xs text-muted font-mono" x-text="timeAgo(flow.ts)">
                                             </td>
-                                            <td style="text-align:center; color:var(--text-muted)">➜</td>
-                                            <td @click="openIPModal(conv.dst)" style="overflow: hidden;">
-                                                <strong class="text-cyan truncate" x-text="conv.dst"></strong>
-                                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-text="conv.dst_region"></div>
-                                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-show="conv.dst_hostname" x-text="conv.dst_hostname"
-                                                    :title="conv.dst_hostname"></div>
+                                            <td @click="openIPModal(flow.src)"
+                                                style="padding: 6px 8px; overflow: hidden;">
+                                                <div
+                                                    style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                                    <span
+                                                        :class="'flag-icon flag-icon-' + (flow.src_country_code || 'unknown').toLowerCase()"
+                                                        style="font-size: 1.1em;"></span>
+                                                    <strong class="text-cyan truncate" x-text="flow.src"></strong>
+                                                </div>
+                                                <div class="flex items-center space-x-1" style="margin-top:2px;">
+                                                    <span class="text-muted" style="font-size:0.8em;">:</span>
+                                                    <span class="text-muted" style="font-size:0.85em;"
+                                                        x-text="flow.src_port"></span>
+                                                    <span class="text-muted" style="font-size:0.8em;"
+                                                        x-show="flow.service && flow.service!='unknown'"
+                                                        x-text="'(' + flow.service + ')'"></span>
+                                                </div>
                                             </td>
-                                            <td>
-                                                <div style="font-size:0.9em"><strong x-text="conv.proto"></strong>/<span
-                                                        x-text="conv.port"></span></div>
-                                                <div class="truncate" style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-text="conv.service" :title="conv.service"></div>
+                                            <td style="text-align:center; color:var(--text-muted); padding: 6px 8px;">➜
                                             </td>
-                                            <td>
-                                                <strong class="text-green" x-text="conv.bytes_fmt"></strong>
-                                                <div style="font-size:0.8em; color:var(--text-muted)"
-                                                    x-text="Number(conv.packets).toLocaleString() + ' pkts'">
+                                            <td @click="openIPModal(flow.dst)"
+                                                style="padding: 6px 8px; overflow: hidden;">
+                                                <div
+                                                    style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                                    <span
+                                                        :class="'flag-icon flag-icon-' + (flow.dst_country_code || 'unknown').toLowerCase()"
+                                                        style="font-size: 1.1em;"></span>
+                                                    <strong class="text-cyan truncate" x-text="flow.dst"></strong>
+                                                </div>
+                                                <div class="flex items-center space-x-1" style="margin-top:2px;">
+                                                    <span class="text-muted" style="font-size:0.8em;">:</span>
+                                                    <span class="text-muted" style="font-size:0.85em;"
+                                                        x-text="flow.dst_port"></span>
+                                                    <span class="text-muted" style="font-size:0.8em;"
+                                                        x-show="flow.service && flow.service!='unknown'"
+                                                        x-text="'(' + flow.service + ')'"></span>
+                                                </div>
+                                            </td>
+                                            <td style="padding: 6px 8px;">
+                                                <div style="font-size:0.85em; white-space: nowrap;">
+                                                    <strong x-text="flow.proto_name"></strong>
+                                                    <span style="color:var(--text-muted); margin-left:4px;"
+                                                        x-text="flow.service"></span>
+                                                </div>
+                                            </td>
+                                            <td style="padding: 6px 8px;">
+                                                <div style="font-size:0.85em; white-space: nowrap;">
+                                                    <strong class="text-green" x-text="flow.bytes_fmt"></strong>
+                                                    <span style="color:var(--text-muted); margin-left:4px;"
+                                                        x-text="'(' + flow.duration + ')'"></span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -2191,14 +2198,6 @@
                             </table>
 
                             <!-- Sankey View -->
-                            <div x-show="!isMinimized('conversations') && conversationView === 'sankey'"
-                                style="height: 400px; position: relative;">
-                                <canvas id="sankeyChart"></canvas>
-                                <div x-show="conversations.conversations.length === 0" class="empty-state">No
-                                    flow
-                                    data
-                                    for Sankey diagram</div>
-                            </div>
                             {% endcall %}
                         </section>
                     </div>
@@ -3083,7 +3082,8 @@
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
                                         <strong style="color: var(--text-secondary);">VirusTotal:</strong>
-                                        <span x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'found'"
+                                        <span
+                                            x-show="ipInvestigation.result?.threat_intel?.virustotal?.status === 'found'"
                                             class="badge"
                                             :class="(ipInvestigation.result?.threat_intel?.virustotal?.malicious || 0) > 0 ? 'badge--danger' : 'badge--success'"
                                             x-text="(ipInvestigation.result?.threat_intel?.virustotal?.malicious || 0) + ' malicious'"></span>
@@ -3116,7 +3116,8 @@
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
                                         <strong style="color: var(--text-secondary);">AbuseIPDB:</strong>
-                                        <span x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.status === 'found'"
+                                        <span
+                                            x-show="ipInvestigation.result?.threat_intel?.abuseipdb?.status === 'found'"
                                             class="badge"
                                             :class="(ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) > 50 ? 'badge--danger' : (ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) > 25 ? 'badge--warning' : 'badge--success'"
                                             x-text="'Confidence: ' + (ipInvestigation.result?.threat_intel?.abuseipdb?.abuse_confidence_score || 0) + '%'"></span>
@@ -3202,7 +3203,8 @@
                                 IPs that directly communicate with this IP (as source or destination)
                             </p>
                             <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                                <template x-for="(related, idx) in (ipInvestigation.result?.related_ips || []).slice(0, 10)"
+                                <template
+                                    x-for="(related, idx) in (ipInvestigation.result?.related_ips || []).slice(0, 10)"
                                     :key="idx">
                                     <div
                                         style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">

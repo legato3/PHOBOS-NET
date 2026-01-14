@@ -1,4 +1,4 @@
-import { Store } from './js/store.js?v=3.0.3';
+import { Store } from './js/store.js?v=3.0.11';
 import * as DashboardUtils from './js/utils.js?v=3.0.3';
 import { DashboardWidgets } from './js/widgets.js?v=3.0.3';
 import ScrollSpy from './js/components/scroll-spy.js?v=3.0.3';

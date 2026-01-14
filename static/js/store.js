@@ -43,12 +43,12 @@ export const Store = () => ({
         worldmap: 0,
         network: 0,
         security: 0,
-        conversations: 0,
+        flows: 0,
         alertCorrelation: 0,
         threatActivityTimeline: 0
     },
     heavyTTL: 60000, // 60s for heavy widgets
-    mediumTTL: 30000, // 30s for conversations
+    mediumTTL: 30000, // 30s for flows
 
     // Low Power mode
     lowPower: false,
@@ -94,7 +94,7 @@ export const Store = () => ({
     blocklist: { series: [], current_rate: null, total_matches: 0, total_blocked: 0, has_fw_data: false, loading: true },
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
-    conversations: { conversations: [], loading: true },
+    flows: { flows: [], loading: true },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -345,10 +345,8 @@ export const Store = () => ({
 
     // Network Graph
     networkGraphOpen: false,
-    networkGraphInstance: null,
 
     // Conversation View (List/Sankey)
-    conversationView: 'list', // 'list' or 'sankey'
     sankeyChartInstance: null,
 
     // World Map
@@ -520,7 +518,7 @@ export const Store = () => ({
         }, options);
 
         // Observe all main sections
-        ['section-summary', 'section-worldmap', 'section-analytics', 'section-topstats', 'section-security', 'section-conversations'].forEach(id => {
+        ['section-summary', 'section-worldmap', 'section-analytics', 'section-topstats', 'section-security', 'section-flows'].forEach(id => {
             const el = document.getElementById(id);
             if (el) this.observer.observe(el);
         });
@@ -1019,10 +1017,10 @@ export const Store = () => ({
                 this.lastFetch.threatActivityTimeline = now;
             }
         }
-        if (sectionId === 'section-conversations' && this.isVisible('conversations')) {
-            if (now - this.lastFetch.conversations > this.mediumTTL) {
-                this.fetchConversations();
-                this.lastFetch.conversations = now;
+        if (sectionId === 'section-flows' && this.isVisible('flows')) {
+            if (now - this.lastFetch.flows > this.mediumTTL) {
+                this.fetchFlows();
+                this.lastFetch.flows = now;
             }
         }
     },
@@ -1101,9 +1099,9 @@ export const Store = () => ({
             this.lastFetch.security = now;
         }
 
-        if (this.isSectionVisible('section-conversations') && (now - this.lastFetch.conversations > this.mediumTTL)) {
-            this.fetchConversations();
-            this.lastFetch.conversations = now;
+        if (this.isSectionVisible('section-flows') && (now - this.lastFetch.flows > this.mediumTTL)) {
+            this.fetchFlows();
+            this.lastFetch.flows = now;
         }
 
         // Render sparklines for top IPs (throttled via sparkTTL)
@@ -1760,113 +1758,101 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
     },
 
-    async fetchConversations() {
-        this.conversations.loading = true;
+    async fetchFlows() {
+        this.flows.loading = true;
         try {
-            // Fetch more for Sankey/Graph
-            const limit = this.conversationView === 'sankey' ? 50 : 10;
-            const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=${limit}`);
+            // Fetch recent flows
+            const limit = 50;
+            const res = await fetch(`/api/flows?range=${this.timeRange}&limit=${limit}`);
             if (res.ok) {
                 const data = await res.json();
-                this.conversations = { ...data };
-                if (this.conversationView === 'sankey') {
-                    this.$nextTick(() => this.renderSankey());
-                }
+                this.flows = {
+                    ...data,
+                    sortKey: 'bytes',
+                    sortDesc: true
+                };
             }
-        } catch (e) { console.error(e); } finally { this.conversations.loading = false; }
+        } catch (e) { console.error(e); } finally { this.flows.loading = false; }
     },
 
-    toggleConversationView(view) {
-        this.conversationView = view;
-        if (view === 'sankey') {
-            this.fetchConversations(); // Re-fetch with higher limit
-        }
-    },
-
-    renderSankey() {
-        const ctx = document.getElementById('sankeyChart');
-        if (!ctx) return;
-
-        // Destroy existing
-        if (_chartInstances['sankeyChartInstance']) {
-            _chartInstances['sankeyChartInstance'].destroy();
-            _chartInstances['sankeyChartInstance'] = null;
+    sortFlows(key) {
+        if (this.flows.sortKey === key) {
+            this.flows.sortDesc = !this.flows.sortDesc;
+        } else {
+            this.flows.sortKey = key;
+            this.flows.sortDesc = true; // Default desc for new columns
         }
 
-        const raw = this.conversations.conversations || [];
-        if (raw.length === 0) return;
+        const k = this.flows.sortKey;
+        const d = this.flows.sortDesc ? -1 : 1;
 
-        // Transform data: src -> service -> dst
-        // To reduce clutter, we can aggregate
-        // ChartJS Sankey expects: { from, to, flow }
-        const data = [];
+        this.flows.flows.sort((a, b) => {
+            let va, vb;
 
-        // Limit to top flows to avoid messy graph
-        const top = raw.slice(0, 30);
-
-        top.forEach(c => {
-            const src = c.src; // IP
-            const dst = c.dst; // IP
-            const flow = c.bytes;
-
-            // Determine middle node (Service or Proto/Port)
-            let service = c.service;
-            if (!service || service === 'unknown') {
-                service = `${c.proto}/${c.port}`;
+            if (k === 'age') {
+                // Sort by timestamp (newest first for desc)
+                // Assuming 'ts' is available or parse 'age' (parsing age string is hard, ts is better)
+                // Backend returns 'ts' in raw data? Step 650 JSON showed "age".
+                // I need 'ts' or parse 'age'. "11h ago".
+                // Backend sends `ts` field? Let's check api_conversations logic.
+                // Step 759: `conv = {'ts': parts[ts_idx], ...}`. YES.
+                va = new Date(a.ts).getTime();
+                vb = new Date(b.ts).getTime();
+            } else if (k === 'bytes') {
+                // Parse bytes_fmt? No, use raw 'bytes' if available.
+                // Backend sends 'bytes' (int)? Step 759: `conv = {..., 'bytes': int(parts[ibyt_idx]), ...}`. YES.
+                va = a.bytes;
+                vb = b.bytes;
+            } else if (k === 'duration') {
+                // Backend sends 'duration' (float/string)? `conv['duration']` is formatted string "61.00s".
+                // Parse it.
+                va = parseFloat(a.duration);
+                vb = parseFloat(b.duration);
+            } else {
+                // String sort (src, dst, proto_name)
+                va = (a[k] || '').toString().toLowerCase();
+                vb = (b[k] || '').toString().toLowerCase();
             }
 
-            // Add two links
-            data.push({ from: src, to: service, flow: flow });
-            data.push({ from: service, to: dst, flow: flow });
+            if (va < vb) return -1 * d;
+            if (va > vb) return 1 * d;
+            return 0;
         });
-
-        // Node colors map (simple hash)
-        const getColor = (key) => {
-            let hash = 0;
-            for (let i = 0; i < key.length; i++) {
-                hash = key.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-            return '#' + '00000'.substring(0, 6 - c.length) + c;
-        };
-
-        const colors = {
-            'http': '#00f3ff', 'https': '#00f3ff', 'ssh': '#ff003c', 'dns': '#ffff00'
-        };
-
-        this.sankeyChartInstance = new Chart(ctx, {
-            type: 'sankey',
-            data: {
-                datasets: [{
-                    label: 'Traffic Flow',
-                    data: data,
-                    colorFrom: (c) => getColor(c.dataset.data[c.dataIndex].from),
-                    colorTo: (c) => getColor(c.dataset.data[c.dataIndex].to),
-                    colorMode: 'gradient', // or 'to' or 'from'
-                    size: 'max', // or 'min'
-                    borderWidth: 0,
-                    nodeWidth: 10
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => {
-                                const item = ctx.raw;
-                                return `${item.from} -> ${item.to}: ${this.fmtBytes(item.flow)}`;
-                            }
-                        }
-                    }
-                },
-                layout: { padding: 20 }
-            }
-        });
-        _chartInstances['sankeyChartInstance'] = this.sankeyChartInstance;
     },
+
+    timeAgo(ts) {
+        if (!ts) return '';
+        if (typeof ts === 'string') {
+            // Ultra-robust parsing: extract all digit groups
+            // This handles "2026-01-14 06:18:06", "2026-01-14T06:18:06", etc.
+            const parts = ts.match(/\d+/g);
+            if (parts && parts.length >= 6) {
+                // [Year, Month, Day, Hour, Min, Sec]
+                // Note: Month is 0-indexed in JS Date/UTC
+                ts = Date.UTC(
+                    parseInt(parts[0]),
+                    parseInt(parts[1]) - 1,
+                    parseInt(parts[2]),
+                    parseInt(parts[3]),
+                    parseInt(parts[4]),
+                    parseInt(parts[5])
+                ) / 1000;
+            } else {
+                // Fallback for other formats
+                const parsed = Date.parse(ts);
+                if (!isNaN(parsed)) ts = parsed / 1000;
+                else return '';
+            }
+        }
+    }
+
+        const diff = Math.max(0, (Date.now() / 1000) - ts);
+    if(diff < 60) return `${Math.round(diff)}s ago`;
+    if(diff < 3600) return `${Math.round(diff / 60)}m ago`;
+    if(diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+    return `${Math.round(diff / 86400)}d ago`;
+},
+
 
     async fetchFlags() {
         this.flags.loading = true;
@@ -1880,1388 +1866,1404 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.flags.loading = false; }
     },
 
-    async fetchASNs() {
-        this.asns.loading = true;
-        try {
-            const res = await fetch(`/api/stats/asns?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                // Calc max for bar chart
-                const max = Math.max(...data.asns.map(a => a.bytes));
-                this.asns = { ...data, maxBytes: max };
-            }
-        } catch (e) { console.error(e); } finally { this.asns.loading = false; }
-    },
+        async fetchASNs() {
+    this.asns.loading = true;
+    try {
+        const res = await fetch(`/api/stats/asns?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            // Calc max for bar chart
+            const max = Math.max(...data.asns.map(a => a.bytes));
+            this.asns = { ...data, maxBytes: max };
+        }
+    } catch (e) { console.error(e); } finally { this.asns.loading = false; }
+},
 
     async fetchCountries() {
-        this.countries.loading = true;
-        try {
-            const res = await fetch(`/api/stats/countries?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.countries = { ...data };
-                // Defer chart update to ensure canvas is visible
-                this.$nextTick(() => {
-                    setTimeout(() => this.updateCountriesChart(data), 100);
-                });
-            }
-        } catch (e) { console.error(e); } finally { this.countries.loading = false; }
-    },
+    this.countries.loading = true;
+    try {
+        const res = await fetch(`/api/stats/countries?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.countries = { ...data };
+            // Defer chart update to ensure canvas is visible
+            this.$nextTick(() => {
+                setTimeout(() => this.updateCountriesChart(data), 100);
+            });
+        }
+    } catch (e) { console.error(e); } finally { this.countries.loading = false; }
+},
 
     async fetchWorldMap() {
-        this.worldMap.loading = true;
+    this.worldMap.loading = true;
+    try {
+        const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.worldMap = { ...data, lastUpdate: new Date().toISOString() };
+        } else {
+            console.error('[WorldMap] API error:', res.status);
+        }
+    } catch (e) { console.error('[WorldMap] Fetch error:', e); } finally {
+        this.worldMap.loading = false;
+        // Always render map after fetch (even with no data to show grid)
+        this.$nextTick(() => this.renderWorldMap());
+    }
+},
+
+// Simplified Low-Res GeoJSON for fallback (North America, SA, Europe, Africa, Asia, Aus)
+getFallbackGeoJSON() {
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            { "type": "Feature", "properties": { "name": "World" }, "geometry": { "type": "Polygon", "coordinates": [[[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]]] } }
+        ]
+    };
+},
+
+renderWorldMap() {
+    console.log('[WorldMap] renderWorldMap() called');
+    const container = document.getElementById('world-map-svg');
+    if (!container) {
+        console.warn('[WorldMap] Container not found');
+        this.mapStatus = '';
+        return;
+    }
+    console.log('[WorldMap] Container found:', container);
+
+    // Don't check visibility strictly - Leaflet can initialize even if container is hidden
+    // We'll call invalidateSize() when the container becomes visible
+
+    // Check if Leaflet is loaded
+    if (typeof L === 'undefined' || typeof L.map === 'undefined') {
+        console.warn('[WorldMap] Leaflet not loaded yet, deferring map render');
+        if (!this._leafletWaitAttempts) this._leafletWaitAttempts = 0;
+        if (this._leafletWaitAttempts < 100) { // Wait up to 10 seconds (100 * 100ms)
+            this._leafletWaitAttempts++;
+            setTimeout(() => this.renderWorldMap(), 100);
+        } else {
+            console.error('[WorldMap] Leaflet failed to load after multiple attempts');
+            this.worldMap.error = "Failed to load Map Library (Leaflet). Check connection.";
+            this._leafletWaitAttempts = 0;
+        }
+        return;
+    }
+    this._leafletWaitAttempts = 0; // Reset on success
+
+    // Initialize Leaflet if not already done
+    let mapJustCreated = false;
+    if (!this.map) {
+        mapJustCreated = true;
+
+        // Note: Container might have zero dimensions if tab is hidden
+        // Leaflet can initialize on a 0x0 container - we'll call invalidateSize() when visible
+        const containerRect = container.getBoundingClientRect();
+        console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
+
+        // Ensure no previous instance exists to prevent "Map container is already initialized" error
+        if (container._leaflet_id) {
+            container._leaflet_id = null;
+        }
+
+        // Clear any existing content
+        container.innerHTML = '';
+
         try {
-            const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.worldMap = { ...data, lastUpdate: new Date().toISOString() };
-            } else {
-                console.error('[WorldMap] API error:', res.status);
+
+            console.log('[WorldMap] Creating Leaflet map instance...');
+            this.map = L.map('world-map-svg', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 1,
+                maxZoom: 8,
+                zoomControl: false,
+                attributionControl: false,
+                preferCanvas: true, // Use canvas for better performance
+                renderer: L.canvas()
+            });
+            console.log('[WorldMap] Map instance created:', this.map);
+
+            // Initialize mapLayers array if not exists
+            if (!this.mapLayers) {
+                this.mapLayers = [];
             }
-        } catch (e) { console.error('[WorldMap] Fetch error:', e); } finally {
-            this.worldMap.loading = false;
-            // Always render map after fetch (even with no data to show grid)
-            this.$nextTick(() => this.renderWorldMap());
-        }
-    },
 
-    // Simplified Low-Res GeoJSON for fallback (North America, SA, Europe, Africa, Asia, Aus)
-    getFallbackGeoJSON() {
-        return {
-            "type": "FeatureCollection",
-            "features": [
-                { "type": "Feature", "properties": { "name": "World" }, "geometry": { "type": "Polygon", "coordinates": [[[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]]] } }
-            ]
-        };
-    },
+            // Enable zoom control for visibility confirmation
+            // Note: zoomControl was set to false in constructor, we can add it back
+            L.control.zoom({ position: 'topright' }).addTo(this.map);
 
-    renderWorldMap() {
-        console.log('[WorldMap] renderWorldMap() called');
-        const container = document.getElementById('world-map-svg');
-        if (!container) {
-            console.warn('[WorldMap] Container not found');
-            this.mapStatus = '';
-            return;
-        }
-        console.log('[WorldMap] Container found:', container);
+            // Add a base tile layer immediately so map is visible
+            // (Container might have 0 dimensions if tab is hidden - Leaflet handles this)
+            console.log('[WorldMap] Adding base tile layer...');
+            const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 19
+            });
+            baseTileLayer.addTo(this.map);
+            console.log('[WorldMap] Base tile layer added to map');
 
-        // Don't check visibility strictly - Leaflet can initialize even if container is hidden
-        // We'll call invalidateSize() when the container becomes visible
+            // Invalidate size - even if container has 0 dimensions, Leaflet will handle it
+            this.map.whenReady(() => {
+                if (!this.map) return;
+                console.log('[WorldMap] Map whenReady callback fired');
+                // Call invalidateSize - will work even if container is temporarily 0x0
+                if (this.map) {
+                    this.map.invalidateSize();
+                    console.log('[WorldMap] invalidateSize() called in whenReady');
+                }
 
-        // Check if Leaflet is loaded
-        if (typeof L === 'undefined' || typeof L.map === 'undefined') {
-            console.warn('[WorldMap] Leaflet not loaded yet, deferring map render');
-            if (!this._leafletWaitAttempts) this._leafletWaitAttempts = 0;
-            if (this._leafletWaitAttempts < 100) { // Wait up to 10 seconds (100 * 100ms)
-                this._leafletWaitAttempts++;
-                setTimeout(() => this.renderWorldMap(), 100);
-            } else {
-                console.error('[WorldMap] Leaflet failed to load after multiple attempts');
-                this.worldMap.error = "Failed to load Map Library (Leaflet). Check connection.";
-                this._leafletWaitAttempts = 0;
+                // Try to load GeoJSON overlay (optional enhancement)
+                fetch('/static/world.geojson')
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
+                    .then(geoJsonData => {
+                        if (!this.map) return;
+                        // Add GeoJSON as an overlay layer (optional styling enhancement)
+                        const geoJsonLayer = L.geoJSON(geoJsonData, {
+                            style: {
+                                fillColor: '#1a1f2e',
+                                weight: 1,
+                                opacity: 0.3,
+                                color: '#2d3748',
+                                fillOpacity: 0.1
+                            }
+                        });
+                        geoJsonLayer.addTo(this.map);
+                    })
+                    .catch(e => {
+                        // GeoJSON is optional, just log and continue
+                        console.warn('[WorldMap] GeoJSON overlay not available, using tiles only:', e.message);
+                    });
+
+                // Render markers after map is ready
+                this.renderWorldMapMarkers();
+
+                // Force a view reset and invalidateSize - this will work even if container is 0x0 initially
+                setTimeout(() => {
+                    if (this.map) {
+                        const rect = container.getBoundingClientRect();
+                        console.log('[WorldMap] Delayed check - Container dimensions:', rect.width, 'x', rect.height);
+                        this.map.invalidateSize();
+                        this.map.setView([20, 0], 2);
+                        this.mapStatus = ''; // Clear status on success
+                        console.log('[WorldMap] Map initialized successfully, view set to [20, 0], zoom 2');
+                        // If container still has dimensions, great. If not, invalidateSize() will be called again when tab becomes visible
+                    }
+                }, 300);
+            });
+
+        } catch (e) {
+            console.error('[WorldMap] Leaflet init failed:', e);
+            // Attempt recovery: remove any existing map instance on this container ID
+            if (this.map) {
+                try {
+                    this.map.remove();
+                } catch (removeError) {
+                    console.error('[WorldMap] Error removing map:', removeError);
+                }
+                this.map = null;
             }
-            return;
-        }
-        this._leafletWaitAttempts = 0; // Reset on success
-
-        // Initialize Leaflet if not already done
-        let mapJustCreated = false;
-        if (!this.map) {
-            mapJustCreated = true;
-
-            // Note: Container might have zero dimensions if tab is hidden
-            // Leaflet can initialize on a 0x0 container - we'll call invalidateSize() when visible
-            const containerRect = container.getBoundingClientRect();
-            console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
-
-            // Ensure no previous instance exists to prevent "Map container is already initialized" error
+            // Clear container state
             if (container._leaflet_id) {
                 container._leaflet_id = null;
             }
-
-            // Clear any existing content
-            container.innerHTML = '';
-
-            try {
-
-                console.log('[WorldMap] Creating Leaflet map instance...');
-                this.map = L.map('world-map-svg', {
-                    center: [20, 0],
-                    zoom: 2,
-                    minZoom: 1,
-                    maxZoom: 8,
-                    zoomControl: false,
-                    attributionControl: false,
-                    preferCanvas: true, // Use canvas for better performance
-                    renderer: L.canvas()
-                });
-                console.log('[WorldMap] Map instance created:', this.map);
-
-                // Initialize mapLayers array if not exists
-                if (!this.mapLayers) {
-                    this.mapLayers = [];
-                }
-
-                // Enable zoom control for visibility confirmation
-                // Note: zoomControl was set to false in constructor, we can add it back
-                L.control.zoom({ position: 'topright' }).addTo(this.map);
-
-                // Add a base tile layer immediately so map is visible
-                // (Container might have 0 dimensions if tab is hidden - Leaflet handles this)
-                console.log('[WorldMap] Adding base tile layer...');
-                const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; OpenStreetMap &copy; CARTO',
-                    subdomains: 'abcd',
-                    maxZoom: 19
-                });
-                baseTileLayer.addTo(this.map);
-                console.log('[WorldMap] Base tile layer added to map');
-
-                // Invalidate size - even if container has 0 dimensions, Leaflet will handle it
-                this.map.whenReady(() => {
-                    if (!this.map) return;
-                    console.log('[WorldMap] Map whenReady callback fired');
-                    // Call invalidateSize - will work even if container is temporarily 0x0
-                    if (this.map) {
-                        this.map.invalidateSize();
-                        console.log('[WorldMap] invalidateSize() called in whenReady');
-                    }
-
-                    // Try to load GeoJSON overlay (optional enhancement)
-                    fetch('/static/world.geojson')
-                        .then(r => {
-                            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                            return r.json();
-                        })
-                        .then(geoJsonData => {
-                            if (!this.map) return;
-                            // Add GeoJSON as an overlay layer (optional styling enhancement)
-                            const geoJsonLayer = L.geoJSON(geoJsonData, {
-                                style: {
-                                    fillColor: '#1a1f2e',
-                                    weight: 1,
-                                    opacity: 0.3,
-                                    color: '#2d3748',
-                                    fillOpacity: 0.1
-                                }
-                            });
-                            geoJsonLayer.addTo(this.map);
-                        })
-                        .catch(e => {
-                            // GeoJSON is optional, just log and continue
-                            console.warn('[WorldMap] GeoJSON overlay not available, using tiles only:', e.message);
-                        });
-
-                    // Render markers after map is ready
-                    this.renderWorldMapMarkers();
-
-                    // Force a view reset and invalidateSize - this will work even if container is 0x0 initially
-                    setTimeout(() => {
-                        if (this.map) {
-                            const rect = container.getBoundingClientRect();
-                            console.log('[WorldMap] Delayed check - Container dimensions:', rect.width, 'x', rect.height);
-                            this.map.invalidateSize();
-                            this.map.setView([20, 0], 2);
-                            this.mapStatus = ''; // Clear status on success
-                            console.log('[WorldMap] Map initialized successfully, view set to [20, 0], zoom 2');
-                            // If container still has dimensions, great. If not, invalidateSize() will be called again when tab becomes visible
-                        }
-                    }, 300);
-                });
-
-            } catch (e) {
-                console.error('[WorldMap] Leaflet init failed:', e);
-                // Attempt recovery: remove any existing map instance on this container ID
-                if (this.map) {
-                    try {
-                        this.map.remove();
-                    } catch (removeError) {
-                        console.error('[WorldMap] Error removing map:', removeError);
-                    }
-                    this.map = null;
-                }
-                // Clear container state
-                if (container._leaflet_id) {
-                    container._leaflet_id = null;
-                }
-                return;
-            }
-
-            // Don't continue to marker rendering if map was just created - markers will be rendered after tiles load
             return;
         }
 
-        // Ensure map size is correct (important when container visibility changes)
-        if (this.map) {
-            // Use setTimeout to ensure DOM has updated and container is visible
-            setTimeout(() => {
-                if (this.map && container.offsetWidth > 0 && container.offsetHeight > 0) {
-                    this.map.invalidateSize();
-                }
-            }, 100);
-        }
+        // Don't continue to marker rendering if map was just created - markers will be rendered after tiles load
+        return;
+    }
 
-        // Render markers if map exists
-        if (this.map) {
-            this.renderWorldMapMarkers();
-        }
-    },
+    // Ensure map size is correct (important when container visibility changes)
+    if (this.map) {
+        // Use setTimeout to ensure DOM has updated and container is visible
+        setTimeout(() => {
+            if (this.map && container.offsetWidth > 0 && container.offsetHeight > 0) {
+                this.map.invalidateSize();
+            }
+        }, 100);
+    }
 
-    renderWorldMapMarkers() {
-        if (!this.map) return;
+    // Render markers if map exists
+    if (this.map) {
+        this.renderWorldMapMarkers();
+    }
+},
 
-        // Initialize mapLayers array if not exists
-        if (!this.mapLayers) {
-            this.mapLayers = [];
-        }
+renderWorldMapMarkers() {
+    if (!this.map) return;
 
-        // Clear existing layers
-        if (this.mapLayers.length > 0) {
-            this.mapLayers.forEach(l => {
-                try {
-                    this.map.removeLayer(l);
-                } catch (e) {
-                    console.warn('[WorldMap] Error removing layer:', e);
-                }
-            });
-        }
+    // Initialize mapLayers array if not exists
+    if (!this.mapLayers) {
         this.mapLayers = [];
+    }
 
-        const addMarker = (lat, lng, color, radius, popup) => {
-            const marker = L.circleMarker([lat, lng], {
-                radius: radius,
-                fillColor: color,
-                color: color,
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.7
-            });
-            if (popup) marker.bindPopup(popup);
-            marker.addTo(this.map);
-            this.mapLayers.push(marker);
-        };
-
-        const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
-        const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
-        const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
-
-        // Draw Sources (Green)
-        sources.forEach(p => {
-            const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
-            const marker = L.circleMarker([p.lat, p.lng], {
-                radius: size,
-                fillColor: '#00ff64',
-                color: '#00ff64',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.7
-            });
-            marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
-            marker.on('click', () => {
-                this.openIPModal(p.ip);
-            });
-            marker.addTo(this.map);
-            this.mapLayers.push(marker);
+    // Clear existing layers
+    if (this.mapLayers.length > 0) {
+        this.mapLayers.forEach(l => {
+            try {
+                this.map.removeLayer(l);
+            } catch (e) {
+                console.warn('[WorldMap] Error removing layer:', e);
+            }
         });
+    }
+    this.mapLayers = [];
 
-        // Draw Destinations (Blue)
-        dests.forEach(p => {
-            const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
-            const marker = L.circleMarker([p.lat, p.lng], {
-                radius: size,
-                fillColor: '#00f3ff',
-                color: '#00f3ff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.7
-            });
-            marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00f3ff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
-            marker.on('click', () => {
-                this.openIPModal(p.ip);
-            });
-            marker.addTo(this.map);
-            this.mapLayers.push(marker);
+    const addMarker = (lat, lng, color, radius, popup) => {
+        const marker = L.circleMarker([lat, lng], {
+            radius: radius,
+            fillColor: color,
+            color: color,
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.7
         });
+        if (popup) marker.bindPopup(popup);
+        marker.addTo(this.map);
+        this.mapLayers.push(marker);
+    };
 
-        // Draw Threats (Red)
-        threats.forEach(p => {
-            const threatMarker = L.circleMarker([p.lat, p.lng], {
-                radius: 8,
-                fillColor: '#ff003c',
-                color: '#ff003c',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
-            });
-            threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff003c;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
-            threatMarker.on('click', () => {
-                this.openIPModal(p.ip);
-            });
-            threatMarker.addTo(this.map);
-            this.mapLayers.push(threatMarker);
+    const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
+    const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
+    const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
+
+    // Draw Sources (Green)
+    sources.forEach(p => {
+        const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+        const marker = L.circleMarker([p.lat, p.lng], {
+            radius: size,
+            fillColor: '#00ff64',
+            color: '#00ff64',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.7
         });
-    },
+        marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+        marker.on('click', () => {
+            this.openIPModal(p.ip);
+        });
+        marker.addTo(this.map);
+        this.mapLayers.push(marker);
+    });
 
-    resetWorldMapView() {
-        if (this.map) {
-            this.map.setView([20, 0], 2);
-        }
-    },
+    // Draw Destinations (Blue)
+    dests.forEach(p => {
+        const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+        const marker = L.circleMarker([p.lat, p.lng], {
+            radius: size,
+            fillColor: '#00f3ff',
+            color: '#00f3ff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.7
+        });
+        marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00f3ff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+        marker.on('click', () => {
+            this.openIPModal(p.ip);
+        });
+        marker.addTo(this.map);
+        this.mapLayers.push(marker);
+    });
+
+    // Draw Threats (Red)
+    threats.forEach(p => {
+        const threatMarker = L.circleMarker([p.lat, p.lng], {
+            radius: 8,
+            fillColor: '#ff003c',
+            color: '#ff003c',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        });
+        threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff003c;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
+        threatMarker.on('click', () => {
+            this.openIPModal(p.ip);
+        });
+        threatMarker.addTo(this.map);
+        this.mapLayers.push(threatMarker);
+    });
+},
+
+resetWorldMapView() {
+    if (this.map) {
+        this.map.setView([20, 0], 2);
+    }
+},
 
     async fetchDurations() {
-        this.durations.loading = true;
-        try {
-            const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
-            if (res.ok) this.durations = { ...(await res.json()) };
-        } catch (e) { console.error(e); } finally { this.durations.loading = false; }
-    },
+    this.durations.loading = true;
+    try {
+        const res = await fetch(`/api/stats/durations?range=${this.timeRange}`);
+        if (res.ok) this.durations = { ...(await res.json()) };
+    } catch (e) { console.error(e); } finally { this.durations.loading = false; }
+},
 
     async fetchTalkers() {
-        this.talkers.loading = true;
-        try {
-            const res = await fetch(`/api/stats/talkers?range=${this.timeRange}`);
-            if (res.ok) this.talkers = { ...(await res.json()) };
-        } catch (e) { console.error(e); } finally { this.talkers.loading = false; }
-    },
+    this.talkers.loading = true;
+    try {
+        const res = await fetch(`/api/stats/talkers?range=${this.timeRange}`);
+        if (res.ok) this.talkers = { ...(await res.json()) };
+    } catch (e) { console.error(e); } finally { this.talkers.loading = false; }
+},
 
     async fetchServices() {
-        this.services.loading = true;
-        try {
-            const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
-            if (res.ok) this.services = { ...(await res.json()) };
-        } catch (e) { console.error(e); } finally { this.services.loading = false; }
-    },
+    this.services.loading = true;
+    try {
+        const res = await fetch(`/api/stats/services?range=${this.timeRange}`);
+        if (res.ok) this.services = { ...(await res.json()) };
+    } catch (e) { console.error(e); } finally { this.services.loading = false; }
+},
 
     async fetchHourlyTraffic() {
-        this.hourlyTraffic.loading = true;
-        try {
-            const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.hourlyTraffic = { ...data };
-                // Defer chart update to ensure canvas is visible
-                this.$nextTick(() => {
-                    setTimeout(() => this.updateHourlyChart(data), 100);
-                });
-            }
-        } catch (e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
-    },
-
-    updateHourlyChart(data) {
-        try {
-            // Try both canvas IDs (for backward compatibility with overview widget)
-            let ctx = document.getElementById('hourlyChart');
-            let chartId = 'hourlyChart';
-            if (!ctx || !data || !data.labels) return;
-
-            // Check if canvas parent container is visible
-            // Check if canvas parent container is visible
-            const container = ctx.closest('.widget-body, .chart-wrapper-small');
-            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                // Container not visible yet, defer initialization (limit retries)
-                if (!this._hourlyChartRetries) this._hourlyChartRetries = 0;
-                if (this._hourlyChartRetries < 50) {
-                    this._hourlyChartRetries++;
-                    setTimeout(() => this.updateHourlyChart(data), 200);
-                    return;
-                } else {
-                    console.warn('Hourly chart container not visible after retries, forcing render');
-                    this._hourlyChartRetries = 0;
-                }
-            }
-            this._hourlyChartRetries = 0;
-
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
+    this.hourlyTraffic.loading = true;
+    try {
+        const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.hourlyTraffic = { ...data };
+            // Defer chart update to ensure canvas is visible
+            this.$nextTick(() => {
                 setTimeout(() => this.updateHourlyChart(data), 100);
+            });
+        }
+    } catch (e) { console.error(e); } finally { this.hourlyTraffic.loading = false; }
+},
+
+updateHourlyChart(data) {
+    try {
+        // Try both canvas IDs (for backward compatibility with overview widget)
+        let ctx = document.getElementById('hourlyChart');
+        let chartId = 'hourlyChart';
+        if (!ctx || !data || !data.labels) return;
+
+        // Check if canvas parent container is visible
+        // Check if canvas parent container is visible
+        const container = ctx.closest('.widget-body, .chart-wrapper-small');
+        if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+            // Container not visible yet, defer initialization (limit retries)
+            if (!this._hourlyChartRetries) this._hourlyChartRetries = 0;
+            if (this._hourlyChartRetries < 50) {
+                this._hourlyChartRetries++;
+                setTimeout(() => this.updateHourlyChart(data), 200);
                 return;
-            }
-
-            const peakColor = this.getCssVar('--neon-green') || '#00ff88';
-            const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
-
-            // Use different chart instances for different canvas IDs
-            const instanceKey = 'hourlyChartInstance';
-            const chartInstance = _chartInstances[instanceKey];
-
-            if (chartInstance) {
-                chartInstance.data.labels = data.labels;
-                chartInstance.data.datasets[0].data = data.bytes;
-                chartInstance.update();
             } else {
-                const newChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Traffic',
-                            data: data.bytes,
-                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
-                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: {
-                                ticks: { color: '#888', font: { size: 9 }, maxRotation: 45 },
-                                grid: { display: false }
+                console.warn('Hourly chart container not visible after retries, forcing render');
+                this._hourlyChartRetries = 0;
+            }
+        }
+        this._hourlyChartRetries = 0;
+
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.updateHourlyChart(data), 100);
+            return;
+        }
+
+        const peakColor = this.getCssVar('--neon-green') || '#00ff88';
+        const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
+
+        // Use different chart instances for different canvas IDs
+        const instanceKey = 'hourlyChartInstance';
+        const chartInstance = _chartInstances[instanceKey];
+
+        if (chartInstance) {
+            chartInstance.data.labels = data.labels;
+            chartInstance.data.datasets[0].data = data.bytes;
+            chartInstance.update();
+        } else {
+            const newChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Traffic',
+                        data: data.bytes,
+                        backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                        borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            ticks: { color: '#888', font: { size: 9 }, maxRotation: 45 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#888',
+                                font: { size: 9 },
+                                callback: v => this.fmtBytes(v)
                             },
-                            y: {
-                                ticks: {
-                                    color: '#888',
-                                    font: { size: 9 },
-                                    callback: v => this.fmtBytes(v)
-                                },
-                                grid: { color: 'rgba(255,255,255,0.05)' }
-                            }
+                            grid: { color: 'rgba(255,255,255,0.05)' }
                         }
                     }
-                });
-                _chartInstances[instanceKey] = newChart;
-            }
-        } catch (e) {
-            console.error('Chart render error:', e);
+                }
+            });
+            _chartInstances[instanceKey] = newChart;
         }
-    },
+    } catch (e) {
+        console.error('Chart render error:', e);
+    }
+},
 
     async fetchFlowStats() {
-        this.flowStats.loading = true;
-        try {
-            const res = await fetch(`/api/stats/flow_stats?range=${this.timeRange}`);
-            if (res.ok) this.flowStats = { ...(await res.json()) };
-        } catch (e) { console.error(e); } finally { this.flowStats.loading = false; }
-    },
+    this.flowStats.loading = true;
+    try {
+        const res = await fetch(`/api/stats/flow_stats?range=${this.timeRange}`);
+        if (res.ok) this.flowStats = { ...(await res.json()) };
+    } catch (e) { console.error(e); } finally { this.flowStats.loading = false; }
+},
 
 
 
 
 
     async fetchProtoMix() {
-        this.protoMix.loading = true;
-        try {
-            const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.protoMix = { ...data };
-                // Defer chart update to ensure canvas is visible
-                this.$nextTick(() => {
-                    setTimeout(() => this.updateProtoMixChart(data), 100);
-                });
-            }
-        } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
-    },
+    this.protoMix.loading = true;
+    try {
+        const res = await fetch(`/api/stats/proto_mix?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.protoMix = { ...data };
+            // Defer chart update to ensure canvas is visible
+            this.$nextTick(() => {
+                setTimeout(() => this.updateProtoMixChart(data), 100);
+            });
+        }
+    } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
+},
 
     async fetchNetHealth() {
-        this.netHealth.loading = true;
-        try {
-            const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
-            if (res.ok) this.netHealth = { ...(await res.json()) };
-        } catch (e) { console.error(e); } finally { this.netHealth.loading = false; }
-    },
+    this.netHealth.loading = true;
+    try {
+        const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
+        if (res.ok) this.netHealth = { ...(await res.json()) };
+    } catch (e) { console.error(e); } finally { this.netHealth.loading = false; }
+},
 
     async fetchServerHealth() {
-        // Prevent concurrent requests
-        if (this._serverHealthFetching) return;
-        this._serverHealthFetching = true;
+    // Prevent concurrent requests
+    if (this._serverHealthFetching) return;
+    this._serverHealthFetching = true;
 
-        // Only set loading on initial fetch (prevent flickering on refresh)
-        const isInitialLoad = !this.serverHealth.timestamp;
-        if (isInitialLoad) {
-            this.serverHealth.loading = true;
-        }
-        this.serverHealth.error = null;
-        try {
-            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/server/health?_=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                // Update nested properties individually to ensure Alpine.js reactivity
-                // This ensures all widget bindings (cpu.percent, memory.percent, etc.) are properly updated
-                if (data.cpu) this.serverHealth.cpu = data.cpu;
-                if (data.memory) this.serverHealth.memory = data.memory;
-                if (data.disk) this.serverHealth.disk = data.disk;
-                if (data.syslog) this.serverHealth.syslog = data.syslog;
-                if (data.netflow) this.serverHealth.netflow = data.netflow;
-                if (data.database) this.serverHealth.database = data.database;
-                if (data.system) this.serverHealth.system = data.system;
-                if (data.network) this.serverHealth.network = data.network;
-                if (data.cache) this.serverHealth.cache = data.cache;
-                if (data.process) this.serverHealth.process = data.process;
-                if (data.timestamp) this.serverHealth.timestamp = data.timestamp;
-                this.serverHealth.loading = false;
-                this.serverHealth.error = null;
-            } else if (res.status === 429) {
-                // Rate limited - pause auto-refresh temporarily
-                console.warn('Rate limited on server health, pausing auto-refresh');
-                if (this.serverHealthRefreshTimer) {
-                    clearInterval(this.serverHealthRefreshTimer);
-                    this.serverHealthRefreshTimer = null;
-                }
-                this.serverHealth.error = 'Rate limited - auto-refresh paused';
-            } else {
-                const errorMsg = `Server health fetch failed: ${res.status}`;
-                console.error(errorMsg);
-                this.serverHealth.error = DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load server health') || errorMsg;
-                this.serverHealth.loading = false;
-            }
-        } catch (e) {
-            console.error('Server health fetch error:', e);
-            this.serverHealth.error = DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
-        } finally {
+    // Only set loading on initial fetch (prevent flickering on refresh)
+    const isInitialLoad = !this.serverHealth.timestamp;
+    if (isInitialLoad) {
+        this.serverHealth.loading = true;
+    }
+    this.serverHealth.error = null;
+    try {
+        const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+        const res = await safeFetchFn(`/api/server/health?_=${Date.now()}`);
+        if (res.ok) {
+            const data = await res.json();
+            // Update nested properties individually to ensure Alpine.js reactivity
+            // This ensures all widget bindings (cpu.percent, memory.percent, etc.) are properly updated
+            if (data.cpu) this.serverHealth.cpu = data.cpu;
+            if (data.memory) this.serverHealth.memory = data.memory;
+            if (data.disk) this.serverHealth.disk = data.disk;
+            if (data.syslog) this.serverHealth.syslog = data.syslog;
+            if (data.netflow) this.serverHealth.netflow = data.netflow;
+            if (data.database) this.serverHealth.database = data.database;
+            if (data.system) this.serverHealth.system = data.system;
+            if (data.network) this.serverHealth.network = data.network;
+            if (data.cache) this.serverHealth.cache = data.cache;
+            if (data.process) this.serverHealth.process = data.process;
+            if (data.timestamp) this.serverHealth.timestamp = data.timestamp;
             this.serverHealth.loading = false;
-            this._serverHealthFetching = false;
-        }
-    },
-
-    startServerHealthAutoRefresh() {
-        // Clear existing timer if any
-        if (this.serverHealthRefreshTimer) {
-            clearInterval(this.serverHealthRefreshTimer);
-            this.serverHealthRefreshTimer = null;
-        }
-
-        // Only start if server tab is active
-        if (this.activeTab !== 'server') return;
-
-        // Initial fetch
-        this.fetchServerHealth();
-
-        // Set up 2-second interval refresh for real-time updates (independent of global refresh)
-        this.serverHealthRefreshTimer = setInterval(() => {
-            if (this.activeTab === 'server' && !this.paused) {
-                this.fetchServerHealth();
-            } else {
-                // Clean up if tab changed or paused
-                if (this.serverHealthRefreshTimer) {
-                    clearInterval(this.serverHealthRefreshTimer);
-                    this.serverHealthRefreshTimer = null;
-                }
+            this.serverHealth.error = null;
+        } else if (res.status === 429) {
+            // Rate limited - pause auto-refresh temporarily
+            console.warn('Rate limited on server health, pausing auto-refresh');
+            if (this.serverHealthRefreshTimer) {
+                clearInterval(this.serverHealthRefreshTimer);
+                this.serverHealthRefreshTimer = null;
             }
-        }, 2000);
-    },
+            this.serverHealth.error = 'Rate limited - auto-refresh paused';
+        } else {
+            const errorMsg = `Server health fetch failed: ${res.status}`;
+            console.error(errorMsg);
+            this.serverHealth.error = DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load server health') || errorMsg;
+            this.serverHealth.loading = false;
+        }
+    } catch (e) {
+        console.error('Server health fetch error:', e);
+        this.serverHealth.error = DashboardUtils?.getUserFriendlyError(e, 'load server health') || 'Failed to load server health';
+    } finally {
+        this.serverHealth.loading = false;
+        this._serverHealthFetching = false;
+    }
+},
+
+startServerHealthAutoRefresh() {
+    // Clear existing timer if any
+    if (this.serverHealthRefreshTimer) {
+        clearInterval(this.serverHealthRefreshTimer);
+        this.serverHealthRefreshTimer = null;
+    }
+
+    // Only start if server tab is active
+    if (this.activeTab !== 'server') return;
+
+    // Initial fetch
+    this.fetchServerHealth();
+
+    // Set up 2-second interval refresh for real-time updates (independent of global refresh)
+    this.serverHealthRefreshTimer = setInterval(() => {
+        if (this.activeTab === 'server' && !this.paused) {
+            this.fetchServerHealth();
+        } else {
+            // Clean up if tab changed or paused
+            if (this.serverHealthRefreshTimer) {
+                clearInterval(this.serverHealthRefreshTimer);
+                this.serverHealthRefreshTimer = null;
+            }
+        }
+    }, 2000);
+},
 
     async fetchBandwidth() {
-        this.bandwidth.loading = true;
-        this.bandwidth.error = null;
-        try {
-            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/bandwidth?range=${this.timeRange}`);
-            const data = await res.json();
-            this.bandwidth = { ...data, loading: false, error: null };
-            this.updateBwChart(data);
-        } catch (e) {
-            console.error('Failed to fetch bandwidth:', e);
-            this.bandwidth.error = DashboardUtils?.getUserFriendlyError(e, 'load bandwidth') || 'Failed to load bandwidth';
-        } finally {
-            this.bandwidth.loading = false;
+    this.bandwidth.loading = true;
+    this.bandwidth.error = null;
+    try {
+        const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+        const res = await safeFetchFn(`/api/bandwidth?range=${this.timeRange}`);
+        const data = await res.json();
+        this.bandwidth = { ...data, loading: false, error: null };
+        this.updateBwChart(data);
+    } catch (e) {
+        console.error('Failed to fetch bandwidth:', e);
+        this.bandwidth.error = DashboardUtils?.getUserFriendlyError(e, 'load bandwidth') || 'Failed to load bandwidth';
+    } finally {
+        this.bandwidth.loading = false;
+    }
+},
+
+updateBwChart(data) {
+    try {
+        const ctx = document.getElementById('bwChart');
+        if (!ctx || !data || !data.labels) return;
+
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded yet, deferring chart creation');
+            setTimeout(() => this.updateBwChart(data), 100);
+            return;
         }
-    },
 
-    updateBwChart(data) {
-        try {
-            const ctx = document.getElementById('bwChart');
-            if (!ctx || !data || !data.labels) return;
+        // Prevent recursive updates
+        if (this._bwUpdating) return;
+        this._bwUpdating = true;
 
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                console.warn('Chart.js not loaded yet, deferring chart creation');
-                setTimeout(() => this.updateBwChart(data), 100);
-                return;
-            }
+        const colorArea = 'rgba(0, 243, 255, 0.2)';
+        const colorLine = this.getCssVar('--neon-cyan') || '#00f3ff';
+        const colorFlows = this.getCssVar('--neon-purple') || '#bc13fe';
 
-            // Prevent recursive updates
-            if (this._bwUpdating) return;
-            this._bwUpdating = true;
-
-            const colorArea = 'rgba(0, 243, 255, 0.2)';
-            const colorLine = this.getCssVar('--neon-cyan') || '#00f3ff';
-            const colorFlows = this.getCssVar('--neon-purple') || '#bc13fe';
-
-            // Destroy existing chart if it exists but is in bad state
-            if (_chartInstances['bwChartInstance']) {
+        // Destroy existing chart if it exists but is in bad state
+        if (_chartInstances['bwChartInstance']) {
+            try {
+                _chartInstances['bwChartInstance'].data.labels = data.labels;
+                _chartInstances['bwChartInstance'].data.datasets[0].data = data.bandwidth;
+                _chartInstances['bwChartInstance'].data.datasets[1].data = data.flows;
+                _chartInstances['bwChartInstance'].update('none'); // 'none' mode prevents animation
+            } catch (e) {
+                // Chart instance is corrupted, destroy and recreate
+                console.warn('Bandwidth chart instance corrupted, recreating:', e);
                 try {
-                    _chartInstances['bwChartInstance'].data.labels = data.labels;
-                    _chartInstances['bwChartInstance'].data.datasets[0].data = data.bandwidth;
-                    _chartInstances['bwChartInstance'].data.datasets[1].data = data.flows;
-                    _chartInstances['bwChartInstance'].update('none'); // 'none' mode prevents animation
-                } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Bandwidth chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['bwChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['bwChartInstance'] = null;
-                }
+                    _chartInstances['bwChartInstance'].destroy();
+                } catch { }
+                _chartInstances['bwChartInstance'] = null;
             }
-
-            // Create new chart if instance doesn't exist
-            if (!_chartInstances['bwChartInstance']) {
-                _chartInstances['bwChartInstance'] = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.labels,
-                        datasets: [
-                            {
-                                label: 'Traffic (Mbps)',
-                                data: data.bandwidth,
-                                borderColor: colorLine,
-                                backgroundColor: colorArea,
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.4,
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Flows/s',
-                                data: data.flows,
-                                borderColor: colorFlows,
-                                backgroundColor: 'transparent',
-                                borderWidth: 2,
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: { legend: { labels: { color: '#e0e0e0' } } },
-                        scales: {
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                grid: { drawOnChartArea: false },
-                                ticks: { color: '#888' }
-                            },
-                            x: {
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
-                            }
-                        },
-                        animation: false // Disable animation to prevent reactive loops
-                    }
-                });
-            }
-            this._bwUpdating = false;
-        } catch (e) {
-            console.error('Chart render error:', e);
-            this._bwUpdating = false;
         }
-    },
+
+        // Create new chart if instance doesn't exist
+        if (!_chartInstances['bwChartInstance']) {
+            _chartInstances['bwChartInstance'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Traffic (Mbps)',
+                            data: data.bandwidth,
+                            borderColor: colorLine,
+                            backgroundColor: colorArea,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Flows/s',
+                            data: data.flows,
+                            borderColor: colorFlows,
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#e0e0e0' } } },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: { color: '#333' },
+                            ticks: { color: '#888' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#888' }
+                        },
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#888' }
+                        }
+                    },
+                    animation: false // Disable animation to prevent reactive loops
+                }
+            });
+        }
+        this._bwUpdating = false;
+    } catch (e) {
+        console.error('Chart render error:', e);
+        this._bwUpdating = false;
+    }
+},
 
     async fetchPacketSizes() {
-        this.packetSizes.loading = true;
-        try {
-            const res = await fetch(`/api/stats/packet_sizes?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.packetSizes = { ...data };
-                // Defer chart update to ensure canvas is visible
-                this.$nextTick(() => {
-                    setTimeout(() => this.updatePktSizeChart(data), 100);
-                });
-            }
-        } catch (e) { console.error(e); } finally { this.packetSizes.loading = false; }
-    },
-
-    updatePktSizeChart(data) {
-        try {
-            const ctx = document.getElementById('pktSizeChart');
-            if (!ctx || !data || !data.labels) return;
-
-            // Check if canvas parent container is visible
-            const container = ctx.closest('.widget-body, .chart-wrapper-small');
-            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                // Container not visible yet, defer initialization (limit retries)
-                if (!this._pktSizeRetries) this._pktSizeRetries = 0;
-                if (this._pktSizeRetries < 50) {
-                    this._pktSizeRetries++;
-                    setTimeout(() => this.updatePktSizeChart(data), 200);
-                    return;
-                } else {
-                    console.warn('Packet Size chart container not visible after retries, forcing render');
-                    this._pktSizeRetries = 0;
-                }
-            }
-            this._pktSizeRetries = 0;
-
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
+    this.packetSizes.loading = true;
+    try {
+        const res = await fetch(`/api/stats/packet_sizes?range=${this.timeRange}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.packetSizes = { ...data };
+            // Defer chart update to ensure canvas is visible
+            this.$nextTick(() => {
                 setTimeout(() => this.updatePktSizeChart(data), 100);
-                return;
-            }
-
-            // Prevent recursive updates
-            if (this._pktSizeUpdating) return;
-            this._pktSizeUpdating = true;
-
-            // Cyberpunk palette
-            const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
-
-            // Destroy existing chart if it exists but is in bad state
-            if (_chartInstances['pktSizeChartInstance']) {
-                try {
-                    _chartInstances['pktSizeChartInstance'].data.labels = data.labels;
-                    _chartInstances['pktSizeChartInstance'].data.datasets[0].data = data.data;
-                    _chartInstances['pktSizeChartInstance'].update('none'); // 'none' mode prevents animation that might trigger reactivity
-                } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Packet Size chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['pktSizeChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['pktSizeChartInstance'] = null;
-                }
-            }
-
-            // Create new chart if instance doesn't exist
-            if (!_chartInstances['pktSizeChartInstance']) {
-                _chartInstances['pktSizeChartInstance'] = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Flows',
-                            data: data.data,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y', // Horizontal bar
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false, // Disable animation to prevent reactive loops
-                        plugins: {
-                            legend: { display: false }
-                        },
-                        scales: {
-                            x: {
-                                grid: { color: '#333' },
-                                ticks: { color: '#888' }
-                            },
-                            y: {
-                                grid: { display: false },
-                                ticks: { color: '#e0e0e0', font: { size: 10 } }
-                            }
-                        }
-                    }
-                });
-            }
-            this._pktSizeUpdating = false;
-        } catch (e) {
-            console.error('Chart render error:', e);
-            this._pktSizeUpdating = false;
+            });
         }
-    },
+    } catch (e) { console.error(e); } finally { this.packetSizes.loading = false; }
+},
 
-    updateCountriesChart(data) {
-        try {
-            // Prevent recursive updates
-            if (this._countriesUpdating) return;
-            this._countriesUpdating = true;
+updatePktSizeChart(data) {
+    try {
+        const ctx = document.getElementById('pktSizeChart');
+        if (!ctx || !data || !data.labels) return;
 
-            const ctx = document.getElementById('countriesChart');
-            if (!ctx || !data) {
-                this._countriesUpdating = false;
+        // Check if canvas parent container is visible
+        const container = ctx.closest('.widget-body, .chart-wrapper-small');
+        if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+            // Container not visible yet, defer initialization (limit retries)
+            if (!this._pktSizeRetries) this._pktSizeRetries = 0;
+            if (this._pktSizeRetries < 50) {
+                this._pktSizeRetries++;
+                setTimeout(() => this.updatePktSizeChart(data), 200);
                 return;
+            } else {
+                console.warn('Packet Size chart container not visible after retries, forcing render');
+                this._pktSizeRetries = 0;
             }
+        }
+        this._pktSizeRetries = 0;
 
-            // Check if canvas parent container is visible
-            const container = ctx.closest('.widget-body, .chart-wrapper-small');
-            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                // Container not visible yet, defer initialization (limit retries)
-                if (!this._countriesRetries) this._countriesRetries = 0;
-                if (this._countriesRetries < 50) {
-                    this._countriesRetries++;
-                    this._countriesUpdating = false;
-                    setTimeout(() => this.updateCountriesChart(data), 200);
-                    return;
-                } else {
-                    console.warn('Countries chart container not visible after retries, forcing render');
-                    this._countriesRetries = 0;
-                }
-            }
-            this._countriesRetries = 0;
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.updatePktSizeChart(data), 100);
+            return;
+        }
 
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                this._countriesUpdating = false;
-                setTimeout(() => this.updateCountriesChart(data), 100);
-                return;
-            }
+        // Prevent recursive updates
+        if (this._pktSizeUpdating) return;
+        this._pktSizeUpdating = true;
 
-            const labels = data.labels || [];
-            const values = data.bytes || [];
-            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
+        // Cyberpunk palette
+        const colors = ['#bc13fe', '#00f3ff', '#0aff0a', '#ffff00', '#ff003c'];
 
-            if (_chartInstances['countriesChartInstance']) {
+        // Destroy existing chart if it exists but is in bad state
+        if (_chartInstances['pktSizeChartInstance']) {
+            try {
+                _chartInstances['pktSizeChartInstance'].data.labels = data.labels;
+                _chartInstances['pktSizeChartInstance'].data.datasets[0].data = data.data;
+                _chartInstances['pktSizeChartInstance'].update('none'); // 'none' mode prevents animation that might trigger reactivity
+            } catch (e) {
+                // Chart instance is corrupted, destroy and recreate
+                console.warn('Packet Size chart instance corrupted, recreating:', e);
                 try {
-                    _chartInstances['countriesChartInstance'].data.labels = labels;
-                    _chartInstances['countriesChartInstance'].data.datasets[0].data = values;
-                    _chartInstances['countriesChartInstance'].update('none'); // 'none' mode prevents animation
-                } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Countries chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['countriesChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['countriesChartInstance'] = null;
-                }
+                    _chartInstances['pktSizeChartInstance'].destroy();
+                } catch { }
+                _chartInstances['pktSizeChartInstance'] = null;
             }
+        }
 
-            // Create new chart if instance doesn't exist
-            if (!_chartInstances['countriesChartInstance']) {
-                _chartInstances['countriesChartInstance'] = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: 'Bytes',
-                            data: values,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
+        // Create new chart if instance doesn't exist
+        if (!_chartInstances['pktSizeChartInstance']) {
+            _chartInstances['pktSizeChartInstance'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Flows',
+                        data: data.data,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Horizontal bar
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Disable animation to prevent reactive loops
+                    plugins: {
+                        legend: { display: false }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false, // Disable animation to prevent reactive loops
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { ticks: { color: '#888' }, grid: { color: '#333' } },
-                            y: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                    scales: {
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#888' }
                         },
-                        onClick: (e, elements, chart) => {
-                            if (elements && elements.length > 0) {
-                                // Just open the expanded table for now, regardless of which bar was clicked
-                                // A future enhancement could be to filter the expanded table by the specific country
-                                this.openExpandedTable('countries');
-                            }
-                        },
-                        onHover: (e, elements) => {
-                            e.native.target.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#e0e0e0', font: { size: 10 } }
                         }
                     }
-                });
-            }
+                }
+            });
+        }
+        this._pktSizeUpdating = false;
+    } catch (e) {
+        console.error('Chart render error:', e);
+        this._pktSizeUpdating = false;
+    }
+},
+
+updateCountriesChart(data) {
+    try {
+        // Prevent recursive updates
+        if (this._countriesUpdating) return;
+        this._countriesUpdating = true;
+
+        const ctx = document.getElementById('countriesChart');
+        if (!ctx || !data) {
             this._countriesUpdating = false;
-        } catch (e) {
-            console.error('Chart render error:', e);
-            this._countriesUpdating = false;
+            return;
         }
-    },
 
-    updateProtoMixChart(data) {
-        try {
-            // Prevent recursive updates
-            if (this._protoMixUpdating) return;
-            this._protoMixUpdating = true;
-
-            const ctx = document.getElementById('protoMixChart');
-            if (!ctx || !data || !data.labels) {
-                this._protoMixUpdating = false;
+        // Check if canvas parent container is visible
+        const container = ctx.closest('.widget-body, .chart-wrapper-small');
+        if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+            // Container not visible yet, defer initialization (limit retries)
+            if (!this._countriesRetries) this._countriesRetries = 0;
+            if (this._countriesRetries < 50) {
+                this._countriesRetries++;
+                this._countriesUpdating = false;
+                setTimeout(() => this.updateCountriesChart(data), 200);
                 return;
+            } else {
+                console.warn('Countries chart container not visible after retries, forcing render');
+                this._countriesRetries = 0;
             }
+        }
+        this._countriesRetries = 0;
 
-            // Check if canvas parent container is visible
-            const container = ctx.closest('.widget-body, .chart-wrapper-small');
-            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                // Container not visible yet, defer initialization (limit retries)
-                if (!this._protoMixRetries) this._protoMixRetries = 0;
-                if (this._protoMixRetries < 50) {
-                    this._protoMixRetries++;
-                    this._protoMixUpdating = false;
-                    setTimeout(() => this.updateProtoMixChart(data), 200);
-                    return;
-                } else {
-                    console.warn('Protocol Mix chart container not visible after retries, forcing render');
-                    this._protoMixRetries = 0;
-                }
-            }
-            this._protoMixRetries = 0;
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            this._countriesUpdating = false;
+            setTimeout(() => this.updateCountriesChart(data), 100);
+            return;
+        }
 
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                this._protoMixUpdating = false;
-                setTimeout(() => this.updateProtoMixChart(data), 100);
-                return;
-            }
+        const labels = data.labels || [];
+        const values = data.bytes || [];
+        const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ffff00', '#ff003c', '#ff7f50', '#7fffd4', '#ffd700', '#00fa9a', '#ffa07a'];
 
-            const labels = data.labels || [];
-            const bytes = data.bytes || [];
-            const colors = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
-
-            if (_chartInstances['protoMixChartInstance']) {
+        if (_chartInstances['countriesChartInstance']) {
+            try {
+                _chartInstances['countriesChartInstance'].data.labels = labels;
+                _chartInstances['countriesChartInstance'].data.datasets[0].data = values;
+                _chartInstances['countriesChartInstance'].update('none'); // 'none' mode prevents animation
+            } catch (e) {
+                // Chart instance is corrupted, destroy and recreate
+                console.warn('Countries chart instance corrupted, recreating:', e);
                 try {
-                    _chartInstances['protoMixChartInstance'].data.labels = labels;
-                    _chartInstances['protoMixChartInstance'].data.datasets[0].data = bytes;
-                    _chartInstances['protoMixChartInstance'].data.datasets[0].backgroundColor = colors;
-                    _chartInstances['protoMixChartInstance'].update('none'); // 'none' mode prevents animation
-                } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Protocol Mix chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['protoMixChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['protoMixChartInstance'] = null;
-                }
+                    _chartInstances['countriesChartInstance'].destroy();
+                } catch { }
+                _chartInstances['countriesChartInstance'] = null;
             }
+        }
 
-            // Create new chart if instance doesn't exist
-            if (!_chartInstances['protoMixChartInstance']) {
-                _chartInstances['protoMixChartInstance'] = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: bytes,
-                            backgroundColor: colors,
-                            borderColor: 'rgba(0,0,0,0.3)',
-                            borderWidth: 1
-                        }]
+        // Create new chart if instance doesn't exist
+        if (!_chartInstances['countriesChartInstance']) {
+            _chartInstances['countriesChartInstance'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Bytes',
+                        data: values,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Disable animation to prevent reactive loops
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                        y: { ticks: { color: '#888' }, grid: { color: '#333' } }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false, // Disable animation to prevent reactive loops
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'right',
-                                labels: {
-                                    color: '#aaa',
-                                    font: { size: 10 },
-                                    boxWidth: 12
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        const label = context.label || '';
-                                        const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
-                                        const pct = data.percentages ? data.percentages[context.dataIndex] : '';
-                                        return `${label}: ${value}${pct ? ' (' + pct + '%)' : ''}`;
-                                    }
+                    onClick: (e, elements, chart) => {
+                        if (elements && elements.length > 0) {
+                            // Just open the expanded table for now, regardless of which bar was clicked
+                            // A future enhancement could be to filter the expanded table by the specific country
+                            this.openExpandedTable('countries');
+                        }
+                    },
+                    onHover: (e, elements) => {
+                        e.native.target.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
+                    }
+                }
+            });
+        }
+        this._countriesUpdating = false;
+    } catch (e) {
+        console.error('Chart render error:', e);
+        this._countriesUpdating = false;
+    }
+},
+
+updateProtoMixChart(data) {
+    try {
+        // Prevent recursive updates
+        if (this._protoMixUpdating) return;
+        this._protoMixUpdating = true;
+
+        const ctx = document.getElementById('protoMixChart');
+        if (!ctx || !data || !data.labels) {
+            this._protoMixUpdating = false;
+            return;
+        }
+
+        // Check if canvas parent container is visible
+        const container = ctx.closest('.widget-body, .chart-wrapper-small');
+        if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+            // Container not visible yet, defer initialization (limit retries)
+            if (!this._protoMixRetries) this._protoMixRetries = 0;
+            if (this._protoMixRetries < 50) {
+                this._protoMixRetries++;
+                this._protoMixUpdating = false;
+                setTimeout(() => this.updateProtoMixChart(data), 200);
+                return;
+            } else {
+                console.warn('Protocol Mix chart container not visible after retries, forcing render');
+                this._protoMixRetries = 0;
+            }
+        }
+        this._protoMixRetries = 0;
+
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            this._protoMixUpdating = false;
+            setTimeout(() => this.updateProtoMixChart(data), 100);
+            return;
+        }
+
+        const labels = data.labels || [];
+        const bytes = data.bytes || [];
+        const colors = data.colors || ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
+
+        if (_chartInstances['protoMixChartInstance']) {
+            try {
+                _chartInstances['protoMixChartInstance'].data.labels = labels;
+                _chartInstances['protoMixChartInstance'].data.datasets[0].data = bytes;
+                _chartInstances['protoMixChartInstance'].data.datasets[0].backgroundColor = colors;
+                _chartInstances['protoMixChartInstance'].update('none'); // 'none' mode prevents animation
+            } catch (e) {
+                // Chart instance is corrupted, destroy and recreate
+                console.warn('Protocol Mix chart instance corrupted, recreating:', e);
+                try {
+                    _chartInstances['protoMixChartInstance'].destroy();
+                } catch { }
+                _chartInstances['protoMixChartInstance'] = null;
+            }
+        }
+
+        // Create new chart if instance doesn't exist
+        if (!_chartInstances['protoMixChartInstance']) {
+            _chartInstances['protoMixChartInstance'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: bytes,
+                        backgroundColor: colors,
+                        borderColor: 'rgba(0,0,0,0.3)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Disable animation to prevent reactive loops
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'right',
+                            labels: {
+                                color: '#aaa',
+                                font: { size: 10 },
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = data.bytes_fmt ? data.bytes_fmt[context.dataIndex] : context.formattedValue;
+                                    const pct = data.percentages ? data.percentages[context.dataIndex] : '';
+                                    return `${label}: ${value}${pct ? ' (' + pct + '%)' : ''}`;
                                 }
                             }
                         }
                     }
-                });
-            }
-            this._protoMixUpdating = false;
-        } catch (e) {
-            console.error('Chart render error:', e);
-            this._protoMixUpdating = false;
-        }
-    },
-
-    updateFlagsChart(flagsData) {
-        try {
-            const ctx = document.getElementById('flagsChart');
-            if (!ctx || !flagsData) return;
-
-            // Check if canvas parent container is visible
-            const container = ctx.closest('.widget-body, .chart-wrapper-small');
-            if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
-                // Container not visible yet, defer initialization
-                if (!this._flagsRetries) this._flagsRetries = 0;
-                if (this._flagsRetries < 50) {
-                    this._flagsRetries++;
-                    setTimeout(() => this.updateFlagsChart(flagsData), 200);
-                    return;
-                } else {
-                    console.warn('Flags chart container not visible after retries, forcing render');
-                    this._flagsRetries = 0;
                 }
-            }
-            this._flagsRetries = 0;
+            });
+        }
+        this._protoMixUpdating = false;
+    } catch (e) {
+        console.error('Chart render error:', e);
+        this._protoMixUpdating = false;
+    }
+},
 
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                setTimeout(() => this.updateFlagsChart(flagsData), 100);
+updateFlagsChart(flagsData) {
+    try {
+        const ctx = document.getElementById('flagsChart');
+        if (!ctx || !flagsData) return;
+
+        // Check if canvas parent container is visible
+        const container = ctx.closest('.widget-body, .chart-wrapper-small');
+        if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+            // Container not visible yet, defer initialization
+            if (!this._flagsRetries) this._flagsRetries = 0;
+            if (this._flagsRetries < 50) {
+                this._flagsRetries++;
+                setTimeout(() => this.updateFlagsChart(flagsData), 200);
                 return;
+            } else {
+                console.warn('Flags chart container not visible after retries, forcing render');
+                this._flagsRetries = 0;
             }
-
-            // Prevent recursive updates
-            if (this._flagsUpdating) return;
-            this._flagsUpdating = true;
-
-            const labels = flagsData.map(f => f.flag);
-            const data = flagsData.map(f => f.count);
-            // Cyberpunk palette
-            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
-
-            // Destroy existing chart if it exists but is in bad state
-            if (_chartInstances['flagsChartInstance']) {
-                try {
-                    _chartInstances['flagsChartInstance'].data.labels = labels;
-                    _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
-                    _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
-                } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Flags chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['flagsChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['flagsChartInstance'] = null;
-                }
-            }
-
-            // Create new chart if instance doesn't exist
-            if (!_chartInstances['flagsChartInstance']) {
-                _chartInstances['flagsChartInstance'] = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: data,
-                            backgroundColor: colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false, // Disable animation to prevent reactive loops
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
-                        }
-                    }
-                });
-            }
-            this._flagsUpdating = false;
-        } catch (e) {
-            console.error('Chart render error:', e);
-            this._flagsUpdating = false;
         }
-    },
+        this._flagsRetries = 0;
+
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.updateFlagsChart(flagsData), 100);
+            return;
+        }
+
+        // Prevent recursive updates
+        if (this._flagsUpdating) return;
+        this._flagsUpdating = true;
+
+        const labels = flagsData.map(f => f.flag);
+        const data = flagsData.map(f => f.count);
+        // Cyberpunk palette
+        const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
+
+        // Destroy existing chart if it exists but is in bad state
+        if (_chartInstances['flagsChartInstance']) {
+            try {
+                _chartInstances['flagsChartInstance'].data.labels = labels;
+                _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
+                _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
+            } catch (e) {
+                // Chart instance is corrupted, destroy and recreate
+                console.warn('Flags chart instance corrupted, recreating:', e);
+                try {
+                    _chartInstances['flagsChartInstance'].destroy();
+                } catch { }
+                _chartInstances['flagsChartInstance'] = null;
+            }
+        }
+
+        // Create new chart if instance doesn't exist
+        if (!_chartInstances['flagsChartInstance']) {
+            _chartInstances['flagsChartInstance'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Disable animation to prevent reactive loops
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+        this._flagsUpdating = false;
+    } catch (e) {
+        console.error('Chart render error:', e);
+        this._flagsUpdating = false;
+    }
+},
 
     // --- Controls Logic ---
 
     async loadNotifyStatus() {
-        try {
-            const res = await fetch('/api/notify_status');
-            if (res.ok) {
-                const d = await res.json();
-                const now = Date.now() / 1000;
-                this.notify = {
-                    email: d.email,
-                    webhook: d.webhook,
-                    muted: d.mute_until && d.mute_until > now
-                };
-            }
-        } catch (e) { console.error(e); }
-    },
+    try {
+        const res = await fetch('/api/notify_status');
+        if (res.ok) {
+            const d = await res.json();
+            const now = Date.now() / 1000;
+            this.notify = {
+                email: d.email,
+                webhook: d.webhook,
+                muted: d.mute_until && d.mute_until > now
+            };
+        }
+    } catch (e) { console.error(e); }
+},
 
     async toggleNotify(target) {
-        try {
-            const currentState = target === 'email' ? this.notify.email : this.notify.webhook;
-            const res = await fetch('/api/notify_toggle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target: target, state: !currentState })
-            });
-            if (res.ok) this.loadNotifyStatus();
-        } catch (e) { console.error(e); }
-    },
+    try {
+        const currentState = target === 'email' ? this.notify.email : this.notify.webhook;
+        const res = await fetch('/api/notify_toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target: target, state: !currentState })
+        });
+        if (res.ok) this.loadNotifyStatus();
+    } catch (e) { console.error(e); }
+},
 
     async muteAlerts() {
-        try {
-            const body = this.notify.muted ? { mute: false } : { mute: true, minutes: 60 };
-            const res = await fetch('/api/notify_mute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            if (res.ok) this.loadNotifyStatus();
-        } catch (e) { console.error(e); }
-    },
-
-    // ---- Drag & Drop Reordering ----
-    setupDragAndDrop() {
-        const grids = document.querySelectorAll('.grid[data-reorder="true"][data-grid-id]');
-        grids.forEach((grid) => {
-            const gridId = grid.getAttribute('data-grid-id');
-            // Apply saved order
-            this.applyGridOrder(grid, gridId);
-
-            grid.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const afterEl = this.getCardAfterPosition(grid, e.clientY);
-                const dragging = document.querySelector('.card.dragging');
-                if (!dragging) return;
-                if (afterEl == null) {
-                    grid.appendChild(dragging);
-                } else {
-                    grid.insertBefore(dragging, afterEl);
-                }
-            });
-
-            Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
-
-            const obs = new MutationObserver(() => {
-                Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
-            });
-            obs.observe(grid, { childList: true });
+    try {
+        const body = this.notify.muted ? { mute: false } : { mute: true, minutes: 60 };
+        const res = await fetch('/api/notify_mute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
         });
-    },
+        if (res.ok) this.loadNotifyStatus();
+    } catch (e) { console.error(e); }
+},
 
-    makeCardDraggable(card, gridId) {
-        if (!(card instanceof HTMLElement) || card.classList.contains('wide-card')) return;
-        // set draggable based on current mode
-        card.setAttribute('draggable', this.editMode.toString());
+// ---- Drag & Drop Reordering ----
+setupDragAndDrop() {
+    const grids = document.querySelectorAll('.grid[data-reorder="true"][data-grid-id]');
+    grids.forEach((grid) => {
+        const gridId = grid.getAttribute('data-grid-id');
+        // Apply saved order
+        this.applyGridOrder(grid, gridId);
 
-        if (!card.dataset.widgetId) card.dataset.widgetId = this.computeWidgetId(card, gridId);
-        // Add listeners once (idempotent setup is implied, but listeners are cheap)
-        if (!card._dragListenersAttached) {
-            card.addEventListener('dragstart', () => {
-                if (this.editMode) card.classList.add('dragging');
-                else e.preventDefault(); // Should not match here if draggable=false, but just in case
-            });
-            card.addEventListener('dragend', () => {
-                card.classList.remove('dragging');
-                const grid = card.closest('.grid[data-grid-id]');
-                if (grid) {
-                    const gid = grid.getAttribute('data-grid-id');
-                    this.saveGridOrder(grid, gid);
-                }
-            });
-            card._dragListenersAttached = true;
-        }
-    },
-
-    computeWidgetId(card, gridId) {
-        let txt = '';
-        const h2span = card.querySelector('h2 span');
-        if (h2span) txt = h2span.textContent.trim();
-        if (!txt) {
-            const label = card.querySelector('.label');
-            if (label) txt = label.textContent.trim();
-        }
-        if (!txt) txt = 'card';
-        txt = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        return gridId + ':' + txt;
-    },
-
-    saveGridOrder(grid, gridId) {
-        const ids = Array.from(grid.children)
-            .filter(el => el instanceof HTMLElement && !el.classList.contains('wide-card'))
-            .map(el => el.dataset.widgetId || '');
-        try { localStorage.setItem('gridOrder:' + gridId, JSON.stringify(ids)); } catch (e) { console.error(e); }
-    },
-
-    applyGridOrder(grid, gridId) {
-        try {
-            const raw = localStorage.getItem('gridOrder:' + gridId);
-            if (!raw) return;
-            const order = JSON.parse(raw);
-            const map = new Map();
-            Array.from(grid.children).forEach(el => {
-                if (el instanceof HTMLElement) {
-                    if (!el.dataset.widgetId) el.dataset.widgetId = this.computeWidgetId(el, gridId);
-                    map.set(el.dataset.widgetId, el);
-                }
-            });
-            order.forEach(id => {
-                const el = map.get(id);
-                if (el) grid.appendChild(el);
-            });
-        } catch (e) { console.error(e); }
-    },
-
-    getCardAfterPosition(grid, y) {
-        const cards = [...grid.querySelectorAll('.card[draggable="true"]:not(.dragging)')];
-        return cards.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
+        grid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterEl = this.getCardAfterPosition(grid, e.clientY);
+            const dragging = document.querySelector('.card.dragging');
+            if (!dragging) return;
+            if (afterEl == null) {
+                grid.appendChild(dragging);
             } else {
-                return closest;
+                grid.insertBefore(dragging, afterEl);
             }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-    },
+        });
+
+        Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
+
+        const obs = new MutationObserver(() => {
+            Array.from(grid.children).forEach(card => this.makeCardDraggable(card, gridId));
+        });
+        obs.observe(grid, { childList: true });
+    });
+},
+
+makeCardDraggable(card, gridId) {
+    if (!(card instanceof HTMLElement) || card.classList.contains('wide-card')) return;
+    // set draggable based on current mode
+    card.setAttribute('draggable', this.editMode.toString());
+
+    if (!card.dataset.widgetId) card.dataset.widgetId = this.computeWidgetId(card, gridId);
+    // Add listeners once (idempotent setup is implied, but listeners are cheap)
+    if (!card._dragListenersAttached) {
+        card.addEventListener('dragstart', () => {
+            if (this.editMode) card.classList.add('dragging');
+            else e.preventDefault(); // Should not match here if draggable=false, but just in case
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            const grid = card.closest('.grid[data-grid-id]');
+            if (grid) {
+                const gid = grid.getAttribute('data-grid-id');
+                this.saveGridOrder(grid, gid);
+            }
+        });
+        card._dragListenersAttached = true;
+    }
+},
+
+computeWidgetId(card, gridId) {
+    let txt = '';
+    const h2span = card.querySelector('h2 span');
+    if (h2span) txt = h2span.textContent.trim();
+    if (!txt) {
+        const label = card.querySelector('.label');
+        if (label) txt = label.textContent.trim();
+    }
+    if (!txt) txt = 'card';
+    txt = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return gridId + ':' + txt;
+},
+
+saveGridOrder(grid, gridId) {
+    const ids = Array.from(grid.children)
+        .filter(el => el instanceof HTMLElement && !el.classList.contains('wide-card'))
+        .map(el => el.dataset.widgetId || '');
+    try { localStorage.setItem('gridOrder:' + gridId, JSON.stringify(ids)); } catch (e) { console.error(e); }
+},
+
+applyGridOrder(grid, gridId) {
+    try {
+        const raw = localStorage.getItem('gridOrder:' + gridId);
+        if (!raw) return;
+        const order = JSON.parse(raw);
+        const map = new Map();
+        Array.from(grid.children).forEach(el => {
+            if (el instanceof HTMLElement) {
+                if (!el.dataset.widgetId) el.dataset.widgetId = this.computeWidgetId(el, gridId);
+                map.set(el.dataset.widgetId, el);
+            }
+        });
+        order.forEach(id => {
+            const el = map.get(id);
+            if (el) grid.appendChild(el);
+        });
+    } catch (e) { console.error(e); }
+},
+
+getCardAfterPosition(grid, y) {
+    const cards = [...grid.querySelectorAll('.card[draggable="true"]:not(.dragging)')];
+    return cards.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+},
 
     async sendTestAlert() {
-        fetch('/api/test_alert').then(r => r.json()).then(() => {
-            // Trigger refresh immediately to show it
-            this.fetchAlerts();
-        }).catch(console.error);
-    },
+    fetch('/api/test_alert').then(r => r.json()).then(() => {
+        // Trigger refresh immediately to show it
+        this.fetchAlerts();
+    }).catch(console.error);
+},
 
     async refreshFeed() {
-        fetch('/api/threat_refresh', { method: 'POST' }).then(r => r.json()).then(d => {
-            if (d.threat_status) this.threatStatus = d.threat_status;
-        }).catch(console.error);
-    },
+    fetch('/api/threat_refresh', { method: 'POST' }).then(r => r.json()).then(d => {
+        if (d.threat_status) this.threatStatus = d.threat_status;
+    }).catch(console.error);
+},
 
-    exportCSV() {
-        window.location.href = '/api/export?range=' + this.timeRange;
-    },
+exportCSV() {
+    window.location.href = '/api/export?range=' + this.timeRange;
+},
 
-    exportJSON() {
-        window.location.href = '/api/export_json?range=' + this.timeRange;
-    },
+exportJSON() {
+    window.location.href = '/api/export_json?range=' + this.timeRange;
+},
 
-    exportAlerts(fmt) {
-        window.location.href = '/api/alerts_export?format=' + fmt;
-    },
+exportAlerts(fmt) {
+    window.location.href = '/api/alerts_export?format=' + fmt;
+},
 
     // === FORENSICS INVESTIGATION FUNCTIONS ===
 
     async investigateIP() {
-        if (!this.ipInvestigation.searchIP.trim()) return;
+    if (!this.ipInvestigation.searchIP.trim()) return;
 
-        // Open modal first
-        this.ipInvestigationModalOpen = true;
+    // Open modal first
+    this.ipInvestigationModalOpen = true;
 
-        this.ipInvestigation.loading = true;
-        this.ipInvestigation.result = null;
-        this.ipInvestigation.error = null;
+    this.ipInvestigation.loading = true;
+    this.ipInvestigation.result = null;
+    this.ipInvestigation.error = null;
 
-        try {
-            // Add timeout to prevent hanging
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    try {
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-            const res = await fetch(`/api/ip_detail/${encodeURIComponent(this.ipInvestigation.searchIP)}?range=${this.timeRange}`, {
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
-
-            const data = await res.json();
-
-            // Determine classification
-            const ip = this.ipInvestigation.searchIP;
-            const isInternal = ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || ip.startsWith('172.31.');
-
-            // Check if it's a threat
-            const isThreat = this.threats.hits.some(t => t.ip === ip);
-
-            // Calculate total traffic
-            const totalBytes = (data.direction?.upload || 0) + (data.direction?.download || 0);
-
-            this.ipInvestigation.result = {
-                ...data,
-                classification: isInternal ? 'Internal' : 'External',
-                is_threat: isThreat,
-                total_bytes_fmt: this.fmtBytes(totalBytes),
-                flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0),
-                country: data.geo?.country || data.country,
-                region: data.region || data.geo?.region,
-                asn: data.geo?.asn || data.asn,
-                related_ips: data.related_ips || []
-            };
-
-            // Load timeline data if available
-            this.$nextTick(() => {
-                this.loadIPTimeline(ip);
-            });
-        } catch (err) {
-            console.error('IP investigation failed:', err);
-            if (err.name === 'AbortError') {
-                this.ipInvestigation.error = 'Request timed out. The IP investigation is taking too long. Try a shorter time range.';
-            } else {
-                this.ipInvestigation.error = err.message || 'Failed to investigate IP. Please try again.';
-            }
-            this.showToast(this.ipInvestigation.error, 'error');
-        } finally {
-            this.ipInvestigation.loading = false;
-        }
-    },
-
-    openIPInvestigationModal(ip = null) {
-        if (ip) {
-            this.ipInvestigation.searchIP = ip;
-        }
-        this.ipInvestigationModalOpen = true;
-        // If IP is provided, automatically trigger investigation
-        if (ip) {
-            this.$nextTick(() => {
-                this.investigateIP();
-            });
-        }
-    },
-
-    exportInvestigationResults(format) {
-        if (!this.ipInvestigation.result) return;
-
-        const data = this.ipInvestigation.result;
-        const ip = this.ipInvestigation.searchIP;
-
-        if (format === 'json') {
-            const jsonStr = JSON.stringify(data, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ip-investigation-${ip}-${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.showToast('Investigation data exported as JSON', 'success');
-        } else if (format === 'csv') {
-            // Create CSV with key information
-            const lines = [
-                'Field,Value',
-                `IP Address,${ip}`,
-                `Classification,${data.classification || 'N/A'}`,
-                `Threat Status,${data.is_threat ? 'THREAT' : 'Clean'}`,
-                `Country,${data.country || data.geo?.country || 'N/A'}`,
-                `Region,${data.region || data.geo?.region || 'N/A'}`,
-                `ASN,${data.asn || data.geo?.asn || 'N/A'}`,
-                `Hostname,${data.hostname || 'N/A'}`,
-                `Total Traffic,${data.total_bytes_fmt || 'N/A'}`,
-                `Total Flows,${data.flow_count || 0}`
-            ];
-            const csvStr = lines.join('\n');
-            const blob = new Blob([csvStr], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ip-investigation-${ip}-${Date.now()}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.showToast('Investigation data exported as CSV', 'success');
-        }
-    },
-
-    copyInvestigationIP() {
-        if (!this.ipInvestigation.searchIP) return;
-        navigator.clipboard.writeText(this.ipInvestigation.searchIP).then(() => {
-            this.showToast('IP address copied to clipboard', 'success');
-        }).catch(() => {
-            this.showToast('Failed to copy IP address', 'error');
+        const res = await fetch(`/api/ip_detail/${encodeURIComponent(this.ipInvestigation.searchIP)}?range=${this.timeRange}`, {
+            signal: controller.signal
         });
-    },
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+
+        // Determine classification
+        const ip = this.ipInvestigation.searchIP;
+        const isInternal = ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || ip.startsWith('172.31.');
+
+        // Check if it's a threat
+        const isThreat = this.threats.hits.some(t => t.ip === ip);
+
+        // Calculate total traffic
+        const totalBytes = (data.direction?.upload || 0) + (data.direction?.download || 0);
+
+        this.ipInvestigation.result = {
+            ...data,
+            classification: isInternal ? 'Internal' : 'External',
+            is_threat: isThreat,
+            total_bytes_fmt: this.fmtBytes(totalBytes),
+            flow_count: (data.src_ports?.length || 0) + (data.dst_ports?.length || 0),
+            country: data.geo?.country || data.country,
+            region: data.region || data.geo?.region,
+            asn: data.geo?.asn || data.asn,
+            related_ips: data.related_ips || []
+        };
+
+        // Load timeline data if available
+        this.$nextTick(() => {
+            this.loadIPTimeline(ip);
+        });
+    } catch (err) {
+        console.error('IP investigation failed:', err);
+        if (err.name === 'AbortError') {
+            this.ipInvestigation.error = 'Request timed out. The IP investigation is taking too long. Try a shorter time range.';
+        } else {
+            this.ipInvestigation.error = err.message || 'Failed to investigate IP. Please try again.';
+        }
+        this.showToast(this.ipInvestigation.error, 'error');
+    } finally {
+        this.ipInvestigation.loading = false;
+    }
+},
+
+openIPInvestigationModal(ip = null) {
+    if (ip) {
+        this.ipInvestigation.searchIP = ip;
+    }
+    this.ipInvestigationModalOpen = true;
+    // If IP is provided, automatically trigger investigation
+    if (ip) {
+        this.$nextTick(() => {
+            this.investigateIP();
+        });
+    }
+},
+
+exportInvestigationResults(format) {
+    if (!this.ipInvestigation.result) return;
+
+    const data = this.ipInvestigation.result;
+    const ip = this.ipInvestigation.searchIP;
+
+    if (format === 'json') {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ip-investigation-${ip}-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Investigation data exported as JSON', 'success');
+    } else if (format === 'csv') {
+        // Create CSV with key information
+        const lines = [
+            'Field,Value',
+            `IP Address,${ip}`,
+            `Classification,${data.classification || 'N/A'}`,
+            `Threat Status,${data.is_threat ? 'THREAT' : 'Clean'}`,
+            `Country,${data.country || data.geo?.country || 'N/A'}`,
+            `Region,${data.region || data.geo?.region || 'N/A'}`,
+            `ASN,${data.asn || data.geo?.asn || 'N/A'}`,
+            `Hostname,${data.hostname || 'N/A'}`,
+            `Total Traffic,${data.total_bytes_fmt || 'N/A'}`,
+            `Total Flows,${data.flow_count || 0}`
+        ];
+        const csvStr = lines.join('\n');
+        const blob = new Blob([csvStr], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ip-investigation-${ip}-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Investigation data exported as CSV', 'success');
+    }
+},
+
+copyInvestigationIP() {
+    if (!this.ipInvestigation.searchIP) return;
+    navigator.clipboard.writeText(this.ipInvestigation.searchIP).then(() => {
+        this.showToast('IP address copied to clipboard', 'success');
+    }).catch(() => {
+        this.showToast('Failed to copy IP address', 'error');
+    });
+},
 
     async loadIPTimeline(ip) {
-        if (!ip) return;
-        this.ipInvestigation.timeline.loading = true;
-        try {
-            const compareParam = this.ipInvestigation.timeline.compareHistory ? '&compare=true' : '';
-            // Try source timeline first (more common)
-            const res = await fetch(`/api/trends/source/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
-            if (res.ok) {
-                const data = await res.json();
+    if (!ip) return;
+    this.ipInvestigation.timeline.loading = true;
+    try {
+        const compareParam = this.ipInvestigation.timeline.compareHistory ? '&compare=true' : '';
+        // Try source timeline first (more common)
+        const res = await fetch(`/api/trends/source/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
+        if (res.ok) {
+            const data = await res.json();
+            this.ipInvestigation.timeline = {
+                labels: data.labels || [],
+                bytes: data.bytes || [],
+                flows: data.flows || [],
+                comparison: data.comparison || null,
+                loading: false,
+                compareHistory: this.ipInvestigation.timeline.compareHistory
+            };
+            this.$nextTick(() => {
+                this.renderIPTimelineChart();
+            });
+        } else {
+            // Try destination timeline as fallback
+            const resDest = await fetch(`/api/trends/dest/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
+            if (resDest.ok) {
+                const data = await resDest.json();
                 this.ipInvestigation.timeline = {
                     labels: data.labels || [],
                     bytes: data.bytes || [],
@@ -3274,1211 +3276,1064 @@ export const Store = () => ({
                     this.renderIPTimelineChart();
                 });
             } else {
-                // Try destination timeline as fallback
-                const resDest = await fetch(`/api/trends/dest/${encodeURIComponent(ip)}?range=${this.timeRange}${compareParam}`);
-                if (resDest.ok) {
-                    const data = await resDest.json();
-                    this.ipInvestigation.timeline = {
-                        labels: data.labels || [],
-                        bytes: data.bytes || [],
-                        flows: data.flows || [],
-                        comparison: data.comparison || null,
-                        loading: false,
-                        compareHistory: this.ipInvestigation.timeline.compareHistory
-                    };
-                    this.$nextTick(() => {
-                        this.renderIPTimelineChart();
-                    });
-                } else {
-                    this.ipInvestigation.timeline.loading = false;
-                }
+                this.ipInvestigation.timeline.loading = false;
             }
-        } catch (err) {
-            console.error('IP timeline load error:', err);
-            this.ipInvestigation.timeline.loading = false;
         }
-    },
+    } catch (err) {
+        console.error('IP timeline load error:', err);
+        this.ipInvestigation.timeline.loading = false;
+    }
+},
 
-    renderIPTimelineChart() {
-        try {
-            const canvas = document.getElementById('ipInvestigationTimelineChart');
-            if (!canvas || !this.ipInvestigation.timeline.labels || this.ipInvestigation.timeline.labels.length === 0) return;
+renderIPTimelineChart() {
+    try {
+        const canvas = document.getElementById('ipInvestigationTimelineChart');
+        if (!canvas || !this.ipInvestigation.timeline.labels || this.ipInvestigation.timeline.labels.length === 0) return;
 
-            if (typeof Chart === 'undefined') {
-                setTimeout(() => this.renderIPTimelineChart(), 100);
-                return;
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderIPTimelineChart(), 100);
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (_chartInstances['_ipInvestigationTimelineChart']) _chartInstances['_ipInvestigationTimelineChart'].destroy();
+
+        const labels = this.ipInvestigation.timeline.labels;
+        const bytes = this.ipInvestigation.timeline.bytes;
+        const flows = this.ipInvestigation.timeline.flows;
+        const comparison = this.ipInvestigation.timeline.comparison;
+
+        const datasets = [
+            {
+                label: 'Bytes',
+                data: bytes,
+                borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
+                backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                yAxisID: 'y',
+                tension: 0.3,
+                fill: true
+            },
+            {
+                label: 'Flows',
+                data: flows,
+                borderColor: this.getCssVar('--neon-green') || 'rgba(0, 255, 136, 1)',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                yAxisID: 'y1',
+                tension: 0.3,
+                fill: false
             }
+        ];
 
-            const ctx = canvas.getContext('2d');
-            if (_chartInstances['_ipInvestigationTimelineChart']) _chartInstances['_ipInvestigationTimelineChart'].destroy();
-
-            const labels = this.ipInvestigation.timeline.labels;
-            const bytes = this.ipInvestigation.timeline.bytes;
-            const flows = this.ipInvestigation.timeline.flows;
-            const comparison = this.ipInvestigation.timeline.comparison;
-
-            const datasets = [
-                {
-                    label: 'Bytes',
-                    data: bytes,
-                    borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
-                    backgroundColor: 'rgba(0, 243, 255, 0.1)',
-                    yAxisID: 'y',
-                    tension: 0.3,
-                    fill: true
-                },
-                {
-                    label: 'Flows',
-                    data: flows,
-                    borderColor: this.getCssVar('--neon-green') || 'rgba(0, 255, 136, 1)',
-                    backgroundColor: 'rgba(0, 255, 136, 0.1)',
-                    yAxisID: 'y1',
-                    tension: 0.3,
-                    fill: false
-                }
-            ];
-
-            // Add comparison data if available
-            if (comparison && comparison.bytes) {
+        // Add comparison data if available
+        if (comparison && comparison.bytes) {
+            datasets.push({
+                label: 'Bytes (Previous Period)',
+                data: comparison.bytes,
+                borderColor: 'rgba(255, 152, 0, 0.6)',
+                backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                yAxisID: 'y',
+                tension: 0.3,
+                fill: false,
+                borderDash: [5, 5]
+            });
+            if (comparison.flows) {
                 datasets.push({
-                    label: 'Bytes (Previous Period)',
-                    data: comparison.bytes,
-                    borderColor: 'rgba(255, 152, 0, 0.6)',
-                    backgroundColor: 'rgba(255, 152, 0, 0.05)',
-                    yAxisID: 'y',
+                    label: 'Flows (Previous Period)',
+                    data: comparison.flows,
+                    borderColor: 'rgba(156, 39, 176, 0.6)',
+                    backgroundColor: 'rgba(156, 39, 176, 0.05)',
+                    yAxisID: 'y1',
                     tension: 0.3,
                     fill: false,
                     borderDash: [5, 5]
                 });
-                if (comparison.flows) {
-                    datasets.push({
-                        label: 'Flows (Previous Period)',
-                        data: comparison.flows,
-                        borderColor: 'rgba(156, 39, 176, 0.6)',
-                        backgroundColor: 'rgba(156, 39, 176, 0.05)',
-                        yAxisID: 'y1',
-                        tension: 0.3,
-                        fill: false,
-                        borderDash: [5, 5]
-                    });
-                }
             }
+        }
 
-            _chartInstances['_ipInvestigationTimelineChart'] = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                color: this.getCssVar('--text-secondary') || '#888',
-                                boxWidth: 12,
-                                padding: 8
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(20, 24, 33, 0.95)',
-                            titleColor: this.getCssVar('--text-primary') || '#fff',
-                            bodyColor: this.getCssVar('--text-secondary') || '#ccc',
-                            borderColor: 'rgba(0, 243, 255, 0.3)',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: (context) => {
-                                    if (context.datasetIndex === 0) {
-                                        return `Bytes: ${this.fmtBytes(context.parsed.y)}`;
-                                    } else {
-                                        return `Flows: ${context.parsed.y.toLocaleString()}`;
-                                    }
+        _chartInstances['_ipInvestigationTimelineChart'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: this.getCssVar('--text-secondary') || '#888',
+                            boxWidth: 12,
+                            padding: 8
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(20, 24, 33, 0.95)',
+                        titleColor: this.getCssVar('--text-primary') || '#fff',
+                        bodyColor: this.getCssVar('--text-secondary') || '#ccc',
+                        borderColor: 'rgba(0, 243, 255, 0.3)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: (context) => {
+                                if (context.datasetIndex === 0) {
+                                    return `Bytes: ${this.fmtBytes(context.parsed.y)}`;
+                                } else {
+                                    return `Flows: ${context.parsed.y.toLocaleString()}`;
                                 }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                color: this.getCssVar('--text-muted') || '#666',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        },
-                        y: {
-                            type: 'linear',
-                            position: 'left',
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: {
-                                color: this.getCssVar('--text-muted') || '#666',
-                                callback: (value) => this.fmtBytes(value)
-                            },
-                            title: {
-                                display: true,
-                                text: 'Bytes',
-                                color: this.getCssVar('--text-secondary') || '#888'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            position: 'right',
-                            grid: { display: false },
-                            ticks: {
-                                color: 'rgba(0, 255, 136, 0.8)'
-                            },
-                            title: {
-                                display: true,
-                                text: 'Flows',
-                                color: 'rgba(0, 255, 136, 0.8)'
-                            }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: this.getCssVar('--text-muted') || '#666',
+                            maxRotation: 45,
+                            minRotation: 45
                         }
                     },
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: {
+                            color: this.getCssVar('--text-muted') || '#666',
+                            callback: (value) => this.fmtBytes(value)
+                        },
+                        title: {
+                            display: true,
+                            text: 'Bytes',
+                            color: this.getCssVar('--text-secondary') || '#888'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        grid: { display: false },
+                        ticks: {
+                            color: 'rgba(0, 255, 136, 0.8)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Flows',
+                            color: 'rgba(0, 255, 136, 0.8)'
+                        }
                     }
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
                 }
-            });
-        } catch (e) {
-            console.error('IP timeline chart render error:', e);
-        }
-    },
+            }
+        });
+    } catch (e) {
+        console.error('IP timeline chart render error:', e);
+    }
+},
 
     async searchFlows() {
-        this.flowSearch.loading = true;
-        this.flowSearch.results = [];
+    this.flowSearch.loading = true;
+    this.flowSearch.results = [];
 
-        try {
-            const params = new URLSearchParams({ range: this.timeRange });
-            if (this.flowSearch.filters.srcIP) params.append('src_ip', this.flowSearch.filters.srcIP);
-            if (this.flowSearch.filters.dstIP) params.append('dst_ip', this.flowSearch.filters.dstIP);
-            if (this.flowSearch.filters.port) params.append('port', this.flowSearch.filters.port);
-            if (this.flowSearch.filters.protocol) params.append('protocol', this.flowSearch.filters.protocol);
-            if (this.flowSearch.filters.country) params.append('country', this.flowSearch.filters.country);
+    try {
+        const params = new URLSearchParams({ range: this.timeRange });
+        if (this.flowSearch.filters.srcIP) params.append('src_ip', this.flowSearch.filters.srcIP);
+        if (this.flowSearch.filters.dstIP) params.append('dst_ip', this.flowSearch.filters.dstIP);
+        if (this.flowSearch.filters.port) params.append('port', this.flowSearch.filters.port);
+        if (this.flowSearch.filters.protocol) params.append('protocol', this.flowSearch.filters.protocol);
+        if (this.flowSearch.filters.country) params.append('country', this.flowSearch.filters.country);
 
-            const res = await fetch(`/api/forensics/flow-search?${params}`);
-            const data = await res.json();
+        const res = await fetch(`/api/forensics/flow-search?${params}`);
+        const data = await res.json();
 
-            this.flowSearch.results = (data.flows || []).map(f => ({
-                ...f,
-                bytes_fmt: this.fmtBytes(f.bytes || 0)
-            }));
-        } catch (err) {
-            console.error('Flow search failed:', err);
-            // For now, use mock data from conversations as fallback
-            const filtered = this.conversations.conversations.filter(c => {
-                if (this.flowSearch.filters.srcIP && !c.src.includes(this.flowSearch.filters.srcIP)) return false;
-                if (this.flowSearch.filters.dstIP && !c.dst.includes(this.flowSearch.filters.dstIP)) return false;
-                if (this.flowSearch.filters.port && c.port !== parseInt(this.flowSearch.filters.port)) return false;
-                if (this.flowSearch.filters.protocol && c.proto.toLowerCase() !== this.flowSearch.filters.protocol.toLowerCase()) return false;
-                return true;
-            });
-            this.flowSearch.results = filtered.map(c => ({
-                src: c.src,
-                dst: c.dst,
-                proto: c.proto,
-                port: c.port,
-                bytes_fmt: c.bytes_fmt
-            }));
-        } finally {
-            this.flowSearch.loading = false;
-        }
-    },
+        this.flowSearch.results = (data.flows || []).map(f => ({
+            ...f,
+            bytes_fmt: this.fmtBytes(f.bytes || 0)
+        }));
+    } catch (err) {
+        console.error('Flow search failed:', err);
+        // For now, use mock data from conversations as fallback
+        const filtered = this.conversations.conversations.filter(c => {
+            if (this.flowSearch.filters.srcIP && !c.src.includes(this.flowSearch.filters.srcIP)) return false;
+            if (this.flowSearch.filters.dstIP && !c.dst.includes(this.flowSearch.filters.dstIP)) return false;
+            if (this.flowSearch.filters.port && c.port !== parseInt(this.flowSearch.filters.port)) return false;
+            if (this.flowSearch.filters.protocol && c.proto.toLowerCase() !== this.flowSearch.filters.protocol.toLowerCase()) return false;
+            return true;
+        });
+        this.flowSearch.results = filtered.map(c => ({
+            src: c.src,
+            dst: c.dst,
+            proto: c.proto,
+            port: c.port,
+            bytes_fmt: c.bytes_fmt
+        }));
+    } finally {
+        this.flowSearch.loading = false;
+    }
+},
 
-    exportFlowSearchResults() {
-        if (this.flowSearch.results.length === 0) return;
+exportFlowSearchResults() {
+    if (this.flowSearch.results.length === 0) return;
 
-        const csv = [
-            ['Source', 'Destination', 'Protocol', 'Port', 'Traffic'].join(','),
-            ...this.flowSearch.results.map(f =>
-                [f.src, f.dst, f.proto, f.port, f.bytes_fmt].join(',')
-            )
-        ].join('\n');
+    const csv = [
+        ['Source', 'Destination', 'Protocol', 'Port', 'Traffic'].join(','),
+        ...this.flowSearch.results.map(f =>
+            [f.src, f.dst, f.proto, f.port, f.bytes_fmt].join(',')
+        )
+    ].join('\n');
 
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `flow-search-${Date.now()}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    },
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `flow-search-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+},
 
     async fetchAlertCorrelation() {
-        this.alertCorrelation.loading = true;
+    this.alertCorrelation.loading = true;
 
-        try {
-            const res = await fetch(`/api/forensics/alert-correlation?range=${this.timeRange}`);
-            const data = await res.json();
-            this.alertCorrelation.chains = data.chains || [];
-        } catch (err) {
-            console.error('Alert correlation fetch failed:', err);
-            // Build correlation from alert history as fallback
-            const alerts = this.alertHistory.alerts || [];
-            const byIP = {};
+    try {
+        const res = await fetch(`/api/forensics/alert-correlation?range=${this.timeRange}`);
+        const data = await res.json();
+        this.alertCorrelation.chains = data.chains || [];
+    } catch (err) {
+        console.error('Alert correlation fetch failed:', err);
+        // Build correlation from alert history as fallback
+        const alerts = this.alertHistory.alerts || [];
+        const byIP = {};
 
-            alerts.forEach(alert => {
-                const ip = alert.ip || alert.source_ip;
-                if (!ip) return;
-                if (!byIP[ip]) byIP[ip] = [];
-                byIP[ip].push(alert);
-            });
+        alerts.forEach(alert => {
+            const ip = alert.ip || alert.source_ip;
+            if (!ip) return;
+            if (!byIP[ip]) byIP[ip] = [];
+            byIP[ip].push(alert);
+        });
 
-            this.alertCorrelation.chains = Object.entries(byIP)
-                .filter(([ip, alerts]) => alerts.length > 1)
-                .map(([ip, alerts]) => ({
-                    ip,
-                    alerts: alerts.map(a => ({
-                        id: a.msg,
-                        type: a.type,
-                        message: a.msg,
-                        time: a.time || a.timestamp
-                    })),
-                    timespan: alerts.length > 1 ?
-                        `${alerts[0].time || 'recent'} - ${alerts[alerts.length - 1].time || 'recent'}` :
-                        'recent'
-                }));
-        } finally {
-            this.alertCorrelation.loading = false;
-        }
-    },
+        this.alertCorrelation.chains = Object.entries(byIP)
+            .filter(([ip, alerts]) => alerts.length > 1)
+            .map(([ip, alerts]) => ({
+                ip,
+                alerts: alerts.map(a => ({
+                    id: a.msg,
+                    type: a.type,
+                    message: a.msg,
+                    time: a.time || a.timestamp
+                })),
+                timespan: alerts.length > 1 ?
+                    `${alerts[0].time || 'recent'} - ${alerts[alerts.length - 1].time || 'recent'}` :
+                    'recent'
+            }));
+    } finally {
+        this.alertCorrelation.loading = false;
+    }
+},
 
     async fetchThreatActivityTimeline() {
-        this.threatActivityTimeline.loading = true;
-        try {
-            const res = await fetch(`/api/security/attack-timeline?range=${this.threatActivityTimeline.timeRange || '24h'}`);
-            if (res.ok) {
-                const d = await res.json();
-                // Calculate peak hour
-                let peak_count = 0;
-                let peak_hour = null;
-                if (d.timeline && d.timeline.length > 0) {
-                    const peak = d.timeline.reduce((max, item) => {
-                        const total = item.total || 0;
-                        return total > max.total ? { hour: item.hour, total: total } : max;
-                    }, { hour: null, total: 0 });
-                    peak_count = peak.total;
-                    peak_hour = peak.hour;
-                }
-
-                this.threatActivityTimeline = {
-                    ...d,
-                    peak_count,
-                    peak_hour,
-                    loading: false
-                };
-                this.$nextTick(() => {
-                    this.renderThreatActivityTimelineChart();
-                });
-            }
-        } catch (e) {
-            console.error('Threat activity timeline fetch error:', e);
-        } finally {
-            this.threatActivityTimeline.loading = false;
-        }
-    },
-
-    renderThreatActivityTimelineChart() {
-        try {
-            const canvas = document.getElementById('threatActivityTimelineChart');
-            if (!canvas || !this.threatActivityTimeline.timeline) return;
-
-            // Check if canvas is actually in the DOM and has dimensions
-            if (!canvas.getContext) {
-                console.warn('Threat Activity Timeline chart canvas not ready');
-                return;
+    this.threatActivityTimeline.loading = true;
+    try {
+        const res = await fetch(`/api/security/attack-timeline?range=${this.threatActivityTimeline.timeRange || '24h'}`);
+        if (res.ok) {
+            const d = await res.json();
+            // Calculate peak hour
+            let peak_count = 0;
+            let peak_hour = null;
+            if (d.timeline && d.timeline.length > 0) {
+                const peak = d.timeline.reduce((max, item) => {
+                    const total = item.total || 0;
+                    return total > max.total ? { hour: item.hour, total: total } : max;
+                }, { hour: null, total: 0 });
+                peak_count = peak.total;
+                peak_hour = peak.hour;
             }
 
-            // Check if Chart.js is loaded
-            if (typeof Chart === 'undefined') {
-                setTimeout(() => this.renderThreatActivityTimelineChart(), 100);
-                return;
-            }
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                console.warn('Threat Activity Timeline chart: could not get 2d context');
-                return;
-            }
-
-            if (_chartInstances['_threatActivityTimelineChart']) {
-                try {
-                    _chartInstances['_threatActivityTimelineChart'].destroy();
-                } catch (e) {
-                    console.warn('Error destroying threat activity timeline chart:', e);
-                }
-            }
-
-            const labels = this.threatActivityTimeline.timeline.map(t => t.hour);
-            const critical = this.threatActivityTimeline.timeline.map(t => t.critical || 0);
-            const high = this.threatActivityTimeline.timeline.map(t => t.high || 0);
-            const medium = this.threatActivityTimeline.timeline.map(t => t.medium || 0);
-            const low = this.threatActivityTimeline.timeline.map(t => t.low || 0);
-            const fwBlocks = this.threatActivityTimeline.timeline.map(t => t.fw_blocks || 0);
-
-            const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
-            const hasFwData = this.threatActivityTimeline.has_fw_data;
-
-            const datasets = [
-                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 2 },
-                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 2 },
-                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 2 },
-                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 2 }
-            ];
-
-            // Add firewall blocks as a line overlay if data exists
-            if (hasFwData) {
-                datasets.push({
-                    label: '🔥 FW Blocks',
-                    data: fwBlocks,
-                    type: 'line',
-                    borderColor: 'rgba(0, 255, 100, 1)',
-                    backgroundColor: 'rgba(0, 255, 100, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointBackgroundColor: 'rgba(0, 255, 100, 1)',
-                    fill: false,
-                    tension: 0.3,
-                    yAxisID: 'y1',
-                    order: 1
-                });
-            }
-
-            _chartInstances['_threatActivityTimelineChart'] = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                color: this.getCssVar('--text-secondary') || '#888',
-                                boxWidth: 12,
-                                padding: 8
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(20, 24, 33, 0.95)',
-                            titleColor: this.getCssVar('--text-primary') || '#fff',
-                            bodyColor: this.getCssVar('--text-secondary') || '#ccc',
-                            borderColor: 'rgba(0, 243, 255, 0.3)',
-                            borderWidth: 1
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: {
-                                color: this.getCssVar('--text-muted') || '#666',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: this.getCssVar('--text-muted') || '#666' },
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Threats',
-                                color: this.getCssVar('--text-secondary') || '#888'
-                            }
-                        },
-                        ...(hasFwData ? {
-                            y1: {
-                                grid: { display: false },
-                                ticks: { color: 'rgba(0, 255, 100, 0.8)' },
-                                position: 'right',
-                                title: {
-                                    display: true,
-                                    text: 'FW Blocks',
-                                    color: 'rgba(0, 255, 100, 0.8)'
-                                }
-                            }
-                        } : {})
-                    },
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                }
+            this.threatActivityTimeline = {
+                ...d,
+                peak_count,
+                peak_hour,
+                loading: false
+            };
+            this.$nextTick(() => {
+                this.renderThreatActivityTimelineChart();
             });
-        } catch (e) {
-            console.error('Threat activity timeline chart render error:', e);
         }
-    },
+    } catch (e) {
+        console.error('Threat activity timeline fetch error:', e);
+    } finally {
+        this.threatActivityTimeline.loading = false;
+    }
+},
 
-    exportThreatActivityTimeline(format) {
-        if (!this.threatActivityTimeline.timeline || this.threatActivityTimeline.timeline.length === 0) {
-            this.showToast('No timeline data to export', 'warning');
+renderThreatActivityTimelineChart() {
+    try {
+        const canvas = document.getElementById('threatActivityTimelineChart');
+        if (!canvas || !this.threatActivityTimeline.timeline) return;
+
+        // Check if canvas is actually in the DOM and has dimensions
+        if (!canvas.getContext) {
+            console.warn('Threat Activity Timeline chart canvas not ready');
             return;
         }
 
-        const timeline = this.threatActivityTimeline.timeline;
-
-        if (format === 'csv') {
-            const lines = [
-                'Hour,Total Threats,Critical,High,Medium,Low,Firewall Blocks'
-            ];
-            timeline.forEach(item => {
-                lines.push([
-                    item.hour,
-                    item.total || 0,
-                    item.critical || 0,
-                    item.high || 0,
-                    item.medium || 0,
-                    item.low || 0,
-                    item.fw_blocks || 0
-                ].join(','));
-            });
-
-            const csvStr = lines.join('\n');
-            const blob = new Blob([csvStr], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `threat-activity-timeline-${Date.now()}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.showToast('Timeline data exported as CSV', 'success');
-        } else if (format === 'json') {
-            const jsonStr = JSON.stringify({
-                timeRange: this.threatActivityTimeline.timeRange,
-                total_24h: this.threatActivityTimeline.total_24h,
-                peak_hour: this.threatActivityTimeline.peak_hour,
-                peak_count: this.threatActivityTimeline.peak_count,
-                timeline: timeline
-            }, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `threat-activity-timeline-${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.showToast('Timeline data exported as JSON', 'success');
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderThreatActivityTimelineChart(), 100);
+            return;
         }
-    },
 
-    // Helpers - Using DashboardUtils module
-    fmtBytes(bytes) {
-        return DashboardUtils.fmtBytes(bytes);
-    },
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            console.warn('Threat Activity Timeline chart: could not get 2d context');
+            return;
+        }
 
-    computeRecentBlockStats(logs = []) {
-        return DashboardUtils.computeRecentBlockStats(logs);
-    },
+        if (_chartInstances['_threatActivityTimelineChart']) {
+            try {
+                _chartInstances['_threatActivityTimelineChart'].destroy();
+            } catch (e) {
+                console.warn('Error destroying threat activity timeline chart:', e);
+            }
+        }
 
-    setRecentBlocksView(count) {
-        const safeCount = Math.max(10, count || 10);
-        const maxAvailable = this.recentBlocks?.blocks?.length || safeCount;
-        this.recentBlocksView = Math.min(safeCount, Math.min(1000, maxAvailable));
-    },
+        const labels = this.threatActivityTimeline.timeline.map(t => t.hour);
+        const critical = this.threatActivityTimeline.timeline.map(t => t.critical || 0);
+        const high = this.threatActivityTimeline.timeline.map(t => t.high || 0);
+        const medium = this.threatActivityTimeline.timeline.map(t => t.medium || 0);
+        const low = this.threatActivityTimeline.timeline.map(t => t.low || 0);
+        const fwBlocks = this.threatActivityTimeline.timeline.map(t => t.fw_blocks || 0);
 
-    startRecentBlocksAutoRefresh() {
-        // Clear existing timer if any
+        const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
+        const hasFwData = this.threatActivityTimeline.has_fw_data;
+
+        const datasets = [
+            { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 2 },
+            { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 2 },
+            { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 2 },
+            { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 2 }
+        ];
+
+        // Add firewall blocks as a line overlay if data exists
+        if (hasFwData) {
+            datasets.push({
+                label: '🔥 FW Blocks',
+                data: fwBlocks,
+                type: 'line',
+                borderColor: 'rgba(0, 255, 100, 1)',
+                backgroundColor: 'rgba(0, 255, 100, 0.1)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgba(0, 255, 100, 1)',
+                fill: false,
+                tension: 0.3,
+                yAxisID: 'y1',
+                order: 1
+            });
+        }
+
+        _chartInstances['_threatActivityTimelineChart'] = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: this.getCssVar('--text-secondary') || '#888',
+                            boxWidth: 12,
+                            padding: 8
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(20, 24, 33, 0.95)',
+                        titleColor: this.getCssVar('--text-primary') || '#fff',
+                        bodyColor: this.getCssVar('--text-secondary') || '#ccc',
+                        borderColor: 'rgba(0, 243, 255, 0.3)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: {
+                            color: this.getCssVar('--text-muted') || '#666',
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: this.getCssVar('--text-muted') || '#666' },
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Threats',
+                            color: this.getCssVar('--text-secondary') || '#888'
+                        }
+                    },
+                    ...(hasFwData ? {
+                        y1: {
+                            grid: { display: false },
+                            ticks: { color: 'rgba(0, 255, 100, 0.8)' },
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'FW Blocks',
+                                color: 'rgba(0, 255, 100, 0.8)'
+                            }
+                        }
+                    } : {})
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Threat activity timeline chart render error:', e);
+    }
+},
+
+exportThreatActivityTimeline(format) {
+    if (!this.threatActivityTimeline.timeline || this.threatActivityTimeline.timeline.length === 0) {
+        this.showToast('No timeline data to export', 'warning');
+        return;
+    }
+
+    const timeline = this.threatActivityTimeline.timeline;
+
+    if (format === 'csv') {
+        const lines = [
+            'Hour,Total Threats,Critical,High,Medium,Low,Firewall Blocks'
+        ];
+        timeline.forEach(item => {
+            lines.push([
+                item.hour,
+                item.total || 0,
+                item.critical || 0,
+                item.high || 0,
+                item.medium || 0,
+                item.low || 0,
+                item.fw_blocks || 0
+            ].join(','));
+        });
+
+        const csvStr = lines.join('\n');
+        const blob = new Blob([csvStr], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `threat-activity-timeline-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Timeline data exported as CSV', 'success');
+    } else if (format === 'json') {
+        const jsonStr = JSON.stringify({
+            timeRange: this.threatActivityTimeline.timeRange,
+            total_24h: this.threatActivityTimeline.total_24h,
+            peak_hour: this.threatActivityTimeline.peak_hour,
+            peak_count: this.threatActivityTimeline.peak_count,
+            timeline: timeline
+        }, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `threat-activity-timeline-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Timeline data exported as JSON', 'success');
+    }
+},
+
+// Helpers - Using DashboardUtils module
+fmtBytes(bytes) {
+    return DashboardUtils.fmtBytes(bytes);
+},
+
+computeRecentBlockStats(logs = []) {
+    return DashboardUtils.computeRecentBlockStats(logs);
+},
+
+setRecentBlocksView(count) {
+    const safeCount = Math.max(10, count || 10);
+    const maxAvailable = this.recentBlocks?.blocks?.length || safeCount;
+    this.recentBlocksView = Math.min(safeCount, Math.min(1000, maxAvailable));
+},
+
+startRecentBlocksAutoRefresh() {
+    // Clear existing timer if any
+    if (this.recentBlocksRefreshTimer) {
+        clearInterval(this.recentBlocksRefreshTimer);
+        this.recentBlocksRefreshTimer = null;
+    }
+
+    // Only start if auto-refresh is enabled
+    if (!this.recentBlocksAutoRefresh) return;
+
+    // Initial fetch
+    this.fetchRecentBlocks();
+
+    // Set up interval: refresh every 3 seconds for real-time feel
+    const refreshInterval = 3000;
+    this.recentBlocksRefreshTimer = setInterval(() => {
+        if (this.recentBlocksAutoRefresh && this.activeTab === 'forensics') {
+            this.fetchRecentBlocksIncremental();
+        }
+    }, refreshInterval);
+},
+
+toggleRecentBlocksAutoRefresh() {
+    if (this.recentBlocksAutoRefresh) {
+        this.startRecentBlocksAutoRefresh();
+    } else {
         if (this.recentBlocksRefreshTimer) {
             clearInterval(this.recentBlocksRefreshTimer);
             this.recentBlocksRefreshTimer = null;
         }
+    }
+},
 
-        // Only start if auto-refresh is enabled
-        if (!this.recentBlocksAutoRefresh) return;
+    async fetchRecentBlocksIncremental() {
+    // Incremental update: only fetch if we're on the forensics tab and widget is visible
+    if (this.activeTab !== 'forensics' || this.isMinimized('recentBlocks')) {
+        return;
+    }
 
-        // Initial fetch
-        this.fetchRecentBlocks();
+    // Prevent concurrent requests
+    if (this._recentBlocksFetching) return;
+    this._recentBlocksFetching = true;
 
-        // Set up interval: refresh every 3 seconds for real-time feel
-        const refreshInterval = 3000;
-        this.recentBlocksRefreshTimer = setInterval(() => {
-            if (this.recentBlocksAutoRefresh && this.activeTab === 'forensics') {
-                this.fetchRecentBlocksIncremental();
+    // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
+    // This ensures we always have the latest data
+    try {
+        const res = await fetch('/api/firewall/logs/recent?limit=1000');
+
+        if (res.ok) {
+            const d = await res.json();
+            const newLogs = d.logs || [];
+            const stats = d.stats || this.computeRecentBlockStats(newLogs);
+
+            // Check if we have new data by comparing latest timestamp
+            const currentLatestTs = this.recentBlocks?.stats?.latest_ts || 0;
+            const newLatestTs = stats?.latest_ts || 0;
+
+            // Only update if we have newer data
+            if (newLatestTs > currentLatestTs || newLogs.length !== (this.recentBlocks?.blocks?.length || 0)) {
+                this.recentBlocks = {
+                    blocks: newLogs,
+                    stats,
+                    total_1h: stats?.blocks_last_hour || stats?.actions?.block || newLogs.length || 0,
+                    loading: false,
+                    lastUpdate: new Date().toISOString()
+                };
+
+                // Update view count if needed
+                const targetView = this.recentBlocksView || 50;
+                this.recentBlocksView = Math.min(targetView, newLogs.length || targetView, 1000);
             }
-        }, refreshInterval);
-    },
-
-    toggleRecentBlocksAutoRefresh() {
-        if (this.recentBlocksAutoRefresh) {
-            this.startRecentBlocksAutoRefresh();
-        } else {
+        } else if (res.status === 429) {
+            // Rate limited - back off by stopping auto-refresh temporarily
+            console.warn('Rate limited on firewall logs, pausing auto-refresh');
+            this.recentBlocksAutoRefresh = false;
             if (this.recentBlocksRefreshTimer) {
                 clearInterval(this.recentBlocksRefreshTimer);
                 this.recentBlocksRefreshTimer = null;
             }
         }
-    },
+    } catch (e) {
+        console.error('Incremental recent blocks fetch error:', e);
+    } finally {
+        this._recentBlocksFetching = false;
+    }
+},
 
-    async fetchRecentBlocksIncremental() {
-        // Incremental update: only fetch if we're on the forensics tab and widget is visible
-        if (this.activeTab !== 'forensics' || this.isMinimized('recentBlocks')) {
-            return;
-        }
+timeAgo(ts) {
+    return DashboardUtils.timeAgo(ts);
+},
 
-        // Prevent concurrent requests
-        if (this._recentBlocksFetching) return;
-        this._recentBlocksFetching = true;
+flagFromIso(iso) {
+    return DashboardUtils.flagFromIso(iso);
+},
 
-        // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
-        // This ensures we always have the latest data
-        try {
-            const res = await fetch('/api/firewall/logs/recent?limit=1000');
+// Compact Mode
+loadCompactMode() {
+    const saved = localStorage.getItem('compactMode');
+    this.compactMode = saved === '1';
+    if (this.compactMode) {
+        document.body.classList.add('compact-mode');
+    }
+},
 
-            if (res.ok) {
-                const d = await res.json();
-                const newLogs = d.logs || [];
-                const stats = d.stats || this.computeRecentBlockStats(newLogs);
+toggleCompactMode() {
+    this.compactMode = !this.compactMode;
+},
 
-                // Check if we have new data by comparing latest timestamp
-                const currentLatestTs = this.recentBlocks?.stats?.latest_ts || 0;
-                const newLatestTs = stats?.latest_ts || 0;
+// Sidebar Collapse
+loadSidebarState() {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    // Default to collapsed (true) if no saved preference
+    this.sidebarCollapsed = saved !== null ? saved === '1' : true;
+    if (this.sidebarCollapsed) {
+        document.body.classList.add('sidebar-collapsed');
+    }
+},
 
-                // Only update if we have newer data
-                if (newLatestTs > currentLatestTs || newLogs.length !== (this.recentBlocks?.blocks?.length || 0)) {
-                    this.recentBlocks = {
-                        blocks: newLogs,
-                        stats,
-                        total_1h: stats?.blocks_last_hour || stats?.actions?.block || newLogs.length || 0,
-                        loading: false,
-                        lastUpdate: new Date().toISOString()
-                    };
+toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+},
 
-                    // Update view count if needed
-                    const targetView = this.recentBlocksView || 50;
-                    this.recentBlocksView = Math.min(targetView, newLogs.length || targetView, 1000);
-                }
-            } else if (res.status === 429) {
-                // Rate limited - back off by stopping auto-refresh temporarily
-                console.warn('Rate limited on firewall logs, pausing auto-refresh');
-                this.recentBlocksAutoRefresh = false;
-                if (this.recentBlocksRefreshTimer) {
-                    clearInterval(this.recentBlocksRefreshTimer);
-                    this.recentBlocksRefreshTimer = null;
-                }
-            }
-        } catch (e) {
-            console.error('Incremental recent blocks fetch error:', e);
-        } finally {
-            this._recentBlocksFetching = false;
-        }
-    },
+// Widget Management Methods - Using DashboardWidgets module
+loadWidgetPreferences() {
+    DashboardWidgets.loadPreferences(this);
+},
 
-    timeAgo(ts) {
-        return DashboardUtils.timeAgo(ts);
-    },
+saveWidgetPreferences() {
+    DashboardWidgets.savePreferences(this);
+},
 
-    flagFromIso(iso) {
-        return DashboardUtils.flagFromIso(iso);
-    },
+toggleWidget(widgetId) {
+    DashboardWidgets.toggleWidget(this, widgetId);
+},
 
-    // Compact Mode
-    loadCompactMode() {
-        const saved = localStorage.getItem('compactMode');
-        this.compactMode = saved === '1';
-        if (this.compactMode) {
-            document.body.classList.add('compact-mode');
-        }
-    },
+toggleMinimize(widgetId) {
+    DashboardWidgets.toggleMinimize(this, widgetId);
+},
 
-    toggleCompactMode() {
-        this.compactMode = !this.compactMode;
-    },
+isMinimized(widgetId) {
+    return DashboardWidgets.isMinimized(this, widgetId);
+},
 
-    // Sidebar Collapse
-    loadSidebarState() {
-        const saved = localStorage.getItem('sidebarCollapsed');
-        // Default to collapsed (true) if no saved preference
-        this.sidebarCollapsed = saved !== null ? saved === '1' : true;
-        if (this.sidebarCollapsed) {
-            document.body.classList.add('sidebar-collapsed');
-        }
-    },
+isVisible(widgetId) {
+    return DashboardWidgets.isVisible(this, widgetId);
+},
 
-    toggleSidebar() {
-        this.sidebarCollapsed = !this.sidebarCollapsed;
-    },
+getWidgetLabel(widgetId) {
+    return DashboardWidgets.getWidgetLabel(this, widgetId);
+},
 
-    // Widget Management Methods - Using DashboardWidgets module
-    loadWidgetPreferences() {
-        DashboardWidgets.loadPreferences(this);
-    },
-
-    saveWidgetPreferences() {
-        DashboardWidgets.savePreferences(this);
-    },
-
-    toggleWidget(widgetId) {
-        DashboardWidgets.toggleWidget(this, widgetId);
-    },
-
-    toggleMinimize(widgetId) {
-        DashboardWidgets.toggleMinimize(this, widgetId);
-    },
-
-    isMinimized(widgetId) {
-        return DashboardWidgets.isMinimized(this, widgetId);
-    },
-
-    isVisible(widgetId) {
-        return DashboardWidgets.isVisible(this, widgetId);
-    },
-
-    getWidgetLabel(widgetId) {
-        return DashboardWidgets.getWidgetLabel(this, widgetId);
-    },
-
-    resetWidgetPreferences() {
-        DashboardWidgets.resetPreferences(this);
-    },
+resetWidgetPreferences() {
+    DashboardWidgets.resetPreferences(this);
+},
 
     async openIPModal(ip) {
-        this.selectedIP = ip;
-        this.modalOpen = true;
-        this.ipLoading = true;
-        this.ipDetails = null;
-        try {
-            const res = await fetch(`/api/ip_detail/${ip}`);
-            if (res.ok) this.ipDetails = await res.json();
-        } catch (e) { console.error(e); }
-        this.ipLoading = false;
-    },
+    this.selectedIP = ip;
+    this.modalOpen = true;
+    this.ipLoading = true;
+    this.ipDetails = null;
+    try {
+        const res = await fetch(`/api/ip_detail/${ip}`);
+        if (res.ok) this.ipDetails = await res.json();
+    } catch (e) { console.error(e); }
+    this.ipLoading = false;
+},
 
-    applyFilter(ip) {
-        this.openIPModal(ip);
-    },
+applyFilter(ip) {
+    this.openIPModal(ip);
+},
 
-    loadTab(tab) {
-        this.activeTab = tab;
-        const now = Date.now();
-        if (tab === 'overview') {
-            if (now - this.lastFetch.worldmap > this.heavyTTL) {
-                this.fetchWorldMap();
-                this.lastFetch.worldmap = now;
-            }
-            // Map initialization is handled by IntersectionObserver when section becomes visible
-            // Just fetch data here if needed
-        } else if (tab === 'server') {
-            this.startServerHealthAutoRefresh();
-        } else if (tab === 'security') {
-            if (now - this.lastFetch.security > this.heavyTTL) {
-                this.fetchSecurityScore();
-                this.fetchAlertHistory();
-                this.fetchThreatsByCountry();
-                this.fetchThreatVelocity();
-                this.fetchTopThreatIPs();
-                this.fetchRiskIndex();
-                this.fetchAttackTimeline();
-                this.fetchMitreHeatmap();
-                this.fetchProtocolAnomalies();
-                this.fetchFeedHealth();
-                this.fetchWatchlist();
-                this.lastFetch.security = now;
-            }
-        } else if (tab === 'network') {
-            if (now - this.lastFetch.network > this.heavyTTL) {
-                this.fetchFlags();
-                this.fetchDurations();
-                this.fetchPacketSizes();
-                this.fetchProtocols();
-                this.fetchFlowStats();
-                this.fetchProtoMix();
-                this.fetchNetHealth();
-                this.fetchASNs();
-                this.fetchCountries();
-                this.fetchTalkers();
-                this.fetchServices();
-                this.fetchHourlyTraffic();
-                this.lastFetch.network = now;
-            }
-            // Re-render charts when network tab becomes visible
-            this.$nextTick(() => {
-                setTimeout(() => {
-                    if (this.countries && this.countries.labels) this.updateCountriesChart(this.countries);
-                    if (this.protoMix && this.protoMix.labels) this.updateProtoMixChart(this.protoMix);
-                    if (this.hourlyTraffic && this.hourlyTraffic.labels) this.updateHourlyChart(this.hourlyTraffic);
-                    if (this.packetSizes && this.packetSizes.labels) this.updatePktSizeChart(this.packetSizes);
-                }, 200);
-            });
-        } else if (tab === 'forensics') {
-            if (now - this.lastFetch.conversations > this.mediumTTL) {
-                this.fetchConversations();
-                this.lastFetch.conversations = now;
-            }
-            this.fetchRecentBlocks();
-            this.fetchAlertCorrelation();
-            this.fetchThreatActivityTimeline();
-            // Start auto-refresh for firewall logs
-            this.startRecentBlocksAutoRefresh();
-        } else if (tab === 'assistant') {
-            // Load available models when assistant tab is opened
-            this.fetchOllamaModels();
+loadTab(tab) {
+    this.activeTab = tab;
+    const now = Date.now();
+    if (tab === 'overview') {
+        if (now - this.lastFetch.worldmap > this.heavyTTL) {
+            this.fetchWorldMap();
+            this.lastFetch.worldmap = now;
         }
-    },
+        // Map initialization is handled by IntersectionObserver when section becomes visible
+        // Just fetch data here if needed
+    } else if (tab === 'server') {
+        this.startServerHealthAutoRefresh();
+    } else if (tab === 'security') {
+        if (now - this.lastFetch.security > this.heavyTTL) {
+            this.fetchSecurityScore();
+            this.fetchAlertHistory();
+            this.fetchThreatsByCountry();
+            this.fetchThreatVelocity();
+            this.fetchTopThreatIPs();
+            this.fetchRiskIndex();
+            this.fetchAttackTimeline();
+            this.fetchMitreHeatmap();
+            this.fetchProtocolAnomalies();
+            this.fetchFeedHealth();
+            this.fetchWatchlist();
+            this.lastFetch.security = now;
+        }
+    } else if (tab === 'network') {
+        if (now - this.lastFetch.network > this.heavyTTL) {
+            this.fetchFlags();
+            this.fetchDurations();
+            this.fetchPacketSizes();
+            this.fetchProtocols();
+            this.fetchFlowStats();
+            this.fetchProtoMix();
+            this.fetchNetHealth();
+            this.fetchASNs();
+            this.fetchCountries();
+            this.fetchTalkers();
+            this.fetchServices();
+            this.fetchHourlyTraffic();
+            this.lastFetch.network = now;
+        }
+        // Re-render charts when network tab becomes visible
+        this.$nextTick(() => {
+            setTimeout(() => {
+                if (this.countries && this.countries.labels) this.updateCountriesChart(this.countries);
+                if (this.protoMix && this.protoMix.labels) this.updateProtoMixChart(this.protoMix);
+                if (this.hourlyTraffic && this.hourlyTraffic.labels) this.updateHourlyChart(this.hourlyTraffic);
+                if (this.packetSizes && this.packetSizes.labels) this.updatePktSizeChart(this.packetSizes);
+            }, 200);
+        });
+    } else if (tab === 'forensics') {
+        if (now - this.lastFetch.flows > this.mediumTTL) {
+            this.fetchFlows();
+            this.lastFetch.flows = now;
+        }
+        this.fetchRecentBlocks();
+        this.fetchAlertCorrelation();
+        this.fetchThreatActivityTimeline();
+        // Start auto-refresh for firewall logs
+        this.startRecentBlocksAutoRefresh();
+    } else if (tab === 'assistant') {
+        // Load available models when assistant tab is opened
+        this.fetchOllamaModels();
+    }
+},
 
     // ----- Ollama Chat Methods -----
     async fetchOllamaModels() {
-        try {
-            const res = await fetch('/api/ollama/models');
-            if (res.ok) {
-                const data = await res.json();
-                const models = data.models || [];
-                // Ensure default model is in the list if no models returned
-                if (models.length === 0) {
-                    this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
+    try {
+        const res = await fetch('/api/ollama/models');
+        if (res.ok) {
+            const data = await res.json();
+            const models = data.models || [];
+            // Ensure default model is in the list if no models returned
+            if (models.length === 0) {
+                this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
+            } else {
+                // Ensure default model is included if not already present
+                const defaultModel = 'deepseek-coder-v2:16b';
+                if (!models.includes(defaultModel)) {
+                    this.ollamaChat.availableModels = [defaultModel, ...models];
                 } else {
-                    // Ensure default model is included if not already present
-                    const defaultModel = 'deepseek-coder-v2:16b';
-                    if (!models.includes(defaultModel)) {
-                        this.ollamaChat.availableModels = [defaultModel, ...models];
-                    } else {
-                        this.ollamaChat.availableModels = models;
-                    }
+                    this.ollamaChat.availableModels = models;
                 }
             }
-        } catch (e) {
-            console.error('Failed to fetch Ollama models:', e);
-            // Fallback to default model if fetch fails
-            this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
         }
-    },
+    } catch (e) {
+        console.error('Failed to fetch Ollama models:', e);
+        // Fallback to default model if fetch fails
+        this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
+    }
+},
 
-    getDashboardContext() {
-        // Gather current dashboard data for context
-        const context = {
-            timestamp: new Date().toISOString(),
-            timeRange: this.timeRange,
-            security: {
-                score: this.securityScore?.score || 0,
-                grade: this.securityScore?.grade || 'N/A',
-                status: this.securityScore?.status || 'unknown',
-                threats: this.threats?.hits?.length || 0,
-                threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
-                alerts: this.alertHistory?.alerts?.length || 0
-            },
-            network: {
-                totalFlows: this.summary?.total_flows || 0,
-                totalBytes: this.summary?.total_bytes_fmt || this.summary?.total_bytes || 0,
-                totalPackets: this.summary?.total_packets || 0,
-                topSources: (this.sources?.sources?.slice(0, 5) || []).map(s => ({
-                    ip: s.key,
-                    bytes: s.bytes_fmt || s.bytes,
-                    flows: s.flows
-                })),
-                topDestinations: (this.destinations?.destinations?.slice(0, 5) || []).map(d => ({
-                    ip: d.key,
-                    bytes: d.bytes_fmt || d.bytes,
-                    flows: d.flows
-                }))
-            },
-            firewall: {
-                cpu: this.firewall?.cpu_percent || null,
-                memory: this.firewall?.mem_percent || null,
-                uptime: this.firewall?.sys_uptime || null,
-                blocksLastHour: this.firewall?.blocks_1h || 0,
-                syslogActive: this.firewall?.syslog_active || false
-            }
-        };
-        return context;
-    },
+getDashboardContext() {
+    // Gather current dashboard data for context
+    const context = {
+        timestamp: new Date().toISOString(),
+        timeRange: this.timeRange,
+        security: {
+            score: this.securityScore?.score || 0,
+            grade: this.securityScore?.grade || 'N/A',
+            status: this.securityScore?.status || 'unknown',
+            threats: this.threats?.hits?.length || 0,
+            threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
+            alerts: this.alertHistory?.alerts?.length || 0
+        },
+        network: {
+            totalFlows: this.summary?.total_flows || 0,
+            totalBytes: this.summary?.total_bytes_fmt || this.summary?.total_bytes || 0,
+            totalPackets: this.summary?.total_packets || 0,
+            topSources: (this.sources?.sources?.slice(0, 5) || []).map(s => ({
+                ip: s.key,
+                bytes: s.bytes_fmt || s.bytes,
+                flows: s.flows
+            })),
+            topDestinations: (this.destinations?.destinations?.slice(0, 5) || []).map(d => ({
+                ip: d.key,
+                bytes: d.bytes_fmt || d.bytes,
+                flows: d.flows
+            }))
+        },
+        firewall: {
+            cpu: this.firewall?.cpu_percent || null,
+            memory: this.firewall?.mem_percent || null,
+            uptime: this.firewall?.sys_uptime || null,
+            blocksLastHour: this.firewall?.blocks_1h || 0,
+            syslogActive: this.firewall?.syslog_active || false
+        }
+    };
+    return context;
+},
 
-    formatDashboardContext(context) {
-        // Format context as a readable string for the LLM
-        let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
-        contextText += `Time Range: ${context.timeRange}\n\n`;
+formatDashboardContext(context) {
+    // Format context as a readable string for the LLM
+    let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
+    contextText += `Time Range: ${context.timeRange}\n\n`;
 
-        contextText += `### Security Metrics\n`;
-        contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
-        contextText += `- Active Threats Detected: ${context.security.threats}\n`;
-        if (context.security.threatsBlocked > 0) {
-            contextText += `- Threats Blocked by Firewall: ${context.security.threatsBlocked}\n`;
-        }
-        if (context.security.alerts > 0) {
-            contextText += `- Recent Alerts: ${context.security.alerts}\n`;
-        }
-        contextText += `\n### Network Statistics\n`;
-        if (context.network.totalFlows > 0) {
-            contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
-        }
-        if (context.network.totalBytes) {
-            contextText += `- Total Traffic: ${context.network.totalBytes}\n`;
-        }
-        if (context.network.totalPackets > 0) {
-            contextText += `- Total Packets: ${context.network.totalPackets.toLocaleString()}\n`;
-        }
-        if (context.network.topSources.length > 0) {
-            contextText += `- Top Sources: ${context.network.topSources.map(s => `${s.ip} (${s.bytes}, ${s.flows} flows)`).join(', ')}\n`;
-        }
-        if (context.network.topDestinations.length > 0) {
-            contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
-        }
-        contextText += `\n### Firewall Status\n`;
-        if (context.firewall.cpu !== null) {
-            contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
-        }
-        if (context.firewall.memory !== null) {
-            contextText += `- Memory Usage: ${context.firewall.memory}%\n`;
-        }
-        contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
-        contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
+    contextText += `### Security Metrics\n`;
+    contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
+    contextText += `- Active Threats Detected: ${context.security.threats}\n`;
+    if (context.security.threatsBlocked > 0) {
+        contextText += `- Threats Blocked by Firewall: ${context.security.threatsBlocked}\n`;
+    }
+    if (context.security.alerts > 0) {
+        contextText += `- Recent Alerts: ${context.security.alerts}\n`;
+    }
+    contextText += `\n### Network Statistics\n`;
+    if (context.network.totalFlows > 0) {
+        contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
+    }
+    if (context.network.totalBytes) {
+        contextText += `- Total Traffic: ${context.network.totalBytes}\n`;
+    }
+    if (context.network.totalPackets > 0) {
+        contextText += `- Total Packets: ${context.network.totalPackets.toLocaleString()}\n`;
+    }
+    if (context.network.topSources.length > 0) {
+        contextText += `- Top Sources: ${context.network.topSources.map(s => `${s.ip} (${s.bytes}, ${s.flows} flows)`).join(', ')}\n`;
+    }
+    if (context.network.topDestinations.length > 0) {
+        contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
+    }
+    contextText += `\n### Firewall Status\n`;
+    if (context.firewall.cpu !== null) {
+        contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
+    }
+    if (context.firewall.memory !== null) {
+        contextText += `- Memory Usage: ${context.firewall.memory}%\n`;
+    }
+    contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
+    contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
 
-        return contextText;
-    },
+    return contextText;
+},
 
     async sendChatMessage() {
-        const message = this.ollamaChat.inputMessage.trim();
-        if (!message || this.ollamaChat.loading) return;
+    const message = this.ollamaChat.inputMessage.trim();
+    if (!message || this.ollamaChat.loading) return;
 
-        // Add user message to chat
+    // Add user message to chat
+    this.ollamaChat.messages.push({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toLocaleTimeString()
+    });
+
+    // Clear input
+    this.ollamaChat.inputMessage = '';
+    this.ollamaChat.loading = true;
+    this.ollamaChat.error = null;
+
+    try {
+        let messageToSend = message;
+
+        // Optionally include dashboard context
+        if (this.ollamaChat.includeContext) {
+            const context = this.getDashboardContext();
+            const contextText = this.formatDashboardContext(context);
+
+            // Create enhanced message with context
+            const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
+
+            messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
+        }
+
+        const res = await fetch('/api/ollama/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: messageToSend,
+                model: this.ollamaChat.model,
+                stream: false
+            })
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(errorData.error || `Request failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // Extract response message
+        let responseText = '';
+        if (data.message && data.message.content) {
+            responseText = data.message.content;
+        } else if (data.response) {
+            responseText = data.response;
+        } else if (typeof data === 'string') {
+            responseText = data;
+        } else {
+            responseText = JSON.stringify(data);
+        }
+
+        // Add assistant response to chat
         this.ollamaChat.messages.push({
-            role: 'user',
-            content: message,
+            role: 'assistant',
+            content: responseText,
             timestamp: new Date().toLocaleTimeString()
         });
 
-        // Clear input
-        this.ollamaChat.inputMessage = '';
-        this.ollamaChat.loading = true;
-        this.ollamaChat.error = null;
-
-        try {
-            let messageToSend = message;
-
-            // Optionally include dashboard context
-            if (this.ollamaChat.includeContext) {
-                const context = this.getDashboardContext();
-                const contextText = this.formatDashboardContext(context);
-
-                // Create enhanced message with context
-                const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
-
-                messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
+    } catch (e) {
+        console.error('Chat error:', e);
+        this.ollamaChat.error = e.message || 'Failed to get response from Ollama';
+        this.ollamaChat.messages.push({
+            role: 'assistant',
+            content: `Error: ${this.ollamaChat.error}`,
+            timestamp: new Date().toLocaleTimeString()
+        });
+    } finally {
+        this.ollamaChat.loading = false;
+        // Scroll to bottom of chat
+        this.$nextTick(() => {
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
+        });
+    }
+},
 
-            const res = await fetch('/api/ollama/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: messageToSend,
-                    model: this.ollamaChat.model,
-                    stream: false
-                })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-                throw new Error(errorData.error || `Request failed: ${res.status}`);
-            }
-
-            const data = await res.json();
-
-            // Extract response message
-            let responseText = '';
-            if (data.message && data.message.content) {
-                responseText = data.message.content;
-            } else if (data.response) {
-                responseText = data.response;
-            } else if (typeof data === 'string') {
-                responseText = data;
-            } else {
-                responseText = JSON.stringify(data);
-            }
-
-            // Add assistant response to chat
-            this.ollamaChat.messages.push({
-                role: 'assistant',
-                content: responseText,
-                timestamp: new Date().toLocaleTimeString()
-            });
-
-        } catch (e) {
-            console.error('Chat error:', e);
-            this.ollamaChat.error = e.message || 'Failed to get response from Ollama';
-            this.ollamaChat.messages.push({
-                role: 'assistant',
-                content: `Error: ${this.ollamaChat.error}`,
-                timestamp: new Date().toLocaleTimeString()
-            });
-        } finally {
-            this.ollamaChat.loading = false;
-            // Scroll to bottom of chat
-            this.$nextTick(() => {
-                const chatMessages = document.querySelector('.chat-messages');
-                if (chatMessages) {
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }
-            });
-        }
-    },
-
-    clearChat() {
-        this.ollamaChat.messages = [];
-        this.ollamaChat.error = null;
-    },
+clearChat() {
+    this.ollamaChat.messages = [];
+    this.ollamaChat.error = null;
+},
 
     // ----- Expanded Views & Graph -----
 
     async openExpandedTable(type) {
-        this.expandedModalOpen = true;
-        this.expandedLoading = true;
-        this.expandedData = [];
+    this.expandedModalOpen = true;
+    this.expandedLoading = true;
+    this.expandedData = [];
 
-        const titles = {
-            'sources': 'Top 100 Sources',
-            'destinations': 'Top 100 Destinations',
-            'ports': 'Top 100 Ports',
-            'conversations': 'Recent Conversations (Top 100)',
-            'countries': 'Top Countries by Traffic'
-        };
-        this.expandedTitle = titles[type] || 'Expanded Data';
+    const titles = {
+        'sources': 'Top 100 Sources',
+        'destinations': 'Top 100 Destinations',
+        'ports': 'Top 100 Ports',
+        'conversations': 'Recent Conversations (Top 100)',
+        'countries': 'Top Countries by Traffic'
+    };
+    this.expandedTitle = titles[type] || 'Expanded Data';
 
-        try {
-            let url = '';
-            let processRow = null;
+    try {
+        let url = '';
+        let processRow = null;
 
-            if (type === 'sources') {
-                url = `/api/stats/sources?range=${this.timeRange}&limit=100`;
-                this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
-                processRow = (row) => [
-                    `<span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
-                    row.hostname || '-',
-                    row.region || '-',
-                    row.flows.toLocaleString(),
-                    row.bytes_fmt
-                ];
-            } else if (type === 'destinations') {
-                url = `/api/stats/destinations?range=${this.timeRange}&limit=100`;
-                this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
-                processRow = (row) => [
-                    `<span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
-                    row.hostname || '-',
-                    row.region || '-',
-                    row.flows.toLocaleString(),
-                    row.bytes_fmt
-                ];
-            } else if (type === 'ports') {
-                url = `/api/stats/ports?range=${this.timeRange}&limit=100`;
-                this.expandedColumns = ['Port', 'Service', 'Flows', 'Bytes'];
-                processRow = (row) => [
-                    `<span class="text-cyan">${row.key}</span>`,
-                    row.service,
-                    (row.flows || 0).toLocaleString(),
-                    row.bytes_fmt
-                ];
-            } else if (type === 'conversations') {
-                url = `/api/conversations?range=${this.timeRange}&limit=100`;
-                this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
-                processRow = (row) => [
-                    `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,
-                    `<div class="truncate" style="max-width:200px" title="${row.dst_hostname || ''}"><span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.dst}')">${row.dst}</span></div>`,
-                    `${row.proto}/${row.port}`,
-                    row.service,
-                    row.packets.toLocaleString(),
-                    row.bytes_fmt
-                ];
-            } else if (type === 'countries') {
-                url = `/api/stats/countries?range=${this.timeRange}&limit=100`; // Assuming endpoint exists or maps to threats
-                // Actually threatsByCountry uses /api/stats/threats/by_country if it's threats, or just flow stats? 
-                // Let's assume flow stats by country for now, or fallback to threat countries if that's what the widget is.
-                // The widget title is "Top Countries" (Network tab) or "Threats by Country" (Security tab)?
-                // Network tab "Top Countries" uses `this.fetchCountries`.
-                // Security tab "Threats by Country" uses `this.fetchThreatsByCountry`.
-                // The chart is in Network tab "Top Countries" (line 1240 index.html).
-                // So I need /api/stats/countries (Network tab).
-                url = `/api/stats/countries?range=${this.timeRange}&limit=100`;
-                this.expandedColumns = ['Country', 'Flows', 'Bytes', '%'];
-                processRow = (row) => [
-                    `<span class="country-flag">${row.country_code}</span> ${row.country_name}`,
-                    (row.flows || 0).toLocaleString(),
-                    row.bytes_fmt,
-                    row.pct ? row.pct + '%' : '-'
-                ];
-            }
-
-            const res = await fetch(url);
-            if (res.ok) {
-                const json = await res.json();
-                const list = json[type] || json.conversations || [];
-                this.expandedData = list.map(processRow);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            this.expandedLoading = false;
-        }
-    },
-
-    async openNetworkGraph() {
-        this.networkGraphOpen = true;
-        // Wait for modal transition
-        setTimeout(() => {
-            this.renderNetworkGraph();
-        }, 100);
-    },
-
-    async renderNetworkGraph() {
-        const container = document.getElementById('network-graph-container');
-        if (!container) {
-            return;
+        if (type === 'sources') {
+            url = `/api/stats/sources?range=${this.timeRange}&limit=100`;
+            this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+            processRow = (row) => [
+                `<span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                row.hostname || '-',
+                row.region || '-',
+                row.flows.toLocaleString(),
+                row.bytes_fmt
+            ];
+        } else if (type === 'destinations') {
+            url = `/api/stats/destinations?range=${this.timeRange}&limit=100`;
+            this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+            processRow = (row) => [
+                `<span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                row.hostname || '-',
+                row.region || '-',
+                row.flows.toLocaleString(),
+                row.bytes_fmt
+            ];
+        } else if (type === 'ports') {
+            url = `/api/stats/ports?range=${this.timeRange}&limit=100`;
+            this.expandedColumns = ['Port', 'Service', 'Flows', 'Bytes'];
+            processRow = (row) => [
+                `<span class="text-cyan">${row.key}</span>`,
+                row.service,
+                (row.flows || 0).toLocaleString(),
+                row.bytes_fmt
+            ];
+        } else if (type === 'conversations') {
+            url = `/api/conversations?range=${this.timeRange}&limit=100`;
+            this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
+            processRow = (row) => [
+                `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,
+                `<div class="truncate" style="max-width:200px" title="${row.dst_hostname || ''}"><span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.dst}')">${row.dst}</span></div>`,
+                `${row.proto}/${row.port}`,
+                row.service,
+                row.packets.toLocaleString(),
+                row.bytes_fmt
+            ];
+        } else if (type === 'countries') {
+            url = `/api/stats/countries?range=${this.timeRange}&limit=100`; // Assuming endpoint exists or maps to threats
+            // Actually threatsByCountry uses /api/stats/threats/by_country if it's threats, or just flow stats? 
+            // Let's assume flow stats by country for now, or fallback to threat countries if that's what the widget is.
+            // The widget title is "Top Countries" (Network tab) or "Threats by Country" (Security tab)?
+            // Network tab "Top Countries" uses `this.fetchCountries`.
+            // Security tab "Threats by Country" uses `this.fetchThreatsByCountry`.
+            // The chart is in Network tab "Top Countries" (line 1240 index.html).
+            // So I need /api/stats/countries (Network tab).
+            url = `/api/stats/countries?range=${this.timeRange}&limit=100`;
+            this.expandedColumns = ['Country', 'Flows', 'Bytes', '%'];
+            processRow = (row) => [
+                `<span class="country-flag">${row.country_code}</span> ${row.country_name}`,
+                (row.flows || 0).toLocaleString(),
+                row.bytes_fmt,
+                row.pct ? row.pct + '%' : '-'
+            ];
         }
 
-        // Get container dimensions
-        const rect = container.getBoundingClientRect();
-
-        // Check if vis library is loaded
-        if (typeof vis === 'undefined' || !vis.Network) {
-            console.error('[Graph] vis-network library not loaded');
-            container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">vis-network library not loaded. Check console.</div>';
-            return;
-        }
-
-        // Ensure container has dimensions (vis-network needs explicit size)
-        if (rect.height < 100) {
-            container.style.height = '70vh';
-        }
-
-        // Clear previous
-        container.innerHTML = '<div class="spinner" style="margin: 50px auto;"></div>';
-
-        try {
-            // Fetch top conversations
-            const res = await fetch(`/api/conversations?range=${this.timeRange}&limit=100`);
-            if (!res.ok) throw new Error("Failed to fetch graph data: " + res.status);
+        const res = await fetch(url);
+        if (res.ok) {
             const json = await res.json();
-            const convs = json.conversations || [];
-
-            if (convs.length === 0) {
-                container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding-top:50px">No conversation data available</div>';
-                return;
-            }
-
-            // Nodes and Edges
-            const nodes = new Map();
-            const edges = [];
-
-            convs.forEach(c => {
-                // Source Node
-                if (!nodes.has(c.src)) {
-                    nodes.set(c.src, {
-                        id: c.src,
-                        label: c.src,
-                        title: c.src_hostname || c.src,
-                        group: 'source',
-                        value: 1 // base size
-                    });
-                } else {
-                    nodes.get(c.src).value += 1;
-                    if (nodes.get(c.src).group === 'dest') nodes.get(c.src).group = 'both';
-                }
-
-                // Dest Node
-                if (!nodes.has(c.dst)) {
-                    nodes.set(c.dst, {
-                        id: c.dst,
-                        label: c.dst,
-                        title: c.dst_hostname || c.dst,
-                        group: 'dest',
-                        value: 1
-                    });
-                } else {
-                    nodes.get(c.dst).value += 1;
-                    if (nodes.get(c.dst).group === 'source') nodes.get(c.dst).group = 'both';
-                }
-
-                // Edge
-                edges.push({
-                    from: c.src,
-                    to: c.dst,
-                    value: c.bytes, // thickness
-                    title: `${c.proto}/${c.port} (${c.bytes_fmt})`,
-                    color: { inherit: 'from' }
-                });
-            });
-
-            const data = {
-                nodes: Array.from(nodes.values()),
-                edges: edges
-            };
-
-            const options = {
-                nodes: {
-                    shape: 'dot',
-                    font: { color: '#e0e0e0', face: 'monospace' },
-                    scaling: { min: 10, max: 30 }
-                },
-                edges: {
-                    color: { color: '#333', highlight: '#00f3ff' },
-                    smooth: { type: 'continuous' }
-                },
-                groups: {
-                    source: { color: { background: '#00f3ff', border: '#00f3ff' } },
-                    dest: { color: { background: '#bc13fe', border: '#bc13fe' } },
-                    both: { color: { background: '#0aff0a', border: '#0aff0a' } }
-                },
-                physics: {
-                    stabilization: false,
-                    barnesHut: { gravitationalConstant: -8000, springConstant: 0.04, springLength: 95 }
-                },
-                interaction: { tooltipDelay: 200, hover: true }
-            };
-
-            container.innerHTML = ''; // clear spinner
-
-            this.networkGraphInstance = new vis.Network(container, data, options);
-
-            // Click handler
-            this.networkGraphInstance.on("click", (params) => {
-                if (params.nodes.length > 0) {
-                    const nodeId = params.nodes[0];
-                    this.openIPModal(nodeId);
-                }
-            });
-
-        } catch (e) {
-            console.error('[Graph] Error:', e);
-            container.innerHTML = '<div style="color:var(--neon-red); text-align:center; padding-top:50px">Failed to load graph: ' + e.message + '</div>';
+            const list = json[type] || json.conversations || [];
+            this.expandedData = list.map(processRow);
         }
-    },
+    } catch (e) {
+        console.error(e);
+    } finally {
+        this.expandedLoading = false;
+    }
+},
+
 
     // ----- Sparklines -----
     async renderSparklines(kind) {
-        const canvases = document.querySelectorAll(`canvas.spark[data-kind="${kind}"]`);
-        Charts.renderSparklines(canvases, this.timeRange, (k, ip) => this.openTrendModal(k, ip));
-    },
+    const canvases = document.querySelectorAll(`canvas.spark[data-kind="${kind}"]`);
+    Charts.renderSparklines(canvases, this.timeRange, (k, ip) => this.openTrendModal(k, ip));
+},
 
-    openTrendModal(kind, ip) {
-        this.trendKind = kind;
-        this.trendIP = ip;
-        this.trendModalOpen = true;
-        this.$nextTick(() => this.fetchIpTrend());
-    },
+openTrendModal(kind, ip) {
+    this.trendKind = kind;
+    this.trendIP = ip;
+    this.trendModalOpen = true;
+    this.$nextTick(() => this.fetchIpTrend());
+},
 
     async fetchIpTrend() {
-        try {
-            const range = this.timeRange === '15m' ? '6h' : this.timeRange; // ensure enough buckets for spark
-            const url = this.trendKind === 'source' ? `/api/trends/source/${this.trendIP}?range=${range}` : `/api/trends/dest/${this.trendIP}?range=${range}`;
-            const res = await fetch(url);
-            if (!res.ok) return;
-            const data = await res.json();
-            this.updateTrendChart(data);
-        } catch (e) { console.error(e); }
-    },
+    try {
+        const range = this.timeRange === '15m' ? '6h' : this.timeRange; // ensure enough buckets for spark
+        const url = this.trendKind === 'source' ? `/api/trends/source/${this.trendIP}?range=${range}` : `/api/trends/dest/${this.trendIP}?range=${range}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        this.updateTrendChart(data);
+    } catch (e) { console.error(e); }
+},
 
-    updateTrendChart(data) {
-        const ctx = document.getElementById('ipTrendChart');
-        this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
-    }
+updateTrendChart(data) {
+    const ctx = document.getElementById('ipTrendChart');
+    this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
+}
 });

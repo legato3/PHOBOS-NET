@@ -4,7 +4,7 @@ export default () => ({
         { id: 'section-worldmap', label: 'World Map' },
         { id: 'section-network', label: 'Network' },
         { id: 'section-security', label: 'Security' },
-        { id: 'section-conversations', label: 'Conversations' }
+        { id: 'section-flows', label: 'Active Flows' }
     ],
     activeSection: 'section-summary',
     scrollProgress: 0,
