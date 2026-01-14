@@ -67,11 +67,10 @@ else
         
         # For new modular structure, we need to rebuild since structure changed
         echo "⚠️  Modular structure changes detected - rebuilding container..."
-        REBUILD=true
         
-        # Restart container to pick up changes
-        echo "🔄 Restarting container..."
-        ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker compose -f docker/docker-compose.yml restart 2>/dev/null || docker compose -f docker/docker-compose.yml up -d"
+        # Rebuild and restart
+        echo "🔄 Rebuilding and restarting container..."
+        ssh -i "$SSH_KEY" $USER@$SERVER "cd $REMOTE_DIR && docker compose -f docker/docker-compose.yml up -d --build"
     else
         # Container doesn't exist, need to build it
         echo "📦 Container doesn't exist, building for first time..."
