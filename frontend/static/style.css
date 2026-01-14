@@ -1100,6 +1100,13 @@ table:has(.network-endpoint-row) td {
     /* Padding handled by .endpoint-cell */
 }
 
+/* Explicitly force 50/50 split on these specific tables to fight the collapse */
+table:has(.network-endpoint-row) th:first-child,
+table:has(.network-endpoint-row) td:first-child {
+    width: 50% !important;
+    max-width: 50% !important;
+}
+
 table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     margin-bottom: 0;
 }
