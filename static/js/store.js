@@ -186,7 +186,7 @@ export const Store = () => ({
             threatVelocity: 'Threat Velocity',
             topThreatIPs: 'Top Threat IPs',
             riskIndex: 'Network Risk Index',
-            conversations: 'Recent Conversations',
+            conversations: 'Active Flows',
             alertCorrelation: 'Alert Correlation & Attack Chains',
             threatActivityTimeline: 'Threat Activity Timeline',
             talkers: 'Top Talkers',
@@ -3441,21 +3441,7 @@ export const Store = () => ({
             }));
         } catch (err) {
             console.error('Flow search failed:', err);
-            // For now, use mock data from conversations as fallback
-            const filtered = this.conversations.conversations.filter(c => {
-                if (this.flowSearch.filters.srcIP && !c.src.includes(this.flowSearch.filters.srcIP)) return false;
-                if (this.flowSearch.filters.dstIP && !c.dst.includes(this.flowSearch.filters.dstIP)) return false;
-                if (this.flowSearch.filters.port && c.port !== parseInt(this.flowSearch.filters.port)) return false;
-                if (this.flowSearch.filters.protocol && c.proto.toLowerCase() !== this.flowSearch.filters.protocol.toLowerCase()) return false;
-                return true;
-            });
-            this.flowSearch.results = filtered.map(c => ({
-                src: c.src,
-                dst: c.dst,
-                proto: c.proto,
-                port: c.port,
-                bytes_fmt: c.bytes_fmt
-            }));
+            this.flowSearch.results = [];
         } finally {
             this.flowSearch.loading = false;
         }
@@ -4210,7 +4196,8 @@ export const Store = () => ({
             'sources': 'Top 100 Sources',
             'destinations': 'Top 100 Destinations',
             'ports': 'Top 100 Ports',
-            'conversations': 'Recent Conversations (Top 100)',
+            'conversations': 'Active Flows (Top 100)',
+            'flows': 'Active Flows (Top 100)',
             'countries': 'Top Countries by Traffic'
         };
         this.expandedTitle = titles[type] || 'Expanded Data';
@@ -4248,8 +4235,8 @@ export const Store = () => ({
                     (row.flows || 0).toLocaleString(),
                     row.bytes_fmt
                 ];
-            } else if (type === 'conversations') {
-                url = `/api/conversations?range=${this.timeRange}&limit=100`;
+            } else if (type === 'conversations' || type === 'flows') {
+                url = `/api/flows?range=${this.timeRange}&limit=100`;
                 this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
                 processRow = (row) => [
                     `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,

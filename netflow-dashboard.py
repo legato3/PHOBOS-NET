@@ -4340,11 +4340,11 @@ def api_flows():
             return jsonify(_flows_cache["data"])
     tf = get_time_range(range_key)
 
-    # Fetch raw flows to get actual conversation partners
-    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
+    # Fetch raw flows to get actual flow partners
+    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' flows
     # If limit > 100, we might need more data.
-    # Fetch raw flows to get actual conversation partners
-    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' conversations
+    # Fetch raw flows to get actual flow partners
+    # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' flows
     # If limit > 100, we might need more data.
     fetch_limit = str(max(100, limit))
     # Aggregate by 5-tuple to merge duplicate/fragmented flows
@@ -4505,11 +4505,11 @@ def api_ip_detail(ip):
     # Generate alerts for high-severity anomalies
     generate_ip_anomaly_alerts(ip, anomalies, geo)
     
-    # Find related IPs (simplified: IPs that appear in conversations with this IP)
+    # Find related IPs (simplified: IPs that appear in flows with this IP)
     # This finds IPs that directly communicate with this IP (as source or destination)
     related_ips = []
     try:
-        # Get conversations involving this IP
+        # Get flows involving this IP
         convs_output = run_nfdump(["-a", f"ip {ip}", "-n", "500", "-o", "csv"], tf)
         lines = convs_output.strip().split("\n")
         if len(lines) > 1:

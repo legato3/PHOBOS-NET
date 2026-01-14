@@ -972,51 +972,6 @@ body.sidebar-collapsed .header {
     align-items: center;
 }
 
-/* Recent Conversations header controls */
-.convo-actions {
-    gap: 8px;
-    align-items: center;
-}
-
-.convo-toggle {
-    display: inline-flex;
-    border: 1px solid var(--card-border);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.convo-toggle button {
-    background: transparent;
-    border: none;
-    padding: 6px 12px;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.85em;
-}
-
-.convo-toggle button.active {
-    background: var(--accent-primary);
-    color: #000;
-    font-weight: 600;
-}
-
-.convo-action-group {
-    display: inline-flex;
-    gap: 6px;
-}
-
-.convo-action-group .icon-btn-small {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.convo-action-group .icon-btn-small:hover {
-    background: rgba(0, 243, 255, 0.12);
-}
 
 /* Stat Box Polish - Integrated TrueNAS Style (Legacy removal) */
 .stat-box .sublabel {
@@ -4251,82 +4206,6 @@ body {
     padding: 2px 6px !important;
 }
 
-/* ============================================
-   TOP CONVERSATIONS WIDGET
-   ============================================ */
-.conversation-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 220px;
-    overflow-y: auto;
-}
-
-.conversation-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(0, 243, 255, 0.1);
-    border-radius: 6px;
-    transition: all 0.15s;
-}
-
-.conversation-item:hover {
-    background: rgba(0, 243, 255, 0.05);
-    border-color: rgba(0, 243, 255, 0.2);
-}
-
-.conv-endpoints {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85em;
-    flex-wrap: wrap;
-}
-
-.conv-src,
-.conv-dst {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-}
-
-.conv-src span:first-child,
-.conv-dst span:first-child {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px;
-}
-
-.conv-region {
-    font-size: 0.75em;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.05);
-    padding: 1px 4px;
-    border-radius: 3px;
-}
-
-.conv-arrow {
-    color: var(--text-muted);
-    font-size: 0.9em;
-}
-
-.conv-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75em;
-}
-
-.conv-bytes {
-    margin-left: auto;
-    font-weight: 600;
-    font-family: var(--font-mono);
-}
 
 /* ============================================
    TRAFFIC INSIGHTS WIDGET
