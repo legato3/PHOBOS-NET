@@ -13,14 +13,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY sample_data/requirements.txt .
 
 # Install Python dependencies (including gunicorn for production)
 RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 
 # Copy application files
 COPY netflow-dashboard.py .
-COPY threat-feeds.txt .
+COPY sample_data/threat-feeds.txt .
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY templates/ ./templates/

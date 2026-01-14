@@ -4,16 +4,14 @@
 const CACHE_NAME = 'netflow-dashboard-v3.0.2';
 const STATIC_ASSETS = [
     '/',
-    '/static/style.min.css',
-    '/static/app.min.js',
+    '/static/style.css',
+    '/static/app.js',
     '/static/js/utils.js',
     '/static/js/widgets.js',
     '/static/js/lazy-load.js',
     '/static/chart.min.js',
-    '/static/chartjs-chart-sankey.min.js',
     '/static/alpine.min.js',
-    '/static/alpine-collapse.min.js',
-    '/static/vis-network.min.js'
+    '/static/alpine-collapse.min.js'
 ];
 
 // Cache durations (in seconds)
