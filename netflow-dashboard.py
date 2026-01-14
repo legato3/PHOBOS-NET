@@ -839,7 +839,6 @@ def run_nfdump(args, tf=None):
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
-            else:
     except Exception as e:
         pass
 
