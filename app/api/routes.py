@@ -27,6 +27,7 @@ from app.services.threats import (
     detect_anomalies, run_all_detections,
     load_threatlist, get_feed_label, send_notifications
 )
+from app.services.stats import calculate_security_score
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
 from app.utils.formatters import format_time_ago, format_uptime
@@ -49,7 +50,7 @@ try:
     # Helper functions
     # load_notify_cfg now imported from app.utils.config_helpers
     # load_threatlist, get_feed_label, send_notifications now imported from app.services.threats
-    calculate_security_score = _phobos.calculate_security_score
+    # calculate_security_score now imported from app.services.stats
     # format_duration now imported from app.utils.helpers
     # check_disk_space now imported from app.utils.helpers
     calculate_cpu_percent_from_stat = getattr(_phobos, 'calculate_cpu_percent_from_stat', None)
@@ -166,7 +167,6 @@ except ImportError as e:
     # Fallback if phobos_dashboard cannot be imported
     print(f"Warning: Could not import from phobos_dashboard: {e}")
     throttle = None
-    calculate_security_score = None
     start_threat_thread = None
     start_trends_thread = None
     start_agg_thread = None
