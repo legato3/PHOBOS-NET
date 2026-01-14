@@ -24,7 +24,8 @@ from app.services.netflow import get_common_nfdump_data, run_nfdump, parse_csv
 from app.services.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
-    detect_anomalies, run_all_detections
+    detect_anomalies, run_all_detections,
+    load_threatlist, get_feed_label, send_notifications
 )
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
@@ -47,8 +48,8 @@ try:
     
     # Helper functions
     # load_notify_cfg now imported from app.utils.config_helpers
+    # load_threatlist, get_feed_label, send_notifications now imported from app.services.threats
     calculate_security_score = _phobos.calculate_security_score
-    load_threatlist = _phobos.load_threatlist
     # format_duration now imported from app.utils.helpers
     # check_disk_space now imported from app.utils.helpers
     calculate_cpu_percent_from_stat = getattr(_phobos, 'calculate_cpu_percent_from_stat', None)
@@ -130,8 +131,7 @@ try:
     # Helper functions
     # load_list, check_disk_space now imported from app.utils.helpers
     # format_time_ago, format_uptime now imported from app.utils.formatters
-    send_notifications = getattr(_phobos, 'send_notifications', None)
-    get_feed_label = getattr(_phobos, 'get_feed_label', None)
+    # send_notifications, get_feed_label now imported from app.services.threats
     get_traffic_direction = getattr(_phobos, 'get_traffic_direction', None)
     lookup_threat_intelligence = getattr(_phobos, 'lookup_threat_intelligence', None)
     detect_ip_anomalies = getattr(_phobos, 'detect_ip_anomalies', None)

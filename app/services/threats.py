@@ -4,16 +4,17 @@ import os
 import json
 import requests
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 from app.config import (
     WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
-    SECURITY_WEBHOOK_PATH, PORTS, SUSPICIOUS_PORTS, BRUTE_FORCE_PORTS,
+    SECURITY_WEBHOOK_PATH, WEBHOOK_PATH, PORTS, SUSPICIOUS_PORTS, BRUTE_FORCE_PORTS,
     PORT_SCAN_THRESHOLD, PORT_SCAN_WINDOW, EXFIL_THRESHOLD_MB, EXFIL_RATIO_THRESHOLD,
     DNS_QUERY_THRESHOLD, BUSINESS_HOURS_START, BUSINESS_HOURS_END, OFF_HOURS_THRESHOLD_MB
 )
 from app.utils.helpers import is_internal, fmt_bytes
 from app.utils.geoip import lookup_geo
+from app.utils.config_helpers import load_notify_cfg
 
 # Global state for threat intelligence
 _threat_status = {'last_attempt': 0, 'last_ok': 0, 'size': 0, 'status': 'unknown', 'error': None}
@@ -21,10 +22,12 @@ _threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
 _threat_timeline = {}  # Maps IP -> {first_seen, last_seen, hit_count}
 _feed_status = {}  # Per-feed health tracking
 _watchlist_cache = {"data": set(), "mtime": 0}
+_threat_cache = {"data": set(), "mtime": 0}  # Cache for threat list file
 
 # Detection state
 _alert_history = deque(maxlen=200)  # Increased for 24h history
 _alert_history_lock = threading.Lock()
+_alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
@@ -702,3 +705,77 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
                 _alert_history.append(alert)
     
     return all_alerts
+
+
+def load_threatlist():
+    """Load threat list from file with caching."""
+    try:
+        mtime = os.path.getmtime(THREATLIST_PATH)
+    except FileNotFoundError:
+        _threat_cache["data"] = set()
+        _threat_cache["mtime"] = 0
+        return set()
+    if mtime != _threat_cache["mtime"]:
+        try:
+            with open(THREATLIST_PATH, "r") as f:
+                lines = [l.strip() for l in f if l.strip() and not l.startswith('#')]
+                _threat_cache["data"] = set(lines)
+                _threat_cache["mtime"] = mtime
+        except Exception:
+            pass
+    return _threat_cache["data"]
+
+
+def get_feed_label():
+    """Get the label for the threat feed."""
+    return "threat-feed"
+
+
+def send_webhook(alerts):
+    """Send alerts to webhook URL if configured."""
+    notify = load_notify_cfg()
+    if not notify.get("webhook", True):
+        return
+    if not os.path.exists(WEBHOOK_PATH):
+        return
+    try:
+        with open(WEBHOOK_PATH, "r") as f:
+            url = f.read().strip()
+        if url:
+            requests.post(url, json={"alerts": alerts}, timeout=3)
+    except Exception:
+        pass
+
+
+def record_history(alerts):
+    """Record alerts in history queue."""
+    if not alerts:
+        return
+    ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    for a in alerts:
+        entry = {"ts": ts, "msg": a.get('msg'), "severity": a.get('severity', 'info')}
+        _alert_history.appendleft(entry)
+
+
+def _should_deliver(alert):
+    """Check if alert should be delivered based on notification config."""
+    cfg = load_notify_cfg()
+    if cfg.get('mute_until', 0) > time.time():
+        return False
+    return True
+
+
+def send_notifications(alerts):
+    """Send notifications for alerts (rate limited to once per minute)."""
+    global _alert_sent_ts
+    if not alerts:
+        return
+    filtered = [a for a in alerts if _should_deliver(a)]
+    if not filtered:
+        return
+    now = time.time()
+    if now - _alert_sent_ts < 60:
+        return
+    send_webhook(filtered)
+    record_history(filtered)
+    _alert_sent_ts = now
