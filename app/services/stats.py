@@ -1,20 +1,36 @@
 """Statistics service for PROX_NFDUMP application."""
 import time
+import threading
 from app.db.sqlite import _get_firewall_block_stats
 # Import threat module to access globals
 import app.services.threats as threats_module
 
+# Cache for security score calculation (30s TTL to reduce redundant DB queries)
+_security_score_cache = {"data": None, "ts": 0}
+_security_score_lock = threading.Lock()
+_SECURITY_SCORE_CACHE_TTL = 30  # 30 seconds
+
 
 def calculate_security_score():
     """Calculate 0-100 security score based on current threat state and firewall activity"""
+    # PERFORMANCE: Cache result for 30s to reduce redundant DB queries and timeline iterations
+    now = time.time()
+    with _security_score_lock:
+        if _security_score_cache["data"] and now - _security_score_cache["ts"] < _SECURITY_SCORE_CACHE_TTL:
+            return _security_score_cache["data"]
+    
     score = 100
     reasons = []
     
-    # Get firewall block stats
+    # Get firewall block stats (expensive DB query - cached at function level)
     fw_stats = _get_firewall_block_stats(hours=1)
     
-    # Threat detections penalty (up to -40 points)
-    threat_count = len([ip for ip in threats_module._threat_timeline if time.time() - threats_module._threat_timeline[ip]['last_seen'] < 3600])
+    # PERFORMANCE: Compute active threat count once instead of filtering list comprehension each time
+    now_ts = time.time()
+    hour_ago = now_ts - 3600
+    threat_count = sum(1 for ip, data in threats_module._threat_timeline.items() 
+                      if data.get('last_seen', 0) > hour_ago)
+    
     if threat_count > 0:
         penalty = min(40, threat_count * 10)
         score -= penalty
@@ -56,11 +72,11 @@ def calculate_security_score():
         reasons.append("-5: Low blocklist coverage")
     
     # Recent critical alerts penalty
-    now = time.time()
+    # PERFORMANCE: Use already-computed now_ts instead of calling time.time() again
     recent_critical = 0
     with threats_module._alert_history_lock:
         for alert in threats_module._alert_history:
-            if alert.get('severity') == 'critical' and now - alert.get('ts', 0) < 3600:
+            if alert.get('severity') == 'critical' and now_ts - alert.get('ts', 0) < 3600:
                 recent_critical += 1
     if recent_critical > 0:
         penalty = min(30, recent_critical * 5)
@@ -87,14 +103,21 @@ def calculate_security_score():
         grade = 'F'
         status = 'critical'
     
-    return {
+    result = {
         'score': score,
         'grade': grade,
         'status': status,
         'reasons': reasons,
-        'threats_active': threat_count if 'threat_count' in dir() else 0,
+        'threats_active': threat_count,
         'feeds_ok': feeds_ok if 'feeds_ok' in dir() else 0,
         'feeds_total': feeds_total if 'feeds_total' in dir() else 0,
         'blocklist_ips': total_ips,
         'firewall': fw_stats
     }
+    
+    # PERFORMANCE: Cache result before returning
+    with _security_score_lock:
+        _security_score_cache["data"] = result
+        _security_score_cache["ts"] = now
+    
+    return result

@@ -126,26 +126,27 @@ def run_nfdump(args, tf=None):
     global _metric_nfdump_calls
     _metric_nfdump_calls += 1
     
+    # PERFORMANCE: Check nfdump availability once and cache result (expensive subprocess call)
+    if state._has_nfdump is None:
+        try:
+            subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=2)
+            state._has_nfdump = True
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            state._has_nfdump = False
+    
     # Try running actual nfdump first
-    try:
-        cmd = ["nfdump", "-R", "/var/cache/nfdump", "-o", "csv"]
-        if tf:
-            cmd.extend(["-t", tf])
-        cmd.extend(args)
-        
-        if state._has_nfdump is None:
-            try:
-                subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                state._has_nfdump = True
-            except (OSError, subprocess.CalledProcessError):
-                state._has_nfdump = False
-        
-        if state._has_nfdump:
+    if state._has_nfdump:
+        try:
+            cmd = ["nfdump", "-R", "/var/cache/nfdump", "-o", "csv"]
+            if tf:
+                cmd.extend(["-t", tf])
+            cmd.extend(args)
+            
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
                 return r.stdout
-    except Exception:
-        pass
+        except Exception:
+            pass
     
     # Fallback to mock
     return mock_nfdump(args)
@@ -250,15 +251,44 @@ def parse_csv(output, expected_key=None):
     return results
 
 
+# PERFORMANCE: Cache traffic direction queries (IP + time range) to avoid redundant nfdump calls
+_traffic_direction_cache = {}
+_traffic_direction_lock = threading.Lock()
+_TRAFFIC_DIRECTION_TTL = 60  # 1 minute cache
+
+
 def get_traffic_direction(ip, tf):
     """Get upload/download traffic for an IP."""
+    # PERFORMANCE: Cache result to avoid redundant nfdump subprocess calls
+    now = time.time()
+    cache_key = f"{ip}:{tf}"
+    
+    with _traffic_direction_lock:
+        if cache_key in _traffic_direction_cache:
+            entry = _traffic_direction_cache[cache_key]
+            if now - entry["ts"] < _TRAFFIC_DIRECTION_TTL:
+                return entry["data"]
+    
+    # Fetch data (two nfdump calls)
     out = run_nfdump(["-a", f"src ip {ip}", "-s", "srcip/bytes", "-n", "1"], tf)
     in_data = run_nfdump(["-a", f"dst ip {ip}", "-s", "dstip/bytes", "-n", "1"], tf)
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
-    return {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
+    result = {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
+    
+    # PERFORMANCE: Cache result before returning
+    with _traffic_direction_lock:
+        _traffic_direction_cache[cache_key] = {"data": result, "ts": now}
+        # Prune cache if too large (keep last 100)
+        if len(_traffic_direction_cache) > 100:
+            # Remove oldest entries
+            sorted_items = sorted(_traffic_direction_cache.items(), key=lambda kv: kv[1]["ts"])
+            for k, _ in sorted_items[:max(1, len(sorted_items) - 100)]:
+                _traffic_direction_cache.pop(k, None)
+    
+    return result
 
 
 def get_common_nfdump_data(query_type, range_key):

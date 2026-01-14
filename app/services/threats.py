@@ -258,6 +258,9 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
     seen = set()
     threat_set = threat_set - whitelist
     
+    # PERFORMANCE: Load watchlist once at start instead of per-IP check (reduces file I/O)
+    watchlist = load_watchlist()
+    
     # Combine sources and destinations for IP checking
     all_ips_data = list(sources_data)
     if destinations_data:
@@ -318,8 +321,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 # Send to security webhook if configured
                 send_security_webhook(alert)
 
-        # Watchlist Check (custom watchlist)
-        watchlist = load_watchlist()
+        # PERFORMANCE: Use pre-loaded watchlist instead of calling load_watchlist() per IP
         if item["key"] in watchlist:
             alert_key = f"watchlist_{item['key']}"
             if alert_key not in seen:
