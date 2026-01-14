@@ -1039,7 +1039,7 @@
                                                                 <!-- Secondary: Metadata with inline sparkline -->
                                                                 <div class="endpoint-meta-line">
                                                                     <span x-text="item.region"></span>
-                                                                    <span x-show="item.hostname"
+                                                                    <span x-show="item.hostname && item.hostname !== item.key"
                                                                         x-text="' • ' + item.hostname"></span>
                                                                     <span class="endpoint-meta-sparkline">
                                                                         <canvas class="spark spark-subtle" width="80"
@@ -1061,10 +1061,10 @@
                                                             <div class="endpoint-cell endpoint-value-cell">
                                                                 <div class="endpoint-value"
                                                                     :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}"
-                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
                                                                 </div>
                                                                 <div class="endpoint-flows"
-                                                                    x-text="item.flows + ' flows'">
+                                                                    x-text="(item.flows || 0) + ' flows'">
                                                                 </div>
                                                             </div>
                                                         </td>
@@ -1131,7 +1131,7 @@
                                                                 <!-- Secondary: Metadata with inline sparkline -->
                                                                 <div class="endpoint-meta-line">
                                                                     <span x-text="item.region"></span>
-                                                                    <span x-show="item.hostname"
+                                                                    <span x-show="item.hostname && item.hostname !== item.key"
                                                                         x-text="' • ' + item.hostname"></span>
                                                                     <span class="endpoint-meta-sparkline">
                                                                         <canvas class="spark spark-subtle" width="80"
@@ -1153,10 +1153,10 @@
                                                             <div class="endpoint-cell endpoint-value-cell">
                                                                 <div class="endpoint-value"
                                                                     :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
-                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                                                    x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
                                                                 </div>
                                                                 <div class="endpoint-flows"
-                                                                    x-text="item.flows + ' flows'">
+                                                                    x-text="(item.flows || 0) + ' flows'">
                                                                 </div>
                                                             </div>
                                                         </td>

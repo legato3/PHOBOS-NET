@@ -1163,11 +1163,12 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 /* Endpoint content structure */
 .endpoint-primary-line {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--endpoint-cell-gap);
-    margin-bottom: var(--endpoint-meta-gap);
+    margin-bottom: 4px;
     justify-content: flex-start;
     min-width: 0;
+    line-height: 1.4;
 }
 
 .endpoint-ip {
@@ -1202,11 +1203,12 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 
 .endpoint-meta-line {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-2);
     font-size: var(--endpoint-meta-size);
     color: var(--text-muted);
-    line-height: 1.4;
+    line-height: 1.5;
+    margin-top: 2px;
     margin-bottom: var(--space-1);
     justify-content: flex-start;
     text-align: left;

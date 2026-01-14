@@ -1110,21 +1110,21 @@ export const Store = () => ({
     },
 
     get filteredSources() {
-        let list = this.sources.sources;
+        let list = this.sources.sources || [];
         if (this.searchQuery) {
             const q = this.searchQuery.toLowerCase();
             list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
         }
-        return list.slice(0, 5);
+        return list.slice(0, 10);
     },
 
     get filteredDestinations() {
-        let list = this.destinations.destinations;
+        let list = this.destinations.destinations || [];
         if (this.searchQuery) {
             const q = this.searchQuery.toLowerCase();
             list = list.filter(s => s.key.includes(q) || (s.hostname && s.hostname.includes(q)));
         }
-        return list.slice(0, 5);
+        return list.slice(0, 10);
     },
 
     async fetchSummary() {
