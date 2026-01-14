@@ -838,13 +838,9 @@ def run_nfdump(args, tf=None):
         if _has_nfdump:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
             if r.returncode == 0 and r.stdout:
-                # DEBUG: Log successful nfdump
-                # print(f"DEBUG: nfdump success len={len(r.stdout)}")
                 return r.stdout
             else:
-                 print(f"DEBUG: nfdump failed RC={r.returncode} STDERR={r.stderr} CMD={cmd}")
     except Exception as e:
-        print(f"DEBUG: run_nfdump exception {e}")
         pass
 
     # Fallback to Mock
@@ -2748,7 +2744,6 @@ def api_stats_talkers():
     tf = get_time_range(range_key)
     # Sort by bytes (already sorted by nfdump, but we limits)
     # nfdump -O bytes -n 100 returns top 100 flows sorted by bytes
-    # DEBUG: temporarily disabling tf to see if time filtering is the issue
     output = run_nfdump(["-O", "bytes", "-n", "50"], None)
 
     flows = []

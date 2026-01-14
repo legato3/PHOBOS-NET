@@ -918,12 +918,10 @@ export const Store = () => ({
 
                             // If container has dimensions, initialize
                             if (rect.width > 0 && rect.height > 0 && !this.map) {
-                                console.log(`[WorldMap] Container has dimensions ${rect.width}x${rect.height}, initializing map`);
                                 this.renderWorldMap();
                             }
                             // If parent has dimensions but container doesn't, force container dimensions
                             else if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
-                                console.log(`[WorldMap] Parent has dimensions ${parentRect.width}x${parentRect.height}, forcing container dimensions`);
                                 container.style.width = parentRect.width + 'px';
                                 container.style.height = parentRect.height + 'px';
                                 // Wait one more frame for style to apply
@@ -935,12 +933,10 @@ export const Store = () => ({
                             }
                             // If still no dimensions, use ResizeObserver as fallback
                             else if (!this._mapResizeObserver) {
-                                console.log('[WorldMap] No dimensions yet, setting up ResizeObserver');
                                 this._mapResizeObserver = new ResizeObserver((entries) => {
                                     for (const entry of entries) {
                                         const { width, height } = entry.contentRect;
                                         if (width > 0 && height > 0 && !this.map) {
-                                            console.log(`[WorldMap] ResizeObserver - Container has dimensions ${width}x${height}, initializing map`);
                                             this._mapResizeObserver.disconnect();
                                             this._mapResizeObserver = null;
                                             this.renderWorldMap();
@@ -1921,14 +1917,12 @@ export const Store = () => ({
     },
 
     renderWorldMap() {
-        console.log('[WorldMap] renderWorldMap() called');
         const container = document.getElementById('world-map-svg');
         if (!container) {
             console.warn('[WorldMap] Container not found');
             this.mapStatus = '';
             return;
         }
-        console.log('[WorldMap] Container found:', container);
 
         // Don't check visibility strictly - Leaflet can initialize even if container is hidden
         // We'll call invalidateSize() when the container becomes visible
@@ -1957,7 +1951,6 @@ export const Store = () => ({
             // Note: Container might have zero dimensions if tab is hidden
             // Leaflet can initialize on a 0x0 container - we'll call invalidateSize() when visible
             const containerRect = container.getBoundingClientRect();
-            console.log('[WorldMap] Container dimensions before init:', containerRect.width, 'x', containerRect.height);
 
             // Ensure no previous instance exists to prevent "Map container is already initialized" error
             if (container._leaflet_id) {
@@ -1969,7 +1962,6 @@ export const Store = () => ({
 
             try {
 
-                console.log('[WorldMap] Creating Leaflet map instance...');
                 this.map = L.map('world-map-svg', {
                     center: [20, 0],
                     zoom: 2,
@@ -1980,7 +1972,6 @@ export const Store = () => ({
                     preferCanvas: true, // Use canvas for better performance
                     renderer: L.canvas()
                 });
-                console.log('[WorldMap] Map instance created:', this.map);
 
                 // Initialize mapLayers array if not exists
                 if (!this.mapLayers) {
@@ -1993,23 +1984,19 @@ export const Store = () => ({
 
                 // Add a base tile layer immediately so map is visible
                 // (Container might have 0 dimensions if tab is hidden - Leaflet handles this)
-                console.log('[WorldMap] Adding base tile layer...');
                 const baseTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap &copy; CARTO',
                     subdomains: 'abcd',
                     maxZoom: 19
                 });
                 baseTileLayer.addTo(this.map);
-                console.log('[WorldMap] Base tile layer added to map');
 
                 // Invalidate size - even if container has 0 dimensions, Leaflet will handle it
                 this.map.whenReady(() => {
                     if (!this.map) return;
-                    console.log('[WorldMap] Map whenReady callback fired');
                     // Call invalidateSize - will work even if container is temporarily 0x0
                     if (this.map) {
                         this.map.invalidateSize();
-                        console.log('[WorldMap] invalidateSize() called in whenReady');
                     }
 
                     // Try to load GeoJSON overlay (optional enhancement)
@@ -2044,11 +2031,9 @@ export const Store = () => ({
                     setTimeout(() => {
                         if (this.map) {
                             const rect = container.getBoundingClientRect();
-                            console.log('[WorldMap] Delayed check - Container dimensions:', rect.width, 'x', rect.height);
                             this.map.invalidateSize();
                             this.map.setView([20, 0], 2);
                             this.mapStatus = ''; // Clear status on success
-                            console.log('[WorldMap] Map initialized successfully, view set to [20, 0], zoom 2');
                             // If container still has dimensions, great. If not, invalidateSize() will be called again when tab becomes visible
                         }
                     }, 300);
