@@ -223,6 +223,7 @@ All major refactoring milestones have been completed:
   - ✅ Fixed imports: `load_city_db` (from `app/utils/geoip.py`), `THREAT_WHITELIST` (from `app/config.py`)
   - ✅ Extracted `_get_bucket_end()` and `_ensure_rollup_for_bucket()` to `app/db/sqlite.py`
   - ✅ Fixed `_threat_timeline` usage: now accessed via `threats_module._threat_timeline` instead of `_phobos`
+  - ✅ Extracted `track_performance()`, `track_error()`, and performance metrics state to `app/services/metrics.py`
   - ⏭️ Still remaining: `load_config`, `save_config`, `get_default_config` (modify globals, more complex)
   - ⏭️ Other helper functions that can be extracted:
     - `get_snmp_data`, `calculate_cpu_percent_from_stat` - SNMP functions with many global dependencies
