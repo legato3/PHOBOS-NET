@@ -94,6 +94,9 @@ _syslog_stats_lock = threading.Lock()
 _syslog_buffer = []
 _syslog_buffer_lock = threading.Lock()
 _syslog_buffer_size = 100
+# Alert history for Syslog triggers (new)
+_alert_history = deque(maxlen=1000)
+_alert_history_lock = threading.Lock()
 
 # ==================== SNMP State ====================
 _snmp_cache = {"data": None, "ts": 0}
