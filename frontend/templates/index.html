@@ -36,7 +36,7 @@
     <link rel="preload" href="/static/js/lazy-load.js" as="script">
 
     <!-- CSS - Critical render path, load first -->
-    <link rel="stylesheet" href="/static/style.css?v=3.1.1">
+    <link rel="stylesheet" href="/static/style.css?v=3.1.2">
     <!-- Widget-specific enhancements -->
 
 
@@ -636,8 +636,7 @@
                                                         <span class="country-count">
                                                             <span x-text="c.threat_count"></span>
                                                             <template x-if="c.blocked > 0">
-                                                                <span
-                                                                    class="text-green text-8 ml-1">🔥<span
+                                                                <span class="text-green text-8 ml-1">🔥<span
                                                                         x-text="c.blocked"></span></span>
                                                             </template>
                                                         </span>
@@ -746,8 +745,7 @@
                                                     <template x-if="p.suspicious"><span
                                                             style="color: var(--neon-pink); font-size: 0.75em;">
                                                             ⚠</span></template>
-                                                    <div class="text-8 text-muted"
-                                                        x-text="p.service || ''">
+                                                    <div class="text-8 text-muted" x-text="p.service || ''">
                                                     </div>
                                                 </td>
                                                 <td>
@@ -1037,7 +1035,8 @@
                                                                 <!-- Secondary: Metadata with inline sparkline -->
                                                                 <div class="endpoint-meta-line">
                                                                     <span x-text="item.region"></span>
-                                                                    <span x-show="item.hostname && item.hostname !== item.key"
+                                                                    <span
+                                                                        x-show="item.hostname && item.hostname !== item.key"
                                                                         x-text="' • ' + item.hostname"></span>
                                                                     <span class="endpoint-meta-sparkline">
                                                                         <canvas class="spark spark-subtle" width="80"
@@ -1129,7 +1128,8 @@
                                                                 <!-- Secondary: Metadata with inline sparkline -->
                                                                 <div class="endpoint-meta-line">
                                                                     <span x-text="item.region"></span>
-                                                                    <span x-show="item.hostname && item.hostname !== item.key"
+                                                                    <span
+                                                                        x-show="item.hostname && item.hostname !== item.key"
                                                                         x-text="' • ' + item.hostname"></span>
                                                                     <span class="endpoint-meta-sparkline">
                                                                         <canvas class="spark spark-subtle" width="80"
@@ -1187,8 +1187,8 @@
                                                     :style="'--row-percentage: ' + (ports.ports.length > 0 && ports.ports[0]?.bytes ? Math.round((item.bytes / ports.ports[0].bytes) * 100) : 0)">
                                                     <td style="overflow: hidden;">
                                                         <strong class="text-cyan" x-text="item.key"></strong>
-                                                        <div class="truncate text-9 text-muted"
-                                                            x-text="item.service" :title="item.service"></div>
+                                                        <div class="truncate text-9 text-muted" x-text="item.service"
+                                                            :title="item.service"></div>
                                                     </td>
                                                     <td>
                                                         <div class="text-green"
@@ -2651,9 +2651,8 @@
         <!-- ============================================
              AI ASSISTANT TAB - Ollama Chat Interface
              ============================================ -->
-        <div x-show="activeTab === 'assistant'"
-            :style="activeTab === 'assistant' ? 'display:block' : 'display:none'" id="assistant-tab" role="tabpanel"
-            aria-labelledby="assistant-tab-btn" tabindex="0">
+        <div x-show="activeTab === 'assistant'" :style="activeTab === 'assistant' ? 'display:block' : 'display:none'"
+            id="assistant-tab" role="tabpanel" aria-labelledby="assistant-tab-btn" tabindex="0">
             <section id="section-assistant" class="scroll-section" style="margin-bottom: 32px;">
                 <div class="card wide-card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
                     <h2>
@@ -2744,8 +2743,8 @@
 
 
         <!-- Expanded Table Modal -->
-        <div class="modal" x-show="expandedModalOpen"
-            :style="expandedModalOpen ? 'display:flex' : 'display:none'" @click.self="expandedModalOpen = false">
+        <div class="modal" x-show="expandedModalOpen" :style="expandedModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="expandedModalOpen = false">
             <div class="modal-content" style="max-width: 1000px; height: 90vh;">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -2784,8 +2783,8 @@
         </div>
 
         <!-- Network Graph Modal -->
-        <div class="modal" x-show="networkGraphOpen"
-            :style="networkGraphOpen ? 'display:flex' : 'display:none'" @click.self="networkGraphOpen = false">
+        <div class="modal" x-show="networkGraphOpen" :style="networkGraphOpen ? 'display:flex' : 'display:none'"
+            @click.self="networkGraphOpen = false">
             <div class="modal-content" style="max-width: 95vw; height: 90vh; display: flex; flex-direction: column;">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -3270,8 +3269,8 @@
         </div>
 
         <!-- IP Trend Modal -->
-        <div class="modal" x-show="trendModalOpen"
-            :style="trendModalOpen ? 'display:flex' : 'display:none'" @click.self="trendModalOpen = false">
+        <div class="modal" x-show="trendModalOpen" :style="trendModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="trendModalOpen = false">
             <div class="modal-content" style="max-width: 760px;">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -3310,8 +3309,8 @@
         </div>
 
         <!-- Thresholds Modal -->
-        <div class="modal" x-show="thresholdsModalOpen"
-            :style="thresholdsModalOpen ? 'display:flex' : 'display:none'" @click.self="thresholdsModalOpen = false">
+        <div class="modal" x-show="thresholdsModalOpen" :style="thresholdsModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="thresholdsModalOpen = false">
             <div class="modal-content" style="max-width: 700px;">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -3386,8 +3385,8 @@
         </div>
 
         <!-- Firewall Detail Modal -->
-        <div class="modal" x-show="fwDetailOpen"
-            :style="fwDetailOpen ? 'display:flex' : 'display:none'" @click.self="closeFwDetail()">
+        <div class="modal" x-show="fwDetailOpen" :style="fwDetailOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeFwDetail()">
             <div class="modal-content fw-detail-modal" style="max-width: 500px;">
                 <template x-if="fwDetailType && fwDetails[fwDetailType]">
                     <div>
@@ -3442,8 +3441,8 @@
         </div>
 
         <!-- Configuration Settings Modal -->
-        <div class="modal" x-show="configModalOpen"
-            :style="configModalOpen ? 'display:flex' : 'display:none'" @click.self="configModalOpen = false">
+        <div class="modal" x-show="configModalOpen" :style="configModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="configModalOpen = false">
             <div class="modal-content config-modal" style="max-width: 420px;">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -3458,8 +3457,7 @@
                     <p style="color:var(--text-muted); margin-top:10px;">Loading configuration...</p>
                 </div>
 
-                <div x-show="!configLoading"
-                    :style="!configLoading ? 'display:block' : 'display:none'">
+                <div x-show="!configLoading" :style="!configLoading ? 'display:block' : 'display:none'">
                     <div class="config-section">
                         <h3>🌐 Network</h3>
                         <div class="config-row">
@@ -3489,7 +3487,8 @@
                         </div>
                         <div class="config-row">
                             <label for="snmp-poll-interval">Poll Interval (sec)</label>
-                            <input id="snmp-poll-interval" type="number" x-model.number="config.snmp_poll_interval" min="1" max="60" step="1" placeholder="Enter poll interval">
+                            <input id="snmp-poll-interval" type="number" x-model.number="config.snmp_poll_interval"
+                                min="1" max="60" step="1" placeholder="Enter poll interval">
                             <span class="config-hint">How often to poll SNMP (1-60s)</span>
                         </div>
                     </div>
@@ -3534,8 +3533,8 @@
         </div>
 
         <!-- Watchlist Manager Modal -->
-        <div class="modal" x-show="watchlistModalOpen"
-            :style="watchlistModalOpen ? 'display:flex' : 'display:none'" @click.self="watchlistModalOpen = false">
+        <div class="modal" x-show="watchlistModalOpen" :style="watchlistModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="watchlistModalOpen = false">
             <div class="modal-content" style="max-width: 500px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h2 style="margin:0">👁️ IP Watchlist</h2>
@@ -3586,8 +3585,8 @@
         </div>
 
         <!-- Widget Manager Modal -->
-        <div class="modal" x-show="widgetManagerOpen"
-            :style="widgetManagerOpen ? 'display:flex' : 'display:none'" @click.self="widgetManagerOpen = false">
+        <div class="modal" x-show="widgetManagerOpen" :style="widgetManagerOpen ? 'display:flex' : 'display:none'"
+            @click.self="widgetManagerOpen = false">
             <div class="modal-content" style="max-width: 600px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h2 style="margin:0">Customize Widgets</h2>
