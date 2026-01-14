@@ -231,6 +231,10 @@ All major refactoring milestones have been completed:
   - ✅ Fixed SNMP state initialization in `app/core/state.py` (`_snmp_cache`, `_snmp_prev_sample`, `_snmp_backoff`)
   - ✅ Updated `app/api/routes.py` to import thread functions from `app/core/threads.py`
   - ✅ Updated `app/api/routes.py` to import SNMP functions from `app/services/snmp.py`
+  - ✅ Fixed missing variable imports in `app/api/routes.py`:
+    - Fixed `_feed_status` usage: now accessed via `threats_module._feed_status` in `api_feed_status()` and `api_risk_index()`
+    - Fixed `_protocol_baseline` usage: now accessed via `threats_module._protocol_baseline` in `api_protocol_anomalies()`
+  - ✅ Fixed alert-correlation timestamp parsing: added `_parse_ts()` helper to handle datetime strings (e.g., `"2026-01-14 15:23:50"`) in `api_forensics_alert_correlation()`
   - ⏭️ Still remaining: `load_config`, `save_config`, `get_default_config` (modify globals, more complex)
   - ⏭️ Other helper functions that can be extracted:
     - `calculate_cpu_percent_from_stat`, `read_cpu_stat` - CPU stat functions with state dependencies
@@ -245,6 +249,19 @@ All major refactoring milestones have been completed:
     - No internal dependencies on extracted functions
     - Bridge pattern dependencies are fully migrated
 - ⏭️ Update deployment documentation
+
+## Recent Bug Fixes (January 2026)
+
+### Fixed 500 Errors on Security and Forensics Pages
+- **Issue**: Multiple endpoints returning 500 errors due to missing variable references after refactoring
+- **Fixed Endpoints**:
+  1. `/api/security/risk_index` - Fixed `_feed_status` reference (now uses `threats_module._feed_status`)
+  2. `/api/security/protocol-anomalies` - Fixed `_protocol_baseline` reference (now uses `threats_module._protocol_baseline`)
+  3. `/api/stats/feeds` - Fixed `_feed_status` reference (now uses `threats_module._feed_status`)
+  4. `/api/forensics/alert-correlation` - Fixed timestamp parsing to handle datetime strings
+- **Root Cause**: Variables were moved to `app/services/threats.py` but routes were still referencing them directly
+- **Solution**: Updated routes to access variables via `threats_module` import, added robust timestamp parsing helper
+- **Status**: ✅ All endpoints now working correctly
 
 ## Summary
 
