@@ -4952,27 +4952,45 @@ def api_malicious_ports():
         pass  # Syslog not available, continue with NetFlow only
     
     # Merge with threat traffic from NetFlow
+    # Optimized: limit threat IP processing to prevent timeouts
     try:
         tf = get_time_range(range_key)
         threat_set = load_threatlist()
-        output = run_nfdump(["-o", "csv", "-n", "500", "-s", "ip/bytes"], tf)
-        
-        lines = output.strip().split('\n')
-        if len(lines) > 1:
-            header = [c.strip().lower() for c in lines[0].split(',')]
-            ip_idx = next((i for i, h in enumerate(header) if 'ip' in h and 'addr' in h), None)
-            byt_idx = next((i for i, h in enumerate(header) if h in ('ibyt', 'bytes')), None)
-            fl_idx = next((i for i, h in enumerate(header) if h in ('fl', 'flows')), None)
+        if not threat_set:
+            # No threats, skip NetFlow processing
+            pass
+        else:
+            # Get top threat IPs by bytes (limit to top 15 to prevent timeout)
+            output = run_nfdump(["-o", "csv", "-n", "50", "-s", "ip/bytes"], tf)
             
-            if ip_idx is not None:
-                for line in lines[1:]:
-                    parts = line.split(',')
-                    if len(parts) > max(ip_idx, byt_idx or 0, fl_idx or 0):
-                        ip = parts[ip_idx].strip()
-                        if ip in threat_set:
-                            # Get port info for this threat IP
-                            port_output = run_nfdump(["-o", "csv", "-n", "10", "-s", "port/bytes", f"src ip {ip} or dst ip {ip}"], tf)
+            lines = output.strip().split('\n')
+            if len(lines) > 1:
+                header = [c.strip().lower() for c in lines[0].split(',')]
+                ip_idx = next((i for i, h in enumerate(header) if 'ip' in h and 'addr' in h), None)
+                byt_idx = next((i for i, h in enumerate(header) if h in ('ibyt', 'bytes')), None)
+                
+                if ip_idx is not None:
+                    # Collect top threat IPs (limit to 15 to prevent timeout)
+                    threat_ips = []
+                    for line in lines[1:16]:  # Limit to top 15 threat IPs
+                        parts = line.split(',')
+                        if len(parts) > max(ip_idx, byt_idx or 0):
+                            ip = parts[ip_idx].strip()
+                            if ip in threat_set:
+                                try:
+                                    bytes_val = int(parts[byt_idx].strip()) if byt_idx else 0
+                                    threat_ips.append((ip, bytes_val))
+                                except (ValueError, IndexError):
+                                    pass
+                    
+                    # Process threat IPs with individual queries (limited count prevents timeout)
+                    # Each query is fast, and we limit to 15 IPs max
+                    for ip, _ in threat_ips[:15]:  # Safety limit
+                        try:
+                            # Get port info for this threat IP (limit to top 5 ports per IP)
+                            port_output = run_nfdump(["-o", "csv", "-n", "5", "-s", "port/bytes", f"src ip {ip} or dst ip {ip}"], tf)
                             port_lines = port_output.strip().split('\n')
+                            
                             if len(port_lines) > 1:
                                 p_header = [c.strip().lower() for c in port_lines[0].split(',')]
                                 p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
@@ -4980,28 +4998,35 @@ def api_malicious_ports():
                                 p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
                                 
                                 if p_idx is not None:
-                                    for pline in port_lines[1:3]:  # Top 2 ports per threat
+                                    for pline in port_lines[1:]:
                                         pparts = pline.split(',')
                                         try:
-                                            port = int(pparts[p_idx].strip())
-                                            bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
-                                            flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
-                                            
-                                            if port not in port_data:
-                                                port_data[port] = {
-                                                    'port': port,
-                                                    'service': SUSPICIOUS_PORTS.get(port, 'Unknown'),
-                                                    'blocked': 0,
-                                                    'unique_attackers': 0,
-                                                    'netflow_bytes': 0,
-                                                    'netflow_flows': 0,
-                                                    'suspicious': port in SUSPICIOUS_PORTS
-                                                }
-                                            port_data[port]['netflow_bytes'] += bytes_val
-                                            port_data[port]['netflow_flows'] += flows_val
-                                        except:
+                                            if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
+                                                port = int(pparts[p_idx].strip())
+                                                bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
+                                                flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
+                                                
+                                                if port not in port_data:
+                                                    port_data[port] = {
+                                                        'port': port,
+                                                        'service': SUSPICIOUS_PORTS.get(port, 'Unknown'),
+                                                        'blocked': 0,
+                                                        'unique_attackers': 0,
+                                                        'netflow_bytes': 0,
+                                                        'netflow_flows': 0,
+                                                        'suspicious': port in SUSPICIOUS_PORTS
+                                                    }
+                                                port_data[port]['netflow_bytes'] += bytes_val
+                                                port_data[port]['netflow_flows'] += flows_val
+                                        except (ValueError, IndexError):
                                             pass
-    except:
+                        except Exception as e:
+                            # Continue with next IP if this one fails
+                            print(f"Warning: Failed to get ports for threat IP {ip}: {e}")
+                            continue
+    except Exception as e:
+        # Log error but don't fail completely - return what we have from syslog
+        print(f"Warning: Failed to fetch threat port data: {e}")
         pass
     
     # Convert to list and sort by total activity (blocked + flows)

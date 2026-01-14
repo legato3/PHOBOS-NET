@@ -1262,14 +1262,29 @@ export const Store = () => ({
     async fetchMaliciousPorts() {
         this.maliciousPorts.loading = true;
         try {
-            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`);
+            // Add timeout to prevent indefinite waiting (30 seconds)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
+            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
             if (res.ok) {
                 const data = await res.json();
                 this.maliciousPorts = { ...data, loading: false };
                 return;
+            } else {
+                // If response is not ok, ensure we have a valid structure
+                this.maliciousPorts = { ports: [], loading: false, has_syslog: false };
             }
         } catch (e) {
-            console.error('Failed to fetch malicious ports:', e);
+            if (e.name === 'AbortError') {
+                console.error('Malicious ports request timed out');
+            } else {
+                console.error('Failed to fetch malicious ports:', e);
+            }
         }
 
         // Fallback: filter existing ports for suspicious flag
@@ -1285,6 +1300,10 @@ export const Store = () => ({
             this.maliciousPorts.has_syslog = false;
         } catch (e) {
             console.error('Fallback failed for malicious ports:', e);
+            // Ensure we always have a valid structure
+            if (!this.maliciousPorts.ports) {
+                this.maliciousPorts.ports = [];
+            }
         } finally {
             this.maliciousPorts.loading = false;
         }
