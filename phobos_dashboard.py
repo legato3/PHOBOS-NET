@@ -625,6 +625,14 @@ def throttle(max_calls=20, time_window=10):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Import metrics functions (avoid circular import)
+            try:
+                from app.services.metrics import track_performance, track_error
+            except ImportError:
+                # Fallback if metrics module not available
+                def track_performance(*args, **kwargs): pass
+                def track_error(*args, **kwargs): pass
+            
             start_time = time.time()
             now = start_time
             endpoint = func.__name__
