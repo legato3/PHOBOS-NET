@@ -20,13 +20,6 @@ Or:
 python3 app/main.py
 ```
 
-### Option 2: Using the Original File (Still Supported)
-
-The original `phobos_dashboard.py` file (renamed from `netflow-dashboard.py`) can still be run directly:
-
-```bash
-python3 phobos_dashboard.py
-```
 
 ## Application Structure
 
@@ -39,10 +32,9 @@ The refactored application uses:
 
 ## Dependencies
 
-The application uses a bridge pattern where:
-- Routes import functions and globals from `phobos_dashboard.py`
-- `app/main.py` imports thread functions from `phobos_dashboard.py`
-- This allows the refactored structure to work immediately while maintaining backward compatibility
+The application now runs fully from the modular structure:
+- Routes are served from `app/api/routes.py` via a single Blueprint
+- Background threads start via `app/core/threads.py` and `app/services/syslog.py`
 
 ## Environment Variables
 
@@ -62,7 +54,7 @@ The application starts the following background threads (via `app/main.py`):
 - `start_agg_thread()` - Data aggregation
 - `start_syslog_thread()` - Syslog receiver
 
-These are imported from `phobos_dashboard.py` using the bridge pattern.
+These are imported from `app/core/threads.py` and `app/services/syslog.py`.
 
 ## Flask Application
 
@@ -81,12 +73,10 @@ To verify the refactored application works:
 # Start the application
 python3 app/main.py
 
-# Or using the original file
-python3 phobos_dashboard.py
 ```
 
-Both should work identically as the new structure imports from the original file.
+The modular entrypoint (`app/main.py`) is the recommended way to run the application.
 
 ## Future Migration
 
-As the refactoring continues, functions can be gradually moved from `phobos_dashboard.py` to appropriate modules, and the bridge pattern can be phased out.
+The legacy `phobos_dashboard.py` entrypoint has been retired in favor of the modular runtime.

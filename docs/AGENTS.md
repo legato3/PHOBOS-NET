@@ -7,12 +7,10 @@ This document helps AI agents (like Jules) understand the PROX_NFDUMP project st
 ### Component Overview
 ```
 PROX_NFDUMP/
-├── netflow-dashboard.py      # Flask backend (main application)
-├── static/
-│   ├── app.js                # Alpine.js frontend logic
-│   └── style.css             # TrueNAS-style theme styles
-├── templates/
-│   └── index.html            # Single-page dashboard UI
+├── app/                      # Flask backend (modular application)
+├── frontend/
+│   ├── static/               # Alpine.js frontend logic
+│   └── templates/            # Single-page dashboard UI
 ├── threat-feeds.txt          # Multi-feed configuration
 ├── sample_data/              # Real data examples for reference
 └── systemd/netflow-dashboard.service # Systemd service definition
@@ -81,7 +79,7 @@ One IP per line, comments start with #:
 
 ## 🎯 Critical Functions
 
-### Backend (netflow-dashboard.py)
+### Backend (`app/api/routes.py`)
 
 #### fetch_threat_feed()
 - **Purpose**: Download and merge multiple threat feeds
@@ -145,7 +143,7 @@ One IP per line, comments start with #:
 ### Adding New Features
 
 1. **Backend Changes**:
-   - Add route to netflow-dashboard.py
+   - Add route to `app/api/routes.py`
    - Implement caching if query is expensive
    - Return consistent JSON format
    - Handle empty results gracefully
@@ -413,7 +411,7 @@ OPNsense (192.168.0.1) → UDP 514 → Dashboard (192.168.0.74) → SQLite (fire
 
 ### For AI Agents
 - See `SYSLOG_INTEGRATION.md` for full design doc
-- Log parser regex: `FILTERLOG_PATTERN` in netflow-dashboard.py
+- Log parser regex: `FILTERLOG_PATTERN` in `app/services/syslog.py`
 - Test with: `logger -n 192.168.0.74 -P 514 "test"`
 
 ---

@@ -109,9 +109,9 @@ cd PROX_NFDUMP
 
 ### 2. Deploy Files
 ```bash
-cp netflow-dashboard.py /root/
-cp threat-feeds.txt /root/
-cp -r static templates /root/
+# Optional: deploy the modular runtime to a system directory
+mkdir -p /root/netflow-dashboard
+cp -r app frontend scripts threat-feeds.txt /root/netflow-dashboard/
 ```
 
 ### 3. Configure Threat Feeds (Optional)

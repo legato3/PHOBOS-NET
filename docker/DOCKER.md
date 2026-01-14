@@ -91,9 +91,8 @@ services:
   netflow-dashboard:
     volumes:
       # Mount source code for live reload
-      - ./netflow-dashboard.py:/app/netflow-dashboard.py
-      - ./templates:/app/templates
-      - ./static:/app/static
+      - ./app:/app/app
+      - ./frontend:/app/frontend
       - ./docker-data:/app/data
     environment:
       - FLASK_DEBUG=true

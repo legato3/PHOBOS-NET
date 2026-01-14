@@ -4,10 +4,7 @@ This document outlines what needs to be done before `phobos_dashboard.py` can be
 
 ## Current Dependencies
 
-`phobos_dashboard.py` is currently used as a bridge pattern in two places:
-
-1. **`app/api/routes.py`** - Imports via `import phobos_dashboard as _phobos`
-2. **`app/main.py`** - Imports thread functions and shutdown handlers
+`phobos_dashboard.py` is no longer required by the modular runtime. It is currently retained only for legacy direct execution.
 
 ## What Still Needs to be Extracted/Migrated
 
@@ -24,19 +21,19 @@ This document outlines what needs to be done before `phobos_dashboard.py` can be
 - ✅ `start_threat_thread` → `app/core/threads.py`
 - ✅ `start_trends_thread` → `app/core/threads.py`
 - ✅ `start_agg_thread` → `app/core/threads.py`
-- ⏭️ `start_syslog_thread` (still in `phobos_dashboard.py` - complex dependencies)
-- ⏭️ `_flush_syslog_buffer` (still in `phobos_dashboard.py` - complex dependencies)
+- ✅ `start_syslog_thread` → `app/services/syslog.py`
+- ✅ `_flush_syslog_buffer` → `app/services/syslog.py`
 - ✅ `_shutdown_event` → `app/core/state.py`
 
 #### SNMP Functions (in `app/api/routes.py`)
-- ⏭️ `calculate_cpu_percent_from_stat` (still in `phobos_dashboard.py`)
+- ✅ `calculate_cpu_percent_from_stat` → `app/services/cpu.py`
 - ✅ `get_snmp_data` → `app/services/snmp.py`
 - ✅ `start_snmp_thread` → `app/services/snmp.py`
 
 #### Config Functions (in `app/api/routes.py`)
-- `load_config`
-- `save_config`
-- `get_default_config`
+- ✅ `load_config` → `app/utils/config_helpers.py`
+- ✅ `save_config` → `app/utils/config_helpers.py`
+- ✅ `get_default_config` → `app/utils/config_helpers.py`
 
 ### 3. Global Variables (Many!)
 
@@ -65,7 +62,7 @@ This document outlines what needs to be done before `phobos_dashboard.py` can be
 
 ### 4. Flask Routes
 
-`phobos_dashboard.py` still contains Flask routes (e.g., `@app.route("/")`), but these are **NOT used** since the application uses Blueprints from `app/api/routes.py`. However, they prevent the file from being safely removed until the Flask app instance is no longer needed.
+Legacy Flask routes were removed along with `phobos_dashboard.py`. All routing now lives in `app/api/routes.py`.
 
 ## Migration Strategy
 
@@ -95,13 +92,13 @@ Keep state in modules where it's used:
 2. ✅ **Extract throttle decorator** to `app/utils/decorators.py`
 3. ✅ **Extract thread functions** to `app/core/threads.py` (threat, trends, agg threads)
 4. ✅ **Extract SNMP functions** to `app/services/snmp.py` (get_snmp_data, start_snmp_thread)
-5. ⏭️ **Extract config functions** to `app/utils/config_helpers.py` (partially done)
-6. ⏭️ **Extract CPU stat functions** (`calculate_cpu_percent_from_stat`, `read_cpu_stat`)
+5. ✅ **Extract config functions** to `app/utils/config_helpers.py`
+6. ✅ **Extract CPU stat functions** (`calculate_cpu_percent_from_stat`, `read_cpu_stat`)
 7. ⏭️ **Migrate all globals** to state management module(s)
-8. ⏭️ **Remove Flask routes** from `phobos_dashboard.py` (not used anyway)
-9. ⏭️ **Remove Flask app instance** from `phobos_dashboard.py`
+8. ✅ **Remove Flask routes** from `phobos_dashboard.py` (file removed)
+9. ✅ **Remove Flask app instance** from `phobos_dashboard.py` (file removed)
 10. ✅ **Update all imports** in `app/api/routes.py` and `app/main.py` (thread functions, SNMP functions, throttle)
-11. ⏭️ **Remove `phobos_dashboard.py`** file
+11. ✅ **Remove `phobos_dashboard.py`** file
 12. ⏭️ **Test thoroughly** to ensure nothing breaks
 
 ## Estimated Effort
@@ -129,10 +126,12 @@ Keep state in modules where it's used:
 - ✅ SNMP functions extracted (get_snmp_data, start_snmp_thread)
 - ✅ SNMP constants added to `app/config.py`
 - ✅ SNMP state initialized in `app/core/state.py`
+- ✅ Syslog functions extracted to `app/services/syslog.py`
+- ✅ Syslog imports updated in `app/main.py`, `app/api/routes.py`, `scripts/gunicorn_config.py`
 - ⏭️ Still ~50+ global variables to migrate
-- ⏭️ Config functions to extract (load_config, save_config, get_default_config)
-- ⏭️ CPU stat functions to extract (calculate_cpu_percent_from_stat, read_cpu_stat)
-- ⏭️ Syslog thread functions (complex dependencies, deferred)
+- ✅ Config functions extracted (load_config, save_config, get_default_config)
+- ✅ CPU stat functions extracted (calculate_cpu_percent_from_stat, read_cpu_stat)
+- ✅ Syslog thread functions extracted (receiver, maintenance, buffer flush)
 - ⏭️ State management to organize
 
-**Conclusion**: `phobos_dashboard.py` cannot be removed yet. It's still providing critical infrastructure via the bridge pattern. Full removal requires significant additional refactoring work.
+**Conclusion**: `phobos_dashboard.py` has been removed. Remaining work focuses on testing and cleanup.

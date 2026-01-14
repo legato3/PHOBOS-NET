@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 # Copy application files
 # Copy the entire app directory structure
 COPY app/ ./app/
-COPY phobos_dashboard.py .
 COPY docker-data/threat-feeds.txt .
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh

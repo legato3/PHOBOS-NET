@@ -3,7 +3,7 @@
 This module contains all API routes extracted from netflow-dashboard.py.
 Routes are organized in a single Flask Blueprint.
 """
-from flask import Blueprint, render_template, jsonify, request, Response, stream_with_context
+from flask import Blueprint, render_template, jsonify, request, Response, stream_with_context, current_app
 import time
 import os
 import json
@@ -11,8 +11,6 @@ import socket
 import socket as socket_module  # For socket.timeout in syslog receiver
 import threading
 import subprocess
-import atexit
-import signal
 import requests
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
@@ -31,6 +29,7 @@ from app.services.threats import (
 from app.services.stats import calculate_security_score
 from app.services.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
 from app.services.snmp import get_snmp_data, start_snmp_thread
+from app.services.cpu import calculate_cpu_percent_from_stat
 from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
 from app.utils.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.core.state import (
@@ -62,7 +61,7 @@ from app.core.state import (
 # Import threats module to access threat state
 import app.services.threats as threats_module
 import app.core.state as state
-from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds
+from app.utils.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds, load_config, save_config
 from app.utils.formatters import format_time_ago, format_uptime
 from app.utils.geoip import lookup_geo, load_city_db
 import app.utils.geoip as geoip_module
@@ -74,53 +73,6 @@ from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
     NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST
 )
-
-# Import functions and globals from phobos_dashboard (original monolithic file)
-# Note: This bridge pattern allows gradual migration - functions can be moved to modules over time
-try:
-    import phobos_dashboard as _phobos
-    
-    # Decorator - now imported from app.utils.decorators
-    # throttle = _phobos.throttle
-    
-    # Helper functions
-    # load_notify_cfg now imported from app.utils.config_helpers
-    # load_threatlist, get_feed_label, send_notifications now imported from app.services.threats
-    # calculate_security_score now imported from app.services.stats
-    # format_duration now imported from app.utils.helpers
-    # check_disk_space now imported from app.utils.helpers
-    calculate_cpu_percent_from_stat = getattr(_phobos, 'calculate_cpu_percent_from_stat', None)
-    # get_snmp_data now imported from app.services.snmp
-    # track_performance, track_error now imported from app.services.metrics
-    # _get_bucket_end, _ensure_rollup_for_bucket now imported from app.db.sqlite
-    
-    # Thread functions - now imported from app.core.threads
-    # start_threat_thread, start_trends_thread, start_agg_thread now imported from app.core.threads
-    # Syslog functions - now imported from app.services.syslog
-    from app.services.syslog import start_syslog_thread, _flush_syslog_buffer
-    
-    # Global variables - now imported from app.core.state and app.db.sqlite
-    # All locks, caches, and state variables are imported at the top of this file
-    # Threat state accessed via threats_module (imported above)
-    # DNS/Geo caches accessed via module imports (app.utils.dns, app.utils.geoip)
-    
-    # Functions still needed from bridge
-    load_config = getattr(_phobos, 'load_config', None)
-    save_config = getattr(_phobos, 'save_config', None)
-    # start_snmp_thread now imported from app.services.snmp
-    DEBUG_MODE = getattr(_phobos, 'DEBUG_MODE', False)
-    
-    # Flask app instance (for backward compatibility - routes should use Blueprint)
-    app = getattr(_phobos, 'app', None)
-except ImportError as e:
-    # Fallback if phobos_dashboard cannot be imported
-    print(f"Warning: Could not import from phobos_dashboard: {e}")
-    # throttle is imported from app.utils.decorators, not from _phobos
-    # Thread functions are imported from app.core.threads, not from _phobos
-    
-    # We must NOT set locks to None as they are imported from app.core.state
-    # _lock_summary = _lock_sources = _lock_dests = None
-    # _stats_summary_cache = _stats_sources_cache = None
 
 # Create Blueprint
 bp = Blueprint('routes', __name__)
@@ -2910,12 +2862,11 @@ def api_export_threats():
             writer = csv.DictWriter(output, fieldnames=threats[0].keys())
             writer.writeheader()
             writer.writerows(threats)
-        response = app.response_class(
+        return Response(
             output.getvalue(),
             mimetype='text/csv',
             headers={'Content-Disposition': 'attachment; filename=threats.csv'}
         )
-        return response
 
     return jsonify({
         'threats': threats,
@@ -4557,7 +4508,7 @@ def api_stats_batch():
             query_string = urlencode(params)
 
             # Create test request context with query string
-            with app.test_request_context(query_string=query_string):
+            with current_app.test_request_context(query_string=query_string):
                 try:
                     handler = handlers[endpoint_name]
                     # Call handler and extract JSON from Response
@@ -4634,49 +4585,3 @@ def api_performance_metrics():
     })
 
 
-if __name__=="__main__":
-    print("NetFlow Analytics Pro (Modernized)")
-
-    # Graceful shutdown handler
-    def shutdown_handler(signum=None, frame=None):
-        print("\n[Shutdown] Stopping background services...")
-        _shutdown_event.set()
-        # Flush any pending syslog buffer
-        _flush_syslog_buffer()
-        # Give threads time to clean up
-        time.sleep(1)
-        print("[Shutdown] Complete.")
-
-    # Register shutdown handlers
-    atexit.register(shutdown_handler)
-    signal.signal(signal.SIGTERM, shutdown_handler)
-    signal.signal(signal.SIGINT, shutdown_handler)
-
-    # Start background services
-    start_threat_thread()
-    start_trends_thread()
-    start_agg_thread()
-    start_syslog_thread()  # OPNsense firewall log receiver
-
-    # Run Flask app (auto-pick next free port if requested one is busy)
-    host = os.environ.get('FLASK_HOST', '0.0.0.0')
-    requested_port = int(os.environ.get('FLASK_PORT', 8080))
-
-    def _find_open_port(h, start_port, max_tries=10):
-        p = start_port
-        for _ in range(max_tries):
-            try:
-                s = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_STREAM)
-                s.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
-                s.bind((h, p))
-                s.close()
-                return p
-            except OSError:
-                p += 1
-        return start_port
-
-    port = _find_open_port(host, requested_port)
-    if port != requested_port:
-        print(f"Requested port {requested_port} in use, selected {port} instead")
-    print(f"Starting server on {host}:{port} (debug={DEBUG_MODE})")
-    app.run(host=host, port=port, threaded=True, debug=DEBUG_MODE)
