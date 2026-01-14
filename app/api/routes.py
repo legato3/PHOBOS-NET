@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
 # Import from service modules (already extracted)
-from app.services.netflow import get_common_nfdump_data, run_nfdump, parse_csv
+from app.services.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction
 from app.services.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
@@ -133,7 +133,7 @@ try:
     # load_list, check_disk_space now imported from app.utils.helpers
     # format_time_ago, format_uptime now imported from app.utils.formatters
     # send_notifications, get_feed_label now imported from app.services.threats
-    get_traffic_direction = getattr(_phobos, 'get_traffic_direction', None)
+    # get_traffic_direction now imported from app.services.netflow
     lookup_threat_intelligence = getattr(_phobos, 'lookup_threat_intelligence', None)
     detect_ip_anomalies = getattr(_phobos, 'detect_ip_anomalies', None)
     generate_ip_anomaly_alerts = getattr(_phobos, 'generate_ip_anomaly_alerts', None)
