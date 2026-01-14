@@ -15,12 +15,11 @@ from app.core.state import (
     _syslog_thread_started,
     _syslog_stats, _syslog_stats_lock,
     _syslog_buffer, _syslog_buffer_lock, _syslog_buffer_size,
-    _alert_history, _alert_history_lock,
-    _firewall_db_lock
+    _alert_history, _alert_history_lock
 )
 
 # Import helpers
-from app.db.sqlite import _firewall_db_connect, _firewall_db_init
+from app.db.sqlite import _firewall_db_connect, _firewall_db_init, _firewall_db_lock
 from app.utils.geoip import lookup_geo
 from app.utils.helpers import check_disk_space, is_internal
 from app.services.threats import load_threatlist
