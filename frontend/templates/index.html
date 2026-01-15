@@ -833,7 +833,6 @@
 
                                 <!-- Threat Velocity Widget -->
                                 <template x-if="isVisible('threatVelocity')">
-                                    <template x-if="isVisible('threatVelocity')">
                                         {% call widget_card('threatVelocity', 'Threat Velocity', '📈',
                                         show_spinner=True) %}
                                         <div class="velocity-display">
@@ -864,7 +863,7 @@
                                             </div>
                                         </div>
                                         {% endcall %}
-                                    </template>
+                                </template>
 
                                     <!-- At-Risk Internal Hosts Widget -->
                                     <template x-if="isVisible('compromisedHosts')">
@@ -1016,7 +1015,6 @@
 
                             <!-- Firewall Logs - MOVED TO FORENSICS TAB -->
                             <!-- Old Firewall Logs widget disabled -->
-                            </template>
 
                         </section>
                     </div>
