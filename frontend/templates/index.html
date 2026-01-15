@@ -1803,8 +1803,9 @@
                                             <template
                                                 x-for="block in filteredRecentBlocks.slice(0, recentBlocksView || filteredRecentBlocks.length)"
                                                 :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
-                                                <tr
-                                                    :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }">
+                                                <tr @click="openEventDetails(block, 'firewall')"
+                                                    :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }"
+                                                    style="cursor: pointer;">
                                                     <td style="font-size: 0.85em; color: var(--text-muted);">
                                                         <div style="font-family: monospace;"
                                                             x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp">
@@ -3810,6 +3811,296 @@
                         title="Add source IP to watchlist">
                         Add Source to Watchlist
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unified Event Details Modal (Flow, Firewall, Threat) -->
+        <div class="modal" x-show="eventDetailsModalOpen" 
+            :style="eventDetailsModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeEventDetailsModal()"
+            @keydown.escape.window="closeEventDetailsModal()">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal__header">
+                    <div style="flex: 1;">
+                        <!-- Flow Header -->
+                        <template x-if="selectedEventType === 'flow'">
+                            <h2 style="margin: 0; font-size: 1.2em; display: flex; align-items: center; gap: var(--space-2);">
+                                <span class="text-cyan" x-text="selectedEvent?.src || ''"></span>
+                                <span x-text="getDirectionIndicator(selectedEvent)?.symbol || '→'" 
+                                    :style="'color: ' + (getDirectionIndicator(selectedEvent)?.color || 'var(--text-muted)') + '; font-size: 1.1em;'"></span>
+                                <span class="text-cyan" x-text="selectedEvent?.dst || ''"></span>
+                                <span class="text-muted" style="font-size: 0.85em; font-weight: normal; margin-left: var(--space-2);"
+                                    x-text="selectedEvent?.proto_name || ''"></span>
+                            </h2>
+                        </template>
+                        <!-- Firewall Header -->
+                        <template x-if="selectedEventType === 'firewall'">
+                            <h2 style="margin: 0; font-size: 1.2em; display: flex; align-items: center; gap: var(--space-2);">
+                                <span class="text-green" x-text="selectedEvent?.src_ip || ''"></span>
+                                <span style="color: var(--text-muted);">→</span>
+                                <span class="text-cyan" x-text="selectedEvent?.dst_ip || ''"></span>
+                                <span class="text-muted" style="font-size: 0.85em; font-weight: normal; margin-left: var(--space-2);"
+                                    x-text="(selectedEvent?.proto || 'TCP').toUpperCase()"></span>
+                            </h2>
+                        </template>
+                        <!-- Threat Header -->
+                        <template x-if="selectedEventType === 'threat'">
+                            <h2 style="margin: 0; font-size: 1.2em; display: flex; align-items: center; gap: var(--space-2);">
+                                <span class="text-red" x-text="selectedEvent?.ip || selectedEvent?.src_ip || ''"></span>
+                                <span class="text-muted" style="font-size: 0.85em; font-weight: normal; margin-left: var(--space-2);"
+                                    x-text="selectedEvent?.threat_type || 'Threat'"></span>
+                            </h2>
+                        </template>
+                    </div>
+                    <button @click="closeEventDetailsModal()"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                        aria-label="Close event details">×</button>
+                </div>
+
+                <div style="padding: var(--space-4) 0;">
+                    <!-- Flow Content -->
+                    <template x-if="selectedEventType === 'flow'">
+                        <!-- Identity Section (only if data exists) -->
+                        <template x-if="selectedEvent && (selectedEvent.src_hostname || selectedEvent.dst_hostname || selectedEvent.src_country || selectedEvent.dst_country)">
+                            <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(0, 234, 255, 0.03); border: 1px solid rgba(0, 234, 255, 0.1);">
+                                <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Identity</h3>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                                    <div>
+                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Source</div>
+                                        <div x-show="selectedEvent?.src_hostname" style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">
+                                            <span class="text-muted">Hostname:</span> <span x-text="selectedEvent.src_hostname"></span>
+                                        </div>
+                                        <div x-show="selectedEvent?.src_country" style="font-size: var(--text-sm); color: var(--text-secondary);">
+                                            <span class="text-muted">Location:</span> 
+                                            <span x-show="selectedEvent.src_flag" 
+                                                :class="'flag-icon flag-icon-' + (selectedEvent.src_country_code || 'unknown').toLowerCase()"
+                                                style="margin: 0 4px;"></span>
+                                            <span x-text="selectedEvent.src_country || 'Unknown'"></span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Destination</div>
+                                        <div x-show="selectedEvent?.dst_hostname" style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">
+                                            <span class="text-muted">Hostname:</span> <span x-text="selectedEvent.dst_hostname"></span>
+                                        </div>
+                                        <div x-show="selectedEvent?.dst_country" style="font-size: var(--text-sm); color: var(--text-secondary);">
+                                            <span class="text-muted">Location:</span> 
+                                            <span x-show="selectedEvent.dst_flag" 
+                                                :class="'flag-icon flag-icon-' + (selectedEvent.dst_country_code || 'unknown').toLowerCase()"
+                                                style="margin: 0 4px;"></span>
+                                            <span x-text="selectedEvent.dst_country || 'Unknown'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <!-- Flow Metrics -->
+                        <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-3);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Flow Metrics</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">First Seen</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.first_seen_ts ? formatFlowTimestamp(selectedEvent.first_seen_ts) : (selectedEvent?.age_seconds ? formatAge(selectedEvent.age_seconds) + ' ago' : 'Unknown')"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Duration</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.duration || selectedEvent?.duration_seconds ? (selectedEvent.duration || selectedEvent.duration_seconds + 's') : 'Unknown'"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Bytes</div>
+                                    <div style="font-size: var(--text-sm); color: var(--signal-ok); font-weight: 500;"
+                                        x-text="selectedEvent?.bytes_fmt || '0 B'"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Packets</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="(selectedEvent?.packets || 0).toLocaleString()"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Average Rate</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent ? calculateFlowRate(selectedEvent) : '0 B/s'"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Direction</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.direction ? selectedEvent.direction.charAt(0).toUpperCase() + selectedEvent.direction.slice(1) : 'Unknown'"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Ports & Protocol Details -->
+                        <div class="card" style="padding: var(--space-3);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Ports & Protocol</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Source Port</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.src_port || 'Unknown'"></div>
+                                    <div x-show="selectedEvent?.service && selectedEvent.service !== 'unknown' && selectedEvent.service !== selectedEvent.src_port" 
+                                        style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="'Service: ' + selectedEvent.service"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Destination Port</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.dst_port || 'Unknown'"></div>
+                                    <div x-show="selectedEvent?.service && selectedEvent.service !== 'unknown' && selectedEvent.service !== selectedEvent.dst_port" 
+                                        style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="'Service: ' + selectedEvent.service"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Firewall Content -->
+                    <template x-if="selectedEventType === 'firewall'">
+                        <!-- Firewall Event Details -->
+                        <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-3);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Event Details</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Timestamp</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500; font-family: monospace;"
+                                        x-text="(selectedEvent?.timestamp || selectedEvent?.timestamp_iso || '').replace('T', ' ').split('.')[0] || 'Unknown'"></div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="selectedEvent?.timestamp_ts ? timeAgo(selectedEvent.timestamp_ts) : ''"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Action</div>
+                                    <div>
+                                        <span class="badge"
+                                            :style="(selectedEvent?.action === 'pass') ? 'background: rgba(0,255,100,0.2); color: var(--neon-green);' : 'background: rgba(255,0,60,0.2); color: var(--neon-red);'"
+                                            x-text="(selectedEvent?.action || 'block').toUpperCase()"></span>
+                                        <div x-show="selectedEvent?.is_threat" style="font-size: var(--text-xs); color: var(--neon-red); margin-top: var(--space-1);">Threat Detected</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Direction</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        :class="selectedEvent?.direction === 'in' ? 'text-green' : 'text-cyan'"
+                                        x-text="(selectedEvent?.direction || 'in').toUpperCase()"></div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="'Interface: ' + (selectedEvent?.interface || '-')"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Protocol</div>
+                                    <div>
+                                        <span class="badge"
+                                            style="background: rgba(0,243,255,0.15); color: var(--neon-cyan);"
+                                            x-text="(selectedEvent?.proto || 'TCP').toUpperCase()"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Connection Details -->
+                        <div class="card" style="padding: var(--space-3);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Connection</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Source</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.src_ip || 'Unknown'"></div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="selectedEvent?.src_port ? 'Port: ' + selectedEvent.src_port : ''"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Destination</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.dst_ip || 'Unknown'"></div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                        x-text="selectedEvent?.dst_port ? 'Port: ' + selectedEvent.dst_port : ''"></div>
+                                    <div x-show="selectedEvent?.service" style="font-size: var(--text-xs); color: var(--text-muted);"
+                                        x-text="'Service: ' + selectedEvent.service"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Threat Content -->
+                    <template x-if="selectedEventType === 'threat'">
+                        <div class="card" style="padding: var(--space-3);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Threat Details</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">IP Address</div>
+                                    <div style="font-size: var(--text-sm); color: var(--neon-red); font-weight: 500;"
+                                        x-text="selectedEvent?.ip || selectedEvent?.src_ip || 'Unknown'"></div>
+                                </div>
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Threat Type</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="selectedEvent?.threat_type || 'Unknown'"></div>
+                                </div>
+                                <div x-show="selectedEvent?.threat_feed">
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Threat Feed</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-secondary);"
+                                        x-text="selectedEvent.threat_feed"></div>
+                                </div>
+                                <div x-show="selectedEvent?.country">
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Country</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-secondary);"
+                                        x-text="selectedEvent.country"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Actions -->
+                <div class="modal__footer">
+                    <!-- Flow Actions -->
+                    <template x-if="selectedEventType === 'flow'">
+                        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src)"
+                                :disabled="!selectedEvent?.src">
+                                Investigate Source IP
+                            </button>
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst)"
+                                :disabled="!selectedEvent?.dst">
+                                Investigate Destination IP
+                            </button>
+                            <button class="btn btn--primary" @click="addToWatchlist(selectedEvent?.src); closeEventDetailsModal();"
+                                :disabled="!selectedEvent?.src"
+                                title="Add source IP to watchlist">
+                                Add Source to Watchlist
+                            </button>
+                        </div>
+                    </template>
+                    <!-- Firewall Actions -->
+                    <template x-if="selectedEventType === 'firewall'">
+                        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src_ip)"
+                                :disabled="!selectedEvent?.src_ip">
+                                Investigate Source IP
+                            </button>
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst_ip)"
+                                :disabled="!selectedEvent?.dst_ip">
+                                Investigate Destination IP
+                            </button>
+                            <button class="btn btn--primary" @click="addToWatchlist(selectedEvent?.src_ip); closeEventDetailsModal();"
+                                :disabled="!selectedEvent?.src_ip"
+                                title="Add source IP to watchlist">
+                                Add Source to Watchlist
+                            </button>
+                        </div>
+                    </template>
+                    <!-- Threat Actions -->
+                    <template x-if="selectedEventType === 'threat'">
+                        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.ip || selectedEvent?.src_ip)"
+                                :disabled="!selectedEvent?.ip && !selectedEvent?.src_ip">
+                                Investigate IP
+                            </button>
+                            <button class="btn btn--primary" @click="addToWatchlist(selectedEvent?.ip || selectedEvent?.src_ip); closeEventDetailsModal();"
+                                :disabled="!selectedEvent?.ip && !selectedEvent?.src_ip"
+                                title="Add IP to watchlist">
+                                Add to Watchlist
+                            </button>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>

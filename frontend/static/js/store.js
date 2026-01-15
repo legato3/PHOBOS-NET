@@ -123,6 +123,9 @@ export const Store = () => ({
     ipInvestigationModalOpen: false,
     flowDetailsModalOpen: false,
     selectedFlow: null,
+    eventDetailsModalOpen: false,
+    selectedEvent: null,
+    selectedEventType: null, // 'flow', 'firewall', 'threat'
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
     compromisedHosts: { hosts: [], count: 0, loading: true },
@@ -1908,6 +1911,21 @@ export const Store = () => ({
     closeFlowDetailsModal() {
         this.flowDetailsModalOpen = false;
         this.selectedFlow = null;
+    },
+
+    // Unified event details modal (reuses Flow Details pattern)
+    openEventDetails(event, eventType) {
+        if (event) {
+            this.selectedEvent = event;
+            this.selectedEventType = eventType; // 'flow', 'firewall', 'threat'
+            this.eventDetailsModalOpen = true;
+        }
+    },
+
+    closeEventDetailsModal() {
+        this.eventDetailsModalOpen = false;
+        this.selectedEvent = null;
+        this.selectedEventType = null;
     },
 
     // Calculate average rate for flow

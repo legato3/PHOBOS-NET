@@ -2096,6 +2096,11 @@ def api_flows():
                     except:
                         svc = dst_port
 
+                    # Track for heuristics (lightweight, per-request only) - do this first
+                    port_counts[dst_port] += 1
+                    connection_key = f"{src}:{dst}"
+                    connection_patterns[connection_key] += 1
+                    
                     # Detect interesting flow characteristics (heuristics only, not alerts)
                     interesting_flags = []
                     
@@ -2107,13 +2112,9 @@ def api_flows():
                     if duration < 10 and b > 500000:
                         interesting_flags.append("short_high")
                     
-                    # Track for heuristics (lightweight, per-request only)
-                    port_counts[dst_port] += 1
-                    connection_key = f"{src}:{dst}"
-                    connection_patterns[connection_key] += 1
-                    
-                    # 3. Rare destination ports (appears < 2 times in this batch)
-                    # Check after incrementing, so we flag if it's the first or second occurrence
+                    # 3. Rare destination ports (appears <= 2 times in this batch)
+                    # Note: This is approximate since we're checking during processing
+                    # A port appearing 1-2 times in a batch of 100+ flows is considered rare
                     if port_counts[dst_port] <= 2:
                         interesting_flags.append("rare_port")
                     
