@@ -1820,16 +1820,13 @@
                             <!-- Firewall Logs Widget -->
                             <!-- Firewall Logs Widget -->
                             {% set fw_actions %}
-                            <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
-                                <span class="badge"
-                                    :style="recentBlocksAutoRefresh ? 'background: rgba(255,0,60,0.2); color: var(--neon-red);' : 'background: rgba(100,100,100,0.2); color: var(--text-muted);'"
-                                    style="font-size: 0.85em;"
+                            <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
+                                <span class="status-badge status-badge-live"
+                                    :class="{ 'status-badge-active': recentBlocksAutoRefresh, 'status-badge-paused': !recentBlocksAutoRefresh }"
                                     x-text="recentBlocksAutoRefresh ? '🔴 LIVE' : '⏸ PAUSED'"></span>
-                                <span class="badge"
-                                    style="background: rgba(0,255,100,0.2); color: var(--neon-green); font-size: 0.9em;"
+                                <span class="status-badge status-badge-green"
                                     x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
-                                <span class="badge"
-                                    style="background: rgba(255,0,60,0.18); color: var(--neon-red); font-size: 0.9em;"
+                                <span class="status-badge status-badge-red"
                                     x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
                                 <button class="icon-btn-small"
                                     @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()"
