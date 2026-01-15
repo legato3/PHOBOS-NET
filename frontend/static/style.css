@@ -3851,42 +3851,61 @@ body {
 .log-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
 .log-count {
-    color: var(--text-muted);
-    font-size: 0.85em;
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
 }
 
 .log-update-time {
     color: var(--text-muted);
-    font-size: 0.8em;
-    opacity: 0.7;
-    font-style: italic;
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    opacity: 0.8;
 }
 
 .log-range {
     display: inline-flex;
-    gap: 6px;
+    gap: var(--space-1);
     align-items: center;
 }
 
 .log-range button {
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-main);
-    font-size: 0.85em;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-base);
+    cursor: pointer;
+}
+
+.log-range button:hover {
+    background: rgba(0, 234, 255, 0.08);
+    border-color: var(--border-medium);
+    color: var(--text-1);
+    box-shadow: 0 0 4px rgba(0, 234, 255, 0.1);
 }
 
 .log-range button.active {
-    background: var(--neon-cyan);
-    color: #000;
-    box-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
-    border-color: transparent;
+    background: var(--signal-primary);
+    color: var(--bg-0);
+    border-color: var(--signal-primary);
+    box-shadow: var(--glow-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.log-range button.active:hover {
+    background: var(--signal-primary-dim);
+    border-color: var(--signal-primary-dim);
+    box-shadow: var(--glow-primary-strong);
 }
 
 .log-table-wrapper {
