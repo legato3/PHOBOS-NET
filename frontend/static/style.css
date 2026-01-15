@@ -7490,24 +7490,30 @@ body.compact-mode {
     margin-bottom: 2rem;
 }
 
+/* CYBERPUNK UI: World map card - Signal panel */
 .world-map-card {
-    background: var(--card-bg);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--card-border);
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-soft);
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
+/* CYBERPUNK UI: World map header - Signal header */
 .world-map-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--card-border);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-soft);
     flex-wrap: wrap;
-    gap: 1rem;
-    background: rgba(0, 0, 0, 0.3);
+    gap: var(--space-4);
+    background: linear-gradient(180deg, rgba(15, 15, 23, 0.8), rgba(21, 21, 32, 0.6));
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
 }
 
 .world-map-title-row {
@@ -7722,9 +7728,9 @@ body.compact-mode {
     height: 400px;
     min-height: 400px;
     aspect-ratio: 16 / 9;
-    background: var(--bg-0);  /* Darkest cyberpunk background */
-    border: 1px solid var(--border-soft);
+    background: var(--bg-0);  /* Darkest cyberpunk background for map area */
     border-radius: var(--radius-md);
+    margin: var(--space-4);
     overflow: hidden;
 }
 
@@ -7793,13 +7799,16 @@ body.compact-mode {
     }
 }
 
-/* Map legend */
+/* CYBERPUNK UI: World map legend - Signal legend */
 .world-map-legend {
     display: flex;
     justify-content: center;
     gap: 2rem;
-    padding: 1rem;
-    border-top: 1px solid var(--card-border);
+    padding: var(--space-4);
+    border-top: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, rgba(15, 15, 23, 0.6), rgba(21, 21, 32, 0.4));
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     background: rgba(0, 0, 0, 0.2);
 }
 
@@ -7863,14 +7872,14 @@ body.compact-mode {
     }
 }
 
-/* Compact 3-column country stats below map */
+/* CYBERPUNK UI: World map countries grid - Signal data grid */
 .world-map-countries.compact-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-    background: rgba(0, 0, 0, 0.2);
-    border-top: 1px solid var(--card-border);
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: linear-gradient(180deg, rgba(15, 15, 23, 0.6), rgba(21, 21, 32, 0.4));
+    border-top: 1px solid var(--border-soft);
 }
 
 .world-map-countries.compact-grid .wm-country-col {
@@ -7939,11 +7948,12 @@ body.compact-mode {
 }
 
 /* Country stats below map - legacy */
+/* CYBERPUNK UI: World map country stats - Signal stats grid */
 .world-map-country-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
-    background: var(--card-border);
+    background: var(--border-soft);
 }
 
 .wm-country-column {

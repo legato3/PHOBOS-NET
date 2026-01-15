@@ -2141,13 +2141,13 @@ export const Store = () => ({
             const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
-                fillColor: '#00ff64',
-                color: '#00ff64',
+                fillColor: '#00eaff',  /* CYBERPUNK UI: Use signal-primary (cyan) instead of green */
+                color: '#00eaff',
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.7
             });
-            marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00ff64;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+            marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00eaff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
             marker.on('click', () => {
                 this.openIPModal(p.ip);
             });
@@ -2160,13 +2160,13 @@ export const Store = () => ({
             const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
-                fillColor: '#00f3ff',
-                color: '#00f3ff',
+                fillColor: '#00eaff',  /* CYBERPUNK UI: Use signal-primary (consistent cyan) */
+                color: '#00eaff',
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.7
             });
-            marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00f3ff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
+            marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00eaff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
             marker.on('click', () => {
                 this.openIPModal(p.ip);
             });
@@ -2178,13 +2178,13 @@ export const Store = () => ({
         threats.forEach(p => {
             const threatMarker = L.circleMarker([p.lat, p.lng], {
                 radius: 8,
-                fillColor: '#ff003c',
-                color: '#ff003c',
+                fillColor: '#ff1744',  /* CYBERPUNK UI: Use signal-crit (red for critical only) */
+                color: '#ff1744',
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.8
             });
-            threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff003c;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
+            threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff1744;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
             threatMarker.on('click', () => {
                 this.openIPModal(p.ip);
             });
