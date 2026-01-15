@@ -146,24 +146,26 @@ def get_previous_hour_value(metric_name):
         metric_name: One of 'active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate'
     
     Returns:
-        float or None: Previous hour value, or None if insufficient data
+        tuple: (value, is_approximate) or (None, False) if insufficient data
+               is_approximate is True if we're using oldest value instead of exact 1-hour-ago
     """
     if metric_name not in _baselines:
-        return None
+        return (None, False)
     
     with _baselines_lock:
         values = list(_baselines[metric_name])
     
     if len(values) < 2:
-        return None
+        return (None, False)
     
     # Try to get value from ~1 hour ago (12 samples at 5-min intervals)
-    # If window is smaller, use oldest available value
+    # If window is smaller, use oldest available value (but mark as approximate)
     hour_ago_index = min(12, len(values) - 1)
     if hour_ago_index > 0:
-        return values[-hour_ago_index]
+        is_approximate = hour_ago_index < 12
+        return (values[-hour_ago_index], is_approximate)
     
-    return None
+    return (None, False)
 
 
 def calculate_trend(metric_name, current_value, previous_value=None):
@@ -175,6 +177,7 @@ def calculate_trend(metric_name, current_value, previous_value=None):
         metric_name: One of 'active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate'
         current_value: Current metric value
         previous_value: Optional previous hour value (if None, will try to get from baseline)
+                       Can be a tuple (value, is_approximate) or just a value
     
     Returns:
         dict: {
@@ -187,10 +190,38 @@ def calculate_trend(metric_name, current_value, previous_value=None):
         Returns None if insufficient data
     """
     if previous_value is None:
-        previous_value = get_previous_hour_value(metric_name)
+        prev_result = get_previous_hour_value(metric_name)
+        if isinstance(prev_result, tuple):
+            previous_value, is_approximate = prev_result
+        else:
+            previous_value = prev_result
+            is_approximate = False
+    else:
+        is_approximate = False
     
-    if previous_value is None or previous_value == 0:
+    # Handle case where previous_value is 0 (can't divide by zero, but we can still show trend)
+    if previous_value is None:
         return None
+    
+    # If previous value is 0 and current is > 0, that's a clear increase
+    if previous_value == 0:
+        if current_value > 0:
+            return {
+                'direction': 'up',
+                'indicator': '↑',
+                'percent_change': 100.0,  # Infinite change, show as 100%
+                'significant': True,
+                'muted': False
+            }
+        else:
+            # Both are 0, no change
+            return {
+                'direction': 'stable',
+                'indicator': '↔',
+                'percent_change': 0.0,
+                'significant': False,
+                'muted': True
+            }
     
     # Calculate percent change
     percent_change = ((current_value - previous_value) / previous_value) * 100
