@@ -57,3 +57,34 @@ https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt|AGGREGATE|I
 
 # Binary Defense - Artillery threat intelligence
 https://www.binarydefense.com/banlist.txt|SCANNER|BinaryDefense
+
+# ============================================
+# ADDITIONAL C2 & BOTNET FEEDS
+# ============================================
+
+# Zeus Tracker - Banking Trojan C2 servers (Dridex, ZeuS, SpyEye)
+https://zeustracker.abuse.ch/blocklist.php?download=ipblocklist|C2|ZeusTracker
+
+# Bambenek C2 - Domain Generation Algorithm-based C2 servers
+https://osint.bambenekconsulting.com/feeds/c2-ipmaster.txt|C2|BambenekC2
+
+# ============================================
+# ADDITIONAL MALWARE FEEDS
+# ============================================
+
+# Talos Intelligence - Cisco Talos known malicious IPs
+https://talosintelligence.com/documents/ip-blacklist|MALWARE|TalosIP
+
+# ============================================
+# ADDITIONAL SCANNER & ATTACK FEEDS
+# ============================================
+
+# DShield - SANS Internet Storm Center top attackers
+https://www.dshield.org/feeds/suspiciousdomains_High.txt|SCANNER|DShield
+
+# ============================================
+# ADDITIONAL AGGREGATED FEEDS
+# ============================================
+
+# FireHOL Level 1 - Aggregated IP blocklist from multiple sources
+https://iplists.firehol.org/files/firehol_level1.netset|AGGREGATE|FireHOL1
