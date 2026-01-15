@@ -1624,6 +1624,14 @@ tr:hover td {
     transition: all var(--transition-fast);
 }
 
+/* CYBERPUNK UI: Compact badge for Internal/External indicators */
+.badge-compact {
+    padding: 2px 6px;
+    min-width: auto;
+    font-size: 0.85em;
+    line-height: 1.2;
+}
+
 /* CYBERPUNK UI: Internal badge - Signal indicator */
 .internal {
     background: linear-gradient(180deg, rgba(0, 234, 255, 0.1), rgba(0, 234, 255, 0.05));

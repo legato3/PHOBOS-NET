@@ -1094,9 +1094,11 @@
                                                             </div>
                                                             <!-- Supporting: Badges -->
                                                             <div class="endpoint-badges">
-                                                                <span class="badge"
+                                                                <span class="badge badge-compact"
                                                                     :class="item.internal ? 'internal' : 'external'"
-                                                                    x-text="item.internal ? 'Internal' : 'External'"></span>
+                                                                    :title="item.internal ? 'Internal' : 'External'">
+                                                                    <span x-text="item.internal ? '🏠' : '🌐'"></span>
+                                                                </span>
                                                                 <span class="badge threat"
                                                                     x-show="item.threat">THREAT</span>
                                                             </div>
@@ -1181,9 +1183,11 @@
                                                             </div>
                                                             <!-- Supporting: Badges -->
                                                             <div class="endpoint-badges">
-                                                                <span class="badge"
+                                                                <span class="badge badge-compact"
                                                                     :class="item.internal ? 'internal' : 'external'"
-                                                                    x-text="item.internal ? 'Internal' : 'External'"></span>
+                                                                    :title="item.internal ? 'Internal' : 'External'">
+                                                                    <span x-text="item.internal ? '🏠' : '🌐'"></span>
+                                                                </span>
                                                                 <span class="badge threat"
                                                                     x-show="item.threat">THREAT</span>
                                                             </div>
