@@ -90,6 +90,13 @@ def index():
     return render_template("index.html")
 
 
+@bp.route("/wallboard")
+@bp.route("/noc")
+def wallboard():
+    """NOC/Wallboard view - read-only, large typography, optimized for distance viewing."""
+    return render_template("wallboard.html")
+
+
 @bp.route("/api/stats/summary")
 @throttle(5, 10)
 def api_stats_summary():

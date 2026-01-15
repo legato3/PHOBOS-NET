@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC Wallboard - Network Dashboard</title>
+    <script defer src="/static/alpine.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Wallboard-specific styles - Large typography, high contrast, minimal chrome */
+        body.wallboard {
+            margin: 0;
+            padding: 40px;
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        .wallboard-container {
+            max-width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .wallboard-header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #00ff00;
+        }
+        
+        .wallboard-header h1 {
+            font-size: 3.5em;
+            margin: 0;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        
+        .wallboard-header .timestamp {
+            font-size: 1.5em;
+            color: #cccccc;
+            margin-top: 10px;
+        }
+        
+        .wallboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            flex: 1;
+        }
+        
+        .wallboard-stat {
+            background: #1a1a1a;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        
+        .wallboard-stat.status-ok {
+            border-color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+        }
+        
+        .wallboard-stat.status-warning {
+            border-color: #ffaa00;
+            box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+        }
+        
+        .wallboard-stat.status-error {
+            border-color: #ff0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        }
+        
+        .wallboard-stat-label {
+            font-size: 1.8em;
+            color: #aaaaaa;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .wallboard-stat-value {
+            font-size: 4.5em;
+            font-weight: bold;
+            color: #ffffff;
+            line-height: 1.2;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .wallboard-stat-value.status-ok {
+            color: #00ff00;
+            text-shadow: 0 0 15px #00ff00;
+        }
+        
+        .wallboard-stat-value.status-warning {
+            color: #ffaa00;
+            text-shadow: 0 0 15px #ffaa00;
+        }
+        
+        .wallboard-stat-value.status-error {
+            color: #ff0000;
+            text-shadow: 0 0 15px #ff0000;
+        }
+        
+        .wallboard-stat-subtext {
+            font-size: 1.2em;
+            color: #888888;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        
+        .wallboard-health-large {
+            grid-column: 1 / -1;
+            background: #1a1a1a;
+            border: 3px solid #333333;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .wallboard-health-large.status-ok {
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+        }
+        
+        .wallboard-health-large.status-warning {
+            border-color: #ffaa00;
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);
+        }
+        
+        .wallboard-health-large.status-error {
+            border-color: #ff0000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+        }
+        
+        .wallboard-health-label {
+            font-size: 2em;
+            color: #aaaaaa;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .wallboard-health-state {
+            font-size: 6em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin: 20px 0;
+        }
+        
+        .wallboard-health-state.healthy {
+            color: #00ff00;
+            text-shadow: 0 0 20px #00ff00;
+        }
+        
+        .wallboard-health-state.degraded {
+            color: #ffaa00;
+            text-shadow: 0 0 20px #ffaa00;
+        }
+        
+        .wallboard-health-state.unhealthy {
+            color: #ff0000;
+            text-shadow: 0 0 20px #ff0000;
+        }
+        
+        .wallboard-health-explanation {
+            font-size: 1.5em;
+            color: #cccccc;
+            margin-top: 20px;
+            font-style: italic;
+        }
+        
+        .wallboard-loading {
+            font-size: 3em;
+            color: #666666;
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body class="wallboard" x-data="wallboardStore()" x-init="init()">
+    <div class="wallboard-container">
+        <div class="wallboard-header">
+            <h1>NETWORK OPERATIONS CENTER</h1>
+            <div class="timestamp" x-text="new Date().toLocaleString()"></div>
+        </div>
+        
+        <div class="wallboard-stats">
+            <!-- Overall Health (Large, Prominent) -->
+            <div class="wallboard-health-large"
+                :class="{
+                    'status-ok': overallHealth.state === 'healthy',
+                    'status-warning': overallHealth.state === 'degraded',
+                    'status-error': overallHealth.state === 'unhealthy'
+                }">
+                <div class="wallboard-health-label">Overall System Health</div>
+                <div class="wallboard-health-state"
+                    :class="overallHealth.state"
+                    x-text="overallHealth.state === 'healthy' ? 'HEALTHY' : overallHealth.state === 'degraded' ? 'DEGRADED' : 'UNHEALTHY'">
+                    HEALTHY
+                </div>
+                <template x-if="overallHealth.shortExplanation">
+                    <div class="wallboard-health-explanation" x-text="overallHealth.shortExplanation"></div>
+                </template>
+            </div>
+            
+            <!-- Active Alerts -->
+            <div class="wallboard-stat"
+                :class="{ 'status-warning': alertHistory.total > 0 }">
+                <div class="wallboard-stat-label">Active Alerts</div>
+                <div class="wallboard-stat-value"
+                    :class="{ 'status-warning': alertHistory.total > 0 }"
+                    x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
+                    0
+                </div>
+            </div>
+            
+            <!-- Active Flows -->
+            <div class="wallboard-stat">
+                <div class="wallboard-stat-label">Active Flows</div>
+                <div class="wallboard-stat-value"
+                    x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">
+                    0
+                </div>
+            </div>
+            
+            <!-- External Connections -->
+            <div class="wallboard-stat">
+                <div class="wallboard-stat-label">External Connections</div>
+                <div class="wallboard-stat-value"
+                    x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">
+                    0
+                </div>
+            </div>
+            
+            <!-- Blocked Events (24h) -->
+            <div class="wallboard-stat">
+                <div class="wallboard-stat-label">Blocked Events (24h)</div>
+                <div class="wallboard-stat-value"
+                    x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">
+                    0
+                </div>
+            </div>
+            
+            <!-- Network Anomalies (24h) -->
+            <div class="wallboard-stat"
+                :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+                <div class="wallboard-stat-label">Network Anomalies (24h)</div>
+                <div class="wallboard-stat-value"
+                    :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
+                    x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">
+                    0
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function wallboardStore() {
+            return {
+                alertHistory: { total: 0, loading: true },
+                networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, loading: true },
+                firewallStatsOverview: { blocked_events_24h: 0, loading: true },
+                overallHealth: { state: 'healthy', shortExplanation: '' },
+                refreshTimer: null,
+                
+                async fetchAlertHistory() {
+                    try {
+                        const res = await fetch('/api/security/alerts/history');
+                        if (res.ok) {
+                            const d = await res.json();
+                            this.alertHistory = { total: d.total || 0, loading: false };
+                        }
+                    } catch (e) {
+                        this.alertHistory.loading = false;
+                    }
+                },
+                
+                async fetchNetworkStatsOverview() {
+                    try {
+                        const res = await fetch('/api/network/stats/overview');
+                        if (res.ok) {
+                            const d = await res.json();
+                            this.networkStatsOverview = {
+                                active_flows: d.active_flows || 0,
+                                external_connections: d.external_connections || 0,
+                                anomalies_24h: d.anomalies_24h || 0,
+                                loading: false
+                            };
+                        }
+                    } catch (e) {
+                        this.networkStatsOverview.loading = false;
+                    }
+                },
+                
+                async fetchFirewallStatsOverview() {
+                    try {
+                        const res = await fetch('/api/firewall/stats/overview');
+                        if (res.ok) {
+                            const d = await res.json();
+                            this.firewallStatsOverview = {
+                                blocked_events_24h: d.blocked_events_24h || 0,
+                                loading: false
+                            };
+                        }
+                    } catch (e) {
+                        this.firewallStatsOverview.loading = false;
+                    }
+                },
+                
+                async fetchBaselineSignals() {
+                    try {
+                        const res = await fetch('/api/health/baseline-signals');
+                        if (res.ok) {
+                            const d = await res.json();
+                            // Use baseline signals to determine health if available
+                            const activeAlerts = this.alertHistory.total || 0;
+                            const hasAlerts = activeAlerts > 0;
+                            const signalCount = (d.signals || []).filter(s => s !== 'anomalies_present').length;
+                            
+                            if (hasAlerts) {
+                                this.overallHealth = {
+                                    state: 'unhealthy',
+                                    shortExplanation: `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`
+                                };
+                            } else if (signalCount >= 2) {
+                                this.overallHealth = {
+                                    state: 'unhealthy',
+                                    shortExplanation: 'Multiple issues detected'
+                                };
+                            } else if (signalCount === 1) {
+                                this.overallHealth = {
+                                    state: 'degraded',
+                                    shortExplanation: d.signal_details[0] || 'Issue detected'
+                                };
+                            } else {
+                                this.overallHealth = {
+                                    state: 'healthy',
+                                    shortExplanation: ''
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        // Fallback to simple health calculation
+                        this.calculateSimpleHealth();
+                    }
+                },
+                
+                calculateSimpleHealth() {
+                    const activeAlerts = this.alertHistory.total || 0;
+                    const anomalies = this.networkStatsOverview.anomalies_24h || 0;
+                    const blockedEvents = this.firewallStatsOverview.blocked_events_24h || 0;
+                    
+                    if (activeAlerts > 0) {
+                        this.overallHealth = {
+                            state: 'unhealthy',
+                            shortExplanation: `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`
+                        };
+                    } else if (anomalies > 0 && blockedEvents > 1000) {
+                        this.overallHealth = {
+                            state: 'unhealthy',
+                            shortExplanation: 'Multiple issues detected'
+                        };
+                    } else if (anomalies > 0 || blockedEvents > 1000) {
+                        this.overallHealth = {
+                            state: 'degraded',
+                            shortExplanation: anomalies > 0 ? `${anomalies} anomalies` : 'Elevated blocks'
+                        };
+                    } else {
+                        this.overallHealth = {
+                            state: 'healthy',
+                            shortExplanation: ''
+                        };
+                    }
+                },
+                
+                async loadAll() {
+                    await Promise.all([
+                        this.fetchAlertHistory(),
+                        this.fetchNetworkStatsOverview(),
+                        this.fetchFirewallStatsOverview()
+                    ]);
+                    await this.fetchBaselineSignals();
+                    if (!this.overallHealth.shortExplanation) {
+                        this.calculateSimpleHealth();
+                    }
+                },
+                
+                init() {
+                    // Initial load
+                    this.loadAll();
+                    
+                    // Auto-refresh every 30 seconds
+                    this.refreshTimer = setInterval(() => {
+                        this.loadAll();
+                    }, 30000);
+                    
+                    // Update timestamp every second
+                    setInterval(() => {
+                        // Timestamp updates automatically via Alpine.js reactivity
+                    }, 1000);
+                }
+            };
+        }
+    </script>
+</body>
+</html>
