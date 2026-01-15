@@ -1863,6 +1863,38 @@ export const Store = () => ({
         this.flows.viewLimit = limit;
     },
 
+    // Helper to check if IP is internal
+    isInternalIP(ip) {
+        if (!ip) return false;
+        return ip.startsWith('192.168.') || ip.startsWith('10.') || 
+               (ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || 
+                ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || 
+                ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || 
+                ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || 
+                ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || 
+                ip.startsWith('172.31.'));
+    },
+
+    // Get flow direction indicator
+    getFlowDirection(flow) {
+        if (flow.direction) return flow.direction;
+        const srcInt = flow.src_internal !== undefined ? flow.src_internal : this.isInternalIP(flow.src);
+        const dstInt = flow.dst_internal !== undefined ? flow.dst_internal : this.isInternalIP(flow.dst);
+        if (srcInt && !dstInt) return 'outbound';
+        if (!srcInt && dstInt) return 'inbound';
+        if (srcInt && dstInt) return 'internal';
+        return 'external';
+    },
+
+    // Get direction arrow/indicator
+    getDirectionIndicator(flow) {
+        const dir = this.getFlowDirection(flow);
+        if (dir === 'outbound') return { symbol: '↗', color: 'var(--signal-primary)', title: 'Outbound (Internal → External)' };
+        if (dir === 'inbound') return { symbol: '↙', color: 'var(--signal-secondary)', title: 'Inbound (External → Internal)' };
+        if (dir === 'internal') return { symbol: '↔', color: 'var(--signal-ok)', title: 'Internal (Internal → Internal)' };
+        return { symbol: '↔', color: 'var(--text-muted)', title: 'External (External → External)' };
+    },
+
     openFlowDetails(flow) {
         // Open IP investigation modal for source IP
         // This provides flow details through the existing IP investigation interface

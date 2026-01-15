@@ -2067,6 +2067,24 @@ def api_flows():
                     src_geo = lookup_geo(src) or {}
                     dst_geo = lookup_geo(dst) or {}
 
+                    # Resolve hostnames (cached only, non-blocking)
+                    src_hostname = resolve_ip(src) or None
+                    dst_hostname = resolve_ip(dst) or None
+
+                    # Determine internal/external classification
+                    src_internal = is_internal(src)
+                    dst_internal = is_internal(dst)
+                    
+                    # Determine flow direction
+                    if src_internal and not dst_internal:
+                        direction = "outbound"
+                    elif not src_internal and dst_internal:
+                        direction = "inbound"
+                    elif src_internal and dst_internal:
+                        direction = "internal"
+                    else:
+                        direction = "external"
+
                     # Resolve Service Name
                     try:
                         svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
@@ -2084,12 +2102,17 @@ def api_flows():
                         "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
                         "src": src,
                         "src_port": src_port,
+                        "src_hostname": src_hostname,  # Cached hostname if available
+                        "src_internal": src_internal,  # Internal/external flag
                         "src_flag": src_geo.get('flag', ''),
                         "src_country": src_geo.get('country', ''),
                         "dst": dst,
                         "dst_port": dst_port,
+                        "dst_hostname": dst_hostname,  # Cached hostname if available
+                        "dst_internal": dst_internal,  # Internal/external flag
                         "dst_flag": dst_geo.get('flag', ''),
                         "dst_country": dst_geo.get('country', ''),
+                        "direction": direction,  # Flow direction: inbound, outbound, internal, external
                         "service": svc,
                         "bytes": b,
                         "bytes_fmt": fmt_bytes(b),

@@ -1268,6 +1268,26 @@ table tr.critical,
     background-color: rgba(0, 234, 255, 0.08);
 }
 
+/* Active Flows: Long duration low-byte flows (subtle highlight) */
+.flow-item-long-duration {
+    border-left: 2px solid var(--signal-ok);
+    background-color: rgba(0, 255, 136, 0.02);
+}
+
+.flow-item-long-duration:hover {
+    background-color: rgba(0, 255, 136, 0.05);
+}
+
+/* Active Flows: Short duration high-byte flows (burst traffic) */
+.flow-item-burst {
+    border-left: 2px solid var(--signal-warn);
+    background-color: rgba(255, 180, 0, 0.02);
+}
+
+.flow-item-burst:hover {
+    background-color: rgba(255, 180, 0, 0.05);
+}
+
 /* ============================================
    Unified Endpoint Widget Design System
    Tokens for Sources/Destinations widgets

@@ -2003,8 +2003,7 @@
                                 </template>
                             </div>
                             <div x-show="!alertCorrelation.chains || alertCorrelation.chains.length === 0"
-                                class="empty-state">
-                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">✅</div>
+                                class="empty-state" style="text-align: center;">
                                 <p
                                     style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
                                     No Correlated Attack Chains Detected</p>
@@ -2186,16 +2185,16 @@
                                             Age <span x-show="flows.sortKey==='age'"
                                                 x-text="flows.sortDesc ? '▼' : '▲'"></span>
                                         </th>
-                                        <th style="width: 30%; cursor: pointer;" @click="sortFlows('src')">
+                                        <th style="width: 28%; cursor: pointer;" @click="sortFlows('src')">
                                             Source <span x-show="flows.sortKey==='src'"
                                                 x-text="flows.sortDesc ? '▼' : '▲'"></span>
                                         </th>
-                                        <th style="width: 5%;"></th>
-                                        <th style="width: 30%; cursor: pointer;" @click="sortFlows('dst')">
+                                        <th style="width: 6%;" title="Flow Direction">Dir</th>
+                                        <th style="width: 28%; cursor: pointer;" @click="sortFlows('dst')">
                                             Destination <span x-show="flows.sortKey==='dst'"
                                                 x-text="flows.sortDesc ? '▼' : '▲'"></span>
                                         </th>
-                                        <th style="width: 10%; cursor: pointer;" @click="sortFlows('proto_name')">
+                                        <th style="width: 8%; cursor: pointer;" @click="sortFlows('proto_name')">
                                             Proto <span x-show="flows.sortKey==='proto_name'"
                                                 x-text="flows.sortDesc ? '▼' : '▲'"></span>
                                         </th>
@@ -2207,59 +2206,74 @@
                                 </thead>
                                 <tbody>
                                     <template x-for="(flow, idx) in flows.flows.slice(0, flows.viewLimit || 15)" :key="idx">
-                                        <tr class="flow-item" @click="openFlowDetails(flow)" style="cursor: pointer;" :class="{ 'flow-item-heavy': flow.bytes > 1000000 }">
+                                        <tr class="flow-item" @click="openFlowDetails(flow)" style="cursor: pointer;" 
+                                            :class="{ 
+                                                'flow-item-heavy': flow.bytes > 1000000,
+                                                'flow-item-long-duration': flow.duration_seconds > 300 && flow.bytes < 100000,
+                                                'flow-item-burst': flow.duration_seconds < 10 && flow.bytes > 500000
+                                            }">
                                             <td class="text-xs text-muted font-mono" x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))">
                                             </td>
-                                            <td @click="openIPModal(flow.src)"
+                                            <td @click.stop="openIPModal(flow.src)"
                                                 style="padding: 6px 8px; overflow: hidden;">
-                                                <div
-                                                    style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                                <!-- IP as primary element -->
+                                                <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                                                     <span
                                                         :class="'flag-icon flag-icon-' + (flow.src_country_code || 'unknown').toLowerCase()"
-                                                        style="font-size: 1.1em;"></span>
-                                                    <strong class="text-cyan truncate" x-text="flow.src"></strong>
+                                                        style="font-size: 1em;"></span>
+                                                    <strong class="text-cyan truncate" style="font-size: 0.95em;" x-text="flow.src"></strong>
                                                 </div>
-                                                <div class="flex items-center space-x-1" style="margin-top:2px;">
-                                                    <span class="text-muted" style="font-size:0.8em;">:</span>
-                                                    <span class="text-muted" style="font-size:0.85em;"
-                                                        x-text="flow.src_port"></span>
-                                                    <span class="text-muted" style="font-size:0.8em;"
-                                                        x-show="flow.service && flow.service!='unknown'"
-                                                        x-text="'(' + flow.service + ')'"></span>
+                                                <!-- Hostname (muted, secondary) -->
+                                                <div x-show="flow.src_hostname" style="margin-top: 2px;">
+                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.7;" 
+                                                        :title="flow.src_hostname" x-text="flow.src_hostname"></span>
+                                                </div>
+                                                <!-- Port and protocol (secondary, muted) -->
+                                                <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
+                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.6;">
+                                                        <span x-text="flow.src_port"></span>
+                                                        <span x-show="flow.proto_name" x-text="'/' + flow.proto_name"></span>
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td style="text-align:center; color:var(--text-muted); padding: 6px 8px;">➜
+                                            <td style="text-align:center; padding: 6px 8px;" 
+                                                :title="getDirectionIndicator(flow).title"
+                                                :style="'color: ' + getDirectionIndicator(flow).color + '; font-size: 1.1em; font-weight: bold;'">
+                                                <span x-text="getDirectionIndicator(flow).symbol"></span>
                                             </td>
-                                            <td @click="openIPModal(flow.dst)"
+                                            <td @click.stop="openIPModal(flow.dst)"
                                                 style="padding: 6px 8px; overflow: hidden;">
-                                                <div
-                                                    style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                                <!-- IP as primary element -->
+                                                <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                                                     <span
                                                         :class="'flag-icon flag-icon-' + (flow.dst_country_code || 'unknown').toLowerCase()"
-                                                        style="font-size: 1.1em;"></span>
-                                                    <strong class="text-cyan truncate" x-text="flow.dst"></strong>
+                                                        style="font-size: 1em;"></span>
+                                                    <strong class="text-cyan truncate" style="font-size: 0.95em;" x-text="flow.dst"></strong>
                                                 </div>
-                                                <div class="flex items-center space-x-1" style="margin-top:2px;">
-                                                    <span class="text-muted" style="font-size:0.8em;">:</span>
-                                                    <span class="text-muted" style="font-size:0.85em;"
-                                                        x-text="flow.dst_port"></span>
-                                                    <span class="text-muted" style="font-size:0.8em;"
-                                                        x-show="flow.service && flow.service!='unknown'"
-                                                        x-text="'(' + flow.service + ')'"></span>
+                                                <!-- Hostname (muted, secondary) -->
+                                                <div x-show="flow.dst_hostname" style="margin-top: 2px;">
+                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.7;" 
+                                                        :title="flow.dst_hostname" x-text="flow.dst_hostname"></span>
+                                                </div>
+                                                <!-- Port and protocol (secondary, muted) -->
+                                                <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
+                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.6;">
+                                                        <span x-text="flow.dst_port"></span>
+                                                        <span x-show="flow.service && flow.service !== flow.dst_port && flow.service !== 'unknown'" 
+                                                            x-text="' (' + flow.service + ')'"></span>
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td style="padding: 6px 8px;">
                                                 <div style="font-size:0.85em; white-space: nowrap;">
                                                     <strong x-text="flow.proto_name"></strong>
-                                                    <span style="color:var(--text-muted); margin-left:4px;"
-                                                        x-text="flow.service"></span>
                                                 </div>
                                             </td>
                                             <td style="padding: 6px 8px;">
                                                 <div style="font-size:0.85em; white-space: nowrap;">
                                                     <strong class="text-green" x-text="flow.bytes_fmt"></strong>
-                                                    <span style="color:var(--text-muted); margin-left:4px;"
-                                                        x-text="'(' + flow.duration + ')'"></span>
+                                                    <span style="color:var(--text-muted); margin-left:4px; font-size: 0.8em;"
+                                                        x-text="flow.duration"></span>
                                                 </div>
                                             </td>
                                         </tr>
