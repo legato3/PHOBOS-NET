@@ -559,8 +559,12 @@ body.sidebar-collapsed .layout-wrapper {
 .sidebar-footer {
     margin-top: auto;
     padding: var(--space-4);
+    padding-bottom: var(--space-4);
     border-top: 1px solid var(--border-soft);
     background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 }
 
 .sidebar.collapsed .sidebar-footer {
