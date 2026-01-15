@@ -3010,25 +3010,43 @@
                                                     }"
                                                     x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : iface.status === 'admin_down' ? 'ADMIN DOWN' : 'UNKNOWN'"></span>
                                             </td>
-                                            <td x-text="iface.rx_mbps !== null && iface.rx_mbps !== undefined ? iface.rx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
-                                            <td x-text="iface.tx_mbps !== null && iface.tx_mbps !== undefined ? iface.tx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
                                             <td>
-                                                <span x-show="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined && (iface.rx_errors + iface.tx_errors) > 0" 
-                                                    class="text-warn"
-                                                    x-text="(iface.rx_errors + iface.tx_errors).toFixed(1) + '/s'"></span>
-                                                <span x-show="iface.rx_errors === null || iface.rx_errors === undefined || iface.tx_errors === null || iface.tx_errors === undefined" class="text-muted">—</span>
-                                                <span x-show="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined && (iface.rx_errors + iface.tx_errors) === 0" class="text-muted">0</span>
+                                                <template x-if="iface.rx_mbps !== null && iface.rx_mbps !== undefined">
+                                                    <span x-text="iface.rx_mbps.toFixed(2) + ' Mbps'"></span>
+                                                </template>
+                                                <template x-if="iface.rx_mbps === null || iface.rx_mbps === undefined">
+                                                    <span class="text-muted">—</span>
+                                                </template>
                                             </td>
                                             <td>
-                                                <span x-show="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined && (iface.rx_drops + iface.tx_drops) > 0"
-                                                    class="text-warn"
-                                                    x-text="(iface.rx_drops + iface.tx_drops).toFixed(1) + '/s'"></span>
-                                                <span x-show="iface.rx_drops === null || iface.rx_drops === undefined || iface.tx_drops === null || iface.tx_drops === undefined" class="text-muted">—</span>
-                                                <span x-show="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined && (iface.rx_drops + iface.tx_drops) === 0" class="text-muted">0</span>
+                                                <template x-if="iface.tx_mbps !== null && iface.tx_mbps !== undefined">
+                                                    <span x-text="iface.tx_mbps.toFixed(2) + ' Mbps'"></span>
+                                                </template>
+                                                <template x-if="iface.tx_mbps === null || iface.tx_mbps === undefined">
+                                                    <span class="text-muted">—</span>
+                                                </template>
+                                            </td>
+                                            <td>
+                                                <template x-if="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined">
+                                                    <span :class="{ 'text-warn': (iface.rx_errors + iface.tx_errors) > 0, 'text-muted': (iface.rx_errors + iface.tx_errors) === 0 }"
+                                                        x-text="(iface.rx_errors + iface.tx_errors).toFixed(1) + '/s'"></span>
+                                                </template>
+                                                <template x-if="iface.rx_errors === null || iface.rx_errors === undefined || iface.tx_errors === null || iface.tx_errors === undefined">
+                                                    <span class="text-muted">—</span>
+                                                </template>
+                                            </td>
+                                            <td>
+                                                <template x-if="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined">
+                                                    <span :class="{ 'text-warn': (iface.rx_drops + iface.tx_drops) > 0, 'text-muted': (iface.rx_drops + iface.tx_drops) === 0 }"
+                                                        x-text="(iface.rx_drops + iface.tx_drops).toFixed(1) + '/s'"></span>
+                                                </template>
+                                                <template x-if="iface.rx_drops === null || iface.rx_drops === undefined || iface.tx_drops === null || iface.tx_drops === undefined">
+                                                    <span class="text-muted">—</span>
+                                                </template>
                                             </td>
                                             <td>
                                                 <template x-if="iface.utilization !== null && iface.utilization !== undefined">
-                                                    <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90 }"
+                                                    <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
                                                         x-text="iface.utilization.toFixed(1) + '%'"
                                                         :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
                                                 </template>
