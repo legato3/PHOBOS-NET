@@ -402,6 +402,8 @@ body.sidebar-collapsed .layout-wrapper {
     top: 0;
     left: 0;
     margin: 0;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
     display: flex;
@@ -565,6 +567,7 @@ body.sidebar-collapsed .layout-wrapper {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    flex-shrink: 0;
 }
 
 .sidebar.collapsed .sidebar-footer {
