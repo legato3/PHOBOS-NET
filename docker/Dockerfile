@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-# COPY sample_data/requirements.txt .
+COPY docker-data/requirements.txt .
 
 # Install Python dependencies (including gunicorn for production)
 RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
