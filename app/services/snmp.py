@@ -116,8 +116,10 @@ def get_snmp_data():
 
         # Compute interface rates (Mbps) using 64-bit counters and previous sample
         prev_ts = state._snmp_prev_sample.get("ts", 0)
-        if prev_ts > 0:
-            dt = max(1.0, now - prev_ts)
+        dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
+        
+        # Calculate interface rates if we have previous sample
+        if prev_ts > 0 and dt > 0:
             for prefix in ("wan", "lan"):
                 in_key = f"{prefix}_in"
                 out_key = f"{prefix}_out"
@@ -126,9 +128,13 @@ def get_snmp_data():
                     prev_out = state._snmp_prev_sample.get(out_key, 0)
                     d_in = result[in_key] - prev_in
                     d_out = result[out_key] - prev_out
-                    # Guard against wrap or reset
-                    if d_in < 0: d_in = 0
-                    if d_out < 0: d_out = 0
+                    # Guard against wrap or reset (allow small negative due to counter wrap)
+                    if d_in < 0:
+                        # Counter wrapped - use current value as estimate
+                        d_in = result[in_key]
+                    if d_out < 0:
+                        d_out = result[out_key]
+                    # Calculate rates in Mbps
                     rx_mbps = (d_in * 8.0) / (dt * 1_000_000)
                     tx_mbps = (d_out * 8.0) / (dt * 1_000_000)
                     result[f"{prefix}_rx_mbps"] = round(rx_mbps, 2)
@@ -138,6 +144,11 @@ def get_snmp_data():
                     if spd and spd > 0:
                         util = ((rx_mbps + tx_mbps) / (spd)) * 100.0
                         result[f"{prefix}_util_percent"] = round(util, 1)
+                else:
+                    # Counters not available - mark rates as None
+                    result[f"{prefix}_rx_mbps"] = None
+                    result[f"{prefix}_tx_mbps"] = None
+                    result[f"{prefix}_util_percent"] = None
 
             # Generic counter rates (/s) for selected counters
             rate_keys = [
@@ -155,9 +166,25 @@ def get_snmp_data():
                 if k in result:
                     prev_v = state._snmp_prev_sample.get(k, result[k])
                     d = result[k] - prev_v
-                    if d < 0: d = 0
-                    result[f"{k}_s"] = round(d / dt, 2)
-        # Update previous sample
+                    if d < 0:
+                        # Counter wrapped or reset - use current value
+                        d = result[k]
+                    result[f"{k}_s"] = round(d / dt, 2) if dt > 0 else 0
+                else:
+                    # Counter not available
+                    result[f"{k}_s"] = None
+        else:
+            # First poll or no previous sample - mark rates as unavailable
+            for prefix in ("wan", "lan"):
+                result[f"{prefix}_rx_mbps"] = None
+                result[f"{prefix}_tx_mbps"] = None
+                result[f"{prefix}_util_percent"] = None
+            # Mark error/discard rates as unavailable
+            for k in ["wan_in_err", "wan_out_err", "wan_in_disc", "wan_out_disc",
+                     "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc"]:
+                result[f"{k}_s"] = None
+        
+        # Update previous sample - always store current values for next calculation
         state._snmp_prev_sample = {
             "ts": now,
             "wan_in": result.get("wan_in", 0),
@@ -178,6 +205,15 @@ def get_snmp_data():
             "icmp_in_errors": result.get("icmp_in_errors", 0),
             "udp_in": result.get("udp_in", 0),
             "udp_out": result.get("udp_out", 0),
+            # Store error/discard counters for rate calculation
+            "wan_in_err": result.get("wan_in_err", 0),
+            "wan_out_err": result.get("wan_out_err", 0),
+            "wan_in_disc": result.get("wan_in_disc", 0),
+            "wan_out_disc": result.get("wan_out_disc", 0),
+            "lan_in_err": result.get("lan_in_err", 0),
+            "lan_out_err": result.get("lan_out_err", 0),
+            "lan_in_disc": result.get("lan_in_disc", 0),
+            "lan_out_disc": result.get("lan_out_disc", 0),
         }
 
         # Format uptime for readability

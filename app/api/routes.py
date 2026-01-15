@@ -5125,8 +5125,14 @@ def api_firewall_snmp_status():
     
     # WAN interface
     wan_status_raw = snmp_data.get("if_wan_status")
-    wan_has_traffic = (snmp_data.get("wan_rx_mbps", 0) > 0 or snmp_data.get("wan_tx_mbps", 0) > 0 or 
-                       snmp_data.get("wan_in", 0) > 0 or snmp_data.get("wan_out", 0) > 0)
+    # Check for traffic: use rates if available, otherwise check raw counters
+    wan_has_traffic = False
+    if snmp_data.get("wan_rx_mbps") is not None and snmp_data.get("wan_rx_mbps", 0) > 0:
+        wan_has_traffic = True
+    elif snmp_data.get("wan_tx_mbps") is not None and snmp_data.get("wan_tx_mbps", 0) > 0:
+        wan_has_traffic = True
+    elif snmp_data.get("wan_in", 0) > 0 or snmp_data.get("wan_out", 0) > 0:
+        wan_has_traffic = True
     wan_status = determine_interface_status(wan_status_raw, wan_has_traffic, has_sessions, data_age)
     
     interfaces.append({
@@ -5144,8 +5150,14 @@ def api_firewall_snmp_status():
     
     # LAN interface
     lan_status_raw = snmp_data.get("if_lan_status")
-    lan_has_traffic = (snmp_data.get("lan_rx_mbps", 0) > 0 or snmp_data.get("lan_tx_mbps", 0) > 0 or
-                       snmp_data.get("lan_in", 0) > 0 or snmp_data.get("lan_out", 0) > 0)
+    # Check for traffic: use rates if available, otherwise check raw counters
+    lan_has_traffic = False
+    if snmp_data.get("lan_rx_mbps") is not None and snmp_data.get("lan_rx_mbps", 0) > 0:
+        lan_has_traffic = True
+    elif snmp_data.get("lan_tx_mbps") is not None and snmp_data.get("lan_tx_mbps", 0) > 0:
+        lan_has_traffic = True
+    elif snmp_data.get("lan_in", 0) > 0 or snmp_data.get("lan_out", 0) > 0:
+        lan_has_traffic = True
     lan_status = determine_interface_status(lan_status_raw, lan_has_traffic, has_sessions, data_age)
     
     interfaces.append({
