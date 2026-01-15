@@ -2534,20 +2534,21 @@ export const Store = () => ({
             this.mapLayers.push(marker);
         });
 
-        // Draw Threats (Red - most prominent, larger, brighter)
+        // Draw Threats (Red - prominent but balanced, not overwhelming)
         threats.forEach(p => {
-            const baseSize = Math.min(14, Math.max(8, Math.log10((p.bytes || 1000) + 1) * 3));
+            const baseSize = Math.min(12, Math.max(7, Math.log10((p.bytes || 1000) + 1) * 2.8));
             const size = baseSize * emphasis.threats;
             const countryIso = p.country_iso || p.iso || '';
-            const opacity = getOpacity(countryIso, 1.0 * emphasis.threats);
+            // Slightly reduce opacity to balance visual dominance while keeping threats visible
+            const opacity = getOpacity(countryIso, 0.85 * emphasis.threats);
             
             const threatMarker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
-                fillColor: '#ff1744',  /* CYBERPUNK UI: signal-crit (red) - ONLY for threats, most prominent */
+                fillColor: '#ff1744',  /* CYBERPUNK UI: signal-crit (red) - ONLY for threats, prominent but balanced */
                 color: '#ff1744',
                 weight: 2.5,
                 opacity: opacity,
-                fillOpacity: opacity * 0.9
+                fillOpacity: opacity * 0.85
             });
             threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff1744;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
             threatMarker.on('click', () => {

@@ -395,7 +395,10 @@
                                                 :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
                                         </template>
                                     </div>
-                                    <div class="label">Anomalies (24h)</div>
+                                    <div class="label">Anomalies (24h)
+                                        <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;" 
+                                            title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1159,7 +1162,10 @@
                                                 :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
                                         </template>
                                     </div>
-                                    <div class="label">Network Anomalies (24h)</div>
+                                    <div class="label">Network Anomalies (24h)
+                                        <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;" 
+                                            title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
+                                    </div>
                                 </div>
                             </div>
 
