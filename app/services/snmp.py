@@ -79,7 +79,8 @@ def get_snmp_data():
                     "wan_speed", "lan_speed",
                     "wan_in_err", "wan_out_err", "wan_in_disc", "wan_out_disc",
                     "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc",
-                    "disk_read", "disk_write", "udp_in", "udp_out"
+                    "disk_read", "disk_write", "udp_in", "udp_out",
+                    "if_wan_status", "if_lan_status", "if_wan_admin", "if_lan_admin"
                 ):
                     # Handle Counter64 prefix if present
                     if "Counter64:" in clean_val:
@@ -303,6 +304,41 @@ def get_snmp_data():
         # Return cached data if available
         with state._snmp_cache_lock:
             return state._snmp_cache.get("data") or {"error": str(e), "backoff": True}
+
+
+def discover_interfaces():
+    """Discover SNMP interfaces and map them to logical names (WAN/LAN).
+    
+    Returns a dict mapping logical names to interface indexes:
+    {'wan': 1, 'lan': 2} or None if discovery fails.
+    """
+    try:
+        # Walk interface descriptions
+        cmd = f"snmpwalk -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} .1.3.6.1.2.1.2.2.1.2"
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        if_descr = output.strip().split("\n")
+        
+        # Walk interface operational status to filter only UP interfaces
+        cmd = f"snmpwalk -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} .1.3.6.1.2.1.2.2.1.8"
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        if_status = output.strip().split("\n")
+        
+        mapping = {}
+        for idx, (descr, status) in enumerate(zip(if_descr, if_status), 1):
+            descr_clean = descr.strip().strip('"')
+            # Only consider UP interfaces (status == 1)
+            if status.strip() == "1":
+                # Map common interface names
+                if descr_clean.lower() in ["igc0", "em0", "eth0", "wan"]:
+                    mapping["wan"] = idx
+                elif descr_clean.lower() in ["igc1", "em1", "eth1", "lan"]:
+                    mapping["lan"] = idx
+        
+        return mapping if mapping else None
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"SNMP Interface Discovery Error: {e}")
+        return None
 
 
 def start_snmp_thread():

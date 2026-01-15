@@ -5091,11 +5091,15 @@ def api_firewall_snmp_status():
     interfaces = []
     
     # Helper function to determine interface status
-    def determine_interface_status(oper_status, has_traffic, has_sessions, data_age_seconds):
+    def determine_interface_status(oper_status, admin_status, has_traffic, has_sessions, data_age_seconds):
         """Determine interface status with proper logic to avoid false DOWN states."""
         # If SNMP data is stale (>60s), mark as STALE
         if data_age_seconds > 60:
             return "stale"
+        
+        # Check admin status first - if admin down, show as ADMIN DOWN
+        if admin_status is not None and admin_status == 2:
+            return "admin_down"
         
         # If operStatus is explicitly available, use it
         if oper_status is not None:
@@ -5125,6 +5129,7 @@ def api_firewall_snmp_status():
     
     # WAN interface
     wan_status_raw = snmp_data.get("if_wan_status")
+    wan_admin_status = snmp_data.get("if_wan_admin")
     # Check for traffic: use rates if available, otherwise check raw counters
     wan_has_traffic = False
     if snmp_data.get("wan_rx_mbps") is not None and snmp_data.get("wan_rx_mbps", 0) > 0:
@@ -5133,7 +5138,7 @@ def api_firewall_snmp_status():
         wan_has_traffic = True
     elif snmp_data.get("wan_in", 0) > 0 or snmp_data.get("wan_out", 0) > 0:
         wan_has_traffic = True
-    wan_status = determine_interface_status(wan_status_raw, wan_has_traffic, has_sessions, data_age)
+    wan_status = determine_interface_status(wan_status_raw, wan_admin_status, wan_has_traffic, has_sessions, data_age)
     
     interfaces.append({
         "name": "WAN",
@@ -5150,6 +5155,7 @@ def api_firewall_snmp_status():
     
     # LAN interface
     lan_status_raw = snmp_data.get("if_lan_status")
+    lan_admin_status = snmp_data.get("if_lan_admin")
     # Check for traffic: use rates if available, otherwise check raw counters
     lan_has_traffic = False
     if snmp_data.get("lan_rx_mbps") is not None and snmp_data.get("lan_rx_mbps", 0) > 0:
@@ -5158,7 +5164,7 @@ def api_firewall_snmp_status():
         lan_has_traffic = True
     elif snmp_data.get("lan_in", 0) > 0 or snmp_data.get("lan_out", 0) > 0:
         lan_has_traffic = True
-    lan_status = determine_interface_status(lan_status_raw, lan_has_traffic, has_sessions, data_age)
+    lan_status = determine_interface_status(lan_status_raw, lan_admin_status, lan_has_traffic, has_sessions, data_age)
     
     interfaces.append({
         "name": "LAN",

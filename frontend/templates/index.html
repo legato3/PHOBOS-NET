@@ -3006,9 +3006,9 @@
                                                     :class="{ 
                                                         'badge-success': iface.status === 'up', 
                                                         'badge-error': iface.status === 'down',
-                                                        'badge-warning': iface.status === 'stale' || iface.status === 'unknown'
+                                                        'badge-warning': iface.status === 'stale' || iface.status === 'unknown' || iface.status === 'admin_down'
                                                     }"
-                                                    x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : 'UNKNOWN'"></span>
+                                                    x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : iface.status === 'admin_down' ? 'ADMIN DOWN' : 'UNKNOWN'"></span>
                                             </td>
                                             <td x-text="iface.rx_mbps !== null && iface.rx_mbps !== undefined ? iface.rx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
                                             <td x-text="iface.tx_mbps !== null && iface.tx_mbps !== undefined ? iface.tx_mbps.toFixed(2) + ' Mbps' : '—'"></td>

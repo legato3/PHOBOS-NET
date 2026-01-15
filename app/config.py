@@ -81,8 +81,10 @@ SNMP_OIDS = {
     "tcp_active_opens": ".1.3.6.1.2.1.6.5.0",      # tcpActiveOpens
     "tcp_estab_resets": ".1.3.6.1.2.1.6.8.0",      # tcpEstabResets
     "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
-    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
-    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
+    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 operStatus
+    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 operStatus
+    "if_wan_admin": ".1.3.6.1.2.1.2.2.1.7.1",     # igc0 adminStatus
+    "if_lan_admin": ".1.3.6.1.2.1.2.2.1.7.2",     # igc1 adminStatus
     "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
     "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
     # IP stack
