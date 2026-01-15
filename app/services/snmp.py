@@ -266,8 +266,7 @@ def get_snmp_data():
             # Preserve VPN interface previous samples when updating state
             # (VPN samples are stored by API route, not by background SNMP thread)
             vpn_keys_to_preserve = [k for k in state._snmp_prev_sample.keys() 
-                                    if (k.endswith('_in') or k.endswith('_out') or k.endswith('_ts')) 
-                                    and ('tailscale' in k.lower() or 'wireguard' in k.lower())]
+                                    if ('tailscale' in k.lower() or 'wireguard' in k.lower())]
             for key in vpn_keys_to_preserve:
                 new_prev_sample[key] = state._snmp_prev_sample.get(key)
             

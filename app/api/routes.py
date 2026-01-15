@@ -5208,20 +5208,29 @@ def api_firewall_snmp_status():
             vpn_status_oid = f".1.3.6.1.2.1.2.2.1.8.{vpn_idx}"  # ifOperStatus
             vpn_speed_oid = f".1.3.6.1.2.1.31.1.1.1.15.{vpn_idx}"  # ifHighSpeed
             
+            # Error and Discard OIDs (32-bit)
+            vpn_in_err_oid = f".1.3.6.1.2.1.2.2.1.14.{vpn_idx}"
+            vpn_out_err_oid = f".1.3.6.1.2.1.2.2.1.20.{vpn_idx}"
+            vpn_in_disc_oid = f".1.3.6.1.2.1.2.2.1.13.{vpn_idx}"
+            vpn_out_disc_oid = f".1.3.6.1.2.1.2.2.1.19.{vpn_idx}"
+            
+            # Common OID string for errors/discards
+            err_oids = f"{vpn_in_err_oid} {vpn_out_err_oid} {vpn_in_disc_oid} {vpn_out_disc_oid}"
+            
             # Try 64-bit counters first, fallback to 32-bit if not available
             try:
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid}"
+                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
-                if len(values) < 4 or "No Such" in output:
+                if len(values) < 8 or "No Such" in output:
                     raise ValueError("64-bit counters not available")
             except:
                 # Fallback to 32-bit counters
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid}"
+                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
             
-            if len(values) >= 4:
+            if len(values) >= 8:
                 # Parse values: strip quotes, handle Counter64: prefix, convert to int
                 def parse_counter(val):
                     val = val.strip().strip('"')
@@ -5234,7 +5243,12 @@ def api_firewall_snmp_status():
                 vpn_in = parse_counter(values[0])
                 vpn_out = parse_counter(values[1])
                 vpn_status_raw = int(values[2].strip().strip('"'))
-                vpn_speed = int(values[3].strip().strip('"')) if values[3].strip().strip('"') else None
+                vpn_speed = int(values[3].strip().strip('"')) if values[3].strip().strip('"') else 0
+                
+                vpn_in_err = parse_counter(values[4])
+                vpn_out_err = parse_counter(values[5])
+                vpn_in_disc = parse_counter(values[6])
+                vpn_out_disc = parse_counter(values[7])
                 
                 # Calculate rates (similar to WAN/LAN)
                 # Import state at the top level to ensure it's accessible
@@ -5243,11 +5257,24 @@ def api_firewall_snmp_status():
                 prev_out_key = f"{vpn_name}_out"
                 prev_ts_key = f"{vpn_name}_ts"
                 
+                # Keys for errors/discards
+                prev_in_err_key = f"{vpn_name}_in_err"
+                prev_out_err_key = f"{vpn_name}_out_err"
+                prev_in_disc_key = f"{vpn_name}_in_disc"
+                prev_out_disc_key = f"{vpn_name}_out_disc"
+                
                 # Get previous values BEFORE storing new ones
                 with state._snmp_prev_sample_lock:
                     prev_in = state._snmp_prev_sample.get(prev_in_key)
                     prev_out = state._snmp_prev_sample.get(prev_out_key)
                     prev_ts = state._snmp_prev_sample.get(prev_ts_key, 0)
+                    
+                    # Error/Discard prev values
+                    prev_in_err = state._snmp_prev_sample.get(prev_in_err_key)
+                    prev_out_err = state._snmp_prev_sample.get(prev_out_err_key)
+                    prev_in_disc = state._snmp_prev_sample.get(prev_in_disc_key)
+                    prev_out_disc = state._snmp_prev_sample.get(prev_out_disc_key)
+
                     now = time.time()
                     from app.config import SNMP_POLL_INTERVAL
                     # Use VPN-specific timestamp for accurate delta calculation
@@ -5257,12 +5284,12 @@ def api_firewall_snmp_status():
                     vpn_rx_mbps = None
                     vpn_tx_mbps = None
                     
-                    # Calculate rates if we have previous values
+                    # Calculate Bandwidth rates
                     if prev_in is not None and prev_out is not None and dt > 0:
                         d_in = vpn_in - prev_in
                         d_out = vpn_out - prev_out
                         
-                        # Guard against wrap or reset (same logic as WAN/LAN)
+                        # Guard against wrap or reset
                         if d_in < 0:
                             vpn_rx_mbps = None
                         else:
@@ -5273,16 +5300,45 @@ def api_firewall_snmp_status():
                         else:
                             vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
                     
+                    # Calculate Error/Discard rates (/s)
+                    vpn_rx_err_s = 0.0
+                    vpn_tx_err_s = 0.0
+                    vpn_rx_disc_s = 0.0
+                    vpn_tx_disc_s = 0.0
+                    
+                    if dt > 0:
+                        if prev_in_err is not None:
+                            d = vpn_in_err - prev_in_err
+                            vpn_rx_err_s = round(d / dt, 1) if d >= 0 else 0.0
+                        if prev_out_err is not None:
+                            d = vpn_out_err - prev_out_err
+                            vpn_tx_err_s = round(d / dt, 1) if d >= 0 else 0.0
+                        if prev_in_disc is not None:
+                            d = vpn_in_disc - prev_in_disc
+                            vpn_rx_disc_s = round(d / dt, 1) if d >= 0 else 0.0
+                        if prev_out_disc is not None:
+                            d = vpn_out_disc - prev_out_disc
+                            vpn_tx_disc_s = round(d / dt, 1) if d >= 0 else 0.0
+                    
                     # Always store current values AFTER calculating rates (for next poll)
                     state._snmp_prev_sample[prev_in_key] = vpn_in
                     state._snmp_prev_sample[prev_out_key] = vpn_out
-                    state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
+                    state._snmp_prev_sample[prev_ts_key] = now
+                    
+                    # Store Error/Discard current values
+                    state._snmp_prev_sample[prev_in_err_key] = vpn_in_err
+                    state._snmp_prev_sample[prev_out_err_key] = vpn_out_err
+                    state._snmp_prev_sample[prev_in_disc_key] = vpn_in_disc
+                    state._snmp_prev_sample[prev_out_disc_key] = vpn_out_disc
                 
                 # Calculate utilization if speed is known
                 vpn_util = None
-                if vpn_speed and vpn_rx_mbps is not None and vpn_tx_mbps is not None:
+                if vpn_speed and vpn_speed > 0 and vpn_rx_mbps is not None and vpn_tx_mbps is not None:
                     total_mbps = vpn_rx_mbps + vpn_tx_mbps
-                    vpn_util = round((total_mbps / vpn_speed) * 100, 1) if vpn_speed > 0 else None
+                    vpn_util = round((total_mbps / vpn_speed) * 100, 1)
+                elif vpn_rx_mbps is not None and vpn_tx_mbps is not None:
+                    # If speed is 0/unknown, use a placeholder or None
+                    vpn_util = None
                 
                 # Determine status
                 vpn_has_traffic = (vpn_rx_mbps is not None and vpn_rx_mbps > 0) or (vpn_tx_mbps is not None and vpn_tx_mbps > 0)
@@ -5294,21 +5350,15 @@ def api_firewall_snmp_status():
                     "status": vpn_status,
                     "rx_mbps": vpn_rx_mbps,
                     "tx_mbps": vpn_tx_mbps,
-                    "rx_errors": None,  # VPN interfaces typically don't have error counters
-                    "tx_errors": None,
-                    "rx_drops": None,
-                    "tx_drops": None,
+                    "rx_errors": f"{vpn_rx_err_s}/s",
+                    "tx_errors": f"{vpn_tx_err_s}/s",
+                    "rx_drops": f"{vpn_rx_disc_s}/s",
+                    "tx_drops": f"{vpn_tx_disc_s}/s",
                     "utilization": vpn_util,
                     "speed_mbps": vpn_speed,
                     "saturation_hint": None
                 })
         except Exception:
-            # VPN interface polling failed - add interface with error state
-            interfaces.append({
-                "name": vpn_name.upper(),
-                "status": "unknown",
-                "rx_mbps": None,
-                "tx_mbps": None,
                 "rx_errors": None,
                 "tx_errors": None,
                 "rx_drops": None,
