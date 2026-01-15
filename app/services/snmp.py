@@ -241,12 +241,17 @@ def get_snmp_data():
         
         # Update previous sample - store current values (preserve None for missing counters)
         # Only store valid counter values, don't default to 0
-        state._snmp_prev_sample = {
-            "ts": now,
-            "wan_in": result.get("wan_in") if result.get("wan_in") is not None else state._snmp_prev_sample.get("wan_in"),
-            "wan_out": result.get("wan_out") if result.get("wan_out") is not None else state._snmp_prev_sample.get("wan_out"),
-            "lan_in": result.get("lan_in") if result.get("lan_in") is not None else state._snmp_prev_sample.get("lan_in"),
-            "lan_out": result.get("lan_out") if result.get("lan_out") is not None else state._snmp_prev_sample.get("lan_out"),
+        # Preserve existing previous sample values if current values are None
+        new_prev_sample = {"ts": now}
+        for key in ["wan_in", "wan_out", "lan_in", "lan_out"]:
+            if result.get(key) is not None:
+                new_prev_sample[key] = result[key]
+            elif key in state._snmp_prev_sample:
+                # Preserve previous value if current is None
+                new_prev_sample[key] = state._snmp_prev_sample[key]
+        
+        # Store other counters
+        new_prev_sample.update({
             # Persist counter snapshots for rate calc next tick
             "tcp_active_opens": result.get("tcp_active_opens", 0),
             "tcp_estab_resets": result.get("tcp_estab_resets", 0),
@@ -270,7 +275,8 @@ def get_snmp_data():
             "lan_out_err": result.get("lan_out_err") if result.get("lan_out_err") is not None else state._snmp_prev_sample.get("lan_out_err"),
             "lan_in_disc": result.get("lan_in_disc") if result.get("lan_in_disc") is not None else state._snmp_prev_sample.get("lan_in_disc"),
             "lan_out_disc": result.get("lan_out_disc") if result.get("lan_out_disc") is not None else state._snmp_prev_sample.get("lan_out_disc"),
-        }
+        })
+        state._snmp_prev_sample = new_prev_sample
 
         # Format uptime for readability
         if "sys_uptime" in result:
