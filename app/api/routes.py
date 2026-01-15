@@ -5266,49 +5266,53 @@ def api_firewall_snmp_status():
                 # Use VPN-specific timestamp for accurate delta calculation
                 dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
                 
-                # Calculate RX/TX rates
+                # Calculate RX/TX rates (similar to WAN/LAN logic in snmp.py)
                 vpn_rx_mbps = None
                 vpn_tx_mbps = None
                 
-                # Calculate rates if we have previous values
-                if prev_in is not None and prev_out is not None and dt > 0:
-                    d_in = vpn_in - prev_in
-                    d_out = vpn_out - prev_out
-                    if d_in >= 0 and d_out >= 0:  # No counter wrap
-                        vpn_rx_mbps = round((d_in * 8) / (dt * 1_000_000), 2)  # bytes -> Mbps
-                        vpn_tx_mbps = round((d_out * 8) / (dt * 1_000_000), 2)
-                
-                # Always store current values AFTER calculating rates (for next poll)
-                state._snmp_prev_sample[prev_in_key] = vpn_in
-                state._snmp_prev_sample[prev_out_key] = vpn_out
-                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
-                
-                # Calculate rates if we have previous values
                 # Debug logging
                 from app.config import DEBUG_MODE
                 if DEBUG_MODE:
                     print(f"VPN {vpn_name}: prev_in={prev_in}, prev_out={prev_out}, prev_ts={prev_ts}, dt={dt}")
                     print(f"VPN {vpn_name}: curr_in={vpn_in}, curr_out={vpn_out}, now={now}")
                 
+                # Calculate rates if we have previous values
                 if prev_in is not None and prev_out is not None and dt > 0:
                     d_in = vpn_in - prev_in
                     d_out = vpn_out - prev_out
                     if DEBUG_MODE:
                         print(f"VPN {vpn_name}: d_in={d_in}, d_out={d_out}, dt={dt}")
-                    if d_in >= 0 and d_out >= 0:  # No counter wrap
-                        vpn_rx_mbps = round((d_in * 8) / (dt * 1_000_000), 2)  # bytes -> Mbps
-                        vpn_tx_mbps = round((d_out * 8) / (dt * 1_000_000), 2)
+                    
+                    # Guard against wrap or reset (same logic as WAN/LAN)
+                    if d_in < 0:
+                        # Counter wrapped or reset - skip this calculation
                         if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: Calculated rates: rx={vpn_rx_mbps}, tx={vpn_tx_mbps}")
+                            print(f"VPN {vpn_name}: RX counter wrapped/reset (prev={prev_in}, curr={vpn_in})")
+                        vpn_rx_mbps = None
                     else:
-                        # Counter wrapped or reset - set rates to None
+                        # Calculate RX rate in Mbps
+                        vpn_rx_mbps = round((d_in * 8.0) / (dt * 1_000_000), 2)
                         if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: Counter wrap detected (d_in={d_in}, d_out={d_out})")
+                            print(f"VPN {vpn_name}: Calculated RX rate: {vpn_rx_mbps} Mbps")
+                    
+                    if d_out < 0:
+                        if DEBUG_MODE:
+                            print(f"VPN {vpn_name}: TX counter wrapped/reset (prev={prev_out}, curr={vpn_out})")
+                        vpn_tx_mbps = None
+                    else:
+                        # Calculate TX rate in Mbps
+                        vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
+                        if DEBUG_MODE:
+                            print(f"VPN {vpn_name}: Calculated TX rate: {vpn_tx_mbps} Mbps")
                 else:
                     # First poll or missing previous values - rates will be None until next poll
                     if DEBUG_MODE:
                         print(f"VPN {vpn_name}: First poll or missing prev values - prev_in={prev_in}, prev_out={prev_out}, dt={dt}")
-                    # On first poll, we can't calculate rates yet, but we've stored the values for next time
+                
+                # Always store current values AFTER calculating rates (for next poll)
+                state._snmp_prev_sample[prev_in_key] = vpn_in
+                state._snmp_prev_sample[prev_out_key] = vpn_out
+                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
                 
                 # Calculate utilization if speed is known
                 vpn_util = None
