@@ -1821,26 +1821,18 @@
                             <!-- Firewall Logs Widget -->
                             {% set fw_actions %}
                             <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
-                                <span class="status-badge status-badge-live"
-                                    :class="{ 'status-badge-active': recentBlocksAutoRefresh, 'status-badge-paused': !recentBlocksAutoRefresh }"
-                                    x-text="recentBlocksAutoRefresh ? '🔴 LIVE' : '⏸ PAUSED'"></span>
-                                <span class="status-badge status-badge-green"
-                                    x-text="(recentBlocks.stats?.blocks_last_hour || 0).toLocaleString() + ' blocks (1h)'"></span>
-                                <span class="status-badge status-badge-red"
-                                    x-text="(recentBlocks.stats?.threats || 0).toLocaleString() + ' threats'"></span>
                                 <button class="icon-btn-small"
                                     @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()"
-                                    title="Toggle auto-refresh"
                                     :title="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
-                                    aria-label="Toggle auto-refresh"
-                                    :aria-label="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    :aria-label="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
+                                    :style="recentBlocksAutoRefresh ? 'color: var(--signal-crit);' : 'color: var(--text-muted);'">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round" x-show="recentBlocksAutoRefresh">
                                         <circle cx="12" cy="12" r="10"></circle>
                                         <polyline points="12 6 12 12 16 14"></polyline>
                                     </svg>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round" x-show="!recentBlocksAutoRefresh">
                                         <circle cx="12" cy="12" r="10"></circle>
