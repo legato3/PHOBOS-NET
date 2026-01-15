@@ -3883,12 +3883,12 @@ body {
     color: var(--text-1);
 }
 
-.log-chip-blue {
-    border-color: var(--signal-primary);
-    color: var(--signal-primary);
+.log-chip-red {
+    border-color: var(--signal-crit);
+    color: var(--signal-crit);
 }
 
-.log-chip-blue strong {
+.log-chip-red strong {
     color: var(--text-1);
 }
 
