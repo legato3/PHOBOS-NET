@@ -1608,6 +1608,11 @@ def api_firewall_stats_overview():
         finally:
             conn.close()
     
+    # Update baseline for firewall blocks rate (blocks per hour)
+    from app.utils.baselines import update_baseline
+    blocks_rate = blocked_events_24h / 24.0 if blocked_events_24h > 0 else 0.0
+    update_baseline('firewall_blocks_rate', blocks_rate)
+    
     return jsonify({
         "blocked_events_24h": blocked_events_24h,
         "unique_blocked_sources": unique_blocked_sources,
@@ -2195,10 +2200,218 @@ def api_network_stats_overview():
     except:
         pass
     
+    # Update baselines (incremental, respects update interval)
+    from app.utils.baselines import update_baseline
+    update_baseline('active_flows', active_flows_count)
+    update_baseline('external_connections', external_connections_count)
+    
+    # Calculate anomalies rate (anomalies per hour) and update baseline
+    anomalies_rate = anomalies_24h / 24.0 if anomalies_24h > 0 else 0.0
+    update_baseline('anomalies_rate', anomalies_rate)
+    
     return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
         "anomalies_24h": anomalies_24h
+    })
+
+
+@bp.route("/api/health/baseline-signals")
+@throttle(5, 10)
+def api_health_baseline_signals():
+    """Get baseline-aware health signals for overall health classification.
+    
+    Returns signals based on baseline deviations rather than static thresholds.
+    This enables environment-specific, adaptive health classification.
+    """
+    from app.utils.baselines import is_abnormal, get_baseline_stats
+    from app.services.netflow import run_nfdump
+    from app.utils.helpers import get_time_range, is_internal
+    from app.config import LONG_LOW_DURATION_THRESHOLD, LONG_LOW_BYTES_THRESHOLD
+    import time
+    
+    now = time.time()
+    tf_1h = get_time_range('1h')
+    tf_24h = get_time_range('24h')
+    
+    signals = []
+    signal_details = []
+    
+    # Get current metric values
+    # 1. Active Flows
+    try:
+        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
+        active_flows = 0
+        if full_output:
+            lines = full_output.strip().split("\n")
+            for line in lines:
+                if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
+                    parts = line.split(',')
+                    if len(parts) > 7:
+                        active_flows += 1
+    except:
+        active_flows = 0
+    
+    # 2. External Connections (sample-based estimate)
+    external_connections = 0
+    if active_flows > 0:
+        try:
+            sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_1h)
+            sample_count = 0
+            sample_external = 0
+            if sample_output:
+                lines = sample_output.strip().split("\n")
+                start_idx = 0
+                sa_idx = 0
+                da_idx = 0
+                if lines:
+                    line0 = lines[0]
+                    if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                        header = line0.split(',')
+                        try:
+                            sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                            if 'srcaddr' in header: sa_key = 'srcaddr'
+                            da_key = 'da' if 'da' in header else 'dstAddr'
+                            if 'dstaddr' in header: da_key = 'dstaddr'
+                            if sa_key in header: sa_idx = header.index(sa_key)
+                            if da_key in header: da_idx = header.index(da_key)
+                            start_idx = 1
+                        except:
+                            pass
+                for line in lines[start_idx:]:
+                    if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+                    parts = line.split(',')
+                    if len(parts) > 7:
+                        try:
+                            src = parts[sa_idx] if len(parts) > sa_idx and sa_idx < len(parts) else ""
+                            dst = parts[da_idx] if len(parts) > da_idx and da_idx < len(parts) else ""
+                            if src and dst:
+                                sample_count += 1
+                                src_internal = is_internal(src)
+                                dst_internal = is_internal(dst)
+                                if not (src_internal and dst_internal):
+                                    sample_external += 1
+                        except:
+                            pass
+                if sample_count > 0:
+                    external_ratio = sample_external / sample_count
+                    external_connections = int(active_flows * external_ratio)
+        except:
+            pass
+    
+    # 3. Firewall Blocks (24h)
+    blocked_events_24h = 0
+    try:
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                cutoff_24h = now - 86400
+                cur = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs
+                    WHERE timestamp > ? AND action IN ('block', 'reject')
+                """, (cutoff_24h,))
+                blocked_events_24h = cur.fetchone()[0] or 0
+            finally:
+                conn.close()
+    except:
+        blocked_events_24h = 0
+    
+    # 4. Anomalies (24h)
+    anomalies_24h = 0
+    try:
+        output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
+        if output_24h:
+            lines_24h = output_24h.strip().split("\n")
+            start_idx_24h = 0
+            sa_idx_24h = 0
+            da_idx_24h = 0
+            ibyt_idx_24h = 0
+            td_idx_24h = 0
+            if lines_24h:
+                line0_24h = lines_24h[0]
+                if 'ts' in line0_24h or 'Date' in line0_24h or 'ibyt' in line0_24h or 'firstSeen' in line0_24h or 'firstseen' in line0_24h:
+                    header_24h = line0_24h.split(',')
+                    try:
+                        sa_key_24h = 'sa' if 'sa' in header_24h else 'srcAddr'
+                        if 'srcaddr' in header_24h: sa_key_24h = 'srcaddr'
+                        da_key_24h = 'da' if 'da' in header_24h else 'dstAddr'
+                        if 'dstaddr' in header_24h: da_key_24h = 'dstaddr'
+                        ibyt_key_24h = 'ibyt' if 'ibyt' in header_24h else 'bytes'
+                        if sa_key_24h in header_24h: sa_idx_24h = header_24h.index(sa_key_24h)
+                        if da_key_24h in header_24h: da_idx_24h = header_24h.index(da_key_24h)
+                        if ibyt_key_24h in header_24h: ibyt_idx_24h = header_24h.index(ibyt_key_24h)
+                        if 'td' in header_24h: td_idx_24h = header_24h.index('td')
+                        elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
+                        start_idx_24h = 1
+                    except:
+                        pass
+            for line in lines_24h[start_idx_24h:]:
+                if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+                parts = line.split(',')
+                if len(parts) > 7:
+                    try:
+                        duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h and td_idx_24h < len(parts) else 0.0
+                        src = parts[sa_idx_24h] if len(parts) > sa_idx_24h and sa_idx_24h < len(parts) else ""
+                        dst = parts[da_idx_24h] if len(parts) > da_idx_24h and da_idx_24h < len(parts) else ""
+                        b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h and ibyt_idx_24h < len(parts) else 0
+                        if src and dst:
+                            src_internal = is_internal(src)
+                            dst_internal = is_internal(dst)
+                            is_external = not (src_internal and dst_internal)
+                            if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
+                                anomalies_24h += 1
+                    except:
+                        pass
+    except:
+        anomalies_24h = 0
+    
+    # Check baselines for each metric
+    # Active Flows
+    active_flows_check = is_abnormal('active_flows', active_flows)
+    if active_flows_check and active_flows_check['abnormal']:
+        signals.append('active_flows_spike')
+        signal_details.append(f"active flows spike ({active_flows} vs baseline {active_flows_check['baseline_mean']:.0f})")
+    
+    # External Connections
+    external_check = is_abnormal('external_connections', external_connections)
+    if external_check and external_check['abnormal']:
+        signals.append('external_connections_spike')
+        signal_details.append(f"external connections spike ({external_connections} vs baseline {external_check['baseline_mean']:.0f})")
+    
+    # Firewall Blocks Rate
+    blocks_rate = blocked_events_24h / 24.0 if blocked_events_24h > 0 else 0.0
+    blocks_check = is_abnormal('firewall_blocks_rate', blocks_rate)
+    if blocks_check and blocks_check['abnormal']:
+        signals.append('firewall_blocks_spike')
+        signal_details.append(f"firewall blocks spike ({blocked_events_24h} in 24h, {blocks_rate:.1f}/hr vs baseline {blocks_check['baseline_mean']:.1f}/hr)")
+    
+    # Anomalies Rate
+    anomalies_rate = anomalies_24h / 24.0 if anomalies_24h > 0 else 0.0
+    anomalies_check = is_abnormal('anomalies_rate', anomalies_rate)
+    if anomalies_check and anomalies_check['abnormal']:
+        signals.append('anomalies_spike')
+        signal_details.append(f"network anomalies spike ({anomalies_24h} in 24h, {anomalies_rate:.1f}/hr vs baseline {anomalies_check['baseline_mean']:.1f}/hr)")
+    
+    # Also check if anomalies exist at all (even if not spiking)
+    if anomalies_24h > 0:
+        signals.append('anomalies_present')
+        signal_details.append(f"{anomalies_24h} network anomal{'ies' if anomalies_24h > 1 else 'y'}")
+    
+    return jsonify({
+        "signals": signals,
+        "signal_details": signal_details,
+        "metrics": {
+            "active_flows": active_flows,
+            "external_connections": external_connections,
+            "blocked_events_24h": blocked_events_24h,
+            "anomalies_24h": anomalies_24h
+        },
+        "baselines_available": {
+            "active_flows": get_baseline_stats('active_flows') is not None,
+            "external_connections": get_baseline_stats('external_connections') is not None,
+            "firewall_blocks_rate": get_baseline_stats('firewall_blocks_rate') is not None,
+            "anomalies_rate": get_baseline_stats('anomalies_rate') is not None,
+        }
     })
 
 

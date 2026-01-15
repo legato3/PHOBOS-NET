@@ -142,6 +142,7 @@ export const Store = () => ({
     recentBlocksAutoRefresh: true,
     recentBlocksRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, loading: true },
+    baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
 
     // Forensics Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
@@ -579,6 +580,7 @@ export const Store = () => ({
     // Overall Health: Deterministic, explainable health state
     // Unhealthy (red) reserved for: Active alerts OR multiple critical signals
     // Degraded (amber) for: High volume without alerts
+    // Uses baseline-aware signals when available, falls back to static thresholds
     get overallHealth() {
         // Inputs: Active Alerts, Network Anomalies, Firewall Blocks, External Connections
         const activeAlerts = this.alertHistory.total || 0;
@@ -587,7 +589,11 @@ export const Store = () => ({
         const externalConnections = this.networkStatsOverview.external_connections || 0;
         const activeFlows = this.networkStatsOverview.active_flows || 0;
 
-        // Signal detection (deterministic thresholds)
+        // Use baseline-aware signals if available, otherwise use static thresholds
+        const baselineSignals = this.baselineSignals.signals || [];
+        const baselineDetails = this.baselineSignals.signal_details || [];
+        const baselinesAvailable = this.baselineSignals.baselines_available || {};
+        
         const signals = [];
         const signalDetails = [];
         
@@ -598,26 +604,47 @@ export const Store = () => ({
             signalDetails.push(`${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`);
         }
         
-        // Signal 2: Network Anomalies (sustained high volume)
-        const hasAnomalies = anomalies > 0;
-        if (hasAnomalies) {
-            signals.push('anomalies');
-            signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
-        }
-        
-        // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
-        const hasBlockSpike = blockedEvents > 1000;
-        if (hasBlockSpike) {
-            signals.push('blocks_spike');
-            signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks`);
-        }
-        
-        // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
-        const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
-        const hasExternalDeviation = externalRatio > 0.5 && externalConnections > 50;
-        if (hasExternalDeviation) {
-            signals.push('external_deviation');
-            signalDetails.push(`unusual external connections (${Math.round(externalRatio * 100)}%)`);
+        // Use baseline-aware signals if available
+        if (baselineSignals.length > 0 && Object.values(baselinesAvailable).some(v => v === true)) {
+            // Add baseline-aware signals (excluding anomalies_present which we handle separately)
+            baselineSignals.forEach((signal, idx) => {
+                if (signal !== 'anomalies_present' && !signals.includes(signal)) {
+                    signals.push(signal);
+                    if (baselineDetails[idx]) {
+                        signalDetails.push(baselineDetails[idx]);
+                    }
+                }
+            });
+            
+            // Handle anomalies separately (always include if present, even if not spiking)
+            const hasAnomalies = anomalies > 0;
+            if (hasAnomalies && !signals.includes('anomalies')) {
+                signals.push('anomalies');
+                signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
+            }
+        } else {
+            // Fallback to static thresholds when baselines not available
+            // Signal 2: Network Anomalies (sustained high volume)
+            const hasAnomalies = anomalies > 0;
+            if (hasAnomalies) {
+                signals.push('anomalies');
+                signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
+            }
+            
+            // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
+            const hasBlockSpike = blockedEvents > 1000;
+            if (hasBlockSpike) {
+                signals.push('blocks_spike');
+                signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks`);
+            }
+            
+            // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
+            const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
+            const hasExternalDeviation = externalRatio > 0.5 && externalConnections > 50;
+            if (hasExternalDeviation) {
+                signals.push('external_deviation');
+                signalDetails.push(`unusual external connections (${Math.round(externalRatio * 100)}%)`);
+            }
         }
 
         // Health state determination
@@ -2720,6 +2747,28 @@ export const Store = () => ({
         }
     },
 
+    async fetchBaselineSignals() {
+        this.baselineSignals.loading = true;
+        try {
+            const res = await fetch('/api/health/baseline-signals');
+            if (res.ok) {
+                const d = await res.json();
+                this.baselineSignals = {
+                    signals: d.signals || [],
+                    signal_details: d.signal_details || [],
+                    metrics: d.metrics || {},
+                    baselines_available: d.baselines_available || {},
+                    loading: false
+                };
+            } else {
+                this.baselineSignals.loading = false;
+            }
+        } catch (e) {
+            console.error('Baseline signals fetch error:', e);
+            this.baselineSignals.loading = false;
+        }
+    },
+
     async fetchNetHealth() {
         this.netHealth.loading = true;
         try {
@@ -4369,6 +4418,7 @@ export const Store = () => ({
             this.fetchNetHealth();
             this.fetchSecurityScore();
             this.fetchAlertHistory();
+            this.fetchBaselineSignals();
             // Map initialization is handled by IntersectionObserver when section becomes visible
             // Just fetch data here if needed
         } else if (tab === 'server') {

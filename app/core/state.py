@@ -75,6 +75,23 @@ _flow_history = {}  # Key: (src, dst, port) -> list of {ts, bytes, packets, dura
 _flow_history_lock = threading.Lock()
 _flow_history_ttl = 3600  # 60 minutes default
 
+# ==================== Baseline Tracking (automatic, environment-specific) ====================
+# Rolling window baselines for key metrics (mean and deviation)
+# Used internally for health classification and severity tuning
+_baselines = {
+    'active_flows': deque(maxlen=100),  # Rolling window of values
+    'external_connections': deque(maxlen=100),
+    'firewall_blocks_rate': deque(maxlen=100),  # Blocks per hour
+    'anomalies_rate': deque(maxlen=100),  # Anomalies per hour
+}
+_baselines_lock = threading.Lock()
+_baselines_last_update = {
+    'active_flows': 0,
+    'external_connections': 0,
+    'firewall_blocks_rate': 0,
+    'anomalies_rate': 0,
+}
+
 # ==================== Rate Limiting ====================
 _request_times = defaultdict(list)
 

@@ -157,6 +157,11 @@ OFF_HOURS_THRESHOLD_MB = 100
 LONG_LOW_DURATION_THRESHOLD = float(os.getenv('LONG_LOW_DURATION_THRESHOLD', '300'))  # 5 minutes default
 LONG_LOW_BYTES_THRESHOLD = int(os.getenv('LONG_LOW_BYTES_THRESHOLD', '100000'))  # 100 KB default
 
+# Baseline tracking configuration
+BASELINE_WINDOW_SIZE = int(os.getenv('BASELINE_WINDOW_SIZE', '100'))  # Number of samples in rolling window
+BASELINE_UPDATE_INTERVAL = int(os.getenv('BASELINE_UPDATE_INTERVAL', '300'))  # Update every 5 minutes (300s)
+BASELINE_DEVIATION_MULTIPLIER = float(os.getenv('BASELINE_DEVIATION_MULTIPLIER', '2.0'))  # 2 standard deviations = abnormal
+
 # MITRE ATT&CK mappings
 MITRE_MAPPINGS = {
     'C2': {'technique': 'T1071', 'tactic': 'Command and Control', 'name': 'Application Layer Protocol'},
