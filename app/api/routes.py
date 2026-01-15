@@ -5253,10 +5253,13 @@ def api_firewall_snmp_status():
                 baseline_window = list(state._baselines[baseline_key])
                 current_util = iface["utilization"]
                 
-                # TEST MODE: Always show hint if we have ANY baseline data (to verify display works)
-                # TODO: Remove this test condition once verified
-                if len(baseline_window) >= 1 and current_util is not None:
-                    iface["saturation_hint"] = f"Test: {len(baseline_window)} samples, {current_util:.1f}% util"
+                # Add utilization history for sparkline (last 30 samples, ~1-2 hours at typical polling)
+                # Limit to reasonable size for frontend rendering
+                if len(baseline_window) > 0:
+                    # Take last 30 samples for sparkline visualization
+                    iface["utilization_history"] = baseline_window[-30:] if len(baseline_window) >= 30 else baseline_window
+                else:
+                    iface["utilization_history"] = []
                 
                 if len(baseline_window) >= 10:  # Need at least 10 samples for meaningful baseline
                     baseline_mean = statistics.mean(baseline_window)
@@ -5283,12 +5286,8 @@ def api_firewall_snmp_status():
                         elif current_util > 75 or deviation > 15:
                             iface["saturation_hint"] = "Elevated utilization"
                 elif len(baseline_window) >= 5:
-                    # For testing: show hint even with fewer samples if utilization is high
-                    if current_util is not None and current_util > 70:
-                        iface["saturation_hint"] = "Elevated utilization"
-                elif len(baseline_window) >= 1:
-                    # Very lenient for initial testing - show hint if utilization > 60% with any samples
-                    if current_util is not None and current_util > 60:
+                    # With fewer samples, use simpler threshold: show hint if utilization > 75%
+                    if current_util is not None and current_util > 75:
                         iface["saturation_hint"] = "Elevated utilization"
     
     # Format response

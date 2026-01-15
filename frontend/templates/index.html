@@ -3047,17 +3047,20 @@
                                                                 <template x-if="iface.utilization_history && iface.utilization_history.length >= 2">
                                                                     <svg width="60" height="16" style="opacity: 0.5; margin-left: var(--space-1);" 
                                                                         :title="'Utilization trend (' + iface.utilization_history.length + ' samples)'"
-                                                                        x-init="
-                                                                            const history = iface.utilization_history;
-                                                                            const width = 60;
-                                                                            const height = 16;
-                                                                            const maxVal = Math.max(...history, 1);
-                                                                            const points = history.map((val, idx) => {
-                                                                                const x = idx * (width / (history.length - 1));
-                                                                                const y = height - (val / maxVal) * height;
-                                                                                return x + ',' + y;
-                                                                            }).join(' ');
-                                                                            $el.querySelector('polyline').setAttribute('points', points);
+                                                                        x-effect="
+                                                                            if (iface.utilization_history && iface.utilization_history.length >= 2) {
+                                                                                const history = iface.utilization_history;
+                                                                                const width = 60;
+                                                                                const height = 16;
+                                                                                const maxVal = Math.max(...history, 1) || 1;
+                                                                                const points = history.map((val, idx) => {
+                                                                                    const x = idx * (width / Math.max(history.length - 1, 1));
+                                                                                    const y = height - (val / maxVal) * height;
+                                                                                    return x + ',' + y;
+                                                                                }).join(' ');
+                                                                                const polyline = $el.querySelector('polyline');
+                                                                                if (polyline) polyline.setAttribute('points', points);
+                                                                            }
                                                                         ">
                                                                         <polyline 
                                                                             fill="none" 
