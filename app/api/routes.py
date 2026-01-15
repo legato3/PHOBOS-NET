@@ -1597,7 +1597,7 @@ def api_firewall_stats_overview():
             new_blocked_ips = len(recent_blocked_ips - previous_blocked_ips)
             
             # 4. Top Block Reason / Rule
-            # Try rule_id first, then fall back to a generic reason if rule_id is null
+            # Get the most common rule_id and enrich it with context (interface, direction, port)
             cur = conn.execute("""
                 SELECT 
                     COALESCE(rule_id, 'default') as rule_or_reason,
@@ -1612,15 +1612,69 @@ def api_firewall_stats_overview():
             raw_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
             top_block_count = top_rule_row[1] if top_rule_row else 0
             
-            # Format rule_id for human readability
-            if raw_reason == "N/A" or raw_reason == "default":
-                top_block_reason = "Default Block"
-            elif raw_reason.isdigit():
-                # Numeric rule ID - format as "Rule #11"
-                top_block_reason = f"Rule #{raw_reason}"
+            # Get context for the top rule to make it more descriptive
+            if raw_reason and raw_reason != "N/A" and raw_reason != "default":
+                # Get the most common characteristics for this rule
+                cur = conn.execute("""
+                    SELECT 
+                        interface,
+                        direction,
+                        dst_port,
+                        proto,
+                        COUNT(*) as cnt
+                    FROM fw_logs
+                    WHERE timestamp > ? 
+                        AND action IN ('block', 'reject')
+                        AND COALESCE(rule_id, 'default') = ?
+                    GROUP BY interface, direction, dst_port, proto
+                    ORDER BY cnt DESC
+                    LIMIT 1
+                """, (cutoff_24h, raw_reason))
+                context_row = cur.fetchone()
+                
+                if context_row:
+                    interface, direction, dst_port, proto, _ = context_row
+                    context_parts = []
+                    
+                    # Add interface context (e.g., "WAN", "LAN")
+                    if interface:
+                        context_parts.append(interface.upper())
+                    
+                    # Add direction context
+                    if direction:
+                        dir_arrow = "→" if direction == "out" else "←"
+                        context_parts.append(dir_arrow)
+                    
+                    # Add port context if available
+                    if dst_port and dst_port > 0:
+                        port_name = PORTS.get(dst_port, None)
+                        if port_name:
+                            context_parts.append(f"{port_name} ({dst_port})")
+                        else:
+                            context_parts.append(f"Port {dst_port}")
+                    
+                    # Add protocol if available
+                    if proto:
+                        context_parts.append(proto.upper())
+                    
+                    # Build descriptive label
+                    if raw_reason.isdigit():
+                        context_str = " • ".join(context_parts) if context_parts else ""
+                        if context_str:
+                            top_block_reason = f"Rule #{raw_reason} ({context_str})"
+                        else:
+                            top_block_reason = f"Rule #{raw_reason}"
+                    else:
+                        top_block_reason = raw_reason
+                else:
+                    # No context found, just format the rule ID
+                    if raw_reason.isdigit():
+                        top_block_reason = f"Rule #{raw_reason}"
+                    else:
+                        top_block_reason = raw_reason
             else:
-                # Already formatted or non-numeric - use as-is
-                top_block_reason = raw_reason
+                # Default or N/A case
+                top_block_reason = "Default Block"
             
         finally:
             conn.close()
