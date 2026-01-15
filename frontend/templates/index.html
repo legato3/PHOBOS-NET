@@ -1362,6 +1362,16 @@
                                         title="Click to expand">
                                         <canvas id="flagsChart"></canvas>
                                     </div>
+                                    <!-- Custom legend with flag names and colors -->
+                                    <div class="flags-custom-legend" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; padding: 0 10px;">
+                                        <template x-for="(flag, idx) in flags.flags" :key="flag.flag">
+                                            <div class="flags-legend-item" style="display: flex; align-items: center; gap: 6px;">
+                                                <span class="flags-legend-color" 
+                                                    :style="'width: 12px; height: 12px; border-radius: 2px; background: ' + getFlagColor(idx) + ';'"></span>
+                                                <span style="color: var(--text-1); font-size: 0.85em;" x-text="flag.flag"></span>
+                                            </div>
+                                        </template>
+                                    </div>
                                     <div
                                         style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;">
                                         <strong>Flags:</strong>

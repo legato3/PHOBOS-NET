@@ -536,6 +536,17 @@ export const Store = () => ({
         return DashboardUtils.getCssVar(name);
     },
 
+    getFlagColor(index) {
+        // Return color for flag at given index - matches chart colors
+        const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
+        const purpleColor = this.getCssVar('--accent-magenta') || this.getCssVar('--signal-tertiary') || '#7b7bff';
+        const greenColor = this.getCssVar('--signal-ok') || '#00ff88';
+        const redColor = this.getCssVar('--signal-crit') || '#ff1744';
+        const yellowColor = this.getCssVar('--signal-warn') || '#ffb400';
+        const colors = [cyanColor, purpleColor, greenColor, redColor, yellowColor, '#ffffff'];
+        return colors[index] || colors[0];
+    },
+
     get activeAlerts() {
         if (!this.alerts.alerts) return [];
         return this.alerts.alerts.filter(a => !this.dismissedAlerts.has(a.msg));
@@ -3019,37 +3030,7 @@ export const Store = () => ({
                         animation: false, // Disable animation to prevent reactive loops
                         plugins: {
                             legend: { 
-                                position: 'bottom',
-                                padding: 20, // Add spacing between chart and legend
-                                labels: { 
-                                    color: '#e0e0e0', 
-                                    boxWidth: 12,
-                                    padding: 8, // Add spacing between legend items
-                                    generateLabels: function(chart) {
-                                        // Show flag names instead of numbers - use proper Chart.js pattern
-                                        const data = chart.data;
-                                        if (data.labels.length && data.datasets.length) {
-                                            const meta = chart.getDatasetMeta(0);
-                                            return data.labels.map((label, i) => {
-                                                const style = meta.controller.getStyle(i);
-                                                // Return label text ONLY - Chart.js will not append value if we return proper object
-                                                return {
-                                                    text: String(label), // Ensure it's a string and ONLY the label
-                                                    fillStyle: style.backgroundColor,
-                                                    strokeStyle: style.borderColor,
-                                                    lineWidth: style.borderWidth || 0,
-                                                    hidden: !chart.getDataVisibility(i),
-                                                    index: i,
-                                                    datasetIndex: 0
-                                                };
-                                            });
-                                        }
-                                        return [];
-                                    },
-                                    // Disable any default value appending
-                                    usePointStyle: false,
-                                    pointStyle: undefined
-                                }
+                                display: false // Disable Chart.js legend - we'll create custom HTML legend
                             }
                         }
                     }
