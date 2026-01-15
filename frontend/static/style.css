@@ -1250,6 +1250,24 @@ table tr.critical,
     font-size: var(--fs-sm);
 }
 
+/* Active Flows: Heavy flow highlighting */
+.flow-item {
+    transition: background-color 0.2s ease;
+}
+
+.flow-item:hover {
+    background-color: rgba(0, 234, 255, 0.05);
+}
+
+.flow-item-heavy {
+    border-left: 2px solid var(--signal-primary);
+    background-color: rgba(0, 234, 255, 0.03);
+}
+
+.flow-item-heavy:hover {
+    background-color: rgba(0, 234, 255, 0.08);
+}
+
 /* ============================================
    Unified Endpoint Widget Design System
    Tokens for Sources/Destinations widgets
