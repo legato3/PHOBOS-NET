@@ -2991,46 +2991,14 @@ export const Store = () => ({
             const yellowColor = this.getCssVar('--signal-warn') || '#ffb400';
             const colors = [cyanColor, purpleColor, greenColor, redColor, yellowColor, '#ffffff'];
 
-            // Destroy existing chart if it exists but is in bad state
+            // Destroy existing chart to force legend regeneration with correct labels
             if (_chartInstances['flagsChartInstance']) {
                 try {
-                    _chartInstances['flagsChartInstance'].data.labels = labels;
-                    _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
-                    _chartInstances['flagsChartInstance'].data.datasets[0].backgroundColor = colors;
-                    // Update legend configuration
-                    if (_chartInstances['flagsChartInstance'].options.plugins.legend.position !== 'bottom') {
-                        _chartInstances['flagsChartInstance'].options.plugins.legend.position = 'bottom';
-                    }
-                    if (!_chartInstances['flagsChartInstance'].options.plugins.legend.padding) {
-                        _chartInstances['flagsChartInstance'].options.plugins.legend.padding = 20;
-                    }
-                    if (!_chartInstances['flagsChartInstance'].options.plugins.legend.labels.generateLabels) {
-                        _chartInstances['flagsChartInstance'].options.plugins.legend.labels.generateLabels = function(chart) {
-                            const chartData = chart.data;
-                            if (chartData.labels.length && chartData.datasets.length) {
-                                return chartData.labels.map((label, i) => {
-                                    return {
-                                        text: label,
-                                        fillStyle: chartData.datasets[0].backgroundColor[i],
-                                        strokeStyle: chartData.datasets[0].backgroundColor[i],
-                                        lineWidth: 0,
-                                        hidden: false,
-                                        index: i
-                                    };
-                                });
-                            }
-                            return [];
-                        };
-                    }
-                    _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
+                    _chartInstances['flagsChartInstance'].destroy();
                 } catch (e) {
-                    // Chart instance is corrupted, destroy and recreate
-                    console.warn('Flags chart instance corrupted, recreating:', e);
-                    try {
-                        _chartInstances['flagsChartInstance'].destroy();
-                    } catch { }
-                    _chartInstances['flagsChartInstance'] = null;
+                    console.warn('Error destroying flags chart:', e);
                 }
+                _chartInstances['flagsChartInstance'] = null;
             }
 
             // Create new chart if instance doesn't exist
