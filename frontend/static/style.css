@@ -476,6 +476,7 @@ body.sidebar-collapsed .layout-wrapper {
     padding: var(--space-2);
     flex: 1;
     overflow-y: auto;
+    padding-bottom: 200px; /* Space for footer */
 }
 
 /* CYBERPUNK UI: Sidebar item - Signal navigation link */
@@ -559,16 +560,18 @@ body.sidebar-collapsed .layout-wrapper {
 
 /* CYBERPUNK UI: Sidebar footer - Signal metadata */
 .sidebar-footer {
-    margin-top: auto;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     padding: var(--space-4) var(--space-4) var(--space-3) var(--space-4);
     border-top: 1px solid var(--border-soft);
     background: rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    flex-shrink: 0;
-    align-self: flex-end;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .sidebar.collapsed .sidebar-footer {
