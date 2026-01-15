@@ -5214,10 +5214,19 @@ def api_firewall_snmp_status():
             values = output.strip().split("\n")
             
             if len(values) >= 4:
-                vpn_in = int(values[0].strip().split(":")[-1]) if ":" in values[0] else int(values[0].strip())
-                vpn_out = int(values[1].strip().split(":")[-1]) if ":" in values[1] else int(values[1].strip())
-                vpn_status_raw = int(values[2].strip())
-                vpn_speed = int(values[3].strip()) if values[3].strip() else None
+                # Parse values: strip quotes, handle Counter64: prefix, convert to int
+                def parse_counter(val):
+                    val = val.strip().strip('"')
+                    if "Counter64:" in val:
+                        val = val.split(":")[-1].strip()
+                    elif "Counter32:" in val:
+                        val = val.split(":")[-1].strip()
+                    return int(val) if val else 0
+                
+                vpn_in = parse_counter(values[0])
+                vpn_out = parse_counter(values[1])
+                vpn_status_raw = int(values[2].strip().strip('"'))
+                vpn_speed = int(values[3].strip().strip('"')) if values[3].strip().strip('"') else None
                 
                 # Calculate rates (similar to WAN/LAN)
                 import app.core.state as state
