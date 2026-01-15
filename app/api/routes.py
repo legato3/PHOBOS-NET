@@ -5098,16 +5098,9 @@ def api_firewall_snmp_status():
                 vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
             if "tailscale" in interface_mapping:
                 vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-        # Debug logging
-        from app.config import DEBUG_MODE
-        if DEBUG_MODE:
-            print(f"VPN interface discovery: found {len(vpn_interfaces)} interfaces: {vpn_interfaces}")
     except Exception as e:
-        # Discovery failed - log but don't break the endpoint
-        import traceback
-        print(f"VPN interface discovery failed: {e}")
-        print(traceback.format_exc())
-        pass  # Continue without VPN interfaces
+        # Discovery failed - continue without VPN interfaces
+        pass
     
     # Extract interface data with proper status logic
     interfaces = []
@@ -5204,10 +5197,6 @@ def api_firewall_snmp_status():
     })
     
     # Add VPN interfaces (WireGuard and TailScale)
-    # Debug: Log VPN interfaces found
-    if DEBUG_MODE and vpn_interfaces:
-        print(f"DEBUG: Adding VPN interfaces: {vpn_interfaces}")
-    
     for vpn_name, vpn_idx in vpn_interfaces.items():
         try:
             # Get VPN interface counters using SNMP
@@ -5270,44 +5259,21 @@ def api_firewall_snmp_status():
                 vpn_rx_mbps = None
                 vpn_tx_mbps = None
                 
-                # Debug logging
-                from app.config import DEBUG_MODE
-                if DEBUG_MODE:
-                    print(f"VPN {vpn_name}: prev_in={prev_in}, prev_out={prev_out}, prev_ts={prev_ts}, dt={dt}")
-                    print(f"VPN {vpn_name}: curr_in={vpn_in}, curr_out={vpn_out}, now={now}")
-                
                 # Calculate rates if we have previous values
                 if prev_in is not None and prev_out is not None and dt > 0:
                     d_in = vpn_in - prev_in
                     d_out = vpn_out - prev_out
-                    if DEBUG_MODE:
-                        print(f"VPN {vpn_name}: d_in={d_in}, d_out={d_out}, dt={dt}")
                     
                     # Guard against wrap or reset (same logic as WAN/LAN)
                     if d_in < 0:
-                        # Counter wrapped or reset - skip this calculation
-                        if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: RX counter wrapped/reset (prev={prev_in}, curr={vpn_in})")
                         vpn_rx_mbps = None
                     else:
-                        # Calculate RX rate in Mbps
                         vpn_rx_mbps = round((d_in * 8.0) / (dt * 1_000_000), 2)
-                        if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: Calculated RX rate: {vpn_rx_mbps} Mbps")
                     
                     if d_out < 0:
-                        if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: TX counter wrapped/reset (prev={prev_out}, curr={vpn_out})")
                         vpn_tx_mbps = None
                     else:
-                        # Calculate TX rate in Mbps
                         vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
-                        if DEBUG_MODE:
-                            print(f"VPN {vpn_name}: Calculated TX rate: {vpn_tx_mbps} Mbps")
-                else:
-                    # First poll or missing previous values - rates will be None until next poll
-                    if DEBUG_MODE:
-                        print(f"VPN {vpn_name}: First poll or missing prev values - prev_in={prev_in}, prev_out={prev_out}, dt={dt}")
                 
                 # Always store current values AFTER calculating rates (for next poll)
                 state._snmp_prev_sample[prev_in_key] = vpn_in
@@ -5338,12 +5304,8 @@ def api_firewall_snmp_status():
                     "speed_mbps": vpn_speed,
                     "saturation_hint": None
                 })
-        except Exception as e:
-            # VPN interface polling failed - log the error for debugging
-            import traceback
-            print(f"VPN interface {vpn_name} (index {vpn_idx}) polling failed: {e}")
-            print(traceback.format_exc())
-            # Add interface with error state so user knows it was attempted
+        except Exception:
+            # VPN interface polling failed - add interface with error state
             interfaces.append({
                 "name": vpn_name.upper(),
                 "status": "unknown",

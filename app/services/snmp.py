@@ -11,7 +11,7 @@ import app.core.state as state
 from app.core.state import _shutdown_event
 
 # Import config
-from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL, SNMP_CACHE_TTL, DEBUG_MODE
+from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL, SNMP_CACHE_TTL
 
 # Import formatters
 from app.utils.formatters import format_uptime
@@ -100,13 +100,6 @@ def get_snmp_data():
                 else:
                     result[key] = clean_val
         
-        # Debug: Log what interface counters we actually got
-        if DEBUG_MODE:
-            for key in interface_keys:
-                if key in result:
-                    print(f"SNMP Debug: {key} = {result[key]}")
-                else:
-                    print(f"SNMP Debug: {key} = MISSING")
         
         if "mem_total" in result and "mem_avail" in result:
             # FreeBSD memory calculation: total - available - buffer - cached
@@ -161,9 +154,6 @@ def get_snmp_data():
                         d_out = result[out_key] - prev_out
                         # Guard against wrap or reset
                         if d_in < 0:
-                            # Counter wrapped or reset - skip this calculation
-                            if DEBUG_MODE:
-                                print(f"SNMP Debug: {in_key} counter wrapped/reset (prev={prev_in}, curr={result[in_key]})")
                             result[f"{prefix}_rx_mbps"] = None
                         else:
                             # Calculate rates in Mbps
@@ -171,8 +161,6 @@ def get_snmp_data():
                             result[f"{prefix}_rx_mbps"] = round(rx_mbps, 2)
                         
                         if d_out < 0:
-                            if DEBUG_MODE:
-                                print(f"SNMP Debug: {out_key} counter wrapped/reset (prev={prev_out}, curr={result[out_key]})")
                             result[f"{prefix}_tx_mbps"] = None
                         else:
                             tx_mbps = (d_out * 8.0) / (dt * 1_000_000)
@@ -217,9 +205,6 @@ def get_snmp_data():
                     if prev_v is not None:
                         d = result[k] - prev_v
                         if d < 0:
-                            # Counter wrapped or reset - skip this calculation
-                            if DEBUG_MODE:
-                                print(f"SNMP Debug: {k} counter wrapped/reset (prev={prev_v}, curr={result[k]})")
                             result[f"{k}_s"] = None
                         else:
                             result[f"{k}_s"] = round(d / dt, 2) if dt > 0 else None
@@ -351,9 +336,7 @@ def discover_interfaces():
                         mapping["tailscale"] = idx
         
         return mapping if mapping else None
-    except Exception as e:
-        if DEBUG_MODE:
-            print(f"SNMP Interface Discovery Error: {e}")
+    except Exception:
         return None
 
 
