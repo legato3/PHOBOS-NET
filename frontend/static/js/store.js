@@ -3026,16 +3026,18 @@ export const Store = () => ({
                                     boxWidth: 12,
                                     padding: 8, // Add spacing between legend items
                                     generateLabels: function(chart) {
-                                        // Show flag names instead of numbers
-                                        const chartData = chart.data;
-                                        if (chartData.labels.length && chartData.datasets.length) {
-                                            return chartData.labels.map((label, i) => {
+                                        // Show flag names instead of numbers - use proper Chart.js pattern
+                                        const data = chart.data;
+                                        if (data.labels.length && data.datasets.length) {
+                                            const meta = chart.getDatasetMeta(0);
+                                            return data.labels.map((label, i) => {
+                                                const style = meta.controller.getStyle(i);
                                                 return {
-                                                    text: label, // Show flag name (e.g., "AP", "A", "R")
-                                                    fillStyle: chartData.datasets[0].backgroundColor[i],
-                                                    strokeStyle: chartData.datasets[0].backgroundColor[i],
-                                                    lineWidth: 0,
-                                                    hidden: false,
+                                                    text: label, // Show flag name (e.g., "AP", "A", "R") - NO numbers
+                                                    fillStyle: style.backgroundColor,
+                                                    strokeStyle: style.borderColor,
+                                                    lineWidth: style.borderWidth || 0,
+                                                    hidden: !chart.getDataVisibility(i),
                                                     index: i
                                                 };
                                             });
