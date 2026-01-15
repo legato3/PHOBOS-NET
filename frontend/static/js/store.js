@@ -1542,6 +1542,8 @@ export const Store = () => ({
                     top_block_count: d.top_block_count || 0,
                     loading: false
                 };
+            } else {
+                this.firewallStatsOverview.loading = false;
             }
         } catch (e) { 
             console.error('Firewall stats overview fetch error:', e);
@@ -2709,6 +2711,8 @@ export const Store = () => ({
                     anomalies_24h: d.anomalies_24h || 0,
                     loading: false
                 };
+            } else {
+                this.networkStatsOverview.loading = false;
             }
         } catch (e) { 
             console.error('Network stats overview fetch error:', e);

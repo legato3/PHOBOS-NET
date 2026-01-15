@@ -2063,15 +2063,17 @@ def api_network_stats_overview():
     # Count all flow lines (excluding header)
     try:
         full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
-        lines = full_output.strip().split("\n")
-        # Count non-header lines (actual flow records)
-        for line in lines:
-            if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
-                # Check if it's a valid flow line (has enough fields)
-                parts = line.split(',')
-                if len(parts) > 7:
-                    active_flows_count += 1
-    except:
+        if full_output:
+            lines = full_output.strip().split("\n")
+            # Count non-header lines (actual flow records)
+            for line in lines:
+                if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
+                    # Check if it's a valid flow line (has enough fields)
+                    parts = line.split(',')
+                    if len(parts) > 7:
+                        active_flows_count += 1
+    except Exception as e:
+        # Log error in production, but don't fail the endpoint
         active_flows_count = 0
     
     # Now get external connections count using a sample
@@ -2108,8 +2110,9 @@ def api_network_stats_overview():
                 parts = line.split(',')
                 if len(parts) > 7:
                     try:
-                        src = parts[sa_idx] if len(parts) > sa_idx else ""
-                        dst = parts[da_idx] if len(parts) > da_idx else ""
+                        # Safe access with bounds checking
+                        src = parts[sa_idx] if len(parts) > sa_idx and sa_idx < len(parts) else ""
+                        dst = parts[da_idx] if len(parts) > da_idx and da_idx < len(parts) else ""
                         
                         if src and dst:
                             sample_count += 1
@@ -2143,6 +2146,12 @@ def api_network_stats_overview():
     try:
         lines_24h = output_24h.strip().split("\n")
         start_idx_24h = 0
+        # Initialize index variables with safe defaults
+        sa_idx_24h = 0
+        da_idx_24h = 0
+        ibyt_idx_24h = 0
+        td_idx_24h = 0
+        
         if lines_24h:
             line0_24h = lines_24h[0]
             if 'ts' in line0_24h or 'Date' in line0_24h or 'ibyt' in line0_24h or 'firstSeen' in line0_24h or 'firstseen' in line0_24h:
@@ -2157,7 +2166,7 @@ def api_network_stats_overview():
                     if da_key_24h in header_24h: da_idx_24h = header_24h.index(da_key_24h)
                     if ibyt_key_24h in header_24h: ibyt_idx_24h = header_24h.index(ibyt_key_24h)
                     if 'td' in header_24h: td_idx_24h = header_24h.index('td')
-                    if 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
+                    elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
                     start_idx_24h = 1
                 except:
                     pass
@@ -2167,10 +2176,11 @@ def api_network_stats_overview():
             parts = line.split(',')
             if len(parts) > 7:
                 try:
-                    duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h else 0.0
-                    src = parts[sa_idx_24h] if len(parts) > sa_idx_24h else ""
-                    dst = parts[da_idx_24h] if len(parts) > da_idx_24h else ""
-                    b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h else 0
+                    # Safe access with bounds checking
+                    duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h and td_idx_24h < len(parts) else 0.0
+                    src = parts[sa_idx_24h] if len(parts) > sa_idx_24h and sa_idx_24h < len(parts) else ""
+                    dst = parts[da_idx_24h] if len(parts) > da_idx_24h and da_idx_24h < len(parts) else ""
+                    b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h and ibyt_idx_24h < len(parts) else 0
                     
                     if src and dst:
                         # Check if this flow matches detection criteria: long-lived, low-volume, external
