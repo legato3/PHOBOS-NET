@@ -476,6 +476,8 @@ body.sidebar-collapsed .layout-wrapper {
     flex-direction: column;
     gap: var(--space-1);
     padding: var(--space-2);
+    flex: 1;
+    overflow-y: auto;
 }
 
 /* CYBERPUNK UI: Sidebar item - Signal navigation link */
@@ -568,6 +570,7 @@ body.sidebar-collapsed .layout-wrapper {
     flex-direction: column;
     justify-content: flex-end;
     flex-shrink: 0;
+    margin-bottom: 0;
 }
 
 .sidebar.collapsed .sidebar-footer {
