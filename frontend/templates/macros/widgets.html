@@ -6,8 +6,7 @@ card_class_bind=None, footer_content=None) %}
 {%- elif id == 'insights' -%}
     {%- set data_prop = 'insights' -%}
 {%- endif -%}
-<div class="card {{ card_class }}" {% if card_class_bind %}:class="{{ card_class_bind }}" {% endif %}
-    :class="{ 'widget-minimized': isMinimized('{{ id }}') }">
+<div class="card {{ card_class }}" {% if card_class_bind %}:class="{{ card_class_bind }}" {% endif %}>
     <h2>
         <div class="card-title-content">
             <span class="title-icon">{{ icon }}</span>
@@ -21,24 +20,9 @@ card_class_bind=None, footer_content=None) %}
             {% if show_spinner %}
             <div class="spinner" x-show="{{ data_prop }}?.loading"></div>
             {% endif %}
-
-            <button class="icon-btn-small" @click="toggleMinimize('{{ id }}')"
-                :title="isMinimized('{{ id }}') ? 'Expand' : 'Minimize'"
-                :aria-label="isMinimized('{{ id }}') ? 'Expand ' + getWidgetLabel('{{ id }}') : 'Minimize ' + getWidgetLabel('{{ id }}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    x-show="isMinimized('{{ id }}')">
-                    <path d="M3 12h18M12 3v18" />
-                </svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    x-show="!isMinimized('{{ id }}')">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-            </button>
         </div>
     </h2>
-    <div class="widget-body" x-show="!isMinimized('{{ id }}')" style="min-height: {{ min_height }}">
+    <div class="widget-body" style="min-height: {{ min_height }}">
         <!-- Skeleton Loader -->
         <div class="skeleton-container" x-show="{{ data_prop }}?.loading">
             <div class="skeleton-line title w-50"></div>
@@ -51,7 +35,7 @@ card_class_bind=None, footer_content=None) %}
         </div>
     </div>
     {% if footer_content %}
-    <div class="card-footer" x-show="!isMinimized('{{ id }}')">
+    <div class="card-footer">
         {{ footer_content | safe }}
     </div>
     {% endif %}

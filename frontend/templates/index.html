@@ -332,7 +332,7 @@
                             <div class="primary-column w-full">
                                 <template x-if="isVisible('bandwidth')">
                                     {% set bw_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('bandwidth')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Live</span>
                                     </div>
                                     {% endset %}
@@ -352,10 +352,10 @@
                         <!-- World Map Section -->
                         <section id="section-worldmap" class="scroll-section">
                             {% set wm_actions %}
-                            <div class="status-pills" x-show="!isMinimized('worldmap')">
+                            <div class="status-pills">
                                 <span class="status-pill running">Live</span>
                             </div>
-                            <div class="world-map-stats-badges" x-show="worldMap.summary && !isMinimized('worldmap')">
+                            <div class="world-map-stats-badges" x-show="worldMap.summary">
                                 <span class="wm-badge wm-badge-cyan"
                                     :title="worldMap.summary?.countries_reached + ' countries'">
                                     <span class="wm-badge-icon">🌍</span>
@@ -516,7 +516,7 @@
                                     securityScore.grade === 'A', 'score-good': securityScore.grade === 'B',
                                     'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade ===
                                     'D', 'score-critical': securityScore.grade === 'F' }") %}
-                                    <div class="score-display" x-show="!isMinimized('securityScore')">
+                                    <div class="score-display">
                                         <div class="score-gauge">
                                             <div class="score-circle" :style="'--score: ' + (securityScore.score || 0)">
                                                 <span class="score-value" x-text="securityScore.score || 0"></span>
@@ -563,7 +563,7 @@
                                     {% call widget_card('alertHistory', 'Alert History (24h)', '🔔', show_spinner=True)
                                     %}
                                     <!-- Alert Filters -->
-                                    <div class="alert-filters" x-show="!isMinimized('alertHistory')">
+                                    <div class="alert-filters">
                                         <select x-model="alertFilter.severity" class="filter-select"
                                             aria-label="Filter alerts by severity">
                                             <option value="all">All Severities</option>
@@ -587,7 +587,7 @@
                                             <option value="watchlist">Watchlist</option>
                                         </select>
                                     </div>
-                                    <div class="alert-summary" x-show="!isMinimized('alertHistory')">
+                                    <div class="alert-summary">
                                         <span class="alert-badge critical"
                                             x-show="alertHistory.by_severity?.critical > 0">🔴 <span
                                                 x-text="alertHistory.by_severity?.critical || 0"></span>
@@ -603,7 +603,7 @@
                                         <span class="text-muted">Total: <span
                                                 x-text="alertHistory.total || 0"></span></span>
                                     </div>
-                                    <div class="alert-list" x-show="!isMinimized('alertHistory')">
+                                    <div class="alert-list">
                                         <template x-for="(a, idx) in filteredAlerts.slice(0, 10)" :key="idx">
                                             <div class="alert-row" :class="'severity-row-' + a.severity">
                                                 <div class="alert-time" x-text="a.time_ago"></div>
@@ -1039,7 +1039,7 @@
                                 <!-- Top Sources -->
                                 <template x-if="isVisible('sources')">
                                     {% set src_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('sources')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Running</span>
                                     </div>
                                     {% endset %}
@@ -1124,7 +1124,7 @@
                                 <!-- Top Destinations -->
                                 <template x-if="isVisible('destinations')">
                                     {% set dst_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('destinations')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Running</span>
                                     </div>
                                     {% endset %}
@@ -1211,7 +1211,7 @@
                                 <!-- Top Ports -->
                                 <template x-if="isVisible('ports')">
                                     {% set ports_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('ports')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Running</span>
                                     </div>
                                     {% endset %}
@@ -1250,7 +1250,7 @@
                                 <!-- Top ASNs -->
                                 <template x-if="isVisible('asns')">
                                     {% set asns_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('asns')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Live</span>
                                     </div>
                                     {% endset %}
@@ -1280,7 +1280,7 @@
                                 <!-- Top Countries -->
                                 <template x-if="isVisible('countries')">
                                     {% set country_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('countries')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Live</span>
                                     </div>
                                     {% endset %}
@@ -1306,7 +1306,7 @@
                                 <!-- Top Services -->
                                 <template x-if="isVisible('services')">
                                     {% set svc_actions %}
-                                    <div class="status-pills" x-show="!isMinimized('services')">
+                                    <div class="status-pills">
                                         <span class="status-pill running">Live</span>
                                     </div>
                                     {% endset %}
@@ -1406,7 +1406,7 @@
                                         <canvas id="protoMixChart"></canvas>
                                     </div>
                                     <table class="table-fixed table-compact"
-                                        x-show="!isMinimized('protocols') && protocols.protocols && protocols.protocols.length > 0">
+                                        x-show="protocols.protocols && protocols.protocols.length > 0">
                                         <thead>
                                             <tr>
                                                 <th>Protocol</th>
@@ -1431,7 +1431,7 @@
                                             </template>
                                         </tbody>
                                     </table>
-                                    <div x-show="!isMinimized('protocols') && !protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)"
+                                    <div x-show="!protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)"
                                         class="empty-state">No protocol data available</div>
                                     {% endcall %}
                                 </template>
@@ -1553,7 +1553,7 @@
                                         </div>
                                     </div>
                                     <div class="duration-dist"
-                                        x-show="!isMinimized('flowStats') && flowStats.duration_dist">
+                                        x-show="flowStats.duration_dist">
                                         <div class="duration-dist-label">Duration Distribution:</div>
                                         <div class="duration-dist-bars">
                                             <div class="dist-bar-group">
@@ -1623,8 +1623,7 @@
                             <!-- Firewall Logs Widget -->
                             <!-- Firewall Logs Widget -->
                             {% set fw_actions %}
-                            <div class="card-actions" style="gap: 8px; flex-wrap: wrap;"
-                                x-show="!isMinimized('recentBlocks')">
+                            <div class="card-actions" style="gap: 8px; flex-wrap: wrap;">
                                 <span class="badge"
                                     :style="recentBlocksAutoRefresh ? 'background: rgba(255,0,60,0.2); color: var(--neon-red);' : 'background: rgba(100,100,100,0.2); color: var(--text-muted);'"
                                     style="font-size: 0.85em;"
@@ -2004,7 +2003,7 @@
                             {% set threat_actions %}
                             <button class="icon-btn-small" @click="exportThreatActivityTimeline('csv')"
                                 title="Export CSV" style="color: var(--neon-green);"
-                                x-show="!isMinimized('threatActivityTimeline') && threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
+                                x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -2151,7 +2150,7 @@
                             {% call widget_card('flows', 'Active Flows', '⚡', card_class='wide-card',
                             extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True) %}
                             <!-- List View -->
-                            <table class="table-fixed table-compact" x-show="!isMinimized('flows')">
+                            <table class="table-fixed table-compact">
                                 <thead>
                                     <tr>
                                         <th style="width: 15%; cursor: pointer;" @click="sortFlows('age')">
@@ -3648,9 +3647,6 @@
                                         style="cursor: pointer;">
                                     <span x-text="getWidgetLabel(widgetId)"></span>
                                 </label>
-                                <span style="font-size: 0.8em; color: var(--text-muted);"
-                                    x-show="isMinimized(widgetId)">📌
-                                    minimized</span>
                             </div>
                         </template>
                     </div>
