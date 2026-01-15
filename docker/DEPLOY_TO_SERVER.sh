@@ -46,8 +46,9 @@ scp -i "$SSH_KEY" -r frontend/static/* $USER@$SERVER:$REMOTE_DIR/frontend/static
 # Copy scripts and sample data
 scp -i "$SSH_KEY" scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
 scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
-# Copy threat-feeds.txt if it exists in docker-data
+# Copy docker-data files
 scp -i "$SSH_KEY" docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+scp -i "$SSH_KEY" docker-data/requirements.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
 if [ "$REBUILD" = true ]; then
     # Full rebuild (needed for Dockerfile/requirements.txt changes)
