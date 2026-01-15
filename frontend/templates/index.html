@@ -3011,12 +3011,12 @@
                                                                 x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : iface.status === 'admin_down' ? 'ADMIN DOWN' : 'UNKNOWN'"></span>
                                                         </td>
                                                         <td>
-                                                            <span x-show="iface.rx_mbps != null" x-text="(iface.rx_mbps || 0).toFixed(2) + ' Mbps'"></span>
-                                                            <span x-show="iface.rx_mbps == null" class="text-muted">—</span>
+                                                            <span x-show="iface.rx_mbps != null && iface.rx_mbps !== undefined" x-text="(typeof iface.rx_mbps === 'number' ? iface.rx_mbps : 0).toFixed(2) + ' Mbps'"></span>
+                                                            <span x-show="iface.rx_mbps == null || iface.rx_mbps === undefined" class="text-muted">—</span>
                                                         </td>
                                                         <td>
-                                                            <span x-show="iface.tx_mbps != null" x-text="(iface.tx_mbps || 0).toFixed(2) + ' Mbps'"></span>
-                                                            <span x-show="iface.tx_mbps == null" class="text-muted">—</span>
+                                                            <span x-show="iface.tx_mbps != null && iface.tx_mbps !== undefined" x-text="(typeof iface.tx_mbps === 'number' ? iface.tx_mbps : 0).toFixed(2) + ' Mbps'"></span>
+                                                            <span x-show="iface.tx_mbps == null || iface.tx_mbps === undefined" class="text-muted">—</span>
                                                         </td>
                                                         <td>
                                                             <template x-if="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined">
