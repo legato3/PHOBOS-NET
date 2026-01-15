@@ -3011,20 +3011,12 @@
                                                     x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : iface.status === 'admin_down' ? 'ADMIN DOWN' : 'UNKNOWN'"></span>
                                             </td>
                                             <td>
-                                                <template x-if="typeof iface.rx_mbps === 'number'">
-                                                    <span x-text="iface.rx_mbps.toFixed(2) + ' Mbps'"></span>
-                                                </template>
-                                                <template x-if="typeof iface.rx_mbps !== 'number'">
-                                                    <span class="text-muted">—</span>
-                                                </template>
+                                                <span x-show="iface.rx_mbps != null" x-text="(iface.rx_mbps || 0).toFixed(2) + ' Mbps'"></span>
+                                                <span x-show="iface.rx_mbps == null" class="text-muted">—</span>
                                             </td>
                                             <td>
-                                                <template x-if="typeof iface.tx_mbps === 'number'">
-                                                    <span x-text="iface.tx_mbps.toFixed(2) + ' Mbps'"></span>
-                                                </template>
-                                                <template x-if="typeof iface.tx_mbps !== 'number'">
-                                                    <span class="text-muted">—</span>
-                                                </template>
+                                                <span x-show="iface.tx_mbps != null" x-text="(iface.tx_mbps || 0).toFixed(2) + ' Mbps'"></span>
+                                                <span x-show="iface.tx_mbps == null" class="text-muted">—</span>
                                             </td>
                                             <td>
                                                 <template x-if="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined">
@@ -3045,14 +3037,11 @@
                                                 </template>
                                             </td>
                                             <td>
-                                                <template x-if="typeof iface.utilization === 'number'">
-                                                    <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
-                                                        x-text="iface.utilization.toFixed(1) + '%'"
-                                                        :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
-                                                </template>
-                                                <template x-if="typeof iface.utilization !== 'number'">
-                                                    <span class="text-muted">—</span>
-                                                </template>
+                                                <span x-show="iface.utilization != null" 
+                                                    :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
+                                                    x-text="(iface.utilization || 0).toFixed(1) + '%'"
+                                                    :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
+                                                <span x-show="iface.utilization == null" class="text-muted">—</span>
                                             </td>
                                         </tr>
                                     </template>
