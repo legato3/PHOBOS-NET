@@ -422,26 +422,7 @@
 
                         <!-- World Map Section -->
                         <section id="section-worldmap" class="scroll-section">
-                            {% set wm_actions %}
-                            <div class="status-pills">
-                                <span class="status-pill running">Live</span>
-                            </div>
-                            <div class="world-map-stats-badges" x-show="worldMap.summary">
-                                <span class="wm-badge wm-badge-cyan"
-                                    :title="worldMap.summary?.countries_reached + ' countries'">
-                                    <span class="wm-badge-icon">🌍</span>
-                                    <span class="wm-badge-value"
-                                        x-text="worldMap.summary?.countries_reached || 0"></span>
-                                </span>
-                            </div>
-                            <!-- External Link Icon preserved in actions -->
-                            <svg class="external-link-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" class="ml-2 opacity-50">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
-                            </svg>
-                            {% endset %}
+                            {% set wm_actions %}{% endset %}
 
                             {% set wm_title %}
                             <span>Traffic World Map</span>
@@ -452,29 +433,26 @@
                             extra_actions=wm_actions) %}
                             <!-- Map Controls -->
                             <div class="world-map-controls">
-                                <div class="world-map-mode-toggle" style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                                <div class="world-map-mode-toggle">
                                     <button 
                                         class="world-map-mode-btn"
                                         :class="{ 'active': worldMapMode === 'traffic' }"
                                         @click="worldMapMode = 'traffic'"
-                                        title="Traffic view - balanced emphasis"
-                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        title="Traffic view - balanced emphasis">
                                         Traffic
                                     </button>
                                     <button 
                                         class="world-map-mode-btn"
                                         :class="{ 'active': worldMapMode === 'exposure' }"
                                         @click="worldMapMode = 'exposure'"
-                                        title="Exposure view - emphasize destinations"
-                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        title="Exposure view - emphasize destinations">
                                         Exposure
                                     </button>
                                     <button 
                                         class="world-map-mode-btn"
                                         :class="{ 'active': worldMapMode === 'attacks' }"
                                         @click="worldMapMode = 'attacks'"
-                                        title="Attacks view - emphasize threats"
-                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        title="Attacks view - emphasize threats">
                                         Attacks
                                     </button>
                                 </div>
@@ -505,7 +483,7 @@
                                         <circle cx="12" cy="12" r="10"></circle>
                                         <path d="M12 6v6l4 2"></path>
                                     </svg>
-                                    Reset View
+                                    Reset
                                 </button>
                             </div>
                             <div class="world-map-container">
