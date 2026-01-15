@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>PHOBOS-NET</title>
+    <title x-text="appMetadata.name || 'PHOBOS-NET'">PHOBOS-NET</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <!-- theme-color: Supported in Chrome, Edge, Safari, Opera. Firefox requires extension for support -->
@@ -15,10 +15,10 @@
 
     <!-- Open Graph / Social Media Meta Tags -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="PHOBOS-NET">
+    <meta property="og:title" :content="appMetadata.name || 'PHOBOS-NET'">
     <meta property="og:description"
         content="Real-time network traffic monitoring with threat intelligence and security analytics">
-    <meta property="og:site_name" content="PHOBOS-NET">
+    <meta property="og:site_name" :content="appMetadata.name || 'PHOBOS-NET'">
 
     <!-- Resource hints for better performance -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
@@ -138,12 +138,12 @@
 
                 <div class="sidebar-footer">
                     <div class="system-info">
-                        <div class="system-name">PHOBOS-NET</div>
+                        <div class="system-name" x-text="appMetadata.name || 'PHOBOS-NET'"></div>
                         <div class="edition-badge">COMMUNITY EDITION</div>
                     </div>
                     <div class="footer-copy">
-                        ProxFlow™ Community Edition<br>
-                        © 2026 v2.5
+                        <span x-text="appMetadata.name || 'PHOBOS-NET'"></span> <span x-text="appMetadata.version || 'v1.0'"></span><br>
+                        © 2026
                     </div>
                 </div>
             </aside>

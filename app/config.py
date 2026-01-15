@@ -1,6 +1,11 @@
 """Configuration module for PROX_NFDUMP application."""
 import os
 
+# Application Metadata (Single Source of Truth)
+APP_NAME = "PHOBOS-NET"
+APP_VERSION = "v1.0.0"
+APP_VERSION_DISPLAY = "v1.0"  # Human-readable version for UI
+
 # Cache TTLs
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
 CACHE_TTL_THREAT = 900      # 15 minutes for threat feeds

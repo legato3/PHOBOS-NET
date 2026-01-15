@@ -143,6 +143,7 @@ export const Store = () => ({
     recentBlocksRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
+    appMetadata: { name: 'PHOBOS-NET', version: 'v1.0.0', version_display: 'v1.0' }, // Application metadata from backend
 
     // Forensics Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
@@ -391,12 +392,32 @@ export const Store = () => ({
     apiLatency: null,
     apiLatencyHistory: [],
 
+    async fetchAppMetadata() {
+        try {
+            const res = await fetch('/api/app/metadata');
+            if (res.ok) {
+                const data = await res.json();
+                this.appMetadata = {
+                    name: data.name || 'PHOBOS-NET',
+                    version: data.version || 'v1.0.0',
+                    version_display: data.version_display || 'v1.0'
+                };
+            }
+        } catch (e) {
+            console.warn('Failed to fetch app metadata:', e);
+            // Keep defaults
+        }
+    },
+
     init() {
         // Polyfill requestIdleCallback for better browser support
         const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 
         // Mark as initialized immediately for rendering
         this.initDone = true;
+        
+        // Fetch app metadata early (non-blocking)
+        this.fetchAppMetadata();
 
         // Defer heavy initialization to avoid blocking initial render
         idleCallback(() => {

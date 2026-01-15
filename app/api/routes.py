@@ -4504,6 +4504,18 @@ def api_config():
     return jsonify({'status': 'ok', 'config': saved})
 
 
+@bp.route('/api/app/metadata')
+@throttle(10, 60)
+def api_app_metadata():
+    """Get application metadata (name, version)."""
+    from app.config import APP_NAME, APP_VERSION, APP_VERSION_DISPLAY
+    return jsonify({
+        'name': APP_NAME,
+        'version': APP_VERSION,
+        'version_display': APP_VERSION_DISPLAY
+    })
+
+
 
 @bp.route('/metrics')
 def metrics():
@@ -4594,7 +4606,13 @@ def api_server_health():
         if _server_health_cache["data"] and (now - _server_health_cache["ts"]) < SERVER_HEALTH_CACHE_TTL:
             return jsonify(_server_health_cache["data"])
 
+    from app.config import APP_NAME, APP_VERSION
+    
     data = {
+        'application': {
+            'name': APP_NAME,
+            'version': APP_VERSION
+        },
         'cpu': {},
         'memory': {},
         'disk': {},
