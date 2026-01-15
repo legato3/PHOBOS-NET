@@ -5084,36 +5084,38 @@ def api_firewall_snmp_status():
     # Extract interface data
     interfaces = []
     
-    # WAN interface
-    if "wan_in" in snmp_data or "wan_out" in snmp_data:
-        wan_status = snmp_data.get("if_wan_status", 1)  # 1 = up, 2 = down
+    # WAN interface - always include if SNMP data exists
+    wan_status = snmp_data.get("if_wan_status")
+    if wan_status is not None or "wan_in" in snmp_data or "wan_out" in snmp_data:
+        wan_status_val = wan_status if wan_status is not None else 1  # Default to up if status unknown
         interfaces.append({
             "name": "WAN",
-            "status": "up" if wan_status == 1 else "down",
-            "rx_mbps": snmp_data.get("wan_rx_mbps", 0),
-            "tx_mbps": snmp_data.get("wan_tx_mbps", 0),
-            "rx_errors": snmp_data.get("wan_in_err_s", 0),
-            "tx_errors": snmp_data.get("wan_out_err_s", 0),
-            "rx_drops": snmp_data.get("wan_in_disc_s", 0),
-            "tx_drops": snmp_data.get("wan_out_disc_s", 0),
-            "utilization": snmp_data.get("wan_util_percent", 0),
-            "speed_mbps": snmp_data.get("wan_speed_mbps", 0)
+            "status": "up" if wan_status_val == 1 else "down",
+            "rx_mbps": snmp_data.get("wan_rx_mbps") if snmp_data.get("wan_rx_mbps") is not None else 0,
+            "tx_mbps": snmp_data.get("wan_tx_mbps") if snmp_data.get("wan_tx_mbps") is not None else 0,
+            "rx_errors": snmp_data.get("wan_in_err_s") if snmp_data.get("wan_in_err_s") is not None else 0,
+            "tx_errors": snmp_data.get("wan_out_err_s") if snmp_data.get("wan_out_err_s") is not None else 0,
+            "rx_drops": snmp_data.get("wan_in_disc_s") if snmp_data.get("wan_in_disc_s") is not None else 0,
+            "tx_drops": snmp_data.get("wan_out_disc_s") if snmp_data.get("wan_out_disc_s") is not None else 0,
+            "utilization": snmp_data.get("wan_util_percent") if snmp_data.get("wan_util_percent") is not None else 0,
+            "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed", 0)
         })
     
-    # LAN interface
-    if "lan_in" in snmp_data or "lan_out" in snmp_data:
-        lan_status = snmp_data.get("if_lan_status", 1)
+    # LAN interface - always include if SNMP data exists
+    lan_status = snmp_data.get("if_lan_status")
+    if lan_status is not None or "lan_in" in snmp_data or "lan_out" in snmp_data:
+        lan_status_val = lan_status if lan_status is not None else 1  # Default to up if status unknown
         interfaces.append({
             "name": "LAN",
-            "status": "up" if lan_status == 1 else "down",
-            "rx_mbps": snmp_data.get("lan_rx_mbps", 0),
-            "tx_mbps": snmp_data.get("lan_tx_mbps", 0),
-            "rx_errors": snmp_data.get("lan_in_err_s", 0),
-            "tx_errors": snmp_data.get("lan_out_err_s", 0),
-            "rx_drops": snmp_data.get("lan_in_disc_s", 0),
-            "tx_drops": snmp_data.get("lan_out_disc_s", 0),
-            "utilization": snmp_data.get("lan_util_percent", 0),
-            "speed_mbps": snmp_data.get("lan_speed_mbps", 0)
+            "status": "up" if lan_status_val == 1 else "down",
+            "rx_mbps": snmp_data.get("lan_rx_mbps") if snmp_data.get("lan_rx_mbps") is not None else 0,
+            "tx_mbps": snmp_data.get("lan_tx_mbps") if snmp_data.get("lan_tx_mbps") is not None else 0,
+            "rx_errors": snmp_data.get("lan_in_err_s") if snmp_data.get("lan_in_err_s") is not None else 0,
+            "tx_errors": snmp_data.get("lan_out_err_s") if snmp_data.get("lan_out_err_s") is not None else 0,
+            "rx_drops": snmp_data.get("lan_in_disc_s") if snmp_data.get("lan_in_disc_s") is not None else 0,
+            "tx_drops": snmp_data.get("lan_out_disc_s") if snmp_data.get("lan_out_disc_s") is not None else 0,
+            "utilization": snmp_data.get("lan_util_percent") if snmp_data.get("lan_util_percent") is not None else 0,
+            "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed", 0)
         })
     
     # Calculate aggregate throughput

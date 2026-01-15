@@ -2929,7 +2929,7 @@
                 <template x-if="!firewallSNMP.loading && firewallSNMP.poll_success">
                     <div>
                         <!-- Top Stat Boxes -->
-                        <div class="stat-grid" style="margin-bottom: var(--space-6);">
+                        <div class="stat-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
                             <!-- CPU Usage -->
                             <div class="stat-box">
                                 <div class="stat-label">CPU Usage</div>
@@ -2975,8 +2975,16 @@
                         </div>
 
                         <!-- Interface Table -->
-                        {% call widget_card('firewall_interfaces', 'Network Interfaces', '🌐', show_spinner=False) %}
-                        <div x-show="firewallSNMP.interfaces && firewallSNMP.interfaces.length > 0">
+                        <div class="card">
+                            <h2>
+                                <div class="card-title-content">
+                                    <span class="title-icon">🌐</span>
+                                    <span>Network Interfaces</span>
+                                </div>
+                            </h2>
+                            <div class="widget-body">
+                        <template x-if="firewallSNMP.interfaces && firewallSNMP.interfaces.length > 0">
+                            <div>
                             <table class="table-fixed table-compact">
                                 <thead>
                                     <tr>
@@ -3022,30 +3030,42 @@
                                     </template>
                                 </tbody>
                             </table>
+                            </div>
+                        </template>
+                        <template x-if="!firewallSNMP.interfaces || firewallSNMP.interfaces.length === 0">
+                            <div class="empty-state">
+                                <p class="text-muted">No interface data available</p>
+                            </div>
+                        </template>
+                            </div>
                         </div>
-                        <div x-show="!firewallSNMP.interfaces || firewallSNMP.interfaces.length === 0" class="empty-state">
-                            <p class="text-muted">No interface data available</p>
-                        </div>
-                        {% endcall %}
 
                         <!-- System Info Panel -->
-                        {% call widget_card('firewall_system_info', 'System Information', 'ℹ️', show_spinner=False) %}
-                        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-secondary">Uptime:</span>
-                                <span x-text="firewallSNMP.uptime_formatted || 'Unknown'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-secondary">Last SNMP Poll:</span>
-                                <span x-text="firewallSNMP.last_poll ? timeAgo(firewallSNMP.last_poll) : 'Never'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-secondary">SNMP Status:</span>
-                                <span class="badge" :class="{ 'badge-success': firewallSNMP.poll_success, 'badge-error': !firewallSNMP.poll_success }"
-                                    x-text="firewallSNMP.poll_success ? 'ACTIVE' : 'ERROR'"></span>
+                        <div class="card">
+                            <h2>
+                                <div class="card-title-content">
+                                    <span class="title-icon">ℹ️</span>
+                                    <span>System Information</span>
+                                </div>
+                            </h2>
+                            <div class="widget-body">
+                                <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span class="text-secondary">Uptime:</span>
+                                        <span x-text="firewallSNMP.uptime_formatted || 'Unknown'"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span class="text-secondary">Last SNMP Poll:</span>
+                                        <span x-text="firewallSNMP.last_poll ? timeAgo(firewallSNMP.last_poll) : 'Never'"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span class="text-secondary">SNMP Status:</span>
+                                        <span class="badge" :class="{ 'badge-success': firewallSNMP.poll_success, 'badge-error': !firewallSNMP.poll_success }"
+                                            x-text="firewallSNMP.poll_success ? 'ACTIVE' : 'ERROR'"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        {% endcall %}
 
                     </div>
                 </template>
