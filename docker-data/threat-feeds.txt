@@ -62,25 +62,15 @@ https://www.binarydefense.com/banlist.txt|SCANNER|BinaryDefense
 # ADDITIONAL C2 & BOTNET FEEDS
 # ============================================
 
-# Zeus Tracker - Banking Trojan C2 servers (Dridex, ZeuS, SpyEye)
-https://zeustracker.abuse.ch/blocklist.php?download=ipblocklist|C2|ZeusTracker
-
-# Bambenek C2 - Domain Generation Algorithm-based C2 servers
-https://osint.bambenekconsulting.com/feeds/c2-ipmaster.txt|C2|BambenekC2
-
-# ============================================
-# ADDITIONAL MALWARE FEEDS
-# ============================================
-
-# Talos Intelligence - Cisco Talos known malicious IPs
-https://talosintelligence.com/documents/ip-blacklist|MALWARE|TalosIP
+# Bambenek C2 - Command & Control IP feed (high confidence)
+https://osint.bambenekconsulting.com/feeds/c2-ipmasterlist-high.txt|C2|BambenekC2
 
 # ============================================
 # ADDITIONAL SCANNER & ATTACK FEEDS
 # ============================================
 
-# DShield - SANS Internet Storm Center top attackers
-https://www.dshield.org/feeds/suspiciousdomains_High.txt|SCANNER|DShield
+# DShield - SANS Internet Storm Center top attackers (top 20 /24 subnets)
+https://feeds.dshield.org/block.txt|SCANNER|DShield
 
 # ============================================
 # ADDITIONAL AGGREGATED FEEDS
