@@ -152,6 +152,11 @@ BUSINESS_HOURS_START = 7
 BUSINESS_HOURS_END = 22
 OFF_HOURS_THRESHOLD_MB = 100
 
+# Phase 2: Long-lived low-volume external flow detection thresholds
+# Detection: flows with duration > DURATION_THRESHOLD seconds AND bytes < BYTES_THRESHOLD AND external (not internal)
+LONG_LOW_DURATION_THRESHOLD = float(os.getenv('LONG_LOW_DURATION_THRESHOLD', '300'))  # 5 minutes default
+LONG_LOW_BYTES_THRESHOLD = int(os.getenv('LONG_LOW_BYTES_THRESHOLD', '100000'))  # 100 KB default
+
 # MITRE ATT&CK mappings
 MITRE_MAPPINGS = {
     'C2': {'technique': 'T1071', 'tactic': 'Command and Control', 'name': 'Application Layer Protocol'},

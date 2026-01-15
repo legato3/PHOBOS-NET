@@ -69,6 +69,12 @@ _bandwidth_history_cache = {}
 _flows_cache = {"data": None, "ts": 0}
 _common_data_cache = {}
 
+# ==================== Phase 3: Flow History (in-memory rolling) ====================
+# Rolling history: 30-60 minutes, aggregated by src/dst/port
+_flow_history = {}  # Key: (src, dst, port) -> list of {ts, bytes, packets, duration}
+_flow_history_lock = threading.Lock()
+_flow_history_ttl = 3600  # 60 minutes default
+
 # ==================== Rate Limiting ====================
 _request_times = defaultdict(list)
 

@@ -57,6 +57,7 @@ from app.core.state import (
     _snmp_cache, _snmp_cache_lock, _snmp_prev_sample, _snmp_backoff,
     _has_nfdump,
     _dns_resolver_executor,
+    _flow_history, _flow_history_lock, _flow_history_ttl,
 )
 # Import threats module to access threat state
 import app.services.threats as threats_module
@@ -71,7 +72,8 @@ from app.utils.decorators import throttle
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
-    NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST
+    NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST,
+    LONG_LOW_DURATION_THRESHOLD, LONG_LOW_BYTES_THRESHOLD
 )
 
 # Create Blueprint
@@ -2158,6 +2160,41 @@ def api_flows():
                                 "feed": info.get('feed', 'unknown')
                             })
 
+                    # Phase 2: Promote long-lived low-volume external flows to detection
+                    # Detection criteria: duration > threshold AND bytes < threshold AND external (not internal)
+                    is_detected = False
+                    detection_reason = None
+                    if direction in ("outbound", "inbound", "external"):  # External flow (not internal)
+                        if duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
+                            is_detected = True
+                            detection_reason = f"Long-lived ({duration:.1f}s) low-volume ({fmt_bytes(b)}) external flow. May indicate persistent C2, data exfiltration, or beaconing activity."
+
+                    # Phase 3: Update rolling flow history (in-memory, 30-60 min)
+                    history_key = (src, dst, dst_port)  # Aggregate by src/dst/port
+                    flow_history = []
+                    with _flow_history_lock:
+                        if history_key not in _flow_history:
+                            _flow_history[history_key] = []
+                        _flow_history[history_key].append({
+                            "ts": flow_time,
+                            "bytes": b,
+                            "packets": pkts,
+                            "duration": duration
+                        })
+                        # Cleanup old entries (older than TTL)
+                        cutoff_ts = now - _flow_history_ttl
+                        _flow_history[history_key] = [
+                            entry for entry in _flow_history[history_key]
+                            if entry["ts"] >= cutoff_ts
+                        ]
+                        # Get history for this flow (for UI) - only if more than 1 entry (recurring pattern)
+                        history_entries = sorted(_flow_history.get(history_key, []), key=lambda x: x["ts"])
+                        if len(history_entries) > 1:
+                            flow_history = history_entries
+                        # Remove empty keys
+                        if not _flow_history[history_key]:
+                            del _flow_history[history_key]
+
                     convs.append({
                         "ts": ts_str,
                         "age_seconds": age_sec,  # Explicit age in seconds for reliable frontend calculation
@@ -2189,7 +2226,12 @@ def api_flows():
                         "has_threat": has_threat,
                         "threat_count": threat_count,
                         "threat_ips": threat_ips,
-                        "threat_info": threat_info_list
+                        "threat_info": threat_info_list,
+                        # Phase 2: Detection fields
+                        "is_detected": is_detected,
+                        "detection_reason": detection_reason,
+                        # Phase 3: Flow history (last 30-60 min, aggregated by src/dst/port)
+                        "history": flow_history  # Only included if there's recurring pattern (len > 1)
                     })
                 except:
                     pass
