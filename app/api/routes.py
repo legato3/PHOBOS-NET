@@ -5359,14 +5359,19 @@ def api_firewall_snmp_status():
                     "saturation_hint": None
                 })
         except Exception:
+            # VPN interface polling failed - add interface with error state
+            interfaces.append({
+                "name": vpn_name.upper(),
+                "status": "unknown",
+                "rx_mbps": None,
+                "tx_mbps": None,
                 "rx_errors": None,
                 "tx_errors": None,
                 "rx_drops": None,
                 "tx_drops": None,
                 "utilization": None,
                 "speed_mbps": None,
-                "saturation_hint": None,
-                "utilization_history": []
+                "saturation_hint": None
             })
             pass
     
