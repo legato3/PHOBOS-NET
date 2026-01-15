@@ -2991,6 +2991,10 @@ export const Store = () => ({
                 try {
                     _chartInstances['flagsChartInstance'].data.labels = labels;
                     _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
+                    // Update legend position if needed
+                    if (_chartInstances['flagsChartInstance'].options.plugins.legend.position !== 'bottom') {
+                        _chartInstances['flagsChartInstance'].options.plugins.legend.position = 'bottom';
+                    }
                     _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
                     // Chart instance is corrupted, destroy and recreate
@@ -3019,7 +3023,30 @@ export const Store = () => ({
                         maintainAspectRatio: false,
                         animation: false, // Disable animation to prevent reactive loops
                         plugins: {
-                            legend: { position: 'right', labels: { color: '#e0e0e0', boxWidth: 12 } }
+                            legend: { 
+                                position: 'bottom',
+                                labels: { 
+                                    color: '#e0e0e0', 
+                                    boxWidth: 12,
+                                    generateLabels: function(chart) {
+                                        // Show flag names instead of numbers
+                                        const data = chart.data;
+                                        if (data.labels.length && data.datasets.length) {
+                                            return data.labels.map((label, i) => {
+                                                return {
+                                                    text: label, // Show flag name (e.g., "AP", "A", "R")
+                                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                                    strokeStyle: data.datasets[0].backgroundColor[i],
+                                                    lineWidth: 0,
+                                                    hidden: false,
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                                        return [];
+                                    }
+                                }
+                            }
                         }
                     }
                 });
