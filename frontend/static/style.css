@@ -443,6 +443,11 @@ body.sidebar-collapsed .layout-wrapper {
     width: 100%;
 }
 
+.sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    padding: 0;
+}
+
 /* CYBERPUNK UI: Logo text - Signal branding */
 .logo-text {
     font-size: var(--fs-lg);
