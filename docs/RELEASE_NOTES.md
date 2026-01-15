@@ -1,6 +1,6 @@
-# PROX_NFDUMP Release Notes
+# PHOBOS-NET Release Notes
 
-This document provides detailed release notes for all versions of PROX_NFDUMP, with emphasis on design decisions, breaking changes, and operator-focused improvements.
+This document provides detailed release notes for all versions of PHOBOS-NET, with emphasis on design decisions, breaking changes, and operator-focused improvements.
 
 ---
 
@@ -10,13 +10,13 @@ This document provides detailed release notes for all versions of PROX_NFDUMP, w
 **Status:** Production-ready (operator-grade)  
 **Focus:** Trust, clarity, explainability, performance
 
-This release establishes PROX_NFDUMP as a reliable network & security investigation platform, not a demo dashboard.
+This release establishes PHOBOS-NET as a reliable network & security investigation platform, not a demo dashboard.
 
 ⸻
 
 🎯 Purpose of v1
 
-v1 establishes PROX_NFDUMP as a reliable network & security investigation platform, not a demo dashboard.
+v1 establishes PHOBOS-NET as a reliable network & security investigation platform, not a demo dashboard.
 
 The core goals of this release were:
 	•	truthful metrics (no UI-derived data)
