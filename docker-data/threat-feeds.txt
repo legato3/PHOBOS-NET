@@ -59,13 +59,6 @@ https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt|AGGREGATE|I
 https://www.binarydefense.com/banlist.txt|SCANNER|BinaryDefense
 
 # ============================================
-# ADDITIONAL C2 & BOTNET FEEDS
-# ============================================
-
-# Bambenek C2 - Command & Control IP feed (high confidence)
-https://osint.bambenekconsulting.com/feeds/c2-ipmasterlist-high.txt|C2|BambenekC2
-
-# ============================================
 # ADDITIONAL SCANNER & ATTACK FEEDS
 # ============================================
 
