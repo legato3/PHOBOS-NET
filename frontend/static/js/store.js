@@ -121,6 +121,8 @@ export const Store = () => ({
     alertHistoryOpen: false,
     watchlistModalOpen: false,
     ipInvestigationModalOpen: false,
+    flowDetailsModalOpen: false,
+    selectedFlow: null,
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
     compromisedHosts: { hosts: [], count: 0, loading: true },
@@ -1896,19 +1898,39 @@ export const Store = () => ({
     },
 
     openFlowDetails(flow) {
-        // Open IP investigation modal for source IP
-        // This provides flow details through the existing IP investigation interface
-        if (flow && flow.src) {
-            this.ipInvestigation.searchIP = flow.src;
-            this.investigateIP();
-            // Scroll to IP investigation section if on forensics tab
-            if (this.activeTab === 'forensics') {
-                setTimeout(() => {
-                    const section = document.getElementById('section-ip-investigation');
-                    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 300);
-            }
+        // Open Flow Details modal
+        if (flow) {
+            this.selectedFlow = flow;
+            this.flowDetailsModalOpen = true;
         }
+    },
+
+    closeFlowDetailsModal() {
+        this.flowDetailsModalOpen = false;
+        this.selectedFlow = null;
+    },
+
+    // Calculate average rate for flow
+    calculateFlowRate(flow) {
+        if (!flow || !flow.duration_seconds || flow.duration_seconds === 0) return '0 B/s';
+        const rate = flow.bytes / flow.duration_seconds;
+        return this.fmtBytes(rate) + '/s';
+    },
+
+    // Format timestamp to relative time
+    formatFlowTimestamp(ts) {
+        if (!ts) return 'Unknown';
+        if (typeof ts === 'number') {
+            return this.timeAgo(ts);
+        }
+        // Try parsing string timestamp
+        try {
+            const date = new Date(ts);
+            if (!isNaN(date.getTime())) {
+                return this.timeAgo(date.getTime() / 1000);
+            }
+        } catch (e) {}
+        return ts;
     },
 
     timeAgo(ts) {

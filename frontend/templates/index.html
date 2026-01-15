@@ -3661,6 +3661,147 @@
             </div>
         </div>
 
+        <!-- Flow Details Modal -->
+        <div class="modal" x-show="flowDetailsModalOpen" 
+            :style="flowDetailsModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeFlowDetailsModal()"
+            @keydown.escape.window="closeFlowDetailsModal()"
+            x-data="{ flow: selectedFlow }">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal__header">
+                    <div style="flex: 1;">
+                        <h2 style="margin: 0; font-size: 1.2em; display: flex; align-items: center; gap: var(--space-2);">
+                            <span class="text-cyan" x-text="selectedFlow?.src || ''"></span>
+                            <span x-text="getDirectionIndicator(selectedFlow)?.symbol || '→'" 
+                                :style="'color: ' + (getDirectionIndicator(selectedFlow)?.color || 'var(--text-muted)') + '; font-size: 1.1em;'"></span>
+                            <span class="text-cyan" x-text="selectedFlow?.dst || ''"></span>
+                            <span class="text-muted" style="font-size: 0.85em; font-weight: normal; margin-left: var(--space-2);"
+                                x-text="selectedFlow?.proto_name || ''"></span>
+                        </h2>
+                    </div>
+                    <button @click="closeFlowDetailsModal()"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                        aria-label="Close flow details">×</button>
+                </div>
+
+                <div style="padding: var(--space-4) 0;">
+                    <!-- Identity Section (only if data exists) -->
+                    <template x-if="selectedFlow && (selectedFlow.src_hostname || selectedFlow.dst_hostname || selectedFlow.src_country || selectedFlow.dst_country)">
+                        <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(0, 234, 255, 0.03); border: 1px solid rgba(0, 234, 255, 0.1);">
+                            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Identity</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                                <!-- Source Identity -->
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Source</div>
+                                    <div x-show="selectedFlow?.src_hostname" style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">
+                                        <span class="text-muted">Hostname:</span> <span x-text="selectedFlow.src_hostname"></span>
+                                    </div>
+                                    <div x-show="selectedFlow?.src_country" style="font-size: var(--text-sm); color: var(--text-secondary);">
+                                        <span class="text-muted">Location:</span> 
+                                        <span x-show="selectedFlow.src_flag" 
+                                            :class="'flag-icon flag-icon-' + (selectedFlow.src_country_code || 'unknown').toLowerCase()"
+                                            style="margin: 0 4px;"></span>
+                                        <span x-text="selectedFlow.src_country || 'Unknown'"></span>
+                                    </div>
+                                </div>
+                                <!-- Destination Identity -->
+                                <div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Destination</div>
+                                    <div x-show="selectedFlow?.dst_hostname" style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-1);">
+                                        <span class="text-muted">Hostname:</span> <span x-text="selectedFlow.dst_hostname"></span>
+                                    </div>
+                                    <div x-show="selectedFlow?.dst_country" style="font-size: var(--text-sm); color: var(--text-secondary);">
+                                        <span class="text-muted">Location:</span> 
+                                        <span x-show="selectedFlow.dst_flag" 
+                                            :class="'flag-icon flag-icon-' + (selectedFlow.dst_country_code || 'unknown').toLowerCase()"
+                                            style="margin: 0 4px;"></span>
+                                        <span x-text="selectedFlow.dst_country || 'Unknown'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Flow Metrics -->
+                    <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-3);">
+                        <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Flow Metrics</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);">
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">First Seen</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow?.first_seen_ts ? formatFlowTimestamp(selectedFlow.first_seen_ts) : (selectedFlow?.age_seconds ? formatAge(selectedFlow.age_seconds) + ' ago' : 'Unknown')"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Duration</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow?.duration || selectedFlow?.duration_seconds ? (selectedFlow.duration || selectedFlow.duration_seconds + 's') : 'Unknown'"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Bytes</div>
+                                <div style="font-size: var(--text-sm); color: var(--signal-ok); font-weight: 500;"
+                                    x-text="selectedFlow?.bytes_fmt || '0 B'"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Packets</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="(selectedFlow?.packets || 0).toLocaleString()"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Average Rate</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow ? calculateFlowRate(selectedFlow) : '0 B/s'"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Direction</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow?.direction ? selectedFlow.direction.charAt(0).toUpperCase() + selectedFlow.direction.slice(1) : 'Unknown'"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ports & Protocol Details -->
+                    <div class="card" style="padding: var(--space-3);">
+                        <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Ports & Protocol</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Source Port</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow?.src_port || 'Unknown'"></div>
+                                <div x-show="selectedFlow?.service && selectedFlow.service !== 'unknown' && selectedFlow.service !== selectedFlow.src_port" 
+                                    style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                    x-text="'Service: ' + selectedFlow.service"></div>
+                            </div>
+                            <div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Destination Port</div>
+                                <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                    x-text="selectedFlow?.dst_port || 'Unknown'"></div>
+                                <div x-show="selectedFlow?.service && selectedFlow.service !== 'unknown' && selectedFlow.service !== selectedFlow.dst_port" 
+                                    style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1);"
+                                    x-text="'Service: ' + selectedFlow.service"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="modal__footer">
+                    <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedFlow?.src)"
+                        :disabled="!selectedFlow?.src">
+                        Investigate Source IP
+                    </button>
+                    <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedFlow?.dst)"
+                        :disabled="!selectedFlow?.dst">
+                        Investigate Destination IP
+                    </button>
+                    <button class="btn btn--primary" @click="addToWatchlist(selectedFlow?.src); closeFlowDetailsModal();"
+                        :disabled="!selectedFlow?.src"
+                        title="Add source IP to watchlist">
+                        Add Source to Watchlist
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Widget Manager Modal -->
         <div class="modal" x-show="widgetManagerOpen" :style="widgetManagerOpen ? 'display:flex' : 'display:none'"
             @click.self="widgetManagerOpen = false">
