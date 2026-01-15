@@ -1029,6 +1029,26 @@
                         <!-- Network Dashboard -->
                         <section id="section-network" class="scroll-section mb-8">
 
+                            <!-- Network Status Blocks -->
+                            <div class="grid mb-6 grid-auto-fit">
+                                <div class="card stat-box">
+                                    <div class="value" x-text="summary.totals?.bytes_fmt || '...'">...</div>
+                                    <div class="label">Total Traffic</div>
+                                </div>
+                                <div class="card stat-box">
+                                    <div class="value" x-text="Number(summary.totals?.flows || 0).toLocaleString()">0</div>
+                                    <div class="label">Total Flows</div>
+                                </div>
+                                <div class="card stat-box">
+                                    <div class="value" x-text="(sources.sources?.length || 0) + ' / ' + (destinations.destinations?.length || 0)">0 / 0</div>
+                                    <div class="label">Sources / Dests</div>
+                                </div>
+                                <div class="card stat-box">
+                                    <div class="value" x-text="protocols.protocols?.length || 0">0</div>
+                                    <div class="label">Active Protocols</div>
+                                </div>
+                            </div>
+
                             <!-- Primary Network Endpoints: Sources & Destinations -->
 
 
