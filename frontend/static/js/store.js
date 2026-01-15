@@ -144,6 +144,7 @@ export const Store = () => ({
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.0.0', version_display: 'v1.0' }, // Application metadata from backend
+    overallHealthModalOpen: false, // Modal for detailed health information
 
     // Forensics Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },

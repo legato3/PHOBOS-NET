@@ -313,7 +313,8 @@
                                         'status-error': overallHealth.state === 'unhealthy'
                                     }"
                                     :title="overallHealth.explanation"
-                                    style="cursor: help;">
+                                    @click="overallHealthModalOpen = true"
+                                    style="cursor: pointer;">
                                     <div class="value" 
                                         :class="{
                                             'text-green': overallHealth.state === 'healthy',
