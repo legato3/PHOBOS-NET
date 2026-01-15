@@ -3294,31 +3294,35 @@ def api_malicious_ports():
 
             if blocked_ports:
                 # Create port filter: "dst port X or src port X"
-                port_filters = " or ".join([f"dst port {p} or src port {p}" for p in blocked_ports[:10]])  # Limit to 10 for query size
+                # Query each port individually to get accurate data (more reliable than OR queries)
+                for port in blocked_ports[:15]:  # Limit to top 15 ports
+                    try:
+                        port_filter = f"dst port {port} or src port {port}"
+                        port_output = run_nfdump(["-o", "csv", "-n", "10", "-s", "port/bytes", port_filter], tf)
+                        port_lines = port_output.strip().split('\n')
 
-                # Get port stats from NetFlow for these blocked ports
-                port_output = run_nfdump(["-o", "csv", "-n", "50", "-s", "port/bytes", port_filters], tf)
-                port_lines = port_output.strip().split('\n')
+                        if len(port_lines) > 1:
+                            p_header = [c.strip().lower() for c in port_lines[0].split(',')]
+                            p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
+                            p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes')), None)
+                            p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
 
-                if len(port_lines) > 1:
-                    p_header = [c.strip().lower() for c in port_lines[0].split(',')]
-                    p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
-                    p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes')), None)
-                    p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
-
-                    if p_idx is not None:
-                        for pline in port_lines[1:]:
-                            pparts = pline.split(',')
-                            try:
-                                if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
-                                    port = int(pparts[p_idx].strip())
-                                    if port in port_data:  # Only update ports we already have from firewall
-                                        bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
-                                        flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
-                                        port_data[port]['netflow_bytes'] += bytes_val
-                                        port_data[port]['netflow_flows'] += flows_val
-                            except (ValueError, IndexError):
-                                pass
+                            if p_idx is not None:
+                                for pline in port_lines[1:]:
+                                    pparts = pline.split(',')
+                                    try:
+                                        if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
+                                            port_num = int(pparts[p_idx].strip())
+                                            if port_num == port and port in port_data:  # Match the port we're querying
+                                                bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
+                                                flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
+                                                port_data[port]['netflow_bytes'] += bytes_val
+                                                port_data[port]['netflow_flows'] += flows_val
+                                    except (ValueError, IndexError):
+                                        pass
+                    except Exception as e:
+                        # Continue with next port if this one fails
+                        continue
 
         # Also try to get data from threat IPs (if threat list exists)
         threat_set = load_threatlist()

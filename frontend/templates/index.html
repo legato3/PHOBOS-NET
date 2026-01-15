@@ -872,7 +872,7 @@
                                                     <td>
                                                         <template x-if="(p.netflow_bytes || 0) > 0 || (p.netflow_flows || 0) > 0">
                                                             <strong class="text-green"
-                                                                x-text="p.bytes_fmt || fmtBytes(p.netflow_bytes || 0)"></strong>
+                                                                x-text="p.bytes_fmt || (p.netflow_bytes ? fmtBytes(p.netflow_bytes) : '0 B')"></strong>
                                                             <div class="text-8 text-muted"
                                                                 x-text="(p.netflow_flows || 0) + ' flows'"></div>
                                                         </template>

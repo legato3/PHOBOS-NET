@@ -4333,6 +4333,11 @@ export const Store = () => ({
     fmtBytes(bytes) {
         return DashboardUtils.fmtBytes(bytes);
     },
+    
+    // Expose fmtBytes to templates
+    get fmtBytes() {
+        return DashboardUtils.fmtBytes;
+    },
 
     computeRecentBlockStats(logs = []) {
         return DashboardUtils.computeRecentBlockStats(logs);
