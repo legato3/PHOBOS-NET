@@ -95,6 +95,7 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
+    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, loading: true },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -2600,6 +2601,25 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
     },
 
+    async fetchNetworkStatsOverview() {
+        this.networkStatsOverview.loading = true;
+        try {
+            const res = await fetch('/api/network/stats/overview');
+            if (res.ok) {
+                const d = await res.json();
+                this.networkStatsOverview = {
+                    active_flows: d.active_flows || 0,
+                    external_connections: d.external_connections || 0,
+                    anomalies_24h: d.anomalies_24h || 0,
+                    loading: false
+                };
+            }
+        } catch (e) { 
+            console.error('Network stats overview fetch error:', e);
+            this.networkStatsOverview.loading = false;
+        }
+    },
+
     async fetchNetHealth() {
         this.netHealth.loading = true;
         try {
@@ -4228,6 +4248,7 @@ export const Store = () => ({
                 this.fetchProtocols();
                 this.fetchFlowStats();
                 this.fetchProtoMix();
+                this.fetchNetworkStatsOverview();
                 this.fetchNetHealth();
                 this.fetchASNs();
                 this.fetchCountries();

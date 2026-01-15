@@ -1039,16 +1039,16 @@
                                     <div class="label">Network Health</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="firewall.lan_in ? fmtBytes((firewall.lan_in || 0) + (firewall.lan_out || 0)) : '...'">...</div>
-                                    <div class="label">Total LAN Traffic</div>
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</div>
+                                    <div class="label">Active Flows</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="firewall.wan_in ? fmtBytes((firewall.wan_in || 0) + (firewall.wan_out || 0)) : '...'">...</div>
-                                    <div class="label">Total WAN Traffic</div>
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</div>
+                                    <div class="label">External Connections</div>
                                 </div>
-                                <div class="card stat-box">
-                                    <div class="value" x-text="firewall.tcp_fails_s !== undefined ? (firewall.tcp_fails_s || 0).toFixed(1) + '/s' : '...'">...</div>
-                                    <div class="label">TCP Errors</div>
+                                <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</div>
+                                    <div class="label">Network Anomalies (24h)</div>
                                 </div>
                             </div>
 

@@ -2039,6 +2039,133 @@ def api_bandwidth():
         return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
 
 
+@bp.route("/api/network/stats/overview")
+@throttle(5, 10)
+def api_network_stats_overview():
+    """Get high-signal network stat box metrics for at-a-glance network behavior insight."""
+    now = time.time()
+    tf_24h = get_time_range('24h')
+    
+    # Get current active flows (1h range for "current")
+    tf_1h = get_time_range('1h')
+    fetch_limit = "100"  # Get up to 100 flows for counting
+    
+    # Load threat list for correlation
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+    threat_set = threat_set - whitelist
+    
+    # Fetch current flows for active flows and external connections count
+    output_current = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", fetch_limit], tf_1h)
+    
+    active_flows_count = 0
+    external_connections_count = 0
+    
+    try:
+        lines = output_current.strip().split("\n")
+        start_idx = 0
+        if lines:
+            line0 = lines[0]
+            if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                header = line0.split(',')
+                try:
+                    sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                    if 'srcaddr' in header: sa_key = 'srcaddr'
+                    da_key = 'da' if 'da' in header else 'dstAddr'
+                    if 'dstaddr' in header: da_key = 'dstaddr'
+                    ibyt_key = 'ibyt' if 'ibyt' in header else 'bytes'
+                    if sa_key in header: sa_idx = header.index(sa_key)
+                    if da_key in header: da_idx = header.index(da_key)
+                    if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
+                    if 'ts' in header: ts_idx = header.index('ts')
+                    if 'firstSeen' in header: ts_idx = header.index('firstSeen')
+                    if 'firstseen' in header: ts_idx = header.index('firstseen')
+                    if 'td' in header: td_idx = header.index('td')
+                    if 'duration' in header: td_idx = header.index('duration')
+                    start_idx = 1
+                except:
+                    pass
+        
+        for line in lines[start_idx:]:
+            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+            parts = line.split(',')
+            if len(parts) > 7:
+                try:
+                    src = parts[sa_idx] if len(parts) > sa_idx else ""
+                    dst = parts[da_idx] if len(parts) > da_idx else ""
+                    
+                    if src and dst:
+                        active_flows_count += 1
+                        
+                        # Check if external connection (not internal-to-internal)
+                        src_internal = is_internal(src)
+                        dst_internal = is_internal(dst)
+                        
+                        if not (src_internal and dst_internal):
+                            external_connections_count += 1
+                except:
+                    pass
+    except:
+        pass
+    
+    # Count anomalies (detections) over 24h
+    # Fetch flows with detection criteria over 24h range
+    output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
+    
+    anomalies_24h = 0
+    
+    try:
+        lines_24h = output_24h.strip().split("\n")
+        start_idx_24h = 0
+        if lines_24h:
+            line0_24h = lines_24h[0]
+            if 'ts' in line0_24h or 'Date' in line0_24h or 'ibyt' in line0_24h or 'firstSeen' in line0_24h or 'firstseen' in line0_24h:
+                header_24h = line0_24h.split(',')
+                try:
+                    sa_key_24h = 'sa' if 'sa' in header_24h else 'srcAddr'
+                    if 'srcaddr' in header_24h: sa_key_24h = 'srcaddr'
+                    da_key_24h = 'da' if 'da' in header_24h else 'dstAddr'
+                    if 'dstaddr' in header_24h: da_key_24h = 'dstaddr'
+                    ibyt_key_24h = 'ibyt' if 'ibyt' in header_24h else 'bytes'
+                    if sa_key_24h in header_24h: sa_idx_24h = header_24h.index(sa_key_24h)
+                    if da_key_24h in header_24h: da_idx_24h = header_24h.index(da_key_24h)
+                    if ibyt_key_24h in header_24h: ibyt_idx_24h = header_24h.index(ibyt_key_24h)
+                    if 'td' in header_24h: td_idx_24h = header_24h.index('td')
+                    if 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
+                    start_idx_24h = 1
+                except:
+                    pass
+        
+        for line in lines_24h[start_idx_24h:]:
+            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+            parts = line.split(',')
+            if len(parts) > 7:
+                try:
+                    duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h else 0.0
+                    src = parts[sa_idx_24h] if len(parts) > sa_idx_24h else ""
+                    dst = parts[da_idx_24h] if len(parts) > da_idx_24h else ""
+                    b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h else 0
+                    
+                    if src and dst:
+                        # Check if this flow matches detection criteria: long-lived, low-volume, external
+                        src_internal = is_internal(src)
+                        dst_internal = is_internal(dst)
+                        is_external = not (src_internal and dst_internal)
+                        
+                        if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
+                            anomalies_24h += 1
+                except:
+                    pass
+    except:
+        pass
+    
+    return jsonify({
+        "active_flows": active_flows_count,
+        "external_connections": external_connections_count,
+        "anomalies_24h": anomalies_24h
+    })
+
+
 @bp.route("/api/flows")
 @throttle(10,30)
 def api_flows():
