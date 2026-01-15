@@ -1229,6 +1229,14 @@ export const Store = () => ({
         // Fetch summary first (await safe because it has internal try/catch)
         await this.fetchSummary();
 
+        // Fetch Overview page stat boxes early (needed for initial page load)
+        await Promise.allSettled([
+            this.fetchNetworkStatsOverview(),
+            this.fetchFirewallStatsOverview(),
+            this.fetchAlertHistory(),
+            this.fetchBaselineSignals()
+        ]);
+
         // Then fetch key charts in parallel, resilient to failure
         await Promise.allSettled([
             this.fetchBandwidth(),
