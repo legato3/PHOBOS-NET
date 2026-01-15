@@ -2258,9 +2258,14 @@ export const Store = () => ({
             // Try both canvas IDs (for backward compatibility with overview widget)
             let ctx = document.getElementById('hourlyChart');
             let chartId = 'hourlyChart';
-            if (!ctx || !data || !data.labels) return;
+            if (!ctx || !data || !data.labels || !data.bytes || !Array.isArray(data.bytes) || data.bytes.length === 0) {
+                if (!ctx) console.warn('Hourly chart canvas not found');
+                if (data && (!data.labels || !data.bytes || !Array.isArray(data.bytes) || data.bytes.length === 0)) {
+                    console.warn('Hourly chart data invalid:', data);
+                }
+                return;
+            }
 
-            // Check if canvas parent container is visible
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
@@ -2293,28 +2298,57 @@ export const Store = () => ({
 
             // Helper function to create gradient for each bar (matches Top Services gradient style)
             const createGradient = (chartCtx, isPeak = false) => {
-                const gradient = chartCtx.createLinearGradient(0, 0, 0, chartCtx.canvas.height);
-                // Use same gradient style as Top Services: cyan to magenta
-                // For peak hour, use brighter green to magenta; otherwise cyan to magenta
-                const startColor = isPeak ? '#00ff88' : cyanColor;
-                const endColor = magentaColor;
-                gradient.addColorStop(0, startColor);
-                gradient.addColorStop(1, endColor);
-                return gradient;
+                try {
+                    // Ensure canvas has dimensions before creating gradient
+                    const canvas = chartCtx.canvas;
+                    const height = canvas.height || canvas.clientHeight || 200; // Fallback height
+                    if (height <= 0) {
+                        console.warn('Canvas height is 0, using fallback color');
+                        return isPeak ? '#00ff88' : cyanColor;
+                    }
+                    const gradient = chartCtx.createLinearGradient(0, 0, 0, height);
+                    // Use same gradient style as Top Services: cyan to magenta
+                    // For peak hour, use brighter green to magenta; otherwise cyan to magenta
+                    const startColor = isPeak ? '#00ff88' : cyanColor;
+                    const endColor = magentaColor;
+                    gradient.addColorStop(0, startColor);
+                    gradient.addColorStop(1, endColor);
+                    return gradient;
+                } catch (e) {
+                    console.warn('Gradient creation failed, using solid color:', e);
+                    return isPeak ? '#00ff88' : cyanColor;
+                }
             };
 
             if (chartInstance) {
                 chartInstance.data.labels = data.labels;
                 chartInstance.data.datasets[0].data = data.bytes;
                 // Update gradients for each bar using the chart's context
-                const chartCtx = chartInstance.ctx;
-                chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
-                    createGradient(chartCtx, i === data.peak_hour)
-                );
-                chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
-                    i === data.peak_hour ? '#00ff88' : cyanColor
-                );
-                chartInstance.update();
+                // Wait for chart to be fully rendered before creating gradients
+                setTimeout(() => {
+                    try {
+                        const chartCtx = chartInstance.ctx;
+                        if (chartCtx && chartCtx.canvas) {
+                            chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                                createGradient(chartCtx, i === data.peak_hour)
+                            );
+                            chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
+                                i === data.peak_hour ? '#00ff88' : cyanColor
+                            );
+                            chartInstance.update('none'); // Use 'none' to prevent animation issues
+                        }
+                    } catch (e) {
+                        console.error('Error updating chart gradients:', e);
+                        // Fallback to solid colors
+                        chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                            i === data.peak_hour ? '#00ff88' : cyanColor
+                        );
+                        chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
+                            i === data.peak_hour ? '#00ff88' : cyanColor
+                        );
+                        chartInstance.update('none');
+                    }
+                }, 50);
             } else {
                 // Create chart first, then update with gradients
                 const newChart = new Chart(ctx, {
@@ -2324,7 +2358,7 @@ export const Store = () => ({
                         datasets: [{
                             label: 'Traffic',
                             data: data.bytes,
-                            backgroundColor: data.bytes.map(() => cyanColor), // Temporary, will update
+                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? '#00ff88' : cyanColor), // Use solid colors initially
                             borderColor: data.bytes.map((_, i) => i === data.peak_hour ? '#00ff88' : cyanColor),
                             borderWidth: 1
                         }]
@@ -2346,16 +2380,27 @@ export const Store = () => ({
                                 },
                                 grid: { color: 'rgba(255,255,255,0.05)' }
                             }
+                        },
+                        animation: {
+                            duration: 0 // Disable animation to prevent rendering issues
                         }
                     }
                 });
                 
-                // Update with gradients after chart is created
-                const chartCtx = newChart.ctx;
-                newChart.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
-                    createGradient(chartCtx, i === data.peak_hour)
-                );
-                newChart.update();
+                // Update with gradients after chart is fully rendered
+                setTimeout(() => {
+                    try {
+                        const chartCtx = newChart.ctx;
+                        if (chartCtx && chartCtx.canvas && chartCtx.canvas.height > 0) {
+                            newChart.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                                createGradient(chartCtx, i === data.peak_hour)
+                            );
+                            newChart.update('none');
+                        }
+                    } catch (e) {
+                        console.warn('Gradient update failed, keeping solid colors:', e);
+                    }
+                }, 100);
                 
                 _chartInstances[instanceKey] = newChart;
             }
