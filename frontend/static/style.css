@@ -1532,7 +1532,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 }
 
 .endpoint-value-cell {
-    text-align: left;
+    text-align: right;
 }
 
 /* CYBERPUNK UI: Endpoint value - Signal traffic data */
