@@ -45,7 +45,7 @@ scp -i "$SSH_KEY" -r frontend/templates/* $USER@$SERVER:$REMOTE_DIR/frontend/tem
 scp -i "$SSH_KEY" -r frontend/static/* $USER@$SERVER:$REMOTE_DIR/frontend/static/ 2>/dev/null || true
 # Copy scripts and sample data
 scp -i "$SSH_KEY" scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
-scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
+# scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
 # Copy docker-data files
 scp -i "$SSH_KEY" docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 scp -i "$SSH_KEY" docker-data/requirements.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
