@@ -504,17 +504,18 @@ body.sidebar-collapsed .layout-wrapper {
     box-shadow: 0 0 8px rgba(0, 234, 255, 0.1);
 }
 
-/* CYBERPUNK UI: Sidebar item active - Signal accent */
+/* CYBERPUNK UI: Sidebar item active - Subtle signal accent */
 .sidebar-item.active {
-    background: rgba(0, 234, 255, 0.12);
-    color: var(--signal-primary);
-    border-left-color: var(--signal-primary);
-    box-shadow: 0 0 12px rgba(0, 234, 255, 0.2);
+    background: linear-gradient(90deg, rgba(0, 234, 255, 0.08), transparent);
+    color: var(--text-0);
+    border-left-color: var(--border-medium);  /* Subtle border instead of bright cyan */
+    border-left-width: 3px;  /* Keep same width as base */
+    box-shadow: none;  /* Remove glow effect */
 }
 
 .sidebar-item.active .sidebar-icon,
 .sidebar-item.active .sidebar-item-text {
-    color: var(--signal-primary);
+    color: var(--text-0);  /* Use primary text color instead of bright cyan */
 }
 
 /* CYBERPUNK UI: Sidebar arrow - Signal indicator */
@@ -529,7 +530,7 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 .sidebar-item.active .sidebar-arrow {
-    color: var(--signal-primary);
+    color: var(--text-1);  /* Subtle arrow color instead of bright cyan */
 }
 
 /* CYBERPUNK UI: Sidebar item text - Signal label */
