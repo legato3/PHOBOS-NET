@@ -587,74 +587,70 @@ export const Store = () => ({
 
         // Signal detection (deterministic thresholds)
         const signals = [];
+        const signalDetails = [];
         
         // Signal 1: Active Alerts
         if (activeAlerts > 0) {
             signals.push('alerts');
+            signalDetails.push(`${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`);
         }
         
         // Signal 2: Network Anomalies
         if (anomalies > 0) {
             signals.push('anomalies');
+            signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
         }
         
         // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
         if (blockedEvents > 1000) {
             signals.push('blocks_spike');
+            signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks (24h)`);
         }
         
         // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
         const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
         if (externalRatio > 0.5 && externalConnections > 50) {
             signals.push('external_deviation');
+            signalDetails.push(`unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows)`);
         }
 
-        // Health state determination (no single metric dominates)
+        // Health state determination (requires multiple signals for Unhealthy)
         let state = 'healthy';
         let explanation = 'All systems operating normally.';
+        let shortExplanation = '';
         
         if (signals.length === 0) {
             state = 'healthy';
             explanation = 'All systems operating normally.';
+            shortExplanation = '';
         } else if (signals.length === 1) {
             // Single signal: Degraded
             state = 'degraded';
             if (signals.includes('alerts')) {
-                explanation = 'Active alerts detected. Review security status.';
+                explanation = `Active alerts detected (${activeAlerts} alert${activeAlerts > 1 ? 's' : ''}). Review security status.`;
+                shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
             } else if (signals.includes('anomalies')) {
-                explanation = 'Network anomalies detected. Review network activity.';
+                explanation = `Network anomalies detected (${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'}). Review network activity.`;
+                shortExplanation = `Due to ${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`;
             } else if (signals.includes('blocks_spike')) {
-                explanation = 'Elevated firewall blocks. Review blocked connections.';
+                explanation = `Elevated firewall blocks (${blockedEvents.toLocaleString()} in 24h). Review blocked connections.`;
+                shortExplanation = `Due to elevated firewall blocks`;
             } else if (signals.includes('external_deviation')) {
-                explanation = 'Unusual external connection pattern. Review network flows.';
+                explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows are external). Review network flows.`;
+                shortExplanation = `Due to unusual external connections`;
             }
-        } else if (signals.length === 2) {
-            // Two signals: Degraded (unless both are strong)
-            state = 'degraded';
-            const signalNames = signals.map(s => {
-                if (s === 'alerts') return 'active alerts';
-                if (s === 'anomalies') return 'network anomalies';
-                if (s === 'blocks_spike') return 'elevated firewall blocks';
-                if (s === 'external_deviation') return 'unusual external connections';
-                return s;
-            }).join(' and ');
-            explanation = `Multiple concerns: ${signalNames}. Investigate security and network status.`;
         } else {
-            // Three or more signals: Unhealthy
+            // Two or more signals: Unhealthy (requires multiple corroborating signals)
             state = 'unhealthy';
-            const signalNames = signals.map(s => {
-                if (s === 'alerts') return 'active alerts';
-                if (s === 'anomalies') return 'network anomalies';
-                if (s === 'blocks_spike') return 'elevated firewall blocks';
-                if (s === 'external_deviation') return 'unusual external connections';
-                return s;
-            }).join(', ');
+            const signalNames = signalDetails.join(', ');
             explanation = `Multiple issues detected: ${signalNames}. Immediate investigation recommended.`;
+            shortExplanation = `Due to ${signalDetails.slice(0, 2).join(' and ')}${signalDetails.length > 2 ? ' and more' : ''}`;
         }
 
         return {
             state: state, // 'healthy', 'degraded', 'unhealthy'
             explanation: explanation,
+            shortExplanation: shortExplanation,
             signals: signals,
             signalsCount: signals.length
         };
