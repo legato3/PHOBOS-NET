@@ -569,6 +569,8 @@ body.sidebar-collapsed .layout-wrapper {
     justify-content: flex-end;
     flex-shrink: 0;
     margin-bottom: 0;
+    align-self: flex-end;
+    width: 100%;
 }
 
 .sidebar.collapsed .sidebar-footer {
