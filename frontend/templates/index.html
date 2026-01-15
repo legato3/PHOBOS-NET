@@ -1642,6 +1642,29 @@
                         :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
                         role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
                         
+                        <!-- Firewall Stats Overview (4 stat boxes) -->
+                        <div class="grid mb-6 grid-auto-fit">
+                            <div class="card stat-box">
+                                <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</div>
+                                <div class="label">Blocked Events (24h)</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.unique_blocked_sources || 0).toLocaleString()">...</div>
+                                <div class="label">Unique Blocked Sources</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.new_blocked_ips || 0).toLocaleString()">...</div>
+                                <div class="label">New Blocked IPs</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" style="font-size: 0.9em;" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.top_block_reason || 'N/A')">...</div>
+                                <div class="label">Top Block Reason</div>
+                                <div x-show="!firewallStatsOverview.loading && firewallStatsOverview.top_block_count > 0" 
+                                    style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);"
+                                    x-text="'(' + (firewallStatsOverview.top_block_count || 0).toLocaleString() + ' times)'"></div>
+                            </div>
+                        </div>
+
                         <!-- IP Investigation - Compact Top Menu -->
                         <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-2) var(--space-3); background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15);">
                             <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">

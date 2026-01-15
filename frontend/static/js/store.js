@@ -140,6 +140,7 @@ export const Store = () => ({
     recentBlocksFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
     recentBlocksAutoRefresh: true,
     recentBlocksRefreshTimer: null,
+    firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, loading: true },
 
     // Forensics Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
@@ -1428,6 +1429,27 @@ export const Store = () => ({
             }
         } catch (e) { console.error('Protocol anomalies fetch error:', e); }
         finally { this.protocolAnomalies.loading = false; }
+    },
+
+    async fetchFirewallStatsOverview() {
+        this.firewallStatsOverview.loading = true;
+        try {
+            const res = await fetch('/api/firewall/stats/overview');
+            if (res.ok) {
+                const d = await res.json();
+                this.firewallStatsOverview = {
+                    blocked_events_24h: d.blocked_events_24h || 0,
+                    unique_blocked_sources: d.unique_blocked_sources || 0,
+                    new_blocked_ips: d.new_blocked_ips || 0,
+                    top_block_reason: d.top_block_reason || 'N/A',
+                    top_block_count: d.top_block_count || 0,
+                    loading: false
+                };
+            }
+        } catch (e) { 
+            console.error('Firewall stats overview fetch error:', e);
+            this.firewallStatsOverview.loading = false;
+        }
     },
 
     async fetchRecentBlocks() {
@@ -4228,6 +4250,7 @@ export const Store = () => ({
                 this.fetchFlows();
                 this.lastFetch.flows = now;
             }
+            this.fetchFirewallStatsOverview();
             this.fetchRecentBlocks();
             this.fetchAlertCorrelation();
             this.fetchThreatActivityTimeline();

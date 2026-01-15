@@ -1546,6 +1546,77 @@ def api_firewall_logs_stats():
 
 
 
+@bp.route("/api/firewall/stats/overview")
+@throttle(5, 10)
+def api_firewall_stats_overview():
+    """Get high-signal firewall stat box metrics for at-a-glance situational awareness."""
+    now = time.time()
+    cutoff_24h = now - 86400  # 24 hours
+    cutoff_7d = now - (7 * 86400)  # 7 days lookback for "new" IPs
+    
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            # 1. Blocked Events (24h)
+            cur = conn.execute("""
+                SELECT COUNT(*) FROM fw_logs
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+            """, (cutoff_24h,))
+            blocked_events_24h = cur.fetchone()[0] or 0
+            
+            # 2. Unique Blocked Sources (24h)
+            cur = conn.execute("""
+                SELECT COUNT(DISTINCT src_ip) FROM fw_logs
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+            """, (cutoff_24h,))
+            unique_blocked_sources = cur.fetchone()[0] or 0
+            
+            # 3. New Blocked IPs (blocked in 24h but not in previous 7 days)
+            # Get IPs blocked in last 24h
+            cur = conn.execute("""
+                SELECT DISTINCT src_ip FROM fw_logs
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+            """, (cutoff_24h,))
+            recent_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
+            
+            # Get IPs blocked in previous 7 days (before last 24h)
+            cur = conn.execute("""
+                SELECT DISTINCT src_ip FROM fw_logs
+                WHERE timestamp > ? AND timestamp <= ? AND action IN ('block', 'reject')
+            """, (cutoff_7d, cutoff_24h))
+            previous_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
+            
+            # New IPs = recent - previous
+            new_blocked_ips = len(recent_blocked_ips - previous_blocked_ips)
+            
+            # 4. Top Block Reason / Rule
+            # Try rule_id first, then fall back to a generic reason if rule_id is null
+            cur = conn.execute("""
+                SELECT 
+                    COALESCE(rule_id, 'default') as rule_or_reason,
+                    COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ? AND action IN ('block', 'reject')
+                GROUP BY rule_or_reason
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (cutoff_24h,))
+            top_rule_row = cur.fetchone()
+            top_block_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
+            top_block_count = top_rule_row[1] if top_rule_row else 0
+            
+        finally:
+            conn.close()
+    
+    return jsonify({
+        "blocked_events_24h": blocked_events_24h,
+        "unique_blocked_sources": unique_blocked_sources,
+        "new_blocked_ips": new_blocked_ips,
+        "top_block_reason": top_block_reason,
+        "top_block_count": top_block_count
+    })
+
+
 @bp.route("/api/firewall/logs/blocked")
 @throttle(5, 10)
 def api_firewall_logs_blocked():
