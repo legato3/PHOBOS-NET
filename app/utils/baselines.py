@@ -159,11 +159,14 @@ def get_previous_hour_value(metric_name):
         return (None, False)
     
     # Try to get value from ~1 hour ago (12 samples at 5-min intervals)
-    # If window is smaller, use oldest available value (but mark as approximate)
-    hour_ago_index = min(12, len(values) - 1)
-    if hour_ago_index > 0:
-        is_approximate = hour_ago_index < 12
-        return (values[-hour_ago_index], is_approximate)
+    # If window is smaller, use the second-to-last value (most recent previous value)
+    # This allows trends to show even with minimal data
+    if len(values) >= 12:
+        # Full hour of data available
+        return (values[-12], False)
+    elif len(values) >= 2:
+        # Use second-to-last value (previous sample)
+        return (values[-2], True)  # Mark as approximate since it's not exactly 1 hour
     
     return (None, False)
 
