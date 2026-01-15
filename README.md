@@ -174,6 +174,12 @@ Dashboard: `http://<LXC-IP>:8080`
 
 The `sample_data/` directory contains real NetFlow examples and format documentation to help AI agents understand data structures.
 
+## 📋 Release Notes
+
+For detailed release notes and version history, see **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)**.
+
+**v1.0** (Stable) - Production-ready investigation platform with trust-first design, explainable health states, and adaptive baselines. See release notes for complete details.
+
 ## 🎯 Recent Updates
 
 ### v2.7 - January 11, 2026

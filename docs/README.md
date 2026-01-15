@@ -29,6 +29,10 @@ This directory contains comprehensive documentation for PHOBOS-NET (PROX_NFDUMP 
 - **[OPTIMIZATION_SUMMARY.md](OPTIMIZATION_SUMMARY.md)** - Optimization summary and metrics
 - **[PRODUCTION_DATA.md](PRODUCTION_DATA.md)** - Production deployment data and metrics
 
+## 📋 Release Information
+
+- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Detailed release notes and version history
+
 ## 📖 Documentation by Topic
 
 ### NetFlow Collection

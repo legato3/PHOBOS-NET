@@ -1,9 +1,16 @@
-PROX_NFDUMP — v1.0 Release Notes
+# PROX_NFDUMP Release Notes
 
-Release: v1.0 — Stable Investigation Platform
+This document provides detailed release notes for all versions of PROX_NFDUMP, with emphasis on design decisions, breaking changes, and operator-focused improvements.
 
-Status: Production-ready (operator-grade)
-Focus: Trust, clarity, explainability, performance
+---
+
+## v1.0 — Stable Investigation Platform
+
+**Release Date:** January 2026  
+**Status:** Production-ready (operator-grade)  
+**Focus:** Trust, clarity, explainability, performance
+
+This release establishes PROX_NFDUMP as a reliable network & security investigation platform, not a demo dashboard.
 
 ⸻
 
@@ -152,3 +159,23 @@ Result: Red states are rare and meaningful.
 	•	Read-only NOC / wallboard mode for continuous monitoring
 
 Result: Calm monitoring without panic.
+
+---
+
+## Design Philosophy
+
+v1.0 was built with the following principles:
+
+1. **Truthful Metrics**: All displayed values reflect ground truth, not UI-derived approximations
+2. **Explainable States**: Every health state, detection, and metric can be explained to an operator
+3. **Calm UX**: No alert fatigue, no false alarms, no overwhelming visual noise
+4. **Investigation-First**: Clear paths from overview → detail → context, never losing context
+5. **Performance Predictability**: Bounded operations, observable bottlenecks, no hidden costs
+
+These principles guide all design decisions and should be maintained in future releases.
+
+---
+
+## Version History
+
+- **v1.0** (January 2026) - Initial stable release (this document)
