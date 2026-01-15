@@ -452,6 +452,32 @@
                             extra_actions=wm_actions) %}
                             <!-- Map Controls -->
                             <div class="world-map-controls">
+                                <div class="world-map-mode-toggle" style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                                    <button 
+                                        class="world-map-mode-btn"
+                                        :class="{ 'active': worldMapMode === 'traffic' }"
+                                        @click="worldMapMode = 'traffic'"
+                                        title="Traffic view - balanced emphasis"
+                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        Traffic
+                                    </button>
+                                    <button 
+                                        class="world-map-mode-btn"
+                                        :class="{ 'active': worldMapMode === 'exposure' }"
+                                        @click="worldMapMode = 'exposure'"
+                                        title="Exposure view - emphasize destinations"
+                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        Exposure
+                                    </button>
+                                    <button 
+                                        class="world-map-mode-btn"
+                                        :class="{ 'active': worldMapMode === 'attacks' }"
+                                        @click="worldMapMode = 'attacks'"
+                                        title="Attacks view - emphasize threats"
+                                        style="padding: var(--space-2) var(--space-3); border: 1px solid var(--border-soft); background: var(--bg-1); color: var(--text-1); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);">
+                                        Attacks
+                                    </button>
+                                </div>
                                 <div class="world-map-layer-toggles">
                                     <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
                                         title="Toggle Sources layer">
@@ -491,13 +517,18 @@
                                     style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:red; display:flex; align-items:center; justify-content:center; z-index:10;"
                                     x-text="worldMap.error"></div>
                             </div>
-                            <!-- Country Stats -->
+                            <!-- Country Stats (Interactive) -->
                             <div class="world-map-countries compact-grid">
                                 <div class="wm-country-col">
                                     <h4>🔼 Sources</h4>
-                                    <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso">
-                                        <div class="wm-country-row">
-                                            <span x-text="flagFromIso(c.iso)"></span>
+                                    <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
+                                        <div class="wm-country-row"
+                                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                                            @click="selectCountryForMap(c.iso || c.name)"
+                                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-primary);' : ''"
+                                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                            <span x-text="flagFromIso(c.iso || '??')"></span>
                                             <span class="wm-c-name" x-text="c.name"></span>
                                             <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
                                         </div>
@@ -505,9 +536,14 @@
                                 </div>
                                 <div class="wm-country-col">
                                     <h4>🔽 Dests</h4>
-                                    <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso">
-                                        <div class="wm-country-row">
-                                            <span x-text="flagFromIso(c.iso)"></span>
+                                    <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
+                                        <div class="wm-country-row"
+                                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                                            @click="selectCountryForMap(c.iso || c.name)"
+                                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-tertiary);' : ''"
+                                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                            <span x-text="flagFromIso(c.iso || '??')"></span>
                                             <span class="wm-c-name" x-text="c.name"></span>
                                             <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
                                         </div>
@@ -515,9 +551,14 @@
                                 </div>
                                 <div class="wm-country-col">
                                     <h4>⚠️ Threats</h4>
-                                    <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
-                                        <div class="wm-country-row">
-                                            <span x-text="flagFromIso(c.iso)"></span>
+                                    <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
+                                        <div class="wm-country-row"
+                                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                                            @click="selectCountryForMap(c.iso || c.name)"
+                                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-crit);' : ''"
+                                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                            <span x-text="flagFromIso(c.iso || '??')"></span>
                                             <span class="wm-c-name" x-text="c.name"></span>
                                             <span class="wm-c-val text-red" x-text="c.bytes_fmt || c.count || 'N/A'"></span>
                                         </div>

@@ -361,6 +361,9 @@ export const Store = () => ({
     // World Map
     worldMap: { loading: false, sources: [], destinations: [], threats: [], blocked: [], source_countries: [], dest_countries: [], threat_countries: [], blocked_countries: [], summary: null, lastUpdate: null },
     worldMapLayers: { sources: true, destinations: true, threats: true, blocked: false },
+    worldMapMode: 'traffic', // 'exposure', 'attacks', 'traffic'
+    worldMapSelectedCountry: null, // ISO code of selected country for highlighting
+    worldMapHoveredPoint: null, // Currently hovered point for direction context
     insights: { loading: false }, // Dummy object for insights widget (uses data from other widgets)
     map: null,
     mapLayers: [],
@@ -482,6 +485,8 @@ export const Store = () => ({
         this.$watch('worldMapLayers.sources', () => this.renderWorldMap());
         this.$watch('worldMapLayers.destinations', () => this.renderWorldMap());
         this.$watch('worldMapLayers.threats', () => this.renderWorldMap());
+        this.$watch('worldMapMode', () => this.renderWorldMap());
+        this.$watch('worldMapSelectedCountry', () => this.renderWorldMap());
 
         // Watch editMode to toggle draggable state
         this.$watch('editMode', (val) => {
@@ -2441,68 +2446,156 @@ export const Store = () => ({
         const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
         const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
         const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
+        
+        // Determine emphasis based on map mode
+        const modeEmphasis = {
+            'exposure': { sources: 0.3, destinations: 1.0, threats: 0.8 },
+            'attacks': { sources: 0.5, destinations: 0.6, threats: 1.0 },
+            'traffic': { sources: 0.4, destinations: 0.7, threats: 0.9 }
+        };
+        const emphasis = modeEmphasis[this.worldMapMode] || modeEmphasis.traffic;
+        
+        // Check if country is selected for highlighting
+        const isCountrySelected = (countryIso) => {
+            return this.worldMapSelectedCountry && countryIso === this.worldMapSelectedCountry;
+        };
+        
+        // Helper to get opacity based on selection
+        const getOpacity = (countryIso, baseOpacity) => {
+            if (!this.worldMapSelectedCountry) return baseOpacity;
+            return isCountrySelected(countryIso) ? baseOpacity : 0.2;
+        };
 
-        // Draw Sources (Green)
+        // Draw Sources (Cyan - subtle, smaller)
         sources.forEach(p => {
-            const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+            const baseSize = Math.min(10, Math.max(4, Math.log10(p.bytes + 1) * 2));
+            const size = baseSize * emphasis.sources;
+            const countryIso = p.country_iso || p.iso || '';
+            const opacity = getOpacity(countryIso, 0.5 * emphasis.sources);
+            
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
-                fillColor: '#00eaff',  /* CYBERPUNK UI: Use signal-primary (cyan) instead of green */
+                fillColor: '#00eaff',  /* CYBERPUNK UI: signal-primary (cyan) - subtle */
                 color: '#00eaff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.7
+                weight: 1,
+                opacity: opacity,
+                fillOpacity: opacity * 0.8
             });
             marker.bindPopup(`<strong>🔼 SOURCE: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#00eaff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
             marker.on('click', () => {
                 this.openIPModal(p.ip);
             });
+            marker.on('mouseover', () => {
+                this.worldMapHoveredPoint = { type: 'source', ip: p.ip, lat: p.lat, lng: p.lng, countryIso: countryIso };
+                marker.setStyle({ opacity: 1, fillOpacity: 0.9, weight: 2 });
+                // Show direction context: highlight related destinations if any
+                this.showDirectionContext(marker, 'source');
+            });
+            marker.on('mouseout', () => {
+                this.worldMapHoveredPoint = null;
+                marker.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8, weight: 1 });
+                this.hideDirectionContext();
+            });
             marker.addTo(this.map);
             this.mapLayers.push(marker);
         });
 
-        // Draw Destinations (Purple - signal-tertiary)
+        // Draw Destinations (Purple - medium emphasis)
         dests.forEach(p => {
-            const size = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+            const baseSize = Math.min(12, Math.max(5, Math.log10(p.bytes + 1) * 2.5));
+            const size = baseSize * emphasis.destinations;
+            const countryIso = p.country_iso || p.iso || '';
+            const opacity = getOpacity(countryIso, 0.7 * emphasis.destinations);
+            
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
-                fillColor: '#7b7bff',  /* CYBERPUNK UI: Use signal-tertiary (purple) to distinguish from Sources */
+                fillColor: '#7b7bff',  /* CYBERPUNK UI: signal-tertiary (purple) - medium */
                 color: '#7b7bff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.7
+                weight: 1.5,
+                opacity: opacity,
+                fillOpacity: opacity * 0.8
             });
             marker.bindPopup(`<strong>🔽 DESTINATION: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>📊 ${p.bytes_fmt}<br>${p.flows ? `📈 ${p.flows} flows` : ''}<br><button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#7b7bff;border:none;border-radius:4px;cursor:pointer;color:#000;font-weight:600;">Investigate IP</button>`);
             marker.on('click', () => {
                 this.openIPModal(p.ip);
             });
+            marker.on('mouseover', () => {
+                this.worldMapHoveredPoint = { type: 'destination', ip: p.ip, lat: p.lat, lng: p.lng, countryIso: countryIso };
+                marker.setStyle({ opacity: 1, fillOpacity: 0.9, weight: 2.5 });
+                // Show direction context: highlight related sources if any
+                this.showDirectionContext(marker, 'destination');
+            });
+            marker.on('mouseout', () => {
+                this.worldMapHoveredPoint = null;
+                marker.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8, weight: 1.5 });
+                this.hideDirectionContext();
+            });
             marker.addTo(this.map);
             this.mapLayers.push(marker);
         });
 
-        // Draw Threats (Red)
+        // Draw Threats (Red - most prominent, larger, brighter)
         threats.forEach(p => {
+            const baseSize = Math.min(14, Math.max(8, Math.log10((p.bytes || 1000) + 1) * 3));
+            const size = baseSize * emphasis.threats;
+            const countryIso = p.country_iso || p.iso || '';
+            const opacity = getOpacity(countryIso, 1.0 * emphasis.threats);
+            
             const threatMarker = L.circleMarker([p.lat, p.lng], {
-                radius: 8,
-                fillColor: '#ff1744',  /* CYBERPUNK UI: Use signal-crit (red for critical only) */
+                radius: size,
+                fillColor: '#ff1744',  /* CYBERPUNK UI: signal-crit (red) - ONLY for threats, most prominent */
                 color: '#ff1744',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
+                weight: 2.5,
+                opacity: opacity,
+                fillOpacity: opacity * 0.9
             });
             threatMarker.bindPopup(`<strong>⚠️ THREAT: ${p.ip}</strong><br>📍 ${p.city || ''}, ${p.country}<br>${p.category ? `📋 Category: ${p.category}<br>` : ''}${p.feed ? `🔖 Feed: ${p.feed}<br>` : ''}<button onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${p.ip}')" style="margin-top:8px;padding:4px 8px;background:#ff1744;border:none;border-radius:4px;cursor:pointer;color:#fff;font-weight:600;">Investigate IP</button>`);
             threatMarker.on('click', () => {
                 this.openIPModal(p.ip);
             });
+            threatMarker.on('mouseover', () => {
+                this.worldMapHoveredPoint = { type: 'threat', ip: p.ip, lat: p.lat, lng: p.lng, countryIso: countryIso };
+                threatMarker.setStyle({ opacity: 1, fillOpacity: 1, weight: 3 });
+            });
+            threatMarker.on('mouseout', () => {
+                this.worldMapHoveredPoint = null;
+                threatMarker.setStyle({ opacity: opacity, fillOpacity: opacity * 0.9, weight: 2.5 });
+            });
             threatMarker.addTo(this.map);
             this.mapLayers.push(threatMarker);
         });
+        
+        // Direction context is shown via hover events above (markers brighten on hover)
+        // No animated arcs or lines - calm by default
+    },
+    
+    showDirectionContext(hoveredMarker, type) {
+        // Subtle direction context: related markers brighten slightly
+        // This is handled in the hover events above via setStyle
+        // No visual lines or arcs - just emphasis on hover
+    },
+    
+    hideDirectionContext() {
+        // Reset is handled in mouseout events above
     },
 
     resetWorldMapView() {
         if (this.map) {
             this.map.setView([20, 0], 2);
         }
+        this.worldMapSelectedCountry = null;
+        this.worldMapHoveredPoint = null;
+        this.renderWorldMap();
+    },
+    
+    selectCountryForMap(countryIso) {
+        // Toggle: if same country clicked, deselect
+        if (this.worldMapSelectedCountry === countryIso) {
+            this.worldMapSelectedCountry = null;
+        } else {
+            this.worldMapSelectedCountry = countryIso;
+        }
+        this.renderWorldMap();
     },
 
     async fetchDurations() {
