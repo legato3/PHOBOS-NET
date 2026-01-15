@@ -307,10 +307,10 @@ def get_snmp_data():
 
 
 def discover_interfaces():
-    """Discover SNMP interfaces and map them to logical names (WAN/LAN).
+    """Discover SNMP interfaces and map them to logical names (WAN/LAN/VPN).
     
     Returns a dict mapping logical names to interface indexes:
-    {'wan': 1, 'lan': 2} or None if discovery fails.
+    {'wan': 1, 'lan': 2, 'wireguard': 3, 'tailscale': 4} or None if discovery fails.
     """
     try:
         # Walk interface descriptions
@@ -325,14 +325,22 @@ def discover_interfaces():
         
         mapping = {}
         for idx, (descr, status) in enumerate(zip(if_descr, if_status), 1):
-            descr_clean = descr.strip().strip('"')
+            descr_clean = descr.strip().strip('"').lower()
             # Only consider UP interfaces (status == 1)
             if status.strip() == "1":
                 # Map common interface names
-                if descr_clean.lower() in ["igc0", "em0", "eth0", "wan"]:
+                if descr_clean in ["igc0", "em0", "eth0", "wan"]:
                     mapping["wan"] = idx
-                elif descr_clean.lower() in ["igc1", "em1", "eth1", "lan"]:
+                elif descr_clean in ["igc1", "em1", "eth1", "lan"]:
                     mapping["lan"] = idx
+                elif "wg" in descr_clean or "wireguard" in descr_clean:
+                    # WireGuard interface (e.g., wg0, wg1, wireguard0)
+                    if "wireguard" not in mapping:  # Use first WireGuard interface found
+                        mapping["wireguard"] = idx
+                elif "tailscale" in descr_clean or "ts" in descr_clean:
+                    # TailScale interface (e.g., tailscale0, ts0)
+                    if "tailscale" not in mapping:  # Use first TailScale interface found
+                        mapping["tailscale"] = idx
         
         return mapping if mapping else None
     except Exception as e:

@@ -5068,10 +5068,24 @@ def api_server_health():
 @throttle(5, 10)
 def api_firewall_snmp_status():
     """Get firewall SNMP operational health data."""
-    from app.services.snmp import get_snmp_data
+    from app.services.snmp import get_snmp_data, discover_interfaces
     import time
+    import subprocess
+    from app.config import SNMP_HOST, SNMP_COMMUNITY
     
     snmp_data = get_snmp_data()
+    
+    # Discover VPN interfaces (WireGuard and TailScale)
+    vpn_interfaces = {}
+    try:
+        interface_mapping = discover_interfaces()
+        if interface_mapping:
+            if "wireguard" in interface_mapping:
+                vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
+            if "tailscale" in interface_mapping:
+                vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
+    except Exception:
+        pass  # Discovery failed, continue without VPN interfaces
     
     # Store cache timestamp for staleness checks
     import app.core.state as state
@@ -5180,6 +5194,79 @@ def api_firewall_snmp_status():
         "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed"),
         "saturation_hint": None  # Will be set by saturation detection logic below
     })
+    
+    # Add VPN interfaces (WireGuard and TailScale)
+    for vpn_name, vpn_idx in vpn_interfaces.items():
+        try:
+            # Get VPN interface counters using SNMP
+            # Use ifHCInOctets and ifHCOutOctets (64-bit counters) for VPN interfaces
+            vpn_in_oid = f".1.3.6.1.2.1.31.1.1.1.6.{vpn_idx}"  # ifHCInOctets
+            vpn_out_oid = f".1.3.6.1.2.1.31.1.1.1.10.{vpn_idx}"  # ifHCOutOctets
+            vpn_status_oid = f".1.3.6.1.2.1.2.2.1.8.{vpn_idx}"  # ifOperStatus
+            vpn_speed_oid = f".1.3.6.1.2.1.31.1.1.1.15.{vpn_idx}"  # ifHighSpeed
+            
+            # Poll VPN interface OIDs
+            cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid} {vpn_out_oid} {vpn_status_oid} {vpn_speed_oid}"
+            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=3, text=True)
+            values = output.strip().split("\n")
+            
+            if len(values) >= 4:
+                vpn_in = int(values[0].strip().split(":")[-1]) if ":" in values[0] else int(values[0].strip())
+                vpn_out = int(values[1].strip().split(":")[-1]) if ":" in values[1] else int(values[1].strip())
+                vpn_status_raw = int(values[2].strip())
+                vpn_speed = int(values[3].strip()) if values[3].strip() else None
+                
+                # Calculate rates (similar to WAN/LAN)
+                import app.core.state as state
+                prev_ts = state._snmp_prev_sample.get("ts", 0)
+                prev_in_key = f"{vpn_name}_in"
+                prev_out_key = f"{vpn_name}_out"
+                prev_in = state._snmp_prev_sample.get(prev_in_key)
+                prev_out = state._snmp_prev_sample.get(prev_out_key)
+                now = time.time()
+                dt = now - prev_ts if prev_ts > 0 else SNMP_POLL_INTERVAL
+                
+                # Calculate RX/TX rates
+                vpn_rx_mbps = None
+                vpn_tx_mbps = None
+                if prev_in is not None and prev_out is not None and dt > 0:
+                    d_in = vpn_in - prev_in
+                    d_out = vpn_out - prev_out
+                    if d_in >= 0 and d_out >= 0:  # No counter wrap
+                        vpn_rx_mbps = round((d_in * 8) / (dt * 1_000_000), 2)  # bytes -> Mbps
+                        vpn_tx_mbps = round((d_out * 8) / (dt * 1_000_000), 2)
+                
+                # Update previous sample
+                state._snmp_prev_sample[prev_in_key] = vpn_in
+                state._snmp_prev_sample[prev_out_key] = vpn_out
+                
+                # Calculate utilization if speed is known
+                vpn_util = None
+                if vpn_speed and vpn_rx_mbps is not None and vpn_tx_mbps is not None:
+                    total_mbps = vpn_rx_mbps + vpn_tx_mbps
+                    vpn_util = round((total_mbps / vpn_speed) * 100, 1) if vpn_speed > 0 else None
+                
+                # Determine status
+                vpn_has_traffic = (vpn_rx_mbps is not None and vpn_rx_mbps > 0) or (vpn_tx_mbps is not None and vpn_tx_mbps > 0)
+                vpn_status = determine_interface_status(vpn_status_raw, None, vpn_has_traffic, has_sessions, data_age)
+                
+                # Add VPN interface
+                interfaces.append({
+                    "name": vpn_name.upper(),
+                    "status": vpn_status,
+                    "rx_mbps": vpn_rx_mbps,
+                    "tx_mbps": vpn_tx_mbps,
+                    "rx_errors": None,  # VPN interfaces typically don't have error counters
+                    "tx_errors": None,
+                    "rx_drops": None,
+                    "tx_drops": None,
+                    "utilization": vpn_util,
+                    "speed_mbps": vpn_speed,
+                    "saturation_hint": None
+                })
+        except Exception:
+            # VPN interface polling failed - skip it
+            pass
     
     # Calculate aggregate throughput
     total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
