@@ -2283,18 +2283,40 @@ export const Store = () => ({
                 return;
             }
 
-            const peakColor = this.getCssVar('--neon-green') || '#00ff88';
-            const normColor = this.getCssVar('--neon-cyan') || '#00f3ff';
+            // Get gradient colors matching Top Services bars
+            const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
+            const magentaColor = this.getCssVar('--accent-magenta') || '#ff00ff';
 
             // Use different chart instances for different canvas IDs
             const instanceKey = 'hourlyChartInstance';
             const chartInstance = _chartInstances[instanceKey];
 
+            // Helper function to create gradient for each bar (matches Top Services gradient style)
+            const createGradient = (chartCtx, isPeak = false) => {
+                const gradient = chartCtx.createLinearGradient(0, 0, 0, chartCtx.canvas.height);
+                // Use same gradient style as Top Services: cyan to magenta
+                // For peak hour, use brighter green to magenta; otherwise cyan to magenta
+                const startColor = isPeak ? '#00ff88' : cyanColor;
+                const endColor = magentaColor;
+                gradient.addColorStop(0, startColor);
+                gradient.addColorStop(1, endColor);
+                return gradient;
+            };
+
             if (chartInstance) {
                 chartInstance.data.labels = data.labels;
                 chartInstance.data.datasets[0].data = data.bytes;
+                // Update gradients for each bar using the chart's context
+                const chartCtx = chartInstance.ctx;
+                chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                    createGradient(chartCtx, i === data.peak_hour)
+                );
+                chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
+                    i === data.peak_hour ? '#00ff88' : cyanColor
+                );
                 chartInstance.update();
             } else {
+                // Create chart first, then update with gradients
                 const newChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -2302,8 +2324,8 @@ export const Store = () => ({
                         datasets: [{
                             label: 'Traffic',
                             data: data.bytes,
-                            backgroundColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
-                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? peakColor : normColor),
+                            backgroundColor: data.bytes.map(() => cyanColor), // Temporary, will update
+                            borderColor: data.bytes.map((_, i) => i === data.peak_hour ? '#00ff88' : cyanColor),
                             borderWidth: 1
                         }]
                     },
@@ -2327,6 +2349,14 @@ export const Store = () => ({
                         }
                     }
                 });
+                
+                // Update with gradients after chart is created
+                const chartCtx = newChart.ctx;
+                newChart.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                    createGradient(chartCtx, i === data.peak_hour)
+                );
+                newChart.update();
+                
                 _chartInstances[instanceKey] = newChart;
             }
         } catch (e) {
