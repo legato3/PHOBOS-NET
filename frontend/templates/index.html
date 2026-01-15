@@ -871,7 +871,9 @@
                                         {% call widget_card('compromisedHosts', 'At-Risk Internal Hosts', '☢️', show_spinner=True) %}
                                         <div class="compromised-list">
                                             <template x-for="(host, idx) in compromisedHosts.hosts" :key="host.ip">
-                                                <div class="compromised-item" :class="'risk-' + (host.risk_score > 50 ? 'high' : 'medium')">
+                                                <div class="compromised-item" :class="'risk-' + (host.risk_score > 50 ? 'high' : 'medium')" 
+                                                    @click="openEventDetails({ ip: host.threat_ip, threat_type: host.threat_category || 'Threat', country: host.country, threat_feed: host.threat_feed }, 'threat')" 
+                                                    style="cursor: pointer;">
                                                     <div class="compromised-main">
                                                         <div class="compromised-host">
                                                             <strong class="text-cyan clickable-ip" @click="openIPModal(host.ip)" x-text="host.ip"></strong>
@@ -911,7 +913,7 @@
                                         <div class="threat-ips-list">
                                             <template x-for="(ip, idx) in (topThreatIPs.ips || []).slice(0, 5)"
                                                 :key="ip.ip">
-                                                <div class="threat-ip-item">
+                                                <div class="threat-ip-item" @click="openEventDetails(ip, 'threat')" style="cursor: pointer;">
                                                     <div class="threat-ip-rank" x-text="idx + 1"></div>
                                                     <div class="threat-ip-info">
                                                         <span class="threat-ip-addr" x-text="ip.ip"></span>
@@ -3794,6 +3796,27 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Interesting Flow Characteristics (Phase 2) -->
+                    <template x-if="selectedFlow?.interesting_flags && selectedFlow.interesting_flags.length > 0">
+                        <div class="card" style="margin-top: var(--space-4); padding: var(--space-3); background: rgba(0, 234, 255, 0.02); border: 1px solid rgba(0, 234, 255, 0.08);">
+                            <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Interesting Characteristics</h3>
+                            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                                <template x-for="flag in selectedFlow.interesting_flags" :key="flag">
+                                    <div style="display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-sm);">
+                                        <span style="font-size: 1em; opacity: 0.7;" x-text="getInterestingFlowIcon(flag)"></span>
+                                        <div style="flex: 1; color: var(--text-secondary);">
+                                            <div style="font-weight: 500; margin-bottom: 2px;" x-text="getInterestingFlowTooltip(flag).split(':')[0]"></div>
+                                            <div style="font-size: var(--text-xs); color: var(--text-tertiary);" x-text="getInterestingFlowTooltip(flag).split(':').slice(1).join(':').trim() || getInterestingFlowTooltip(flag)"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div style="margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid rgba(0, 234, 255, 0.1); font-size: var(--text-xs); color: var(--text-tertiary);">
+                                These are informational hints to help identify unusual patterns. They are not alerts or threats.
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Actions -->
@@ -3953,6 +3976,26 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Interesting Flow Characteristics (Phase 2) -->
+                        <template x-if="selectedEvent?.interesting_flags && selectedEvent.interesting_flags.length > 0">
+                            <div class="card" style="margin-top: var(--space-4); padding: var(--space-3); background: rgba(0, 234, 255, 0.02); border: 1px solid rgba(0, 234, 255, 0.08);">
+                                <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600;">Interesting Characteristics</h3>
+                                <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                                    <template x-for="flag in selectedEvent.interesting_flags" :key="flag">
+                                        <div style="display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-sm);">
+                                            <span style="font-size: 1em; opacity: 0.7;" x-text="getInterestingFlowIcon(flag)"></span>
+                                            <div style="flex: 1; color: var(--text-secondary);">
+                                                <div style="font-weight: 500; margin-bottom: 2px;" x-text="getInterestingFlowTooltip(flag).split(':')[0]"></div>
+                                                <div style="font-size: var(--text-xs); color: var(--text-tertiary);" x-text="getInterestingFlowTooltip(flag).split(':').slice(1).join(':').trim() || getInterestingFlowTooltip(flag)"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div style="margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid rgba(0, 234, 255, 0.1); font-size: var(--text-xs); color: var(--text-tertiary);">
+                                    These are informational hints to help identify unusual patterns. They are not alerts or threats.
+                                </div>
+                            </div>
+                        </template>
                     </template>
 
                     <!-- Firewall Content -->
