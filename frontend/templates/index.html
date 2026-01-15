@@ -1639,6 +1639,25 @@
                     <div x-show="activeTab === 'forensics'"
                         :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
                         role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+                        
+                        <!-- IP Investigation - Compact Top Menu -->
+                        <div class="card" style="margin-bottom: var(--space-4); padding: var(--space-2) var(--space-3); background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15);">
+                            <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+                                <span style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap;">🔍 IP Investigation:</span>
+                                <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()"
+                                    aria-label="IP address to investigate"
+                                    placeholder="IP, hostname, or domain..."
+                                    class="search-box" style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-1) var(--space-2);">
+                                <button @click="investigateIP()" class="btn btn--primary"
+                                    :disabled="!ipInvestigation.searchIP.trim() || ipInvestigation.loading"
+                                    style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); white-space: nowrap;">
+                                    <span x-show="!ipInvestigation.loading">Investigate</span>
+                                    <span x-show="ipInvestigation.loading">Loading...</span>
+                                </button>
+                                <div class="spinner" x-show="ipInvestigation.loading" style="width: 14px; height: 14px;"></div>
+                            </div>
+                        </div>
+
                         <!-- ========================================
      FIREWALL LOGS (Moved from Security)
      ======================================== -->
@@ -1853,28 +1872,6 @@
                         <!-- ========================================
      FORENSICS INVESTIGATION TOOLS
      ======================================== -->
-
-                        <!-- IP Deep Dive Investigation - Compact Search Bar -->
-                        <!-- IP Deep Dive Investigation -->
-                        <section id="section-ip-investigation" class="scroll-section" style="margin-bottom: 24px;">
-                            {% call widget_card('ipInvestigation', 'IP Deep Dive Investigation', '🔍',
-                            card_class='wide-card', show_spinner=False) %}
-                            <div class="forensics-search-bar"
-                                style="display: flex; align-items: center; gap: var(--space-3);">
-                                <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()"
-                                    aria-label="IP address to investigate"
-                                    placeholder="Search IP address, hostname, or domain to investigate..."
-                                    class="search-box" style="flex: 1; max-width: 600px;">
-                                <button @click="investigateIP()" class="btn btn--primary"
-                                    :disabled="!ipInvestigation.searchIP.trim() || ipInvestigation.loading">
-                                    <span x-show="!ipInvestigation.loading">Investigate</span>
-                                    <span x-show="ipInvestigation.loading">Loading...</span>
-                                </button>
-                                <div class="spinner" x-show="ipInvestigation.loading"></div>
-                            </div>
-                            {% endcall %}
-                        </section>
-
 
                         <!-- Alert Correlation & Attack Chains -->
                         <section id="section-alert-correlation" class="scroll-section" style="margin-bottom: 32px;">
