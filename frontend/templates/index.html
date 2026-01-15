@@ -1064,7 +1064,6 @@
                                                         <div class="endpoint-cell">
                                                             <!-- Primary: IP Address -->
                                                             <div class="endpoint-primary-line">
-                                                                <span x-text="item.flag" class="endpoint-flag"></span>
                                                                 <strong x-text="item.key" class="endpoint-ip"></strong>
                                                                 <button class="icon-btn-small endpoint-filter-btn"
                                                                     @click.stop="applyFilter(item.key)"
@@ -1094,11 +1093,6 @@
                                                             </div>
                                                             <!-- Supporting: Badges -->
                                                             <div class="endpoint-badges">
-                                                                <span class="badge badge-compact"
-                                                                    :class="item.internal ? 'internal' : 'external'"
-                                                                    :title="item.internal ? 'Internal' : 'External'">
-                                                                    <span x-text="item.internal ? '🏠' : '🌐'"></span>
-                                                                </span>
                                                                 <span class="badge threat"
                                                                     x-show="item.threat">THREAT</span>
                                                             </div>
@@ -1153,7 +1147,6 @@
                                                         <div class="endpoint-cell">
                                                             <!-- Primary: IP Address -->
                                                             <div class="endpoint-primary-line">
-                                                                <span x-text="item.flag" class="endpoint-flag"></span>
                                                                 <strong x-text="item.key" class="endpoint-ip"></strong>
                                                                 <button class="icon-btn-small endpoint-filter-btn"
                                                                     @click.stop="applyFilter(item.key)"
@@ -1183,11 +1176,6 @@
                                                             </div>
                                                             <!-- Supporting: Badges -->
                                                             <div class="endpoint-badges">
-                                                                <span class="badge badge-compact"
-                                                                    :class="item.internal ? 'internal' : 'external'"
-                                                                    :title="item.internal ? 'Internal' : 'External'">
-                                                                    <span x-text="item.internal ? '🏠' : '🌐'"></span>
-                                                                </span>
                                                                 <span class="badge threat"
                                                                     x-show="item.threat">THREAT</span>
                                                             </div>
