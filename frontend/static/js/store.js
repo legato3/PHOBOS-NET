@@ -123,6 +123,7 @@ export const Store = () => ({
     ipInvestigationModalOpen: false,
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
+    compromisedHosts: { hosts: [], count: 0, loading: true },
     riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
 
     // New Security Widgets
@@ -991,6 +992,7 @@ export const Store = () => ({
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
+                this.fetchCompromisedHosts();
                 this.fetchRiskIndex();
                 this.fetchAttackTimeline();
                 this.fetchMitreHeatmap();
@@ -1085,6 +1087,7 @@ export const Store = () => ({
                 this.fetchThreatsByCountry(),
                 this.fetchThreatVelocity(),
                 this.fetchTopThreatIPs(),
+                this.fetchCompromisedHosts(),
                 this.fetchRiskIndex(),
                 this.fetchAttackTimeline(),
                 this.fetchMitreHeatmap(),
@@ -1625,6 +1628,18 @@ export const Store = () => ({
             }
         } catch (e) { console.error('Top threat IPs fetch error:', e); }
         finally { this.topThreatIPs.loading = false; }
+    },
+
+    async fetchCompromisedHosts() {
+        this.compromisedHosts.loading = true;
+        try {
+            const res = await fetch(`/api/security/compromised_hosts?range=${this.timeRange}`);
+            if (res.ok) {
+                const d = await res.json();
+                this.compromisedHosts = { ...d, loading: false };
+            }
+        } catch (e) { console.error('Compromised hosts fetch error:', e); }
+        finally { this.compromisedHosts.loading = false; }
     },
 
     async fetchRiskIndex() {
@@ -3955,6 +3970,7 @@ export const Store = () => ({
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
+                this.fetchCompromisedHosts();
                 this.fetchRiskIndex();
                 this.fetchAttackTimeline();
                 this.fetchMitreHeatmap();

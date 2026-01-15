@@ -6,6 +6,7 @@
 /* Import cyberpunk tokens and base layout */
 @import url("css/tokens.css");
 @import url("css/base.css");
+@import url("css/compromised.css");
 
 :root {
     /* ============================================
