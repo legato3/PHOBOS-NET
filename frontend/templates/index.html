@@ -836,55 +836,62 @@
                                         <span>Ports most frequently seen in threat traffic</span>
                                     </template>
                                 </div>
-                                <table class="table-fixed table-compact">
-                                    <thead>
-                                        <tr>
-                                            <th>Port</th>
-                                            <th>FW Blocked</th>
-                                            <th>Traffic</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template x-for="(p, i) in maliciousPorts.ports" :key="p.port + '-' + i">
+                                <div style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table-fixed table-compact">
+                                        <thead>
                                             <tr>
-                                                <td>
-                                                    <strong class="text-cyan" x-text="p.port"></strong>
-                                                    <template x-if="p.suspicious"><span
-                                                            style="color: var(--neon-pink); font-size: 0.75em;">
-                                                            ⚠</span></template>
-                                                    <div class="text-8 text-muted" x-text="p.service || ''">
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <template x-if="p.blocked > 0">
-                                                        <span class="text-green">🔥 <span
-                                                                x-text="p.blocked"></span></span>
-                                                    </template>
-                                                    <template x-if="!p.blocked || p.blocked === 0">
-                                                        <span class="text-muted">—</span>
-                                                    </template>
-                                                    <template x-if="p.unique_attackers > 1">
-                                                        <div class="text-75 text-muted"
-                                                            x-text="p.unique_attackers + ' IPs'"></div>
-                                                    </template>
-                                                </td>
-                                                <td>
-                                                    <strong class="text-green"
-                                                        x-text="p.bytes_fmt || fmtBytes(p.netflow_bytes || 0)"></strong>
-                                                    <div class="text-8 text-muted"
-                                                        x-text="(p.netflow_flows || p.hits || 0) + ' flows'"></div>
-                                                </td>
+                                                <th>Port</th>
+                                                <th>FW Blocked</th>
+                                                <th>Traffic</th>
                                             </tr>
-                                        </template>
-                                        <template x-if="!maliciousPorts.ports || maliciousPorts.ports.length===0">
-                                            <tr>
-                                                <td colspan="3" class="text-muted text-center">
-                                                    No
-                                                    malicious port data</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(p, i) in maliciousPorts.ports.slice(0, 15)" :key="p.port + '-' + i">
+                                                <tr>
+                                                    <td>
+                                                        <strong class="text-cyan" x-text="p.port"></strong>
+                                                        <template x-if="p.suspicious"><span
+                                                                style="color: var(--neon-pink); font-size: 0.75em;">
+                                                                ⚠</span></template>
+                                                        <div class="text-8 text-muted" x-text="p.service || ''">
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <template x-if="p.blocked > 0">
+                                                            <span class="text-green">🔥 <span
+                                                                    x-text="p.blocked"></span></span>
+                                                        </template>
+                                                        <template x-if="!p.blocked || p.blocked === 0">
+                                                            <span class="text-muted">—</span>
+                                                        </template>
+                                                        <template x-if="p.unique_attackers > 1">
+                                                            <div class="text-75 text-muted"
+                                                                x-text="p.unique_attackers + ' IPs'"></div>
+                                                        </template>
+                                                    </td>
+                                                    <td>
+                                                        <template x-if="(p.netflow_bytes || 0) > 0 || (p.netflow_flows || 0) > 0">
+                                                            <strong class="text-green"
+                                                                x-text="p.bytes_fmt || fmtBytes(p.netflow_bytes || 0)"></strong>
+                                                            <div class="text-8 text-muted"
+                                                                x-text="(p.netflow_flows || 0) + ' flows'"></div>
+                                                        </template>
+                                                        <template x-if="(p.netflow_bytes || 0) === 0 && (p.netflow_flows || 0) === 0">
+                                                            <span class="text-muted">—</span>
+                                                        </template>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                            <template x-if="!maliciousPorts.ports || maliciousPorts.ports.length===0">
+                                                <tr>
+                                                    <td colspan="3" class="text-muted text-center">
+                                                        No
+                                                        malicious port data</td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
                                 {% endcall %}
 
                                 <!-- Blocklist Match Rate -->
@@ -4513,6 +4520,80 @@
     </div>
 
     <!-- App Logic already loaded in <head> to ensure Alpine picks it up -->
+
+        <!-- Overall Health Details Modal -->
+        <div class="modal" x-show="overallHealthModalOpen"
+            :style="overallHealthModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="overallHealthModalOpen = false">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal__header"
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0; color:var(--text-0);">Overall Health Details</h3>
+                    <button @click="overallHealthModalOpen = false"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                        aria-label="Close">×</button>
+                </div>
+                <div class="modal__body" style="color:var(--text-0);">
+                    <div style="margin-bottom:var(--space-4);">
+                        <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-3);">
+                            <div style="font-size:var(--text-2xl); font-weight:var(--font-weight-semibold); text-transform:capitalize;"
+                                :class="{
+                                    'text-green': overallHealth.state === 'healthy',
+                                    'text-yellow': overallHealth.state === 'degraded',
+                                    'text-red': overallHealth.state === 'unhealthy'
+                                }"
+                                x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
+                            </div>
+                            <div style="flex:1; height:2px; background:var(--border-soft);"></div>
+                        </div>
+                        <p style="font-size:var(--text-base); line-height:var(--line-height-normal); color:var(--text-1); margin:0;"
+                            x-text="overallHealth.explanation || 'All systems operating normally.'">
+                        </p>
+                    </div>
+                    
+                    <div style="border-top:1px solid var(--border-soft); padding-top:var(--space-4);">
+                        <h4 style="font-size:var(--text-sm); color:var(--text-secondary); text-transform:uppercase; letter-spacing:var(--letter-spacing-wide); margin-bottom:var(--space-3);">
+                            Current Metrics
+                        </h4>
+                        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:var(--space-3);">
+                            <div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Active Alerts</div>
+                                <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
+                                    x-text="alertHistory.total || 0">
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Active Flows</div>
+                                <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
+                                    x-text="(networkStatsOverview.active_flows || 0).toLocaleString()">
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">External Connections</div>
+                                <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
+                                    x-text="(networkStatsOverview.external_connections || 0).toLocaleString()">
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Blocked Events (24h)</div>
+                                <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
+                                    x-text="(firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Network Anomalies (24h)</div>
+                                <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
+                                    x-text="(networkStatsOverview.anomalies_24h || 0).toLocaleString()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal__footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
+                    <button class="btn btn--primary" @click="overallHealthModalOpen = false">Close</button>
+                </div>
+            </div>
+        </div>
 </body>
 
 </html>

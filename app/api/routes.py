@@ -3429,7 +3429,7 @@ def api_malicious_ports():
     ports.sort(key=lambda x: x['total_score'], reverse=True)
 
     return jsonify({
-        "ports": ports[:10],  # Limit to top 10
+        "ports": ports[:15],  # Limit to top 15 (for scrollable view)
         "total": len(ports),
         "has_syslog": any(p['blocked'] > 0 for p in ports)
     })
