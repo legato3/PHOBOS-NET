@@ -1609,8 +1609,18 @@ def api_firewall_stats_overview():
                 LIMIT 1
             """, (cutoff_24h,))
             top_rule_row = cur.fetchone()
-            top_block_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
+            raw_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
             top_block_count = top_rule_row[1] if top_rule_row else 0
+            
+            # Format rule_id for human readability
+            if raw_reason == "N/A" or raw_reason == "default":
+                top_block_reason = "Default Block"
+            elif raw_reason.isdigit():
+                # Numeric rule ID - format as "Rule #11"
+                top_block_reason = f"Rule #{raw_reason}"
+            else:
+                # Already formatted or non-numeric - use as-is
+                top_block_reason = raw_reason
             
         finally:
             conn.close()
