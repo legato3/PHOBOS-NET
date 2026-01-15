@@ -3032,18 +3032,23 @@ export const Store = () => ({
                                             const meta = chart.getDatasetMeta(0);
                                             return data.labels.map((label, i) => {
                                                 const style = meta.controller.getStyle(i);
+                                                // Return label text ONLY - Chart.js will not append value if we return proper object
                                                 return {
-                                                    text: label, // Show flag name (e.g., "AP", "A", "R") - NO numbers
+                                                    text: String(label), // Ensure it's a string and ONLY the label
                                                     fillStyle: style.backgroundColor,
                                                     strokeStyle: style.borderColor,
                                                     lineWidth: style.borderWidth || 0,
                                                     hidden: !chart.getDataVisibility(i),
-                                                    index: i
+                                                    index: i,
+                                                    datasetIndex: 0
                                                 };
                                             });
                                         }
                                         return [];
-                                    }
+                                    },
+                                    // Disable any default value appending
+                                    usePointStyle: false,
+                                    pointStyle: undefined
                                 }
                             }
                         }
