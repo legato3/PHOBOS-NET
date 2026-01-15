@@ -1700,7 +1700,7 @@
                                 </button>
                             </div>
                             {% endset %}
-                            {% call widget_card('recentBlocks', 'Live Firewall Logs', '🔥', card_class='wide-card',
+                            {% call widget_card('recentBlocks', 'Firewall Logs', '🔥', card_class='wide-card',
                             extra_actions=fw_actions, show_spinner=True) %}
                             <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="empty-state">
                                 <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">✅</div>
@@ -1824,7 +1824,7 @@
                                                                 style="display:block;"></span>
                                                         </div>
                                                     </td>
-                                                    <td @click="openIPInvestigationModal(block.src_ip)"
+                                                    <td @click.stop="openIPInvestigationModal(block.src_ip)"
                                                         style="cursor: pointer;" title="Click to investigate IP">
                                                         <div class="truncate"><strong class="text-green"
                                                                 x-text="block.src_ip || '--'"></strong>
@@ -1836,7 +1836,7 @@
                                                     <td style="text-align: center; color: var(--text-muted);">
                                                         →
                                                     </td>
-                                                    <td @click="openIPInvestigationModal(block.dst_ip)"
+                                                    <td @click.stop="openIPInvestigationModal(block.dst_ip)"
                                                         style="cursor: pointer;" title="Click to investigate IP">
                                                         <div class="truncate">
                                                             <span class="text-cyan"
@@ -4086,6 +4086,16 @@
                                     <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Country</div>
                                     <div style="font-size: var(--text-sm); color: var(--text-secondary);"
                                         x-text="selectedEvent.country"></div>
+                                </div>
+                                <div x-show="selectedEvent?.hits !== undefined">
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Occurrences</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
+                                        x-text="(selectedEvent.hits || 0).toLocaleString() + ' hits'"></div>
+                                </div>
+                                <div x-show="selectedEvent?.category">
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Category</div>
+                                    <div style="font-size: var(--text-sm); color: var(--text-secondary);"
+                                        x-text="selectedEvent.category"></div>
                                 </div>
                             </div>
                         </div>
