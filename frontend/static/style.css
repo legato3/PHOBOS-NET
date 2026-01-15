@@ -1534,23 +1534,27 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     text-align: left;
 }
 
+/* CYBERPUNK UI: Endpoint value - Signal traffic data */
 .endpoint-value {
     font-size: var(--endpoint-value-size);
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-mono);
-    color: var(--text-primary);
+    color: var(--text-0);  /* Bright text for signal data */
     margin-bottom: var(--space-1);
     line-height: var(--line-height-tight);
+    letter-spacing: 0.02em;  /* Slight spacing for cyberpunk monospace feel */
 }
 
 .network-endpoint-row[data-row-rank="0"] .endpoint-value {
     font-size: var(--endpoint-value-size-primary);
 }
 
+/* CYBERPUNK UI: Endpoint flows - Signal metadata */
 .endpoint-flows {
     font-size: var(--endpoint-flows-size);
-    color: var(--text-muted);
-    opacity: 0.7;
+    color: var(--text-2);  /* Use token color */
+    opacity: 0.8;
+    font-family: var(--font-mono);  /* Monospace for consistency */
 }
 
 /* Subtle sparkline - supportive, inline with metadata */
@@ -1605,37 +1609,43 @@ tr:hover td {
 }
 
 /* Badges */
+/* CYBERPUNK UI: Badge - Signal badge */
 .badge {
-    padding: 2px 6px;
+    padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
-    font-size: 11px;
-    /* Metadata: 11px - more compact */
-    font-weight: 500;
+    font-size: var(--fs-xs);
+    font-weight: var(--font-weight-medium);
     text-transform: none;
-    /* Remove uppercase for calmer look */
     margin-left: 0;
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);  /* Monospace for cyberpunk signal look */
     display: inline-block;
     white-space: nowrap;
+    transition: all var(--transition-fast);
 }
 
-/* Selective color usage - only for important signals */
+/* CYBERPUNK UI: Internal badge - Signal indicator */
 .internal {
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(0, 234, 255, 0.1), rgba(0, 234, 255, 0.05));
+    color: var(--signal-primary);
+    border: 1px solid var(--border-medium);
+    box-shadow: 0 0 4px rgba(0, 234, 255, 0.1);
 }
 
+/* CYBERPUNK UI: External badge - Signal indicator */
 .external {
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(123, 123, 255, 0.1), rgba(123, 123, 255, 0.05));
+    color: var(--signal-tertiary);
+    border: 1px solid rgba(123, 123, 255, 0.2);
+    box-shadow: 0 0 4px rgba(123, 123, 255, 0.1);
 }
 
+/* CYBERPUNK UI: Threat badge - RED ONLY for critical */
 .threat {
-    background: rgba(255, 0, 60, 0.15);
-    color: var(--accent-danger);
-    border: 1px solid var(--accent-danger);
+    background: rgba(255, 23, 68, 0.15);
+    color: var(--signal-crit);  /* RED - ONLY for critical */
+    border: 1px solid var(--border-critical);
+    box-shadow: var(--glow-critical);
+    font-weight: var(--font-weight-semibold);
 }
 
 .suspicious {
@@ -1735,8 +1745,9 @@ tr:hover td {
 }
 
 /* Legacy alias - use magenta for warnings */
+/* CYBERPUNK UI: Text green - Use signal-primary (cyan) for traffic values */
 .text-green {
-    color: var(--accent-cyan);
+    color: var(--signal-primary);  /* Use cyan instead of green for cyberpunk theme */
 }
 
 /* Legacy alias - use cyan for success states */
@@ -3935,6 +3946,62 @@ body {
     border-color: var(--signal-primary);
     box-shadow: 0 0 8px rgba(0, 234, 255, 0.2);
     color: var(--signal-primary);
+}
+
+/* CYBERPUNK UI: View All button - Signal action button */
+.btn-view-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    border: 1px solid var(--border-soft);
+    color: var(--text-1);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+/* CYBERPUNK UI: View All button hover - Signal highlight */
+.btn-view-all:hover {
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
+    border-color: var(--border-medium);
+    color: var(--signal-primary);
+    box-shadow: 0 0 8px rgba(0, 234, 255, 0.15);
+}
+
+/* CYBERPUNK UI: View All button - Signal action button */
+.btn-view-all {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    border: 1px solid var(--border-soft);
+    color: var(--text-1);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+/* CYBERPUNK UI: View All button hover - Signal highlight */
+.btn-view-all:hover {
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
+    border-color: var(--border-medium);
+    color: var(--signal-primary);
+    box-shadow: 0 0 8px rgba(0, 234, 255, 0.15);
 }
 
 /* ============================================
