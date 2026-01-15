@@ -1288,6 +1288,95 @@ table tr.critical,
     background-color: rgba(255, 180, 0, 0.05);
 }
 
+/* Active Flows: Column alignment and layout */
+.flow-cell-ip {
+    padding: 8px 8px !important;
+    vertical-align: top;
+    line-height: 1.4;
+    height: auto;
+}
+
+/* Enforce consistent two-line layout */
+.flow-line-1 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 20px;
+    margin-bottom: 2px;
+    overflow: hidden;
+}
+
+.flow-line-2 {
+    line-height: 1.4;
+    height: 16px;
+    margin-top: 2px;
+    overflow: hidden;
+}
+
+.flow-flag {
+    font-size: 1em;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.flow-ip {
+    font-size: 0.95em;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.flow-hostname {
+    font-size: 0.75em;
+    opacity: 0.6;
+    color: var(--text-muted);
+    font-weight: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    display: inline-block;
+    flex-shrink: 1;
+}
+
+.flow-port {
+    font-size: 0.75em;
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+/* DIR column: Fixed width, vertically centered relative to two-line cells */
+.flow-cell-dir {
+    padding: 8px 4px !important;
+    text-align: center;
+    vertical-align: middle;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 48px; /* Match approximate height of two-line IP cells */
+}
+
+.flow-dir-icon {
+    font-size: 1.1em;
+    font-weight: bold;
+    display: inline-block;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* PROTO column: De-emphasized */
+.flow-cell-proto {
+    padding: 8px 8px !important;
+    vertical-align: middle;
+}
+
+.flow-proto {
+    font-size: 0.75em;
+    opacity: 0.5;
+    font-weight: normal;
+}
+
 /* ============================================
    Unified Endpoint Widget Design System
    Tokens for Sources/Destinations widgets

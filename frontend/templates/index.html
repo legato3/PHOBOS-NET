@@ -2214,60 +2214,50 @@
                                             }">
                                             <td class="text-xs text-muted font-mono" x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))">
                                             </td>
-                                            <td @click.stop="openIPModal(flow.src)"
-                                                style="padding: 6px 8px; overflow: hidden;">
-                                                <!-- IP as primary element -->
-                                                <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                            <td @click.stop="openIPModal(flow.src)" class="flow-cell-ip">
+                                                <!-- Line 1: IP address (primary) + optional hostname inline -->
+                                                <div class="flow-line-1">
                                                     <span
                                                         :class="'flag-icon flag-icon-' + (flow.src_country_code || 'unknown').toLowerCase()"
-                                                        style="font-size: 1em;"></span>
-                                                    <strong class="text-cyan truncate" style="font-size: 0.95em;" x-text="flow.src"></strong>
+                                                        class="flow-flag"></span>
+                                                    <strong class="text-cyan flow-ip" x-text="flow.src"></strong>
+                                                    <span x-show="flow.src_hostname" class="flow-hostname" 
+                                                        :title="flow.src_hostname" x-text="' ' + flow.src_hostname"></span>
                                                 </div>
-                                                <!-- Hostname (muted, secondary) -->
-                                                <div x-show="flow.src_hostname" style="margin-top: 2px;">
-                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.7;" 
-                                                        :title="flow.src_hostname" x-text="flow.src_hostname"></span>
-                                                </div>
-                                                <!-- Port and protocol (secondary, muted) -->
-                                                <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
-                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.6;">
+                                                <!-- Line 2: Port / protocol (secondary, muted) - always present -->
+                                                <div class="flow-line-2">
+                                                    <span class="text-muted flow-port">
                                                         <span x-text="flow.src_port"></span>
                                                         <span x-show="flow.proto_name" x-text="'/' + flow.proto_name"></span>
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td style="text-align:center; padding: 6px 8px;" 
+                                            <td class="flow-cell-dir" 
                                                 :title="getDirectionIndicator(flow).title"
-                                                :style="'color: ' + getDirectionIndicator(flow).color + '; font-size: 1.1em; font-weight: bold;'">
-                                                <span x-text="getDirectionIndicator(flow).symbol"></span>
+                                                :style="'color: ' + getDirectionIndicator(flow).color + ';'">
+                                                <span class="flow-dir-icon" x-text="getDirectionIndicator(flow).symbol"></span>
                                             </td>
-                                            <td @click.stop="openIPModal(flow.dst)"
-                                                style="padding: 6px 8px; overflow: hidden;">
-                                                <!-- IP as primary element -->
-                                                <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                                            <td @click.stop="openIPModal(flow.dst)" class="flow-cell-ip">
+                                                <!-- Line 1: IP address (primary) + optional hostname inline -->
+                                                <div class="flow-line-1">
                                                     <span
                                                         :class="'flag-icon flag-icon-' + (flow.dst_country_code || 'unknown').toLowerCase()"
-                                                        style="font-size: 1em;"></span>
-                                                    <strong class="text-cyan truncate" style="font-size: 0.95em;" x-text="flow.dst"></strong>
+                                                        class="flow-flag"></span>
+                                                    <strong class="text-cyan flow-ip" x-text="flow.dst"></strong>
+                                                    <span x-show="flow.dst_hostname" class="flow-hostname" 
+                                                        :title="flow.dst_hostname" x-text="' ' + flow.dst_hostname"></span>
                                                 </div>
-                                                <!-- Hostname (muted, secondary) -->
-                                                <div x-show="flow.dst_hostname" style="margin-top: 2px;">
-                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.7;" 
-                                                        :title="flow.dst_hostname" x-text="flow.dst_hostname"></span>
-                                                </div>
-                                                <!-- Port and protocol (secondary, muted) -->
-                                                <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
-                                                    <span class="text-muted" style="font-size: 0.75em; opacity: 0.6;">
+                                                <!-- Line 2: Port / protocol (secondary, muted) - always present -->
+                                                <div class="flow-line-2">
+                                                    <span class="text-muted flow-port">
                                                         <span x-text="flow.dst_port"></span>
                                                         <span x-show="flow.service && flow.service !== flow.dst_port && flow.service !== 'unknown'" 
                                                             x-text="' (' + flow.service + ')'"></span>
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td style="padding: 6px 8px;">
-                                                <div style="font-size:0.85em; white-space: nowrap;">
-                                                    <strong x-text="flow.proto_name"></strong>
-                                                </div>
+                                            <td class="flow-cell-proto">
+                                                <span class="text-muted flow-proto" x-text="flow.proto_name"></span>
                                             </td>
                                             <td style="padding: 6px 8px;">
                                                 <div style="font-size:0.85em; white-space: nowrap;">
