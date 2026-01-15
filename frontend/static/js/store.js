@@ -670,10 +670,10 @@ export const Store = () => ({
             const otherSignals = signalDetails.filter(d => !d.includes('alert'));
             if (otherSignals.length > 0) {
                 explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals.join(', ')}. Immediate investigation required.`;
-                shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals[0]}`;
+                shortExplanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals[0]}`;
             } else {
                 explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} detected. Review security status immediately.`;
-                shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
+                shortExplanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
             }
         } else {
             // Count baseline-aware signals (spikes) vs static signals (sustained activity)
