@@ -125,6 +125,12 @@
                         <span class="sidebar-icon">🖥️</span>
                         <span class="sidebar-item-text">Server</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall-snmp' }"
+                        @click="loadTab('firewall-snmp')" role="tab" :aria-selected="activeTab === 'firewall-snmp'"
+                        id="firewall-snmp-tab-btn" aria-controls="firewall-snmp-tab" aria-label="Firewall SNMP Status" title="Firewall SNMP Status">
+                        <span class="sidebar-icon">📡</span>
+                        <span class="sidebar-item-text">Firewall SNMP</span>
+                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
                         @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
                         id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="AI Assistant" title="AI Assistant">
@@ -2893,6 +2899,158 @@
                 </template>
 
                 </section>
+        </div>
+
+        <!-- ============================================
+             FIREWALL SNMP STATUS TAB
+             ============================================ -->
+        <div x-show="activeTab === 'firewall-snmp'" :style="activeTab === 'firewall-snmp' ? 'display:block' : 'display:none'"
+            id="firewall-snmp-tab" role="tabpanel" aria-labelledby="firewall-snmp-tab-btn" tabindex="0">
+            <section id="section-firewall-snmp" class="scroll-section" style="margin-bottom: 32px;">
+                
+                <!-- Loading State -->
+                <template x-if="firewallSNMP.loading">
+                    <div class="empty-state">
+                        <div class="loader">Loading firewall status...</div>
+                    </div>
+                </template>
+
+                <!-- Error State -->
+                <template x-if="!firewallSNMP.loading && firewallSNMP.error && !firewallSNMP.poll_success">
+                    <div class="empty-state">
+                        <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">⚠️</div>
+                        <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                            SNMP Unavailable</p>
+                        <p style="font-size: var(--text-xs); color: var(--text-tertiary);" x-text="firewallSNMP.error"></p>
+                    </div>
+                </template>
+
+                <!-- Content -->
+                <template x-if="!firewallSNMP.loading && firewallSNMP.poll_success">
+                    <div>
+                        <!-- Top Stat Boxes -->
+                        <div class="stat-grid" style="margin-bottom: var(--space-6);">
+                            <!-- CPU Usage -->
+                            <div class="stat-box">
+                                <div class="stat-label">CPU Usage</div>
+                                <div class="stat-value" 
+                                    :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
+                                    x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : 'N/A'"></div>
+                                <div class="stat-desc" x-show="firewallSNMP.cpu_percent !== null">
+                                    <span x-text="firewallSNMP.cpu_percent < 50 ? 'Normal' : firewallSNMP.cpu_percent < 80 ? 'Moderate' : 'High'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Memory Usage -->
+                            <div class="stat-box">
+                                <div class="stat-label">Memory Usage</div>
+                                <div class="stat-value"
+                                    :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
+                                    x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : 'N/A'"></div>
+                                <div class="stat-desc" x-show="firewallSNMP.memory_percent !== null">
+                                    <span x-text="firewallSNMP.memory_percent < 70 ? 'Normal' : firewallSNMP.memory_percent < 85 ? 'Moderate' : 'High'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Active Sessions -->
+                            <div class="stat-box">
+                                <div class="stat-label">Active Sessions</div>
+                                <div class="stat-value" x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : 'N/A'"></div>
+                                <div class="stat-desc">TCP connections</div>
+                            </div>
+
+                            <!-- Interface Throughput -->
+                            <div class="stat-box">
+                                <div class="stat-label">Total Throughput</div>
+                                <div class="stat-value" x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) + ' Mbps' : 'N/A'"></div>
+                                <div class="stat-desc">Aggregate RX + TX</div>
+                            </div>
+
+                            <!-- Uptime -->
+                            <div class="stat-box">
+                                <div class="stat-label">Uptime</div>
+                                <div class="stat-value" style="font-size: var(--fs-sm);" x-text="firewallSNMP.uptime_formatted || 'N/A'"></div>
+                                <div class="stat-desc">System uptime</div>
+                            </div>
+                        </div>
+
+                        <!-- Interface Table -->
+                        {% call widget_card('firewall_interfaces', 'Network Interfaces', '🌐', show_spinner=False) %}
+                        <div x-show="firewallSNMP.interfaces && firewallSNMP.interfaces.length > 0">
+                            <table class="table-fixed table-compact">
+                                <thead>
+                                    <tr>
+                                        <th>Interface</th>
+                                        <th>Status</th>
+                                        <th>RX Rate</th>
+                                        <th>TX Rate</th>
+                                        <th>Errors</th>
+                                        <th>Drops</th>
+                                        <th>Utilization</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="iface in firewallSNMP.interfaces" :key="iface.name">
+                                        <tr>
+                                            <td><strong x-text="iface.name"></strong></td>
+                                            <td>
+                                                <span class="badge" 
+                                                    :class="{ 'badge-success': iface.status === 'up', 'badge-error': iface.status === 'down' }"
+                                                    x-text="iface.status === 'up' ? 'UP' : 'DOWN'"></span>
+                                            </td>
+                                            <td x-text="iface.rx_mbps !== null ? iface.rx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
+                                            <td x-text="iface.tx_mbps !== null ? iface.tx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
+                                            <td>
+                                                <span x-show="(iface.rx_errors || 0) + (iface.tx_errors || 0) > 0" 
+                                                    class="text-warn"
+                                                    x-text="((iface.rx_errors || 0) + (iface.tx_errors || 0)).toFixed(1) + '/s'"></span>
+                                                <span x-show="(iface.rx_errors || 0) + (iface.tx_errors || 0) === 0" class="text-muted">0</span>
+                                            </td>
+                                            <td>
+                                                <span x-show="(iface.rx_drops || 0) + (iface.tx_drops || 0) > 0"
+                                                    class="text-warn"
+                                                    x-text="((iface.rx_drops || 0) + (iface.tx_drops || 0)).toFixed(1) + '/s'"></span>
+                                                <span x-show="(iface.rx_drops || 0) + (iface.tx_drops || 0) === 0" class="text-muted">0</span>
+                                            </td>
+                                            <td>
+                                                <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90 }"
+                                                    x-text="iface.utilization !== null ? iface.utilization.toFixed(1) + '%' : '—'"></span>
+                                                <span x-show="iface.speed_mbps" class="text-muted" style="font-size: 0.85em;"
+                                                    x-text="'(' + iface.speed_mbps + ' Mbps)'"></span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div x-show="!firewallSNMP.interfaces || firewallSNMP.interfaces.length === 0" class="empty-state">
+                            <p class="text-muted">No interface data available</p>
+                        </div>
+                        {% endcall %}
+
+                        <!-- System Info Panel -->
+                        {% call widget_card('firewall_system_info', 'System Information', 'ℹ️', show_spinner=False) %}
+                        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-secondary">Uptime:</span>
+                                <span x-text="firewallSNMP.uptime_formatted || 'Unknown'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-secondary">Last SNMP Poll:</span>
+                                <span x-text="firewallSNMP.last_poll ? timeAgo(firewallSNMP.last_poll) : 'Never'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-secondary">SNMP Status:</span>
+                                <span class="badge" :class="{ 'badge-success': firewallSNMP.poll_success, 'badge-error': !firewallSNMP.poll_success }"
+                                    x-text="firewallSNMP.poll_success ? 'ACTIVE' : 'ERROR'"></span>
+                            </div>
+                        </div>
+                        {% endcall %}
+
+                    </div>
+                </template>
+
+            </section>
         </div>
 
         <!-- ============================================

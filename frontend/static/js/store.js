@@ -145,6 +145,9 @@ export const Store = () => ({
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.0.0', version_display: 'v1.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
+    firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, loading: true, error: null },
+    firewallSNMPRefreshTimer: null,
+    _firewallSNMPFetching: false,
 
     // Forensics Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
@@ -3013,6 +3016,52 @@ export const Store = () => ({
         }, 2000);
     },
 
+    async fetchFirewallSNMP() {
+        // Prevent concurrent requests
+        if (this._firewallSNMPFetching) return;
+        this._firewallSNMPFetching = true;
+
+        const isInitialLoad = !this.firewallSNMP.last_poll;
+        if (isInitialLoad) {
+            this.firewallSNMP.loading = true;
+        }
+        this.firewallSNMP.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/firewall/snmp-status?_=${Date.now()}`);
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data.error) {
+                    this.firewallSNMP.error = data.error;
+                    this.firewallSNMP.poll_success = false;
+                } else {
+                    this.firewallSNMP.cpu_percent = data.cpu_percent;
+                    this.firewallSNMP.memory_percent = data.memory_percent;
+                    this.firewallSNMP.active_sessions = data.active_sessions;
+                    this.firewallSNMP.total_throughput_mbps = data.total_throughput_mbps;
+                    this.firewallSNMP.uptime_formatted = data.uptime_formatted;
+                    this.firewallSNMP.uptime_seconds = data.uptime_seconds;
+                    this.firewallSNMP.interfaces = data.interfaces || [];
+                    this.firewallSNMP.last_poll = data.last_poll;
+                    this.firewallSNMP.poll_success = data.poll_success;
+                    this.firewallSNMP.error = null;
+                }
+            } else {
+                this.firewallSNMP.error = 'Failed to fetch SNMP data';
+                this.firewallSNMP.poll_success = false;
+            }
+        } catch (e) {
+            console.error('Firewall SNMP fetch error:', e);
+            this.firewallSNMP.error = 'SNMP service unavailable';
+            this.firewallSNMP.poll_success = false;
+        } finally {
+            this.firewallSNMP.loading = false;
+            this._firewallSNMPFetching = false;
+        }
+    },
+
     async fetchBandwidth() {
         this.bandwidth.loading = true;
         this.bandwidth.error = null;
@@ -4567,6 +4616,25 @@ export const Store = () => ({
     loadTab(tab) {
         this.activeTab = tab;
         const now = Date.now();
+        
+        // Load tab-specific data
+        if (tab === 'firewall-snmp') {
+            this.fetchFirewallSNMP();
+            // Set up refresh interval (10-30s TTL as per requirements)
+            if (this.firewallSNMPRefreshTimer) {
+                clearInterval(this.firewallSNMPRefreshTimer);
+            }
+            this.firewallSNMPRefreshTimer = setInterval(() => {
+                if (this.activeTab === 'firewall-snmp' && !this.paused) {
+                    this.fetchFirewallSNMP();
+                } else {
+                    if (this.firewallSNMPRefreshTimer) {
+                        clearInterval(this.firewallSNMPRefreshTimer);
+                        this.firewallSNMPRefreshTimer = null;
+                    }
+                }
+            }, 10000); // 10 second refresh
+        }
         if (tab === 'overview') {
             if (now - this.lastFetch.worldmap > this.heavyTTL) {
                 this.fetchWorldMap();

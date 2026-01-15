@@ -5064,6 +5064,77 @@ def api_server_health():
     return jsonify(data)
 
 
+@bp.route('/api/firewall/snmp-status')
+@throttle(5, 10)
+def api_firewall_snmp_status():
+    """Get firewall SNMP operational health data."""
+    from app.services.snmp import get_snmp_data
+    import time
+    
+    snmp_data = get_snmp_data()
+    
+    # Check for errors
+    if "error" in snmp_data:
+        return jsonify({
+            "error": snmp_data.get("error", "SNMP unavailable"),
+            "backoff": snmp_data.get("backoff", False),
+            "data": None
+        }), 503 if snmp_data.get("backoff") else 200
+    
+    # Extract interface data
+    interfaces = []
+    
+    # WAN interface
+    if "wan_in" in snmp_data or "wan_out" in snmp_data:
+        wan_status = snmp_data.get("if_wan_status", 1)  # 1 = up, 2 = down
+        interfaces.append({
+            "name": "WAN",
+            "status": "up" if wan_status == 1 else "down",
+            "rx_mbps": snmp_data.get("wan_rx_mbps", 0),
+            "tx_mbps": snmp_data.get("wan_tx_mbps", 0),
+            "rx_errors": snmp_data.get("wan_in_err_s", 0),
+            "tx_errors": snmp_data.get("wan_out_err_s", 0),
+            "rx_drops": snmp_data.get("wan_in_disc_s", 0),
+            "tx_drops": snmp_data.get("wan_out_disc_s", 0),
+            "utilization": snmp_data.get("wan_util_percent", 0),
+            "speed_mbps": snmp_data.get("wan_speed_mbps", 0)
+        })
+    
+    # LAN interface
+    if "lan_in" in snmp_data or "lan_out" in snmp_data:
+        lan_status = snmp_data.get("if_lan_status", 1)
+        interfaces.append({
+            "name": "LAN",
+            "status": "up" if lan_status == 1 else "down",
+            "rx_mbps": snmp_data.get("lan_rx_mbps", 0),
+            "tx_mbps": snmp_data.get("lan_tx_mbps", 0),
+            "rx_errors": snmp_data.get("lan_in_err_s", 0),
+            "tx_errors": snmp_data.get("lan_out_err_s", 0),
+            "rx_drops": snmp_data.get("lan_in_disc_s", 0),
+            "tx_drops": snmp_data.get("lan_out_disc_s", 0),
+            "utilization": snmp_data.get("lan_util_percent", 0),
+            "speed_mbps": snmp_data.get("lan_speed_mbps", 0)
+        })
+    
+    # Calculate aggregate throughput
+    total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
+    
+    # Format response
+    response = {
+        "cpu_percent": snmp_data.get("cpu_percent", 0),
+        "memory_percent": snmp_data.get("mem_percent", 0),
+        "active_sessions": snmp_data.get("tcp_conns", 0),
+        "total_throughput_mbps": round(total_throughput, 2),
+        "uptime_formatted": snmp_data.get("sys_uptime_formatted", "Unknown"),
+        "uptime_seconds": snmp_data.get("sys_uptime", 0),
+        "interfaces": interfaces,
+        "last_poll": time.time(),
+        "poll_success": True
+    }
+    
+    return jsonify(response)
+
+
 # ===== SNMP Integration =====
 
 # SNMP Configuration (override with env vars)
