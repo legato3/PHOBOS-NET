@@ -1,11 +1,106 @@
+/* ============================================
+   CYBERPUNK UI - MAIN STYLESHEET
+   Signal-first design system
+   ============================================ */
+
+/* Import cyberpunk tokens and base layout */
+@import url("css/tokens.css");
+@import url("css/base.css");
+
 :root {
     /* ============================================
-       TrueNAS STYLE CONSOLE
-       Design System v4.0
+       CYBERPUNK DESIGN SYSTEM v5.0
+       Signal-first, high-contrast theme
        ============================================ */
 
-    /* Base Colors - TrueNAS Theme */
-    --bg-primary: #151522;
+    /* Map existing CSS variables to cyberpunk tokens */
+    --bg-primary: var(--bg-0);
+    --bg-secondary: var(--bg-1);
+    --bg-elevated: var(--bg-2);
+    --bg-overlay: var(--bg-elevated);
+
+    /* Typography - Signal fonts */
+    --font-sans: var(--font-ui);
+    --font-heading: var(--font-ui);
+    --font-mono: var(--font-mono);
+
+    /* Accent - Signal colors (NO RED except critical) */
+    --accent-primary: var(--signal-primary);
+    --accent-primary-hover: var(--signal-primary-dim);
+    --accent-secondary: var(--signal-secondary);
+    --accent-success: var(--signal-ok);
+    --accent-warning: var(--signal-warn);
+    --accent-info: var(--signal-info);
+    --accent-danger: var(--signal-crit);  /* RED - ONLY for critical */
+    --accent-error: var(--signal-crit);   /* RED - ONLY for critical */
+    
+    /* TrueNAS brand (cyberpunk cyan) */
+    --true-blue: var(--signal-primary);
+    --true-blue-hover: var(--signal-primary-dim);
+
+    /* Text - Signal hierarchy */
+    --text-primary: var(--text-0);
+    --text-secondary: var(--text-1);
+    --text-tertiary: var(--text-2);
+    --text-muted: var(--text-3);
+    --text-light: var(--text-0);
+    --text-main: var(--text-0);
+
+    /* Spacing - Signal grid */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* Typography Scale */
+    --text-xs: var(--fs-xs);
+    --text-sm: var(--fs-sm);
+    --text-base: var(--fs-md);
+    --text-lg: var(--fs-lg);
+    --text-xl: var(--fs-xl);
+    --text-2xl: var(--fs-2xl);
+    --text-3xl: var(--fs-3xl);
+    --text-4xl: 2.5rem;
+
+    /* Layout */
+    --header-height: var(--header-height);
+    --sidebar-width: var(--sidebar-width);
+    --sidebar-collapsed: var(--sidebar-collapsed);
+    --container-padding: var(--space-4);
+
+    /* Surfaces - Signal panels */
+    --card-bg: var(--bg-1);
+    --card-border: var(--border-soft);
+    --card-shadow: var(--shadow-soft);
+    --card-radius: var(--radius-lg);
+
+    /* Glows - Signal emissions (subtle) */
+    --accent-primary-glow-strong: rgba(0, 234, 255, 0.25);
+    --shadow-glow-primary: var(--glow-primary);
+    --shadow-glow-danger: var(--glow-critical);  /* RED glow for critical only */
+
+    /* Transitions - Signal smoothness */
+    --transition-fast: var(--transition-fast);
+    --transition-base: var(--transition-base);
+    --transition-slow: var(--transition-slow);
+    --motion-fast: var(--transition-fast);
+    --motion-base: var(--transition-base);
+    --motion-slow: var(--transition-slow);
+
+    /* Legacy compatibility (deprecated) */
+    --bg-dark: var(--bg-0);
+    --accent-cyan: var(--signal-primary);
+    --neon-cyan: var(--signal-primary);
+    --neon-green: var(--signal-ok);
+    --neon-yellow: var(--signal-warn);
+    --neon-red: var(--signal-crit);  /* RED - ONLY for critical */
+    --neon-purple: var(--signal-tertiary);
+    --danger: var(--signal-crit);  /* RED - ONLY for critical */
     /* Deep dark blue-grey */
     --bg-secondary: #1d1d2b;
     /* Slightly lighter for cards/sidebar */
@@ -48,52 +143,24 @@
     --accent-magenta: #ff00ff;
     --accent-secondary: var(--accent-magenta);
 
-    /* Legacy compatibility (deprecated, use semantic aliases) */
-    --bg-dark: var(--bg-primary);
-    --accent-cyan: var(--accent-primary);
-    --neon-cyan: var(--accent-primary);
-    --neon-purple: var(--accent-secondary);
-    --neon-red: var(--accent-danger);
-    --neon-green: var(--accent-success);
-    --neon-yellow: var(--accent-warning);
-    --danger: var(--accent-danger);
-
-    /* Typography System - Material Design */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-
-    /* Text Colors - Clear hierarchy */
-    --text-primary: #e8e8e8;
-    /* Main content - WCAG AAA on bg-primary */
-    --text-secondary: #a0a0a0;
-    /* Secondary content - WCAG AA */
-    --text-tertiary: #707070;
-    /* Tertiary, disabled states */
-    --text-muted: #666666;
-    /* Muted text */
+    /* Text Colors - Signal hierarchy (from tokens.css) */
+    --text-primary: var(--text-0);
+    --text-secondary: var(--text-1);
+    --text-tertiary: var(--text-2);
+    --text-muted: var(--text-3);
     --text-inverse: #000000;
-    /* Text on accent backgrounds */
-    --text-main: var(--text-primary);
-    --text-light: #f5f5f5;
-    /* Light text for emphasis */
+    --text-main: var(--text-0);
+    --text-light: var(--text-0);
 
-    /* Typography Scale - Modular scale (1.125 ratio, 16px base) */
-    --text-xs: 0.75rem;
-    /* 12px - Captions, labels */
-    --text-sm: 0.875rem;
-    /* 14px - Secondary text */
-    --text-base: 1rem;
-    /* 16px - Body text */
-    --text-lg: 1.125rem;
-    /* 18px - Emphasized body */
-    --text-xl: 1.25rem;
-    /* 20px - Small headings */
-    --text-2xl: 1.5rem;
-    /* 24px - Section titles */
-    --text-3xl: 1.875rem;
-    /* 30px - Page titles */
-    --text-4xl: 2.25rem;
-    /* 36px - Hero text */
+    /* Typography Scale - Signal scale (from tokens.css) */
+    --text-xs: var(--fs-xs);
+    --text-sm: var(--fs-sm);
+    --text-base: var(--fs-md);
+    --text-lg: var(--fs-lg);
+    --text-xl: var(--fs-xl);
+    --text-2xl: var(--fs-2xl);
+    --text-3xl: var(--fs-3xl);
+    --text-4xl: 2.5rem;
 
     /* Font Weights */
     --font-weight-normal: 400;
@@ -145,24 +212,24 @@
     --space-xl: var(--space-8);
     --space-2xl: var(--space-12);
 
-    /* Border Radius - Termix style rounded corners */
+    /* Border Radius - Signal panels (from tokens.css) */
     --radius-none: 0;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
-    --radius-2xl: 16px;
+    --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
+    --radius-lg: var(--radius-lg);
+    --radius-xl: var(--radius-xl);
+    --radius-2xl: 20px;
     --radius-full: 9999px;
 
-    /* Enhanced Shadows - Layered depth with glow effects */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.7), 0 6px 12px rgba(0, 0, 0, 0.6);
-    --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.7);
-    --shadow-glow-primary: 0 0 8px rgba(0, 162, 255, 0.2), 0 0 16px var(--accent-primary-glow-strong);
-    --shadow-glow-danger: 0 0 8px rgba(255, 23, 68, 0.2), 0 0 16px rgba(255, 23, 68, 0.3);
-    --shadow-glow-secondary: 0 0 8px rgba(255, 0, 255, 0.2), 0 0 16px rgba(255, 0, 255, 0.25);
+    /* Enhanced Shadows - Signal depth (from tokens.css) */
+    --shadow-sm: var(--shadow-soft);
+    --shadow-md: var(--shadow-medium);
+    --shadow-lg: var(--shadow-hard);
+    --shadow-xl: var(--shadow-hard);
+    --shadow-2xl: var(--shadow-hard);
+    --shadow-glow-primary: var(--glow-primary);
+    --shadow-glow-danger: var(--glow-critical);  /* RED glow for critical only */
+    --shadow-glow-secondary: 0 0 8px rgba(123, 123, 255, 0.2), 0 0 16px rgba(123, 123, 255, 0.25);
 
     /* Transitions - Subtle, purposeful motion */
     --motion-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -267,24 +334,25 @@ body {
     color: #fff;
 }
 
-/* Scrollbar Polish - Termix style skinny scrollbar */
+/* CYBERPUNK UI: Scrollbar - Signal track */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #1e1e21;
+    background: var(--bg-0);
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: #4a4a4a;
+    background-color: var(--text-2);
     border-radius: 3px;
-    border: 1px solid #1e1e21;
+    border: 1px solid var(--bg-0);
+    transition: background-color var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: #5a5a5a;
+    background-color: var(--signal-primary-dim);
 }
 
 /* Layout - Full width dashboard */
@@ -513,20 +581,23 @@ body.sidebar-collapsed .main-content {
     /* Offset for fixed header */
 }
 
+/* CYBERPUNK UI: Header - Signal command bar */
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 var(--space-6);
+    padding: 0 var(--space-4);
     height: var(--header-height);
     background: var(--bg-elevated);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-soft);
     position: fixed;
     top: 0;
     right: 0;
     left: var(--sidebar-width);
-    z-index: 900;
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: var(--z-header);
+    transition: left var(--transition-base), border-color var(--transition-fast);
 }
 
 body.sidebar-collapsed .header {
@@ -886,23 +957,39 @@ body.sidebar-collapsed .header {
     }
 }
 
-.card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--card-radius);
-    padding: var(--space-6);
-    box-shadow: var(--card-shadow);
+/* CYBERPUNK UI: Panel/Card - Signal container */
+.card,
+.panel {
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    padding: var(--panel-padding);
+    box-shadow: var(--shadow-soft);
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: border-color var(--motion-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
     overflow: hidden;
 }
 
-/* Card styling - TrueNAS style - clean and minimal */
+/* CYBERPUNK UI: Subtle glow on hover */
+.card:hover,
+.panel:hover {
+    border-color: var(--border-medium);
+    box-shadow: var(--shadow-medium);
+}
 
-.card:hover {
-    border-color: rgba(255, 255, 255, 0.1);
+/* CYBERPUNK UI: Panel glow-hover class for signal highlight */
+.card.glow-hover:hover,
+.panel.glow-hover:hover {
+    box-shadow: var(--glow-primary);
+}
+
+/* CYBERPUNK UI: Critical panels (RED border/glow) */
+.card.critical,
+.panel.critical {
+    border-color: var(--border-critical);
+    box-shadow: var(--shadow-soft), var(--glow-critical);
 }
 
 /* Primary focus cards - higher elevation with enhanced shadows */
@@ -913,9 +1000,16 @@ body.sidebar-collapsed .header {
     border-color: var(--card-border);
 }
 
+/* CYBERPUNK UI: Card hover states with signal glow */
 .primary-column .card:hover,
 .secondary-column .card:hover {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--border-medium);
+    box-shadow: var(--shadow-medium);
+}
+
+.primary-column .card.glow-hover:hover,
+.secondary-column .card.glow-hover:hover {
+    box-shadow: var(--glow-primary);
 }
 
 .card:focus-within {
@@ -987,12 +1081,54 @@ body.sidebar-collapsed .header {
 }
 
 /* Table Density & Polish */
-table {
+/* CYBERPUNK UI: Table - Signal data grid */
+table,
+.table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
-    /* Body text */
-    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+    color: var(--text-1);
+}
+
+table th,
+.table th {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    font-weight: 600;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+table td,
+.table td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+table tr,
+.table tr {
+    transition: background-color var(--transition-fast);
+}
+
+table tr:hover,
+.table tr:hover {
+    background: rgba(0, 234, 255, 0.06);
+}
+
+table tr.low-signal,
+.table tr.low-signal {
+    opacity: 0.45;
+}
+
+/* CYBERPUNK UI: Critical table rows (RED border) */
+table tr.critical,
+.table tr.critical {
+    background: rgba(255, 23, 68, 0.08);
+    border-left: 2px solid var(--signal-crit);
 }
 
 /* Table utilities */
@@ -1007,7 +1143,7 @@ table {
 
 .table-compact th {
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: var(--fs-sm);
 }
 
 /* ============================================
@@ -1475,8 +1611,15 @@ tr:hover td {
     color: var(--accent-magenta);
 }
 
-.text-red {
-    color: var(--accent-red);
+/* CYBERPUNK UI: Text colors - RED ONLY for critical */
+.text-red,
+.text-critical,
+.text-crit {
+    color: var(--signal-crit);
+}
+
+.text-danger {
+    color: var(--signal-crit);  /* RED - ONLY for critical/danger */
 }
 
 .text-purple {
@@ -1595,8 +1738,10 @@ tr:hover td {
     background: #00f3ff;
 }
 
-.layer-dot-red {
-    background: #ff003c;
+/* CYBERPUNK UI: Layer dots - RED ONLY for critical */
+.layer-dot-red,
+.layer-dot-critical {
+    background: var(--signal-crit);  /* RED - ONLY for critical */
 }
 
 .opacity-50 {
@@ -1722,35 +1867,42 @@ tr:hover td {
     letter-spacing: 1px;
 }
 
+/* CYBERPUNK UI: Alert group headers - Signal states */
 .alert-group-header.critical {
-    color: var(--neon-red);
+    color: var(--signal-crit);  /* RED - ONLY for critical */
+    text-shadow: var(--glow-critical);
 }
 
 .alert-group-header.high {
-    color: var(--accent-magenta);
+    color: var(--signal-warn);
 }
 
+/* CYBERPUNK UI: Alert items - Signal alerts */
 .alert-item {
     padding: 10px 15px;
     display: flex;
     align-items: flex-start;
     gap: 10px;
     border-left: 3px solid transparent;
-    transition: background 0.2s;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
     background: rgba(0, 0, 0, 0.2);
     margin-bottom: 1px;
 }
 
 .alert-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 234, 255, 0.06);
 }
 
+/* CYBERPUNK UI: Critical alert item (RED border) */
 .alert-item.critical {
-    border-left-color: var(--neon-red);
+    border-left-color: var(--signal-crit);  /* RED - ONLY for critical */
+    background: rgba(255, 23, 68, 0.06);
 }
 
+/* CYBERPUNK UI: High/medium/low alerts (NOT red) */
 .alert-item.high {
-    border-left-color: orange;
+    border-left-color: var(--signal-warn);
+    background: rgba(255, 180, 0, 0.04);
 }
 
 .alert-item.medium {
@@ -2554,9 +2706,11 @@ tr:hover td {
     border-left: 3px solid var(--accent-magenta);
 }
 
-.health-indicator.status-bad {
-    background: rgba(255, 0, 60, 0.08);
-    border-left: 3px solid var(--accent-red);
+/* CYBERPUNK UI: Health indicator - Critical status (RED) */
+.health-indicator.status-bad,
+.health-indicator.status-critical {
+    background: rgba(255, 23, 68, 0.08);
+    border-left: 3px solid var(--signal-crit);  /* RED - ONLY for critical */
 }
 
 .ind-icon {
@@ -2714,20 +2868,20 @@ table[style*="table-layout:fixed"] td:first-child {
     border-left: 3px solid orange;
 }
 
+/* CYBERPUNK UI: Stat box - Critical status (RED) */
 .stat-box.status-critical {
-    border-left: 3px solid var(--neon-red);
-    animation: pulse-red 2s ease-in-out infinite;
+    border-left: 3px solid var(--signal-crit);  /* RED - ONLY for critical */
+    box-shadow: var(--glow-critical);
+    animation: pulse-critical 2s ease-in-out infinite;
 }
 
-@keyframes pulse-red {
-
-    0%,
-    100% {
-        box-shadow: 0 0 5px rgba(255, 0, 60, 0.2);
+/* CYBERPUNK UI: Pulse animation for critical states (RED glow) */
+@keyframes pulse-critical {
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(255, 23, 68, 0.3);
     }
-
     50% {
-        box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+        box-shadow: 0 0 15px rgba(255, 23, 68, 0.5);
     }
 }
 
@@ -3018,23 +3172,30 @@ table[style*="table-layout:fixed"] td:first-child {
     color: var(--accent-warning);
 }
 
+/* CYBERPUNK UI: Status bar critical value (RED) */
 .status-bar-item .value.critical {
-    color: var(--accent-danger);
+    color: var(--signal-crit);  /* RED - ONLY for critical */
+    text-shadow: var(--glow-critical);
 }
 
+/* CYBERPUNK UI: Status bar dots - Signal indicators */
 .status-bar-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--neon-green);
+    background: var(--signal-ok);
+    box-shadow: 0 0 4px var(--signal-ok);
 }
 
 .status-bar-dot.warning {
-    background: orange;
+    background: var(--signal-warn);
+    box-shadow: 0 0 4px var(--signal-warn);
 }
 
+.status-bar-dot.critical,
 .status-bar-dot.disconnected {
-    background: var(--neon-red);
+    background: var(--signal-crit);  /* RED - ONLY for critical/disconnected */
+    box-shadow: var(--glow-critical);
 }
 
 /* Add padding to body for status bar */
@@ -3456,57 +3617,72 @@ body {
     color: var(--accent-magenta);
 }
 
+/* CYBERPUNK UI: Critical latency indicator (RED) */
 .latency-indicator .value.critical {
-    color: var(--accent-red);
+    color: var(--signal-crit);  /* RED - ONLY for critical */
+    text-shadow: var(--glow-critical);
 }
 
 /* ============================================
-   THREAT CATEGORY BADGES
+   CYBERPUNK UI: THREAT CATEGORY BADGES
+   Signal-first, RED ONLY for critical
    ============================================ */
+/* CYBERPUNK UI: C2 badge - CRITICAL (RED) */
 .badge.cat-c2 {
-    background: linear-gradient(135deg, #ff003c, #990024);
-    color: #fff;
-    text-shadow: 0 0 5px rgba(255, 0, 60, 0.5);
+    background: rgba(255, 23, 68, 0.2);
+    color: var(--signal-crit);  /* RED - ONLY for critical */
+    border: 1px solid var(--border-critical);
+    box-shadow: 0 0 8px rgba(255, 23, 68, 0.3);
+    font-weight: 600;
 }
 
+/* CYBERPUNK UI: Other threat categories - use signal colors (NOT red) */
 .badge.cat-malware {
-    background: linear-gradient(135deg, #ff6600, #994400);
-    color: #fff;
+    background: rgba(255, 180, 0, 0.15);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 180, 0, 0.3);
 }
 
 .badge.cat-scanner {
-    background: linear-gradient(135deg, #ff00ff, #990099);
-    color: #fff;
+    background: rgba(123, 123, 255, 0.15);
+    color: var(--signal-tertiary);
+    border: 1px solid rgba(123, 123, 255, 0.3);
 }
 
 .badge.cat-badactor {
-    background: linear-gradient(135deg, #ff00ff, #990099);
-    color: #fff;
+    background: rgba(123, 123, 255, 0.15);
+    color: var(--signal-tertiary);
+    border: 1px solid rgba(123, 123, 255, 0.3);
 }
 
 .badge.cat-compromised {
-    background: linear-gradient(135deg, #ff9933, #995c1f);
-    color: #111;
+    background: rgba(255, 180, 0, 0.1);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 180, 0, 0.2);
 }
 
 .badge.cat-hijacked {
-    background: linear-gradient(135deg, #cc0066, #800040);
-    color: #fff;
+    background: rgba(204, 0, 102, 0.2);
+    color: #cc6699;
+    border: 1px solid rgba(204, 0, 102, 0.3);
 }
 
 .badge.cat-aggregate {
-    background: linear-gradient(135deg, #3399ff, #1f5c99);
-    color: #fff;
+    background: rgba(0, 162, 255, 0.15);
+    color: var(--signal-secondary);
+    border: 1px solid rgba(0, 162, 255, 0.3);
 }
 
 .badge.cat-tor {
-    background: linear-gradient(135deg, #7d4698, #4e2d60);
-    color: #fff;
+    background: rgba(125, 70, 152, 0.2);
+    color: #9d7bff;
+    border: 1px solid rgba(125, 70, 152, 0.3);
 }
 
 .badge.cat-unknown {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-2);
+    border: 1px solid var(--border-soft);
 }
 
 /* Feed Status */
@@ -3622,8 +3798,10 @@ body {
     border-left-color: #ff9500;
 }
 
+/* CYBERPUNK UI: Security score - Critical (RED) */
 .security-score-card.score-critical {
-    border-left-color: var(--neon-red);
+    border-left-color: var(--signal-crit);  /* RED - ONLY for critical */
+    box-shadow: var(--shadow-soft), var(--glow-critical);
 }
 
 .score-display {
@@ -3749,10 +3927,12 @@ body {
     align-items: center;
 }
 
-/* Prevent text overflow in alert tables */
+/* CYBERPUNK UI: Prevent text overflow in alert tables */
 .card table {
     table-layout: fixed;
     width: 100%;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
 }
 
 .card table td,
@@ -3760,42 +3940,58 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    border-bottom: 1px solid var(--border-soft);
 }
 
+.card table tr:hover {
+    background: rgba(0, 234, 255, 0.06);
+}
+
+/* CYBERPUNK UI: Alert badges - Signal states */
 .alert-badge {
     padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.85em;
+    border-radius: var(--radius-md);
+    font-size: var(--fs-xs);
     font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
 }
 
+/* CYBERPUNK UI: Critical badge (RED - ONLY for critical) */
 .alert-badge.critical {
-    background: rgba(255, 0, 60, 0.2);
-    color: var(--neon-red);
+    background: rgba(255, 23, 68, 0.15);
+    color: var(--signal-crit);
+    border: 1px solid var(--border-critical);
+    box-shadow: 0 0 8px rgba(255, 23, 68, 0.2);
 }
 
 .alert-badge.high {
-    background: rgba(255, 149, 0, 0.2);
-    color: #ff9500;
+    background: rgba(255, 180, 0, 0.15);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 180, 0, 0.3);
 }
 
 .alert-badge.medium {
-    background: rgba(255, 204, 0, 0.2);
-    color: var(--neon-yellow);
+    background: rgba(255, 180, 0, 0.1);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 180, 0, 0.2);
 }
 
 .alert-badge.low {
-    background: rgba(0, 255, 136, 0.2);
-    color: var(--neon-green);
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--signal-ok);
+    border: 1px solid rgba(0, 255, 136, 0.2);
 }
 
+/* CYBERPUNK UI: Severity text colors (RED ONLY for critical) */
 .severity-critical {
-    color: var(--neon-red);
+    color: var(--signal-crit);
     font-weight: 600;
+    text-shadow: var(--glow-critical);
 }
 
 .severity-high {
-    color: #ff9500;
+    color: var(--signal-warn);
     font-weight: 600;
 }
 
@@ -5060,8 +5256,9 @@ body {
     color: var(--accent-magenta) !important;
 }
 
+/* CYBERPUNK UI: Text red - RED ONLY for critical */
 .text-red {
-    color: var(--accent-red) !important;
+    color: var(--signal-crit) !important;  /* RED - ONLY for critical */
 }
 
 /* ============================================
@@ -6361,9 +6558,10 @@ body.compact-mode {
     background: rgba(0, 243, 255, 0.05);
 }
 
+/* CYBERPUNK UI: Alert row - Critical (RED) */
 .alert-row.severity-row-critical {
-    border-left-color: #ff003c;
-    background: rgba(255, 0, 60, 0.08);
+    border-left-color: var(--signal-crit);  /* RED - ONLY for critical */
+    background: rgba(255, 23, 68, 0.08);
 }
 
 .alert-row.severity-row-high {
@@ -6723,9 +6921,16 @@ body.compact-mode {
     border-left: 3px solid var(--card-border);
 }
 
+/* CYBERPUNK UI: Protocol anomaly - Critical state (RED if critical, otherwise warn) */
 .protocol-anomaly-item.is-anomaly {
-    border-left-color: var(--neon-red);
-    background: rgba(255, 0, 60, 0.08);
+    border-left-color: var(--signal-warn);  /* Warning color, not red */
+    background: rgba(255, 180, 0, 0.08);
+}
+
+.protocol-anomaly-item.is-anomaly.critical {
+    border-left-color: var(--signal-crit);  /* RED - ONLY if explicitly critical */
+    background: rgba(255, 23, 68, 0.08);
+    box-shadow: var(--glow-critical);
 }
 
 .proto-name {

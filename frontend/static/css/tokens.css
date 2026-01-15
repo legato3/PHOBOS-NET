@@ -1,0 +1,97 @@
+/* ============================================
+   CYBERPUNK UI - SIGNAL-FIRST DESIGN TOKENS
+   ============================================ */
+
+:root {
+  /* Background - Deep cyberpunk darkness */
+  --bg-0: #0a0a0f;
+  --bg-1: #0f0f17;
+  --bg-2: #151520;
+  --bg-3: #1a1a28;
+  --bg-elevated: rgba(21, 21, 32, 0.95);
+
+  /* Text - Signal hierarchy */
+  --text-0: #f0f0f8;
+  --text-1: #b8b8d0;
+  --text-2: #787890;
+  --text-3: #484860;
+  --text-muted: #303040;
+
+  /* Accent - Cyan for primary signals (NOT red unless critical) */
+  --signal-primary: #00eaff;
+  --signal-primary-dim: #00a0b0;
+  --signal-secondary: #00a2ff;
+  --signal-tertiary: #7b7bff;
+
+  /* Status - Signal states (RED ONLY for critical) */
+  --signal-ok: #00ff88;
+  --signal-warn: #ffb400;
+  --signal-crit: #ff1744;  /* RED - ONLY for critical/danger */
+  --signal-info: #00a2ff;
+
+  /* Borders - Signal lines */
+  --border-soft: rgba(0, 234, 255, 0.08);
+  --border-medium: rgba(0, 234, 255, 0.15);
+  --border-hard: rgba(0, 234, 255, 0.35);
+  --border-critical: rgba(255, 23, 68, 0.4);  /* Red border for critical */
+
+  /* Typography - Signal fonts */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  --font-signal: var(--font-mono);  /* Monospace for signal data */
+
+  /* Font Sizes - Signal scale */
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+
+  /* Shadows - Signal depth */
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-hard: 0 12px 32px rgba(0, 0, 0, 0.8);
+
+  /* Glow - Signal emissions (subtle) */
+  --glow-primary: 0 0 12px rgba(0, 234, 255, 0.2);
+  --glow-primary-strong: 0 0 20px rgba(0, 234, 255, 0.3);
+  --glow-critical: 0 0 14px rgba(255, 23, 68, 0.35);  /* Red glow for critical only */
+  --glow-ok: 0 0 10px rgba(0, 255, 136, 0.2);
+
+  /* Spacing - Signal grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Border Radius - Signal panels */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* Transitions - Signal smoothness (subtle) */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Z-Index - Signal layers */
+  --z-base: 0;
+  --z-elevated: 10;
+  --z-header: 100;
+  --z-modal: 1000;
+  --z-tooltip: 1100;
+
+  /* Layout - Signal structure */
+  --header-height: 52px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 64px;
+  --panel-padding: var(--space-4);
+}

@@ -1,0 +1,276 @@
+/* ============================================
+   CYBERPUNK UI - BASE LAYOUT STYLES
+   ============================================ */
+
+@import url("tokens.css");
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Header - Signal command bar */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  background: var(--bg-elevated);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Panel - Signal container */
+.panel {
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--panel-padding);
+  box-shadow: var(--shadow-soft);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.panel:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-medium);
+}
+
+.panel.glow-hover:hover {
+  box-shadow: var(--glow-primary);
+}
+
+.panel.critical {
+  border-color: var(--border-critical);
+  box-shadow: var(--shadow-soft), var(--glow-critical);
+}
+
+/* Table - Signal data grid */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-1);
+}
+
+.table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.table tr {
+  transition: background-color var(--transition-fast);
+}
+
+.table tr:hover {
+  background: rgba(0, 234, 255, 0.06);
+}
+
+.table tr.low-signal {
+  opacity: 0.45;
+}
+
+.table tr.critical {
+  background: rgba(255, 23, 68, 0.08);
+  border-left: 2px solid var(--signal-crit);
+}
+
+/* Status indicators - Signal states */
+.status-ok {
+  color: var(--signal-ok);
+}
+
+.status-warn {
+  color: var(--signal-warn);
+}
+
+.status-crit {
+  color: var(--signal-crit);
+  text-shadow: var(--glow-critical);
+  font-weight: 600;
+}
+
+/* Glow hover effect - Subtle signal highlight */
+.glow-hover {
+  transition: box-shadow var(--transition-base);
+}
+
+.glow-hover:hover {
+  box-shadow: var(--glow-primary);
+}
+
+/* Readonly label - Signal metadata */
+.readonly {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+/* Grid layout - Signal panels */
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* CYBERPUNK UI: Responsive - Mobile signal view */
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .table,
+  table {
+    font-size: var(--fs-xs);
+  }
+
+  .table th,
+  .table td,
+  table th,
+  table td {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .panel,
+  .card {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+  }
+
+  .header {
+    padding: 0 var(--space-2);
+    height: 48px;
+  }
+}
+
+/* CYBERPUNK UI: Responsive - Small mobile */
+@media (max-width: 480px) {
+  .panel,
+  .card {
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+
+  .table,
+  table {
+    font-size: 10px;
+  }
+}
+
+/* Wall mode - Signal display (larger text, minimal UI) */
+.wall,
+body.wall-mode {
+  font-size: 1.15em;
+}
+
+.wall .controls,
+body.wall-mode .controls {
+  display: none;
+}
+
+.wall .header,
+body.wall-mode .header {
+  height: 40px;
+  padding: 0 var(--space-2);
+}
+
+.wall .panel,
+.wall .card,
+body.wall-mode .panel,
+body.wall-mode .card {
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.wall .table,
+body.wall-mode .table {
+  font-size: var(--fs-md);
+}
+
+.wall .panel h2,
+.wall .card h2,
+body.wall-mode .panel h2,
+body.wall-mode .card h2 {
+  font-size: var(--fs-lg);
+  margin-bottom: var(--space-3);
+}
+
+/* Utility classes - Signal modifiers */
+.text-signal {
+  color: var(--signal-primary);
+  font-family: var(--font-mono);
+}
+
+.text-critical {
+  color: var(--signal-crit);
+}
+
+.text-ok {
+  color: var(--signal-ok);
+}
+
+.text-warn {
+  color: var(--signal-warn);
+}
+
+.bg-signal {
+  background: var(--bg-1);
+  border: 1px solid var(--border-medium);
+}
+
+.border-signal {
+  border: 1px solid var(--border-medium);
+}
+
+.border-critical {
+  border: 1px solid var(--border-critical);
+}
