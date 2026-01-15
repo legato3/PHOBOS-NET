@@ -145,7 +145,7 @@ export const Store = () => ({
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.0.0', version_display: 'v1.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
-    firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, loading: true, error: null },
+    firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, traffic_correlation: null, loading: true, error: null },
     firewallSNMPRefreshTimer: null,
     _firewallSNMPFetching: false,
 
@@ -3046,6 +3046,7 @@ export const Store = () => ({
                     this.firewallSNMP.interfaces = data.interfaces || [];
                     this.firewallSNMP.last_poll = data.last_poll;
                     this.firewallSNMP.poll_success = data.poll_success;
+                    this.firewallSNMP.traffic_correlation = data.traffic_correlation || null;
                     this.firewallSNMP.error = null;
                 }
             } else {

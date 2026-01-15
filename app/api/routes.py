@@ -5182,6 +5182,50 @@ def api_firewall_snmp_status():
     # Calculate aggregate throughput
     total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
     
+    # Correlate SNMP throughput with NetFlow traffic volume
+    # Use 1h window to match typical SNMP polling cadence
+    try:
+        from app.services.netflow import get_common_nfdump_data
+        from app.utils.helpers import get_time_range
+        
+        # Get NetFlow total bytes for last hour
+        range_key = "1h"
+        netflow_sources = get_common_nfdump_data("sources", range_key)
+        netflow_total_bytes = sum(i.get("bytes", 0) for i in netflow_sources) if netflow_sources else 0
+        
+        # Calculate SNMP total bytes for same window (1 hour)
+        # SNMP rates are in Mbps, convert to total bytes over 1 hour
+        snmp_total_bytes = (total_throughput * 1_000_000 / 8) * 3600  # Mbps -> bytes/sec -> bytes/hour
+        
+        # Calculate correlation status
+        # Allow 20% variance for accounting differences (headers, sampling, etc.)
+        if netflow_total_bytes == 0 and snmp_total_bytes == 0:
+            correlation_status = "aligned"
+            correlation_hint = None
+        elif netflow_total_bytes == 0:
+            correlation_status = "interface_heavy"
+            correlation_hint = "NetFlow shows no traffic"
+        elif snmp_total_bytes == 0:
+            correlation_status = "flow_heavy"
+            correlation_hint = "SNMP shows no traffic"
+        else:
+            ratio = netflow_total_bytes / snmp_total_bytes if snmp_total_bytes > 0 else 0
+            if 0.8 <= ratio <= 1.2:  # Within 20% variance
+                correlation_status = "aligned"
+                correlation_hint = None
+            elif ratio > 1.2:
+                correlation_status = "flow_heavy"
+                correlation_hint = f"NetFlow {((ratio - 1) * 100):.0f}% higher"
+            else:  # ratio < 0.8
+                correlation_status = "interface_heavy"
+                correlation_hint = f"SNMP {((1 - ratio) * 100):.0f}% higher"
+    except Exception as e:
+        # Fail gracefully - correlation is informational only
+        correlation_status = "unknown"
+        correlation_hint = None
+        netflow_total_bytes = None
+        snmp_total_bytes = None
+    
     # Update interface utilization baselines and detect saturation risk
     import app.core.state as state
     import statistics
@@ -5238,7 +5282,13 @@ def api_firewall_snmp_status():
         "uptime_seconds": snmp_data.get("sys_uptime", 0),
         "interfaces": interfaces,
         "last_poll": time.time(),
-        "poll_success": True
+        "poll_success": True,
+        "traffic_correlation": {
+            "status": correlation_status,
+            "hint": correlation_hint,
+            "snmp_bytes_1h": int(snmp_total_bytes) if snmp_total_bytes is not None else None,
+            "netflow_bytes_1h": int(netflow_total_bytes) if netflow_total_bytes is not None else None
+        }
     }
     
     return jsonify(response)
