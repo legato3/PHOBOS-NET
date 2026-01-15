@@ -4219,6 +4219,12 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
+            // Fetch data needed for Overview stat boxes
+            this.fetchNetworkStatsOverview();
+            this.fetchFirewallStatsOverview();
+            this.fetchNetHealth();
+            this.fetchSecurityScore();
+            this.fetchAlertHistory();
             // Map initialization is handled by IntersectionObserver when section becomes visible
             // Just fetch data here if needed
         } else if (tab === 'server') {

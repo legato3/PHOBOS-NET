@@ -303,28 +303,29 @@
                             <!-- Top Row: Summary Stats (Compact Horizontal) -->
                             <div class="summary-stats-grid">
                                 <div class="stat-box">
-                                    <div class="value" x-text="summary.totals.bytes_fmt">...</div>
-                                    <div class="label">Total Traffic</div>
+                                    <div class="value" :class="'grade-' + (Math.round((netHealth.health_score + securityScore.score) / 2) >= 90 ? 'a' : Math.round((netHealth.health_score + securityScore.score) / 2) >= 70 ? 'b' : Math.round((netHealth.health_score + securityScore.score) / 2) >= 50 ? 'c' : 'd')"
+                                        x-text="netHealth.loading || securityScore.loading ? '...' : Math.round((netHealth.health_score + securityScore.score) / 2)">...</div>
+                                    <div class="label">Overall Health</div>
+                                </div>
+                                <div class="stat-box" :class="{ 'status-warning': alertHistory.total > 0 }">
+                                    <div class="value" x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">...</div>
+                                    <div class="label">Active Alerts</div>
                                 </div>
                                 <div class="stat-box">
-                                    <div class="value" x-text="Number(summary.totals.flows).toLocaleString()">...</div>
-                                    <div class="label">Total Flows</div>
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</div>
+                                    <div class="label">Active Flows</div>
                                 </div>
                                 <div class="stat-box">
-                                    <div class="value" x-text="summary.totals.avg_packet_size + ' B'">...</div>
-                                    <div class="label">Avg Packet Size</div>
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</div>
+                                    <div class="label">External Connections</div>
                                 </div>
-                                <div class="stat-box" :class="{ 'status-warning': threats.hits.length > 0 }">
-                                    <div class="value" x-text="threats.hits.length || 0">0</div>
-                                    <div class="label">Threats</div>
+                                <div class="stat-box">
+                                    <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</div>
+                                    <div class="label">Blocked Events (24h)</div>
                                 </div>
-                                <div class="stat-box" x-show="firewall.cpu_percent !== null">
-                                    <div class="value" x-text="(firewall.cpu_percent || 0) + '%'">--</div>
-                                    <div class="label">Firewall CPU</div>
-                                </div>
-                                <div class="stat-box" x-show="firewall.mem_percent !== null">
-                                    <div class="value" x-text="(firewall.mem_percent || 0) + '%'">--</div>
-                                    <div class="label">Firewall MEM</div>
+                                <div class="stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</div>
+                                    <div class="label">Anomalies (24h)</div>
                                 </div>
                             </div>
 
