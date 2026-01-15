@@ -11,7 +11,7 @@ import app.core.state as state
 from app.core.state import _shutdown_event
 
 # Import config
-from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL, SNMP_CACHE_TTL
+from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL, SNMP_CACHE_TTL, DEBUG_MODE
 
 # Import formatters
 from app.utils.formatters import format_uptime
@@ -50,10 +50,22 @@ def get_snmp_data():
         values = output.strip().split("\n")
         
         oid_keys = list(SNMP_OIDS.keys())
+        
+        # Debug: Log interface counter retrieval
+        interface_keys = ["wan_in", "wan_out", "lan_in", "lan_out", 
+                         "wan_in_err", "wan_out_err", "wan_in_disc", "wan_out_disc",
+                         "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc"]
+        
         for i, value in enumerate(values):
             if i < len(oid_keys):
                 key = oid_keys[i]
                 clean_val = value.strip().strip("\"")
+                
+                # Skip empty or error responses
+                if not clean_val or clean_val.startswith("No Such") or clean_val.startswith("No more variables"):
+                    if key in interface_keys:
+                        print(f"SNMP Warning: {key} (OID {SNMP_OIDS[key]}) returned: {clean_val}")
+                    continue
                 
                 if key.startswith("cpu_load"):
                     result[key] = float(clean_val)
@@ -77,10 +89,23 @@ def get_snmp_data():
                         clean_val = clean_val.split(":")[-1].strip()
                     try:
                         result[key] = int(clean_val)
-                    except:
-                        result[key] = 0
+                    except (ValueError, TypeError):
+                        # Don't default to 0 for interface counters - use None to indicate missing
+                        if key in interface_keys:
+                            result[key] = None
+                            print(f"SNMP Warning: {key} could not be parsed as integer: {clean_val}")
+                        else:
+                            result[key] = 0
                 else:
                     result[key] = clean_val
+        
+        # Debug: Log what interface counters we actually got
+        if DEBUG_MODE:
+            for key in interface_keys:
+                if key in result:
+                    print(f"SNMP Debug: {key} = {result[key]}")
+                else:
+                    print(f"SNMP Debug: {key} = MISSING")
         
         if "mem_total" in result and "mem_avail" in result:
             # FreeBSD memory calculation: total - available - buffer - cached
@@ -123,27 +148,50 @@ def get_snmp_data():
             for prefix in ("wan", "lan"):
                 in_key = f"{prefix}_in"
                 out_key = f"{prefix}_out"
-                if in_key in result and out_key in result:
-                    prev_in = state._snmp_prev_sample.get(in_key, 0)
-                    prev_out = state._snmp_prev_sample.get(out_key, 0)
-                    d_in = result[in_key] - prev_in
-                    d_out = result[out_key] - prev_out
-                    # Guard against wrap or reset (allow small negative due to counter wrap)
-                    if d_in < 0:
-                        # Counter wrapped - use current value as estimate
-                        d_in = result[in_key]
-                    if d_out < 0:
-                        d_out = result[out_key]
-                    # Calculate rates in Mbps
-                    rx_mbps = (d_in * 8.0) / (dt * 1_000_000)
-                    tx_mbps = (d_out * 8.0) / (dt * 1_000_000)
-                    result[f"{prefix}_rx_mbps"] = round(rx_mbps, 2)
-                    result[f"{prefix}_tx_mbps"] = round(tx_mbps, 2)
-                    # Utilization if speed known
-                    spd = result.get(f"{prefix}_speed_mbps") or result.get(f"{prefix}_speed")
-                    if spd and spd > 0:
-                        util = ((rx_mbps + tx_mbps) / (spd)) * 100.0
-                        result[f"{prefix}_util_percent"] = round(util, 1)
+                
+                # Only calculate if we have valid counter values (not None)
+                if in_key in result and result[in_key] is not None and out_key in result and result[out_key] is not None:
+                    prev_in = state._snmp_prev_sample.get(in_key)
+                    prev_out = state._snmp_prev_sample.get(out_key)
+                    
+                    # Need previous values to calculate delta
+                    if prev_in is not None and prev_out is not None:
+                        d_in = result[in_key] - prev_in
+                        d_out = result[out_key] - prev_out
+                        # Guard against wrap or reset
+                        if d_in < 0:
+                            # Counter wrapped or reset - skip this calculation
+                            if DEBUG_MODE:
+                                print(f"SNMP Debug: {in_key} counter wrapped/reset (prev={prev_in}, curr={result[in_key]})")
+                            result[f"{prefix}_rx_mbps"] = None
+                        else:
+                            # Calculate rates in Mbps
+                            rx_mbps = (d_in * 8.0) / (dt * 1_000_000)
+                            result[f"{prefix}_rx_mbps"] = round(rx_mbps, 2)
+                        
+                        if d_out < 0:
+                            if DEBUG_MODE:
+                                print(f"SNMP Debug: {out_key} counter wrapped/reset (prev={prev_out}, curr={result[out_key]})")
+                            result[f"{prefix}_tx_mbps"] = None
+                        else:
+                            tx_mbps = (d_out * 8.0) / (dt * 1_000_000)
+                            result[f"{prefix}_tx_mbps"] = round(tx_mbps, 2)
+                        
+                        # Utilization if speed known and rates calculated
+                        if result.get(f"{prefix}_rx_mbps") is not None and result.get(f"{prefix}_tx_mbps") is not None:
+                            spd = result.get(f"{prefix}_speed_mbps") or result.get(f"{prefix}_speed")
+                            if spd and spd > 0:
+                                util = ((result[f"{prefix}_rx_mbps"] + result[f"{prefix}_tx_mbps"]) / (spd)) * 100.0
+                                result[f"{prefix}_util_percent"] = round(util, 1)
+                            else:
+                                result[f"{prefix}_util_percent"] = None
+                        else:
+                            result[f"{prefix}_util_percent"] = None
+                    else:
+                        # No previous sample - can't calculate rates yet
+                        result[f"{prefix}_rx_mbps"] = None
+                        result[f"{prefix}_tx_mbps"] = None
+                        result[f"{prefix}_util_percent"] = None
                 else:
                     # Counters not available - mark rates as None
                     result[f"{prefix}_rx_mbps"] = None
@@ -163,13 +211,20 @@ def get_snmp_data():
                 "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc"
             ]
             for k in rate_keys:
-                if k in result:
-                    prev_v = state._snmp_prev_sample.get(k, result[k])
-                    d = result[k] - prev_v
-                    if d < 0:
-                        # Counter wrapped or reset - use current value
-                        d = result[k]
-                    result[f"{k}_s"] = round(d / dt, 2) if dt > 0 else 0
+                if k in result and result[k] is not None:
+                    prev_v = state._snmp_prev_sample.get(k)
+                    if prev_v is not None:
+                        d = result[k] - prev_v
+                        if d < 0:
+                            # Counter wrapped or reset - skip this calculation
+                            if DEBUG_MODE:
+                                print(f"SNMP Debug: {k} counter wrapped/reset (prev={prev_v}, curr={result[k]})")
+                            result[f"{k}_s"] = None
+                        else:
+                            result[f"{k}_s"] = round(d / dt, 2) if dt > 0 else None
+                    else:
+                        # No previous sample - can't calculate rate yet
+                        result[f"{k}_s"] = None
                 else:
                     # Counter not available
                     result[f"{k}_s"] = None
@@ -184,13 +239,14 @@ def get_snmp_data():
                      "lan_in_err", "lan_out_err", "lan_in_disc", "lan_out_disc"]:
                 result[f"{k}_s"] = None
         
-        # Update previous sample - always store current values for next calculation
+        # Update previous sample - store current values (preserve None for missing counters)
+        # Only store valid counter values, don't default to 0
         state._snmp_prev_sample = {
             "ts": now,
-            "wan_in": result.get("wan_in", 0),
-            "wan_out": result.get("wan_out", 0),
-            "lan_in": result.get("lan_in", 0),
-            "lan_out": result.get("lan_out", 0),
+            "wan_in": result.get("wan_in") if result.get("wan_in") is not None else state._snmp_prev_sample.get("wan_in"),
+            "wan_out": result.get("wan_out") if result.get("wan_out") is not None else state._snmp_prev_sample.get("wan_out"),
+            "lan_in": result.get("lan_in") if result.get("lan_in") is not None else state._snmp_prev_sample.get("lan_in"),
+            "lan_out": result.get("lan_out") if result.get("lan_out") is not None else state._snmp_prev_sample.get("lan_out"),
             # Persist counter snapshots for rate calc next tick
             "tcp_active_opens": result.get("tcp_active_opens", 0),
             "tcp_estab_resets": result.get("tcp_estab_resets", 0),
@@ -205,15 +261,15 @@ def get_snmp_data():
             "icmp_in_errors": result.get("icmp_in_errors", 0),
             "udp_in": result.get("udp_in", 0),
             "udp_out": result.get("udp_out", 0),
-            # Store error/discard counters for rate calculation
-            "wan_in_err": result.get("wan_in_err", 0),
-            "wan_out_err": result.get("wan_out_err", 0),
-            "wan_in_disc": result.get("wan_in_disc", 0),
-            "wan_out_disc": result.get("wan_out_disc", 0),
-            "lan_in_err": result.get("lan_in_err", 0),
-            "lan_out_err": result.get("lan_out_err", 0),
-            "lan_in_disc": result.get("lan_in_disc", 0),
-            "lan_out_disc": result.get("lan_out_disc", 0),
+            # Store error/discard counters for rate calculation (preserve None)
+            "wan_in_err": result.get("wan_in_err") if result.get("wan_in_err") is not None else state._snmp_prev_sample.get("wan_in_err"),
+            "wan_out_err": result.get("wan_out_err") if result.get("wan_out_err") is not None else state._snmp_prev_sample.get("wan_out_err"),
+            "wan_in_disc": result.get("wan_in_disc") if result.get("wan_in_disc") is not None else state._snmp_prev_sample.get("wan_in_disc"),
+            "wan_out_disc": result.get("wan_out_disc") if result.get("wan_out_disc") is not None else state._snmp_prev_sample.get("wan_out_disc"),
+            "lan_in_err": result.get("lan_in_err") if result.get("lan_in_err") is not None else state._snmp_prev_sample.get("lan_in_err"),
+            "lan_out_err": result.get("lan_out_err") if result.get("lan_out_err") is not None else state._snmp_prev_sample.get("lan_out_err"),
+            "lan_in_disc": result.get("lan_in_disc") if result.get("lan_in_disc") is not None else state._snmp_prev_sample.get("lan_in_disc"),
+            "lan_out_disc": result.get("lan_out_disc") if result.get("lan_out_disc") is not None else state._snmp_prev_sample.get("lan_out_disc"),
         }
 
         # Format uptime for readability
