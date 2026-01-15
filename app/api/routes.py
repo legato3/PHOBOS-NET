@@ -5075,7 +5075,21 @@ def api_firewall_snmp_status():
     
     snmp_data = get_snmp_data()
     
-    # Discover VPN interfaces (WireGuard and TailScale)
+    # Store cache timestamp for staleness checks
+    import app.core.state as state
+    with state._snmp_cache_lock:
+        cache_ts = state._snmp_cache.get("ts", time.time())
+    snmp_data["_cache_ts"] = cache_ts
+    
+    # Check for errors FIRST - don't proceed if SNMP is unavailable
+    if "error" in snmp_data:
+        return jsonify({
+            "error": snmp_data.get("error", "SNMP unavailable"),
+            "backoff": snmp_data.get("backoff", False),
+            "data": None
+        }), 503 if snmp_data.get("backoff") else 200
+    
+    # Discover VPN interfaces (WireGuard and TailScale) - only if SNMP is working
     vpn_interfaces = {}
     try:
         interface_mapping = discover_interfaces()
@@ -5084,22 +5098,11 @@ def api_firewall_snmp_status():
                 vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
             if "tailscale" in interface_mapping:
                 vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-    except Exception:
-        pass  # Discovery failed, continue without VPN interfaces
-    
-    # Store cache timestamp for staleness checks
-    import app.core.state as state
-    with state._snmp_cache_lock:
-        cache_ts = state._snmp_cache.get("ts", time.time())
-    snmp_data["_cache_ts"] = cache_ts
-    
-    # Check for errors
-    if "error" in snmp_data:
-        return jsonify({
-            "error": snmp_data.get("error", "SNMP unavailable"),
-            "backoff": snmp_data.get("backoff", False),
-            "data": None
-        }), 503 if snmp_data.get("backoff") else 200
+    except Exception as e:
+        # Discovery failed - log but don't break the endpoint
+        if DEBUG_MODE:
+            print(f"VPN interface discovery failed: {e}")
+        pass  # Continue without VPN interfaces
     
     # Extract interface data with proper status logic
     interfaces = []
@@ -5224,6 +5227,7 @@ def api_firewall_snmp_status():
                 prev_in = state._snmp_prev_sample.get(prev_in_key)
                 prev_out = state._snmp_prev_sample.get(prev_out_key)
                 now = time.time()
+                from app.config import SNMP_POLL_INTERVAL
                 dt = now - prev_ts if prev_ts > 0 else SNMP_POLL_INTERVAL
                 
                 # Calculate RX/TX rates
@@ -5264,8 +5268,11 @@ def api_firewall_snmp_status():
                     "speed_mbps": vpn_speed,
                     "saturation_hint": None
                 })
-        except Exception:
-            # VPN interface polling failed - skip it
+        except Exception as e:
+            # VPN interface polling failed - skip it silently
+            # Don't break the entire endpoint if VPN interfaces can't be polled
+            if DEBUG_MODE:
+                print(f"VPN interface {vpn_name} polling failed: {e}")
             pass
     
     # Calculate aggregate throughput
