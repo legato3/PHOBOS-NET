@@ -5150,7 +5150,8 @@ def api_firewall_snmp_status():
         "rx_drops": snmp_data.get("wan_in_disc_s") if snmp_data.get("wan_in_disc_s") is not None else None,
         "tx_drops": snmp_data.get("wan_out_disc_s") if snmp_data.get("wan_out_disc_s") is not None else None,
         "utilization": snmp_data.get("wan_util_percent") if snmp_data.get("wan_util_percent") is not None and snmp_data.get("wan_util_percent") >= 0 else None,
-        "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed")
+        "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed"),
+        "saturation_hint": None  # Will be set by saturation detection logic below
     })
     
     # LAN interface
@@ -5176,7 +5177,8 @@ def api_firewall_snmp_status():
         "rx_drops": snmp_data.get("lan_in_disc_s") if snmp_data.get("lan_in_disc_s") is not None else None,
         "tx_drops": snmp_data.get("lan_out_disc_s") if snmp_data.get("lan_out_disc_s") is not None else None,
         "utilization": snmp_data.get("lan_util_percent") if snmp_data.get("lan_util_percent") is not None and snmp_data.get("lan_util_percent") >= 0 else None,
-        "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed")
+        "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed"),
+        "saturation_hint": None  # Will be set by saturation detection logic below
     })
     
     # Calculate aggregate throughput
@@ -5229,11 +5231,20 @@ def api_firewall_snmp_status():
     # Update interface utilization baselines and detect saturation risk
     import app.core.state as state
     import statistics
+    from collections import deque
     
     for iface in interfaces:
+        # Always initialize saturation_hint (even if None) so frontend can check for it
+        iface["saturation_hint"] = None
+        
         if iface.get("utilization") is not None and iface.get("utilization") >= 0:
             baseline_key = f"{iface['name'].lower()}_utilization"
             with state._baselines_lock:
+                # Initialize baseline deque if it doesn't exist
+                if baseline_key not in state._baselines:
+                    state._baselines[baseline_key] = deque(maxlen=100)
+                    state._baselines_last_update[baseline_key] = time.time()
+                
                 # Add current utilization to baseline window
                 state._baselines[baseline_key].append(iface["utilization"])
                 state._baselines_last_update[baseline_key] = time.time()
@@ -5262,15 +5273,6 @@ def api_firewall_snmp_status():
                             iface["saturation_hint"] = "High utilization"
                         elif deviation > 15:
                             iface["saturation_hint"] = "Elevated utilization"
-                        else:
-                            iface["saturation_hint"] = None
-                    else:
-                        iface["saturation_hint"] = None
-                else:
-                    # Not enough data for baseline yet
-                    iface["saturation_hint"] = None
-        else:
-            iface["saturation_hint"] = None
     
     # Format response
     response = {
