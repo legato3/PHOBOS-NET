@@ -3754,15 +3754,15 @@
                 <span class="mobile-nav-icon">🕸️</span>
                 <span class="mobile-nav-label">Network</span>
             </button>
-            <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }"
-                @click="loadTab('forensics')" title="Forensics">
-                <span class="mobile-nav-icon">🔍</span>
-                <span class="mobile-nav-label">Forensics</span>
-            </button>
             <button class="mobile-nav-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')"
                 title="Servers">
                 <span class="mobile-nav-icon">🖥️</span>
                 <span class="mobile-nav-label">Servers</span>
+            </button>
+            <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }"
+                @click="loadTab('forensics')" title="Forensics">
+                <span class="mobile-nav-icon">🔍</span>
+                <span class="mobile-nav-label">Forensics</span>
             </button>
             <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
                 @click="loadTab('assistant')" title="AI Assistant">
