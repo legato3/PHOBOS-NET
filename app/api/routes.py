@@ -5221,14 +5221,16 @@ def api_firewall_snmp_status():
                 
                 # Calculate rates (similar to WAN/LAN)
                 import app.core.state as state
-                prev_ts = state._snmp_prev_sample.get("ts", 0)
                 prev_in_key = f"{vpn_name}_in"
                 prev_out_key = f"{vpn_name}_out"
+                prev_ts_key = f"{vpn_name}_ts"
                 prev_in = state._snmp_prev_sample.get(prev_in_key)
                 prev_out = state._snmp_prev_sample.get(prev_out_key)
+                prev_ts = state._snmp_prev_sample.get(prev_ts_key, 0)
                 now = time.time()
                 from app.config import SNMP_POLL_INTERVAL
-                dt = now - prev_ts if prev_ts > 0 else SNMP_POLL_INTERVAL
+                # Use VPN-specific timestamp for accurate delta calculation
+                dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
                 
                 # Calculate RX/TX rates
                 vpn_rx_mbps = None
@@ -5240,9 +5242,11 @@ def api_firewall_snmp_status():
                         vpn_rx_mbps = round((d_in * 8) / (dt * 1_000_000), 2)  # bytes -> Mbps
                         vpn_tx_mbps = round((d_out * 8) / (dt * 1_000_000), 2)
                 
-                # Update previous sample
+                # Always update previous sample (even if rates couldn't be calculated yet)
+                # This ensures rates will be available on the next poll
                 state._snmp_prev_sample[prev_in_key] = vpn_in
                 state._snmp_prev_sample[prev_out_key] = vpn_out
+                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
                 
                 # Calculate utilization if speed is known
                 vpn_util = None
