@@ -3433,8 +3433,8 @@ def api_malicious_ports():
     ports = list(port_data.values())
     for p in ports:
         p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
-        # Always set bytes_fmt, even if 0, so frontend can display it
-        p['bytes_fmt'] = fmt_bytes(p['netflow_bytes']) if p['netflow_bytes'] > 0 else '0 B'
+        # Always set bytes_fmt - format even if 0 so frontend knows data was checked
+        p['bytes_fmt'] = fmt_bytes(p['netflow_bytes']) if p['netflow_bytes'] > 0 else None
 
     ports.sort(key=lambda x: x['total_score'], reverse=True)
 
