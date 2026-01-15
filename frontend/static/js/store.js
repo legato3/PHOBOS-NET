@@ -577,6 +577,8 @@ export const Store = () => ({
     },
 
     // Overall Health: Deterministic, explainable health state
+    // Unhealthy (red) reserved for: Active alerts OR multiple critical signals
+    // Degraded (amber) for: High volume without alerts
     get overallHealth() {
         // Inputs: Active Alerts, Network Anomalies, Firewall Blocks, External Connections
         const activeAlerts = this.alertHistory.total || 0;
@@ -589,32 +591,39 @@ export const Store = () => ({
         const signals = [];
         const signalDetails = [];
         
-        // Signal 1: Active Alerts
-        if (activeAlerts > 0) {
+        // Signal 1: Active Alerts (critical - always elevates to Unhealthy if present)
+        const hasAlerts = activeAlerts > 0;
+        if (hasAlerts) {
             signals.push('alerts');
             signalDetails.push(`${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`);
         }
         
-        // Signal 2: Network Anomalies
-        if (anomalies > 0) {
+        // Signal 2: Network Anomalies (sustained high volume)
+        const hasAnomalies = anomalies > 0;
+        if (hasAnomalies) {
             signals.push('anomalies');
             signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
         }
         
         // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
-        if (blockedEvents > 1000) {
+        const hasBlockSpike = blockedEvents > 1000;
+        if (hasBlockSpike) {
             signals.push('blocks_spike');
-            signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks (24h)`);
+            signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks`);
         }
         
         // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
         const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
-        if (externalRatio > 0.5 && externalConnections > 50) {
+        const hasExternalDeviation = externalRatio > 0.5 && externalConnections > 50;
+        if (hasExternalDeviation) {
             signals.push('external_deviation');
-            signalDetails.push(`unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows)`);
+            signalDetails.push(`unusual external connections (${Math.round(externalRatio * 100)}%)`);
         }
 
-        // Health state determination (requires multiple signals for Unhealthy)
+        // Health state determination
+        // Unhealthy: Active alerts present OR multiple critical signals (2+ non-alert signals)
+        // Degraded: High volume without alerts (1 signal, or sustained high volume)
+        // Healthy: No signals
         let state = 'healthy';
         let explanation = 'All systems operating normally.';
         let shortExplanation = '';
@@ -623,28 +632,35 @@ export const Store = () => ({
             state = 'healthy';
             explanation = 'All systems operating normally.';
             shortExplanation = '';
-        } else if (signals.length === 1) {
-            // Single signal: Degraded
-            state = 'degraded';
-            if (signals.includes('alerts')) {
-                explanation = `Active alerts detected (${activeAlerts} alert${activeAlerts > 1 ? 's' : ''}). Review security status.`;
+        } else if (hasAlerts) {
+            // Active alerts present: Unhealthy (critical)
+            state = 'unhealthy';
+            const otherSignals = signalDetails.filter(d => !d.includes('alert'));
+            if (otherSignals.length > 0) {
+                explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals.join(', ')}. Immediate investigation required.`;
+                shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals[0]}`;
+            } else {
+                explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} detected. Review security status immediately.`;
                 shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
-            } else if (signals.includes('anomalies')) {
-                explanation = `Network anomalies detected (${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'}). Review network activity.`;
+            }
+        } else if (signals.length >= 2) {
+            // Multiple signals without alerts: Unhealthy (multiple critical issues)
+            state = 'unhealthy';
+            explanation = `Multiple issues: ${signalDetails.join(', ')}. Investigation recommended.`;
+            shortExplanation = `Due to ${signalDetails.slice(0, 2).join(' and ')}`;
+        } else {
+            // Single signal without alerts: Degraded (sustained high volume)
+            state = 'degraded';
+            if (signals.includes('anomalies')) {
+                explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected. Review network activity.`;
                 shortExplanation = `Due to ${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`;
             } else if (signals.includes('blocks_spike')) {
                 explanation = `Elevated firewall blocks (${blockedEvents.toLocaleString()} in 24h). Review blocked connections.`;
                 shortExplanation = `Due to elevated firewall blocks`;
             } else if (signals.includes('external_deviation')) {
-                explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows are external). Review network flows.`;
+                explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows). Review network flows.`;
                 shortExplanation = `Due to unusual external connections`;
             }
-        } else {
-            // Two or more signals: Unhealthy (requires multiple corroborating signals)
-            state = 'unhealthy';
-            const signalNames = signalDetails.join(', ');
-            explanation = `Multiple issues detected: ${signalNames}. Immediate investigation recommended.`;
-            shortExplanation = `Due to ${signalDetails.slice(0, 2).join(' and ')}${signalDetails.length > 2 ? ' and more' : ''}`;
         }
 
         return {
