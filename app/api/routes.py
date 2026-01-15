@@ -5275,8 +5275,8 @@ def api_firewall_snmp_status():
                 print(f"VPN interface {vpn_name} polling failed: {e}")
             pass
     
-    # Calculate aggregate throughput
-    total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
+    # Calculate aggregate throughput (handle None values)
+    total_throughput = sum([(i.get("rx_mbps") or 0) + (i.get("tx_mbps") or 0) for i in interfaces])
     
     # Correlate SNMP throughput with NetFlow traffic volume
     # Use 1h window to match typical SNMP polling cadence
