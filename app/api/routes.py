@@ -5098,7 +5098,7 @@ def api_firewall_snmp_status():
                 vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
             if "tailscale" in interface_mapping:
                 vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-    except Exception as e:
+    except Exception:
         # Discovery failed - continue without VPN interfaces
         pass
     
@@ -5208,21 +5208,18 @@ def api_firewall_snmp_status():
             vpn_status_oid = f".1.3.6.1.2.1.2.2.1.8.{vpn_idx}"  # ifOperStatus
             vpn_speed_oid = f".1.3.6.1.2.1.31.1.1.1.15.{vpn_idx}"  # ifHighSpeed
             
-            # Try 64-bit counters first
+            # Try 64-bit counters first, fallback to 32-bit if not available
             try:
                 cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
-                if len(values) >= 4 and "No Such" not in output:
-                    use_64bit = True
-                else:
+                if len(values) < 4 or "No Such" in output:
                     raise ValueError("64-bit counters not available")
             except:
                 # Fallback to 32-bit counters
                 cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
-                use_64bit = False
             
             if len(values) >= 4:
                 # Parse values: strip quotes, handle Counter64: prefix, convert to int
