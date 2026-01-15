@@ -143,7 +143,7 @@
                     </div>
                     <div class="footer-copy">
                         ProxFlow™ Community Edition<br>
-                        © 2026 iSystems, Inc.
+                        © 2026 v2.5
                     </div>
                 </div>
             </aside>
@@ -1634,11 +1634,11 @@
                     </div>
 
                     <!-- ============================================
-             SERVER TAB - Server Health & Statistics
+             FORENSICS TAB - Investigation & Incident Response
              ============================================ -->
-                    <div x-show="activeTab === 'server'"
-                        :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
-                        role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
+                    <div x-show="activeTab === 'forensics'"
+                        :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
+                        role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
                         <!-- ========================================
      FIREWALL LOGS (Moved from Security)
      ======================================== -->
@@ -2267,11 +2267,11 @@
                     </div>
 
                     <!-- ============================================
-             FORENSICS TAB - Investigation & Incident Response
+             SERVER TAB - Server Health & Statistics
              ============================================ -->
-                    <div x-show="activeTab === 'forensics'"
-                        :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
-                        role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+                    <div x-show="activeTab === 'server'"
+                        :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
+                        role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
                         <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
                             <!-- Loading State -->
                             <template x-if="serverHealth.loading">
