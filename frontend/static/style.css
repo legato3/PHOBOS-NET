@@ -560,15 +560,13 @@ body.sidebar-collapsed .layout-wrapper {
 /* CYBERPUNK UI: Sidebar footer - Signal metadata */
 .sidebar-footer {
     margin-top: auto;
-    padding: var(--space-4);
-    padding-bottom: var(--space-4);
+    padding: var(--space-4) var(--space-4) var(--space-3) var(--space-4);
     border-top: 1px solid var(--border-soft);
     background: rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     flex-shrink: 0;
-    margin-bottom: 0;
     align-self: flex-end;
     width: 100%;
 }
