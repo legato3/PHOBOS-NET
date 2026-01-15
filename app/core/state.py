@@ -83,6 +83,8 @@ _baselines = {
     'external_connections': deque(maxlen=100),
     'firewall_blocks_rate': deque(maxlen=100),  # Blocks per hour
     'anomalies_rate': deque(maxlen=100),  # Anomalies per hour
+    'wan_utilization': deque(maxlen=100),  # Interface utilization baselines
+    'lan_utilization': deque(maxlen=100),
 }
 _baselines_lock = threading.Lock()
 _baselines_last_update = {
@@ -90,6 +92,8 @@ _baselines_last_update = {
     'external_connections': 0,
     'firewall_blocks_rate': 0,
     'anomalies_rate': 0,
+    'wan_utilization': 0,
+    'lan_utilization': 0,
 }
 
 # ==================== Rate Limiting ====================

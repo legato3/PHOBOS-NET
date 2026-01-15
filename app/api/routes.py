@@ -5182,6 +5182,52 @@ def api_firewall_snmp_status():
     # Calculate aggregate throughput
     total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
     
+    # Update interface utilization baselines and detect saturation risk
+    import app.core.state as state
+    import statistics
+    
+    for iface in interfaces:
+        if iface.get("utilization") is not None and iface.get("utilization") >= 0:
+            baseline_key = f"{iface['name'].lower()}_utilization"
+            with state._baselines_lock:
+                # Add current utilization to baseline window
+                state._baselines[baseline_key].append(iface["utilization"])
+                state._baselines_last_update[baseline_key] = time.time()
+                
+                # Calculate saturation risk (sustained high utilization vs baseline)
+                baseline_window = list(state._baselines[baseline_key])
+                if len(baseline_window) >= 10:  # Need at least 10 samples for meaningful baseline
+                    baseline_mean = statistics.mean(baseline_window)
+                    baseline_std = statistics.stdev(baseline_window) if len(baseline_window) > 1 else 0
+                    
+                    # Check for sustained high utilization
+                    # Risk if: current > 70% AND current > baseline_mean + 2*std AND last 5 samples all > baseline_mean
+                    recent_samples = baseline_window[-5:] if len(baseline_window) >= 5 else baseline_window
+                    current_util = iface["utilization"]
+                    
+                    is_sustained_high = (
+                        current_util > 70 and  # Absolute threshold: >70% utilization
+                        current_util > baseline_mean + (2 * baseline_std) and  # Significantly above baseline
+                        all(s > baseline_mean for s in recent_samples)  # Last 5 samples all above baseline
+                    )
+                    
+                    if is_sustained_high:
+                        # Calculate risk level (subtle, non-alarming)
+                        deviation = current_util - baseline_mean
+                        if deviation > 30:
+                            iface["saturation_hint"] = "High utilization"
+                        elif deviation > 15:
+                            iface["saturation_hint"] = "Elevated utilization"
+                        else:
+                            iface["saturation_hint"] = None
+                    else:
+                        iface["saturation_hint"] = None
+                else:
+                    # Not enough data for baseline yet
+                    iface["saturation_hint"] = None
+        else:
+            iface["saturation_hint"] = None
+    
     # Format response
     response = {
         "cpu_percent": snmp_data.get("cpu_percent", 0),

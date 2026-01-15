@@ -3037,11 +3037,18 @@
                                                 </template>
                                             </td>
                                             <td>
-                                                <span x-show="iface.utilization != null" 
-                                                    :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
-                                                    x-text="(iface.utilization || 0).toFixed(1) + '%'"
-                                                    :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
-                                                <span x-show="iface.utilization == null" class="text-muted">—</span>
+                                                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                                                    <span x-show="iface.utilization != null" 
+                                                        :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
+                                                        x-text="(iface.utilization || 0).toFixed(1) + '%'"
+                                                        :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
+                                                    <span x-show="iface.utilization == null" class="text-muted">—</span>
+                                                    <span x-show="iface.saturation_hint" 
+                                                        class="text-muted" 
+                                                        style="font-size: 0.85em; opacity: 0.7;"
+                                                        :title="'Sustained utilization above baseline: ' + iface.saturation_hint"
+                                                        x-text="'⚠ ' + iface.saturation_hint"></span>
+                                                </div>
                                             </td>
                                         </tr>
                                     </template>
