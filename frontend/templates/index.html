@@ -4192,11 +4192,11 @@
                     <!-- Flow Actions -->
                     <template x-if="selectedEventType === 'flow'">
                         <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src)"
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src); closeEventDetailsModal();"
                                 :disabled="!selectedEvent?.src">
                                 Investigate Source IP
                             </button>
-                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst)"
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst); closeEventDetailsModal();"
                                 :disabled="!selectedEvent?.dst">
                                 Investigate Destination IP
                             </button>
@@ -4210,11 +4210,11 @@
                     <!-- Firewall Actions -->
                     <template x-if="selectedEventType === 'firewall'">
                         <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src_ip)"
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.src_ip); closeEventDetailsModal();"
                                 :disabled="!selectedEvent?.src_ip">
                                 Investigate Source IP
                             </button>
-                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst_ip)"
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.dst_ip); closeEventDetailsModal();"
                                 :disabled="!selectedEvent?.dst_ip">
                                 Investigate Destination IP
                             </button>
@@ -4228,7 +4228,7 @@
                     <!-- Threat Actions -->
                     <template x-if="selectedEventType === 'threat'">
                         <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.ip || selectedEvent?.src_ip)"
+                            <button class="btn btn--secondary" @click="openIPInvestigationModal(selectedEvent?.ip || selectedEvent?.src_ip); closeEventDetailsModal();"
                                 :disabled="!selectedEvent?.ip && !selectedEvent?.src_ip">
                                 Investigate IP
                             </button>
