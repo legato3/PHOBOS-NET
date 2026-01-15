@@ -7,185 +7,176 @@
     <script defer src="/static/alpine.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        /* Wallboard-specific styles - Large typography, high contrast, minimal chrome */
+        /* Wallboard-specific styles - Matches cyberpunk theme, readable sizes */
         body.wallboard {
             margin: 0;
-            padding: 40px;
-            background: #0a0a0a;
-            color: #ffffff;
-            font-family: 'Courier New', monospace;
-            overflow: hidden;
+            padding: var(--space-6);
+            background: var(--bg-0);
+            color: var(--text-0);
+            font-family: var(--font-sans);
+            overflow: auto;
+            min-height: 100vh;
         }
         
         .wallboard-container {
-            max-width: 100%;
-            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            gap: var(--space-6);
         }
         
         .wallboard-header {
             text-align: center;
-            padding: 20px 0;
-            border-bottom: 2px solid #00ff00;
+            padding: var(--space-6) 0;
+            border-bottom: 1px solid var(--border-soft);
         }
         
         .wallboard-header h1 {
-            font-size: 3.5em;
+            font-size: var(--text-3xl);
             margin: 0;
-            color: #00ff00;
-            text-shadow: 0 0 10px #00ff00;
-            font-weight: bold;
-            letter-spacing: 2px;
+            color: var(--signal-primary);
+            font-weight: var(--font-weight-semibold);
+            letter-spacing: var(--letter-spacing-wide);
         }
         
         .wallboard-header .timestamp {
-            font-size: 1.5em;
-            color: #cccccc;
-            margin-top: 10px;
+            font-size: var(--text-base);
+            color: var(--text-secondary);
+            margin-top: var(--space-2);
+            font-family: var(--font-mono);
         }
         
         .wallboard-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            flex: 1;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-4);
         }
         
         .wallboard-stat {
-            background: #1a1a1a;
-            border: 2px solid #333333;
-            border-radius: 8px;
-            padding: 30px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-radius);
+            padding: var(--space-5);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            transition: border-color 0.3s;
+            transition: border-color var(--transition-base), box-shadow var(--transition-base);
         }
         
         .wallboard-stat.status-ok {
-            border-color: #00ff00;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            border-color: var(--signal-ok);
+            box-shadow: 0 0 8px var(--glow-ok);
         }
         
         .wallboard-stat.status-warning {
-            border-color: #ffaa00;
-            box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+            border-color: var(--signal-warn);
+            box-shadow: 0 0 8px var(--glow-warn);
         }
         
         .wallboard-stat.status-error {
-            border-color: #ff0000;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+            border-color: var(--signal-crit);
+            box-shadow: 0 0 8px var(--glow-critical);
         }
         
         .wallboard-stat-label {
-            font-size: 1.8em;
-            color: #aaaaaa;
-            margin-bottom: 15px;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-3);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: var(--letter-spacing-wide);
+            font-weight: var(--font-weight-medium);
         }
         
         .wallboard-stat-value {
-            font-size: 4.5em;
-            font-weight: bold;
-            color: #ffffff;
-            line-height: 1.2;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            font-size: var(--text-3xl);
+            font-weight: var(--font-weight-semibold);
+            color: var(--text-0);
+            line-height: var(--line-height-tight);
+            font-family: var(--font-mono);
         }
         
         .wallboard-stat-value.status-ok {
-            color: #00ff00;
-            text-shadow: 0 0 15px #00ff00;
+            color: var(--signal-ok);
         }
         
         .wallboard-stat-value.status-warning {
-            color: #ffaa00;
-            text-shadow: 0 0 15px #ffaa00;
+            color: var(--signal-warn);
         }
         
         .wallboard-stat-value.status-error {
-            color: #ff0000;
-            text-shadow: 0 0 15px #ff0000;
-        }
-        
-        .wallboard-stat-subtext {
-            font-size: 1.2em;
-            color: #888888;
-            margin-top: 10px;
-            font-style: italic;
+            color: var(--signal-crit);
         }
         
         .wallboard-health-large {
             grid-column: 1 / -1;
-            background: #1a1a1a;
-            border: 3px solid #333333;
-            border-radius: 8px;
-            padding: 40px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-radius);
+            padding: var(--space-6);
             text-align: center;
+            transition: border-color var(--transition-base), box-shadow var(--transition-base);
         }
         
         .wallboard-health-large.status-ok {
-            border-color: #00ff00;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+            border-color: var(--signal-ok);
+            box-shadow: 0 0 12px var(--glow-ok);
         }
         
         .wallboard-health-large.status-warning {
-            border-color: #ffaa00;
-            box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);
+            border-color: var(--signal-warn);
+            box-shadow: 0 0 12px var(--glow-warn);
         }
         
         .wallboard-health-large.status-error {
-            border-color: #ff0000;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+            border-color: var(--signal-crit);
+            box-shadow: 0 0 12px var(--glow-critical);
         }
         
         .wallboard-health-label {
-            font-size: 2em;
-            color: #aaaaaa;
-            margin-bottom: 20px;
+            font-size: var(--text-lg);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-4);
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: var(--letter-spacing-wide);
+            font-weight: var(--font-weight-medium);
         }
         
         .wallboard-health-state {
-            font-size: 6em;
-            font-weight: bold;
+            font-size: var(--text-4xl);
+            font-weight: var(--font-weight-bold);
             text-transform: uppercase;
-            letter-spacing: 4px;
-            margin: 20px 0;
+            letter-spacing: var(--letter-spacing-wider);
+            margin: var(--space-4) 0;
+            font-family: var(--font-mono);
         }
         
         .wallboard-health-state.healthy {
-            color: #00ff00;
-            text-shadow: 0 0 20px #00ff00;
+            color: var(--signal-ok);
         }
         
         .wallboard-health-state.degraded {
-            color: #ffaa00;
-            text-shadow: 0 0 20px #ffaa00;
+            color: var(--signal-warn);
         }
         
         .wallboard-health-state.unhealthy {
-            color: #ff0000;
-            text-shadow: 0 0 20px #ff0000;
+            color: var(--signal-crit);
         }
         
         .wallboard-health-explanation {
-            font-size: 1.5em;
-            color: #cccccc;
-            margin-top: 20px;
+            font-size: var(--text-base);
+            color: var(--text-secondary);
+            margin-top: var(--space-3);
             font-style: italic;
         }
         
         .wallboard-loading {
-            font-size: 3em;
-            color: #666666;
+            font-size: var(--text-xl);
+            color: var(--text-tertiary);
             text-align: center;
-            padding: 40px;
+            padding: var(--space-6);
         }
     </style>
 </head>
