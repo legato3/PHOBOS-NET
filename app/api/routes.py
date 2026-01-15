@@ -3293,56 +3293,26 @@ def api_malicious_ports():
             blocked_ports = sorted(port_data.keys(), key=lambda p: port_data[p]['blocked'], reverse=True)[:20]
 
             if blocked_ports:
-                # Query NetFlow for all blocked ports at once (more efficient)
-                # Build filter for top blocked ports
-                port_filters = " or ".join([f"dst port {p} or src port {p}" for p in blocked_ports[:15]])
-                
+                # Query NetFlow for traffic on these ports from ANY source (not just blocked)
+                # Blocked traffic won't appear in NetFlow, but we can show traffic that did get through
+                # Use the same approach as regular ports endpoint for consistency
                 try:
-                    # Get aggregated port stats from NetFlow
-                    # Note: Blocked traffic may not appear in NetFlow, so we query for any traffic on these ports
-                    port_output = run_nfdump(["-o", "csv", "-n", "50", "-s", "port/bytes", port_filters], tf)
-                    port_lines = port_output.strip().split('\n') if port_output else []
-
-                    if len(port_lines) > 1:
-                        p_header = [c.strip().lower() for c in port_lines[0].split(',')]
-                        p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
-                        p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes', 'obyt')), None)
-                        p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
-
-                        if p_idx is not None:
-                            for pline in port_lines[1:]:
-                                if not pline.strip():
-                                    continue
-                                pparts = pline.split(',')
-                                try:
-                                    if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
-                                        port_num = int(pparts[p_idx].strip())
-                                        if port_num in port_data:  # Only update ports we have from firewall
-                                            # Try to get bytes - check multiple possible column names
-                                            bytes_val = 0
-                                            if p_byt_idx is not None and p_byt_idx < len(pparts):
-                                                try:
-                                                    bytes_val = int(pparts[p_byt_idx].strip()) if pparts[p_byt_idx].strip() else 0
-                                                except (ValueError, IndexError):
-                                                    bytes_val = 0
-                                            
-                                            # Try to get flows
-                                            flows_val = 0
-                                            if p_fl_idx is not None and p_fl_idx < len(pparts):
-                                                try:
-                                                    flows_val = int(pparts[p_fl_idx].strip()) if pparts[p_fl_idx].strip() else 0
-                                                except (ValueError, IndexError):
-                                                    flows_val = 0
-                                            
-                                            if bytes_val > 0 or flows_val > 0:
-                                                port_data[port_num]['netflow_bytes'] += bytes_val
-                                                port_data[port_num]['netflow_flows'] += flows_val
-                                except (ValueError, IndexError) as e:
-                                    # Skip malformed lines
-                                    continue
+                    # Get all port stats and filter for our blocked ports
+                    from app.services.netflow import get_common_nfdump_data
+                    all_ports_data = get_common_nfdump_data("ports", range_key)
+                    
+                    # Match ports and update traffic data
+                    for port_item in all_ports_data:
+                        try:
+                            port_num = int(port_item.get('key', 0))
+                            if port_num in port_data:
+                                port_data[port_num]['netflow_bytes'] = int(port_item.get('bytes', 0))
+                                port_data[port_num]['netflow_flows'] = int(port_item.get('flows', 0))
+                        except (ValueError, KeyError):
+                            continue
                 except Exception as e:
                     # Log but continue - syslog data is still valuable
-                    print(f"Warning: NetFlow query for blocked ports failed: {e}")
+                    print(f"Warning: NetFlow query for port traffic failed: {e}")
                     pass
 
         # Also try to get data from threat IPs (if threat list exists)
