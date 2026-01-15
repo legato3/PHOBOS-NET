@@ -228,49 +228,50 @@ def get_snmp_data():
         # Update previous sample - store current values (preserve None for missing counters)
         # Only store valid counter values, don't default to 0
         # Preserve existing previous sample values if current values are None
-        new_prev_sample = {"ts": now}
-        for key in ["wan_in", "wan_out", "lan_in", "lan_out"]:
-            if result.get(key) is not None:
-                new_prev_sample[key] = result[key]
-            elif key in state._snmp_prev_sample:
-                # Preserve previous value if current is None
-                new_prev_sample[key] = state._snmp_prev_sample[key]
-        
-        # Store other counters
-        new_prev_sample.update({
-            # Persist counter snapshots for rate calc next tick
-            "tcp_active_opens": result.get("tcp_active_opens", 0),
-            "tcp_estab_resets": result.get("tcp_estab_resets", 0),
-            "tcp_fails": result.get("tcp_fails", 0),
-            "tcp_retrans": result.get("tcp_retrans", 0),
-            "ip_in_discards": result.get("ip_in_discards", 0),
-            "ip_in_hdr_errors": result.get("ip_in_hdr_errors", 0),
-            "ip_in_addr_errors": result.get("ip_in_addr_errors", 0),
-            "ip_forw_datagrams": result.get("ip_forw_datagrams", 0),
-            "ip_in_delivers": result.get("ip_in_delivers", 0),
-            "ip_out_requests": result.get("ip_out_requests", 0),
-            "icmp_in_errors": result.get("icmp_in_errors", 0),
-            "udp_in": result.get("udp_in", 0),
-            "udp_out": result.get("udp_out", 0),
-            # Store error/discard counters for rate calculation (preserve None)
-            "wan_in_err": result.get("wan_in_err") if result.get("wan_in_err") is not None else state._snmp_prev_sample.get("wan_in_err"),
-            "wan_out_err": result.get("wan_out_err") if result.get("wan_out_err") is not None else state._snmp_prev_sample.get("wan_out_err"),
-            "wan_in_disc": result.get("wan_in_disc") if result.get("wan_in_disc") is not None else state._snmp_prev_sample.get("wan_in_disc"),
-            "wan_out_disc": result.get("wan_out_disc") if result.get("wan_out_disc") is not None else state._snmp_prev_sample.get("wan_out_disc"),
-            "lan_in_err": result.get("lan_in_err") if result.get("lan_in_err") is not None else state._snmp_prev_sample.get("lan_in_err"),
-            "lan_out_err": result.get("lan_out_err") if result.get("lan_out_err") is not None else state._snmp_prev_sample.get("lan_out_err"),
-            "lan_in_disc": result.get("lan_in_disc") if result.get("lan_in_disc") is not None else state._snmp_prev_sample.get("lan_in_disc"),
-            "lan_out_disc": result.get("lan_out_disc") if result.get("lan_out_disc") is not None else state._snmp_prev_sample.get("lan_out_disc"),
-        })
-        # Preserve VPN interface previous samples when updating state
-        # (VPN samples are stored by API route, not by background SNMP thread)
-        vpn_keys_to_preserve = [k for k in state._snmp_prev_sample.keys() 
-                                if (k.endswith('_in') or k.endswith('_out') or k.endswith('_ts')) 
-                                and ('tailscale' in k.lower() or 'wireguard' in k.lower())]
-        for key in vpn_keys_to_preserve:
-            new_prev_sample[key] = state._snmp_prev_sample.get(key)
-        
-        state._snmp_prev_sample = new_prev_sample
+        with state._snmp_prev_sample_lock:
+            new_prev_sample = {"ts": now}
+            for key in ["wan_in", "wan_out", "lan_in", "lan_out"]:
+                if result.get(key) is not None:
+                    new_prev_sample[key] = result[key]
+                elif key in state._snmp_prev_sample:
+                    # Preserve previous value if current is None
+                    new_prev_sample[key] = state._snmp_prev_sample[key]
+            
+            # Store other counters
+            new_prev_sample.update({
+                # Persist counter snapshots for rate calc next tick
+                "tcp_active_opens": result.get("tcp_active_opens", 0),
+                "tcp_estab_resets": result.get("tcp_estab_resets", 0),
+                "tcp_fails": result.get("tcp_fails", 0),
+                "tcp_retrans": result.get("tcp_retrans", 0),
+                "ip_in_discards": result.get("ip_in_discards", 0),
+                "ip_in_hdr_errors": result.get("ip_in_hdr_errors", 0),
+                "ip_in_addr_errors": result.get("ip_in_addr_errors", 0),
+                "ip_forw_datagrams": result.get("ip_forw_datagrams", 0),
+                "ip_in_delivers": result.get("ip_in_delivers", 0),
+                "ip_out_requests": result.get("ip_out_requests", 0),
+                "icmp_in_errors": result.get("icmp_in_errors", 0),
+                "udp_in": result.get("udp_in", 0),
+                "udp_out": result.get("udp_out", 0),
+                # Store error/discard counters for rate calculation (preserve None)
+                "wan_in_err": result.get("wan_in_err") if result.get("wan_in_err") is not None else state._snmp_prev_sample.get("wan_in_err"),
+                "wan_out_err": result.get("wan_out_err") if result.get("wan_out_err") is not None else state._snmp_prev_sample.get("wan_out_err"),
+                "wan_in_disc": result.get("wan_in_disc") if result.get("wan_in_disc") is not None else state._snmp_prev_sample.get("wan_in_disc"),
+                "wan_out_disc": result.get("wan_out_disc") if result.get("wan_out_disc") is not None else state._snmp_prev_sample.get("wan_out_disc"),
+                "lan_in_err": result.get("lan_in_err") if result.get("lan_in_err") is not None else state._snmp_prev_sample.get("lan_in_err"),
+                "lan_out_err": result.get("lan_out_err") if result.get("lan_out_err") is not None else state._snmp_prev_sample.get("lan_out_err"),
+                "lan_in_disc": result.get("lan_in_disc") if result.get("lan_in_disc") is not None else state._snmp_prev_sample.get("lan_in_disc"),
+                "lan_out_disc": result.get("lan_out_disc") if result.get("lan_out_disc") is not None else state._snmp_prev_sample.get("lan_out_disc"),
+            })
+            # Preserve VPN interface previous samples when updating state
+            # (VPN samples are stored by API route, not by background SNMP thread)
+            vpn_keys_to_preserve = [k for k in state._snmp_prev_sample.keys() 
+                                    if (k.endswith('_in') or k.endswith('_out') or k.endswith('_ts')) 
+                                    and ('tailscale' in k.lower() or 'wireguard' in k.lower())]
+            for key in vpn_keys_to_preserve:
+                new_prev_sample[key] = state._snmp_prev_sample.get(key)
+            
+            state._snmp_prev_sample = new_prev_sample
 
         # Format uptime for readability
         if "sys_uptime" in result:

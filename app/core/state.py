@@ -131,6 +131,7 @@ _alert_history_lock = threading.Lock()
 _snmp_cache = {"data": None, "ts": 0}
 _snmp_cache_lock = threading.Lock()
 _snmp_prev_sample = {"ts": 0}  # Initialize with only timestamp; counter values will be None until first poll
+_snmp_prev_sample_lock = threading.Lock()
 _snmp_backoff = {
     "failures": 0,
     "max_failures": 5,

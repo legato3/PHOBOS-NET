@@ -5244,38 +5244,39 @@ def api_firewall_snmp_status():
                 prev_ts_key = f"{vpn_name}_ts"
                 
                 # Get previous values BEFORE storing new ones
-                prev_in = state._snmp_prev_sample.get(prev_in_key)
-                prev_out = state._snmp_prev_sample.get(prev_out_key)
-                prev_ts = state._snmp_prev_sample.get(prev_ts_key, 0)
-                now = time.time()
-                from app.config import SNMP_POLL_INTERVAL
-                # Use VPN-specific timestamp for accurate delta calculation
-                dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
-                
-                # Calculate RX/TX rates (similar to WAN/LAN logic in snmp.py)
-                vpn_rx_mbps = None
-                vpn_tx_mbps = None
-                
-                # Calculate rates if we have previous values
-                if prev_in is not None and prev_out is not None and dt > 0:
-                    d_in = vpn_in - prev_in
-                    d_out = vpn_out - prev_out
+                with state._snmp_prev_sample_lock:
+                    prev_in = state._snmp_prev_sample.get(prev_in_key)
+                    prev_out = state._snmp_prev_sample.get(prev_out_key)
+                    prev_ts = state._snmp_prev_sample.get(prev_ts_key, 0)
+                    now = time.time()
+                    from app.config import SNMP_POLL_INTERVAL
+                    # Use VPN-specific timestamp for accurate delta calculation
+                    dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
                     
-                    # Guard against wrap or reset (same logic as WAN/LAN)
-                    if d_in < 0:
-                        vpn_rx_mbps = None
-                    else:
-                        vpn_rx_mbps = round((d_in * 8.0) / (dt * 1_000_000), 2)
+                    # Calculate RX/TX rates (similar to WAN/LAN logic in snmp.py)
+                    vpn_rx_mbps = None
+                    vpn_tx_mbps = None
                     
-                    if d_out < 0:
-                        vpn_tx_mbps = None
-                    else:
-                        vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
-                
-                # Always store current values AFTER calculating rates (for next poll)
-                state._snmp_prev_sample[prev_in_key] = vpn_in
-                state._snmp_prev_sample[prev_out_key] = vpn_out
-                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
+                    # Calculate rates if we have previous values
+                    if prev_in is not None and prev_out is not None and dt > 0:
+                        d_in = vpn_in - prev_in
+                        d_out = vpn_out - prev_out
+                        
+                        # Guard against wrap or reset (same logic as WAN/LAN)
+                        if d_in < 0:
+                            vpn_rx_mbps = None
+                        else:
+                            vpn_rx_mbps = round((d_in * 8.0) / (dt * 1_000_000), 2)
+                        
+                        if d_out < 0:
+                            vpn_tx_mbps = None
+                        else:
+                            vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
+                    
+                    # Always store current values AFTER calculating rates (for next poll)
+                    state._snmp_prev_sample[prev_in_key] = vpn_in
+                    state._snmp_prev_sample[prev_out_key] = vpn_out
+                    state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
                 
                 # Calculate utilization if speed is known
                 vpn_util = None
