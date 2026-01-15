@@ -2212,7 +2212,19 @@
                                                 'flow-item-long-duration': flow.duration_seconds > 300 && flow.bytes < 100000,
                                                 'flow-item-burst': flow.duration_seconds < 10 && flow.bytes > 500000
                                             }">
-                                            <td class="text-xs text-muted font-mono" x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))">
+                                            <td class="text-xs text-muted font-mono" style="position: relative;">
+                                                <div style="display: flex; align-items: center; gap: 4px;">
+                                                    <span x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))"></span>
+                                                    <!-- Interesting flow indicators (max 2) -->
+                                                    <template x-if="flow.interesting_flags && flow.interesting_flags.length > 0">
+                                                        <div style="display: flex; gap: 3px; margin-left: 4px;">
+                                                            <span x-for="(flag, idx) in flow.interesting_flags.slice(0, 2)" :key="idx"
+                                                                :title="getInterestingFlowTooltip(flag)"
+                                                                class="flow-interest-icon"
+                                                                x-text="getInterestingFlowIcon(flag)"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
                                             </td>
                                             <td @click.stop="openIPModal(flow.src)" class="flow-cell-ip">
                                                 <!-- Line 1: IP address (primary) + optional hostname inline -->

@@ -1933,6 +1933,30 @@ export const Store = () => ({
         return ts;
     },
 
+    // Get icon for interesting flow flag
+    getInterestingFlowIcon(flag) {
+        const icons = {
+            'long_low': '⏱️',
+            'short_high': '⚡',
+            'rare_port': '🔍',
+            'new_external': '🆕',
+            'repeated_short': '🔄'
+        };
+        return icons[flag] || '•';
+    },
+
+    // Get tooltip text for interesting flow flag
+    getInterestingFlowTooltip(flag) {
+        const tooltips = {
+            'long_low': 'Long-lived low-volume flow: Extended duration with minimal data transfer',
+            'short_high': 'Short-lived high-volume flow: Burst of data in brief connection',
+            'rare_port': 'Rare destination port: Uncommon port in this batch',
+            'new_external': 'New external IP: First appearance of this external address',
+            'repeated_short': 'Repeated short connections: Multiple brief connections to same destination'
+        };
+        return tooltips[flag] || 'Interesting flow characteristic';
+    },
+
     timeAgo(ts) {
         if (!ts) return '';
         // If ts is a number (Unix timestamp), use it directly

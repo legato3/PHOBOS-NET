@@ -1999,6 +1999,11 @@ def api_flows():
     # NFDump CSV indices defaults
     ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8
 
+    # Lightweight heuristics tracking (per-request only, no persistent state)
+    port_counts = defaultdict(int)  # Track destination port frequency
+    external_ips_seen = set()  # Track external IPs seen in this batch
+    connection_patterns = defaultdict(int)  # Track src->dst patterns for repeated connections
+
     try:
         lines = output.strip().split("\n")
         start_idx = 0
@@ -2090,6 +2095,41 @@ def api_flows():
                         svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
                     except:
                         svc = dst_port
+
+                    # Detect interesting flow characteristics (heuristics only, not alerts)
+                    interesting_flags = []
+                    
+                    # 1. Long-lived low-volume flows
+                    if duration > 300 and b < 100000:
+                        interesting_flags.append("long_low")
+                    
+                    # 2. Short-lived high-volume flows
+                    if duration < 10 and b > 500000:
+                        interesting_flags.append("short_high")
+                    
+                    # Track for heuristics (lightweight, per-request only)
+                    port_counts[dst_port] += 1
+                    connection_key = f"{src}:{dst}"
+                    connection_patterns[connection_key] += 1
+                    
+                    # 3. Rare destination ports (appears < 2 times in this batch)
+                    # Check after incrementing, so we flag if it's the first or second occurrence
+                    if port_counts[dst_port] <= 2:
+                        interesting_flags.append("rare_port")
+                    
+                    # 4. New external IPs (first time seeing this external IP in this batch)
+                    is_new_external_dst = not dst_internal and dst not in external_ips_seen
+                    is_new_external_src = not src_internal and src not in external_ips_seen
+                    if is_new_external_dst:
+                        external_ips_seen.add(dst)
+                        interesting_flags.append("new_external")
+                    elif is_new_external_src:
+                        external_ips_seen.add(src)
+                        interesting_flags.append("new_external")
+                    
+                    # 5. Repeated short connections (same src->dst with multiple short connections)
+                    if connection_patterns[connection_key] > 1 and duration < 30:
+                        interesting_flags.append("repeated_short")
 
                     convs.append({
                         "ts": ts_str,

@@ -1377,6 +1377,20 @@ table tr.critical,
     font-weight: normal;
 }
 
+/* Active Flows: Interesting flow indicators */
+.flow-interest-icon {
+    font-size: 0.85em;
+    opacity: 0.7;
+    cursor: help;
+    line-height: 1;
+    display: inline-block;
+    transition: opacity 0.2s ease;
+}
+
+.flow-interest-icon:hover {
+    opacity: 1;
+}
+
 /* ============================================
    Unified Endpoint Widget Design System
    Tokens for Sources/Destinations widgets
