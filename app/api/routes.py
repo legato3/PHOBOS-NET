@@ -1609,16 +1609,22 @@ def api_firewall_stats_overview():
             conn.close()
     
     # Update baseline for firewall blocks rate (blocks per hour)
-    from app.utils.baselines import update_baseline
+    from app.utils.baselines import update_baseline, calculate_trend
     blocks_rate = blocked_events_24h / 24.0 if blocked_events_24h > 0 else 0.0
     update_baseline('firewall_blocks_rate', blocks_rate)
+    
+    # Calculate trend for blocked events (using rate for comparison)
+    blocked_trend = calculate_trend('firewall_blocks_rate', blocks_rate)
     
     return jsonify({
         "blocked_events_24h": blocked_events_24h,
         "unique_blocked_sources": unique_blocked_sources,
         "new_blocked_ips": new_blocked_ips,
         "top_block_reason": top_block_reason,
-        "top_block_count": top_block_count
+        "top_block_count": top_block_count,
+        "trends": {
+            "blocked_events": blocked_trend
+        }
     })
 
 
@@ -2201,7 +2207,7 @@ def api_network_stats_overview():
         pass
     
     # Update baselines (incremental, respects update interval)
-    from app.utils.baselines import update_baseline
+    from app.utils.baselines import update_baseline, calculate_trend
     update_baseline('active_flows', active_flows_count)
     update_baseline('external_connections', external_connections_count)
     
@@ -2209,10 +2215,20 @@ def api_network_stats_overview():
     anomalies_rate = anomalies_24h / 24.0 if anomalies_24h > 0 else 0.0
     update_baseline('anomalies_rate', anomalies_rate)
     
+    # Calculate trends (since last hour)
+    active_flows_trend = calculate_trend('active_flows', active_flows_count)
+    external_connections_trend = calculate_trend('external_connections', external_connections_count)
+    anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
+    
     return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
-        "anomalies_24h": anomalies_24h
+        "anomalies_24h": anomalies_24h,
+        "trends": {
+            "active_flows": active_flows_trend,
+            "external_connections": external_connections_trend,
+            "anomalies": anomalies_trend
+        }
     })
 
 

@@ -134,3 +134,106 @@ def get_baseline_summary():
         if stats:
             summary[metric_name] = stats
     return summary
+
+
+def get_previous_hour_value(metric_name):
+    """Get the value from approximately 1 hour ago (if available in baseline window).
+    
+    Since baselines update every 5 minutes, we look for a value from ~12 samples ago
+    (12 * 5 min = 60 min). If not available, returns the oldest value in the window.
+    
+    Args:
+        metric_name: One of 'active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate'
+    
+    Returns:
+        float or None: Previous hour value, or None if insufficient data
+    """
+    if metric_name not in _baselines:
+        return None
+    
+    with _baselines_lock:
+        values = list(_baselines[metric_name])
+    
+    if len(values) < 2:
+        return None
+    
+    # Try to get value from ~1 hour ago (12 samples at 5-min intervals)
+    # If window is smaller, use oldest available value
+    hour_ago_index = min(12, len(values) - 1)
+    if hour_ago_index > 0:
+        return values[-hour_ago_index]
+    
+    return None
+
+
+def calculate_trend(metric_name, current_value, previous_value=None):
+    """Calculate trend indicator comparing current value to previous hour.
+    
+    Respects baselines: small changes within normal range are muted.
+    
+    Args:
+        metric_name: One of 'active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate'
+        current_value: Current metric value
+        previous_value: Optional previous hour value (if None, will try to get from baseline)
+    
+    Returns:
+        dict: {
+            'direction': 'up' | 'down' | 'stable',
+            'indicator': '↑' | '↓' | '↔',
+            'percent_change': float,
+            'significant': bool,  # True if change is significant (outside normal variation)
+            'muted': bool  # True if change should be visually muted
+        }
+        Returns None if insufficient data
+    """
+    if previous_value is None:
+        previous_value = get_previous_hour_value(metric_name)
+    
+    if previous_value is None or previous_value == 0:
+        return None
+    
+    # Calculate percent change
+    percent_change = ((current_value - previous_value) / previous_value) * 100
+    
+    # Get baseline stats to determine if change is significant
+    stats = get_baseline_stats(metric_name)
+    
+    # Determine direction
+    if abs(percent_change) < 1.0:  # Less than 1% change = stable
+        direction = 'stable'
+        indicator = '↔'
+        significant = False
+        muted = True
+    elif percent_change > 0:
+        direction = 'up'
+        indicator = '↑'
+        # Check if change is significant using baseline stddev
+        if stats and stats['stddev'] > 0:
+            # Change is significant if it's > 1 stddev from baseline mean
+            change_magnitude = abs(current_value - stats['mean']) / stats['stddev']
+            significant = change_magnitude > 1.0
+            # Mute if change is small relative to baseline variation
+            muted = abs(percent_change) < 5.0 or change_magnitude < 0.5
+        else:
+            # No baseline yet, use simple threshold: > 10% change is significant
+            significant = abs(percent_change) > 10.0
+            muted = abs(percent_change) < 5.0
+    else:
+        direction = 'down'
+        indicator = '↓'
+        # Check if change is significant using baseline stddev
+        if stats and stats['stddev'] > 0:
+            change_magnitude = abs(current_value - stats['mean']) / stats['stddev']
+            significant = change_magnitude > 1.0
+            muted = abs(percent_change) < 5.0 or change_magnitude < 0.5
+        else:
+            significant = abs(percent_change) > 10.0
+            muted = abs(percent_change) < 5.0
+    
+    return {
+        'direction': direction,
+        'indicator': indicator,
+        'percent_change': percent_change,
+        'significant': significant,
+        'muted': muted
+    }

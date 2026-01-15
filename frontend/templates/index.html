@@ -336,21 +336,42 @@
                                     @click="navigateToActiveFlows()"
                                     style="cursor: pointer;"
                                     title="Click to view active flows">
-                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</div>
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
+                                        <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
+                                            <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                                x-text="networkStatsOverview.trends.active_flows.indicator"
+                                                :title="'Since last hour: ' + (networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">Active Flows</div>
                                 </div>
                                 <div class="stat-box"
                                     @click="navigateToExternalConnections()"
                                     style="cursor: pointer;"
                                     title="Click to view external connections">
-                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</div>
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
+                                        <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
+                                            <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                                x-text="networkStatsOverview.trends.external_connections.indicator"
+                                                :title="'Since last hour: ' + (networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">External Connections</div>
                                 </div>
                                 <div class="stat-box"
                                     @click="navigateToFirewallLogs()"
                                     style="cursor: pointer;"
                                     title="Click to view firewall logs">
-                                    <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</div>
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
+                                        <template x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
+                                            <span :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                                x-text="firewallStatsOverview.trends.blocked_events.indicator"
+                                                :title="'Since last hour: ' + (firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">Blocked Events (24h)</div>
                                 </div>
                                 <div class="stat-box" 
@@ -1074,11 +1095,25 @@
                                     <div class="label">Network Health</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</div>
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
+                                        <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
+                                            <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                                x-text="networkStatsOverview.trends.active_flows.indicator"
+                                                :title="'Since last hour: ' + (networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">Active Flows</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</div>
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
+                                        <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
+                                            <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-tertiary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                                x-text="networkStatsOverview.trends.external_connections.indicator"
+                                                :title="'Since last hour: ' + (networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">External Connections</div>
                                 </div>
                                 <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
@@ -1680,7 +1715,14 @@
                         <!-- Firewall Stats Overview (4 stat boxes) -->
                         <div class="grid mb-6 grid-auto-fit">
                             <div class="card stat-box">
-                                <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</div>
+                                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                    <span x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
+                                    <template x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
+                                        <span :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                            x-text="firewallStatsOverview.trends.blocked_events.indicator"
+                                            :title="'Since last hour: ' + (firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                    </template>
+                                </div>
                                 <div class="label">Blocked Events (24h)</div>
                             </div>
                             <div class="card stat-box">

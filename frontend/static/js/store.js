@@ -95,7 +95,7 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
-    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, loading: true },
+    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -141,7 +141,7 @@ export const Store = () => ({
     recentBlocksFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
     recentBlocksAutoRefresh: true,
     recentBlocksRefreshTimer: null,
-    firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, loading: true },
+    firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
 
     // Forensics Investigation Tools
@@ -1567,6 +1567,7 @@ export const Store = () => ({
                     new_blocked_ips: d.new_blocked_ips || 0,
                     top_block_reason: d.top_block_reason || 'N/A',
                     top_block_count: d.top_block_count || 0,
+                    trends: d.trends || {},
                     loading: false
                 };
             } else {
@@ -2736,6 +2737,7 @@ export const Store = () => ({
                     active_flows: d.active_flows || 0,
                     external_connections: d.external_connections || 0,
                     anomalies_24h: d.anomalies_24h || 0,
+                    trends: d.trends || {},
                     loading: false
                 };
             } else {
