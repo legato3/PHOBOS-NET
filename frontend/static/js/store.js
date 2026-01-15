@@ -94,7 +94,7 @@ export const Store = () => ({
     blocklist: { series: [], current_rate: null, total_matches: 0, total_blocked: 0, has_fw_data: false, loading: true },
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
-    flows: { flows: [], loading: true },
+    flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -1804,15 +1804,19 @@ export const Store = () => ({
     async fetchFlows() {
         this.flows.loading = true;
         try {
-            // Fetch recent flows
-            const limit = 50;
+            // Fetch recent flows - get enough for sorting, but limit display
+            const limit = 100;  // Fetch more for proper sorting, but display limited rows
             const res = await fetch(`/api/flows?range=${this.timeRange}&limit=${limit}`);
             if (res.ok) {
                 const data = await res.json();
+                // Sort by bytes descending by default (heaviest flows first)
+                const sortedFlows = (data.flows || []).sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
                 this.flows = {
                     ...data,
+                    flows: sortedFlows,
                     sortKey: 'bytes',
-                    sortDesc: true
+                    sortDesc: true,
+                    viewLimit: this.flows.viewLimit || 15  // Preserve view limit setting
                 };
             }
         } catch (e) { console.error(e); } finally { this.flows.loading = false; }
@@ -1833,24 +1837,16 @@ export const Store = () => ({
             let va, vb;
 
             if (k === 'age') {
-                // Sort by timestamp (newest first for desc)
-                // Assuming 'ts' is available or parse 'age' (parsing age string is hard, ts is better)
-                // Backend returns 'ts' in raw data? Step 650 JSON showed "age".
-                // I need 'ts' or parse 'age'. "11h ago".
-                // Backend sends `ts` field? Let's check api_conversations logic.
-                // Step 759: `conv = {'ts': parts[ts_idx], ...}`. YES.
-                va = new Date(a.ts).getTime();
-                vb = new Date(b.ts).getTime();
+                // Use age_seconds if available (preferred), fallback to first_seen_ts or ts
+                va = a.age_seconds !== undefined ? a.age_seconds : (a.first_seen_ts || (new Date(a.ts).getTime() / 1000));
+                vb = b.age_seconds !== undefined ? b.age_seconds : (b.first_seen_ts || (new Date(b.ts).getTime() / 1000));
             } else if (k === 'bytes') {
-                // Parse bytes_fmt? No, use raw 'bytes' if available.
-                // Backend sends 'bytes' (int)? Step 759: `conv = {..., 'bytes': int(parts[ibyt_idx]), ...}`. YES.
-                va = a.bytes;
-                vb = b.bytes;
+                va = a.bytes || 0;
+                vb = b.bytes || 0;
             } else if (k === 'duration') {
-                // Backend sends 'duration' (float/string)? `conv['duration']` is formatted string "61.00s".
-                // Parse it.
-                va = parseFloat(a.duration);
-                vb = parseFloat(b.duration);
+                // Use duration_seconds if available, otherwise parse duration string
+                va = a.duration_seconds !== undefined ? a.duration_seconds : parseFloat(a.duration) || 0;
+                vb = b.duration_seconds !== undefined ? b.duration_seconds : parseFloat(b.duration) || 0;
             } else {
                 // String sort (src, dst, proto_name)
                 va = (a[k] || '').toString().toLowerCase();
@@ -1863,8 +1859,37 @@ export const Store = () => ({
         });
     },
 
+    setFlowsViewLimit(limit) {
+        this.flows.viewLimit = limit;
+    },
+
+    openFlowDetails(flow) {
+        // Open IP investigation modal for source IP
+        // This provides flow details through the existing IP investigation interface
+        if (flow && flow.src) {
+            this.ipInvestigation.searchIP = flow.src;
+            this.investigateIP();
+            // Scroll to IP investigation section if on forensics tab
+            if (this.activeTab === 'forensics') {
+                setTimeout(() => {
+                    const section = document.getElementById('section-ip-investigation');
+                    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 300);
+            }
+        }
+    },
+
     timeAgo(ts) {
         if (!ts) return '';
+        // If ts is a number (Unix timestamp), use it directly
+        if (typeof ts === 'number' && ts > 0) {
+            const diff = Math.max(0, (Date.now() / 1000) - ts);
+            if (diff < 60) return `${Math.round(diff)}s ago`;
+            if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+            return `${Math.round(diff / 86400)}d ago`;
+        }
+        // String parsing fallback
         if (typeof ts === 'string') {
             // Ultra-robust parsing: extract all digit groups
             // This handles "2026-01-14 06:18:06", "2026-01-14T06:18:06", etc.
@@ -1893,6 +1918,16 @@ export const Store = () => ({
         if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
         if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
         return `${Math.round(diff / 86400)}d ago`;
+    },
+
+    // Format age from age_seconds (preferred method)
+    formatAge(ageSeconds) {
+        if (ageSeconds === undefined || ageSeconds === null || isNaN(ageSeconds)) return '';
+        const age = Math.max(0, ageSeconds);
+        if (age < 60) return `${Math.round(age)}s ago`;
+        if (age < 3600) return `${Math.round(age / 60)}m ago`;
+        if (age < 86400) return `${Math.round(age / 3600)}h ago`;
+        return `${Math.round(age / 86400)}d ago`;
     },
 
 

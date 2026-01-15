@@ -2167,8 +2167,17 @@
                         <!-- Active Flows Widget -->
                         <section id="section-flows" class="scroll-section" style="margin-bottom: 32px;">
                             {% set conv_actions %}
-                            <!-- View Toggle -->
-
+                            <div class="flex gap-2" style="align-items: center;">
+                                <button @click="setFlowsViewLimit(15)" :class="{ 'btn--primary': flows.viewLimit === 15, 'btn--secondary': flows.viewLimit !== 15 }" class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                    Top 15
+                                </button>
+                                <button @click="setFlowsViewLimit(50)" :class="{ 'btn--primary': flows.viewLimit === 50, 'btn--secondary': flows.viewLimit !== 50 }" class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                    Top 50
+                                </button>
+                                <button @click="setFlowsViewLimit(999999)" :class="{ 'btn--primary': flows.viewLimit >= 999999, 'btn--secondary': flows.viewLimit < 999999 }" class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);" title="Show all flows (may be slow)">
+                                    All
+                                </button>
+                            </div>
                             {% endset %}
                             {% call widget_card('flows', 'Active Flows', '⚡', card_class='wide-card',
                             extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True) %}
@@ -2200,9 +2209,9 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template x-for="(flow, idx) in flows.flows" :key="idx">
-                                        <tr class="flow-item">
-                                            <td class="text-xs text-muted font-mono" x-text="timeAgo(flow.ts)">
+                                    <template x-for="(flow, idx) in flows.flows.slice(0, flows.viewLimit || 15)" :key="idx">
+                                        <tr class="flow-item" @click="openFlowDetails(flow)" style="cursor: pointer;" :class="{ 'flow-item-heavy': flow.bytes > 1000000 }">
+                                            <td class="text-xs text-muted font-mono" x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))">
                                             </td>
                                             <td @click="openIPModal(flow.src)"
                                                 style="padding: 6px 8px; overflow: hidden;">
@@ -2260,8 +2269,9 @@
                                     </template>
                                 </tbody>
                             </table>
-
-                            <!-- Sankey View -->
+                            <div x-show="flows.flows.length > (flows.viewLimit || 15)" style="margin-top: var(--space-2); padding: var(--space-2); background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--text-sm);">
+                                Showing <strong x-text="flows.viewLimit || 15"></strong> of <strong x-text="flows.flows.length"></strong> flows. Use controls above to show more.
+                            </div>
                             {% endcall %}
                         </section>
                     </div>

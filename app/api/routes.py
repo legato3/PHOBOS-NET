@@ -2075,8 +2075,11 @@ def api_flows():
 
                     convs.append({
                         "ts": ts_str,
+                        "age_seconds": age_sec,  # Explicit age in seconds for reliable frontend calculation
+                        "first_seen_ts": flow_time,  # Unix timestamp for age calculation fallback
                         "age": format_duration(age_sec) + " ago" if age_sec < 86400 else ts_str,
                         "duration": f"{duration:.2f}s",
+                        "duration_seconds": duration,  # Raw duration in seconds
                         "proto": proto_val,
                         "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
                         "src": src,
