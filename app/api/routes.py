@@ -5251,6 +5251,8 @@ def api_firewall_snmp_status():
                 
                 # Calculate saturation risk (sustained high utilization vs baseline)
                 baseline_window = list(state._baselines[baseline_key])
+                current_util = iface["utilization"]
+                
                 if len(baseline_window) >= 10:  # Need at least 10 samples for meaningful baseline
                     baseline_mean = statistics.mean(baseline_window)
                     baseline_std = statistics.stdev(baseline_window) if len(baseline_window) > 1 else 0
@@ -5258,7 +5260,6 @@ def api_firewall_snmp_status():
                     # Check for sustained high utilization
                     # Risk if: current > 70% AND (current significantly above baseline OR consistently high)
                     recent_samples = baseline_window[-5:] if len(baseline_window) >= 5 else baseline_window
-                    current_util = iface["utilization"]
                     
                     # More lenient conditions: either significantly above baseline OR consistently high
                     is_significantly_above = current_util > baseline_mean + (1.5 * baseline_std) if baseline_std > 0 else False
@@ -5276,6 +5277,14 @@ def api_firewall_snmp_status():
                             iface["saturation_hint"] = "High utilization"
                         elif current_util > 75 or deviation > 15:
                             iface["saturation_hint"] = "Elevated utilization"
+                elif len(baseline_window) >= 5:
+                    # For testing: show hint even with fewer samples if utilization is high
+                    if current_util is not None and current_util > 70:
+                        iface["saturation_hint"] = "Elevated utilization"
+                else:
+                    # Very lenient for initial testing - show hint if utilization > 60% with any samples
+                    if current_util is not None and current_util > 60 and len(baseline_window) >= 1:
+                        iface["saturation_hint"] = "Elevated utilization"
     
     # Format response
     response = {

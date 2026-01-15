@@ -3043,11 +3043,13 @@
                                                                     x-text="(iface.utilization || 0).toFixed(1) + '%'"
                                                                     :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
                                                                 <span x-show="iface.utilization == null" class="text-muted">—</span>
-                                                                <span x-show="iface.saturation_hint && iface.saturation_hint !== null && iface.saturation_hint !== ''" 
-                                                                    class="text-muted" 
-                                                                    style="font-size: 0.85em; opacity: 0.7; margin-left: var(--space-2);"
-                                                                    :title="'Sustained utilization above baseline: ' + iface.saturation_hint"
-                                                                    x-text="'⚠ ' + iface.saturation_hint"></span>
+                                                                <!-- Debug: Show saturation hint if it exists -->
+                                                                <template x-if="iface.saturation_hint">
+                                                                    <span class="text-muted" 
+                                                                        style="font-size: 0.85em; opacity: 0.7; margin-left: var(--space-2);"
+                                                                        :title="'Sustained utilization above baseline: ' + iface.saturation_hint"
+                                                                        x-text="'⚠ ' + iface.saturation_hint"></span>
+                                                                </template>
                                                             </div>
                                                         </td>
                                                     </tr>
