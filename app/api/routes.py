@@ -3299,8 +3299,9 @@ def api_malicious_ports():
                 
                 try:
                     # Get aggregated port stats from NetFlow
+                    # Note: Blocked traffic may not appear in NetFlow, so we query for any traffic on these ports
                     port_output = run_nfdump(["-o", "csv", "-n", "50", "-s", "port/bytes", port_filters], tf)
-                    port_lines = port_output.strip().split('\n')
+                    port_lines = port_output.strip().split('\n') if port_output else []
 
                     if len(port_lines) > 1:
                         p_header = [c.strip().lower() for c in port_lines[0].split(',')]
@@ -3317,10 +3318,25 @@ def api_malicious_ports():
                                     if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
                                         port_num = int(pparts[p_idx].strip())
                                         if port_num in port_data:  # Only update ports we have from firewall
-                                            bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx and pparts[p_byt_idx].strip() else 0
-                                            flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx and pparts[p_fl_idx].strip() else 0
-                                            port_data[port_num]['netflow_bytes'] += bytes_val
-                                            port_data[port_num]['netflow_flows'] += flows_val
+                                            # Try to get bytes - check multiple possible column names
+                                            bytes_val = 0
+                                            if p_byt_idx is not None and p_byt_idx < len(pparts):
+                                                try:
+                                                    bytes_val = int(pparts[p_byt_idx].strip()) if pparts[p_byt_idx].strip() else 0
+                                                except (ValueError, IndexError):
+                                                    bytes_val = 0
+                                            
+                                            # Try to get flows
+                                            flows_val = 0
+                                            if p_fl_idx is not None and p_fl_idx < len(pparts):
+                                                try:
+                                                    flows_val = int(pparts[p_fl_idx].strip()) if pparts[p_fl_idx].strip() else 0
+                                                except (ValueError, IndexError):
+                                                    flows_val = 0
+                                            
+                                            if bytes_val > 0 or flows_val > 0:
+                                                port_data[port_num]['netflow_bytes'] += bytes_val
+                                                port_data[port_num]['netflow_flows'] += flows_val
                                 except (ValueError, IndexError) as e:
                                     # Skip malformed lines
                                     continue
@@ -3433,7 +3449,10 @@ def api_malicious_ports():
     ports = list(port_data.values())
     for p in ports:
         p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
-        # Always set bytes_fmt - format even if 0 so frontend knows data was checked
+        # Ensure netflow_bytes and netflow_flows are integers
+        p['netflow_bytes'] = int(p.get('netflow_bytes', 0))
+        p['netflow_flows'] = int(p.get('netflow_flows', 0))
+        # Set bytes_fmt only if there's actual data
         p['bytes_fmt'] = fmt_bytes(p['netflow_bytes']) if p['netflow_bytes'] > 0 else None
 
     ports.sort(key=lambda x: x['total_score'], reverse=True)
