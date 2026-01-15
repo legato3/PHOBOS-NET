@@ -2983,17 +2983,44 @@ export const Store = () => ({
 
             const labels = flagsData.map(f => f.flag);
             const data = flagsData.map(f => f.count);
-            // Cyberpunk palette
-            const colors = ['#00f3ff', '#bc13fe', '#0aff0a', '#ff003c', '#ffff00', '#ffffff'];
+            // Cyberpunk palette - using theme colors
+            const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
+            const purpleColor = this.getCssVar('--accent-magenta') || this.getCssVar('--signal-tertiary') || '#7b7bff';
+            const greenColor = this.getCssVar('--signal-ok') || '#00ff88';
+            const redColor = this.getCssVar('--signal-crit') || '#ff1744';
+            const yellowColor = this.getCssVar('--signal-warn') || '#ffb400';
+            const colors = [cyanColor, purpleColor, greenColor, redColor, yellowColor, '#ffffff'];
 
             // Destroy existing chart if it exists but is in bad state
             if (_chartInstances['flagsChartInstance']) {
                 try {
                     _chartInstances['flagsChartInstance'].data.labels = labels;
                     _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
-                    // Update legend position if needed
+                    _chartInstances['flagsChartInstance'].data.datasets[0].backgroundColor = colors;
+                    // Update legend configuration
                     if (_chartInstances['flagsChartInstance'].options.plugins.legend.position !== 'bottom') {
                         _chartInstances['flagsChartInstance'].options.plugins.legend.position = 'bottom';
+                    }
+                    if (!_chartInstances['flagsChartInstance'].options.plugins.legend.padding) {
+                        _chartInstances['flagsChartInstance'].options.plugins.legend.padding = 20;
+                    }
+                    if (!_chartInstances['flagsChartInstance'].options.plugins.legend.labels.generateLabels) {
+                        _chartInstances['flagsChartInstance'].options.plugins.legend.labels.generateLabels = function(chart) {
+                            const chartData = chart.data;
+                            if (chartData.labels.length && chartData.datasets.length) {
+                                return chartData.labels.map((label, i) => {
+                                    return {
+                                        text: label,
+                                        fillStyle: chartData.datasets[0].backgroundColor[i],
+                                        strokeStyle: chartData.datasets[0].backgroundColor[i],
+                                        lineWidth: 0,
+                                        hidden: false,
+                                        index: i
+                                    };
+                                });
+                            }
+                            return [];
+                        };
                     }
                     _chartInstances['flagsChartInstance'].update('none'); // 'none' mode prevents animation
                 } catch (e) {
@@ -3025,18 +3052,20 @@ export const Store = () => ({
                         plugins: {
                             legend: { 
                                 position: 'bottom',
+                                padding: 20, // Add spacing between chart and legend
                                 labels: { 
                                     color: '#e0e0e0', 
                                     boxWidth: 12,
+                                    padding: 8, // Add spacing between legend items
                                     generateLabels: function(chart) {
                                         // Show flag names instead of numbers
-                                        const data = chart.data;
-                                        if (data.labels.length && data.datasets.length) {
-                                            return data.labels.map((label, i) => {
+                                        const chartData = chart.data;
+                                        if (chartData.labels.length && chartData.datasets.length) {
+                                            return chartData.labels.map((label, i) => {
                                                 return {
                                                     text: label, // Show flag name (e.g., "AP", "A", "R")
-                                                    fillStyle: data.datasets[0].backgroundColor[i],
-                                                    strokeStyle: data.datasets[0].backgroundColor[i],
+                                                    fillStyle: chartData.datasets[0].backgroundColor[i],
+                                                    strokeStyle: chartData.datasets[0].backgroundColor[i],
                                                     lineWidth: 0,
                                                     hidden: false,
                                                     index: i
