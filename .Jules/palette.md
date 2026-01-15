@@ -9,3 +9,7 @@
 ## 2026-01-11 - [ARIA Tabs Pattern]
 **Learning:** When using Alpine.js for tab interfaces, `aria-selected` must be bound with a colon (`:aria-selected`) to evaluate the boolean expression. Using a static attribute results in the string "activeTab === 'x'" being read by screen readers.
 **Action:** Verify all dynamic ARIA states in Alpine.js templates use `x-bind` (colon prefix). Also, use proper `role="tablist"` and `role="tab"` for view-switching sidebars instead of generic navigation roles.
+
+## 2026-01-22 - [Collapsible Sidebar Accessibility]
+**Learning:** Collapsible sidebars that hide text labels using `display: none` render the navigation buttons inaccessible to screen readers (who hear nothing or just an icon) and confusing for mouse users (no hover context).
+**Action:** Always add static `aria-label` and `title` attributes to sidebar navigation buttons. This ensures the accessible name persists even when the visual text label is hidden via CSS.
