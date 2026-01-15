@@ -2048,65 +2048,91 @@ def api_network_stats_overview():
     
     # Get current active flows (1h range for "current")
     tf_1h = get_time_range('1h')
-    fetch_limit = "100"  # Get up to 100 flows for counting
     
     # Load threat list for correlation
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
     threat_set = threat_set - whitelist
     
-    # Fetch current flows for active flows and external connections count
-    output_current = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", fetch_limit], tf_1h)
-    
+    # Get total flow count without limit - use -q (quiet) mode and count all flows
+    # This gives us the true count independent of display limits
     active_flows_count = 0
     external_connections_count = 0
     
+    # Get total count by running without -n limit, using -q for quiet output
+    # Count all flow lines (excluding header)
     try:
-        lines = output_current.strip().split("\n")
-        start_idx = 0
-        if lines:
-            line0 = lines[0]
-            if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
-                header = line0.split(',')
-                try:
-                    sa_key = 'sa' if 'sa' in header else 'srcAddr'
-                    if 'srcaddr' in header: sa_key = 'srcaddr'
-                    da_key = 'da' if 'da' in header else 'dstAddr'
-                    if 'dstaddr' in header: da_key = 'dstaddr'
-                    ibyt_key = 'ibyt' if 'ibyt' in header else 'bytes'
-                    if sa_key in header: sa_idx = header.index(sa_key)
-                    if da_key in header: da_idx = header.index(da_key)
-                    if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
-                    if 'ts' in header: ts_idx = header.index('ts')
-                    if 'firstSeen' in header: ts_idx = header.index('firstSeen')
-                    if 'firstseen' in header: ts_idx = header.index('firstseen')
-                    if 'td' in header: td_idx = header.index('td')
-                    if 'duration' in header: td_idx = header.index('duration')
-                    start_idx = 1
-                except:
-                    pass
-        
-        for line in lines[start_idx:]:
-            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
-            parts = line.split(',')
-            if len(parts) > 7:
-                try:
-                    src = parts[sa_idx] if len(parts) > sa_idx else ""
-                    dst = parts[da_idx] if len(parts) > da_idx else ""
-                    
-                    if src and dst:
-                        active_flows_count += 1
-                        
-                        # Check if external connection (not internal-to-internal)
-                        src_internal = is_internal(src)
-                        dst_internal = is_internal(dst)
-                        
-                        if not (src_internal and dst_internal):
-                            external_connections_count += 1
-                except:
-                    pass
+        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
+        lines = full_output.strip().split("\n")
+        # Count non-header lines (actual flow records)
+        for line in lines:
+            if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
+                # Check if it's a valid flow line (has enough fields)
+                parts = line.split(',')
+                if len(parts) > 7:
+                    active_flows_count += 1
     except:
-        pass
+        active_flows_count = 0
+    
+    # Now get external connections count using a sample
+    # We use a sample (500 flows) to determine the ratio of external connections
+    # This is more efficient than processing all flows
+    if active_flows_count > 0:
+        sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_1h)
+        sample_count = 0
+        sample_external = 0
+        
+        try:
+            lines = sample_output.strip().split("\n")
+            start_idx = 0
+            sa_idx = 0
+            da_idx = 0
+            
+            if lines:
+                line0 = lines[0]
+                if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                    header = line0.split(',')
+                    try:
+                        sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                        if 'srcaddr' in header: sa_key = 'srcaddr'
+                        da_key = 'da' if 'da' in header else 'dstAddr'
+                        if 'dstaddr' in header: da_key = 'dstaddr'
+                        if sa_key in header: sa_idx = header.index(sa_key)
+                        if da_key in header: da_idx = header.index(da_key)
+                        start_idx = 1
+                    except:
+                        pass
+            
+            for line in lines[start_idx:]:
+                if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+                parts = line.split(',')
+                if len(parts) > 7:
+                    try:
+                        src = parts[sa_idx] if len(parts) > sa_idx else ""
+                        dst = parts[da_idx] if len(parts) > da_idx else ""
+                        
+                        if src and dst:
+                            sample_count += 1
+                            
+                            # Check if external connection (not internal-to-internal)
+                            src_internal = is_internal(src)
+                            dst_internal = is_internal(dst)
+                            
+                            if not (src_internal and dst_internal):
+                                sample_external += 1
+                    except:
+                        pass
+            
+            # Estimate external connections based on sample ratio
+            if sample_count > 0:
+                external_ratio = sample_external / sample_count
+                external_connections_count = int(active_flows_count * external_ratio)
+            else:
+                external_connections_count = 0
+        except:
+            external_connections_count = 0
+    else:
+        external_connections_count = 0
     
     # Count anomalies (detections) over 24h
     # Fetch flows with detection criteria over 24h range
