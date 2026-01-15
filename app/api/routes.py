@@ -1447,6 +1447,78 @@ def api_stats_net_health():
                 "icon": "🛡️"
             })
 
+        # Incorporate SNMP metrics as supporting signals
+        # Rules: Reinforce degradation, sustained deviation, prefer CPU/Mem/Saturation
+        try:
+            from app.services.snmp import get_snmp_data
+            import app.core.state as state
+            import statistics
+            
+            # Fetch latest SNMP data (uses cache/backoff internally)
+            snmp_data = get_snmp_data()
+            
+            if snmp_data and "error" not in snmp_data:
+                snmp_penalties = 0
+                
+                with state._baselines_lock:
+                    # Helper to check sustained deviation
+                    def check_deviation(metric_name, current_val, threshold_msg, penalty_val):
+                        baseline = state._baselines.get(metric_name)
+                        if baseline and len(baseline) > 5:
+                            avg = statistics.mean(baseline)
+                            # Logic: Must be high (absolute) AND deviating (relative)
+                            # CPU/Mem > 80% and > 1.2x baseline (sustained spike)
+                            if current_val > 80 and current_val > (avg * 1.1):
+                                indicators.append({
+                                    "name": f"High {threshold_msg}",
+                                    "value": f"{current_val}%",
+                                    "status": "warn",
+                                    "icon": "🔥"
+                                })
+                                return penalty_val
+                        return 0
+
+                    # Check CPU
+                    if "cpu_percent" in snmp_data:
+                         snmp_penalties += check_deviation("cpu_load", snmp_data["cpu_percent"], "CPU", 5)
+                    
+                    # Check Memory
+                    if "mem_percent" in snmp_data:
+                         snmp_penalties += check_deviation("mem_usage", snmp_data["mem_percent"], "Memory", 5)
+                         
+                    # Check Interface Saturation (WAN)
+                    if "wan_util_percent" in snmp_data and snmp_data["wan_util_percent"] is not None:
+                        val = snmp_data["wan_util_percent"]
+                        if val > 90:
+                             indicators.append({
+                                "name": "WAN Saturation",
+                                "value": f"{val}%",
+                                "status": "warn",
+                                "icon": "📶"
+                            })
+                             snmp_penalties += 5
+                
+                # Apply penalties with constraints
+                # "SNMP alone must NEVER cause Unhealthy" -> (Score < 60)
+                # If we are currently Healthy (>=80), max penalty shouldn't drop us below 60 (unhealthy)
+                # If we are Fair (60-80), max penalty shouldn't drop us below 60?
+                # The rule is strict: NEVER cause Unhealthy.
+                # So if (health_score - penalties) < 60 using ONLY snmp penalties, we cap it.
+                
+                if snmp_penalties > 0:
+                    potential_score = health_score - snmp_penalties
+                    existing_status_is_unhealthy = health_score < 60
+                    
+                    # If we weren't unhealthy before, don't become unhealthy strictly due to SNMP
+                    if not existing_status_is_unhealthy and potential_score < 60:
+                        snmp_penalties = max(0, health_score - 60)
+                    
+                    health_score -= snmp_penalties
+                    
+        except Exception as e:
+            # SNMP failure shouldn't break the whole health check
+            pass
+
         data = {
             "indicators": indicators,
             "health_score": health_score,

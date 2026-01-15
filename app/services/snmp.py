@@ -283,6 +283,23 @@ def get_snmp_data():
             state._snmp_cache["data"] = result
             state._snmp_cache["ts"] = now
         
+        # Update Health Baselines (CPU/Mem/Interface Util)
+        # Use existing _baselines in state to track deviation over time
+        with state._baselines_lock:
+            # CPU Load
+            if "cpu_percent" in result:
+                state._baselines["cpu_load"].append(result["cpu_percent"])
+            
+            # Memory Usage
+            if "mem_percent" in result:
+                state._baselines["mem_usage"].append(result["mem_percent"])
+                
+            # Interface Utilization (WAN/LAN)
+            if result.get("wan_util_percent") is not None:
+                state._baselines["wan_utilization"].append(result["wan_util_percent"])
+            if result.get("lan_util_percent") is not None:
+                state._baselines["lan_utilization"].append(result["lan_util_percent"])
+        
         return result
         
     except Exception as e:

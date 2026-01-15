@@ -85,6 +85,8 @@ _baselines = {
     'anomalies_rate': deque(maxlen=100),  # Anomalies per hour
     'wan_utilization': deque(maxlen=100),  # Interface utilization baselines
     'lan_utilization': deque(maxlen=100),
+    'cpu_load': deque(maxlen=100),  # CPU deviation baseline
+    'mem_usage': deque(maxlen=100),  # Memory deviation baseline
 }
 _baselines_lock = threading.Lock()
 _baselines_last_update = {
