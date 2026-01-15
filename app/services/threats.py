@@ -316,9 +316,6 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 seen.add(alert_key)
                 # Track timeline
                 update_threat_timeline(ip)
-                # Add to history
-                with _alert_history_lock:
-                    _alert_history.append(alert)
                 # Send to security webhook if configured
                 send_security_webhook(alert)
 
@@ -338,14 +335,21 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
 
     # Add all alerts to history
     # PERFORMANCE: Compute timestamp once instead of per-alert if missing
-    # PERFORMANCE: Convert deque to list once instead of per-alert check (O(n) -> O(1) after conversion)
+    # PERFORMANCE: Use set lookup for deduplication instead of list iteration (O(N) -> O(1))
     now_ts = time.time()
     with _alert_history_lock:
-        history_list = list(_alert_history)  # Convert once for membership check
+        # Get recent history signatures for deduplication (last 50 items)
+        recent_history = list(_alert_history)[-50:]
+        existing_signatures = {(a.get('type'), a.get('ip'), a.get('msg')) for a in recent_history}
+
         for alert in alerts:
             if 'ts' not in alert:
                 alert['ts'] = now_ts
-            if alert not in history_list:
+
+            # Avoid duplicates in recent history
+            # We ignore timestamp in the signature check to prevent flooding history with identical events
+            alert_sig = (alert.get('type'), alert.get('ip'), alert.get('msg'))
+            if alert_sig not in existing_signatures:
                 _alert_history.append(alert)
 
     return alerts
