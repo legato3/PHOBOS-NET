@@ -3305,8 +3305,8 @@ def api_malicious_ports():
                     if len(port_lines) > 1:
                         p_header = [c.strip().lower() for c in port_lines[0].split(',')]
                         p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
-                        p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes', 'obyt'))), None)
-                        p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows'))), None)
+                        p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes', 'obyt')), None)
+                        p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
 
                         if p_idx is not None:
                             for pline in port_lines[1:]:
