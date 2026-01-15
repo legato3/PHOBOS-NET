@@ -25,6 +25,11 @@ def create_app():
     from app.api.routes import bp as routes_bp
     app.register_blueprint(routes_bp)
     
+    # Start SNMP thread early to ensure rate calculations work
+    # (rates require at least two polls to calculate deltas)
+    from app.services.snmp import start_snmp_thread
+    start_snmp_thread()
+    
     # Setup middleware
     @app.before_request
     def track_request_start():
