@@ -5244,18 +5244,20 @@ def api_firewall_snmp_status():
                 # Calculate RX/TX rates
                 vpn_rx_mbps = None
                 vpn_tx_mbps = None
+                
+                # Always store current values for next poll
+                state._snmp_prev_sample[prev_in_key] = vpn_in
+                state._snmp_prev_sample[prev_out_key] = vpn_out
+                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
+                
+                # Calculate rates if we have previous values
                 if prev_in is not None and prev_out is not None and dt > 0:
                     d_in = vpn_in - prev_in
                     d_out = vpn_out - prev_out
                     if d_in >= 0 and d_out >= 0:  # No counter wrap
                         vpn_rx_mbps = round((d_in * 8) / (dt * 1_000_000), 2)  # bytes -> Mbps
                         vpn_tx_mbps = round((d_out * 8) / (dt * 1_000_000), 2)
-                
-                # Always update previous sample (even if rates couldn't be calculated yet)
-                # This ensures rates will be available on the next poll
-                state._snmp_prev_sample[prev_in_key] = vpn_in
-                state._snmp_prev_sample[prev_out_key] = vpn_out
-                state._snmp_prev_sample[prev_ts_key] = now  # Store VPN-specific timestamp
+                    # Note: If d_in or d_out < 0, rates remain None (counter wrapped/reset)
                 
                 # Calculate utilization if speed is known
                 vpn_util = None
