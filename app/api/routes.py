@@ -3293,36 +3293,41 @@ def api_malicious_ports():
             blocked_ports = sorted(port_data.keys(), key=lambda p: port_data[p]['blocked'], reverse=True)[:20]
 
             if blocked_ports:
-                # Create port filter: "dst port X or src port X"
-                # Query each port individually to get accurate data (more reliable than OR queries)
-                for port in blocked_ports[:15]:  # Limit to top 15 ports
-                    try:
-                        port_filter = f"dst port {port} or src port {port}"
-                        port_output = run_nfdump(["-o", "csv", "-n", "10", "-s", "port/bytes", port_filter], tf)
-                        port_lines = port_output.strip().split('\n')
+                # Query NetFlow for all blocked ports at once (more efficient)
+                # Build filter for top blocked ports
+                port_filters = " or ".join([f"dst port {p} or src port {p}" for p in blocked_ports[:15]])
+                
+                try:
+                    # Get aggregated port stats from NetFlow
+                    port_output = run_nfdump(["-o", "csv", "-n", "50", "-s", "port/bytes", port_filters], tf)
+                    port_lines = port_output.strip().split('\n')
 
-                        if len(port_lines) > 1:
-                            p_header = [c.strip().lower() for c in port_lines[0].split(',')]
-                            p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
-                            p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes')), None)
-                            p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows')), None)
+                    if len(port_lines) > 1:
+                        p_header = [c.strip().lower() for c in port_lines[0].split(',')]
+                        p_idx = next((i for i, h in enumerate(p_header) if h == 'port'), None)
+                        p_byt_idx = next((i for i, h in enumerate(p_header) if h in ('ibyt', 'bytes', 'obyt'))), None)
+                        p_fl_idx = next((i for i, h in enumerate(p_header) if h in ('fl', 'flows'))), None)
 
-                            if p_idx is not None:
-                                for pline in port_lines[1:]:
-                                    pparts = pline.split(',')
-                                    try:
-                                        if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
-                                            port_num = int(pparts[p_idx].strip())
-                                            if port_num == port and port in port_data:  # Match the port we're querying
-                                                bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx else 0
-                                                flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx else 0
-                                                port_data[port]['netflow_bytes'] += bytes_val
-                                                port_data[port]['netflow_flows'] += flows_val
-                                    except (ValueError, IndexError):
-                                        pass
-                    except Exception as e:
-                        # Continue with next port if this one fails
-                        continue
+                        if p_idx is not None:
+                            for pline in port_lines[1:]:
+                                if not pline.strip():
+                                    continue
+                                pparts = pline.split(',')
+                                try:
+                                    if len(pparts) > max(p_idx, p_byt_idx or 0, p_fl_idx or 0):
+                                        port_num = int(pparts[p_idx].strip())
+                                        if port_num in port_data:  # Only update ports we have from firewall
+                                            bytes_val = int(pparts[p_byt_idx].strip()) if p_byt_idx and pparts[p_byt_idx].strip() else 0
+                                            flows_val = int(pparts[p_fl_idx].strip()) if p_fl_idx and pparts[p_fl_idx].strip() else 0
+                                            port_data[port_num]['netflow_bytes'] += bytes_val
+                                            port_data[port_num]['netflow_flows'] += flows_val
+                                except (ValueError, IndexError) as e:
+                                    # Skip malformed lines
+                                    continue
+                except Exception as e:
+                    # Log but continue - syslog data is still valuable
+                    print(f"Warning: NetFlow query for blocked ports failed: {e}")
+                    pass
 
         # Also try to get data from threat IPs (if threat list exists)
         threat_set = load_threatlist()
@@ -3428,7 +3433,8 @@ def api_malicious_ports():
     ports = list(port_data.values())
     for p in ports:
         p['total_score'] = p['blocked'] * 10 + p['netflow_flows']  # Weight blocks higher
-        p['bytes_fmt'] = fmt_bytes(p['netflow_bytes'])
+        # Always set bytes_fmt, even if 0, so frontend can display it
+        p['bytes_fmt'] = fmt_bytes(p['netflow_bytes']) if p['netflow_bytes'] > 0 else '0 B'
 
     ports.sort(key=lambda x: x['total_score'], reverse=True)
 

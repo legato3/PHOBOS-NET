@@ -836,7 +836,7 @@
                                         <span>Ports most frequently seen in threat traffic</span>
                                     </template>
                                 </div>
-                                <div style="max-height: 180px; overflow-y: auto;">
+                                <div style="max-height: 240px; overflow-y: auto;">
                                     <table class="table-fixed table-compact">
                                         <thead>
                                             <tr>
@@ -870,13 +870,15 @@
                                                         </template>
                                                     </td>
                                                     <td>
-                                                        <template x-if="(p.netflow_bytes || 0) > 0 || (p.netflow_flows || 0) > 0">
-                                                            <strong class="text-green"
-                                                                x-text="p.bytes_fmt || (p.netflow_bytes ? fmtBytes(p.netflow_bytes) : '0 B')"></strong>
-                                                            <div class="text-8 text-muted"
-                                                                x-text="(p.netflow_flows || 0) + ' flows'"></div>
+                                                        <template x-if="p.bytes_fmt || (p.netflow_bytes || 0) > 0 || (p.netflow_flows || 0) > 0">
+                                                            <div>
+                                                                <strong class="text-green"
+                                                                    x-text="p.bytes_fmt || (p.netflow_bytes ? fmtBytes(p.netflow_bytes) : '0 B')"></strong>
+                                                                <div class="text-8 text-muted"
+                                                                    x-text="(p.netflow_flows || 0) + ' flows'"></div>
+                                                            </div>
                                                         </template>
-                                                        <template x-if="(p.netflow_bytes || 0) === 0 && (p.netflow_flows || 0) === 0">
+                                                        <template x-if="!p.bytes_fmt && (p.netflow_bytes || 0) === 0 && (p.netflow_flows || 0) === 0">
                                                             <span class="text-muted">—</span>
                                                         </template>
                                                     </td>
