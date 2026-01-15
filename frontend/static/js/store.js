@@ -675,23 +675,52 @@ export const Store = () => ({
                 explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} detected. Review security status immediately.`;
                 shortExplanation = `Due to ${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
             }
-        } else if (signals.length >= 2) {
-            // Multiple signals without alerts: Unhealthy (multiple critical issues)
-            state = 'unhealthy';
-            explanation = `Multiple issues: ${signalDetails.join(', ')}. Investigation recommended.`;
-            shortExplanation = `Due to ${signalDetails.slice(0, 2).join(' and ')}`;
         } else {
-            // Single signal without alerts: Degraded (sustained high volume)
-            state = 'degraded';
-            if (signals.includes('anomalies')) {
-                explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected. Review network activity.`;
-                shortExplanation = `Due to ${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`;
-            } else if (signals.includes('blocks_spike')) {
-                explanation = `Elevated firewall blocks (${blockedEvents.toLocaleString()} in 24h). Review blocked connections.`;
-                shortExplanation = `Due to elevated firewall blocks`;
-            } else if (signals.includes('external_deviation')) {
-                explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows). Review network flows.`;
-                shortExplanation = `Due to unusual external connections`;
+            // Count baseline-aware signals (spikes) vs static signals (sustained activity)
+            const baselineDeviations = baselineSignals.filter(s => s !== 'anomalies_present' && s !== 'anomalies');
+            const hasBaselineSpikes = baselineDeviations.length >= 2;
+            const hasSingleBaselineSpike = baselineDeviations.length === 1;
+            
+            if (hasBaselineSpikes) {
+                // Multiple baseline deviations without alerts: Unhealthy (multiple metrics spiking)
+                state = 'unhealthy';
+                const spikeDetails = baselineDetails.filter((d, idx) => baselineSignals[idx] && baselineDeviations.includes(baselineSignals[idx]));
+                explanation = `Multiple metrics spiking: ${spikeDetails.slice(0, 2).join(', ')}. Investigation recommended.`;
+                shortExplanation = `Multiple metrics spiking: ${spikeDetails[0]}`;
+            } else if (signals.length >= 2 && !hasBaselineSpikes) {
+                // Multiple static signals without baseline spikes: Degraded (sustained activity)
+                state = 'degraded';
+                explanation = `Elevated activity: ${signalDetails.slice(0, 2).join(', ')}. Monitor if sustained.`;
+                shortExplanation = signalDetails[0];
+            } else {
+                // Single signal or sustained activity without spikes: Degraded (stable but elevated)
+                state = 'degraded';
+                if (signals.includes('anomalies')) {
+                    // Check if anomalies are spiking vs baseline
+                    const anomaliesSpiking = baselineSignals.includes('anomalies_rate') || baselineSignals.includes('anomalies_present');
+                    if (anomaliesSpiking) {
+                        explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected, above baseline. Review network activity.`;
+                        shortExplanation = `${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'} above baseline`;
+                    } else {
+                        explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected, within normal range. Monitor activity.`;
+                        shortExplanation = `${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'} (within baseline)`;
+                    }
+                } else if (hasSingleBaselineSpike) {
+                    // Single baseline spike: Degraded (not critical enough for Unhealthy)
+                    const spikeDetail = baselineDetails.find((d, idx) => baselineSignals[idx] && baselineDeviations.includes(baselineSignals[idx]));
+                    explanation = `${spikeDetail || signalDetails[0]}. Monitor activity.`;
+                    shortExplanation = spikeDetail || signalDetails[0];
+                } else if (signals.includes('blocks_spike')) {
+                    explanation = `Elevated firewall blocks (${blockedEvents.toLocaleString()} in 24h). Activity within baseline. Monitor if sustained.`;
+                    shortExplanation = `Elevated firewall blocks`;
+                } else if (signals.includes('external_deviation')) {
+                    explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows). Monitor if sustained.`;
+                    shortExplanation = `Unusual external connections`;
+                } else if (signalDetails.length > 0) {
+                    // Sustained activity without baseline spikes: Degraded
+                    explanation = `${signalDetails[0]}. Activity within baseline. Monitor if sustained.`;
+                    shortExplanation = signalDetails[0];
+                }
             }
         }
 
