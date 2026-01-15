@@ -1,0 +1,85 @@
+
+/* ============================================
+   AT-RISK HOSTS WIDGET
+   ============================================ */
+.compromised-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.compromised-item {
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border-left: 3px solid var(--border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.compromised-item.risk-high {
+    border-left-color: var(--neon-red);
+    background: rgba(255, 0, 60, 0.05);
+}
+
+.compromised-item.risk-medium {
+    border-left-color: var(--neon-yellow);
+    background: rgba(255, 204, 0, 0.05);
+}
+
+.compromised-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.compromised-host {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.compromised-role {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.compromised-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85em;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.compromised-peer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.compromised-stats {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.badge-warn {
+    background: rgba(255, 204, 0, 0.15);
+    color: var(--neon-yellow);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+}
+
+.badge-danger {
+    background: rgba(255, 0, 60, 0.15);
+    color: var(--neon-red);
+    border: 1px solid rgba(255, 0, 60, 0.3);
+}
