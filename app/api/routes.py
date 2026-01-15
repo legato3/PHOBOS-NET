@@ -1985,6 +1985,11 @@ def api_flows():
             return jsonify(_flows_cache["data"])
     tf = get_time_range(range_key)
 
+    # Load threat list for correlation (Phase 1: Flow ↔ Threat correlation)
+    threat_set = load_threatlist()
+    whitelist = load_list(THREAT_WHITELIST)
+    threat_set = threat_set - whitelist  # Exclude whitelisted IPs
+
     # Fetch raw flows to get actual flow partners
     # Use -O bytes to sort by bytes descending at nfdump level to get 'Top' flows
     # If limit > 100, we might need more data.
@@ -2132,6 +2137,27 @@ def api_flows():
                     if connection_patterns[connection_key] > 1 and duration < 30:
                         interesting_flags.append("repeated_short")
 
+                    # Phase 1: Flow ↔ Threat correlation
+                    threat_ips = []
+                    if src in threat_set:
+                        threat_ips.append(src)
+                    if dst in threat_set:
+                        threat_ips.append(dst)
+                    
+                    has_threat = len(threat_ips) > 0
+                    threat_count = len(threat_ips)
+                    
+                    # Get threat info for threat IPs (lightweight, only if threats found)
+                    threat_info_list = []
+                    if has_threat:
+                        for threat_ip in threat_ips:
+                            info = get_threat_info(threat_ip)
+                            threat_info_list.append({
+                                "ip": threat_ip,
+                                "category": info.get('category', 'UNKNOWN'),
+                                "feed": info.get('feed', 'unknown')
+                            })
+
                     convs.append({
                         "ts": ts_str,
                         "age_seconds": age_sec,  # Explicit age in seconds for reliable frontend calculation
@@ -2157,7 +2183,13 @@ def api_flows():
                         "service": svc,
                         "bytes": b,
                         "bytes_fmt": fmt_bytes(b),
-                        "packets": pkts
+                        "packets": pkts,
+                        "interesting_flags": interesting_flags[:2],  # Max 2 flags
+                        # Phase 1: Threat correlation fields
+                        "has_threat": has_threat,
+                        "threat_count": threat_count,
+                        "threat_ips": threat_ips,
+                        "threat_info": threat_info_list
                     })
                 except:
                     pass

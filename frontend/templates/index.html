@@ -1824,8 +1824,8 @@
                                                                 style="display:block;"></span>
                                                         </div>
                                                     </td>
-                                                    <td @click.stop="openIPInvestigationModal(block.src_ip)"
-                                                        style="cursor: pointer;" title="Click to investigate IP">
+                                                    <td @click.stop="openEventDetails(block, 'firewall')"
+                                                        style="cursor: pointer;" title="Click to view event details">
                                                         <div class="truncate"><strong class="text-green"
                                                                 x-text="block.src_ip || '--'"></strong>
                                                         </div>
@@ -1836,8 +1836,8 @@
                                                     <td style="text-align: center; color: var(--text-muted);">
                                                         →
                                                     </td>
-                                                    <td @click.stop="openIPInvestigationModal(block.dst_ip)"
-                                                        style="cursor: pointer;" title="Click to investigate IP">
+                                                    <td @click.stop="openEventDetails(block, 'firewall')"
+                                                        style="cursor: pointer;" title="Click to view event details">
                                                         <div class="truncate">
                                                             <span class="text-cyan"
                                                                 x-text="block.dst_ip || '192.168.0.1'"></span>
@@ -2218,6 +2218,12 @@
                                             <td class="text-xs text-muted font-mono" style="position: relative;">
                                                 <div style="display: flex; align-items: center; gap: 4px;">
                                                     <span x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))"></span>
+                                                    <!-- Threat correlation indicator (Phase 1) -->
+                                                    <template x-if="flow.has_threat">
+                                                        <span :title="'Threat correlation: ' + (flow.threat_count || 0) + ' threat IP(s) in this flow'"
+                                                            style="font-size: 0.85em; opacity: 0.8; color: var(--neon-red); cursor: help; line-height: 1; display: inline-block;"
+                                                            x-text="'🛡️'"></span>
+                                                    </template>
                                                     <!-- Interesting flow indicators (max 2) -->
                                                     <template x-if="flow.interesting_flags && flow.interesting_flags.length > 0">
                                                         <div style="display: flex; gap: 3px; margin-left: 4px;">
@@ -3976,6 +3982,36 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- Threat Correlation (Phase 1) -->
+                        <template x-if="selectedEvent?.has_threat">
+                            <div class="card" style="margin-top: var(--space-4); padding: var(--space-3); background: rgba(255, 0, 60, 0.05); border: 1px solid rgba(255, 0, 60, 0.15);">
+                                <h3 style="margin: 0 0 var(--space-3) 0; font-size: var(--text-sm); color: var(--neon-red); font-weight: 600; display: flex; align-items: center; gap: var(--space-2);">
+                                    <span>🛡️</span>
+                                    <span>Threat Correlation</span>
+                                </h3>
+                                <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+                                    This flow contains <strong style="color: var(--neon-red);" x-text="selectedEvent?.threat_count || 0"></strong> threat IP(s) from known threat intelligence feeds.
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                                    <template x-for="(threat, idx) in selectedEvent?.threat_info || []" :key="idx">
+                                        <div style="display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-sm); padding: var(--space-2); background: rgba(255, 0, 60, 0.05); border-radius: var(--radius-sm);">
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">
+                                                    <span class="text-red" x-text="threat.ip"></span>
+                                                </div>
+                                                <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                                                    <span>Category: </span><span x-text="threat.category || 'UNKNOWN'"></span>
+                                                    <span style="margin-left: var(--space-2);">Feed: </span><span x-text="threat.feed || 'unknown'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div style="margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid rgba(255, 0, 60, 0.2); font-size: var(--text-xs); color: var(--text-tertiary);">
+                                    Threat correlation is informational. This flow involves IPs from threat intelligence feeds.
+                                </div>
+                            </div>
+                        </template>
                         <!-- Interesting Flow Characteristics (Phase 2) -->
                         <template x-if="selectedEvent?.interesting_flags && selectedEvent.interesting_flags.length > 0">
                             <div class="card" style="margin-top: var(--space-4); padding: var(--space-3); background: rgba(0, 234, 255, 0.02); border: 1px solid rgba(0, 234, 255, 0.08);">
