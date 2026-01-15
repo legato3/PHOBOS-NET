@@ -5253,6 +5253,11 @@ def api_firewall_snmp_status():
                 baseline_window = list(state._baselines[baseline_key])
                 current_util = iface["utilization"]
                 
+                # TEST MODE: Always show hint if we have ANY baseline data (to verify display works)
+                # TODO: Remove this test condition once verified
+                if len(baseline_window) >= 1 and current_util is not None:
+                    iface["saturation_hint"] = f"Test: {len(baseline_window)} samples, {current_util:.1f}% util"
+                
                 if len(baseline_window) >= 10:  # Need at least 10 samples for meaningful baseline
                     baseline_mean = statistics.mean(baseline_window)
                     baseline_std = statistics.stdev(baseline_window) if len(baseline_window) > 1 else 0
@@ -5281,9 +5286,9 @@ def api_firewall_snmp_status():
                     # For testing: show hint even with fewer samples if utilization is high
                     if current_util is not None and current_util > 70:
                         iface["saturation_hint"] = "Elevated utilization"
-                else:
+                elif len(baseline_window) >= 1:
                     # Very lenient for initial testing - show hint if utilization > 60% with any samples
-                    if current_util is not None and current_util > 60 and len(baseline_window) >= 1:
+                    if current_util is not None and current_util > 60:
                         iface["saturation_hint"] = "Elevated utilization"
     
     # Format response
