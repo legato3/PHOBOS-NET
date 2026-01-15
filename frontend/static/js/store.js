@@ -576,6 +576,90 @@ export const Store = () => ({
         return groups;
     },
 
+    // Overall Health: Deterministic, explainable health state
+    get overallHealth() {
+        // Inputs: Active Alerts, Network Anomalies, Firewall Blocks, External Connections
+        const activeAlerts = this.alertHistory.total || 0;
+        const anomalies = this.networkStatsOverview.anomalies_24h || 0;
+        const blockedEvents = this.firewallStatsOverview.blocked_events_24h || 0;
+        const externalConnections = this.networkStatsOverview.external_connections || 0;
+        const activeFlows = this.networkStatsOverview.active_flows || 0;
+
+        // Signal detection (deterministic thresholds)
+        const signals = [];
+        
+        // Signal 1: Active Alerts
+        if (activeAlerts > 0) {
+            signals.push('alerts');
+        }
+        
+        // Signal 2: Network Anomalies
+        if (anomalies > 0) {
+            signals.push('anomalies');
+        }
+        
+        // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
+        if (blockedEvents > 1000) {
+            signals.push('blocks_spike');
+        }
+        
+        // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
+        const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
+        if (externalRatio > 0.5 && externalConnections > 50) {
+            signals.push('external_deviation');
+        }
+
+        // Health state determination (no single metric dominates)
+        let state = 'healthy';
+        let explanation = 'All systems operating normally.';
+        
+        if (signals.length === 0) {
+            state = 'healthy';
+            explanation = 'All systems operating normally.';
+        } else if (signals.length === 1) {
+            // Single signal: Degraded
+            state = 'degraded';
+            if (signals.includes('alerts')) {
+                explanation = 'Active alerts detected. Review security status.';
+            } else if (signals.includes('anomalies')) {
+                explanation = 'Network anomalies detected. Review network activity.';
+            } else if (signals.includes('blocks_spike')) {
+                explanation = 'Elevated firewall blocks. Review blocked connections.';
+            } else if (signals.includes('external_deviation')) {
+                explanation = 'Unusual external connection pattern. Review network flows.';
+            }
+        } else if (signals.length === 2) {
+            // Two signals: Degraded (unless both are strong)
+            state = 'degraded';
+            const signalNames = signals.map(s => {
+                if (s === 'alerts') return 'active alerts';
+                if (s === 'anomalies') return 'network anomalies';
+                if (s === 'blocks_spike') return 'elevated firewall blocks';
+                if (s === 'external_deviation') return 'unusual external connections';
+                return s;
+            }).join(' and ');
+            explanation = `Multiple concerns: ${signalNames}. Investigate security and network status.`;
+        } else {
+            // Three or more signals: Unhealthy
+            state = 'unhealthy';
+            const signalNames = signals.map(s => {
+                if (s === 'alerts') return 'active alerts';
+                if (s === 'anomalies') return 'network anomalies';
+                if (s === 'blocks_spike') return 'elevated firewall blocks';
+                if (s === 'external_deviation') return 'unusual external connections';
+                return s;
+            }).join(', ');
+            explanation = `Multiple issues detected: ${signalNames}. Immediate investigation recommended.`;
+        }
+
+        return {
+            state: state, // 'healthy', 'degraded', 'unhealthy'
+            explanation: explanation,
+            signals: signals,
+            signalsCount: signals.length
+        };
+    },
+
     dismissAlert(msg) {
         this.dismissedAlerts.add(msg);
         localStorage.setItem('dismissedAlerts', JSON.stringify([...this.dismissedAlerts]));
@@ -4209,6 +4293,50 @@ export const Store = () => ({
 
     applyFilter(ip) {
         this.openIPModal(ip);
+    },
+
+    // Navigation helpers for Overview stat box click-throughs
+    navigateToActiveAlerts() {
+        this.loadTab('security');
+        // Alert history is already loaded, no need to filter - just show the security tab
+    },
+
+    navigateToActiveFlows() {
+        this.loadTab('network');
+        this.$nextTick(() => {
+            if (this.flows) {
+                this.flows.viewLimit = 15;
+            }
+            this.fetchFlows();
+        });
+    },
+
+    navigateToExternalConnections() {
+        this.loadTab('network');
+        this.$nextTick(() => {
+            if (this.flows) {
+                this.flows.viewLimit = 15;
+            }
+            this.fetchFlows();
+            // Note: External connections filtering would be done in the flows table UI
+            // The flows endpoint already includes direction information
+        });
+    },
+
+    navigateToFirewallLogs() {
+        this.loadTab('forensics');
+        // Firewall logs are already loaded when forensics tab opens
+    },
+
+    navigateToAnomalies() {
+        this.loadTab('network');
+        // Anomalies are shown in the Active Flows table with detection indicators
+        this.$nextTick(() => {
+            if (this.flows) {
+                this.flows.viewLimit = 15;
+            }
+            this.fetchFlows();
+        });
     },
 
     loadTab(tab) {

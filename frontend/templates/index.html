@@ -302,28 +302,59 @@
 
                             <!-- Top Row: Summary Stats (Compact Horizontal) -->
                             <div class="summary-stats-grid">
-                                <div class="stat-box">
-                                    <div class="value" :class="'grade-' + (Math.round((netHealth.health_score + securityScore.score) / 2) >= 90 ? 'a' : Math.round((netHealth.health_score + securityScore.score) / 2) >= 70 ? 'b' : Math.round((netHealth.health_score + securityScore.score) / 2) >= 50 ? 'c' : 'd')"
-                                        x-text="netHealth.loading || securityScore.loading ? '...' : Math.round((netHealth.health_score + securityScore.score) / 2)">...</div>
+                                <div class="stat-box" 
+                                    :class="{ 
+                                        'status-ok': overallHealth.state === 'healthy',
+                                        'status-warning': overallHealth.state === 'degraded',
+                                        'status-error': overallHealth.state === 'unhealthy'
+                                    }"
+                                    :title="overallHealth.explanation"
+                                    style="cursor: help;">
+                                    <div class="value" 
+                                        :class="{
+                                            'text-green': overallHealth.state === 'healthy',
+                                            'text-yellow': overallHealth.state === 'degraded',
+                                            'text-red': overallHealth.state === 'unhealthy'
+                                        }"
+                                        x-text="overallHealth.state === 'healthy' ? '✓' : overallHealth.state === 'degraded' ? '⚠' : '✗'">...</div>
                                     <div class="label">Overall Health</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1); text-transform: capitalize;"
+                                        x-text="overallHealth.state"></div>
                                 </div>
-                                <div class="stat-box" :class="{ 'status-warning': alertHistory.total > 0 }">
+                                <div class="stat-box" 
+                                    :class="{ 'status-warning': alertHistory.total > 0 }"
+                                    @click="navigateToActiveAlerts()"
+                                    style="cursor: pointer;"
+                                    title="Click to view active alerts">
                                     <div class="value" x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">...</div>
                                     <div class="label">Active Alerts</div>
                                 </div>
-                                <div class="stat-box">
+                                <div class="stat-box"
+                                    @click="navigateToActiveFlows()"
+                                    style="cursor: pointer;"
+                                    title="Click to view active flows">
                                     <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</div>
                                     <div class="label">Active Flows</div>
                                 </div>
-                                <div class="stat-box">
+                                <div class="stat-box"
+                                    @click="navigateToExternalConnections()"
+                                    style="cursor: pointer;"
+                                    title="Click to view external connections">
                                     <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</div>
                                     <div class="label">External Connections</div>
                                 </div>
-                                <div class="stat-box">
+                                <div class="stat-box"
+                                    @click="navigateToFirewallLogs()"
+                                    style="cursor: pointer;"
+                                    title="Click to view firewall logs">
                                     <div class="value" x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</div>
                                     <div class="label">Blocked Events (24h)</div>
                                 </div>
-                                <div class="stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+                                <div class="stat-box" 
+                                    :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
+                                    @click="navigateToAnomalies()"
+                                    style="cursor: pointer;"
+                                    title="Click to view network anomalies">
                                     <div class="value" x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</div>
                                     <div class="label">Anomalies (24h)</div>
                                 </div>
