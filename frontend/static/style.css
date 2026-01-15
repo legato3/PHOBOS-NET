@@ -1735,8 +1735,14 @@ tr:hover td {
     color: var(--signal-crit);  /* RED - ONLY for critical/danger */
 }
 
+/* CYBERPUNK UI: Text purple - Use signal-tertiary for Destinations */
 .text-purple {
-    color: var(--accent-magenta);
+    color: var(--signal-tertiary);  /* Purple for Destinations to distinguish from Sources */
+}
+
+/* CYBERPUNK UI: Text red - Use signal-crit for Threats */
+.text-red {
+    color: var(--signal-crit);  /* RED - ONLY for critical/threats */
 }
 
 /* Legacy alias */
@@ -1851,8 +1857,13 @@ tr:hover td {
 }
 
 .layer-dot-cyan {
-    background: var(--signal-primary);  /* Cyan for info/destinations */
+    background: var(--signal-primary);  /* Cyan for Sources */
     color: var(--signal-primary);
+}
+
+.layer-dot-purple {
+    background: var(--signal-tertiary);  /* Purple for Destinations */
+    color: var(--signal-tertiary);
 }
 
 .layer-dot-red,
@@ -7940,10 +7951,10 @@ body.compact-mode {
     }
 }
 
-/* CYBERPUNK UI: World map countries grid - Signal data grid */
+/* CYBERPUNK UI: World map countries grid - Signal data grid (3 columns: Sources, Destinations, Threats) */
 .world-map-countries.compact-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 1fr);  /* 3 columns: Sources, Destinations, Threats */
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: linear-gradient(180deg, rgba(15, 15, 23, 0.6), rgba(21, 21, 32, 0.4));

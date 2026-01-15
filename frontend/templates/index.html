@@ -391,7 +391,7 @@
                                         :class="{ 'active': worldMapLayers.destinations }"
                                         title="Toggle Destinations layer">
                                         <input type="checkbox" x-model="worldMapLayers.destinations">
-                                        <span class="layer-dot layer-dot-cyan"></span>
+                                        <span class="layer-dot layer-dot-purple"></span>
                                         <span class="layer-label">Destinations</span>
                                     </label>
                                     <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
@@ -437,7 +437,22 @@
                                         <div class="wm-country-row">
                                             <span x-text="flagFromIso(c.iso)"></span>
                                             <span class="wm-c-name" x-text="c.name"></span>
-                                            <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
+                                            <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="wm-country-col">
+                                    <h4>⚠️ Threats</h4>
+                                    <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso">
+                                        <div class="wm-country-row">
+                                            <span x-text="flagFromIso(c.iso)"></span>
+                                            <span class="wm-c-name" x-text="c.name"></span>
+                                            <span class="wm-c-val text-red" x-text="c.bytes_fmt || c.count || 'N/A'"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="!worldMap.threat_countries || worldMap.threat_countries.length === 0">
+                                        <div class="wm-country-row">
+                                            <span class="wm-c-name" style="opacity: 0.6;">No threats</span>
                                         </div>
                                     </template>
                                 </div>
