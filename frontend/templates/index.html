@@ -2937,7 +2937,7 @@
                                     :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
                                     x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : 'N/A'"></div>
                                 <div class="stat-desc" x-show="firewallSNMP.cpu_percent !== null">
-                                    <span x-text="firewallSNMP.cpu_percent < 50 ? 'Normal' : firewallSNMP.cpu_percent < 80 ? 'Moderate' : 'High'"></span>
+                                    <span x-text="firewallSNMP.cpu_percent < 50 ? 'Normal' : firewallSNMP.cpu_percent < 80 ? 'Elevated' : 'High'"></span>
                                 </div>
                             </div>
 
@@ -2948,13 +2948,13 @@
                                     :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
                                     x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : 'N/A'"></div>
                                 <div class="stat-desc" x-show="firewallSNMP.memory_percent !== null">
-                                    <span x-text="firewallSNMP.memory_percent < 70 ? 'Normal' : firewallSNMP.memory_percent < 85 ? 'Moderate' : 'High'"></span>
+                                    <span x-text="firewallSNMP.memory_percent < 70 ? 'Normal' : firewallSNMP.memory_percent < 85 ? 'Elevated' : 'High'"></span>
                                 </div>
                             </div>
 
-                            <!-- Active Sessions -->
+                            <!-- Active Firewall Sessions -->
                             <div class="stat-box">
-                                <div class="stat-label">Active Sessions</div>
+                                <div class="stat-label">Active Firewall Sessions</div>
                                 <div class="stat-value" x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : 'N/A'"></div>
                                 <div class="stat-desc">TCP connections</div>
                             </div>
@@ -3003,28 +3003,38 @@
                                             <td><strong x-text="iface.name"></strong></td>
                                             <td>
                                                 <span class="badge" 
-                                                    :class="{ 'badge-success': iface.status === 'up', 'badge-error': iface.status === 'down' }"
-                                                    x-text="iface.status === 'up' ? 'UP' : 'DOWN'"></span>
+                                                    :class="{ 
+                                                        'badge-success': iface.status === 'up', 
+                                                        'badge-error': iface.status === 'down',
+                                                        'badge-warning': iface.status === 'stale' || iface.status === 'unknown'
+                                                    }"
+                                                    x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : 'UNKNOWN'"></span>
                                             </td>
-                                            <td x-text="iface.rx_mbps !== null ? iface.rx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
-                                            <td x-text="iface.tx_mbps !== null ? iface.tx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
+                                            <td x-text="iface.rx_mbps !== null && iface.rx_mbps !== undefined ? iface.rx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
+                                            <td x-text="iface.tx_mbps !== null && iface.tx_mbps !== undefined ? iface.tx_mbps.toFixed(2) + ' Mbps' : '—'"></td>
                                             <td>
-                                                <span x-show="(iface.rx_errors || 0) + (iface.tx_errors || 0) > 0" 
+                                                <span x-show="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined && (iface.rx_errors + iface.tx_errors) > 0" 
                                                     class="text-warn"
-                                                    x-text="((iface.rx_errors || 0) + (iface.tx_errors || 0)).toFixed(1) + '/s'"></span>
-                                                <span x-show="(iface.rx_errors || 0) + (iface.tx_errors || 0) === 0" class="text-muted">0</span>
+                                                    x-text="(iface.rx_errors + iface.tx_errors).toFixed(1) + '/s'"></span>
+                                                <span x-show="iface.rx_errors === null || iface.rx_errors === undefined || iface.tx_errors === null || iface.tx_errors === undefined" class="text-muted">—</span>
+                                                <span x-show="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined && (iface.rx_errors + iface.tx_errors) === 0" class="text-muted">0</span>
                                             </td>
                                             <td>
-                                                <span x-show="(iface.rx_drops || 0) + (iface.tx_drops || 0) > 0"
+                                                <span x-show="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined && (iface.rx_drops + iface.tx_drops) > 0"
                                                     class="text-warn"
-                                                    x-text="((iface.rx_drops || 0) + (iface.tx_drops || 0)).toFixed(1) + '/s'"></span>
-                                                <span x-show="(iface.rx_drops || 0) + (iface.tx_drops || 0) === 0" class="text-muted">0</span>
+                                                    x-text="(iface.rx_drops + iface.tx_drops).toFixed(1) + '/s'"></span>
+                                                <span x-show="iface.rx_drops === null || iface.rx_drops === undefined || iface.tx_drops === null || iface.tx_drops === undefined" class="text-muted">—</span>
+                                                <span x-show="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined && (iface.rx_drops + iface.tx_drops) === 0" class="text-muted">0</span>
                                             </td>
                                             <td>
-                                                <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90 }"
-                                                    x-text="iface.utilization !== null ? iface.utilization.toFixed(1) + '%' : '—'"></span>
-                                                <span x-show="iface.speed_mbps" class="text-muted" style="font-size: 0.85em;"
-                                                    x-text="'(' + iface.speed_mbps + ' Mbps)'"></span>
+                                                <template x-if="iface.utilization !== null && iface.utilization !== undefined">
+                                                    <span :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90 }"
+                                                        x-text="iface.utilization.toFixed(1) + '%'"
+                                                        :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
+                                                </template>
+                                                <template x-if="iface.utilization === null || iface.utilization === undefined">
+                                                    <span class="text-muted">—</span>
+                                                </template>
                                             </td>
                                         </tr>
                                     </template>

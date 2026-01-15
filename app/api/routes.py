@@ -5073,6 +5073,12 @@ def api_firewall_snmp_status():
     
     snmp_data = get_snmp_data()
     
+    # Store cache timestamp for staleness checks
+    import app.core.state as state
+    with state._snmp_cache_lock:
+        cache_ts = state._snmp_cache.get("ts", time.time())
+    snmp_data["_cache_ts"] = cache_ts
+    
     # Check for errors
     if "error" in snmp_data:
         return jsonify({
@@ -5081,42 +5087,79 @@ def api_firewall_snmp_status():
             "data": None
         }), 503 if snmp_data.get("backoff") else 200
     
-    # Extract interface data
+    # Extract interface data with proper status logic
     interfaces = []
     
-    # WAN interface - always include if SNMP data exists
-    wan_status = snmp_data.get("if_wan_status")
-    if wan_status is not None or "wan_in" in snmp_data or "wan_out" in snmp_data:
-        wan_status_val = wan_status if wan_status is not None else 1  # Default to up if status unknown
-        interfaces.append({
-            "name": "WAN",
-            "status": "up" if wan_status_val == 1 else "down",
-            "rx_mbps": snmp_data.get("wan_rx_mbps") if snmp_data.get("wan_rx_mbps") is not None else 0,
-            "tx_mbps": snmp_data.get("wan_tx_mbps") if snmp_data.get("wan_tx_mbps") is not None else 0,
-            "rx_errors": snmp_data.get("wan_in_err_s") if snmp_data.get("wan_in_err_s") is not None else 0,
-            "tx_errors": snmp_data.get("wan_out_err_s") if snmp_data.get("wan_out_err_s") is not None else 0,
-            "rx_drops": snmp_data.get("wan_in_disc_s") if snmp_data.get("wan_in_disc_s") is not None else 0,
-            "tx_drops": snmp_data.get("wan_out_disc_s") if snmp_data.get("wan_out_disc_s") is not None else 0,
-            "utilization": snmp_data.get("wan_util_percent") if snmp_data.get("wan_util_percent") is not None else 0,
-            "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed", 0)
-        })
+    # Helper function to determine interface status
+    def determine_interface_status(oper_status, has_traffic, has_sessions, data_age_seconds):
+        """Determine interface status with proper logic to avoid false DOWN states."""
+        # If SNMP data is stale (>60s), mark as STALE
+        if data_age_seconds > 60:
+            return "stale"
+        
+        # If operStatus is explicitly available, use it
+        if oper_status is not None:
+            if oper_status == 1:
+                return "up"
+            elif oper_status == 2:
+                # Only show DOWN if there's no traffic AND no sessions
+                # If traffic exists, it's likely a false negative
+                if not has_traffic and not has_sessions:
+                    return "down"
+                else:
+                    return "unknown"  # Status says down but traffic exists - uncertain
+            else:
+                return "unknown"
+        
+        # If operStatus unknown, infer from traffic/sessions
+        if has_traffic or has_sessions:
+            return "up"  # Traffic/sessions indicate interface is up
+        else:
+            return "unknown"  # Can't determine without operStatus
     
-    # LAN interface - always include if SNMP data exists
-    lan_status = snmp_data.get("if_lan_status")
-    if lan_status is not None or "lan_in" in snmp_data or "lan_out" in snmp_data:
-        lan_status_val = lan_status if lan_status is not None else 1  # Default to up if status unknown
-        interfaces.append({
-            "name": "LAN",
-            "status": "up" if lan_status_val == 1 else "down",
-            "rx_mbps": snmp_data.get("lan_rx_mbps") if snmp_data.get("lan_rx_mbps") is not None else 0,
-            "tx_mbps": snmp_data.get("lan_tx_mbps") if snmp_data.get("lan_tx_mbps") is not None else 0,
-            "rx_errors": snmp_data.get("lan_in_err_s") if snmp_data.get("lan_in_err_s") is not None else 0,
-            "tx_errors": snmp_data.get("lan_out_err_s") if snmp_data.get("lan_out_err_s") is not None else 0,
-            "rx_drops": snmp_data.get("lan_in_disc_s") if snmp_data.get("lan_in_disc_s") is not None else 0,
-            "tx_drops": snmp_data.get("lan_out_disc_s") if snmp_data.get("lan_out_disc_s") is not None else 0,
-            "utilization": snmp_data.get("lan_util_percent") if snmp_data.get("lan_util_percent") is not None else 0,
-            "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed", 0)
-        })
+    # Get data age for staleness check
+    data_age = time.time() - snmp_data.get("_cache_ts", time.time())
+    
+    # Check if we have active sessions (indicates firewall is operational)
+    has_sessions = snmp_data.get("tcp_conns", 0) > 0
+    
+    # WAN interface
+    wan_status_raw = snmp_data.get("if_wan_status")
+    wan_has_traffic = (snmp_data.get("wan_rx_mbps", 0) > 0 or snmp_data.get("wan_tx_mbps", 0) > 0 or 
+                       snmp_data.get("wan_in", 0) > 0 or snmp_data.get("wan_out", 0) > 0)
+    wan_status = determine_interface_status(wan_status_raw, wan_has_traffic, has_sessions, data_age)
+    
+    interfaces.append({
+        "name": "WAN",
+        "status": wan_status,
+        "rx_mbps": snmp_data.get("wan_rx_mbps") if snmp_data.get("wan_rx_mbps") is not None else None,
+        "tx_mbps": snmp_data.get("wan_tx_mbps") if snmp_data.get("wan_tx_mbps") is not None else None,
+        "rx_errors": snmp_data.get("wan_in_err_s") if snmp_data.get("wan_in_err_s") is not None else None,
+        "tx_errors": snmp_data.get("wan_out_err_s") if snmp_data.get("wan_out_err_s") is not None else None,
+        "rx_drops": snmp_data.get("wan_in_disc_s") if snmp_data.get("wan_in_disc_s") is not None else None,
+        "tx_drops": snmp_data.get("wan_out_disc_s") if snmp_data.get("wan_out_disc_s") is not None else None,
+        "utilization": snmp_data.get("wan_util_percent") if snmp_data.get("wan_util_percent") is not None and snmp_data.get("wan_util_percent") >= 0 else None,
+        "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed")
+    })
+    
+    # LAN interface
+    lan_status_raw = snmp_data.get("if_lan_status")
+    lan_has_traffic = (snmp_data.get("lan_rx_mbps", 0) > 0 or snmp_data.get("lan_tx_mbps", 0) > 0 or
+                       snmp_data.get("lan_in", 0) > 0 or snmp_data.get("lan_out", 0) > 0)
+    lan_status = determine_interface_status(lan_status_raw, lan_has_traffic, has_sessions, data_age)
+    
+    interfaces.append({
+        "name": "LAN",
+        "status": lan_status,
+        "rx_mbps": snmp_data.get("lan_rx_mbps") if snmp_data.get("lan_rx_mbps") is not None else None,
+        "tx_mbps": snmp_data.get("lan_tx_mbps") if snmp_data.get("lan_tx_mbps") is not None else None,
+        "rx_errors": snmp_data.get("lan_in_err_s") if snmp_data.get("lan_in_err_s") is not None else None,
+        "tx_errors": snmp_data.get("lan_out_err_s") if snmp_data.get("lan_out_err_s") is not None else None,
+        "rx_drops": snmp_data.get("lan_in_disc_s") if snmp_data.get("lan_in_disc_s") is not None else None,
+        "tx_drops": snmp_data.get("lan_out_disc_s") if snmp_data.get("lan_out_disc_s") is not None else None,
+        "utilization": snmp_data.get("lan_util_percent") if snmp_data.get("lan_util_percent") is not None and snmp_data.get("lan_util_percent") >= 0 else None,
+        "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed")
+    })
     
     # Calculate aggregate throughput
     total_throughput = sum([i.get("rx_mbps", 0) + i.get("tx_mbps", 0) for i in interfaces])
