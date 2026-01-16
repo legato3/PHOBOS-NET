@@ -115,7 +115,7 @@ export const Store = () => ({
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
     databaseStats: { databases: [], loading: true, error: null },
     serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
-    
+
     // Unified Insight System - reusable across Traffic, Firewall, Hosts
     insightPanels: {
         traffic: {
@@ -157,7 +157,7 @@ export const Store = () => ({
             }
         }
     },
-    
+
     // Legacy alias for backward compatibility
     get trafficInsights() {
         return this.insightPanels.traffic;
@@ -490,12 +490,12 @@ export const Store = () => ({
                 safeFetchFn(`/api/hosts/${ip}/detail`),
                 safeFetchFn(`/api/hosts/${ip}/timeline?range=24h`)
             ]);
-            
+
             if (detailRes.ok) {
                 const data = await detailRes.json();
                 this.ipDetails = { ...data, ...extraData, timeline: this.ipDetails.timeline };
             }
-            
+
             if (timelineRes.ok) {
                 const timelineData = await timelineRes.json();
                 this.ipDetails.timeline = {
@@ -518,7 +518,7 @@ export const Store = () => ({
             this.ipLoading = false;
         }
     },
-    
+
     renderHostTimelineChart() {
         try {
             const canvas = document.getElementById('hostDetailTimelineChart');
@@ -1021,7 +1021,7 @@ export const Store = () => ({
         if (elapsed < 120) return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'stale' };
         return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'error' };
     },
-    
+
     // Global time range context - single source of truth for time-based widgets
     get global_time_range() {
         return this.timeRange;
@@ -1303,7 +1303,7 @@ export const Store = () => ({
                     this.refreshCountdown = this.refreshInterval / 1000;
                 }
             }
-            
+
             // Save to backend (excluding analysis settings - they're frontend-only)
             const configToSave = {
                 dns_server: this.config.dns_server,
@@ -1312,7 +1312,7 @@ export const Store = () => ({
                 snmp_poll_interval: this.config.snmp_poll_interval,
                 internal_networks: this.config.internal_networks
             };
-            
+
             const res = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1631,7 +1631,7 @@ export const Store = () => ({
             this.summary.loading = false;
         }
     },
-    
+
     // Generic stability filter - shared across all insight types
     // tier: 'baseline' (always shown) or 'notable' (requires stability check)
     applyStabilityFilter(panel, currentInsights, tier = 'notable') {
@@ -1639,26 +1639,26 @@ export const Store = () => ({
         if (tier === 'baseline') {
             return currentInsights;
         }
-        
+
         // Notable insights require stability check
         const now = Date.now();
         const historyEntry = {
             timestamp: now,
             insights: currentInsights.map(i => ({ id: i.id, key: i.key, pct: i.pct }))
         };
-        
+
         // Maintain history (keep last 3 samples)
         panel.history.push(historyEntry);
         if (panel.history.length > 3) {
             panel.history.shift();
         }
-        
+
         // Stability filter: only show insights that appear in at least 2 consecutive samples
         const stableInsights = [];
         if (panel.history.length >= 2) {
             const recent = panel.history.slice(-2);
             const insightCounts = {};
-            
+
             // Count occurrences of each insight across last 2 samples
             recent.forEach(sample => {
                 sample.insights.forEach(insight => {
@@ -1666,7 +1666,7 @@ export const Store = () => ({
                     insightCounts[key] = (insightCounts[key] || 0) + 1;
                 });
             });
-            
+
             // Only include insights that appear in both samples
             currentInsights.forEach(insight => {
                 const key = `${insight.id}:${insight.key}`;
@@ -1678,34 +1678,34 @@ export const Store = () => ({
             // First sample - show all (no stability check yet)
             stableInsights.push(...currentInsights);
         }
-        
+
         // Sort by percentage (descending)
         stableInsights.sort((a, b) => (b.pct || 0) - (a.pct || 0));
         return stableInsights;
     },
-    
+
     // Generic insight computation - configurable for different data sources
     computeInsights(panelType) {
         const panel = this.insightPanels[panelType];
         if (!panel) return;
-        
+
         const config = panel.config;
         let baselineInsights = [];
         let notableInsights = [];
-        
+
         if (config.type === 'traffic') {
             // Only compute if we have the necessary data (destinations is optional)
             if (this.summary.loading || this.sources.loading || this.ports.loading || this.protocols.loading) {
                 return;
             }
             // Destinations is optional - don't block on it
-            
+
             const totalBytes = this.summary.total_bytes || 0;
-            
+
             // ============================================
             // BASELINE INSIGHTS (Always shown, no thresholds)
             // ============================================
-            
+
             // 1. Top Talker (always shown if data exists)
             if (this.sources.sources && this.sources.sources.length > 0) {
                 const topSource = this.sources.sources[0];
@@ -1723,7 +1723,7 @@ export const Store = () => ({
                     pct: pct
                 });
             }
-            
+
             // 2. Dominant Protocol (always shown if data exists)
             if (this.protocols.protocols && this.protocols.protocols.length > 0) {
                 const topProto = this.protocols.protocols[0];
@@ -1741,7 +1741,7 @@ export const Store = () => ({
                     pct: pct
                 });
             }
-            
+
             // 3. Top Destination (optional baseline, always shown if available)
             if (this.destinations && this.destinations.destinations && this.destinations.destinations.length > 0) {
                 const topDest = this.destinations.destinations[0];
@@ -1759,11 +1759,11 @@ export const Store = () => ({
                     pct: pct
                 });
             }
-            
+
             // ============================================
             // NOTABLE INSIGHTS (Conditional, with thresholds)
             // ============================================
-            
+
             // 4. High-volume / Notable Port (only if meets threshold and not common)
             if (this.ports.ports && this.ports.ports.length > 0) {
                 const topPort = this.ports.ports[0];
@@ -1785,13 +1785,13 @@ export const Store = () => ({
                     });
                 }
             }
-            
+
             // Apply stability filter only to notable insights
             const stableNotableInsights = this.applyStabilityFilter(panel, notableInsights, 'notable');
-            
+
             // Build final insights array
             let finalInsights = [...baselineInsights];
-            
+
             // If we have no baseline insights at all (truly no data), show "No Activity"
             if (baselineInsights.length === 0) {
                 finalInsights = [{
@@ -1824,7 +1824,7 @@ export const Store = () => ({
                     });
                 }
             }
-            
+
             // Sort by tier (baseline first) then by percentage (descending)
             // Stability confirmation should appear last
             finalInsights.sort((a, b) => {
@@ -1837,13 +1837,13 @@ export const Store = () => ({
                 // Then by percentage
                 return (b.pct || 0) - (a.pct || 0);
             });
-            
+
             panel.insights = finalInsights;
             panel.loading = false;
         }
         // Future: Add firewall and hosts logic here
     },
-    
+
     // Legacy alias for backward compatibility
     computeTrafficInsights() {
         this.computeInsights('traffic');
@@ -3665,7 +3665,7 @@ export const Store = () => ({
                 this.databaseStats.timestamp = data.timestamp;
                 this.databaseStats.loading = false;
                 this.databaseStats.error = null;
-                
+
                 // Render sparklines after data update (non-reactive, one-time render)
                 this.$nextTick(() => {
                     this.renderDatabaseSizeSparklines();
@@ -3684,62 +3684,62 @@ export const Store = () => ({
             this._databaseStatsFetching = false;
         }
     },
-    
+
     renderDatabaseSizeSparklines() {
         // Safe sparkline rendering: only reads existing data, no reactivity triggers
         if (!this.databaseStats || !this.databaseStats.databases) return;
-        
+
         this.databaseStats.databases.forEach(db => {
             if (!db.size_history || db.size_history.length < 2) return;
-            
+
             const canvasId = `dbSparkline_${db.name}`;
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
-            
+
             // Check if data has changed (compare last rendered data hash)
             const dataHash = JSON.stringify(db.size_history);
             if (canvas._lastDataHash === dataHash) return; // Skip if data unchanged
-            
+
             const ctx = canvas.getContext('2d');
             const w = canvas.width;
             const h = canvas.height;
-            
+
             // Clear canvas
             ctx.clearRect(0, 0, w, h);
-            
+
             // Get size history values
             const values = db.size_history;
             if (values.length < 2) return;
-            
+
             // Calculate min/max for scaling
             const min = Math.min(...values);
             const max = Math.max(...values);
             const range = max - min || 1; // Avoid division by zero
-            
+
             // Draw sparkline
             const step = w / (values.length - 1);
             const grad = ctx.createLinearGradient(0, 0, w, 0);
             grad.addColorStop(0, '#00f3ff');
             grad.addColorStop(1, '#bc13fe');
-            
+
             ctx.strokeStyle = grad;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            
+
             for (let i = 0; i < values.length; i++) {
                 const x = i * step;
                 const normalized = (values[i] - min) / range;
                 const y = h - (normalized * (h - 4)) - 2; // Leave 2px padding
-                
+
                 if (i === 0) {
                     ctx.moveTo(x, y);
                 } else {
                     ctx.lineTo(x, y);
                 }
             }
-            
+
             ctx.stroke();
-            
+
             // Store data hash to prevent unnecessary re-renders
             canvas._lastDataHash = dataHash;
         });
@@ -5249,7 +5249,7 @@ export const Store = () => ({
     toggleSidebar() {
         this.sidebarCollapsed = !this.sidebarCollapsed;
     },
-    
+
     toggleSidebarMobile() {
         this.sidebarCollapsed = !this.sidebarCollapsed;
         // Add/remove backdrop on mobile
@@ -5307,7 +5307,7 @@ export const Store = () => ({
                 const data = await res.json();
                 this.ipDetails = { ...data, timeline: this.ipDetails.timeline };
             }
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
             this.ipDetails = { error: 'Failed to load details', timeline: { labels: [], bytes: [], flows: [], loading: false } };
         }
@@ -5486,11 +5486,8 @@ export const Store = () => ({
             this.fetchRecentBlocks();
             this.fetchAlertCorrelation();
             this.fetchThreatActivityTimeline();
-            // Fetch data for restored security widgets
-            if (this.isVisible('talkers')) this.fetchTalkers();
-            if (this.isVisible('durations')) this.fetchDurations();
+            // Fetch data for Attack Timeline widget
             if (this.isVisible('attackTimeline')) this.fetchAttackTimeline();
-            if (this.isVisible('mitreHeatmap')) this.fetchMitreHeatmap();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
         } else if (tab === 'assistant') {
