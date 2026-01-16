@@ -5486,6 +5486,11 @@ export const Store = () => ({
             this.fetchRecentBlocks();
             this.fetchAlertCorrelation();
             this.fetchThreatActivityTimeline();
+            // Fetch data for restored security widgets
+            if (this.isVisible('talkers')) this.fetchTalkers();
+            if (this.isVisible('durations')) this.fetchDurations();
+            if (this.isVisible('attackTimeline')) this.fetchAttackTimeline();
+            if (this.isVisible('mitreHeatmap')) this.fetchMitreHeatmap();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
         } else if (tab === 'assistant') {

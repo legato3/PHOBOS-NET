@@ -432,10 +432,7 @@
                                         </template>
                                     </div>
                                     <div class="label">Anomalies (24h)</div>
-                                    <div class="label" style="display: none;">Anomalies (24h)
-                                        <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
-                                            title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
-                                    </div>
+
                                 </div>
                             </div>
 
@@ -2582,6 +2579,186 @@
                                     No threat activity detected in the selected time range. Network appears secure or
                                     activity is low.
                                 </p>
+                            </div>
+                            {% endcall %}
+                        </section>
+
+                        <!-- ========================================
+     ADDITIONAL SECURITY WIDGETS (Restored)
+     ======================================== -->
+                        
+                        <!-- Top Talkers Widget -->
+                        <section id="section-talkers" class="scroll-section" style="margin-bottom: 24px;">
+                            {% call widget_card('talkers', 'Top Talkers', '🗣️', card_class='wide-card', show_spinner=True) %}
+                            <div x-show="talkers.talkers && talkers.talkers.length > 0">
+                                <div class="table-container">
+                                    <table class="table-fixed table-compact">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 35%;">Source → Destination</th>
+                                                <th style="width: 15%;">Protocol</th>
+                                                <th style="width: 15%;">Flows</th>
+                                                <th style="width: 20%;">Bytes</th>
+                                                <th style="width: 15%;">% of Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(talker, idx) in talkers.talkers.slice(0, 15)" :key="idx">
+                                                <tr class="hover:bg-gray-800">
+                                                    <td style="font-family: var(--font-mono); font-size: var(--text-sm);">
+                                                        <span class="text-cyan" @click="openIPModal(talker.src)" style="cursor: pointer;" x-text="talker.src"></span>
+                                                        <span class="text-muted"> → </span>
+                                                        <span class="text-purple" @click="openIPModal(talker.dst)" style="cursor: pointer;" x-text="talker.dst"></span>
+                                                    </td>
+                                                    <td class="text-muted" x-text="talker.proto || 'TCP'"></td>
+                                                    <td class="text-muted" x-text="(talker.flows || 0).toLocaleString()"></td>
+                                                    <td class="text-green font-semibold" x-text="talker.bytes_fmt || '0 B'"></td>
+                                                    <td>
+                                                        <div style="display: flex; align-items: center; gap: var(--space-2);">
+                                                            <div style="flex: 1; height: 6px; background: var(--bg-2); border-radius: 3px; overflow: hidden;">
+                                                                <div style="height: 100%; background: var(--neon-cyan); border-radius: 3px;" :style="'width: ' + (talker.percent || 0) + '%'"></div>
+                                                            </div>
+                                                            <span class="text-muted text-xs" x-text="(talker.percent || 0).toFixed(1) + '%'"></span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div x-show="!talkers.loading && (!talkers.talkers || talkers.talkers.length === 0)" class="empty-state">
+                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">🗣️</div>
+                                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Talker Data</p>
+                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No communication pairs detected in the selected time range.</p>
+                            </div>
+                            {% endcall %}
+                        </section>
+
+                        <!-- Long Flows (Durations) Widget -->
+                        <section id="section-durations" class="scroll-section" style="margin-bottom: 24px;">
+                            {% call widget_card('durations', 'Long Flows', '⏱️', card_class='wide-card', show_spinner=True) %}
+                            <div x-show="durations.durations && durations.durations.length > 0">
+                                <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Total Long Flows</div>
+                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="durations.stats?.total || durations.durations.length"></div>
+                                    </div>
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;" x-show="durations.stats?.longest_duration">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Longest Duration</div>
+                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-yellow);" x-text="durations.stats?.longest_duration || 'N/A'"></div>
+                                    </div>
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;" x-show="durations.stats?.avg_duration">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Avg Duration</div>
+                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--text-primary);" x-text="durations.stats?.avg_duration || 'N/A'"></div>
+                                    </div>
+                                </div>
+                                <div class="table-container">
+                                    <table class="table-fixed table-compact">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 30%;">Source</th>
+                                                <th style="width: 30%;">Destination</th>
+                                                <th style="width: 15%;">Duration</th>
+                                                <th style="width: 15%;">Bytes</th>
+                                                <th style="width: 10%;">Proto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(flow, idx) in durations.durations.slice(0, 15)" :key="idx">
+                                                <tr class="hover:bg-gray-800" :class="{ 'border-l-2 border-yellow-500': flow.is_suspicious }">
+                                                    <td style="font-family: var(--font-mono); font-size: var(--text-sm);">
+                                                        <span class="text-cyan" @click="openIPModal(flow.src)" style="cursor: pointer;" x-text="flow.src"></span>
+                                                        <span class="text-muted" x-text="':' + flow.src_port"></span>
+                                                    </td>
+                                                    <td style="font-family: var(--font-mono); font-size: var(--text-sm);">
+                                                        <span class="text-purple" @click="openIPModal(flow.dst)" style="cursor: pointer;" x-text="flow.dst"></span>
+                                                        <span class="text-muted" x-text="':' + flow.dst_port"></span>
+                                                    </td>
+                                                    <td class="text-yellow font-semibold" x-text="flow.duration_fmt || flow.duration"></td>
+                                                    <td class="text-green" x-text="flow.bytes_fmt || '0 B'"></td>
+                                                    <td class="text-muted" x-text="flow.proto || 'TCP'"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div x-show="!durations.loading && (!durations.durations || durations.durations.length === 0)" class="empty-state">
+                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">⏱️</div>
+                                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Long Flows</p>
+                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No unusually long-duration flows detected. This is typically a good sign.</p>
+                            </div>
+                            {% endcall %}
+                        </section>
+
+                        <!-- Attack Timeline Widget -->
+                        <section id="section-attack-timeline" class="scroll-section" style="margin-bottom: 24px;">
+                            {% call widget_card('attackTimeline', 'Attack Timeline', '⏰', card_class='wide-card', show_spinner=True) %}
+                            <div x-show="attackTimeline.timeline && attackTimeline.timeline.length > 0">
+                                <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Total (24h)</div>
+                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);" x-text="attackTimeline.total_24h || 0"></div>
+                                    </div>
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;" x-show="attackTimeline.peak_hour">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Peak Hour</div>
+                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-red);" x-text="attackTimeline.peak_hour"></div>
+                                        <div style="font-size: var(--text-xs); color: var(--text-muted);" x-text="(attackTimeline.peak_count || 0) + ' attacks'"></div>
+                                    </div>
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;" x-show="attackTimeline.has_fw_data">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">FW Blocks (24h)</div>
+                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-green);" x-text="attackTimeline.fw_blocks_24h || 0"></div>
+                                    </div>
+                                </div>
+                                <div class="chart-wrapper" style="height: 200px;">
+                                    <canvas id="attackTimelineChart"></canvas>
+                                </div>
+                            </div>
+                            <div x-show="!attackTimeline.loading && (!attackTimeline.timeline || attackTimeline.timeline.length === 0)" class="empty-state">
+                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">⏰</div>
+                                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No Attack Timeline Data</p>
+                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No attacks detected in the past 24 hours. Network appears secure.</p>
+                            </div>
+                            {% endcall %}
+                        </section>
+
+                        <!-- MITRE ATT&CK Coverage Widget -->
+                        <section id="section-mitre-heatmap" class="scroll-section" style="margin-bottom: 24px;">
+                            {% call widget_card('mitreHeatmap', 'MITRE ATT&CK Coverage', '🎯', card_class='wide-card', show_spinner=True) %}
+                            <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
+                                <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
+                                    <div class="card" style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">Techniques Detected</div>
+                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-red);" x-text="mitreHeatmap.total_techniques || 0"></div>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2);">
+                                    <template x-for="technique in mitreHeatmap.techniques.slice(0, 20)" :key="technique.id">
+                                        <div class="card" style="padding: var(--space-2); text-align: center; cursor: pointer; transition: all var(--motion-base);"
+                                             :style="'background: rgba(255, 0, 60, ' + Math.min(0.1 + (technique.count / 10) * 0.3, 0.4) + '); border: 1px solid rgba(255, 0, 60, ' + Math.min(0.2 + (technique.count / 10) * 0.3, 0.6) + ');'"
+                                             :title="technique.name + ' - ' + technique.count + ' detections'">
+                                            <div style="font-size: var(--text-xs); color: var(--neon-red); font-weight: var(--font-weight-bold); margin-bottom: 2px;" x-text="technique.id"></div>
+                                            <div style="font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="technique.name"></div>
+                                            <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: var(--font-weight-semibold); margin-top: 4px;" x-text="technique.count"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div x-show="Object.keys(mitreHeatmap.by_tactic || {}).length > 0" style="margin-top: var(--space-4);">
+                                    <div style="font-size: var(--text-sm); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--text-secondary);">By Tactic:</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+                                        <template x-for="(count, tactic) in (mitreHeatmap.by_tactic || {})" :key="tactic">
+                                            <span class="badge" style="background: rgba(0, 243, 255, 0.15); color: var(--neon-cyan); padding: var(--space-1) var(--space-2);">
+                                                <span x-text="tactic"></span>: <strong x-text="count"></strong>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <div x-show="!mitreHeatmap.loading && (!mitreHeatmap.techniques || mitreHeatmap.techniques.length === 0)" class="empty-state">
+                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">🎯</div>
+                                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">No MITRE Techniques Detected</p>
+                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No known attack techniques identified. This indicates good security posture.</p>
                             </div>
                             {% endcall %}
                         </section>
