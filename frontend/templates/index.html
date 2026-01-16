@@ -3285,6 +3285,17 @@
                                         </div>
                                     </template>
                                     
+                                    <!-- Retention Awareness -->
+                                    <template x-if="db.oldest_record_age">
+                                        <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
+                                            <div style="font-size: 0.8em; color: var(--text-secondary);">
+                                                <span style="opacity: 0.8;">Oldest Record:</span>
+                                                <span style="margin-left: 6px; color: var(--text-primary);" 
+                                                    x-text="db.oldest_record_age"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
                                     <!-- Detail Panel -->
                                     <div style="padding: 12px; background: rgba(0,0,0,0.15); border-radius: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
                                         <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">Configuration</div>

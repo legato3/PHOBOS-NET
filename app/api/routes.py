@@ -6368,6 +6368,50 @@ def api_database_stats():
                 
                 stats['total_records'] = total_records
                 
+                # Find oldest record timestamp across all tables
+                oldest_ts = None
+                for table in tables:
+                    try:
+                        # Try common timestamp column names
+                        for ts_col in ['timestamp', 'bucket_end', 'hour_ts', 'first_seen_ts']:
+                            try:
+                                cur = conn.execute(f"SELECT MIN({ts_col}) FROM {table} WHERE {ts_col} IS NOT NULL")
+                                row = cur.fetchone()
+                                if row and row[0] is not None:
+                                    ts_val = row[0]
+                                    # Convert to float if it's numeric
+                                    if isinstance(ts_val, (int, float)):
+                                        if oldest_ts is None or ts_val < oldest_ts:
+                                            oldest_ts = ts_val
+                                    break
+                            except:
+                                continue  # Column doesn't exist in this table
+                    except:
+                        pass  # Skip tables we can't query
+                
+                # Calculate age of oldest record
+                if oldest_ts is not None:
+                    now = time.time()
+                    age_seconds = now - oldest_ts
+                    stats['oldest_record_age_seconds'] = age_seconds
+                    # Format as human-readable (days, hours, minutes)
+                    if age_seconds >= 86400:  # >= 1 day
+                        days = int(age_seconds // 86400)
+                        hours = int((age_seconds % 86400) // 3600)
+                        if days >= 7:
+                            stats['oldest_record_age'] = f"{days} days"
+                        else:
+                            stats['oldest_record_age'] = f"{days}d {hours}h"
+                    elif age_seconds >= 3600:  # >= 1 hour
+                        hours = int(age_seconds // 3600)
+                        minutes = int((age_seconds % 3600) // 60)
+                        stats['oldest_record_age'] = f"{hours}h {minutes}m"
+                    else:
+                        minutes = int(age_seconds // 60)
+                        stats['oldest_record_age'] = f"{minutes}m"
+                else:
+                    stats['oldest_record_age'] = None
+                
             finally:
                 conn.close()
             
