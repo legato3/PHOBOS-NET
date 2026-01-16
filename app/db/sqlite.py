@@ -57,6 +57,20 @@ def _trends_db_init():
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_host_memory_first_seen ON host_memory(first_seen_ts);")
+            
+            # Database file size history: bounded historical samples for growth trend
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS db_size_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    db_name TEXT NOT NULL,
+                    db_path TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    timestamp REAL NOT NULL
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_db_size_history_db_path ON db_size_history(db_path, timestamp);")
             conn.commit()
             _trends_db_initialized = True
         finally:
@@ -330,3 +344,69 @@ def get_hosts_memory(ip_list):
             conn.close()
     
     return result
+
+
+def update_db_size_history(db_name, db_path, file_size):
+    """Update database file size history with a new sample.
+    
+    Args:
+        db_name: Database name (e.g., 'Trends', 'Firewall')
+        db_path: Database file path
+        file_size: Current file size in bytes
+    """
+    if not db_path:
+        return
+    
+    _trends_db_init()  # Ensure table exists
+    
+    now = time.time()
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            # Insert new sample
+            conn.execute(
+                "INSERT INTO db_size_history (db_name, db_path, file_size, timestamp) VALUES (?, ?, ?, ?)",
+                (db_name, db_path, file_size, now)
+            )
+            
+            # Keep only last 100 samples per database (bounded storage)
+            conn.execute("""
+                DELETE FROM db_size_history
+                WHERE db_path = ? AND id NOT IN (
+                    SELECT id FROM db_size_history
+                    WHERE db_path = ?
+                    ORDER BY timestamp DESC
+                    LIMIT 100
+                )
+            """, (db_path, db_path))
+            
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def get_db_size_history(db_path, limit=100):
+    """Get historical file size samples for a database.
+    
+    Args:
+        db_path: Database file path
+        limit: Maximum number of samples to return (default 100)
+        
+    Returns:
+        List of dicts with 'file_size' and 'timestamp' keys, sorted by timestamp ascending
+    """
+    if not db_path:
+        return []
+    
+    _trends_db_init()  # Ensure table exists
+    
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                "SELECT file_size, timestamp FROM db_size_history WHERE db_path = ? ORDER BY timestamp ASC LIMIT ?",
+                (db_path, limit)
+            )
+            return [{'file_size': row[0], 'timestamp': row[1]} for row in cur.fetchall()]
+        finally:
+            conn.close()

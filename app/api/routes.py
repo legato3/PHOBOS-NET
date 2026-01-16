@@ -6279,7 +6279,7 @@ def api_performance_metrics():
 def api_database_stats():
     """Get read-only SQLite database statistics."""
     from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH
-    from app.db.sqlite import _trends_db_connect, _firewall_db_connect
+    from app.db.sqlite import _trends_db_connect, _firewall_db_connect, update_db_size_history, get_db_size_history
     import os
     import time as time_module
     
@@ -6370,6 +6370,14 @@ def api_database_stats():
                 
             finally:
                 conn.close()
+            
+            # Update file size history (bounded storage)
+            if stats['file_size'] > 0:
+                update_db_size_history(db_name, db_path, stats['file_size'])
+            
+            # Get historical file size samples for sparkline
+            history = get_db_size_history(db_path, limit=100)
+            stats['size_history'] = [h['file_size'] for h in history]
                 
         except Exception as e:
             stats['error'] = str(e)

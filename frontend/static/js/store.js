@@ -3293,6 +3293,11 @@ export const Store = () => ({
                 this.databaseStats.timestamp = data.timestamp;
                 this.databaseStats.loading = false;
                 this.databaseStats.error = null;
+                
+                // Render sparklines after DOM update
+                this.$nextTick(() => {
+                    this.renderDatabaseSizeSparklines();
+                });
             } else {
                 const errorMsg = `Database stats fetch failed: ${res.status}`;
                 console.error(errorMsg);
@@ -3306,6 +3311,74 @@ export const Store = () => ({
         } finally {
             this._databaseStatsFetching = false;
         }
+    },
+    
+    renderDatabaseSizeSparklines() {
+        if (!this.databaseStats.databases || typeof Chart === 'undefined') {
+            return;
+        }
+        
+        this.databaseStats.databases.forEach(db => {
+            if (!db.size_history || db.size_history.length < 2) {
+                return;
+            }
+            
+            const canvasId = `dbSizeSparkline_${db.name}`;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            // Destroy existing chart if any
+            const chartKey = `_dbSizeSparkline_${db.name}`;
+            if (_chartInstances[chartKey]) {
+                _chartInstances[chartKey].destroy();
+            }
+            
+            const ctx = canvas.getContext('2d');
+            const values = db.size_history;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            
+            // Simple sparkline: minimal chart with no labels, axes, or legend
+            _chartInstances[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: values.map((_, i) => ''),
+                    datasets: [{
+                        data: values,
+                        borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 0.6)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        tension: 0.3,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        x: {
+                            display: false,
+                            grid: { display: false },
+                            ticks: { display: false }
+                        },
+                        y: {
+                            display: false,
+                            grid: { display: false },
+                            ticks: { display: false },
+                            min: min,
+                            max: max
+                        }
+                    },
+                    interaction: { intersect: false }
+                }
+            });
+        });
     },
 
     async fetchFirewallSNMP() {
