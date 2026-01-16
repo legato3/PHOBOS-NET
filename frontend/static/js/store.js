@@ -114,6 +114,7 @@ export const Store = () => ({
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
     databaseStats: { databases: [], loading: true, error: null },
+    serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
     
     // Unified Insight System - reusable across Traffic, Firewall, Hosts
     insightPanels: {
@@ -3587,6 +3588,7 @@ export const Store = () => ({
         // Initial fetch
         this.fetchServerHealth();
         this.fetchDatabaseStats();
+        this.fetchServerLogs(100);
 
         // Set up 2-second interval refresh for real-time updates (independent of global refresh)
         this.serverHealthRefreshTimer = setInterval(() => {
@@ -3598,6 +3600,11 @@ export const Store = () => ({
                     this.fetchDatabaseStats();
                     this._lastDatabaseStatsFetch = now;
                 }
+                // Logs refresh every 10 seconds
+                if (!this._lastServerLogsFetch || (now - this._lastServerLogsFetch) > 10000) {
+                    this.fetchServerLogs(this.serverLogs.lines || 100);
+                    this._lastServerLogsFetch = now;
+                }
             } else {
                 // Clean up if tab changed or paused
                 if (this.serverHealthRefreshTimer) {
@@ -3606,6 +3613,37 @@ export const Store = () => ({
                 }
             }
         }, 2000);
+    },
+
+    async fetchServerLogs(lines = 100) {
+        if (this._serverLogsFetching) return;
+        this._serverLogsFetching = true;
+        this.serverLogs.loading = true;
+        this.serverLogs.lines = lines;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/server/logs?lines=${lines}&_=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.serverLogs.logs = data.logs || [];
+                this.serverLogs.count = data.count || 0;
+                this.serverLogs.source = data.source || 'none';
+                this.serverLogs.container = data.container || '';
+                this.serverLogs.loading = false;
+            } else {
+                this.serverLogs.logs = [`Error fetching logs: ${res.status} ${res.statusText}`];
+                this.serverLogs.count = 1;
+                this.serverLogs.loading = false;
+            }
+        } catch (e) {
+            console.error('Server logs fetch error:', e);
+            this.serverLogs.logs = [`Error: ${e.message}`];
+            this.serverLogs.count = 1;
+            this.serverLogs.loading = false;
+        } finally {
+            this._serverLogsFetching = false;
+        }
     },
 
     async fetchDatabaseStats() {

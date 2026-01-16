@@ -6394,6 +6394,89 @@ def api_performance_metrics():
     })
 
 
+@bp.route('/api/server/logs')
+@throttle(10, 5)
+def api_server_logs():
+    """Get docker container logs for the application."""
+    lines = request.args.get('lines', 100, type=int)
+    lines = min(max(lines, 10), 1000)  # Limit between 10 and 1000 lines
+    
+    try:
+        # Try to get container name from environment or use default
+        container_name = os.environ.get('CONTAINER_NAME', 'phobos-net')
+        
+        # Run docker logs command
+        result = subprocess.run(
+            ['docker', 'logs', '--tail', str(lines), container_name],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            logs = result.stdout
+            # Split into lines (docker logs --tail already returns newest first)
+            log_lines = [line for line in logs.strip().split('\n') if line.strip()]
+            # Reverse to show newest at top
+            log_lines.reverse()
+            return jsonify({
+                'logs': log_lines,
+                'count': len(log_lines),
+                'container': container_name,
+                'source': 'docker'
+            })
+        else:
+            # Docker command failed, try to read from log files
+            return _get_logs_from_files(lines)
+            
+    except FileNotFoundError:
+        # Docker command not available, try log files
+        return _get_logs_from_files(lines)
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Log fetch timeout', 'logs': [], 'count': 0}), 500
+    except Exception as e:
+        print(f"Error fetching logs: {e}")
+        return _get_logs_from_files(lines)
+
+
+def _get_logs_from_files(lines):
+    """Fallback: try to read from application log files."""
+    log_files = [
+        '/var/log/app.log',
+        '/app/app.log',
+        '/tmp/app.log',
+        '/var/log/phobos-net.log'
+    ]
+    
+    all_lines = []
+    for log_file in log_files:
+        try:
+            if os.path.exists(log_file):
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    file_lines = f.readlines()
+                    all_lines.extend([(log_file, line.strip()) for line in file_lines])
+        except Exception:
+            continue
+    
+    if all_lines:
+        # Sort by file and take last N lines
+        all_lines = all_lines[-lines:]
+        log_lines = [f"[{os.path.basename(f)}] {line}" for f, line in all_lines]
+        return jsonify({
+            'logs': log_lines,
+            'count': len(log_lines),
+            'source': 'files'
+        })
+    
+    # No logs available
+    return jsonify({
+        'logs': ['No log files found. Use "docker logs phobos-net" to view container logs.'],
+        'count': 1,
+        'source': 'none',
+        'message': 'Log files not found. View logs with: docker logs phobos-net'
+    })
+
+
 @bp.route('/api/server/database-stats')
 @throttle(10, 5)
 def api_database_stats():
