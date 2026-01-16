@@ -118,6 +118,7 @@ _trends_thread_started = False
 _agg_thread_started = False
 _syslog_thread_started = False
 _snmp_thread_started = False
+_db_size_sampler_thread_started = False
 
 # ==================== Syslog State ====================
 _syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}

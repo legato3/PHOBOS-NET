@@ -23,7 +23,8 @@ from app.config import CACHE_TTL_THREAT, CACHE_TTL_SHORT
 from app.services.threats import fetch_threat_feed
 from app.services.netflow import parse_csv, run_nfdump
 from app.utils.helpers import get_time_range
-from app.db.sqlite import _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket
+from app.db.sqlite import _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, update_db_size_history
+from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH
 
 
 def start_threat_thread():
@@ -117,4 +118,46 @@ def start_agg_thread():
             time.sleep(60)
 
     t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
+def start_db_size_sampler_thread():
+    """Start the database file size sampling thread.
+    
+    Samples database file sizes at fixed intervals (60s) and stores them
+    in a bounded buffer. This runs independently of API requests to avoid
+    write operations during GET handlers.
+    """
+    if state._db_size_sampler_thread_started:
+        return
+    state._db_size_sampler_thread_started = True
+    
+    def loop():
+        while not _shutdown_event.is_set():
+            try:
+                import os
+                
+                # Sample Trends database
+                if TRENDS_DB_PATH and os.path.exists(TRENDS_DB_PATH):
+                    try:
+                        file_size = os.stat(TRENDS_DB_PATH).st_size
+                        update_db_size_history('Trends', TRENDS_DB_PATH, file_size)
+                    except Exception:
+                        pass  # Silently skip if sampling fails
+                
+                # Sample Firewall database
+                if FIREWALL_DB_PATH and os.path.exists(FIREWALL_DB_PATH):
+                    try:
+                        file_size = os.stat(FIREWALL_DB_PATH).st_size
+                        update_db_size_history('Firewall', FIREWALL_DB_PATH, file_size)
+                    except Exception:
+                        pass  # Silently skip if sampling fails
+                        
+            except Exception:
+                pass  # Silently skip on any error
+            
+            # Fixed 60-second interval
+            _shutdown_event.wait(timeout=60)
+    
+    t = threading.Thread(target=loop, daemon=True, name='DbSizeSamplerThread')
     t.start()

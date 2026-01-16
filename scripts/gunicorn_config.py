@@ -14,7 +14,7 @@ def post_worker_init(worker):
     # Start background threads (happens once per worker)
     # With 1 worker, this runs once and threads are shared
     try:
-        from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
+        from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread, start_db_size_sampler_thread
         # Import syslog thread from new service module
         try:
             from app.services.syslog import start_syslog_thread
@@ -24,6 +24,7 @@ def post_worker_init(worker):
         start_threat_thread()
         start_trends_thread()
         start_agg_thread()
+        start_db_size_sampler_thread()  # Background database size sampling (decoupled from API)
         if start_syslog_thread:
             start_syslog_thread()
     except Exception as e:
