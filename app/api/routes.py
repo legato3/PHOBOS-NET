@@ -4122,7 +4122,6 @@ def api_forensics_session():
 
 
 @bp.route('/api/forensics/evidence', methods=['POST'])
-@throttle(2, 60)
 def api_forensics_evidence():
     """Generate evidence collection report for incident response."""
     try:
