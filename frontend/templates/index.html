@@ -3706,6 +3706,21 @@
                         </div>
                     </div>
 
+                    <!-- Activity Timeline -->
+                    <div x-show="ipDetails?.timeline && (ipDetails.timeline.labels?.length > 0 || ipDetails.timeline.loading)"
+                        style="margin-top: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 10px; font-size: 0.95em; color: var(--text-secondary);">Activity Timeline (24h)</h3>
+                        <div style="position: relative; height: 120px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; padding: 8px;">
+                            <div x-show="ipDetails.timeline.loading" class="spinner" style="margin: 40px auto;"></div>
+                            <canvas x-show="!ipDetails.timeline.loading && ipDetails.timeline.labels?.length > 0"
+                                id="hostDetailTimelineChart"></canvas>
+                            <div x-show="!ipDetails.timeline.loading && (!ipDetails.timeline.labels || ipDetails.timeline.labels.length === 0)"
+                                style="text-align: center; padding: 40px; color: var(--text-secondary); font-size: 0.9em;">
+                                No activity data available
+                            </div>
+                        </div>
+                    </div>
+
                     <h3>Ports & Protocols</h3>
                     <div class="grid">
                         <div class="card">

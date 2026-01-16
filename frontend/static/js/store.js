@@ -432,21 +432,153 @@ export const Store = () => ({
     async openHostDetail(ip, extraData = {}) {
         this.selectedIP = ip;
         this.ipLoading = true;
-        this.ipDetails = { ...extraData };
+        this.ipDetails = { ...extraData, timeline: { labels: [], bytes: [], flows: [], loading: true } };
         this.modalOpen = true;
 
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/hosts/${ip}/detail`);
-            if (res.ok) {
-                const data = await res.json();
-                this.ipDetails = { ...data, ...extraData };
+            // Fetch host details and timeline in parallel
+            const [detailRes, timelineRes] = await Promise.all([
+                safeFetchFn(`/api/hosts/${ip}/detail`),
+                safeFetchFn(`/api/hosts/${ip}/timeline?range=24h`)
+            ]);
+            
+            if (detailRes.ok) {
+                const data = await detailRes.json();
+                this.ipDetails = { ...data, ...extraData, timeline: this.ipDetails.timeline };
+            }
+            
+            if (timelineRes.ok) {
+                const timelineData = await timelineRes.json();
+                this.ipDetails.timeline = {
+                    labels: timelineData.labels || [],
+                    bytes: timelineData.bytes || [],
+                    flows: timelineData.flows || [],
+                    loading: false
+                };
+                // Render timeline chart after DOM update
+                this.$nextTick(() => {
+                    this.renderHostTimelineChart();
+                });
+            } else {
+                this.ipDetails.timeline.loading = false;
             }
         } catch (e) {
             console.error('Failed to load host detail:', e);
-            this.ipDetails = { error: 'Failed to load details', ...extraData };
+            this.ipDetails = { error: 'Failed to load details', ...extraData, timeline: { labels: [], bytes: [], flows: [], loading: false } };
         } finally {
             this.ipLoading = false;
+        }
+    },
+    
+    renderHostTimelineChart() {
+        try {
+            const canvas = document.getElementById('hostDetailTimelineChart');
+            if (!canvas || !this.ipDetails?.timeline || !this.ipDetails.timeline.labels || this.ipDetails.timeline.labels.length === 0) {
+                return;
+            }
+
+            if (typeof Chart === 'undefined') {
+                setTimeout(() => this.renderHostTimelineChart(), 100);
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (_chartInstances['_hostDetailTimelineChart']) {
+                _chartInstances['_hostDetailTimelineChart'].destroy();
+            }
+
+            const labels = this.ipDetails.timeline.labels;
+            const bytes = this.ipDetails.timeline.bytes;
+            const flows = this.ipDetails.timeline.flows;
+
+            // Simple single-line chart showing bytes (most relevant for activity)
+            _chartInstances['_hostDetailTimelineChart'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Activity',
+                        data: bytes,
+                        borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 0.6)',
+                        backgroundColor: 'rgba(0, 243, 255, 0.05)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 3,
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: this.getCssVar('--neon-cyan') || 'rgba(0, 243, 255, 1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: (context) => {
+                                    const bytes = context.parsed.y;
+                                    const flowIdx = context.dataIndex;
+                                    const flowCount = flows[flowIdx] || 0;
+                                    return [
+                                        `Bytes: ${this.fmtBytes(bytes)}`,
+                                        `Flows: ${flowCount.toLocaleString()}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: this.getCssVar('--text-secondary') || '#888',
+                                maxRotation: 45,
+                                minRotation: 45,
+                                maxTicksLimit: 12,
+                                callback: (value, index) => {
+                                    // Show only hour (e.g., "12:00")
+                                    const label = labels[index];
+                                    if (!label) return '';
+                                    return label.split(' ')[1] || label;
+                                }
+                            }
+                        },
+                        y: {
+                            display: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: this.getCssVar('--text-secondary') || '#888',
+                                callback: (value) => {
+                                    return this.fmtBytes(value);
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Host timeline chart render error:', e);
         }
     },
 

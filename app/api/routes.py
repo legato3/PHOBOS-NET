@@ -1780,6 +1780,90 @@ def api_host_detail(ip):
     return jsonify(data)
 
 
+@bp.route("/api/hosts/<path:ip>/timeline")
+@throttle(10, 20)
+def api_host_timeline(ip):
+    """Get lightweight hourly activity timeline for a host."""
+    from app.services.netflow import run_nfdump, parse_csv, get_time_range
+    from datetime import datetime, timedelta
+    import time as time_module
+    
+    range_key = request.args.get('range', '24h')
+    tf = get_time_range(range_key)
+    
+    # Query flows where IP is source or destination
+    # Get raw flows (not aggregated) so we can group by hour
+    src_flows = run_nfdump(["-n", "10000", "src", "ip", ip], tf)
+    dst_flows = run_nfdump(["-n", "10000", "dst", "ip", ip], tf)
+    
+    # Parse CSV flows
+    src_rows = parse_csv(src_flows, expected_key=None)  # Raw flows, no aggregation
+    dst_rows = parse_csv(dst_flows, expected_key=None)
+    
+    # Combine and aggregate by hour
+    hourly_data = {}
+    
+    def parse_timestamp(ts_str):
+        """Parse nfdump timestamp to hour bucket."""
+        try:
+            # Format: "2023-01-01 12:34:56.789"
+            dt = datetime.strptime(ts_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+            # Round to hour
+            hour_dt = dt.replace(minute=0, second=0, microsecond=0)
+            return hour_dt
+        except:
+            return None
+    
+    # Process source flows (upload)
+    for row in src_rows:
+        ts = row.get('ts')
+        if not ts:
+            continue
+        hour_dt = parse_timestamp(ts)
+        if not hour_dt:
+            continue
+        
+        hour_key = hour_dt.strftime('%Y-%m-%d %H:00')
+        if hour_key not in hourly_data:
+            hourly_data[hour_key] = {'bytes': 0, 'flows': 0, 'timestamp': hour_dt}
+        
+        # Raw flows use 'ibyt' for bytes, aggregated uses 'bytes'
+        bytes_val = row.get('ibyt') or row.get('bytes', 0)
+        hourly_data[hour_key]['bytes'] += bytes_val
+        hourly_data[hour_key]['flows'] += 1
+    
+    # Process destination flows (download)
+    for row in dst_rows:
+        ts = row.get('ts')
+        if not ts:
+            continue
+        hour_dt = parse_timestamp(ts)
+        if not hour_dt:
+            continue
+        
+        hour_key = hour_dt.strftime('%Y-%m-%d %H:00')
+        if hour_key not in hourly_data:
+            hourly_data[hour_key] = {'bytes': 0, 'flows': 0, 'timestamp': hour_dt}
+        
+        # Raw flows use 'ibyt' for bytes, aggregated uses 'bytes'
+        bytes_val = row.get('ibyt') or row.get('bytes', 0)
+        hourly_data[hour_key]['bytes'] += bytes_val
+        hourly_data[hour_key]['flows'] += 1
+    
+    # Sort by timestamp and format for frontend
+    sorted_hours = sorted(hourly_data.items(), key=lambda x: x[1]['timestamp'])
+    
+    labels = [h[0] for h in sorted_hours]
+    bytes_data = [h[1]['bytes'] for h in sorted_hours]
+    flows_data = [h[1]['flows'] for h in sorted_hours]
+    
+    return jsonify({
+        'labels': labels,
+        'bytes': bytes_data,
+        'flows': flows_data
+    })
+
+
 # ===== Discovery (Active) =====
 
 @bp.route("/api/discovery/subnets")
