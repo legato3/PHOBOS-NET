@@ -3626,9 +3626,9 @@ def api_ollama_threat_analysis():
                 'categories': []  # Would be populated from threat categories
             },
             'network_summary': {
-                'top_sources': get_common_nfdump_data("sources", "1h", limit=10),
-                'top_destinations': get_common_nfdump_data("destinations", "1h", limit=10),
-                'protocols': get_common_nfdump_data("protocols", "1h", limit=10)
+                'top_sources': get_common_nfdump_data("sources", "1h")[:10],
+                'top_destinations': get_common_nfdump_data("destinations", "1h")[:10],
+                'protocols': get_common_nfdump_data("protocols", "1h")[:10]
             },
             'security_metrics': {
                 'current_score': 0,  # Would be populated from security score
