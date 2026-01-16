@@ -137,17 +137,17 @@
                         <span class="sidebar-icon">🖥️</span>
                         <span class="sidebar-item-text">Server</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
-                        @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
-                        id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="Assistant" title="Assistant">
-                        <span class="sidebar-icon">🤖</span>
-                        <span class="sidebar-item-text">Assistant</span>
-                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
                         @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'"
                         id="forensics-tab-btn" aria-controls="forensics-tab" aria-label="Forensics" title="Forensics">
                         <span class="sidebar-icon">🔍</span>
                         <span class="sidebar-item-text">Forensics</span>
+                    </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
+                        @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
+                        id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="Assistant" title="Assistant">
+                        <span class="sidebar-icon">🤖</span>
+                        <span class="sidebar-item-text">Assistant</span>
                     </button>
                 </nav>
 
