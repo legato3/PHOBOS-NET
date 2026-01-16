@@ -41,3 +41,85 @@ card_class_bind=None, footer_content=None) %}
     {% endif %}
 </div>
 {% endmacro %}
+
+{# Reusable InsightPanel component - works for Traffic, Firewall, Hosts #}
+{% macro insight_panel(panel_key, title, icon, time_window_expr) %}
+<div class="card" @click="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded" 
+     style="cursor: pointer;" role="button" tabindex="0" 
+     @keydown.enter="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded" 
+     @keydown.space.prevent="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded">
+    <h2>
+        <div class="card-title-content">
+            <span class="title-icon">{{ icon }}</span>
+            <div>
+                <span>{{ title }}</span>
+                <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;" 
+                     x-text="'Based on last ' + ({{ time_window_expr }} === '1h' ? '1 hour' : {{ time_window_expr }} === '24h' ? '24 hours' : {{ time_window_expr }})"></div>
+            </div>
+        </div>
+        <div class="card-actions">
+            <span style="font-size: 0.85em; color: var(--text-secondary);" 
+                  x-text="insightPanels.{{ panel_key }}.expanded ? '▼ Hide breakdown' : '▶ Show breakdown'"></span>
+        </div>
+    </h2>
+    <div class="widget-body">
+        <!-- Loading State -->
+        <template x-if="insightPanels.{{ panel_key }}.loading">
+            <div class="empty-state">
+                <span>Loading insights...</span>
+            </div>
+        </template>
+        
+        <!-- Insight Cards (max 3-4 visible) -->
+        <template x-if="!insightPanels.{{ panel_key }}.loading && insightPanels.{{ panel_key }}.insights && insightPanels.{{ panel_key }}.insights.length > 0">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                <template x-for="(insight, idx) in insightPanels.{{ panel_key }}.insights.slice(0, insightPanels.{{ panel_key }}.expanded ? insightPanels.{{ panel_key }}.insights.length : 4)" 
+                          :key="'insight-' + idx + '-' + insight.id">
+                    <div class="card" style="padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
+                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;" x-text="insight.label"></div>
+                        <div style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 4px; font-weight: 500;">
+                            <template x-if="insight.type === 'talker' || insight.type === 'ip'">
+                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)" 
+                                      style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'protocol'">
+                                <span x-text="insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'port'">
+                                <span x-text="'Port ' + insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'rule' || insight.type === 'category'">
+                                <span x-text="insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'host'">
+                                <span x-text="insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'anomaly'">
+                                <span x-text="insight.key"></span>
+                            </template>
+                        </div>
+                        <div style="font-size: 0.9em; color: var(--text-primary); margin-bottom: 2px;" x-text="insight.absolute"></div>
+                        <div style="font-size: 0.75em; color: var(--text-secondary);" x-text="insight.relative"></div>
+                        <template x-if="insight.service">
+                            <div style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 4px;" x-text="insight.service"></div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+        
+        <!-- Expanded View - Custom content per panel type -->
+        <div x-show="insightPanels.{{ panel_key }}.expanded" x-collapse 
+             style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+            {{ caller() }}
+        </div>
+        
+        <!-- Empty State -->
+        <template x-if="!insightPanels.{{ panel_key }}.loading && (!insightPanels.{{ panel_key }}.insights || insightPanels.{{ panel_key }}.insights.length === 0)">
+            <div class="empty-state">
+                <span>No insights available</span>
+            </div>
+        </template>
+    </div>
+</div>
+{% endmacro %}

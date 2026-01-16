@@ -115,14 +115,51 @@ export const Store = () => ({
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
     databaseStats: { databases: [], loading: true, error: null },
     
-    // Traffic Insights - stability tracking
-    trafficInsights: {
-        insights: [], // Current insights to display
-        expanded: false,
-        loading: true,
-        history: [], // Last 2-3 samples for stability
-        totalBytes: 0, // For percentage calculations
-        timeWindow: '1h'
+    // Unified Insight System - reusable across Traffic, Firewall, Hosts
+    insightPanels: {
+        traffic: {
+            insights: [],
+            expanded: false,
+            loading: true,
+            history: [],
+            config: {
+                type: 'traffic',
+                title: 'Traffic Insights',
+                icon: '💡',
+                minThreshold: 0.05, // 5% minimum for talkers/ports
+                protocolThreshold: 0.10, // 10% minimum for protocols
+                commonPorts: [80, 443, 53] // Exclude from notable ports
+            }
+        },
+        firewall: {
+            insights: [],
+            expanded: false,
+            loading: true,
+            history: [],
+            config: {
+                type: 'firewall',
+                title: 'Firewall Insights',
+                icon: '🛡️',
+                minThreshold: 0.05
+            }
+        },
+        hosts: {
+            insights: [],
+            expanded: false,
+            loading: true,
+            history: [],
+            config: {
+                type: 'hosts',
+                title: 'Host Insights',
+                icon: '🖥️',
+                minThreshold: 0.05
+            }
+        }
+    },
+    
+    // Legacy alias for backward compatibility
+    get trafficInsights() {
+        return this.insightPanels.traffic;
     },
     hosts: {
         stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 },
@@ -1551,108 +1588,24 @@ export const Store = () => ({
         }
     },
     
-    computeTrafficInsights() {
-        // Only compute if we have the necessary data
-        if (this.summary.loading || this.sources.loading || this.ports.loading || this.protocols.loading) {
-            return;
-        }
-        
-        const totalBytes = this.summary.total_bytes || 0;
-        if (totalBytes === 0) {
-            this.trafficInsights.insights = [];
-            this.trafficInsights.loading = false;
-            return;
-        }
-        
+    // Generic stability filter - shared across all insight types
+    applyStabilityFilter(panel, currentInsights) {
         const now = Date.now();
-        const currentInsights = [];
-        
-        // 1. Top Talker
-        if (this.sources.sources && this.sources.sources.length > 0) {
-            const topSource = this.sources.sources[0];
-            const bytes = topSource.bytes || 0;
-            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
-            // Only include if significant (>5% of total) to avoid noise
-            if (pct >= 5) {
-                currentInsights.push({
-                    id: 'talker',
-                    type: 'talker',
-                    label: 'Top Talker',
-                    key: topSource.key,
-                    absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${pct.toFixed(1)}% of total traffic`,
-                    bytes: bytes,
-                    pct: pct
-                });
-            }
-        }
-        
-        // 2. Dominant Protocol
-        if (this.protocols.protocols && this.protocols.protocols.length > 0) {
-            const topProto = this.protocols.protocols[0];
-            const bytes = topProto.bytes || 0;
-            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
-            // Only include if significant (>10% of total)
-            if (pct >= 10) {
-                currentInsights.push({
-                    id: 'protocol',
-                    type: 'protocol',
-                    label: 'Dominant Protocol',
-                    key: topProto.proto_name || topProto.key,
-                    absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${pct.toFixed(1)}% of total traffic`,
-                    bytes: bytes,
-                    pct: pct
-                });
-            }
-        }
-        
-        // 3. High-volume Port
-        if (this.ports.ports && this.ports.ports.length > 0) {
-            const topPort = this.ports.ports[0];
-            const bytes = topPort.bytes || 0;
-            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
-            // Only include if significant (>5% of total) and not a common port (80, 443, 53)
-            const commonPorts = [80, 443, 53];
-            const portNum = parseInt(topPort.key);
-            if (pct >= 5 && !commonPorts.includes(portNum)) {
-                currentInsights.push({
-                    id: 'port',
-                    type: 'port',
-                    label: 'Notable Port',
-                    key: topPort.key,
-                    service: topPort.service || 'unknown',
-                    absolute: topPort.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${pct.toFixed(1)}% of total traffic`,
-                    bytes: bytes,
-                    pct: pct
-                });
-            }
-        }
-        
-        // 4. Anomaly detection (simplified - can be enhanced later)
-        // Check if traffic is unusually high or low compared to baseline
-        const totalFlows = this.summary.total_flows || 0;
-        const avgFlowSize = totalBytes > 0 && totalFlows > 0 ? totalBytes / totalFlows : 0;
-        
-        // Add history entry
         const historyEntry = {
             timestamp: now,
-            insights: currentInsights.map(i => ({ id: i.id, key: i.key, pct: i.pct })),
-            totalBytes: totalBytes,
-            totalFlows: totalFlows
+            insights: currentInsights.map(i => ({ id: i.id, key: i.key, pct: i.pct }))
         };
         
         // Maintain history (keep last 3 samples)
-        this.trafficInsights.history.push(historyEntry);
-        if (this.trafficInsights.history.length > 3) {
-            this.trafficInsights.history.shift();
+        panel.history.push(historyEntry);
+        if (panel.history.length > 3) {
+            panel.history.shift();
         }
         
         // Stability filter: only show insights that appear in at least 2 consecutive samples
         const stableInsights = [];
-        if (this.trafficInsights.history.length >= 2) {
-            const recent = this.trafficInsights.history.slice(-2);
+        if (panel.history.length >= 2) {
+            const recent = panel.history.slice(-2);
             const insightCounts = {};
             
             // Count occurrences of each insight across last 2 samples
@@ -1677,10 +1630,99 @@ export const Store = () => ({
         
         // Sort by percentage (descending) and limit to top 4
         stableInsights.sort((a, b) => (b.pct || 0) - (a.pct || 0));
-        this.trafficInsights.insights = stableInsights.slice(0, 4);
-        this.trafficInsights.totalBytes = totalBytes;
-        this.trafficInsights.timeWindow = this.timeRange;
-        this.trafficInsights.loading = false;
+        return stableInsights.slice(0, 4);
+    },
+    
+    // Generic insight computation - configurable for different data sources
+    computeInsights(panelType) {
+        const panel = this.insightPanels[panelType];
+        if (!panel) return;
+        
+        const config = panel.config;
+        let currentInsights = [];
+        
+        if (config.type === 'traffic') {
+            // Only compute if we have the necessary data
+            if (this.summary.loading || this.sources.loading || this.ports.loading || this.protocols.loading) {
+                return;
+            }
+            
+            const totalBytes = this.summary.total_bytes || 0;
+            if (totalBytes === 0) {
+                panel.insights = [];
+                panel.loading = false;
+                return;
+            }
+            
+            // 1. Top Talker
+            if (this.sources.sources && this.sources.sources.length > 0) {
+                const topSource = this.sources.sources[0];
+                const bytes = topSource.bytes || 0;
+                const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
+                if (pct >= config.minThreshold) {
+                    currentInsights.push({
+                        id: 'talker',
+                        type: 'talker',
+                        label: 'Top Talker',
+                        key: topSource.key,
+                        absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
+                        relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                        bytes: bytes,
+                        pct: pct
+                    });
+                }
+            }
+            
+            // 2. Dominant Protocol
+            if (this.protocols.protocols && this.protocols.protocols.length > 0) {
+                const topProto = this.protocols.protocols[0];
+                const bytes = topProto.bytes || 0;
+                const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
+                if (pct >= config.protocolThreshold) {
+                    currentInsights.push({
+                        id: 'protocol',
+                        type: 'protocol',
+                        label: 'Dominant Protocol',
+                        key: topProto.proto_name || topProto.key,
+                        absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
+                        relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                        bytes: bytes,
+                        pct: pct
+                    });
+                }
+            }
+            
+            // 3. High-volume / Notable Port
+            if (this.ports.ports && this.ports.ports.length > 0) {
+                const topPort = this.ports.ports[0];
+                const bytes = topPort.bytes || 0;
+                const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
+                const portNum = parseInt(topPort.key);
+                if (pct >= config.minThreshold && !config.commonPorts.includes(portNum)) {
+                    currentInsights.push({
+                        id: 'port',
+                        type: 'port',
+                        label: 'Notable Port',
+                        key: topPort.key,
+                        service: topPort.service || 'unknown',
+                        absolute: topPort.bytes_fmt || this.fmtBytes(bytes),
+                        relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                        bytes: bytes,
+                        pct: pct
+                    });
+                }
+            }
+            
+            // Apply stability filter
+            panel.insights = this.applyStabilityFilter(panel, currentInsights);
+            panel.loading = false;
+        }
+        // Future: Add firewall and hosts logic here
+    },
+    
+    // Legacy alias for backward compatibility
+    computeTrafficInsights() {
+        this.computeInsights('traffic');
     },
 
     async fetchSources() {

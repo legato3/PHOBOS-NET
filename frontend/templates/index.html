@@ -62,7 +62,7 @@
 </head>
 
 <body class="antialiased" x-data="dashboard">
-    {% from 'macros/widgets.html' import widget_card %}
+    {% from 'macros/widgets.html' import widget_card, insight_panel %}
 
     <!-- Skip to main content link for accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -1690,125 +1690,64 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Traffic Insights (Redesigned) -->
+                                <!-- Traffic Insights (Unified InsightPanel) -->
                                 <template x-if="isVisible('insights')">
-                                    <div class="card" @click="trafficInsights.expanded = !trafficInsights.expanded" style="cursor: pointer;" role="button" tabindex="0" @keydown.enter="trafficInsights.expanded = !trafficInsights.expanded" @keydown.space.prevent="trafficInsights.expanded = !trafficInsights.expanded">
-                                        <h2>
-                                            <div class="card-title-content">
-                                                <span class="title-icon">💡</span>
-                                                <div>
-                                                    <span>Traffic Insights</span>
-                                                    <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;" x-text="'Based on last ' + (timeRange === '1h' ? '1 hour' : timeRange === '24h' ? '24 hours' : timeRange)"></div>
-                                                </div>
-                                            </div>
-                                            <div class="card-actions">
-                                                <span style="font-size: 0.85em; color: var(--text-secondary);" x-text="trafficInsights.expanded ? '▼ Hide breakdown' : '▶ Show breakdown'"></span>
-                                            </div>
-                                        </h2>
-                                        <div class="widget-body">
-                                            <!-- Loading State -->
-                                            <template x-if="trafficInsights.loading">
-                                                <div class="empty-state">
-                                                    <span>Loading insights...</span>
-                                                </div>
-                                            </template>
-                                            
-                                            <!-- Insight Cards (max 3-4 visible) -->
-                                            <template x-if="!trafficInsights.loading && trafficInsights.insights && trafficInsights.insights.length > 0">
-                                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
-                                                    <template x-for="(insight, idx) in trafficInsights.insights.slice(0, trafficInsights.expanded ? trafficInsights.insights.length : 4)" :key="'insight-' + idx + '-' + insight.id">
-                                                        <div class="card" style="padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
-                                                            <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;" x-text="insight.label"></div>
-                                                            <div style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 4px; font-weight: 500;">
-                                                                <template x-if="insight.type === 'talker'">
-                                                                    <span class="clickable-ip" @click.stop="openIPModal(insight.key)" style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
-                                                                </template>
-                                                                <template x-if="insight.type === 'protocol'">
-                                                                    <span x-text="insight.key"></span>
-                                                                </template>
-                                                                <template x-if="insight.type === 'port'">
-                                                                    <span x-text="'Port ' + insight.key"></span>
-                                                                </template>
-                                                                <template x-if="insight.type === 'anomaly'">
-                                                                    <span x-text="insight.key"></span>
-                                                                </template>
-                                                            </div>
-                                                            <div style="font-size: 0.9em; color: var(--text-primary); margin-bottom: 2px;" x-text="insight.absolute"></div>
-                                                            <div style="font-size: 0.75em; color: var(--text-secondary);" x-text="insight.relative"></div>
-                                                            <template x-if="insight.service">
-                                                                <div style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 4px;" x-text="insight.service"></div>
-                                                            </template>
+                                    {% call insight_panel('traffic', 'Traffic Insights', '💡', 'timeRange') %}
+                                        <!-- Expanded View Content - Top 5 Talkers -->
+                                        <template x-if="sources.sources && sources.sources.length > 0">
+                                            <div style="margin-bottom: 16px;">
+                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Top Talkers</div>
+                                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                    <template x-for="(src, idx) in sources.sources.slice(0, 5)" :key="src.key">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                            <span>
+                                                                <span class="clickable-ip" @click.stop="openIPModal(src.key)" style="color: var(--neon-cyan); cursor: pointer;" x-text="src.key"></span>
+                                                                <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (src.bytes && summary.total_bytes ? ((src.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                            </span>
+                                                            <span style="color: var(--text-primary); font-weight: 500;" x-text="src.bytes_fmt || fmtBytes(src.bytes || 0)"></span>
                                                         </div>
                                                     </template>
                                                 </div>
-                                            </template>
-                                            
-                                            <!-- Expanded View -->
-                                            <div x-show="trafficInsights.expanded" x-collapse style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                <!-- Top 5 Talkers -->
-                                                <template x-if="sources.sources && sources.sources.length > 0">
-                                                    <div style="margin-bottom: 16px;">
-                                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Top Talkers</div>
-                                                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                                                            <template x-for="(src, idx) in sources.sources.slice(0, 5)" :key="src.key">
-                                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                                                    <span>
-                                                                        <span class="clickable-ip" @click.stop="openIPModal(src.key)" style="color: var(--neon-cyan); cursor: pointer;" x-text="src.key"></span>
-                                                                        <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (src.bytes && summary.total_bytes ? ((src.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                                                    </span>
-                                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="src.bytes_fmt || fmtBytes(src.bytes || 0)"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                                
-                                                <!-- Top 5 Ports -->
-                                                <template x-if="ports.ports && ports.ports.length > 0">
-                                                    <div style="margin-bottom: 16px;">
-                                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Top Ports</div>
-                                                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                                                            <template x-for="(port, idx) in ports.ports.slice(0, 5)" :key="port.key">
-                                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                                                    <span>
-                                                                        <span style="color: var(--text-primary);" x-text="'Port ' + port.key"></span>
-                                                                        <span style="color: var(--text-secondary); margin-left: 6px;" x-text="port.service ? '(' + port.service + ')' : ''"></span>
-                                                                        <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (port.bytes && summary.total_bytes ? ((port.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                                                    </span>
-                                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="port.bytes_fmt || fmtBytes(port.bytes || 0)"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                                
-                                                <!-- Protocol Distribution -->
-                                                <template x-if="protocols.protocols && protocols.protocols.length > 0">
-                                                    <div>
-                                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Protocol Distribution</div>
-                                                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                                                            <template x-for="(proto, idx) in protocols.protocols.slice(0, 5)" :key="proto.key">
-                                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                                                    <span>
-                                                                        <span style="color: var(--text-primary);" x-text="proto.proto_name || proto.key"></span>
-                                                                        <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (proto.bytes && summary.total_bytes ? ((proto.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                                                    </span>
-                                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="proto.bytes_fmt || fmtBytes(proto.bytes || 0)"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
                                             </div>
-                                            
-                                            <!-- Empty State -->
-                                            <template x-if="!trafficInsights.loading && (!trafficInsights.insights || trafficInsights.insights.length === 0)">
-                                                <div class="empty-state">
-                                                    <span>No insights available</span>
+                                        </template>
+                                        
+                                        <!-- Top 5 Ports -->
+                                        <template x-if="ports.ports && ports.ports.length > 0">
+                                            <div style="margin-bottom: 16px;">
+                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Top Ports</div>
+                                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                    <template x-for="(port, idx) in ports.ports.slice(0, 5)" :key="port.key">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                            <span>
+                                                                <span style="color: var(--text-primary);" x-text="'Port ' + port.key"></span>
+                                                                <span style="color: var(--text-secondary); margin-left: 6px;" x-text="port.service ? '(' + port.service + ')' : ''"></span>
+                                                                <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (port.bytes && summary.total_bytes ? ((port.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                            </span>
+                                                            <span style="color: var(--text-primary); font-weight: 500;" x-text="port.bytes_fmt || fmtBytes(port.bytes || 0)"></span>
+                                                        </div>
+                                                    </template>
                                                 </div>
-                                            </template>
-                                        </div>
-                                    </div>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Protocol Distribution -->
+                                        <template x-if="protocols.protocols && protocols.protocols.length > 0">
+                                            <div>
+                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">Protocol Distribution</div>
+                                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                    <template x-for="(proto, idx) in protocols.protocols.slice(0, 5)" :key="proto.key">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                            <span>
+                                                                <span style="color: var(--text-primary);" x-text="proto.proto_name || proto.key"></span>
+                                                                <span style="color: var(--text-secondary); margin-left: 6px;" x-text="'(' + (proto.bytes && summary.total_bytes ? ((proto.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                            </span>
+                                                            <span style="color: var(--text-primary); font-weight: 500;" x-text="proto.bytes_fmt || fmtBytes(proto.bytes || 0)"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    {% endcall %}
                                 </template>
 
                                 <!-- Flow Statistics -->
