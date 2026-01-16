@@ -4431,7 +4431,6 @@ body {
    ============================================ */
 .security-observability-card {
     border-left: 3px solid var(--neon-cyan);
-    background: var(--bg-primary);
 }
 
 .security-observability-card.state-stable {
