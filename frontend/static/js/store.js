@@ -2115,10 +2115,21 @@ export const Store = () => ({
             const res = await fetch('/api/stats/feeds');
             if (res.ok) {
                 const d = await res.json();
-                this.feedHealth = { ...d, loading: false };
+                // Ensure summary structure exists even if API returns partial data
+                this.feedHealth = {
+                    feeds: d.feeds || [],
+                    summary: d.summary || { total: 0, ok: 0, error: 0, total_ips: 0 },
+                    loading: false
+                };
+            } else {
+                // If API returns error, preserve existing data but mark as not loading
+                console.error('Feed health fetch failed:', res.status, res.statusText);
+                this.feedHealth.loading = false;
             }
-        } catch (e) { console.error('Feed health fetch error:', e); }
-        finally { this.feedHealth.loading = false; }
+        } catch (e) {
+            console.error('Feed health fetch error:', e);
+            this.feedHealth.loading = false;
+        }
     },
 
     async fetchSecurityScore() {

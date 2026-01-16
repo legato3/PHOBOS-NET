@@ -4825,13 +4825,13 @@
                         <div class="config-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0;">
                             <div>
                                 <label style="margin: 0;">Threat Feeds</label>
-                                <span class="config-hint" style="display: block; margin-top: 2px;" x-text="feedHealth.summary ? (feedHealth.summary.total_ips.toLocaleString() + ' IPs from ' + feedHealth.summary.total + ' feeds') : 'Checking...'"></span>
+                                <span class="config-hint" style="display: block; margin-top: 2px;" x-text="feedHealth.loading ? 'Checking...' : (feedHealth.summary ? (feedHealth.summary.total > 0 ? (feedHealth.summary.total_ips.toLocaleString() + ' IPs from ' + feedHealth.summary.total + ' feeds') : 'No feeds loaded') : 'Unable to load')"></span>
                             </div>
                             <span class="server-stat-badge" :class="{
                                 'badge-success': feedHealth.summary && feedHealth.summary.ok > 0,
-                                'badge-error': feedHealth.summary && feedHealth.summary.ok === 0,
-                                'badge-warning': !feedHealth.summary
-                            }" x-text="!feedHealth.summary ? '...' : (feedHealth.summary.ok > 0 ? '✓ Loaded' : '✗ Not Available')"></span>
+                                'badge-error': feedHealth.summary && feedHealth.summary.ok === 0 && feedHealth.summary.total > 0,
+                                'badge-warning': !feedHealth.summary || feedHealth.loading || (feedHealth.summary && feedHealth.summary.total === 0)
+                            }" x-text="feedHealth.loading ? '...' : (!feedHealth.summary ? 'Error' : (feedHealth.summary.ok > 0 ? '✓ Loaded' : (feedHealth.summary.total === 0 ? 'Not Configured' : '✗ Not Available')))"></span>
                         </div>
                         <p style="color: var(--text-muted); font-size: 0.75em; margin-top: 8px; font-style: italic;">System resources are configured via Docker environment variables and cannot be changed from the UI.</p>
                     </div>
