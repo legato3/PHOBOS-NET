@@ -669,30 +669,27 @@
                                 <template x-if="isVisible('securityObservability')">
                                     {% call widget_card('securityObservability', 'Security Observability', '🔍', show_spinner=True,
                                     card_class="security-observability-card") %}
-                                    <!-- Predictive Risk Header -->
-                                    <div class="risk-header">
-                                        <div class="current-state-primary">
-                                            <span class="state-label">CURRENT STATE:</span>
-                                            <span class="state-value-primary" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
+                                    <!-- Authority Header -->
+                                    <div class="authority-header">
+                                        <div class="current-state-authority">
+                                            <span class="authority-label">CURRENT STATE:</span>
+                                            <span class="authority-value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
                                                 x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
                                         </div>
-                                        <div class="risk-trend-secondary">
-                                            <span class="trend-label">Risk trend:</span>
-                                            <span class="trend-value" :class="'trend-' + predictiveRisk.trend"
-                                                x-text="predictiveRisk.trend === 'up' ? 'increasing' : predictiveRisk.trend === 'down' ? 'decreasing' : 'stable'"></span>
+                                        <div class="risk-forecast-muted">
+                                            <span class="forecast-text">Forecast: elevated risk if unchanged</span>
                                         </div>
                                     </div>
                                     <div class="observability-display">
                                         
-                                        <!-- Primary Cause Analysis -->
-                                        <div class="primary-cause">
-                                            <div class="cause-header">
+                                        <!-- Primary Cause Verdict -->
+                                        <div class="primary-cause-verdict">
+                                            <div class="verdict-header">
                                                 <h4>Primary Cause of Degradation</h4>
                                             </div>
-                                            <div class="cause-item critical">
-                                                <span class="cause-indicator">⚠️</span>
-                                                <span class="cause-text">Elevated threat velocity +15% vs baseline</span>
-                                                <span class="action-required">Action: Review threat feed coverage</span>
+                                            <div class="cause-identified">
+                                                <div class="cause-title">Insufficient threat intelligence coverage</div>
+                                                <div class="cause-impact">Detection confidence reduced under elevated attack volume</div>
                                             </div>
                                         </div>
                                         
@@ -704,12 +701,11 @@
                                             
                                             <!-- Protection Status (Expected Behavior) -->
                                             <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
-                                                <div class="signal-category protection-status">
+                                                <div class="signal-category protection-expected">
                                                     <div class="category-header">
-                                                        <span class="category-icon">🛡️</span>
                                                         <span class="category-title">Protection Status</span>
                                                     </div>
-                                                    <div class="signal-list contextual">
+                                                    <div class="signal-list">
                                                         <template x-for="signal in securityObservability.protection_signals" :key="signal">
                                                             <div class="signal-item expected" x-text="signal"></div>
                                                         </template>
@@ -717,16 +713,15 @@
                                                 </div>
                                             </template>
                                             
-                                            <!-- Exposure Analysis (Contextual) -->
+                                            <!-- Exposure Context -->
                                             <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
-                                                <div class="signal-category exposure-analysis">
+                                                <div class="signal-category exposure-context">
                                                     <div class="category-header">
-                                                        <span class="category-icon">⚠️</span>
-                                                        <span class="category-title">Exposure Analysis</span>
+                                                        <span class="category-title">Exposure Context</span>
                                                     </div>
-                                                    <div class="signal-list contextual">
+                                                    <div class="signal-list">
                                                         <template x-for="signal in securityObservability.exposure_signals" :key="signal">
-                                                            <div class="signal-item contextual" x-text="signal + ' (trending upward)'"></div>
+                                                            <div class="signal-item contextual" x-text="signal + ' - sustained above baseline'"></div>
                                                         </template>
                                                     </div>
                                                 </div>
@@ -736,13 +731,12 @@
                                             <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
                                                 <div class="signal-category data-quality-critical">
                                                     <div class="category-header">
-                                                        <span class="category-icon">📊</span>
                                                         <span class="category-title">Data Quality Impact</span>
                                                     </div>
                                                     <div class="impact-statement">
-                                                        <span class="impact-text">Reduced detection confidence requires attention</span>
+                                                        <span class="impact-text">Classification reliability reduced</span>
                                                     </div>
-                                                    <div class="signal-list critical">
+                                                    <div class="signal-list">
                                                         <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
                                                             <div class="signal-item critical" x-text="signal"></div>
                                                         </template>
@@ -760,19 +754,14 @@
                                             </template>
                                         </div>
                                         
-                                        <!-- Operational Guidance -->
-                                        <div class="operational-guidance">
-                                            <div class="guidance-header">
-                                                <span class="guidance-title">Operational Guidance</span>
+                                        <!-- Action Required -->
+                                        <div class="action-required-section">
+                                            <div class="action-header">
+                                                <span class="action-title">Action Required</span>
                                             </div>
-                                            <div class="guidance-item">
-                                                <span class="guidance-text">Monitor threat velocity trends and feed coverage gaps</span>
+                                            <div class="action-item">
+                                                <span class="action-text">Expand threat intelligence coverage to restore detection confidence</span>
                                             </div>
-                                            <template x-if="securityObservability.firewall && securityObservability.firewall.blocks_1h > 100">
-                                                <div class="guidance-item urgent">
-                                                    <span class="guidance-text">High block rate detected - review firewall rules</span>
-                                                </div>
-                                            </template>
                                         </div>
                                     </div>
                                     {% endcall %}
