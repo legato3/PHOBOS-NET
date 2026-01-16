@@ -206,7 +206,15 @@ export const Store = () => ({
     },
 
     // Security Features
-    securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
+    securityObservability: { 
+        overall_state: 'UNKNOWN', 
+        contributing_factors: [], 
+        protection_signals: [], 
+        exposure_signals: [], 
+        data_quality_signals: [], 
+        loading: true, 
+        last_updated: null 
+    },
     alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
     watchlist: { watchlist: [], count: 0, loading: true },
@@ -287,7 +295,7 @@ export const Store = () => ({
             maliciousPorts: 'Top Malicious Ports',
             blocklist: 'Blocklist Match Rate',
             feedHealth: 'Feed Health',
-            securityScore: 'Security Score',
+            securityObservability: 'Security Observability',
             alertHistory: 'Alert History',
             threatsByCountry: 'Threats by Country',
             threatVelocity: 'Threat Velocity',
@@ -1483,7 +1491,7 @@ export const Store = () => ({
         }
         if (sectionId === 'section-security') {
             if (now - this.lastFetch.security > this.heavyTTL) {
-                this.fetchSecurityScore();
+                this.fetchSecurityObservability();
                 this.fetchAlertHistory();
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();
@@ -2162,22 +2170,21 @@ export const Store = () => ({
         }
     },
 
-    async fetchSecurityScore() {
-        this.securityScore.loading = true;
+    async fetchSecurityObservability() {
+        this.securityObservability.loading = true;
         try {
             const res = await fetch('/api/security/score');
             if (res.ok) {
                 const d = await res.json();
-                // Track trend
-                const prevScore = this.securityScore.score;
-                if (prevScore && prevScore !== d.score) {
-                    d.trend = d.score > prevScore ? 'up' : 'down';
-                    d.prevScore = prevScore;
-                }
-                this.securityScore = { ...d, loading: false };
+                this.securityObservability = { ...d, loading: false };
             }
-        } catch (e) { console.error('Security score fetch error:', e); }
-        finally { this.securityScore.loading = false; }
+        } catch (e) { console.error('Security observability fetch error:', e); }
+        finally { this.securityObservability.loading = false; }
+    },
+
+    // Legacy function for backward compatibility
+    async fetchSecurityScore() {
+        return this.fetchSecurityObservability();
     },
 
     // FIXED-SCOPE: Active Alerts (realtime) - does not use global_time_range
@@ -5453,7 +5460,7 @@ export const Store = () => ({
             this.fetchNetworkStatsOverview();
             this.fetchFirewallStatsOverview();
             this.fetchNetHealth();
-            this.fetchSecurityScore();
+            this.fetchSecurityObservability();
             this.fetchAlertHistory();
             this.fetchBaselineSignals();
             // Map initialization is handled by IntersectionObserver when section becomes visible
@@ -5462,7 +5469,7 @@ export const Store = () => ({
             this.startServerHealthAutoRefresh();
         } else if (tab === 'security') {
             if (now - this.lastFetch.security > this.heavyTTL) {
-                this.fetchSecurityScore();
+                this.fetchSecurityObservability();
                 this.fetchAlertHistory();
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();

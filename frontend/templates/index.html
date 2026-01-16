@@ -631,9 +631,9 @@
                             <!-- Security Summary Stats -->
                             <div class="grid mb-6 grid-auto-fit">
                                 <div class="card stat-box">
-                                    <div class="value" :class="'grade-' + (securityScore.grade || 'A').toLowerCase()"
-                                        x-text="securityScore.score || 100"></div>
-                                    <div class="label">Security Score</div>
+                                    <div class="value" :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')"
+                                        x-text="securityObservability.overall_state || 'UNKNOWN'"></div>
+                                    <div class="label">Security State</div>
                                 </div>
                                 <div class="card stat-box">
                                     <div class="value" x-text="feedHealth.summary?.ok || 0"></div>
@@ -665,48 +665,102 @@
                             <!-- Security Widgets Grid -->
                             <div class="security-grid">
 
-                                <!-- Security Score Widget -->
-                                <template x-if="isVisible('securityScore')">
-                                    {% call widget_card('securityScore', 'Security Score', '🛡️', show_spinner=True,
-                                    card_class="security-score-card", card_class_bind="{ 'score-excellent':
-                                    securityScore.grade === 'A', 'score-good': securityScore.grade === 'B',
-                                    'score-fair': securityScore.grade === 'C', 'score-poor': securityScore.grade ===
-                                    'D', 'score-critical': securityScore.grade === 'F' }") %}
-                                    <div class="score-display">
-                                        <div class="score-gauge">
-                                            <div class="score-circle" :style="'--score: ' + (securityScore.score || 0)">
-                                                <span class="score-value" x-text="securityScore.score || 0"></span>
-                                                <span class="score-grade" x-text="securityScore.grade || '-'"></span>
+                                <!-- Security Observability Widget -->
+                                <template x-if="isVisible('securityObservability')">
+                                    {% call widget_card('securityObservability', 'Security Observability', '🔍', show_spinner=True,
+                                    card_class="security-observability-card", card_class_bind="{ 'state-stable':
+                                    securityObservability.overall_state === 'STABLE', 'state-elevated': 
+                                    securityObservability.overall_state === 'ELEVATED', 'state-degraded': 
+                                    securityObservability.overall_state === 'DEGRADED', 'state-pressure': 
+                                    securityObservability.overall_state === 'UNDER PRESSURE', 'state-unknown': 
+                                    securityObservability.overall_state === 'UNKNOWN' }") %}
+                                    <div class="observability-display">
+                                        <!-- Overall State -->
+                                        <div class="overall-state">
+                                            <div class="state-indicator" 
+                                                 :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')">
+                                                <span class="state-text" x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
                                             </div>
-                                            <div class="score-trend" x-show="securityScore.trend">
-                                                <span :class="securityScore.trend === 'up' ? 'trend-up' : 'trend-down'"
-                                                    x-text="securityScore.trend === 'up' ? '↑' : '↓'"></span>
+                                            <div class="state-updated" x-show="securityObservability.last_updated">
+                                                <small x-text="'Updated: ' + securityObservability.last_updated"></small>
                                             </div>
                                         </div>
-                                        <div class="score-details">
-                                            <div class="score-status" x-text="securityScore.status || 'calculating...'">
+                                        
+                                        <!-- Contributing Factors -->
+                                        <div class="contributing-factors">
+                                            <div class="factors-header">
+                                                <h4>Why Overall Health is <span x-text="securityObservability.overall_state || 'UNKNOWN'"></span></h4>
                                             </div>
-                                            <div class="score-reasons">
-                                                <template x-for="reason in (securityScore.reasons || [])" :key="reason">
-                                                    <div class="score-reason" x-text="reason"></div>
-                                                </template>
+                                            
+                                            <!-- Protection Signals -->
+                                            <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
+                                                <div class="signal-category">
+                                                    <div class="category-header">
+                                                        <span class="category-icon">🛡️</span>
+                                                        <span class="category-title">Protection</span>
+                                                    </div>
+                                                    <div class="signal-list">
+                                                        <template x-for="signal in securityObservability.protection_signals" :key="signal">
+                                                            <div class="signal-item" x-text="signal"></div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Exposure Signals -->
+                                            <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
+                                                <div class="signal-category">
+                                                    <div class="category-header">
+                                                        <span class="category-icon">⚠️</span>
+                                                        <span class="category-title">Exposure</span>
+                                                    </div>
+                                                    <div class="signal-list">
+                                                        <template x-for="signal in securityObservability.exposure_signals" :key="signal">
+                                                            <div class="signal-item" x-text="signal"></div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Data Quality Signals -->
+                                            <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
+                                                <div class="signal-category">
+                                                    <div class="category-header">
+                                                        <span class="category-icon">📊</span>
+                                                        <span class="category-title">Data Quality</span>
+                                                    </div>
+                                                    <div class="signal-list">
+                                                        <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
+                                                            <div class="signal-item" x-text="signal"></div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- No Signals -->
+                                            <template x-if="(!securityObservability.protection_signals || securityObservability.protection_signals.length === 0) && 
+                                                      (!securityObservability.exposure_signals || securityObservability.exposure_signals.length === 0) && 
+                                                      (!securityObservability.data_quality_signals || securityObservability.data_quality_signals.length === 0)">
+                                                <div class="no-signals">
+                                                    <p>No contributing factors detected</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        
+                                        <!-- Quick Stats -->
+                                        <div class="quick-stats">
+                                            <div class="stat-row">
+                                                <span class="stat-label">🛡️ Blocklist:</span>
+                                                <span class="stat-value" x-text="(securityObservability.blocklist_ips || 0).toLocaleString() + ' IPs'"></span>
                                             </div>
-                                            <div class="score-stats">
-                                                <span>🛡️ <span
-                                                        x-text="securityScore.blocklist_ips?.toLocaleString() || 0"></span>
-                                                    IPs in blocklist</span>
-                                                <span>📡 <span x-text="securityScore.feeds_ok || 0"></span>/<span
-                                                        x-text="securityScore.feeds_total || 0"></span> feeds</span>
+                                            <div class="stat-row">
+                                                <span class="stat-label">📡 Feeds:</span>
+                                                <span class="stat-value" x-text="(securityObservability.feeds_ok || 0) + '/' + (securityObservability.feeds_total || 0)"></span>
                                             </div>
-                                            <template
-                                                x-if="securityScore.fw_blocks_1h !== undefined && securityScore.fw_blocks_1h > 0">
-                                                <div class="score-stats" style="margin-top: 4px;">
-                                                    <span class="text-green">🔥 <span
-                                                            x-text="securityScore.fw_blocks_1h?.toLocaleString() || 0"></span>
-                                                        blocks/hr</span>
-                                                    <span>🎯 <span
-                                                            x-text="securityScore.fw_threats_blocked?.toLocaleString() || 0"></span>
-                                                        threats blocked</span>
+                                            <template x-if="securityObservability.firewall && securityObservability.firewall.blocks_1h > 0">
+                                                <div class="stat-row">
+                                                    <span class="stat-label">🔥 Blocks/hr:</span>
+                                                    <span class="stat-value" x-text="(securityObservability.firewall.blocks_1h || 0).toLocaleString()"></span>
                                                 </div>
                                             </template>
                                         </div>

@@ -4427,6 +4427,194 @@ body {
 }
 
 /* ============================================
+   SECURITY OBSERVABILITY WIDGET
+   ============================================ */
+.security-observability-card {
+    border-left: 3px solid var(--neon-cyan);
+}
+
+.security-observability-card.state-stable {
+    border-left-color: var(--neon-green);
+}
+
+.security-observability-card.state-elevated {
+    border-left-color: var(--neon-yellow);
+}
+
+.security-observability-card.state-degraded {
+    border-left-color: #ff9500;
+}
+
+.security-observability-card.state-pressure {
+    border-left-color: var(--signal-crit);
+    box-shadow: var(--shadow-soft), var(--glow-critical);
+}
+
+.security-observability-card.state-unknown {
+    border-left-color: var(--text-muted);
+}
+
+.observability-display {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.overall-state {
+    text-align: center;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+}
+
+.state-indicator {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.state-stable {
+    background: rgba(0, 255, 0, 0.1);
+    color: var(--neon-green);
+    border: 1px solid var(--neon-green);
+}
+
+.state-elevated {
+    background: rgba(255, 255, 0, 0.1);
+    color: var(--neon-yellow);
+    border: 1px solid var(--neon-yellow);
+}
+
+.state-degraded {
+    background: rgba(255, 149, 0, 0.1);
+    color: #ff9500;
+    border: 1px solid #ff9500;
+}
+
+.state-pressure {
+    background: rgba(255, 0, 0, 0.1);
+    color: var(--signal-crit);
+    border: 1px solid var(--signal-crit);
+}
+
+.state-unknown {
+    background: rgba(128, 128, 128, 0.1);
+    color: var(--text-muted);
+    border: 1px solid var(--text-muted);
+}
+
+.state-updated {
+    color: var(--text-muted);
+    font-size: 0.8em;
+}
+
+.contributing-factors {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.factors-header h4 {
+    margin: 0;
+    font-size: 1em;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.signal-category {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.category-icon {
+    font-size: 1.2em;
+}
+
+.signal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.signal-item {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    border-left: 3px solid var(--accent-cyan);
+    line-height: 1.4;
+}
+
+.no-signals {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.quick-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.stat-label {
+    color: var(--text-muted);
+}
+
+.stat-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* State styles for stat boxes */
+.value.state-stable {
+    color: var(--neon-green);
+}
+
+.value.state-elevated {
+    color: var(--neon-yellow);
+}
+
+.value.state-degraded {
+    color: #ff9500;
+}
+
+.value.state-pressure {
+    color: var(--signal-crit);
+}
+
+.value.state-unknown {
+    color: var(--text-muted);
+}
+
+/* ============================================
    ALERT HISTORY WIDGET
    ============================================ */
 .alert-summary {
