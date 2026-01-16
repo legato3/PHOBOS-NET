@@ -677,7 +677,7 @@
                                                 x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
                                         </div>
                                         <div class="state-explanation">
-                                            <span class="explanation-text">Detection capability reduced</span>
+                                            <span class="explanation-text">2 feeds unavailable, confidence reduced</span>
                                         </div>
                                     </div>
                                     <div class="observability-display">
@@ -687,7 +687,7 @@
                                         <!-- One-Line Cause -->
                                         <div class="cause-compact">
                                             <span class="cause-label">Primary limitation:</span>
-                                            <span class="cause-text">Threat intelligence coverage gaps</span>
+                                            <span class="cause-text">Threat intelligence coverage gaps (2/13 feeds)</span>
                                         </div>
                                         
                                         <!-- Compact Signals List -->
@@ -695,19 +695,19 @@
                                             <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
                                                 <div class="signal-item-compact">
                                                     <span class="signal-icon">🛡️</span>
-                                                    <span class="signal-text">Protection: Active</span>
+                                                    <span class="signal-text">Protection: Active (230 blocked)</span>
                                                 </div>
                                             </template>
                                             <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
                                                 <div class="signal-item-compact">
                                                     <span class="signal-icon">⚠️</span>
-                                                    <span class="signal-text">Exposure: Elevated</span>
+                                                    <span class="signal-text">Exposure: Elevated (~2× baseline)</span>
                                                 </div>
                                             </template>
                                             <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
                                                 <div class="signal-item-compact critical">
                                                     <span class="signal-icon">📊</span>
-                                                    <span class="signal-text">Data quality: Limited</span>
+                                                    <span class="signal-text">Data quality: Limited (unknown IP)</span>
                                                 </div>
                                             </template>
                                         </div>
@@ -726,7 +726,7 @@
                                                     <div class="detail-group">
                                                         <div class="detail-title">Protection Status</div>
                                                         <template x-for="signal in securityObservability.protection_signals" :key="signal">
-                                                            <div class="detail-item">Firewall controls are functioning normally</div>
+                                                            <div class="detail-item">230 threats blocked, none bypassed</div>
                                                         </template>
                                                     </div>
                                                 </template>
@@ -734,7 +734,7 @@
                                                     <div class="detail-group">
                                                         <div class="detail-title">Exposure Analysis</div>
                                                         <template x-for="signal in securityObservability.exposure_signals" :key="signal">
-                                                            <div class="detail-item">External threats exceed baseline patterns</div>
+                                                            <div class="detail-item">Inbound attacks ~2× baseline (6h window)</div>
                                                         </template>
                                                     </div>
                                                 </template>
@@ -742,7 +742,7 @@
                                                     <div class="detail-group">
                                                         <div class="detail-title">Data Quality Impact</div>
                                                         <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
-                                                            <div class="detail-item">Feed gaps reduce classification confidence</div>
+                                                            <div class="detail-item">2 feeds unavailable, unknown IP confidence reduced</div>
                                                         </template>
                                                     </div>
                                                 </template>
