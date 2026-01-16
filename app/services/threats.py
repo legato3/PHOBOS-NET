@@ -180,6 +180,11 @@ def get_threat_timeline(ip):
     return _threat_timeline.get(ip, {'first_seen': 0, 'last_seen': 0, 'hit_count': 0})
 
 
+def is_ip_threat(ip):
+    """Check if IP is in the threat list."""
+    return ip in load_threatlist()
+
+
 def load_watchlist():
     """Load custom watchlist IPs"""
     global _watchlist_cache

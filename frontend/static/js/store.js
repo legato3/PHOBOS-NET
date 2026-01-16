@@ -112,6 +112,7 @@ export const Store = () => ({
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
+    hosts: { stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 }, list: [], loading: true },
 
     // Security Features
     securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
@@ -413,13 +414,43 @@ export const Store = () => ({
         }
     },
 
+    // Hosts Tab
+    hostDetailOpen: false,
+    selectedHost: null,
+    hostDetailLoading: false,
+
+    async openHostDetail(ip) {
+        this.selectedHost = { ip: ip, loading: true };
+        this.hostDetailOpen = true;
+        this.hostDetailLoading = true;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/hosts/${ip}/detail`);
+            if (res.ok) {
+                const data = await res.json();
+                this.selectedHost = { ...data, loading: false };
+            }
+        } catch (e) {
+            console.error('Failed to load host detail:', e);
+            this.selectedHost = { ip: ip, error: 'Failed to load details' };
+        } finally {
+            this.hostDetailLoading = false;
+        }
+    },
+
+    closeHostDetail() {
+        this.hostDetailOpen = false;
+        this.selectedHost = null;
+    },
+
     init() {
         // Polyfill requestIdleCallback for better browser support
         const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 
         // Mark as initialized immediately for rendering
         this.initDone = true;
-        
+
         // Fetch app metadata early (non-blocking)
         this.fetchAppMetadata();
 
@@ -623,17 +654,17 @@ export const Store = () => ({
         const baselineSignals = this.baselineSignals.signals || [];
         const baselineDetails = this.baselineSignals.signal_details || [];
         const baselinesAvailable = this.baselineSignals.baselines_available || {};
-        
+
         const signals = [];
         const signalDetails = [];
-        
+
         // Signal 1: Active Alerts (critical - always elevates to Unhealthy if present)
         const hasAlerts = activeAlerts > 0;
         if (hasAlerts) {
             signals.push('alerts');
             signalDetails.push(`${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`);
         }
-        
+
         // Use baseline-aware signals if available
         if (baselineSignals.length > 0 && Object.values(baselinesAvailable).some(v => v === true)) {
             // Add baseline-aware signals (excluding anomalies_present which we handle separately)
@@ -645,7 +676,7 @@ export const Store = () => ({
                     }
                 }
             });
-            
+
             // Handle anomalies separately (always include if present, even if not spiking)
             const hasAnomalies = anomalies > 0;
             if (hasAnomalies && !signals.includes('anomalies')) {
@@ -660,14 +691,14 @@ export const Store = () => ({
                 signals.push('anomalies');
                 signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
             }
-            
+
             // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
             const hasBlockSpike = blockedEvents > 1000;
             if (hasBlockSpike) {
                 signals.push('blocks_spike');
                 signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks`);
             }
-            
+
             // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
             const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
             const hasExternalDeviation = externalRatio > 0.5 && externalConnections > 50;
@@ -684,7 +715,7 @@ export const Store = () => ({
         let state = 'healthy';
         let explanation = 'All systems operating normally.';
         let shortExplanation = '';
-        
+
         if (signals.length === 0) {
             state = 'healthy';
             explanation = 'All systems operating normally.';
@@ -705,7 +736,7 @@ export const Store = () => ({
             const baselineDeviations = baselineSignals.filter(s => s !== 'anomalies_present' && s !== 'anomalies');
             const hasBaselineSpikes = baselineDeviations.length >= 2;
             const hasSingleBaselineSpike = baselineDeviations.length === 1;
-            
+
             if (hasBaselineSpikes) {
                 // Multiple baseline deviations without alerts: Unhealthy (multiple metrics spiking)
                 state = 'unhealthy';
@@ -1282,7 +1313,8 @@ export const Store = () => ({
                 this.fetchCountries(),
                 this.fetchTalkers(),
                 this.fetchServices(),
-                this.fetchHourlyTraffic()
+                this.fetchHourlyTraffic(),
+                this.fetchHosts()
             ]);
             this.lastFetch.network = now;
         }
@@ -1408,6 +1440,26 @@ export const Store = () => ({
         }
     },
 
+    async fetchHosts() {
+        this.hosts.loading = true;
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const [statsRes, listRes] = await Promise.all([
+                safeFetchFn(`/api/hosts/stats`),
+                safeFetchFn(`/api/hosts/list?range=${this.timeRange}&limit=500`)
+            ]);
+
+            if (statsRes.ok && listRes.ok) {
+                const stats = await statsRes.json();
+                const list = await listRes.json();
+                this.hosts = { stats, list, loading: false };
+            }
+        } catch (e) {
+            console.error('Failed to fetch hosts:', e);
+            this.hosts.loading = false;
+        }
+    },
+
 
     async fetchFirewall() {
         this.firewall.loading = true;
@@ -1478,12 +1530,12 @@ export const Store = () => ({
             // Add timeout to prevent indefinite waiting (30 seconds)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
-            
+
             const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`, {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
-            
+
             if (res.ok) {
                 const data = await res.json();
                 this.maliciousPorts = { ...data, loading: false };
@@ -1640,7 +1692,7 @@ export const Store = () => ({
             } else {
                 this.firewallStatsOverview.loading = false;
             }
-        } catch (e) { 
+        } catch (e) {
             console.error('Firewall stats overview fetch error:', e);
             this.firewallStatsOverview.loading = false;
         }
@@ -2087,12 +2139,12 @@ export const Store = () => ({
     // Helper to check if IP is internal
     isInternalIP(ip) {
         if (!ip) return false;
-        return ip.startsWith('192.168.') || ip.startsWith('10.') || 
-               (ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || 
-                ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || 
-                ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || 
-                ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || 
-                ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || 
+        return ip.startsWith('192.168.') || ip.startsWith('10.') ||
+            (ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') ||
+                ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') ||
+                ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') ||
+                ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') ||
+                ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') ||
                 ip.startsWith('172.31.'));
     },
 
@@ -2163,7 +2215,7 @@ export const Store = () => ({
             if (!isNaN(date.getTime())) {
                 return this.timeAgo(date.getTime() / 1000);
             }
-        } catch (e) {}
+        } catch (e) { }
         return ts;
     },
 
@@ -2508,7 +2560,7 @@ export const Store = () => ({
         const sources = this.worldMapLayers.sources ? (this.worldMap.sources || []) : [];
         const dests = this.worldMapLayers.destinations ? (this.worldMap.destinations || []) : [];
         const threats = this.worldMapLayers.threats ? (this.worldMap.threats || []) : [];
-        
+
         // Determine emphasis based on map mode
         const modeEmphasis = {
             'exposure': { sources: 0.3, destinations: 1.0, threats: 0.8 },
@@ -2516,12 +2568,12 @@ export const Store = () => ({
             'traffic': { sources: 0.4, destinations: 0.7, threats: 0.9 }
         };
         const emphasis = modeEmphasis[this.worldMapMode] || modeEmphasis.traffic;
-        
+
         // Check if country is selected for highlighting
         const isCountrySelected = (countryIso) => {
             return this.worldMapSelectedCountry && countryIso === this.worldMapSelectedCountry;
         };
-        
+
         // Helper to get opacity based on selection
         const getOpacity = (countryIso, baseOpacity) => {
             if (!this.worldMapSelectedCountry) return baseOpacity;
@@ -2534,7 +2586,7 @@ export const Store = () => ({
             const size = baseSize * emphasis.sources;
             const countryIso = p.country_iso || p.iso || '';
             const opacity = getOpacity(countryIso, 0.5 * emphasis.sources);
-            
+
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
                 fillColor: '#00eaff',  /* CYBERPUNK UI: signal-primary (cyan) - subtle */
@@ -2568,7 +2620,7 @@ export const Store = () => ({
             const size = baseSize * emphasis.destinations;
             const countryIso = p.country_iso || p.iso || '';
             const opacity = getOpacity(countryIso, 0.7 * emphasis.destinations);
-            
+
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
                 fillColor: '#7b7bff',  /* CYBERPUNK UI: signal-tertiary (purple) - medium */
@@ -2603,7 +2655,7 @@ export const Store = () => ({
             const countryIso = p.country_iso || p.iso || '';
             // Slightly reduce opacity to balance visual dominance while keeping threats visible
             const opacity = getOpacity(countryIso, 0.85 * emphasis.threats);
-            
+
             const threatMarker = L.circleMarker([p.lat, p.lng], {
                 radius: size,
                 fillColor: '#ff1744',  /* CYBERPUNK UI: signal-crit (red) - ONLY for threats, prominent but balanced */
@@ -2627,17 +2679,17 @@ export const Store = () => ({
             threatMarker.addTo(this.map);
             this.mapLayers.push(threatMarker);
         });
-        
+
         // Direction context is shown via hover events above (markers brighten on hover)
         // No animated arcs or lines - calm by default
     },
-    
+
     showDirectionContext(hoveredMarker, type) {
         // Subtle direction context: related markers brighten slightly
         // This is handled in the hover events above via setStyle
         // No visual lines or arcs - just emphasis on hover
     },
-    
+
     hideDirectionContext() {
         // Reset is handled in mouseout events above
     },
@@ -2650,7 +2702,7 @@ export const Store = () => ({
         this.worldMapHoveredPoint = null;
         this.renderWorldMap();
     },
-    
+
     selectCountryForMap(countryIso) {
         // Toggle: if same country clicked, deselect
         if (this.worldMapSelectedCountry === countryIso) {
@@ -2776,10 +2828,10 @@ export const Store = () => ({
                     try {
                         const chartCtx = chartInstance.ctx;
                         if (chartCtx && chartCtx.canvas) {
-                            chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                            chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) =>
                                 createGradient(chartCtx, i === data.peak_hour)
                             );
-                            chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
+                            chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) =>
                                 i === data.peak_hour ? '#00ff88' : cyanColor
                             );
                             chartInstance.update('none'); // Use 'none' to prevent animation issues
@@ -2787,10 +2839,10 @@ export const Store = () => ({
                     } catch (e) {
                         console.error('Error updating chart gradients:', e);
                         // Fallback to solid colors
-                        chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                        chartInstance.data.datasets[0].backgroundColor = data.bytes.map((_, i) =>
                             i === data.peak_hour ? '#00ff88' : cyanColor
                         );
-                        chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) => 
+                        chartInstance.data.datasets[0].borderColor = data.bytes.map((_, i) =>
                             i === data.peak_hour ? '#00ff88' : cyanColor
                         );
                         chartInstance.update('none');
@@ -2833,13 +2885,13 @@ export const Store = () => ({
                         }
                     }
                 });
-                
+
                 // Update with gradients after chart is fully rendered
                 setTimeout(() => {
                     try {
                         const chartCtx = newChart.ctx;
                         if (chartCtx && chartCtx.canvas && chartCtx.canvas.height > 0) {
-                            newChart.data.datasets[0].backgroundColor = data.bytes.map((_, i) => 
+                            newChart.data.datasets[0].backgroundColor = data.bytes.map((_, i) =>
                                 createGradient(chartCtx, i === data.peak_hour)
                             );
                             newChart.update('none');
@@ -2848,7 +2900,7 @@ export const Store = () => ({
                         console.warn('Gradient update failed, keeping solid colors:', e);
                     }
                 }, 100);
-                
+
                 _chartInstances[instanceKey] = newChart;
             }
         } catch (e) {
@@ -2899,7 +2951,7 @@ export const Store = () => ({
             } else {
                 this.networkStatsOverview.loading = false;
             }
-        } catch (e) { 
+        } catch (e) {
             console.error('Network stats overview fetch error:', e);
             this.networkStatsOverview.loading = false;
         }
@@ -3030,7 +3082,7 @@ export const Store = () => ({
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/firewall/snmp-status?_=${Date.now()}`);
-            
+
             if (res.ok) {
                 const data = await res.json();
                 if (data.error) {
@@ -3556,7 +3608,7 @@ export const Store = () => ({
                         maintainAspectRatio: false,
                         animation: false, // Disable animation to prevent reactive loops
                         plugins: {
-                            legend: { 
+                            legend: {
                                 display: false // Disable Chart.js legend - we'll create custom HTML legend
                             }
                         }
@@ -4383,7 +4435,7 @@ export const Store = () => ({
     fmtBytes(bytes) {
         return DashboardUtils.fmtBytes(bytes);
     },
-    
+
     // Expose fmtBytes to templates
     get fmtBytes() {
         return DashboardUtils.fmtBytes;
@@ -4617,7 +4669,7 @@ export const Store = () => ({
     loadTab(tab) {
         this.activeTab = tab;
         const now = Date.now();
-        
+
         // Load tab-specific data
         if (tab === 'firewall-snmp') {
             this.fetchFirewallSNMP();

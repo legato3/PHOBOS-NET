@@ -275,7 +275,21 @@ def parse_csv(output, expected_key=None):
             flows_val = int(float(parts[flows_idx])) if flows_idx != -1 and len(parts) > flows_idx else 0
             packets_val = int(float(parts[packets_idx])) if packets_idx != -1 and len(parts) > packets_idx else 0
             if bytes_val > 0:
-                results.append({"key": key, "bytes": bytes_val, "flows": flows_val, "packets": packets_val})
+                # Extract timestamps (usually indexes 0 and 1 for -o csv)
+                ts = parts[0]
+                te = parts[1]
+                # Validate they look like timestamps (simple check)
+                # nfdump csv dates are usually strings "2023-..." which simple-json works with, 
+                # or we keep them as provided string
+                
+                results.append({
+                    "key": key, 
+                    "bytes": bytes_val, 
+                    "flows": flows_val, 
+                    "packets": packets_val,
+                    "ts": ts,
+                    "te": te
+                })
         except Exception:
             continue
     return results
@@ -357,3 +371,87 @@ def get_common_nfdump_data(query_type, range_key):
                 _common_data_cache.pop(k, None)
     
     return data
+
+
+def get_merged_host_stats(range_key="24h", limit=1000):
+    """Get aggregated host statistics (merged src/dst).
+    
+    Derived entirely from nfdump data.
+    """
+    tf = get_time_range(range_key)
+    
+    # Run two queries: Sources (TX) and Destinations (RX)
+    # We ask for a higher limit to handle merging
+    src_rows = parse_csv(run_nfdump(["-s", "srcip/bytes/flows", "-n", str(limit * 2)], tf), expected_key='sa')
+    dst_rows = parse_csv(run_nfdump(["-s", "dstip/bytes/flows", "-n", str(limit * 2)], tf), expected_key='da')
+    
+    hosts = {}
+    
+    def parse_time(t_str):
+        if not t_str: return 0
+        try:
+            # Handle "2023-01-01 12:00:00.123"
+            # Return naive string comparison or epoch if possible
+            # nfdump csv usually YYYY-MM-DD HH:MM:SS.msec
+            # Just keeping string is fine for UI, but for comparison min/max we might need logic.
+            # Lexical sort works for ISO-like dates nfdump uses.
+            return t_str
+        except:
+            return "0"
+
+    # Process TX (Source) - Host is sending
+    for row in src_rows:
+        ip = row.get("key")
+        if not ip: continue
+        
+        if ip not in hosts:
+            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
+            
+        hosts[ip]["tx_bytes"] += row.get("bytes", 0)
+        hosts[ip]["tx_flows"] += row.get("flows", 0)
+        hosts[ip]["flows"] += row.get("flows", 0)
+        
+        # Merge times
+        if row.get("ts") and (not hosts[ip]["first_seen"] or row.get("ts") < hosts[ip]["first_seen"]):
+             hosts[ip]["first_seen"] = row.get("ts")
+        if row.get("te") and (not hosts[ip]["last_seen"] or row.get("te") > hosts[ip]["last_seen"]):
+             hosts[ip]["last_seen"] = row.get("te")
+
+    # Process RX (Destination) - Host is receiving
+    for row in dst_rows:
+        ip = row.get("key")
+        if not ip: continue
+        
+        if ip not in hosts:
+            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
+            
+        hosts[ip]["rx_bytes"] += row.get("bytes", 0)
+        hosts[ip]["rx_flows"] += row.get("flows", 0)
+        hosts[ip]["flows"] += row.get("flows", 0)
+        
+        # Merge times
+        if row.get("ts") and (not hosts[ip]["first_seen"] or row.get("ts") < hosts[ip]["first_seen"]):
+             hosts[ip]["first_seen"] = row.get("ts")
+        if row.get("te") and (not hosts[ip]["last_seen"] or row.get("te") > hosts[ip]["last_seen"]):
+             hosts[ip]["last_seen"] = row.get("te")
+    
+    # Convert to list and enrich
+    import ipaddress
+    
+    result = []
+    for ip, data in hosts.items():
+        # Determine Type (Internal/External)
+        try:
+            ip_obj = ipaddress.ip_address(ip)
+            is_internal = ip_obj.is_private
+        except ValueError:
+            is_internal = False
+            
+        data["type"] = "Internal" if is_internal else "External"
+        data["total_bytes"] = data["tx_bytes"] + data["rx_bytes"]
+        result.append(data)
+        
+    # Sort by total volume
+    result.sort(key=lambda x: x["total_bytes"], reverse=True)
+    
+    return result[:limit]

@@ -1598,16 +1598,112 @@ def api_firewall_logs_stats():
             """, (cutoff,))
             top_countries = [{"iso": row[0], "count": row[1]} for row in cur.fetchall()]
 
-            # Threat matches
-            cur = conn.execute("""
-                SELECT COUNT(*) FROM fw_logs
-                WHERE timestamp > ? AND is_threat = 1
-            """, (cutoff,))
-            threat_hits = cur.fetchone()[0] or 0
+            data = {
+                "blocks": blocks,
+                "passes": passes,
+                "unique_blocked": unique_blocked,
+                "top_ports": top_ports,
+                "top_countries": top_countries
+            }
+            return jsonify(data)
+        except Exception as e:
+            print(f"Firewall stats error: {e}")
+            return jsonify({"error": str(e)}), 500
 
-        finally:
-            conn.close()
 
+# ===== Hosts Page =====
+
+@bp.route("/api/hosts/stats")
+@throttle(5, 10)
+def api_hosts_stats():
+    """Get summarized host statistics."""
+    from app.services.netflow import get_merged_host_stats
+    from app.services.threats import is_ip_threat
+    
+    # 24h window for Total and Anomalies
+    hosts_24h = get_merged_host_stats("24h", limit=5000)
+    total_hosts = len(hosts_24h)
+    
+    # Check for anomalies (threats)
+    # This is a set lookup, so fast enough for 5000 hosts
+    anomalies = 0
+    for host in hosts_24h:
+        if is_ip_threat(host["ip"]):
+            anomalies += 1
+            
+    # Active hosts (1h window)
+    hosts_1h = get_merged_host_stats("1h", limit=5000)
+    active_hosts = len(hosts_1h)
+    
+    data = {
+        "total_hosts": total_hosts,
+        "active_hosts": active_hosts,
+        "new_hosts": "—", # Placeholder as per conservative data rules
+        "anomalies": anomalies
+    }
+    return jsonify(data)
+
+
+@bp.route("/api/hosts/list")
+@throttle(5, 10)
+def api_hosts_list():
+    """Get list of hosts."""
+    range_key = request.args.get('range', '24h')
+    try:
+        limit = int(request.args.get('limit', 100))
+    except:
+        limit = 100
+        
+    from app.services.netflow import get_merged_host_stats
+    
+    data = get_merged_host_stats(range_key, limit=limit)
+    return jsonify(data)
+
+
+@bp.route("/api/hosts/<path:ip>/detail")
+@throttle(10, 20)
+def api_host_detail(ip):
+    """Get details for a specific host."""
+    # Overview: Geo, ASN, DNS
+    from app.utils.geoip import lookup_geo
+    from app.utils.dns import resolve_ip_async # using existing resolver if available or synchronous
+    # Checking app/utils/dns.py import availability
+    try:
+        from app.utils.dns import resolve_ip
+    except ImportError:
+         resolve_ip = lambda x: x # Fallback
+         
+    from app.services.threats import is_ip_threat, get_threat_info
+    
+    geo = lookup_geo(ip) or {}
+    hostname = resolve_ip(ip) if ip else ""
+    is_threat = is_ip_threat(ip)
+    threat_info = get_threat_info(ip) if is_threat else {}
+    
+    # Activity: recent ports/destinations (24h)
+    from app.services.netflow import run_nfdump, parse_csv, get_time_range
+    tf = get_time_range("24h")
+    
+    # Top ports used (Destination Ports)
+    ports_csv = run_nfdump(["-a", f"fwd and src ip {ip}", "-s", "dstport/bytes", "-n", "5"], tf)
+    top_ports = parse_csv(ports_csv, expected_key="dp")
+    
+    # Top destinations (Destination IPs)
+    dests_csv = run_nfdump(["-a", f"fwd and src ip {ip}", "-s", "dstip/bytes", "-n", "5"], tf)
+    top_dests = parse_csv(dests_csv, expected_key="da")
+    
+    # We add fwd filter to ensure we only count forwarded traffic initiated by this host
+    
+    data = {
+        "ip": ip,
+        "hostname": hostname,
+        "geo": geo,
+        "is_threat": is_threat,
+        "threat_info": threat_info,
+        "top_ports": top_ports,
+        "top_dests": top_dests
+    }
+    return jsonify(data)
     hours = range_seconds / 3600
     with _syslog_stats_lock:
         receiver_stats = dict(_syslog_stats)
