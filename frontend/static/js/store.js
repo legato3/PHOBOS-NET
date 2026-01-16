@@ -3324,8 +3324,9 @@ export const Store = () => ({
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
             
-            // Check if already rendered (prevent re-rendering on reactivity)
-            if (canvas._sparklineRendered) return;
+            // Check if data has changed (compare last rendered data hash)
+            const dataHash = JSON.stringify(db.size_history);
+            if (canvas._lastDataHash === dataHash) return; // Skip if data unchanged
             
             const ctx = canvas.getContext('2d');
             const w = canvas.width;
@@ -3367,8 +3368,8 @@ export const Store = () => ({
             
             ctx.stroke();
             
-            // Mark as rendered to prevent re-rendering
-            canvas._sparklineRendered = true;
+            // Store data hash to prevent unnecessary re-renders
+            canvas._lastDataHash = dataHash;
         });
     },
 
