@@ -301,11 +301,10 @@ export const Store = () => ({
         snmp_host: '',
         snmp_community: '',
         snmp_poll_interval: 2,
-        nfdump_dir: '',
-        geoip_city_path: '',
-        geoip_asn_path: '',
-        threat_feeds_path: '',
-        internal_networks: ''
+        internal_networks: '',
+        // Analysis settings
+        default_time_range: '1h',
+        refresh_interval: 30000
     },
 
     // Firewall Detail Modal
@@ -1267,6 +1266,20 @@ export const Store = () => ({
             if (res.ok) {
                 const cfg = await res.json();
                 this.config = { ...this.config, ...cfg };
+                // Initialize analysis settings from current values if not in config
+                if (!this.config.default_time_range) {
+                    this.config.default_time_range = this.timeRange;
+                }
+                if (!this.config.refresh_interval) {
+                    this.config.refresh_interval = this.refreshInterval;
+                }
+            }
+            // Ensure system resources data is loaded for display
+            if (this.serverHealth.loading) {
+                this.fetchServerHealth();
+            }
+            if (this.feedHealth.loading) {
+                this.fetchFeedHealth();
             }
         } catch (e) { console.error('Failed to load config:', e); }
         this.configLoading = false;
@@ -1275,15 +1288,44 @@ export const Store = () => ({
     async saveConfig() {
         this.configSaving = true;
         try {
+            // Apply analysis settings immediately to current session
+            if (this.config.default_time_range) {
+                this.timeRange = this.config.default_time_range;
+            }
+            if (this.config.refresh_interval) {
+                this.refreshInterval = this.config.refresh_interval;
+                // Restart refresh timer with new interval
+                if (this.refreshTimer) {
+                    clearInterval(this.refreshTimer);
+                }
+                // Restart the refresh timer using the existing startTimer method
+                if (!this.paused) {
+                    this.startTimer();
+                } else {
+                    // If paused, just update the interval for when it resumes
+                    this.refreshCountdown = this.refreshInterval / 1000;
+                }
+            }
+            
+            // Save to backend (excluding analysis settings - they're frontend-only)
+            const configToSave = {
+                dns_server: this.config.dns_server,
+                snmp_host: this.config.snmp_host,
+                snmp_community: this.config.snmp_community,
+                snmp_poll_interval: this.config.snmp_poll_interval,
+                internal_networks: this.config.internal_networks
+            };
+            
             const res = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.config)
+                body: JSON.stringify(configToSave)
             });
             if (res.ok) {
                 const result = await res.json();
                 if (result.config) {
-                    this.config = { ...this.config, ...result.config };
+                    // Merge backend config with frontend analysis settings
+                    this.config = { ...this.config, ...result.config, default_time_range: this.config.default_time_range, refresh_interval: this.config.refresh_interval };
                 }
                 this.configModalOpen = false;
                 // Show success notification

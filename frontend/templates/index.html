@@ -412,8 +412,6 @@
                                         </template>
                                     </div>
                                     <div class="label">Blocked Events (24h)</div>
-                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                                 </div>
                                 <div class="stat-box mobile-secondary-stat"
                                     :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
@@ -431,12 +429,10 @@
                                         </template>
                                     </div>
                                     <div class="label">Anomalies (24h)</div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                                     <div class="label" style="display: none;">Anomalies (24h)
                                         <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
                                             title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
                                     </div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; display: none;">Fixed 24h window</div>
                                 </div>
                             </div>
 
@@ -1244,7 +1240,6 @@
                                             <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
                                             title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
                                         </div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                                 </div>
                             </div>
 
@@ -2047,7 +2042,6 @@
                                     </template>
                                 </div>
                                 <div class="label">Blocked Events (24h)</div>
-                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                             </div>
                             <div class="card stat-box">
                                 <div class="value"
@@ -4784,27 +4778,62 @@
                     </div>
 
                     <div class="config-section">
-                        <h3>📂 Paths</h3>
+                        <h3>📊 Analysis</h3>
                         <div class="config-row">
-                            <label>NetFlow Data Directory</label>
-                            <input type="text" x-model="config.nfdump_dir" placeholder="/var/cache/nfdump">
-                            <span class="config-hint">Where nfcapd stores flow data</span>
+                            <label for="default-time-range">Default Time Range</label>
+                            <select id="default-time-range" x-model="config.default_time_range" aria-label="Default Time Range">
+                                <option value="15m">15 minutes</option>
+                                <option value="30m">30 minutes</option>
+                                <option value="1h">1 hour</option>
+                                <option value="6h">6 hours</option>
+                                <option value="24h">24 hours</option>
+                                <option value="7d">7 days</option>
+                            </select>
+                            <span class="config-hint">Default time window for data queries</span>
                         </div>
                         <div class="config-row">
-                            <label>GeoIP City Database</label>
-                            <input type="text" x-model="config.geoip_city_path" placeholder="/root/GeoLite2-City.mmdb">
-                            <span class="config-hint">MaxMind GeoLite2 City MMDB</span>
+                            <label>Refresh Interval (ms)</label>
+                            <input type="number" x-model.number="config.refresh_interval" min="5000" max="300000" step="1000" placeholder="30000">
+                            <span class="config-hint">How often to refresh dashboard data (5-300 seconds)</span>
                         </div>
-                        <div class="config-row">
-                            <label>GeoIP ASN Database</label>
-                            <input type="text" x-model="config.geoip_asn_path" placeholder="/root/GeoLite2-ASN.mmdb">
-                            <span class="config-hint">MaxMind GeoLite2 ASN MMDB</span>
+                    </div>
+
+                    <div class="config-section">
+                        <h3>🔧 System Resources</h3>
+                        <div class="config-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0;">
+                            <div>
+                                <label style="margin: 0;">NetFlow Data</label>
+                                <span class="config-hint" style="display: block; margin-top: 2px;" x-text="serverHealth.netflow?.directory || 'Checking...'"></span>
+                            </div>
+                            <span class="server-stat-badge" :class="{
+                                'badge-success': serverHealth.netflow?.available,
+                                'badge-error': serverHealth.netflow && !serverHealth.netflow.available,
+                                'badge-warning': serverHealth.loading
+                            }" x-text="serverHealth.loading ? '...' : (serverHealth.netflow?.available ? '✓ Loaded' : '✗ Not Available')"></span>
                         </div>
-                        <div class="config-row">
-                            <label>Threat Feeds File</label>
-                            <input type="text" x-model="config.threat_feeds_path" placeholder="/root/threat-feeds.txt">
-                            <span class="config-hint">List of threat feed URLs (one per line)</span>
+                        <div class="config-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0;">
+                            <div>
+                                <label style="margin: 0;">GeoIP Databases</label>
+                                <span class="config-hint" style="display: block; margin-top: 2px;" x-text="serverHealth.cache?.geo_cache_size !== undefined ? (serverHealth.cache.geo_cache_size.toLocaleString() + ' cached entries') : 'Checking...'"></span>
+                            </div>
+                            <span class="server-stat-badge" :class="{
+                                'badge-success': serverHealth.cache?.geo_cache_size !== undefined && serverHealth.cache.geo_cache_size > 0,
+                                'badge-error': serverHealth.cache?.geo_cache_size === 0,
+                                'badge-warning': serverHealth.cache?.geo_cache_size === undefined
+                            }" x-text="serverHealth.cache?.geo_cache_size === undefined ? '...' : (serverHealth.cache.geo_cache_size > 0 ? '✓ Loaded' : '✗ Not Available')"></span>
                         </div>
+                        <div class="config-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0;">
+                            <div>
+                                <label style="margin: 0;">Threat Feeds</label>
+                                <span class="config-hint" style="display: block; margin-top: 2px;" x-text="feedHealth.summary ? (feedHealth.summary.total_ips.toLocaleString() + ' IPs from ' + feedHealth.summary.total + ' feeds') : 'Checking...'"></span>
+                            </div>
+                            <span class="server-stat-badge" :class="{
+                                'badge-success': feedHealth.summary && feedHealth.summary.ok > 0,
+                                'badge-error': feedHealth.summary && feedHealth.summary.ok === 0,
+                                'badge-warning': !feedHealth.summary
+                            }" x-text="!feedHealth.summary ? '...' : (feedHealth.summary.ok > 0 ? '✓ Loaded' : '✗ Not Available')"></span>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.75em; margin-top: 8px; font-style: italic;">System resources are configured via Docker environment variables and cannot be changed from the UI.</p>
                     </div>
 
                     <div class="modal__footer"
