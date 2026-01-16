@@ -4,6 +4,55 @@ This document provides detailed release notes for all versions of PHOBOS-NET, wi
 
 ---
 
+## v1.1 — Unified Insight System
+
+**Release Date:** January 2026  
+**Status:** Production-ready  
+**Focus:** Insight-driven analysis, improved readability, enhanced UX
+
+This release introduces a unified, reusable Insight System and improves widget readability across the dashboard.
+
+⸻
+
+💡 Unified Insight System
+
+- **Reusable InsightPanel Component**: Generic macro-based component for Traffic, Firewall, and Host insights
+- **Two-Tier Insight Architecture**:
+  - Baseline insights (always shown): Top Talker, Dominant Protocol, Top Destination
+  - Notable insights (conditional): Anomalies, deviations, unknown ports
+- **Stability Filtering**: Insights persist for ≥2 consecutive samples to prevent flapping
+- **Explicit Normality**: "Traffic Patterns Stable" confirmation when no anomalies exist
+- **Never Empty**: Panel always shows meaningful information, never empty states
+
+Result: Consistent, stable, insight-driven analysis across all dashboard sections.
+
+⸻
+
+🎨 UI Improvements
+
+- **Top ASNs Widget**:
+  - Improved text readability (primary color, increased font weight)
+  - Removed "View All" button for cleaner interface
+- **Traffic Insights**:
+  - Always shows baseline insights even with zero traffic
+  - Clear stability confirmation when patterns are normal
+  - Expandable breakdown view with top talkers, ports, and protocols
+
+Result: Better readability and clearer information hierarchy.
+
+⸻
+
+🔧 Technical Improvements
+
+- **Shared Stability Logic**: `applyStabilityFilter()` function used across all insight types
+- **Generic Computation**: `computeInsights(panelType)` configurable for different data sources
+- **Legacy Compatibility**: Backward-compatible `trafficInsights` getter
+- **Ready for Extension**: Firewall and Host Insights can be easily added using the same system
+
+Result: Maintainable, extensible insight infrastructure.
+
+---
+
 ## v1.0 — Stable Investigation Platform
 
 **Release Date:** January 2026  
@@ -178,4 +227,5 @@ These principles guide all design decisions and should be maintained in future r
 
 ## Version History
 
-- **v1.0** (January 2026) - Initial stable release (this document)
+- **v1.1** (January 2026) - Unified Insight System and UI improvements
+- **v1.0** (January 2026) - Initial stable release

@@ -3,8 +3,8 @@ import os
 
 # Application Metadata (Single Source of Truth)
 APP_NAME = "PHOBOS-NET"
-APP_VERSION = "v1.0.0"
-APP_VERSION_DISPLAY = "v1.0"  # Human-readable version for UI
+APP_VERSION = "v1.1.0"
+APP_VERSION_DISPLAY = "v1.1"  # Human-readable version for UI
 
 # Cache TTLs
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data

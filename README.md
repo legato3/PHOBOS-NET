@@ -1,6 +1,6 @@
 # PHOBOS-NET
 
-**PHOBOS-NET v1.0** - Real-time network traffic monitoring dashboard for Proxmox LXC 122 using nfdump, Flask, GeoIP, and threat intelligence.
+**PHOBOS-NET v1.1** - Real-time network traffic monitoring dashboard for Proxmox LXC 122 using nfdump, Flask, GeoIP, and threat intelligence.
 
 *Note: PROX_NFDUMP is the repository name. The application is branded as PHOBOS-NET.*
 
@@ -180,7 +180,7 @@ The `sample_data/` directory contains real NetFlow examples and format documenta
 
 For detailed release notes and version history, see **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)**.
 
-**v1.0** (Stable) - Production-ready investigation platform with trust-first design, explainable health states, and adaptive baselines. See release notes for complete details.
+**v1.1** (Stable) - Production-ready investigation platform with trust-first design, explainable health states, and adaptive baselines. See release notes for complete details.
 
 ## 🎯 Recent Updates
 
