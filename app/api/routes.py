@@ -3780,7 +3780,7 @@ def api_forensics_timeline():
         
         # Get all flows involving target IP
         nfdump_cmd = [
-            f"src or dst {target_ip}",
+            f"host {target_ip}",
             "-o", "csv",
             "-t", tf
         ]
@@ -3982,7 +3982,7 @@ def api_forensics_session():
         
         # Get flows between the two IPs
         nfdump_cmd = [
-            f"src {src_ip} and dst {dst_ip}",
+            f"host {src_ip} and host {dst_ip}",
             "-o", "csv",
             "-t", tf,
             "-s", "srcip/dstip/bytes"
@@ -4155,7 +4155,7 @@ def api_forensics_evidence():
         for target_ip in target_ips:
             # NetFlow evidence
             nfdump_cmd = [
-                f"src or dst {target_ip}",
+                f"host {target_ip}",
                 "-o", "csv",
                 "-t", tf
             ]
