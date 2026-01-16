@@ -84,7 +84,17 @@ export const Store = () => ({
             timeRange: '24h',
             loading: false,
             error: null,
-            data: null
+            data: {
+                summary: {
+                    target_ip: 'N/A',
+                    total_events: 0,
+                    total_bytes: 0,
+                    suspicious_events: 0,
+                    time_range: '24h',
+                    query_time: new Date().toISOString()
+                },
+                timeline: []
+            }
         },
         session: {
             srcIp: '',
@@ -92,7 +102,18 @@ export const Store = () => ({
             timeRange: '1h',
             loading: false,
             error: null,
-            data: null
+            data: {
+                summary: {
+                    src_ip: 'N/A',
+                    dst_ip: 'N/A',
+                    session_duration_seconds: 0,
+                    total_flows: 0,
+                    total_bytes: 0,
+                    time_range: '1h',
+                    query_time: new Date().toISOString()
+                },
+                flows: []
+            }
         },
         evidence: {
             incidentType: 'general',
@@ -101,7 +122,22 @@ export const Store = () => ({
             preserveData: true,
             loading: false,
             error: null,
-            report: null
+            report: {
+                incident_metadata: {
+                    incident_type: 'N/A',
+                    collection_timestamp: new Date().toISOString(),
+                    target_ips: [],
+                    severity: 'unknown'
+                },
+                chain_of_custody: {
+                    collector: 'PHOBOS-NET',
+                    collection_method: 'automated',
+                    integrity_check: 'pending',
+                    preservation_status: 'active'
+                },
+                evidence_items: [],
+                recommendations: []
+            }
         }
     },
 
