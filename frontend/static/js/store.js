@@ -114,6 +114,16 @@ export const Store = () => ({
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
     databaseStats: { databases: [], loading: true, error: null },
+    
+    // Traffic Insights - stability tracking
+    trafficInsights: {
+        insights: [], // Current insights to display
+        expanded: false,
+        loading: true,
+        history: [], // Last 2-3 samples for stability
+        totalBytes: 0, // For percentage calculations
+        timeWindow: '1h'
+    },
     hosts: {
         stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 },
         list: [],
@@ -1426,6 +1436,7 @@ export const Store = () => ({
         ]);
 
         // Then fetch the rest of the core data
+        // Note: computeTrafficInsights() is called after each fetch completes
         this.fetchSources(); // Top 10 sources
         this.fetchDestinations(); // Top 10 dests
         this.fetchPorts();
@@ -1525,6 +1536,8 @@ export const Store = () => ({
                 const data = await res.json();
                 this.summary = { ...data, error: null };
                 if (data.threat_status) this.threatStatus = data.threat_status;
+                // Update insights after summary loads
+                this.computeTrafficInsights();
             } else {
                 const errorMsg = `Summary fetch failed: ${res.status}`;
                 console.error(errorMsg);
@@ -1537,6 +1550,138 @@ export const Store = () => ({
             this.summary.loading = false;
         }
     },
+    
+    computeTrafficInsights() {
+        // Only compute if we have the necessary data
+        if (this.summary.loading || this.sources.loading || this.ports.loading || this.protocols.loading) {
+            return;
+        }
+        
+        const totalBytes = this.summary.total_bytes || 0;
+        if (totalBytes === 0) {
+            this.trafficInsights.insights = [];
+            this.trafficInsights.loading = false;
+            return;
+        }
+        
+        const now = Date.now();
+        const currentInsights = [];
+        
+        // 1. Top Talker
+        if (this.sources.sources && this.sources.sources.length > 0) {
+            const topSource = this.sources.sources[0];
+            const bytes = topSource.bytes || 0;
+            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
+            // Only include if significant (>5% of total) to avoid noise
+            if (pct >= 5) {
+                currentInsights.push({
+                    id: 'talker',
+                    type: 'talker',
+                    label: 'Top Talker',
+                    key: topSource.key,
+                    absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${pct.toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
+            }
+        }
+        
+        // 2. Dominant Protocol
+        if (this.protocols.protocols && this.protocols.protocols.length > 0) {
+            const topProto = this.protocols.protocols[0];
+            const bytes = topProto.bytes || 0;
+            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
+            // Only include if significant (>10% of total)
+            if (pct >= 10) {
+                currentInsights.push({
+                    id: 'protocol',
+                    type: 'protocol',
+                    label: 'Dominant Protocol',
+                    key: topProto.proto_name || topProto.key,
+                    absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${pct.toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
+            }
+        }
+        
+        // 3. High-volume Port
+        if (this.ports.ports && this.ports.ports.length > 0) {
+            const topPort = this.ports.ports[0];
+            const bytes = topPort.bytes || 0;
+            const pct = totalBytes > 0 ? (bytes / totalBytes * 100) : 0;
+            // Only include if significant (>5% of total) and not a common port (80, 443, 53)
+            const commonPorts = [80, 443, 53];
+            const portNum = parseInt(topPort.key);
+            if (pct >= 5 && !commonPorts.includes(portNum)) {
+                currentInsights.push({
+                    id: 'port',
+                    type: 'port',
+                    label: 'Notable Port',
+                    key: topPort.key,
+                    service: topPort.service || 'unknown',
+                    absolute: topPort.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${pct.toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
+            }
+        }
+        
+        // 4. Anomaly detection (simplified - can be enhanced later)
+        // Check if traffic is unusually high or low compared to baseline
+        const totalFlows = this.summary.total_flows || 0;
+        const avgFlowSize = totalBytes > 0 && totalFlows > 0 ? totalBytes / totalFlows : 0;
+        
+        // Add history entry
+        const historyEntry = {
+            timestamp: now,
+            insights: currentInsights.map(i => ({ id: i.id, key: i.key, pct: i.pct })),
+            totalBytes: totalBytes,
+            totalFlows: totalFlows
+        };
+        
+        // Maintain history (keep last 3 samples)
+        this.trafficInsights.history.push(historyEntry);
+        if (this.trafficInsights.history.length > 3) {
+            this.trafficInsights.history.shift();
+        }
+        
+        // Stability filter: only show insights that appear in at least 2 consecutive samples
+        const stableInsights = [];
+        if (this.trafficInsights.history.length >= 2) {
+            const recent = this.trafficInsights.history.slice(-2);
+            const insightCounts = {};
+            
+            // Count occurrences of each insight across last 2 samples
+            recent.forEach(sample => {
+                sample.insights.forEach(insight => {
+                    const key = `${insight.id}:${insight.key}`;
+                    insightCounts[key] = (insightCounts[key] || 0) + 1;
+                });
+            });
+            
+            // Only include insights that appear in both samples
+            currentInsights.forEach(insight => {
+                const key = `${insight.id}:${insight.key}`;
+                if (insightCounts[key] >= 2) {
+                    stableInsights.push(insight);
+                }
+            });
+        } else {
+            // First sample - show all (no stability check yet)
+            stableInsights.push(...currentInsights);
+        }
+        
+        // Sort by percentage (descending) and limit to top 4
+        stableInsights.sort((a, b) => (b.pct || 0) - (a.pct || 0));
+        this.trafficInsights.insights = stableInsights.slice(0, 4);
+        this.trafficInsights.totalBytes = totalBytes;
+        this.trafficInsights.timeWindow = this.timeRange;
+        this.trafficInsights.loading = false;
+    },
 
     async fetchSources() {
         this.sources.loading = true;
@@ -1545,6 +1690,8 @@ export const Store = () => ({
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/stats/sources?range=${this.timeRange}`);
             this.sources = { ...(await res.json()), loading: false, error: null };
+            // Update insights after sources load
+            this.computeTrafficInsights();
         } catch (e) {
             console.error('Failed to fetch sources:', e);
             this.sources.error = DashboardUtils?.getUserFriendlyError(e, 'load sources') || 'Failed to load sources';
@@ -1578,6 +1725,8 @@ export const Store = () => ({
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/stats/ports?range=${this.timeRange}`);
             this.ports = { ...(await res.json()), loading: false, error: null };
+            // Update insights after ports load
+            this.computeTrafficInsights();
         } catch (e) {
             console.error('Failed to fetch ports:', e);
             this.ports.error = DashboardUtils?.getUserFriendlyError(e, 'load ports') || 'Failed to load ports';
@@ -1710,13 +1859,9 @@ export const Store = () => ({
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/stats/protocols?range=${this.timeRange}`);
-            if (res.ok) {
-                this.protocols = { ...(await res.json()), loading: false, error: null };
-            } else {
-                const errorMsg = `Protocols fetch failed: ${res.status}`;
-                console.error(errorMsg);
-                this.protocols.error = DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load protocols') || errorMsg;
-            }
+            this.protocols = { ...(await res.json()), loading: false, error: null };
+            // Update insights after protocols load
+            this.computeTrafficInsights();
         } catch (e) {
             console.error('Failed to fetch protocols:', e);
             this.protocols.error = DashboardUtils?.getUserFriendlyError(e, 'load protocols') || 'Failed to load protocols';
