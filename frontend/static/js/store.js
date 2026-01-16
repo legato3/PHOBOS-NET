@@ -3294,12 +3294,8 @@ export const Store = () => ({
                 this.databaseStats.loading = false;
                 this.databaseStats.error = null;
                 
-                // Render sparklines after DOM update (with delay to avoid loops)
-                setTimeout(() => {
-                    if (this.activeTab === 'server') {
-                        this.renderDatabaseSizeSparklines();
-                    }
-                }, 100);
+                // Sparkline rendering disabled temporarily to prevent infinite loops
+                // Will be re-enabled with a safer implementation
             } else {
                 const errorMsg = `Database stats fetch failed: ${res.status}`;
                 console.error(errorMsg);
