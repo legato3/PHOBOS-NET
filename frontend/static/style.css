@@ -9689,3 +9689,103 @@ body.compact-mode {
         transform: rotate(360deg);
     }
 }
+
+/* ============================================
+   TOOLS TAB - Network & Security Utilities
+   ============================================ */
+.tools-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-4);
+}
+
+.tools-group {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+}
+
+.tools-group-title {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0 0 var(--space-4) 0;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.tools-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-3);
+}
+
+.tool-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    transition: border-color 0.2s ease;
+}
+
+.tool-card:hover {
+    border-color: var(--neon-cyan);
+}
+
+.tool-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.tool-icon {
+    font-size: var(--fs-lg);
+}
+
+.tool-name {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.tool-desc {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.tool-card .btn--sm {
+    align-self: flex-start;
+    margin-top: auto;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--fs-xs);
+}
+
+.tool-card .btn--sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .tools-grid {
+        padding: var(--space-2);
+        gap: var(--space-4);
+    }
+    
+    .tools-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .tool-card {
+        padding: var(--space-2);
+    }
+}

@@ -143,6 +143,12 @@
                         <span class="sidebar-icon">🔍</span>
                         <span class="sidebar-item-text">Forensics</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'tools' }"
+                        @click="loadTab('tools')" role="tab" :aria-selected="activeTab === 'tools'"
+                        id="tools-tab-btn" aria-controls="tools-tab" aria-label="Tools" title="Tools">
+                        <span class="sidebar-icon">🛠️</span>
+                        <span class="sidebar-item-text">Tools</span>
+                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
                         @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
                         id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="Assistant" title="Assistant">
@@ -4593,6 +4599,139 @@
                                                 <li style="margin-bottom: 4px;" x-text="recommendation"></li>
                                             </template>
                                         </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ============================================
+             TOOLS TAB - Network & Security Utilities
+             ============================================ -->
+                    <div x-show="activeTab === 'tools'"
+                        :style="activeTab === 'tools' ? 'display:block' : 'display:none'" id="tools-tab"
+                        role="tabpanel" aria-labelledby="tools-tab-btn" tabindex="0">
+
+                        <section class="tools-grid">
+                            <!-- ACCESS -->
+                            <div class="tools-group">
+                                <h3 class="tools-group-title">ACCESS</h3>
+                                <div class="tools-list">
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🔐</span>
+                                            <span class="tool-name">SSH Shell</span>
+                                        </div>
+                                        <p class="tool-desc">Secure shell access to managed network devices and hosts</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Connect</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🖥️</span>
+                                            <span class="tool-name">Console Access</span>
+                                        </div>
+                                        <p class="tool-desc">Direct console access for devices without reliable network connectivity</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Open Console</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- NETWORK -->
+                            <div class="tools-group">
+                                <h3 class="tools-group-title">NETWORK</h3>
+                                <div class="tools-list">
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🔗</span>
+                                            <span class="tool-name">Live Connections</span>
+                                        </div>
+                                        <p class="tool-desc">Real-time view of active network flows and sessions</p>
+                                        <button class="btn btn--primary btn--sm" disabled>View</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">📦</span>
+                                            <span class="tool-name">Packet Capture</span>
+                                        </div>
+                                        <p class="tool-desc">Time-limited packet capture on selected interfaces</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Capture</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">📡</span>
+                                            <span class="tool-name">Ping / Traceroute</span>
+                                        </div>
+                                        <p class="tool-desc">Reachability and path testing from the network edge</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Run</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- INTELLIGENCE -->
+                            <div class="tools-group">
+                                <h3 class="tools-group-title">INTELLIGENCE</h3>
+                                <div class="tools-list">
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🎯</span>
+                                            <span class="tool-name">IP / Domain Reputation</span>
+                                        </div>
+                                        <p class="tool-desc">Check reputation and recent activity for IPs and domains</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Lookup</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🌍</span>
+                                            <span class="tool-name">ASN / Geo Lookup</span>
+                                        </div>
+                                        <p class="tool-desc">Identify network ownership and geographic origin</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Lookup</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIAGNOSTICS -->
+                            <div class="tools-group">
+                                <h3 class="tools-group-title">DIAGNOSTICS</h3>
+                                <div class="tools-list">
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🔎</span>
+                                            <span class="tool-name">DNS Lookup</span>
+                                        </div>
+                                        <p class="tool-desc">Resolve and inspect DNS records and responses</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Query</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🚪</span>
+                                            <span class="tool-name">Port Check</span>
+                                        </div>
+                                        <p class="tool-desc">Test service reachability on specific ports</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Check</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ACTIONS -->
+                            <div class="tools-group">
+                                <h3 class="tools-group-title">ACTIONS</h3>
+                                <div class="tools-list">
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">🔥</span>
+                                            <span class="tool-name">Temporary Access Rule</span>
+                                        </div>
+                                        <p class="tool-desc">Create time-limited firewall or access rules</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Create</button>
+                                    </div>
+                                    <div class="tool-card">
+                                        <div class="tool-header">
+                                            <span class="tool-icon">📋</span>
+                                            <span class="tool-name">Runbook Actions</span>
+                                        </div>
+                                        <p class="tool-desc">Execute predefined response or diagnostic actions</p>
+                                        <button class="btn btn--primary btn--sm" disabled>Execute</button>
                                     </div>
                                 </div>
                             </div>
