@@ -7349,3 +7349,47 @@ def api_database_stats():
     })
 
 
+# ============================================
+# TOOLS API ENDPOINTS
+# ============================================
+from app.services.tools import dns_lookup, port_check, ping_host, check_reputation, whois_lookup
+
+@bp.route('/api/tools/dns')
+def api_tools_dns():
+    """DNS lookup tool."""
+    query = request.args.get('query', '')
+    record_type = request.args.get('type', 'A')
+    result = dns_lookup(query, record_type)
+    return jsonify(result)
+
+@bp.route('/api/tools/port-check')
+def api_tools_port_check():
+    """Port check tool."""
+    host = request.args.get('host', '')
+    ports = request.args.get('ports', '')
+    result = port_check(host, ports)
+    return jsonify(result)
+
+@bp.route('/api/tools/ping')
+def api_tools_ping():
+    """Ping/traceroute tool."""
+    host = request.args.get('host', '')
+    mode = request.args.get('mode', 'ping')
+    result = ping_host(host, mode)
+    return jsonify(result)
+
+@bp.route('/api/tools/reputation')
+def api_tools_reputation():
+    """IP reputation check tool."""
+    ip = request.args.get('ip', '')
+    # Get threat feeds from app state if available
+    threat_feeds = getattr(current_app, 'threat_feeds', None) or _threat_ips
+    result = check_reputation(ip, threat_feeds)
+    return jsonify(result)
+
+@bp.route('/api/tools/whois')
+def api_tools_whois():
+    """Whois/ASN lookup tool."""
+    query = request.args.get('query', '')
+    result = whois_lookup(query)
+    return jsonify(result)

@@ -9693,99 +9693,198 @@ body.compact-mode {
 /* ============================================
    TOOLS TAB - Network & Security Utilities
    ============================================ */
-.tools-grid {
+.tool-input-group {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-    padding: var(--space-4);
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
 }
 
-.tools-group {
-    background: var(--card-bg);
+.tool-input {
+    flex: 1;
+    min-width: 150px;
+    padding: var(--space-2);
+    background: var(--bg-primary);
     border: 1px solid var(--card-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-4);
-}
-
-.tools-group-title {
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
     font-size: var(--fs-sm);
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin: 0 0 var(--space-4) 0;
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--card-border);
 }
 
-.tools-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-3);
+.tool-input:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
 }
 
-.tool-card {
+.tool-input-sm {
+    width: 120px;
+    padding: var(--space-2);
+    background: var(--bg-primary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+}
+
+.tool-input-sm:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+}
+
+.tool-select {
+    padding: var(--space-2);
+    background: var(--bg-primary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+    min-width: 80px;
+}
+
+.tool-select:focus {
+    outline: none;
+    border-color: var(--neon-cyan);
+}
+
+.tool-error {
+    background: rgba(255, 23, 68, 0.1);
+    border: 1px solid var(--signal-crit);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    color: var(--signal-crit);
+    font-size: var(--fs-sm);
+    margin-bottom: var(--space-2);
+}
+
+.tool-result {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-sm);
     padding: var(--space-3);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    transition: border-color 0.2s ease;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
-.tool-card:hover {
-    border-color: var(--neon-cyan);
+.tool-result pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 
-.tool-header {
+/* Port Check Results */
+.port-result-row {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-3);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.tool-icon {
-    font-size: var(--fs-lg);
+.port-result-row:last-child {
+    border-bottom: none;
 }
 
-.tool-name {
-    font-size: var(--fs-md);
+.port-number {
+    font-family: var(--font-mono);
     font-weight: 600;
-    color: var(--text-primary);
+    min-width: 60px;
 }
 
-.tool-desc {
-    font-size: var(--fs-sm);
+.port-status {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.port-status.status-open {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--signal-ok);
+}
+
+.port-status.status-closed {
+    background: rgba(255, 23, 68, 0.2);
+    color: var(--signal-crit);
+}
+
+.port-service {
     color: var(--text-muted);
-    margin: 0;
-    line-height: 1.4;
-}
-
-.tool-card .btn--sm {
-    align-self: flex-start;
-    margin-top: auto;
-    padding: var(--space-1) var(--space-3);
     font-size: var(--fs-xs);
 }
 
-.tool-card .btn--sm:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+/* Reputation Results */
+.reputation-result {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.reputation-status {
+    font-weight: 700;
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    text-align: center;
+}
+
+.reputation-status.threat-positive {
+    background: rgba(255, 23, 68, 0.2);
+    color: var(--signal-crit);
+}
+
+.reputation-status.threat-negative {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--signal-ok);
+}
+
+.reputation-details {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+
+.reputation-details div {
+    padding: var(--space-1) 0;
+}
+
+/* Whois Results */
+.whois-result {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+
+.whois-result div {
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.whois-result div:last-child {
+    border-bottom: none;
+}
+
+/* Quick Actions */
+.quick-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.btn--block {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
 }
 
 /* Mobile responsive */
 @media (max-width: 768px) {
-    .tools-grid {
-        padding: var(--space-2);
-        gap: var(--space-4);
+    .tool-input-group {
+        flex-direction: column;
     }
     
-    .tools-list {
-        grid-template-columns: 1fr;
-    }
-    
-    .tool-card {
-        padding: var(--space-2);
+    .tool-input,
+    .tool-input-sm,
+    .tool-select {
+        width: 100%;
     }
 }

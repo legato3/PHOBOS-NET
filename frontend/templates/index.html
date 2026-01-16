@@ -4612,130 +4612,223 @@
                         :style="activeTab === 'tools' ? 'display:block' : 'display:none'" id="tools-tab"
                         role="tabpanel" aria-labelledby="tools-tab-btn" tabindex="0">
 
-                        <section class="tools-grid">
-                            <!-- ACCESS -->
-                            <div class="tools-group">
-                                <h3 class="tools-group-title">ACCESS</h3>
-                                <div class="tools-list">
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🔐</span>
-                                            <span class="tool-name">SSH Shell</span>
-                                        </div>
-                                        <p class="tool-desc">Secure shell access to managed network devices and hosts</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Connect</button>
+                        <div class="grid-3-col">
+                            <!-- DNS Lookup Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🔎</span>
+                                        <span>DNS Lookup</span>
                                     </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🖥️</span>
-                                            <span class="tool-name">Console Access</span>
-                                        </div>
-                                        <p class="tool-desc">Direct console access for devices without reliable network connectivity</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Open Console</button>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.dns.loading"></div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- NETWORK -->
-                            <div class="tools-group">
-                                <h3 class="tools-group-title">NETWORK</h3>
-                                <div class="tools-list">
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🔗</span>
-                                            <span class="tool-name">Live Connections</span>
-                                        </div>
-                                        <p class="tool-desc">Real-time view of active network flows and sessions</p>
-                                        <button class="btn btn--primary btn--sm" disabled>View</button>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Resolve and inspect DNS records</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.dns.query" 
+                                            placeholder="Domain or IP (e.g., google.com)"
+                                            class="tool-input"
+                                            @keydown.enter="runDnsLookup()">
+                                        <select x-model="tools.dns.type" class="tool-select">
+                                            <option value="A">A</option>
+                                            <option value="AAAA">AAAA</option>
+                                            <option value="MX">MX</option>
+                                            <option value="TXT">TXT</option>
+                                            <option value="NS">NS</option>
+                                            <option value="PTR">PTR</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="runDnsLookup()" 
+                                            :disabled="!tools.dns.query || tools.dns.loading">
+                                            Query
+                                        </button>
                                     </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">📦</span>
-                                            <span class="tool-name">Packet Capture</span>
-                                        </div>
-                                        <p class="tool-desc">Time-limited packet capture on selected interfaces</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Capture</button>
-                                    </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">📡</span>
-                                            <span class="tool-name">Ping / Traceroute</span>
-                                        </div>
-                                        <p class="tool-desc">Reachability and path testing from the network edge</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Run</button>
+                                    <div x-show="tools.dns.error" class="tool-error" x-text="tools.dns.error"></div>
+                                    <div x-show="tools.dns.result" class="tool-result">
+                                        <pre x-text="tools.dns.result"></pre>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- INTELLIGENCE -->
-                            <div class="tools-group">
-                                <h3 class="tools-group-title">INTELLIGENCE</h3>
-                                <div class="tools-list">
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🎯</span>
-                                            <span class="tool-name">IP / Domain Reputation</span>
-                                        </div>
-                                        <p class="tool-desc">Check reputation and recent activity for IPs and domains</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Lookup</button>
+                            <!-- Port Check Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🚪</span>
+                                        <span>Port Check</span>
                                     </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🌍</span>
-                                            <span class="tool-name">ASN / Geo Lookup</span>
-                                        </div>
-                                        <p class="tool-desc">Identify network ownership and geographic origin</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Lookup</button>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.port.loading"></div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- DIAGNOSTICS -->
-                            <div class="tools-group">
-                                <h3 class="tools-group-title">DIAGNOSTICS</h3>
-                                <div class="tools-list">
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🔎</span>
-                                            <span class="tool-name">DNS Lookup</span>
-                                        </div>
-                                        <p class="tool-desc">Resolve and inspect DNS records and responses</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Query</button>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Test service reachability on specific ports</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.port.host" 
+                                            placeholder="Host (e.g., 192.168.1.1)"
+                                            class="tool-input"
+                                            @keydown.enter="runPortCheck()">
+                                        <input type="text" x-model="tools.port.ports" 
+                                            placeholder="Ports (e.g., 22,80,443)"
+                                            class="tool-input-sm"
+                                            @keydown.enter="runPortCheck()">
+                                        <button class="btn btn--primary" @click="runPortCheck()" 
+                                            :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
+                                            Check
+                                        </button>
                                     </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🚪</span>
-                                            <span class="tool-name">Port Check</span>
-                                        </div>
-                                        <p class="tool-desc">Test service reachability on specific ports</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Check</button>
+                                    <div x-show="tools.port.error" class="tool-error" x-text="tools.port.error"></div>
+                                    <div x-show="tools.port.result" class="tool-result">
+                                        <template x-for="port in tools.port.result" :key="port.port">
+                                            <div class="port-result-row">
+                                                <span class="port-number" x-text="port.port"></span>
+                                                <span class="port-status" 
+                                                    :class="port.open ? 'status-open' : 'status-closed'"
+                                                    x-text="port.open ? 'OPEN' : 'CLOSED'"></span>
+                                                <span class="port-service" x-text="port.service || ''"></span>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- ACTIONS -->
-                            <div class="tools-group">
-                                <h3 class="tools-group-title">ACTIONS</h3>
-                                <div class="tools-list">
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">🔥</span>
-                                            <span class="tool-name">Temporary Access Rule</span>
-                                        </div>
-                                        <p class="tool-desc">Create time-limited firewall or access rules</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Create</button>
+                            <!-- Ping / Traceroute Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">📡</span>
+                                        <span>Ping / Traceroute</span>
                                     </div>
-                                    <div class="tool-card">
-                                        <div class="tool-header">
-                                            <span class="tool-icon">📋</span>
-                                            <span class="tool-name">Runbook Actions</span>
-                                        </div>
-                                        <p class="tool-desc">Execute predefined response or diagnostic actions</p>
-                                        <button class="btn btn--primary btn--sm" disabled>Execute</button>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.ping.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Reachability and path testing</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.ping.host" 
+                                            placeholder="Host (e.g., 8.8.8.8)"
+                                            class="tool-input"
+                                            @keydown.enter="runPing()">
+                                        <select x-model="tools.ping.mode" class="tool-select">
+                                            <option value="ping">Ping</option>
+                                            <option value="traceroute">Traceroute</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="runPing()" 
+                                            :disabled="!tools.ping.host || tools.ping.loading">
+                                            Run
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.ping.error" class="tool-error" x-text="tools.ping.error"></div>
+                                    <div x-show="tools.ping.result" class="tool-result">
+                                        <pre x-text="tools.ping.result"></pre>
                                     </div>
                                 </div>
                             </div>
-                        </section>
+
+                            <!-- IP Reputation Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🎯</span>
+                                        <span>IP Reputation</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.reputation.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Check threat intelligence for IPs</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.reputation.ip" 
+                                            placeholder="IP address (e.g., 1.2.3.4)"
+                                            class="tool-input"
+                                            @keydown.enter="runReputationCheck()">
+                                        <button class="btn btn--primary" @click="runReputationCheck()" 
+                                            :disabled="!tools.reputation.ip || tools.reputation.loading">
+                                            Lookup
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.reputation.error" class="tool-error" x-text="tools.reputation.error"></div>
+                                    <div x-show="tools.reputation.result" class="tool-result">
+                                        <div class="reputation-result">
+                                            <div class="reputation-status" 
+                                                :class="tools.reputation.result.is_threat ? 'threat-positive' : 'threat-negative'">
+                                                <span x-text="tools.reputation.result.is_threat ? '⚠️ THREAT DETECTED' : '✓ NO THREAT FOUND'"></span>
+                                            </div>
+                                            <div class="reputation-details" x-show="tools.reputation.result.feeds">
+                                                <div><strong>Matched Feeds:</strong> <span x-text="tools.reputation.result.feeds?.join(', ') || 'None'"></span></div>
+                                                <div><strong>Category:</strong> <span x-text="tools.reputation.result.category || 'Unknown'"></span></div>
+                                                <div><strong>Last Seen:</strong> <span x-text="tools.reputation.result.last_seen || 'N/A'"></span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Whois / ASN Lookup Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🌍</span>
+                                        <span>Whois / ASN Lookup</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.whois.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Network ownership and geographic origin</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.whois.query" 
+                                            placeholder="IP or domain"
+                                            class="tool-input"
+                                            @keydown.enter="runWhoisLookup()">
+                                        <button class="btn btn--primary" @click="runWhoisLookup()" 
+                                            :disabled="!tools.whois.query || tools.whois.loading">
+                                            Lookup
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.whois.error" class="tool-error" x-text="tools.whois.error"></div>
+                                    <div x-show="tools.whois.result" class="tool-result">
+                                        <div class="whois-result">
+                                            <div><strong>ASN:</strong> <span x-text="tools.whois.result.asn || 'N/A'"></span></div>
+                                            <div><strong>Organization:</strong> <span x-text="tools.whois.result.org || 'N/A'"></span></div>
+                                            <div><strong>Country:</strong> <span x-text="tools.whois.result.country || 'N/A'"></span></div>
+                                            <div><strong>Network:</strong> <span x-text="tools.whois.result.network || 'N/A'"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Actions -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">⚡</span>
+                                        <span>Quick Actions</span>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Common operational tasks</p>
+                                    <div class="quick-actions-list">
+                                        <button class="btn btn--secondary btn--block" @click="refreshAllData()">
+                                            🔄 Refresh All Data
+                                        </button>
+                                        <button class="btn btn--secondary btn--block" @click="loadTab('forensics')">
+                                            🔍 Open Forensics
+                                        </button>
+                                        <button class="btn btn--secondary btn--block" @click="exportAlerts()">
+                                            📥 Export Alerts
+                                        </button>
+                                        <button class="btn btn--secondary btn--block" disabled title="Coming soon">
+                                            🔥 Temp Firewall Rule
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
             </main>

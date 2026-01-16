@@ -908,6 +908,122 @@ export const Store = () => ({
     // UI state for details toggle
     showObservabilityDetails: false,
 
+    // Tools state
+    tools: {
+        dns: { query: '', type: 'A', loading: false, result: null, error: null },
+        port: { host: '', ports: '', loading: false, result: null, error: null },
+        ping: { host: '', mode: 'ping', loading: false, result: null, error: null },
+        reputation: { ip: '', loading: false, result: null, error: null },
+        whois: { query: '', loading: false, result: null, error: null }
+    },
+
+    // DNS Lookup
+    async runDnsLookup() {
+        this.tools.dns.loading = true;
+        this.tools.dns.error = null;
+        this.tools.dns.result = null;
+        try {
+            const response = await fetch(`/api/tools/dns?query=${encodeURIComponent(this.tools.dns.query)}&type=${this.tools.dns.type}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.dns.error = data.error;
+            } else {
+                this.tools.dns.result = data.result || JSON.stringify(data, null, 2);
+            }
+        } catch (e) {
+            this.tools.dns.error = 'Failed to perform DNS lookup: ' + e.message;
+        }
+        this.tools.dns.loading = false;
+    },
+
+    // Port Check
+    async runPortCheck() {
+        this.tools.port.loading = true;
+        this.tools.port.error = null;
+        this.tools.port.result = null;
+        try {
+            const response = await fetch(`/api/tools/port-check?host=${encodeURIComponent(this.tools.port.host)}&ports=${encodeURIComponent(this.tools.port.ports)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.port.error = data.error;
+            } else {
+                this.tools.port.result = data.results || [];
+            }
+        } catch (e) {
+            this.tools.port.error = 'Failed to check ports: ' + e.message;
+        }
+        this.tools.port.loading = false;
+    },
+
+    // Ping / Traceroute
+    async runPing() {
+        this.tools.ping.loading = true;
+        this.tools.ping.error = null;
+        this.tools.ping.result = null;
+        try {
+            const response = await fetch(`/api/tools/ping?host=${encodeURIComponent(this.tools.ping.host)}&mode=${this.tools.ping.mode}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.ping.error = data.error;
+            } else {
+                this.tools.ping.result = data.result || '';
+            }
+        } catch (e) {
+            this.tools.ping.error = 'Failed to run ' + this.tools.ping.mode + ': ' + e.message;
+        }
+        this.tools.ping.loading = false;
+    },
+
+    // IP Reputation Check
+    async runReputationCheck() {
+        this.tools.reputation.loading = true;
+        this.tools.reputation.error = null;
+        this.tools.reputation.result = null;
+        try {
+            const response = await fetch(`/api/tools/reputation?ip=${encodeURIComponent(this.tools.reputation.ip)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.reputation.error = data.error;
+            } else {
+                this.tools.reputation.result = data;
+            }
+        } catch (e) {
+            this.tools.reputation.error = 'Failed to check reputation: ' + e.message;
+        }
+        this.tools.reputation.loading = false;
+    },
+
+    // Whois / ASN Lookup
+    async runWhoisLookup() {
+        this.tools.whois.loading = true;
+        this.tools.whois.error = null;
+        this.tools.whois.result = null;
+        try {
+            const response = await fetch(`/api/tools/whois?query=${encodeURIComponent(this.tools.whois.query)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.whois.error = data.error;
+            } else {
+                this.tools.whois.result = data;
+            }
+        } catch (e) {
+            this.tools.whois.error = 'Failed to perform lookup: ' + e.message;
+        }
+        this.tools.whois.loading = false;
+    },
+
+    // Export alerts as JSON
+    exportAlerts() {
+        const alerts = this.alerts.alerts || [];
+        const blob = new Blob([JSON.stringify(alerts, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alerts-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+
     getFlagColor(index) {
         // Return color for flag at given index - matches chart colors
         const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
