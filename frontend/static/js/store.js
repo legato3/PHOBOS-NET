@@ -1589,7 +1589,14 @@ export const Store = () => ({
     },
     
     // Generic stability filter - shared across all insight types
-    applyStabilityFilter(panel, currentInsights) {
+    // tier: 'baseline' (always shown) or 'notable' (requires stability check)
+    applyStabilityFilter(panel, currentInsights, tier = 'notable') {
+        // Baseline insights bypass stability check - always shown
+        if (tier === 'baseline') {
+            return currentInsights;
+        }
+        
+        // Notable insights require stability check
         const now = Date.now();
         const historyEntry = {
             timestamp: now,
@@ -1628,9 +1635,9 @@ export const Store = () => ({
             stableInsights.push(...currentInsights);
         }
         
-        // Sort by percentage (descending) and limit to top 4
+        // Sort by percentage (descending)
         stableInsights.sort((a, b) => (b.pct || 0) - (a.pct || 0));
-        return stableInsights.slice(0, 4);
+        return stableInsights;
     },
     
     // Generic insight computation - configurable for different data sources
@@ -1639,69 +1646,106 @@ export const Store = () => ({
         if (!panel) return;
         
         const config = panel.config;
-        let currentInsights = [];
+        let baselineInsights = [];
+        let notableInsights = [];
         
         if (config.type === 'traffic') {
-            // Only compute if we have the necessary data
+            // Only compute if we have the necessary data (destinations is optional)
             if (this.summary.loading || this.sources.loading || this.ports.loading || this.protocols.loading) {
                 return;
             }
+            // Destinations is optional - don't block on it
             
             const totalBytes = this.summary.total_bytes || 0;
             if (totalBytes === 0) {
-                panel.insights = [];
+                // Even with no traffic, show a baseline insight indicating no activity
+                panel.insights = [{
+                    id: 'no-traffic',
+                    type: 'anomaly',
+                    tier: 'baseline',
+                    label: 'Traffic Status',
+                    key: 'No Activity',
+                    absolute: '0 B',
+                    relative: 'No traffic in time window',
+                    isStabilityConfirmation: false
+                }];
                 panel.loading = false;
                 return;
             }
             
-            // 1. Top Talker
+            // ============================================
+            // BASELINE INSIGHTS (Always shown, no thresholds)
+            // ============================================
+            
+            // 1. Top Talker (always shown)
             if (this.sources.sources && this.sources.sources.length > 0) {
                 const topSource = this.sources.sources[0];
                 const bytes = topSource.bytes || 0;
                 const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
-                if (pct >= config.minThreshold) {
-                    currentInsights.push({
-                        id: 'talker',
-                        type: 'talker',
-                        label: 'Top Talker',
-                        key: topSource.key,
-                        absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
-                        relative: `${(pct * 100).toFixed(1)}% of total traffic`,
-                        bytes: bytes,
-                        pct: pct
-                    });
-                }
+                baselineInsights.push({
+                    id: 'talker',
+                    type: 'talker',
+                    tier: 'baseline',
+                    label: 'Top Talker',
+                    key: topSource.key,
+                    absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
             }
             
-            // 2. Dominant Protocol
+            // 2. Dominant Protocol (always shown)
             if (this.protocols.protocols && this.protocols.protocols.length > 0) {
                 const topProto = this.protocols.protocols[0];
                 const bytes = topProto.bytes || 0;
                 const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
-                if (pct >= config.protocolThreshold) {
-                    currentInsights.push({
-                        id: 'protocol',
-                        type: 'protocol',
-                        label: 'Dominant Protocol',
-                        key: topProto.proto_name || topProto.key,
-                        absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
-                        relative: `${(pct * 100).toFixed(1)}% of total traffic`,
-                        bytes: bytes,
-                        pct: pct
-                    });
-                }
+                baselineInsights.push({
+                    id: 'protocol',
+                    type: 'protocol',
+                    tier: 'baseline',
+                    label: 'Dominant Protocol',
+                    key: topProto.proto_name || topProto.key,
+                    absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
             }
             
-            // 3. High-volume / Notable Port
+            // 3. Top Destination (optional baseline, always shown if available)
+            if (this.destinations && this.destinations.destinations && this.destinations.destinations.length > 0) {
+                const topDest = this.destinations.destinations[0];
+                const bytes = topDest.bytes || 0;
+                const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
+                baselineInsights.push({
+                    id: 'destination',
+                    type: 'destination',
+                    tier: 'baseline',
+                    label: 'Top Destination',
+                    key: topDest.key,
+                    absolute: topDest.bytes_fmt || this.fmtBytes(bytes),
+                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    bytes: bytes,
+                    pct: pct
+                });
+            }
+            
+            // ============================================
+            // NOTABLE INSIGHTS (Conditional, with thresholds)
+            // ============================================
+            
+            // 4. High-volume / Notable Port (only if meets threshold and not common)
             if (this.ports.ports && this.ports.ports.length > 0) {
                 const topPort = this.ports.ports[0];
                 const bytes = topPort.bytes || 0;
                 const pct = totalBytes > 0 ? (bytes / totalBytes) : 0;
                 const portNum = parseInt(topPort.key);
                 if (pct >= config.minThreshold && !config.commonPorts.includes(portNum)) {
-                    currentInsights.push({
+                    notableInsights.push({
                         id: 'port',
                         type: 'port',
+                        tier: 'notable',
                         label: 'Notable Port',
                         key: topPort.key,
                         service: topPort.service || 'unknown',
@@ -1713,8 +1757,47 @@ export const Store = () => ({
                 }
             }
             
-            // Apply stability filter
-            panel.insights = this.applyStabilityFilter(panel, currentInsights);
+            // Apply stability filter only to notable insights
+            const stableNotableInsights = this.applyStabilityFilter(panel, notableInsights, 'notable');
+            
+            // Build final insights array
+            let finalInsights = [...baselineInsights];
+            
+            // Add stable notable insights (limited to fit within max display)
+            const maxNotable = Math.max(0, 4 - baselineInsights.length);
+            if (stableNotableInsights.length > 0) {
+                finalInsights.push(...stableNotableInsights.slice(0, maxNotable));
+            } else if (baselineInsights.length > 0) {
+                // If no notable insights exist, add stability confirmation
+                // Only add if we have room (max 4 total)
+                if (finalInsights.length < 4) {
+                    finalInsights.push({
+                        id: 'stability',
+                        type: 'anomaly',
+                        tier: 'baseline',
+                        label: 'Traffic Patterns',
+                        key: 'Stable',
+                        absolute: 'No anomalies detected',
+                        relative: 'Within normal baseline',
+                        isStabilityConfirmation: true
+                    });
+                }
+            }
+            
+            // Sort by tier (baseline first) then by percentage (descending)
+            // Stability confirmation should appear last
+            finalInsights.sort((a, b) => {
+                // Stability confirmation always last
+                if (a.isStabilityConfirmation && !b.isStabilityConfirmation) return 1;
+                if (!a.isStabilityConfirmation && b.isStabilityConfirmation) return -1;
+                // Baseline insights first
+                if (a.tier === 'baseline' && b.tier !== 'baseline') return -1;
+                if (a.tier !== 'baseline' && b.tier === 'baseline') return 1;
+                // Then by percentage
+                return (b.pct || 0) - (a.pct || 0);
+            });
+            
+            panel.insights = finalInsights;
             panel.loading = false;
         }
         // Future: Add firewall and hosts logic here
@@ -1751,6 +1834,8 @@ export const Store = () => ({
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/stats/destinations?range=${this.timeRange}`);
             this.destinations = { ...(await res.json()), loading: false, error: null };
+            // Update insights after destinations load (for Top Destination baseline insight)
+            this.computeTrafficInsights();
         } catch (e) {
             console.error('Failed to fetch destinations:', e);
             this.destinations.error = DashboardUtils?.getUserFriendlyError(e, 'load destinations') || 'Failed to load destinations';

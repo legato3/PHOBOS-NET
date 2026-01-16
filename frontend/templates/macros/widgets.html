@@ -88,13 +88,20 @@ card_class_bind=None, footer_content=None) %}
                             <template x-if="insight.type === 'port'">
                                 <span x-text="'Port ' + insight.key"></span>
                             </template>
+                            <template x-if="insight.type === 'destination'">
+                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)" 
+                                      style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
+                            </template>
                             <template x-if="insight.type === 'rule' || insight.type === 'category'">
                                 <span x-text="insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'host'">
                                 <span x-text="insight.key"></span>
                             </template>
-                            <template x-if="insight.type === 'anomaly'">
+                            <template x-if="insight.type === 'anomaly' && insight.isStabilityConfirmation">
+                                <span style="color: var(--neon-green);" x-text="insight.key"></span>
+                            </template>
+                            <template x-if="insight.type === 'anomaly' && !insight.isStabilityConfirmation">
                                 <span x-text="insight.key"></span>
                             </template>
                         </div>
