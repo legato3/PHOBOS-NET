@@ -1191,12 +1191,6 @@
                             <!-- Network Status Blocks -->
                             <div class="grid mb-6 grid-auto-fit">
                                 <div class="card stat-box">
-                                    <div class="value"
-                                        :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
-                                        x-text="netHealth.health_score || 100"></div>
-                                    <div class="label">Network Health</div>
-                                </div>
-                                <div class="card stat-box">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
@@ -3150,93 +3144,6 @@
                                     </div>
                                 </div>
 
-                                <!-- System Activity (Compact inline metrics) -->
-                                <div class="card" style="margin-top: 32px; width: 100%;">
-                                    <h2>
-                                        <div class="card-title-content">
-                                            <span class="title-icon">📊</span>
-                                            <span>System Activity</span>
-                                        </div>
-                                    </h2>
-                                    <div class="widget-body" style="padding: 16px;">
-                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 0.9em; min-height: 80px;">
-                                            <!-- Syslog Activity -->
-                                            <div x-show="serverHealth.syslog && !serverHealth.syslog.error" style="display: flex; flex-direction: column; gap: 8px;">
-                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                                                    <span>📝</span>
-                                                    <span>Syslog</span>
-                                                    <span class="server-stat-badge" :class="{
-                                                        'badge-success': serverHealth.syslog.active,
-                                                        'badge-error': !serverHealth.syslog.active
-                                                    }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                                </div>
-                                                <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
-                                                    <div style="display: flex; justify-content: space-between;">
-                                                        <span>Received:</span>
-                                                        <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div style="display: flex; justify-content: space-between;">
-                                                        <span>Errors:</span>
-                                                        <span :class="serverHealth.syslog.errors > 0 ? 'text-red' : ''" style="font-weight: 500;" x-text="serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div style="display: flex; justify-content: space-between;" x-show="serverHealth.syslog.last_log">
-                                                        <span>Last Event:</span>
-                                                        <span style="color: var(--text-primary); font-size: 0.85em;" x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Database Activity -->
-                                            <div x-show="serverHealth.database" style="display: flex; flex-direction: column; gap: 8px;">
-                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                                                    <span>🗄️</span>
-                                                    <span>Database</span>
-                                                    <span class="server-stat-badge" :class="{
-                                                        'badge-success': serverHealth.database.connected,
-                                                        'badge-error': !serverHealth.database.connected
-                                                    }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
-                                                </div>
-                                                <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
-                                                    <div style="display: flex; justify-content: space-between;">
-                                                        <span>Log Count:</span>
-                                                        <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div style="display: flex; justify-content: space-between;" x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
-                                                        <span>Growth (1h):</span>
-                                                        <span style="color: var(--text-primary); font-weight: 500;" x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
-                                                    </div>
-                                                    <div style="display: flex; justify-content: space-between;" x-show="serverHealth.database?.growth_rate_per_day !== undefined">
-                                                        <span>Growth (24h):</span>
-                                                        <span style="color: var(--text-primary); font-weight: 500;" x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- NetFlow Activity -->
-                                            <div x-show="serverHealth.netflow && !serverHealth.netflow.error" style="display: flex; flex-direction: column; gap: 8px;">
-                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                                                    <span>🌐</span>
-                                                    <span>NetFlow</span>
-                                                    <span class="server-stat-badge" :class="{
-                                                        'badge-success': serverHealth.netflow.available,
-                                                        'badge-error': !serverHealth.netflow.available
-                                                    }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></span>
-                                                </div>
-                                                <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
-                                                    <div style="display: flex; justify-content: space-between;">
-                                                        <span>File Count:</span>
-                                                        <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() : 'N/A'"></span>
-                                                    </div>
-                                                    <div style="display: flex; justify-content: space-between;" x-show="serverHealth.netflow.directory">
-                                                        <span>Status:</span>
-                                                        <span style="color: var(--text-primary); font-size: 0.85em;" x-text="serverHealth.netflow.available ? 'Collecting' : 'Idle'"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- System Diagnostics (Collapsed by default) -->
                                 <div x-data="{ expanded: false }" style="margin-top: 32px;">
                                     <button @click="expanded = !expanded" style="width: 100%; padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-size: 1.1em; font-weight: 600; text-align: left; display: flex; justify-content: space-between; align-items: center;">
@@ -3407,6 +3314,93 @@
                                     </div>
                                 </div>
                             </template>
+
+                            <!-- System Activity (Compact inline metrics) -->
+                            <div class="card" style="margin-top: 32px; width: 100%;" x-show="!serverHealth.loading && !serverHealth.error">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">📊</span>
+                                        <span>System Activity</span>
+                                    </div>
+                                </h2>
+                                <div class="widget-body" style="padding: 16px;">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 0.9em; min-height: 80px;">
+                                        <!-- Syslog Activity -->
+                                        <div x-show="serverHealth.syslog && !serverHealth.syslog.error" style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                                <span>📝</span>
+                                                <span>Syslog</span>
+                                                <span class="server-stat-badge" :class="{
+                                                    'badge-success': serverHealth.syslog.active,
+                                                    'badge-error': !serverHealth.syslog.active
+                                                }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
+                                                <div style="display: flex; justify-content: space-between;">
+                                                    <span>Received:</span>
+                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between;">
+                                                    <span>Errors:</span>
+                                                    <span :class="serverHealth.syslog.errors > 0 ? 'text-red' : ''" style="font-weight: 500;" x-text="serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"></span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between;" x-show="serverHealth.syslog.last_log">
+                                                    <span>Last Event:</span>
+                                                    <span style="color: var(--text-primary); font-size: 0.85em;" x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Database Activity -->
+                                        <div x-show="serverHealth.database" style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                                <span>🗄️</span>
+                                                <span>Database</span>
+                                                <span class="server-stat-badge" :class="{
+                                                    'badge-success': serverHealth.database.connected,
+                                                    'badge-error': !serverHealth.database.connected
+                                                }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
+                                                <div style="display: flex; justify-content: space-between;">
+                                                    <span>Log Count:</span>
+                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between;" x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
+                                                    <span>Growth (1h):</span>
+                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between;" x-show="serverHealth.database?.growth_rate_per_day !== undefined">
+                                                    <span>Growth (24h):</span>
+                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- NetFlow Activity -->
+                                        <div x-show="serverHealth.netflow && !serverHealth.netflow.error" style="display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                                <span>🌐</span>
+                                                <span>NetFlow</span>
+                                                <span class="server-stat-badge" :class="{
+                                                    'badge-success': serverHealth.netflow.available,
+                                                    'badge-error': !serverHealth.netflow.available
+                                                }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;" x-text="serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></span>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
+                                                <div style="display: flex; justify-content: space-between;">
+                                                    <span>File Count:</span>
+                                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() : 'N/A'"></span>
+                                                </div>
+                                                <div style="display: flex; justify-content: space-between;" x-show="serverHealth.netflow.directory">
+                                                    <span>Status:</span>
+                                                    <span style="color: var(--text-primary); font-size: 0.85em;" x-text="serverHealth.netflow.available ? 'Collecting' : 'Idle'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Database (SQLite) Statistics - Always visible (moved here from below) -->
                             <div style="margin-top: 32px;" x-show="!serverHealth.loading && !serverHealth.error">
