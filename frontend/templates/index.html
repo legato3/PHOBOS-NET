@@ -1238,57 +1238,44 @@
                                 </div>
                             </div>
 
-                            <!-- Compact Network Health Stat Box -->
-                            <div class="card stat-box clickable-stat" 
-                                :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
-                                @click="netHealthExpanded = !netHealthExpanded"
-                                style="margin-top: var(--space-4); cursor: pointer;"
-                                role="button"
-                                tabindex="0"
-                                @keydown.enter="netHealthExpanded = !netHealthExpanded"
-                                @keydown.space.prevent="netHealthExpanded = !netHealthExpanded">
-                                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: var(--space-3);">
-                                    <div style="display: flex; align-items: center; gap: var(--space-3); flex: 1; min-width: 0;">
-                                        <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em; flex-shrink: 0;"></span>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <div class="value" style="font-size: 1.5em; line-height: 1.2;"
-                                                x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</div>
-                                            <div class="label" style="margin-top: 2px; font-size: 0.85em; opacity: 0.8;">
-                                                Network Health
-                                                <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''" 
-                                                    style="margin-left: 2px; font-weight: normal;"></span>
-                                            </div>
+                            <!-- Network Health Stat Boxes -->
+                            <div class="grid mb-6 grid-auto-fit" style="margin-top: var(--space-4);">
+                                <!-- Health Score Stat Box -->
+                                <div class="card stat-box" 
+                                    :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
+                                        <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
+                                    </div>
+                                    <div class="label">Network Health
+                                        <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''" 
+                                            style="margin-left: 4px; font-weight: normal; font-size: 0.85em;"></span>
+                                    </div>
+                                </div>
+                                <!-- Health Indicator Stat Boxes -->
+                                <template x-for="ind in netHealth.indicators" :key="ind.name">
+                                    <div class="card stat-box" :class="'status-' + (ind.status === 'good' ? 'ok' : ind.status === 'warn' ? 'warning' : ind.status === 'bad' || ind.status === 'critical' ? 'critical' : 'info')">
+                                        <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                            <span x-text="ind.icon" style="font-size: 1.1em;"></span>
+                                            <span x-text="ind.value || 'N/A'"></span>
                                         </div>
+                                        <div class="label" x-text="ind.name"></div>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; flex-shrink: 0;">
-                                        <template x-for="ind in netHealth.indicators.filter(i => i.status !== 'good')" :key="ind.name">
-                                            <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,0.2); font-size: 0.75em; white-space: nowrap;">
-                                                <span x-text="ind.icon"></span>
-                                                <span x-text="ind.name"></span>
-                                            </div>
-                                        </template>
-                                        <span style="opacity: 0.6; font-size: 0.9em; flex-shrink: 0; margin-left: var(--space-1);" 
-                                            x-text="netHealthExpanded ? '▼' : '▶'"
-                                            aria-label="Toggle details"></span>
+                                </template>
+                                <!-- Loading State -->
+                                <template x-if="netHealth.loading && netHealth.indicators.length === 0">
+                                    <div class="card stat-box">
+                                        <div class="value">...</div>
+                                        <div class="label">Loading Health Data</div>
                                     </div>
-                                </div>
-                                <!-- Expandable Detail View -->
-                                <div x-show="netHealthExpanded" x-collapse style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <div class="health-indicators">
-                                        <template x-for="ind in netHealth.indicators" :key="ind.name">
-                                            <div class="health-indicator" :class="'status-' + ind.status">
-                                                <span class="ind-icon" x-text="ind.icon"></span>
-                                                <span class="ind-name" x-text="ind.name"></span>
-                                                <span class="ind-value" x-text="ind.value"></span>
-                                            </div>
-                                        </template>
-                                        <template x-if="netHealth.indicators.length === 0 && !netHealth.loading">
-                                            <div style="padding: var(--space-2); text-align: center; color: var(--text-tertiary); font-size: 0.9em;">
-                                                No health indicators available
-                                            </div>
-                                        </template>
+                                </template>
+                                <!-- Empty State -->
+                                <template x-if="!netHealth.loading && netHealth.indicators.length === 0">
+                                    <div class="card stat-box">
+                                        <div class="value">—</div>
+                                        <div class="label">No Health Indicators</div>
                                     </div>
-                                </div>
+                                </template>
                             </div>
 
                             <!-- Primary Network Endpoints: Sources & Destinations -->

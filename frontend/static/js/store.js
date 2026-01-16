@@ -112,7 +112,6 @@ export const Store = () => ({
     protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
-    netHealthExpanded: false, // State for expandable Network Health stat box
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
     databaseStats: { databases: [], loading: true, error: null },
     hosts: {
