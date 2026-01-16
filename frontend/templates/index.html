@@ -3025,8 +3025,8 @@
                                                 <div>
                                                     <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;" x-text="'Interface (' + getPrimaryInterface().name + ')'"></div>
                                                     <div class="server-stat-value" style="font-size: 0.9em;">
-                                                        <div>RX: <span x-text="getPrimaryInterface().data.rx_bytes ? (getPrimaryInterface().data.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
-                                                        <div style="margin-top: 4px;">TX: <span x-text="getPrimaryInterface().data.tx_bytes ? (getPrimaryInterface().data.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                        <div>RX: <span x-text="getPrimaryInterface().data.rx_bytes ? fmtBytes(getPrimaryInterface().data.rx_bytes) : 'N/A'"></span></div>
+                                                        <div style="margin-top: 4px;">TX: <span x-text="getPrimaryInterface().data.tx_bytes ? fmtBytes(getPrimaryInterface().data.tx_bytes) : 'N/A'"></span></div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -3046,11 +3046,11 @@
                                                     <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);" x-text="'Network Interface Details (' + getPrimaryInterface().name + ')'"></div>
                                                     <div>
                                                         <span>RX:</span>
-                                                        <span x-text="getPrimaryInterface().data.rx_bytes ? (getPrimaryInterface().data.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                        <span x-text="getPrimaryInterface().data.rx_bytes ? fmtBytes(getPrimaryInterface().data.rx_bytes) : 'N/A'"></span>
                                                     </div>
                                                     <div>
                                                         <span>TX:</span>
-                                                        <span x-text="getPrimaryInterface().data.tx_bytes ? (getPrimaryInterface().data.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                        <span x-text="getPrimaryInterface().data.tx_bytes ? fmtBytes(getPrimaryInterface().data.tx_bytes) : 'N/A'"></span>
                                                     </div>
                                                     <div>
                                                         <span>RX Packets:</span>
