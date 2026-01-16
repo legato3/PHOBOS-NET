@@ -101,8 +101,9 @@ def wallboard():
 
 @bp.route("/favicon.ico")
 def favicon():
-    """Return favicon - redirect to logo or return 204 to prevent 404 errors."""
-    return '', 204  # No content response
+    """Serve favicon file."""
+    from flask import send_from_directory
+    return send_from_directory('../frontend/static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
 @bp.route("/api/stats/summary")
