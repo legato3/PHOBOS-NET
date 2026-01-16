@@ -1746,6 +1746,23 @@ def api_host_detail(ip):
     if geo:
         country = geo.get('country_code', '')
         region_val = REGION_MAPPING.get(country, "🌐 Global")
+    
+    # Host memory: get persisted first_seen and is_new status
+    from app.db.sqlite import get_host_memory
+    from datetime import datetime, timedelta
+    memory = get_host_memory(ip)
+    is_new = False
+    first_seen_iso = None
+    
+    if memory:
+        first_seen_iso = memory["first_seen_iso"]
+        try:
+            timestamp_str = first_seen_iso.split('.')[0] if '.' in first_seen_iso else first_seen_iso
+            first_seen_dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
+            cutoff_24h = datetime.now() - timedelta(hours=24)
+            is_new = first_seen_dt > cutoff_24h
+        except (ValueError, AttributeError):
+            pass
 
     data = {
         "ip": ip,
@@ -1756,7 +1773,9 @@ def api_host_detail(ip):
         "threat_info": threat_info,
         "direction": direction,
         "src_ports": src_ports,
-        "dst_ports": dst_ports
+        "dst_ports": dst_ports,
+        "is_new": is_new,
+        "first_seen": first_seen_iso
     }
     return jsonify(data)
 

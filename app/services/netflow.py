@@ -468,10 +468,22 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         if row.get("te") and (not hosts[ip]["last_seen"] or row.get("te") > hosts[ip]["last_seen"]):
              hosts[ip]["last_seen"] = row.get("te")
     
+    # Update host memory with first_seen timestamps
+    from app.db.sqlite import update_host_memory, get_hosts_memory
+    update_host_memory(hosts)
+    
+    # Get persisted first_seen timestamps from memory
+    ip_list = list(hosts.keys())
+    memory_data = get_hosts_memory(ip_list)
+    
     # Convert to list and enrich
     import ipaddress
+    from datetime import datetime, timedelta
     
     result = []
+    now = datetime.now()
+    cutoff_24h = now - timedelta(hours=24)
+    
     for ip, data in hosts.items():
         # Determine Type (Internal/External)
         try:
@@ -482,6 +494,32 @@ def get_merged_host_stats(range_key="24h", limit=1000):
             
         data["type"] = "Internal" if is_internal else "External"
         data["total_bytes"] = data["tx_bytes"] + data["rx_bytes"]
+        
+        # Use persisted first_seen from memory if available, otherwise use flow-based first_seen
+        memory = memory_data.get(ip)
+        if memory:
+            # Use persisted first_seen (first-ever-seen)
+            data["first_seen"] = memory["first_seen_iso"]
+            # Parse to determine if new (first seen within 24h)
+            try:
+                timestamp_str = memory["first_seen_iso"].split('.')[0] if '.' in memory["first_seen_iso"] else memory["first_seen_iso"]
+                first_seen_dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
+                data["is_new"] = first_seen_dt > cutoff_24h
+            except (ValueError, AttributeError):
+                data["is_new"] = False
+        else:
+            # No memory yet - use flow-based first_seen and mark as potentially new
+            # (will be persisted on next update)
+            if data.get("first_seen"):
+                try:
+                    timestamp_str = data["first_seen"].split('.')[0] if '.' in data["first_seen"] else data["first_seen"]
+                    first_seen_dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
+                    data["is_new"] = first_seen_dt > cutoff_24h
+                except (ValueError, AttributeError):
+                    data["is_new"] = False
+            else:
+                data["is_new"] = False
+        
         result.append(data)
         
     # Sort by total volume

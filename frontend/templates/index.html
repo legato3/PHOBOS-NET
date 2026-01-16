@@ -1952,6 +1952,10 @@
                                                     <td>
                                                         <div class="flex items-center gap-2">
                                                             <div class="font-mono text-cyan" x-text="host.ip"></div>
+                                                            <!-- Subtle new host indicator -->
+                                                            <template x-if="host.is_new">
+                                                                <span class="host-new-indicator" title="New host (first seen within 24h)">🆕</span>
+                                                            </template>
                                                         </div>
                                                         <!-- Optional hostname if available in future -->
                                                     </td>
@@ -3650,7 +3654,13 @@
             <div class="modal-content">
                 <div class="modal__header"
                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h2 style="margin:0">IP Details: <span class="text-cyan" x-text="selectedIP"></span></h2>
+                    <h2 style="margin:0">
+                        IP Details: <span class="text-cyan" x-text="selectedIP"></span>
+                        <!-- Subtle new host indicator -->
+                        <template x-if="ipDetails?.is_new">
+                            <span class="host-new-indicator" title="New host (first seen within 24h)" style="margin-left: 8px; font-size: 0.7em; opacity: 0.7;">🆕</span>
+                        </template>
+                    </h2>
                     <button @click="modalOpen = false"
                         style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)"
                         aria-label="Close details">×</button>
@@ -3666,6 +3676,18 @@
                                     x-text="ipDetails?.geo?.city"></span></p>
                             <p><strong>ASN:</strong> <span x-text="ipDetails?.geo?.asn"></span> <span
                                     x-text="ipDetails?.geo?.asn_org"></span></p>
+                            <!-- Host memory: first seen -->
+                            <template x-if="ipDetails?.first_seen">
+                                <p style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">
+                                    <strong>First Seen:</strong> <span x-text="formatFlowTimestamp(ipDetails.first_seen)"></span>
+                                    <template x-if="ipDetails?.is_new">
+                                        <span style="margin-left: 6px; opacity: 0.7;" title="First seen within the last 24 hours">(New)</span>
+                                    </template>
+                                    <template x-if="!ipDetails?.is_new">
+                                        <span style="margin-left: 6px; opacity: 0.6;" title="Previously seen host">(Known)</span>
+                                    </template>
+                                </p>
+                            </template>
 
                             <!-- Hardware Info (for discovered hosts) -->
                             <div x-show="ipDetails?.mac"

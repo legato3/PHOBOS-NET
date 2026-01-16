@@ -44,6 +44,19 @@ def _trends_db_init():
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_traffic_rollups_bucket ON traffic_rollups(bucket_end);")
+            
+            # Host memory table: persistent first-ever-seen timestamps
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS host_memory (
+                    ip TEXT PRIMARY KEY,
+                    first_seen_ts REAL NOT NULL,
+                    first_seen_iso TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_host_memory_first_seen ON host_memory(first_seen_ts);")
             conn.commit()
             _trends_db_initialized = True
         finally:
@@ -201,3 +214,119 @@ def _ensure_rollup_for_bucket(bucket_end_dt):
             conn.commit()
         finally:
             conn.close()
+
+
+def update_host_memory(hosts_dict):
+    """Update host memory with first-ever-seen timestamps.
+    
+    Args:
+        hosts_dict: Dict mapping IP -> {first_seen: ISO timestamp string, ...}
+    """
+    if not hosts_dict:
+        return
+    
+    _trends_db_init()  # Ensure table exists
+    
+    now = time.time()
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            for ip, host_data in hosts_dict.items():
+                first_seen_iso = host_data.get('first_seen')
+                if not first_seen_iso:
+                    continue
+                
+                # Convert ISO timestamp to Unix timestamp for storage
+                try:
+                    # Parse nfdump format: "2023-01-01 12:00:00.123" or "2023-01-01 12:00:00"
+                    timestamp_str = first_seen_iso.split('.')[0] if '.' in first_seen_iso else first_seen_iso
+                    dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
+                    first_seen_ts = dt.timestamp()
+                except (ValueError, AttributeError):
+                    continue
+                
+                # Only insert if this IP doesn't exist, or if new first_seen is earlier
+                cur = conn.execute("SELECT first_seen_ts FROM host_memory WHERE ip = ?", (ip,))
+                row = cur.fetchone()
+                
+                if row is None:
+                    # New host - insert
+                    conn.execute(
+                        "INSERT INTO host_memory (ip, first_seen_ts, first_seen_iso, updated_at) VALUES (?, ?, ?, ?)",
+                        (ip, first_seen_ts, first_seen_iso, now)
+                    )
+                else:
+                    # Existing host - update only if new first_seen is earlier
+                    existing_ts = row[0]
+                    if first_seen_ts < existing_ts:
+                        conn.execute(
+                            "UPDATE host_memory SET first_seen_ts = ?, first_seen_iso = ?, updated_at = ? WHERE ip = ?",
+                            (first_seen_ts, first_seen_iso, now, ip)
+                        )
+            
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def get_host_memory(ip):
+    """Get persisted first-ever-seen timestamp for a host.
+    
+    Args:
+        ip: IP address string
+        
+    Returns:
+        Dict with 'first_seen_ts' (Unix timestamp) and 'first_seen_iso' (ISO string), or None
+    """
+    _trends_db_init()  # Ensure table exists
+    
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                "SELECT first_seen_ts, first_seen_iso FROM host_memory WHERE ip = ?",
+                (ip,)
+            )
+            row = cur.fetchone()
+            if row:
+                return {
+                    'first_seen_ts': row[0],
+                    'first_seen_iso': row[1]
+                }
+            return None
+        finally:
+            conn.close()
+
+
+def get_hosts_memory(ip_list):
+    """Get persisted first-ever-seen timestamps for multiple hosts.
+    
+    Args:
+        ip_list: List of IP address strings
+        
+    Returns:
+        Dict mapping IP -> {first_seen_ts, first_seen_iso}
+    """
+    if not ip_list:
+        return {}
+    
+    _trends_db_init()  # Ensure table exists
+    
+    result = {}
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            placeholders = ','.join('?' * len(ip_list))
+            cur = conn.execute(
+                f"SELECT ip, first_seen_ts, first_seen_iso FROM host_memory WHERE ip IN ({placeholders})",
+                ip_list
+            )
+            for row in cur.fetchall():
+                result[row[0]] = {
+                    'first_seen_ts': row[1],
+                    'first_seen_iso': row[2]
+                }
+        finally:
+            conn.close()
+    
+    return result

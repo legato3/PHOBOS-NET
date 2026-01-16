@@ -279,3 +279,18 @@ body.wall-mode .card h2 {
 .border-critical {
   border: 1px solid var(--border-critical);
 }
+
+/* Host memory indicator - subtle new host badge */
+.host-new-indicator {
+  font-size: 0.75em;
+  opacity: 0.6;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+  filter: grayscale(0.3);
+  transition: opacity 0.2s ease;
+}
+
+.host-new-indicator:hover {
+  opacity: 0.9;
+}
