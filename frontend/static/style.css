@@ -3662,7 +3662,7 @@ body {
     }
 
     .stat-box .value {
-        font-size: 1.4em;
+        font-size: 1.3em;
     }
 
     .title {
@@ -6529,7 +6529,7 @@ body.compact-mode {
 
     .stat-card .value,
     .stat-box .value {
-        font-size: 1.5em;
+        font-size: 1.3em;
     }
 
     /* Status Bar - Mobile */
@@ -7496,8 +7496,8 @@ body.compact-mode {
 
 /* CYBERPUNK UI: Stat box value - Numbers dominate */
 .stat-box .value {
-    font-size: var(--fs-2xl);
-    /* 28px - larger, clearer */
+    font-size: var(--fs-xl);
+    /* 22px - more consistent sizing */
     font-weight: 700;
     font-family: var(--font-mono);
     /* Monospace for signal data */
