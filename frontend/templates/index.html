@@ -3151,7 +3151,7 @@
                                 </div>
 
                                 <!-- System Activity (Compact inline metrics) -->
-                                <div class="card" style="margin-top: 32px;" x-show="!serverHealth.loading">
+                                <div class="card" style="margin-top: 32px; width: 100%;">
                                     <h2>
                                         <div class="card-title-content">
                                             <span class="title-icon">📊</span>
@@ -3159,7 +3159,7 @@
                                         </div>
                                     </h2>
                                     <div class="widget-body" style="padding: 16px;">
-                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 0.9em;">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; font-size: 0.9em; min-height: 80px;">
                                             <!-- Syslog Activity -->
                                             <div x-show="serverHealth.syslog && !serverHealth.syslog.error" style="display: flex; flex-direction: column; gap: 8px;">
                                                 <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
