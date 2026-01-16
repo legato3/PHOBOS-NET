@@ -6069,7 +6069,6 @@ body.compact-mode {
     .card table {
         display: block;
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
         white-space: nowrap;
     }
 
@@ -6825,7 +6824,6 @@ body.compact-mode {
     border-radius: 8px;
     margin-bottom: 10px;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
     gap: 16px;
 }
 

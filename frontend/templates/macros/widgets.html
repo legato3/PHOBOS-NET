@@ -22,7 +22,7 @@ card_class_bind=None, footer_content=None) %}
             {% endif %}
         </div>
     </h2>
-    <div class="widget-body" style="min-height: {{ min_height }}">
+    <div class="widget-body" data-min-height="{{ min_height }}" x-init="$el.style.minHeight = $el.dataset.minHeight">
         <!-- Skeleton Loader -->
         <div class="skeleton-container" x-show="{{ data_prop }}?.loading">
             <div class="skeleton-line title w-50"></div>

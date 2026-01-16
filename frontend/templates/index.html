@@ -5,8 +5,6 @@
     <title x-text="appMetadata.name || 'PHOBOS-NET'">PHOBOS-NET</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <!-- theme-color: Supported in Chrome, Edge, Safari, Opera. Firefox requires extension for support -->
-    <meta name="theme-color" content="#0a0e17">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -1865,11 +1863,13 @@
                                 class="mb-4 p-4 border rounded border-gray-700 bg-gray-900 bg-opacity-50">
                                 <div class="flex items-end gap-4">
                                     <div class="form-control w-full max-w-xs">
-                                        <label class="label">
+                                        <label class="label" for="discovery-target-subnet">
                                             <span class="label-text">Target Subnet</span>
                                         </label>
-                                        <select class="select select-bordered select-sm w-full"
-                                            x-model="hosts.discovery.target">
+                                        <select id="discovery-target-subnet" 
+                                            class="select select-bordered select-sm w-full"
+                                            x-model="hosts.discovery.target"
+                                            aria-label="Target Subnet">
                                             <option value="" disabled selected>Select subnet</option>
                                             <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
                                                 <option :value="net.cidr" x-text="net.interface + ' - ' + net.cidr">
@@ -2093,6 +2093,7 @@
                             <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
                                 <button class="icon-btn-small"
                                     @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()"
+                                    title="Toggle auto-refresh"
                                     :title="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
                                     :aria-label="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
                                     :style="recentBlocksAutoRefresh ? 'color: var(--signal-crit);' : 'color: var(--text-muted);'">
@@ -5847,6 +5848,7 @@
                     <div style="display:flex; gap:var(--space-3); align-items:center;">
                         <button class="btn" :class="{ 'paused': paused }" @click="togglePause()"
                             style="flex:1; min-height:44px;"
+                            title="Toggle auto-refresh pause"
                             :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
                             :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
                             <template x-if="!paused">
