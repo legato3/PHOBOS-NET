@@ -148,7 +148,8 @@ async function safeFetch(url, options = {}) {
                 throw errorData;
             }
 
-            return response;
+            // Clone response to allow multiple reads (for deduplication)
+            return response.clone();
         } catch (error) {
             if (error.name === 'AbortError') {
                 throw new Error('Request timeout: The request took too long to complete.');

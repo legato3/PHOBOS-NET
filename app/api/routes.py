@@ -99,6 +99,12 @@ def wallboard():
     return render_template("wallboard.html")
 
 
+@bp.route("/favicon.ico")
+def favicon():
+    """Return favicon - redirect to logo or return 204 to prevent 404 errors."""
+    return '', 204  # No content response
+
+
 @bp.route("/api/stats/summary")
 @throttle(5, 10)
 def api_stats_summary():
