@@ -4174,7 +4174,7 @@ def api_forensics_evidence():
                     'description': f'Network flow records for {target_ip}',
                     'record_count': flow_count,
                     'time_range': time_range,
-                    'data_hash': hash(output)[:16] if output else None,
+                    'data_hash': str(hash(output))[:16] if output else None,
                     'collection_method': 'nfdump',
                     'preserved': preserve_data
                 })
