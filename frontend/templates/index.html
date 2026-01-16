@@ -1251,37 +1251,37 @@
                                 <!-- Health Score Stat Box -->
                                 <div class="card stat-box" 
                                     :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')">
-                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2); font-size: 0.95em;">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                                         <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                                     </div>
-                                    <div class="label" style="font-size: 1em;">Network Health
+                                    <div class="label">Network Health
                                         <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''" 
-                                            style="margin-left: 4px; font-weight: normal; font-size: 0.95em;"></span>
+                                            style="margin-left: 4px; font-weight: normal;"></span>
                                     </div>
                                 </div>
                                 <!-- Health Indicator Stat Boxes -->
                                 <template x-for="ind in netHealth.indicators" :key="ind.name">
                                     <div class="card stat-box" :class="'status-' + (ind.status === 'good' ? 'ok' : ind.status === 'warn' ? 'warning' : ind.status === 'bad' || ind.status === 'critical' ? 'critical' : 'info')">
-                                        <div class="value" style="display: flex; align-items: center; gap: var(--space-2); font-size: 0.95em;">
+                                        <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                             <span x-text="ind.icon" style="font-size: 1.1em;"></span>
                                             <span x-text="ind.value || 'N/A'"></span>
                                         </div>
-                                        <div class="label" style="font-size: 1em;" x-text="ind.name"></div>
+                                        <div class="label" x-text="ind.name"></div>
                                     </div>
                                 </template>
                                 <!-- Loading State -->
                                 <template x-if="netHealth.loading && netHealth.indicators.length === 0">
                                     <div class="card stat-box">
-                                        <div class="value" style="font-size: 0.95em;">...</div>
-                                        <div class="label" style="font-size: 1em;">Loading Health Data</div>
+                                        <div class="value">...</div>
+                                        <div class="label">Loading Health Data</div>
                                     </div>
                                 </template>
                                 <!-- Empty State -->
                                 <template x-if="!netHealth.loading && netHealth.indicators.length === 0">
                                     <div class="card stat-box">
-                                        <div class="value" style="font-size: 0.95em;">—</div>
-                                        <div class="label" style="font-size: 1em;">No Health Indicators</div>
+                                        <div class="value">—</div>
+                                        <div class="label">No Health Indicators</div>
                                     </div>
                                 </template>
                             </div>
