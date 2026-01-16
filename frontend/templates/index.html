@@ -363,6 +363,7 @@
                                         x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
                                         ...</div>
                                     <div class="label">Active Alerts</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
                                 </div>
                                 
                                 <!-- Mobile: Priority Stats (Above Fold) -->
@@ -380,6 +381,7 @@
                                         </template>
                                     </div>
                                     <div class="label">Active Flows</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
                                 </div>
                                 <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()" style="cursor: pointer;"
                                     title="Click to view external connections">
@@ -410,6 +412,8 @@
                                         </template>
                                     </div>
                                     <div class="label">Blocked Events (24h)</div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                                 </div>
                                 <div class="stat-box mobile-secondary-stat"
                                     :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
@@ -426,10 +430,13 @@
                                                 :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
                                         </template>
                                     </div>
-                                    <div class="label">Anomalies (24h)
+                                    <div class="label">Anomalies (24h)</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
+                                    <div class="label" style="display: none;">Anomalies (24h)
                                         <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
                                             title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
                                     </div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; display: none;">Fixed 24h window</div>
                                 </div>
                             </div>
 
@@ -438,7 +445,7 @@
                                 <template x-if="isVisible('bandwidth')">
                                     {% set bw_actions %}
                                     <div class="status-pills">
-                                        <span class="status-pill running">Live</span>
+                                        <span class="status-pill" style="background: var(--bg-2); color: var(--text-secondary);">Based on selected time range</span>
                                     </div>
                                     {% endset %}
                                     {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
@@ -468,9 +475,12 @@
                             {% set wm_actions %}{% endset %}
 
                             {% set wm_title %}
-                            <span>Traffic World Map</span>
-                            <span x-show="mapStatus" x-text="'[' + mapStatus + ']'"
-                                class="text-7 text-yellow ml-2"></span>
+                            <div>
+                                <span>Traffic World Map</span>
+                                <span x-show="mapStatus" x-text="'[' + mapStatus + ']'"
+                                    class="text-7 text-yellow ml-2"></span>
+                                <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;">Based on selected time range</div>
+                            </div>
                             {% endset %}
                             <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
                             {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
@@ -1201,6 +1211,7 @@
                                         </template>
                                     </div>
                                     <div class="label">Active Flows</div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
                                 </div>
                                 <div class="card stat-box">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -1230,9 +1241,10 @@
                                         </template>
                                     </div>
                                     <div class="label">Network Anomalies (24h)
-                                        <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
+                                            <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
                                             title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
-                                    </div>
+                                        </div>
+                                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                                 </div>
                             </div>
 
@@ -1686,7 +1698,7 @@
 
                                 <!-- Traffic Insights (Unified InsightPanel) -->
                                 <template x-if="isVisible('insights')">
-                                    {% call insight_panel('traffic', 'Traffic Insights', '💡', 'timeRange') %}
+                                    {% call insight_panel('traffic', 'Traffic Insights', '💡', 'global_time_range') %}
                                         <!-- Expanded View Content - Top 5 Talkers -->
                                         <template x-if="sources.sources && sources.sources.length > 0">
                                             <div style="margin-bottom: 16px;">
@@ -2035,6 +2047,7 @@
                                     </template>
                                 </div>
                                 <div class="label">Blocked Events (24h)</div>
+                                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Fixed 24h window</div>
                             </div>
                             <div class="card stat-box">
                                 <div class="value"
@@ -2580,6 +2593,9 @@
                         <section id="section-flows" class="scroll-section" style="margin-bottom: 32px;">
                             {% set conv_actions %}
                             <div class="flex gap-2" style="align-items: center;">
+                                <div class="status-pills">
+                                    <span class="status-pill running">Live</span>
+                                </div>
                                 <button @click="setFlowsViewLimit(15)"
                                     :class="{ 'btn--primary': flows.viewLimit === 15, 'btn--secondary': flows.viewLimit !== 15 }"
                                     class="btn"

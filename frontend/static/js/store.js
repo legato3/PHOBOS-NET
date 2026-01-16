@@ -1021,6 +1021,11 @@ export const Store = () => ({
         if (elapsed < 120) return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'stale' };
         return { text: `${Math.floor(elapsed / 60)}m ago`, class: 'error' };
     },
+    
+    // Global time range context - single source of truth for time-based widgets
+    get global_time_range() {
+        return this.timeRange;
+    },
 
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
@@ -1810,7 +1815,7 @@ export const Store = () => ({
         this.sources.error = null;
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/stats/sources?range=${this.timeRange}`);
+            const res = await safeFetchFn(`/api/stats/sources?range=${this.global_time_range}`);
             this.sources = { ...(await res.json()), loading: false, error: null };
             // Update insights after sources load
             this.computeTrafficInsights();
@@ -1829,7 +1834,7 @@ export const Store = () => ({
         this.destinations.error = null;
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/stats/destinations?range=${this.timeRange}`);
+            const res = await safeFetchFn(`/api/stats/destinations?range=${this.global_time_range}`);
             this.destinations = { ...(await res.json()), loading: false, error: null };
             // Update insights after destinations load (for Top Destination baseline insight)
             this.computeTrafficInsights();
@@ -1847,7 +1852,7 @@ export const Store = () => ({
         this.ports.error = null;
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/stats/ports?range=${this.timeRange}`);
+            const res = await safeFetchFn(`/api/stats/ports?range=${this.global_time_range}`);
             this.ports = { ...(await res.json()), loading: false, error: null };
             // Update insights after ports load
             this.computeTrafficInsights();
@@ -1982,7 +1987,7 @@ export const Store = () => ({
         this.protocols.error = null;
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/stats/protocols?range=${this.timeRange}`);
+            const res = await safeFetchFn(`/api/stats/protocols?range=${this.global_time_range}`);
             this.protocols = { ...(await res.json()), loading: false, error: null };
             // Update insights after protocols load
             this.computeTrafficInsights();
@@ -2096,6 +2101,8 @@ export const Store = () => ({
         finally { this.securityScore.loading = false; }
     },
 
+    // FIXED-SCOPE: Active Alerts (realtime) - does not use global_time_range
+    // Note: Returns current active alerts, not time-range dependent
     async fetchAlertHistory() {
         this.alertHistory.loading = true;
         try {
@@ -2145,6 +2152,7 @@ export const Store = () => ({
         finally { this.protocolAnomalies.loading = false; }
     },
 
+    // FIXED-SCOPE: Blocked Events (24h) - fixed 24h window, does not use global_time_range
     async fetchFirewallStatsOverview() {
         this.firewallStatsOverview.loading = true;
         try {
@@ -2537,6 +2545,8 @@ export const Store = () => ({
         }
     },
 
+    // FIXED-SCOPE: Active Alerts (realtime) - does not use global_time_range
+    // Note: API accepts range param but widget is marked as realtime for UI clarity
     async fetchAlerts() {
         this.alerts.loading = true;
         try {
@@ -2545,6 +2555,8 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
     },
 
+    // FIXED-SCOPE: Active Flows (realtime) - does not use global_time_range
+    // Note: API accepts range param but widget is marked as realtime for UI clarity
     async fetchFlows() {
         this.flows.loading = true;
         try {
@@ -2811,7 +2823,7 @@ export const Store = () => ({
     async fetchWorldMap() {
         this.worldMap.loading = true;
         try {
-            const res = await fetch(`/api/stats/worldmap?range=${this.timeRange}`);
+            const res = await fetch(`/api/stats/worldmap?range=${this.global_time_range}`);
             if (res.ok) {
                 const data = await res.json();
                 this.worldMap = { ...data, lastUpdate: new Date().toISOString() };
@@ -3405,6 +3417,8 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
     },
 
+    // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range
+    // Note: Returns anomalies_24h field, not time-range dependent
     async fetchNetworkStatsOverview() {
         this.networkStatsOverview.loading = true;
         try {
@@ -3696,7 +3710,7 @@ export const Store = () => ({
         this.bandwidth.error = null;
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
-            const res = await safeFetchFn(`/api/bandwidth?range=${this.timeRange}`);
+            const res = await safeFetchFn(`/api/bandwidth?range=${this.global_time_range}`);
             const data = await res.json();
             this.bandwidth = { ...data, loading: false, error: null };
             this.updateBwChart(data);
