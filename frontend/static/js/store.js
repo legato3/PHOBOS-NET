@@ -5440,12 +5440,12 @@ export const Store = () => ({
                 this.fetchTopThreatIPs();
                 this.fetchCompromisedHosts();
                 this.fetchRiskIndex();
-                this.fetchAttackTimeline();
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchFeedHealth();
                 this.fetchWatchlist();
                 this.fetchMaliciousPorts();
+                this.fetchThreatActivityTimeline();
                 this.lastFetch.security = now;
             }
         } else if (tab === 'network') {
