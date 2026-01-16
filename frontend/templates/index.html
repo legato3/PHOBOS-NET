@@ -383,7 +383,7 @@
                                     </div>
                                     <div class="label">Active Flows</div>
                                 </div>
-                                <div class="stat-box" @click="navigateToExternalConnections()" style="cursor: pointer;"
+                                <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()" style="cursor: pointer;"
                                     title="Click to view external connections">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
@@ -398,7 +398,7 @@
                                     </div>
                                     <div class="label">External Connections</div>
                                 </div>
-                                <div class="stat-box" @click="navigateToFirewallLogs()" style="cursor: pointer;"
+                                <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()" style="cursor: pointer;"
                                     title="Click to view firewall logs">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
@@ -5361,6 +5361,86 @@
             <div class="modal__footer"
                 style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
                 <button class="btn btn--primary" @click="overallHealthModalOpen = false">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Controls Modal -->
+    <div class="modal" x-show="mobileControlsModalOpen" :style="mobileControlsModalOpen ? 'display:flex' : 'display:none'"
+        @click.self="mobileControlsModalOpen = false">
+        <div class="modal-content" style="max-width: 100%;">
+            <div class="modal__header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; color:var(--text-0);">Controls</h3>
+                <button @click="mobileControlsModalOpen = false"
+                    style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                    aria-label="Close">×</button>
+            </div>
+            <div class="modal__body" style="color:var(--text-0);">
+                <!-- Search -->
+                <div style="margin-bottom:var(--space-4);">
+                    <label style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Search UI</label>
+                    <div class="search-wrapper" style="width:100%;">
+                        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" x-model="searchQuery" placeholder="Search UI" class="global-search"
+                            aria-label="Search UI" style="width:100%;">
+                    </div>
+                </div>
+                
+                <!-- Time Range -->
+                <div style="margin-bottom:var(--space-4);">
+                    <label style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Time Range</label>
+                    <select x-model="timeRange" class="header-select" aria-label="Time Range" style="width:100%; min-height:44px;">
+                        <option value="15m">15m</option>
+                        <option value="30m">30m</option>
+                        <option value="1h">1h</option>
+                        <option value="6h">6h</option>
+                        <option value="24h">24h</option>
+                        <option value="7d">7d</option>
+                    </select>
+                </div>
+                
+                <!-- Refresh Interval -->
+                <div style="margin-bottom:var(--space-4);">
+                    <label style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Refresh Interval</label>
+                    <select x-model="refreshInterval" class="header-select" aria-label="Refresh Interval" style="width:100%; min-height:44px;">
+                        <option value="10000">10s</option>
+                        <option value="30000">30s</option>
+                        <option value="60000">1m</option>
+                        <option value="300000">5m</option>
+                    </select>
+                </div>
+                
+                <!-- Live Controls -->
+                <div style="margin-bottom:var(--space-4);">
+                    <label style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Auto-Refresh</label>
+                    <div style="display:flex; gap:var(--space-3); align-items:center;">
+                        <button class="btn" :class="{ 'paused': paused }" @click="togglePause()"
+                            style="flex:1; min-height:44px;"
+                            :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
+                            :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
+                            <template x-if="!paused">
+                                <span>⏸ Pause</span>
+                            </template>
+                            <template x-if="paused">
+                                <span>▶ Resume</span>
+                            </template>
+                        </button>
+                        <button class="btn" @click="dataRefresh(); mobileControlsModalOpen = false"
+                            style="flex:1; min-height:44px;"
+                            title="Refresh" aria-label="Refresh">
+                            <span>🔄 Refresh Now</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer"
+                style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
+                <button class="btn btn--primary" @click="mobileControlsModalOpen = false" style="min-height:44px;">Close</button>
             </div>
         </div>
     </div>

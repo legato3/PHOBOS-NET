@@ -36,6 +36,11 @@ body {
   border-bottom: 1px solid var(--border-soft);
 }
 
+/* Hide mobile controls button on desktop by default */
+.mobile-controls-btn {
+  display: none;
+}
+
 .header-left,
 .header-right {
   display: flex;

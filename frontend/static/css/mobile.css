@@ -44,57 +44,83 @@
         width: 100%;
     }
     
-    /* Header: Stacked layout */
+    /* Header: Compact layout */
     .header {
-        flex-direction: column;
-        gap: var(--space-3);
-        padding: var(--space-3);
-        align-items: stretch;
+        padding: var(--space-2) var(--space-3);
+        min-height: 48px;
+        height: auto;
     }
     
-    .header-left,
-    .header-center,
+    .header-left {
+        flex: 1;
+    }
+    
+    /* Hide desktop controls on mobile */
+    .mobile-hide-controls {
+        display: none !important;
+    }
+    
+    /* Show mobile controls button on mobile */
+    .mobile-controls-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
     .header-right {
-        width: 100%;
-    }
-    
-    .header-center {
-        order: 2;
-    }
-    
-    .header-right {
-        order: 3;
-        flex-wrap: wrap;
         gap: var(--space-2);
     }
     
     /* ============================================
-       STAT BOXES: Max 2 per row (override existing)
+       STAT BOXES: Priority layout for mobile
        ============================================ */
     
     .summary-stats-grid {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: var(--space-3);
+        gap: var(--space-2);
+        padding: var(--space-2) 0;
+        margin-bottom: var(--space-2);
+    }
+    
+    /* All stat boxes visible - 2-column grid naturally shows 2 cards per row */
+    /* First row (above fold): Overall Health + Active Alerts */
+    /* Remaining rows (below scroll): Other metrics */
+    .stat-box {
+        display: block !important;
     }
     
     .grid-auto-fit {
         grid-template-columns: repeat(2, 1fr);
-        gap: var(--space-3);
+        gap: var(--space-2);
     }
     
     .stat-box {
-        min-height: 90px;
-        padding: var(--space-4);
+        min-height: 75px;
+        padding: var(--space-2) var(--space-3);
     }
     
     .stat-box .value {
-        font-size: 1.5em;
+        font-size: 1.3em;
         line-height: 1.2;
+        font-weight: 600;
     }
     
     .stat-box .label {
-        font-size: var(--text-sm);
+        font-size: var(--text-xs);
         margin-top: var(--space-1);
+        line-height: 1.3;
+    }
+    
+    /* Simplify Overall Health on mobile - remove explanatory text */
+    .stat-box .mobile-hide {
+        display: none !important;
+    }
+    
+    /* Ensure priority stats are compact */
+    .stat-box.mobile-priority-stat {
+        min-height: 70px;
     }
     
     /* ============================================
@@ -189,13 +215,37 @@
        ============================================ */
     
     .card {
-        padding: var(--space-4);
-        margin-bottom: var(--space-4);
+        padding: var(--space-3);
+        margin-bottom: var(--space-3);
     }
     
     .card h2 {
-        font-size: var(--text-lg);
-        margin-bottom: var(--space-3);
+        font-size: var(--text-base);
+        margin-bottom: var(--space-2);
+    }
+    
+    /* Reduce section spacing for mobile */
+    .scroll-section {
+        margin-bottom: var(--space-3) !important;
+    }
+    
+    .mb-8 {
+        margin-bottom: var(--space-3) !important;
+    }
+    
+    /* Reduce padding in main content area */
+    .main-content {
+        padding: var(--space-2) var(--space-3);
+    }
+    
+    /* Touch-first spacing: ensure adequate spacing between interactive elements */
+    .stat-box {
+        margin-bottom: 0; /* Grid gap handles spacing */
+    }
+    
+    /* Ensure adequate spacing for scroll sections */
+    #section-summary {
+        padding-top: var(--space-2);
     }
     
     /* Grid layouts: Single column */
@@ -326,6 +376,7 @@
         min-width: 120px;
     }
     
+    
     /* ============================================
        TOUCH-FRIENDLY INTERACTIONS
        ============================================ */
@@ -356,16 +407,16 @@
 @media (max-width: 480px) {
     /* Even more compact */
     .stat-box {
-        min-height: 80px;
-        padding: var(--space-3);
+        min-height: 75px;
+        padding: var(--space-2);
     }
     
     .stat-box .value {
-        font-size: 1.3em;
+        font-size: 1.2em;
     }
     
     .card {
-        padding: var(--space-3);
+        padding: var(--space-2);
     }
     
     .header {
@@ -373,12 +424,13 @@
     }
     
     .page-title {
-        font-size: var(--text-lg);
+        font-size: var(--text-base);
     }
     
-    /* Single column for everything */
+    /* Single column for priority stats on very small screens */
     .summary-stats-grid {
         grid-template-columns: 1fr !important;
+        gap: var(--space-2);
     }
     
     /* Smaller text */
@@ -390,6 +442,11 @@
     /* Hide search shortcut hint */
     .search-shortcut {
         display: none;
+    }
+    
+    /* Further reduce spacing */
+    .scroll-section {
+        margin-bottom: var(--space-3) !important;
     }
 }
 
