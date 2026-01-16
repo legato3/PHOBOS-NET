@@ -138,10 +138,10 @@ def run_nfdump(args, tf=None):
     timeout = False
     
     try:
-        # PERFORMANCE: Check nfdump availability once and cache result (expensive subprocess call)
-        if state._has_nfdump is None:
+        # PERFORMANCE: Check nfdump availability. Retry if previously failed.
+        if state._has_nfdump is not True:
             try:
-                subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=2)
+                subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=5)
                 state._has_nfdump = True
             except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
                 state._has_nfdump = False
@@ -185,12 +185,29 @@ def run_nfdump(args, tf=None):
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
     results = []
+    if not output:
+        return results
+        
     lines = output.strip().split("\n")
     if not lines:
         return results
     
-    # Header detection
-    header_line = lines[0].lower()
+    # Header detection - Scan for the real CSV header (starts with ts,)
+    # This skips warnings like "Command line switch -s overwrites -a"
+    header_idx = -1
+    for i, line in enumerate(lines):
+        if line.lower().startswith('ts,'):
+            header_idx = i
+            break
+            
+    if header_idx != -1:
+        header_line = lines[header_idx].lower()
+        start_row_idx = header_idx + 1
+    else:
+        # Fallback to first line if no standard header found
+        header_line = lines[0].lower()
+        start_row_idx = 1
+        
     cols = [c.strip() for c in header_line.split(',')]
     
     try:
@@ -234,6 +251,8 @@ def parse_csv(output, expected_key=None):
             bytes_idx = cols.index('byt')
         elif 'bytes' in cols:
             bytes_idx = cols.index('bytes')
+        elif 'obyt' in cols: 
+            bytes_idx = cols.index('obyt')
         
         flows_idx = -1
         if 'fl' in cols:
@@ -248,6 +267,8 @@ def parse_csv(output, expected_key=None):
             packets_idx = cols.index('pkt')
         elif 'packets' in cols:
             packets_idx = cols.index('packets')
+        elif 'opkt' in cols:
+            packets_idx = cols.index('opkt')
         
         if bytes_idx == -1:
             bytes_idx = 12
@@ -256,7 +277,7 @@ def parse_csv(output, expected_key=None):
         return results
     
     seen_keys = set()
-    for line in lines[1:]:
+    for line in lines[start_row_idx:]:
         if not line:
             continue
         if 'ts,' in line or 'te,' in line or 'Date first seen' in line:
@@ -314,8 +335,9 @@ def get_traffic_direction(ip, tf):
                 return entry["data"]
     
     # Fetch data (two nfdump calls)
-    out = run_nfdump(["-a", f"src ip {ip}", "-s", "srcip/bytes", "-n", "1"], tf)
-    in_data = run_nfdump(["-a", f"dst ip {ip}", "-s", "dstip/bytes", "-n", "1"], tf)
+    # Filter must be LAST arguments
+    out = run_nfdump(["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
+    in_data = run_nfdump(["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
     upload = out_parsed[0]["bytes"] if out_parsed else 0
@@ -378,6 +400,17 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     
     Derived entirely from nfdump data.
     """
+    # PERFORMANCE: Cache result to avoid heavy nfdump 48h queries
+    now = time.time()
+    win = int(now // 60)
+    # Different cache key for different limits, though larger limit could satisfy smaller one.
+    # For now, keep it simple.
+    cache_key = f"merged_host_stats:{range_key}:{limit}:{win}"
+    
+    with _common_data_lock:
+        if cache_key in _common_data_cache:
+            return _common_data_cache[cache_key]["data"]
+            
     tf = get_time_range(range_key)
     
     # Run two queries: Sources (TX) and Destinations (RX)
@@ -454,4 +487,9 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     # Sort by total volume
     result.sort(key=lambda x: x["total_bytes"], reverse=True)
     
-    return result[:limit]
+    final_result = result[:limit]
+    
+    with _common_data_lock:
+        _common_data_cache[cache_key] = {"data": final_result, "ts": now}
+        
+    return final_result

@@ -78,6 +78,7 @@ export const Store = () => ({
 
     // Mobile UI state
     showMobileFilters: false,
+    worldMapMobileVisible: false,
 
     // Sparkline cache
     sparkCache: {}, // { key: { ts, labels, bytes } }
@@ -2215,6 +2216,7 @@ export const Store = () => ({
 
     // Get flow direction indicator
     getFlowDirection(flow) {
+        if (!flow) return 'external';
         if (flow.direction) return flow.direction;
         const srcInt = flow.src_internal !== undefined ? flow.src_internal : this.isInternalIP(flow.src);
         const dstInt = flow.dst_internal !== undefined ? flow.dst_internal : this.isInternalIP(flow.dst);
@@ -2226,6 +2228,7 @@ export const Store = () => ({
 
     // Get direction arrow/indicator
     getDirectionIndicator(flow) {
+        if (!flow) return { symbol: '→', color: 'var(--text-muted)', title: 'Unknown' };
         const dir = this.getFlowDirection(flow);
         if (dir === 'outbound') return { symbol: '↗', color: 'var(--signal-primary)', title: 'Outbound (Internal → External)' };
         if (dir === 'inbound') return { symbol: '↙', color: 'var(--signal-secondary)', title: 'Inbound (External → Internal)' };
@@ -4649,9 +4652,6 @@ export const Store = () => ({
             }
         }
     },
-    
-    // Mobile world map visibility
-    worldMapMobileVisible: false,
 
     // Widget Management Methods - Using DashboardWidgets module
     loadWidgetPreferences() {

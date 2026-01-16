@@ -185,6 +185,19 @@ def is_ip_threat(ip):
     return ip in load_threatlist()
 
 
+def get_recent_alert_ips(seconds):
+    """Get unique IPs involved in alerts within X seconds."""
+    threshold = time.time() - seconds
+    ips = set()
+    with _alert_history_lock:
+        for alert in _alert_history:
+            if alert.get('ts', 0) >= threshold:
+                ip = alert.get('ip') or alert.get('src_ip')
+                if ip:
+                    ips.add(ip)
+    return ips
+
+
 def load_watchlist():
     """Load custom watchlist IPs"""
     global _watchlist_cache
