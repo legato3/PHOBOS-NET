@@ -3799,32 +3799,18 @@ def api_forensics_timeline():
         if len(lines) < 2:
             return jsonify({"error": "Insufficient data for timeline analysis"}), 404
 
-        header_line = lines[0].lower()
-        header = [c.strip() for c in header_line.split(',')]
+        header_line = lines[0]
+        header = [c.strip().lower() for c in header_line.split(',')]
         
         # Find column indices
         try:
-            # Map actual nfdump columns to expected names
-            column_mapping = {
-                'firstSeen': 'ts',
-                'duration': 'te', 
-                'proto': 'pr',
-                'srcAddr': 'sa',
-                'srcPort': 'sp',
-                'dstAddr': 'da',
-                'dstPort': 'dp',
-                'packets': 'ipkt',
-                'bytes': 'ibyt',
-                'flows': 'flows'
-            }
-            
-            # Find indices for actual columns
-            ts_idx = header.index('firstSeen') if 'firstSeen' in header else -1
+            # Map actual nfdump columns to expected names (case-insensitive)
+            ts_idx = header.index('firstseen') if 'firstseen' in header else -1
             te_idx = header.index('duration') if 'duration' in header else -1
-            sa_idx = header.index('srcAddr') if 'srcAddr' in header else -1
-            da_idx = header.index('dstAddr') if 'dstAddr' in header else -1
-            sp_idx = header.index('srcPort') if 'srcPort' in header else -1
-            dp_idx = header.index('dstPort') if 'dstPort' in header else -1
+            sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
+            da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
+            sp_idx = header.index('srcport') if 'srcport' in header else -1
+            dp_idx = header.index('dstport') if 'dstport' in header else -1
             pr_idx = header.index('proto') if 'proto' in header else -1
             flg_idx = -1  # Flags not available in this format
             ibyt_idx = header.index('bytes') if 'bytes' in header else -1
@@ -4003,16 +3989,16 @@ def api_forensics_session():
         if len(lines) < 2:
             return jsonify({"error": "Insufficient data for session analysis"}), 404
 
-        header_line = lines[0].lower()
-        header = [c.strip() for c in header_line.split(',')]
+        header_line = lines[0]
+        header = [c.strip().lower() for c in header_line.split(',')]
         
         # Find column indices
         try:
-            # Map actual nfdump columns to expected names
-            ts_idx = header.index('firstSeen') if 'firstSeen' in header else -1
+            # Map actual nfdump columns to expected names (case-insensitive)
+            ts_idx = header.index('firstseen') if 'firstseen' in header else -1
             te_idx = header.index('duration') if 'duration' in header else -1
-            sp_idx = header.index('srcPort') if 'srcPort' in header else -1
-            dp_idx = header.index('dstPort') if 'dstPort' in header else -1
+            sp_idx = header.index('srcport') if 'srcport' in header else -1
+            dp_idx = header.index('dstport') if 'dstport' in header else -1
             pr_idx = header.index('proto') if 'proto' in header else -1
             ibyt_idx = header.index('bytes') if 'bytes' in header else -1
             ipkt_idx = header.index('packets') if 'packets' in header else -1
