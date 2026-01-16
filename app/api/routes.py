@@ -1316,9 +1316,57 @@ def api_stats_net_health():
     health_score = 100
 
     try:
+        # Handle empty or None output - nfdump may be available but no data for time range
+        # Check for None first to avoid AttributeError on .strip()
+        if output is None or (isinstance(output, str) and not output.strip()):
+            # nfdump is available but no data - show appropriate message
+            nfdump_available = state._has_nfdump if state._has_nfdump is not None else True
+            if not nfdump_available:
+                raise ValueError("nfdump unavailable")
+            else:
+                # nfdump available but no data for this time range - return empty indicators
+                data = {
+                    "indicators": [],
+                    "health_score": 100,
+                    "status": "healthy",
+                    "status_icon": "💚",
+                    "total_flows": 0,
+                    "firewall_active": False,
+                    "blocks_1h": 0
+                }
+                with _cache_lock:
+                    _stats_net_health_cache["data"] = data
+                    _stats_net_health_cache["ts"] = now
+                    _stats_net_health_cache["key"] = range_key
+                    _stats_net_health_cache["win"] = win
+                return jsonify(data)
+        
+        # Ensure output is a string before processing
+        if output is None:
+            output = ""
         lines = output.strip().split("\n")
         if len(lines) < 2:
-            raise ValueError("No flow data available")
+            # Check if nfdump is available - if yes, this is just no data, not an error
+            nfdump_available = state._has_nfdump if state._has_nfdump is not None else True
+            if nfdump_available:
+                # nfdump available but no data - return empty indicators
+                data = {
+                    "indicators": [],
+                    "health_score": 100,
+                    "status": "healthy",
+                    "status_icon": "💚",
+                    "total_flows": 0,
+                    "firewall_active": False,
+                    "blocks_1h": 0
+                }
+                with _cache_lock:
+                    _stats_net_health_cache["data"] = data
+                    _stats_net_health_cache["ts"] = now
+                    _stats_net_health_cache["key"] = range_key
+                    _stats_net_health_cache["win"] = win
+                return jsonify(data)
+            else:
+                raise ValueError("No flow data available")
 
         # Dynamic column detection
         header_line = lines[0].lower()
@@ -1573,9 +1621,17 @@ def api_stats_net_health():
         print(f"Error in net_health: {e}")
         import traceback
         traceback.print_exc()
+        # Check if nfdump is actually available before showing nfdump error
+        nfdump_available = state._has_nfdump if state._has_nfdump is not None else True  # Assume available if not checked yet
+        # Only show nfdump-specific error if nfdump is confirmed unavailable
+        if not nfdump_available:
+            error_indicator = {"name": "Data Unavailable", "value": "Check nfdump", "status": "warn", "icon": "⚠️"}
+        else:
+            # nfdump is available, so error is likely parsing or data-related
+            error_indicator = {"name": "Data Error", "value": "Processing issue", "status": "warn", "icon": "⚠️"}
         # Return degraded but informative status
         data = {
-            "indicators": [{"name": "Data Unavailable", "value": "Check nfdump", "status": "warn", "icon": "⚠️"}],
+            "indicators": [error_indicator],
             "health_score": 0,
             "status": "degraded",
             "status_icon": "⚠️",

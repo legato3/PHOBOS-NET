@@ -5261,11 +5261,18 @@ export const Store = () => ({
         this.selectedIP = ip;
         this.modalOpen = true;
         this.ipLoading = true;
-        this.ipDetails = null;
+        // Initialize ipDetails with timeline structure to prevent null reference errors
+        this.ipDetails = { timeline: { labels: [], bytes: [], flows: [], loading: true } };
         try {
             const res = await fetch(`/api/ip_detail/${ip}`);
-            if (res.ok) this.ipDetails = await res.json();
-        } catch (e) { console.error(e); }
+            if (res.ok) {
+                const data = await res.json();
+                this.ipDetails = { ...data, timeline: this.ipDetails.timeline };
+            }
+        } catch (e) { 
+            console.error(e);
+            this.ipDetails = { error: 'Failed to load details', timeline: { labels: [], bytes: [], flows: [], loading: false } };
+        }
         this.ipLoading = false;
     },
 

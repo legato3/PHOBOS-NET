@@ -155,11 +155,12 @@ def run_nfdump(args, tf=None):
                 cmd.extend(args)
                 
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=DEFAULT_TIMEOUT)
-                if r.returncode == 0 and r.stdout:
+                if r.returncode == 0:
+                    # nfdump ran successfully - return stdout even if empty (no data for time range)
                     success = True
-                    result = r.stdout
+                    result = r.stdout if r.stdout else ""
                 else:
-                    # Subprocess ran but failed
+                    # Subprocess ran but failed (non-zero exit code)
                     result = None
             except subprocess.TimeoutExpired:
                 timeout = True
@@ -175,7 +176,8 @@ def run_nfdump(args, tf=None):
             if result:
                 success = True
         
-        return result
+        # Ensure we always return a string, never None
+        return result if result is not None else ""
     finally:
         # OBSERVABILITY: Track subprocess metrics
         duration = time.time() - start_time
@@ -185,6 +187,9 @@ def run_nfdump(args, tf=None):
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
     results = []
+    # Defensive check: ensure output is a string (handle None case)
+    if output is None:
+        return results
     if not output:
         return results
         
