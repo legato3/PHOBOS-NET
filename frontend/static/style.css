@@ -4445,8 +4445,8 @@ body {
 /* Compact Authority Header */
 .authority-header-compact {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: var(--space-1);
     padding: var(--space-3) 0;
     border-bottom: 2px solid var(--signal-crit);
     margin-bottom: var(--space-4);
@@ -4456,6 +4456,18 @@ body {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+}
+
+.state-explanation {
+    display: flex;
+    justify-content: center;
+}
+
+.explanation-text {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-style: italic;
+    font-weight: 500;
 }
 
 .authority-label {

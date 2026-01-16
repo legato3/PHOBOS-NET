@@ -676,6 +676,9 @@
                                             <span class="authority-value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
                                                 x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
                                         </div>
+                                        <div class="state-explanation">
+                                            <span class="explanation-text">Detection capability reduced</span>
+                                        </div>
                                     </div>
                                     <div class="observability-display">
                                         
@@ -683,8 +686,8 @@
                                     <div class="compact-signals">
                                         <!-- One-Line Cause -->
                                         <div class="cause-compact">
-                                            <span class="cause-label">Cause:</span>
-                                            <span class="cause-text">Insufficient threat intelligence coverage</span>
+                                            <span class="cause-label">Primary limitation:</span>
+                                            <span class="cause-text">Threat intelligence coverage gaps</span>
                                         </div>
                                         
                                         <!-- Compact Signals List -->
@@ -692,19 +695,19 @@
                                             <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
                                                 <div class="signal-item-compact">
                                                     <span class="signal-icon">🛡️</span>
-                                                    <span class="signal-text">Protection active</span>
+                                                    <span class="signal-text">Protection: Active</span>
                                                 </div>
                                             </template>
                                             <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
                                                 <div class="signal-item-compact">
                                                     <span class="signal-icon">⚠️</span>
-                                                    <span class="signal-text">Elevated exposure</span>
+                                                    <span class="signal-text">Exposure: Elevated</span>
                                                 </div>
                                             </template>
                                             <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
                                                 <div class="signal-item-compact critical">
                                                     <span class="signal-icon">📊</span>
-                                                    <span class="signal-text">Data quality degraded</span>
+                                                    <span class="signal-text">Data quality: Limited</span>
                                                 </div>
                                             </template>
                                         </div>
@@ -721,25 +724,25 @@
                                             <div class="details-content">
                                                 <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
                                                     <div class="detail-group">
-                                                        <div class="detail-title">Protection Signals</div>
+                                                        <div class="detail-title">Protection Status</div>
                                                         <template x-for="signal in securityObservability.protection_signals" :key="signal">
-                                                            <div class="detail-item" x-text="signal"></div>
+                                                            <div class="detail-item">Firewall controls are functioning normally</div>
                                                         </template>
                                                     </div>
                                                 </template>
                                                 <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
                                                     <div class="detail-group">
-                                                        <div class="detail-title">Exposure Signals</div>
+                                                        <div class="detail-title">Exposure Analysis</div>
                                                         <template x-for="signal in securityObservability.exposure_signals" :key="signal">
-                                                            <div class="detail-item" x-text="signal"></div>
+                                                            <div class="detail-item">External threats exceed baseline patterns</div>
                                                         </template>
                                                     </div>
                                                 </template>
                                                 <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
                                                     <div class="detail-group">
-                                                        <div class="detail-title">Data Quality Signals</div>
+                                                        <div class="detail-title">Data Quality Impact</div>
                                                         <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
-                                                            <div class="detail-item" x-text="signal"></div>
+                                                            <div class="detail-item">Feed gaps reduce classification confidence</div>
                                                         </template>
                                                     </div>
                                                 </template>
