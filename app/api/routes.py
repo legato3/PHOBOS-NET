@@ -59,6 +59,7 @@ from app.core.state import (
     _has_nfdump,
     _dns_resolver_executor,
     _flow_history, _flow_history_lock, _flow_history_ttl,
+    _app_log_buffer, _app_log_buffer_lock, add_app_log,
 )
 # Import threats module to access threat state
 import app.services.threats as threats_module
@@ -1618,7 +1619,9 @@ def api_stats_net_health():
             "blocks_1h": int(blocks_1h)
         }
     except Exception as e:
-        print(f"Error in net_health: {e}")
+        error_msg = f"Error in net_health: {e}"
+        print(error_msg)
+        add_app_log(error_msg, 'ERROR')
         import traceback
         traceback.print_exc()
         # Check if nfdump is actually available before showing nfdump error
@@ -6397,15 +6400,25 @@ def api_performance_metrics():
 @bp.route('/api/server/logs')
 @throttle(10, 5)
 def api_server_logs():
-    """Get docker container logs for the application."""
+    """Get application logs from in-memory buffer, log files, or docker logs."""
     lines = request.args.get('lines', 100, type=int)
     lines = min(max(lines, 10), 1000)  # Limit between 10 and 1000 lines
     
+    # First, try to get logs from in-memory buffer
+    with _app_log_buffer_lock:
+        if _app_log_buffer:
+            log_lines = list(_app_log_buffer)[-lines:]
+            log_lines.reverse()  # Newest first
+            return jsonify({
+                'logs': log_lines,
+                'count': len(log_lines),
+                'source': 'buffer',
+                'container': ''
+            })
+    
+    # Try docker logs (may not work from inside container)
     try:
-        # Try to get container name from environment or use default
         container_name = os.environ.get('CONTAINER_NAME', 'phobos-net')
-        
-        # Run docker logs command
         result = subprocess.run(
             ['docker', 'logs', '--tail', str(lines), container_name],
             capture_output=True,
@@ -6413,11 +6426,8 @@ def api_server_logs():
             timeout=5
         )
         
-        if result.returncode == 0:
-            logs = result.stdout
-            # Split into lines (docker logs --tail already returns newest first)
-            log_lines = [line for line in logs.strip().split('\n') if line.strip()]
-            # Reverse to show newest at top
+        if result.returncode == 0 and result.stdout.strip():
+            log_lines = [line for line in result.stdout.strip().split('\n') if line.strip()]
             log_lines.reverse()
             return jsonify({
                 'logs': log_lines,
@@ -6425,18 +6435,11 @@ def api_server_logs():
                 'container': container_name,
                 'source': 'docker'
             })
-        else:
-            # Docker command failed, try to read from log files
-            return _get_logs_from_files(lines)
-            
-    except FileNotFoundError:
-        # Docker command not available, try log files
-        return _get_logs_from_files(lines)
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Log fetch timeout', 'logs': [], 'count': 0}), 500
-    except Exception as e:
-        print(f"Error fetching logs: {e}")
-        return _get_logs_from_files(lines)
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        pass  # Fall through to file reading
+    
+    # Try reading from log files
+    return _get_logs_from_files(lines)
 
 
 def _get_logs_from_files(lines):
@@ -6445,7 +6448,9 @@ def _get_logs_from_files(lines):
         '/var/log/app.log',
         '/app/app.log',
         '/tmp/app.log',
-        '/var/log/phobos-net.log'
+        '/var/log/phobos-net.log',
+        '/var/log/gunicorn/access.log',
+        '/var/log/gunicorn/error.log'
     ]
     
     all_lines = []
@@ -6454,7 +6459,7 @@ def _get_logs_from_files(lines):
             if os.path.exists(log_file):
                 with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
                     file_lines = f.readlines()
-                    all_lines.extend([(log_file, line.strip()) for line in file_lines])
+                    all_lines.extend([(log_file, line.strip()) for line in file_lines if line.strip()])
         except Exception:
             continue
     
@@ -6468,12 +6473,23 @@ def _get_logs_from_files(lines):
             'source': 'files'
         })
     
+    # Check if we have any logs in buffer
+    with _app_log_buffer_lock:
+        if _app_log_buffer:
+            log_lines = list(_app_log_buffer)[-lines:]
+            log_lines.reverse()
+            return jsonify({
+                'logs': log_lines,
+                'count': len(log_lines),
+                'source': 'buffer'
+            })
+    
     # No logs available
     return jsonify({
-        'logs': ['No log files found. Use "docker logs phobos-net" to view container logs.'],
+        'logs': ['No logs available. Application logs will appear here as they are generated.'],
         'count': 1,
         'source': 'none',
-        'message': 'Log files not found. View logs with: docker logs phobos-net'
+        'message': 'No logs found. Logs will be captured as the application runs.'
     })
 
 

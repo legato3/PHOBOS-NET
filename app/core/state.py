@@ -146,5 +146,18 @@ _snmp_backoff = {
 # ==================== Application State ====================
 _has_nfdump = None  # Cache nfdump availability
 
+# ==================== Application Log Buffer ====================
+# In-memory buffer to capture recent application logs (print statements, errors)
+_app_log_buffer = deque(maxlen=500)  # Keep last 500 log lines
+_app_log_buffer_lock = threading.Lock()
+
+def add_app_log(message, level='INFO'):
+    """Add a log message to the in-memory buffer."""
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_entry = f"[{timestamp}] [{level}] {message}"
+    with _app_log_buffer_lock:
+        _app_log_buffer.append(log_entry)
+
 # ==================== Thread Pool Executor ====================
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)

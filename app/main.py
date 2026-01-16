@@ -12,8 +12,8 @@ import socket as socket_module
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import shutdown event from state module
-from app.core.state import _shutdown_event
+# Import shutdown event and log buffer from state module
+from app.core.state import _shutdown_event, add_app_log
 
 # Import thread functions
 from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
@@ -29,17 +29,23 @@ except ImportError as e:
 if __name__ == "__main__":
     from app import app
     
-    print("NetFlow Analytics Pro (Modernized)")
+    startup_msg = "NetFlow Analytics Pro (Modernized)"
+    print(startup_msg)
+    add_app_log(startup_msg, 'INFO')
     
     # Graceful shutdown handler
     def shutdown_handler(signum=None, frame=None):
-        print("\n[Shutdown] Stopping background services...")
+        shutdown_msg = "\n[Shutdown] Stopping background services..."
+        print(shutdown_msg)
+        add_app_log(shutdown_msg.strip(), 'INFO')
         if _shutdown_event:
             _shutdown_event.set()
         if _flush_syslog_buffer:
             _flush_syslog_buffer()
         time.sleep(1)
-        print("[Shutdown] Complete.")
+        complete_msg = "[Shutdown] Complete."
+        print(complete_msg)
+        add_app_log(complete_msg, 'INFO')
     
     # Register shutdown handlers
     atexit.register(shutdown_handler)
@@ -49,12 +55,16 @@ if __name__ == "__main__":
     # Start background services
     if start_threat_thread:
         start_threat_thread()
+        add_app_log("Threat intelligence thread started", 'INFO')
     if start_trends_thread:
         start_trends_thread()
+        add_app_log("Trends aggregation thread started", 'INFO')
     if start_agg_thread:
         start_agg_thread()
+        add_app_log("Data aggregation thread started", 'INFO')
     if start_syslog_thread:
         start_syslog_thread()
+        add_app_log("Syslog receiver thread started", 'INFO')
     
     def _find_open_port(h, start_port, max_tries=10):
         """Find an open port starting from start_port."""
@@ -77,6 +87,10 @@ if __name__ == "__main__":
     
     port = _find_open_port(host, requested_port)
     if port != requested_port:
-        print(f"Requested port {requested_port} in use, selected {port} instead")
-    print(f"Starting server on {host}:{port} (debug={DEBUG_MODE})")
+        port_msg = f"Requested port {requested_port} in use, selected {port} instead"
+        print(port_msg)
+        add_app_log(port_msg, 'WARN')
+    server_msg = f"Starting server on {host}:{port} (debug={DEBUG_MODE})"
+    print(server_msg)
+    add_app_log(server_msg, 'INFO')
     app.run(host=host, port=port, threaded=True, debug=DEBUG_MODE)

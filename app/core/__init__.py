@@ -35,6 +35,8 @@ from .state import (
     _snmp_cache, _snmp_cache_lock, _snmp_prev_sample, _snmp_backoff,
     # Application State
     _has_nfdump,
+    # Application Log Buffer
+    _app_log_buffer, _app_log_buffer_lock, add_app_log,
     # Thread Pool
     _dns_resolver_executor,
 )
@@ -74,6 +76,8 @@ __all__ = [
     '_snmp_cache', '_snmp_cache_lock', '_snmp_prev_sample', '_snmp_backoff',
     # Application State
     '_has_nfdump',
+    # Application Log Buffer
+    '_app_log_buffer', '_app_log_buffer_lock', 'add_app_log',
     # Thread Pool
     '_dns_resolver_executor',
 ]

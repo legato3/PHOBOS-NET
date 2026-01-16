@@ -3143,54 +3143,6 @@
                                 </div>
                             </template>
 
-                            <!-- Server Logs Widget - Always visible -->
-                            <div class="card" style="margin-top: 32px;">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">📋</span>
-                                        <span>Server Logs</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <span class="server-stat-badge" :class="{
-                                            'badge-success': serverLogs.source === 'docker',
-                                            'badge-warning': serverLogs.source === 'files',
-                                            'badge-error': serverLogs.source === 'none'
-                                        }" x-text="serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'files' ? 'FILES' : 'N/A')"></span>
-                                    </div>
-                                </h2>
-                                <div class="widget-body" style="min-height: 400px; max-height: 600px; display: flex; flex-direction: column;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                        <div style="display: flex; gap: 8px; align-items: center;">
-                                            <span style="font-size: 0.85em; color: var(--text-secondary);">Lines:</span>
-                                            <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)" aria-label="Number of log lines to display" title="Number of log lines" style="padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); font-size: 0.85em;">
-                                                <option value="50">50</option>
-                                                <option value="100">100</option>
-                                                <option value="200">200</option>
-                                                <option value="500">500</option>
-                                            </select>
-                                            <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh server logs" title="Refresh logs" style="padding: 4px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 0.85em;" :disabled="serverLogs.loading">
-                                                <span x-text="serverLogs.loading ? 'Loading...' : 'Refresh'"></span>
-                                            </button>
-                                        </div>
-                                        <span style="font-size: 0.85em; color: var(--text-secondary);" x-text="serverLogs.count + ' lines'"></span>
-                                    </div>
-                                    <div x-show="serverLogs.loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                                        <span>Loading logs...</span>
-                                    </div>
-                                    <div x-show="!serverLogs.loading && serverLogs.logs.length > 0" style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.6;">
-                                        <template x-for="(log, index) in serverLogs.logs" :key="index">
-                                            <div style="margin-bottom: 2px; color: var(--text-secondary); word-break: break-all;" x-text="log"></div>
-                                        </template>
-                                    </div>
-                                    <div x-show="!serverLogs.loading && serverLogs.logs.length === 0" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                                        <span>No logs available</span>
-                                    </div>
-                                    <div x-show="serverLogs.container" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8em; color: var(--text-secondary);">
-                                        <span>Container: </span><span x-text="serverLogs.container"></span>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- System Diagnostics (Collapsed by default) -->
                             <template x-if="!serverHealth.loading && !serverHealth.error">
                                 <div x-data="{ expanded: false }" style="margin-top: 32px;">
@@ -3600,6 +3552,54 @@
                                         </template>
                                     </div>
                                 </template>
+                            </div>
+
+                            <!-- Server Logs Widget - At bottom of Server tab -->
+                            <div class="card" style="margin-top: 32px;">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">📋</span>
+                                        <span>Server Logs</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <span class="server-stat-badge" :class="{
+                                            'badge-success': serverLogs.source === 'buffer' || serverLogs.source === 'docker',
+                                            'badge-warning': serverLogs.source === 'files',
+                                            'badge-error': serverLogs.source === 'none'
+                                        }" x-text="serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'buffer' ? 'BUFFER' : (serverLogs.source === 'files' ? 'FILES' : 'N/A'))"></span>
+                                    </div>
+                                </h2>
+                                <div class="widget-body" style="min-height: 400px; max-height: 600px; display: flex; flex-direction: column;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <span style="font-size: 0.85em; color: var(--text-secondary);">Lines:</span>
+                                            <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)" aria-label="Number of log lines to display" title="Number of log lines" style="padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); font-size: 0.85em;">
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                                <option value="200">200</option>
+                                                <option value="500">500</option>
+                                            </select>
+                                            <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh server logs" title="Refresh logs" style="padding: 4px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 0.85em;" :disabled="serverLogs.loading">
+                                                <span x-text="serverLogs.loading ? 'Loading...' : 'Refresh'"></span>
+                                            </button>
+                                        </div>
+                                        <span style="font-size: 0.85em; color: var(--text-secondary);" x-text="serverLogs.count + ' lines'"></span>
+                                    </div>
+                                    <div x-show="serverLogs.loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                        <span>Loading logs...</span>
+                                    </div>
+                                    <div x-show="!serverLogs.loading && serverLogs.logs.length > 0" style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.6;">
+                                        <template x-for="(log, index) in serverLogs.logs" :key="index">
+                                            <div style="margin-bottom: 2px; color: var(--text-secondary); word-break: break-all;" x-text="log"></div>
+                                        </template>
+                                    </div>
+                                    <div x-show="!serverLogs.loading && serverLogs.logs.length === 0" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                        <span>No logs available</span>
+                                    </div>
+                                    <div x-show="serverLogs.container" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8em; color: var(--text-secondary);">
+                                        <span>Container: </span><span x-text="serverLogs.container"></span>
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     </div>
