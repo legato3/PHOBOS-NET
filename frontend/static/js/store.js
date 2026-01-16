@@ -220,7 +220,7 @@ export const Store = () => ({
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
-    alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'watchlist', 'off_hours', 'new_country', 'protocol_anomaly'],
+    alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'watchlist', 'off_hours', 'new_country', 'protocol_anomaly', 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly'],
 
     // Settings / Status
     notify: { email: true, webhook: true, muted: false },
@@ -5276,7 +5276,38 @@ export const Store = () => ({
     // Navigation helpers for Overview stat box click-throughs
     navigateToActiveAlerts() {
         this.loadTab('security');
-        // Alert history is already loaded, no need to filter - just show the security tab
+    },
+
+    openAlerts() {
+        // Navigate to Security tab and ensure alert history is loaded
+        this.loadTab('security');
+        // Ensure alert history is fetched if not already loaded
+        if (this.alertHistory.loading || !this.alertHistory.alerts || this.alertHistory.alerts.length === 0) {
+            this.fetchAlertHistory();
+        }
+        // Scroll to alert history section after a brief delay to allow tab to render
+        this.$nextTick(() => {
+            setTimeout(() => {
+                const alertSection = document.getElementById('section-security');
+                if (alertSection) {
+                    // Try to find alert history widget by searching for the title
+                    const headings = alertSection.querySelectorAll('h2');
+                    let alertWidget = null;
+                    for (const h2 of headings) {
+                        if (h2.textContent && h2.textContent.includes('Alert History')) {
+                            alertWidget = h2.closest('.card');
+                            break;
+                        }
+                    }
+                    if (alertWidget) {
+                        alertWidget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else {
+                        // Fallback: scroll to security section
+                        alertSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            }, 300);
+        });
     },
 
     navigateToActiveFlows() {

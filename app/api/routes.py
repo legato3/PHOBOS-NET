@@ -24,7 +24,8 @@ from app.services.threats import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     detect_anomalies, run_all_detections,
     load_threatlist, get_feed_label, send_notifications,
-    lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts
+    lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts,
+    add_health_alert_to_history
 )
 from app.services.stats import calculate_security_score
 from app.services.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
@@ -1370,9 +1371,19 @@ def api_stats_net_health():
             elif rst_pct < 15:
                 indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "warn", "icon": "⚠️"})
                 health_score -= 10
+                add_health_alert_to_history(
+                    "tcp_reset",
+                    f"⚠️ Elevated TCP Resets: {rst_pct:.1f}% of flows",
+                    severity="medium"
+                )
             else:
                 indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "bad", "icon": "❌"})
                 health_score -= 25
+                add_health_alert_to_history(
+                    "tcp_reset",
+                    f"❌ High TCP Resets: {rst_pct:.1f}% of flows",
+                    severity="high"
+                )
 
             # SYN-only (potential scans)
             if syn_pct < 2:
@@ -1380,9 +1391,19 @@ def api_stats_net_health():
             elif syn_pct < 10:
                 indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "warn", "icon": "⚠️"})
                 health_score -= 10
+                add_health_alert_to_history(
+                    "syn_scan",
+                    f"⚠️ Elevated SYN-Only Flows: {syn_pct:.1f}% (potential port scan)",
+                    severity="medium"
+                )
             else:
                 indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "bad", "icon": "❌"})
                 health_score -= 20
+                add_health_alert_to_history(
+                    "syn_scan",
+                    f"❌ High SYN-Only Flows: {syn_pct:.1f}% (potential port scan)",
+                    severity="high"
+                )
 
             # ICMP traffic
             if icmp_pct < 5:
@@ -1390,9 +1411,19 @@ def api_stats_net_health():
             elif icmp_pct < 15:
                 indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "warn", "icon": "⚠️"})
                 health_score -= 5
+                add_health_alert_to_history(
+                    "icmp_anomaly",
+                    f"⚠️ Elevated ICMP Traffic: {icmp_pct:.1f}% of flows",
+                    severity="low"
+                )
             else:
                 indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "bad", "icon": "❌"})
                 health_score -= 15
+                add_health_alert_to_history(
+                    "icmp_anomaly",
+                    f"❌ High ICMP Traffic: {icmp_pct:.1f}% of flows",
+                    severity="medium"
+                )
 
             # Small flows (potential anomaly)
             if small_pct < 20:
@@ -1400,9 +1431,19 @@ def api_stats_net_health():
             elif small_pct < 40:
                 indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "warn", "icon": "⚠️"})
                 health_score -= 5
+                add_health_alert_to_history(
+                    "tiny_flows",
+                    f"⚠️ Elevated Tiny Flows: {small_pct:.1f}% (<100 bytes)",
+                    severity="low"
+                )
             else:
                 indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "bad", "icon": "❌"})
                 health_score -= 10
+                add_health_alert_to_history(
+                    "tiny_flows",
+                    f"❌ High Tiny Flows: {small_pct:.1f}% (<100 bytes)",
+                    severity="medium"
+                )
 
         health_score = max(0, min(100, health_score))
 
@@ -2290,6 +2331,16 @@ def api_alerts():
 
     alerts = detect_anomalies(ports, sources, threat_set, whitelist, destinations_data=dests)
     send_notifications([a for a in alerts if a.get("severity") in ("critical","high")])
+    
+    # Also run all detections to capture protocol anomalies, DNS anomalies, port scans, etc.
+    # This ensures all detection types are persisted to alert history
+    try:
+        protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+        all_detection_alerts = run_all_detections(ports, sources, dests, protocols_data)
+        # Alerts from run_all_detections are already added to history by that function
+    except Exception as e:
+        # Don't fail the endpoint if additional detections fail
+        print(f"Additional detection run failed: {e}")
 
     data = {
         "alerts": alerts, # Not limited to 10
@@ -2580,6 +2631,7 @@ def api_network_stats_overview():
     output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
     
     anomalies_24h = 0
+    anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
     
     try:
         lines_24h = output_24h.strip().split("\n")
@@ -2628,6 +2680,18 @@ def api_network_stats_overview():
                         
                         if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
                             anomalies_24h += 1
+                            # Create alert for this anomaly (only once per hour per src-dst pair to avoid flooding)
+                            anomaly_key = f"traffic_anomaly_{src}_{dst}"
+                            if anomaly_key not in anomaly_alerts_sent:
+                                anomaly_alerts_sent.add(anomaly_key)
+                                add_health_alert_to_history(
+                                    "traffic_anomaly",
+                                    f"⚠️ Traffic Anomaly: Long-lived low-volume flow {src} → {dst} ({fmt_bytes(b)}, {duration:.1f}s)",
+                                    severity="medium",
+                                    ip=src,
+                                    source=src,
+                                    destination=dst
+                                )
                 except:
                     pass
     except:

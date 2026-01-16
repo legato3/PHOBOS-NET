@@ -34,6 +34,11 @@ _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
 
+# Anomaly tracking for escalation (fingerprint -> occurrences)
+_anomaly_tracker = {}  # {(type, source_ip, dest_ip, port): [timestamps]}
+_anomaly_tracker_lock = threading.Lock()
+_ANOMALY_TRACKER_TTL = 600  # 10 minutes
+
 # Threat intelligence cache
 _threat_intel_cache = {}  # Cache for threat intelligence results (IP -> {vt: {...}, abuse: {...}, ts: ...})
 _threat_intel_cache_lock = threading.Lock()
@@ -351,24 +356,10 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 })
                 seen.add(alert_key)
 
-    # Add all alerts to history
-    # PERFORMANCE: Compute timestamp once instead of per-alert if missing
-    # PERFORMANCE: Use set lookup for deduplication instead of list iteration (O(N) -> O(1))
-    now_ts = time.time()
-    with _alert_history_lock:
-        # Get recent history signatures for deduplication (last 50 items)
-        recent_history = list(_alert_history)[-50:]
-        existing_signatures = {(a.get('type'), a.get('ip'), a.get('msg')) for a in recent_history}
-
-        for alert in alerts:
-            if 'ts' not in alert:
-                alert['ts'] = now_ts
-
-            # Avoid duplicates in recent history
-            # We ignore timestamp in the signature check to prevent flooding history with identical events
-            alert_sig = (alert.get('type'), alert.get('ip'), alert.get('msg'))
-            if alert_sig not in existing_signatures:
-                _alert_history.append(alert)
+    # Escalate anomalies to alerts and persist with deduplication
+    for alert in alerts:
+        if _should_escalate_anomaly(alert):
+            _upsert_alert_to_history(alert)
 
     return alerts
 
@@ -402,6 +393,7 @@ def detect_port_scan(flow_data):
                     "msg": f"🔍 Port Scan Detected: {src_ip} probed {len(_port_scan_tracker[src_ip]['ports'])} ports",
                     "severity": "high",
                     "ip": src_ip,
+                    "source": src_ip,  # Context for fingerprinting
                     "ports_scanned": len(_port_scan_tracker[src_ip]['ports']),
                     "ts": current_time,
                     "mitre": "T1046"  # Network Service Discovery
@@ -653,6 +645,7 @@ def detect_protocol_anomaly(protocols_data):
                     "protocol": proto_name,
                     "bytes": proto_bytes,
                     "avg_bytes": avg,
+                    "port": proto_name,  # Context for fingerprinting (protocol as port identifier)
                     "ts": time.time(),  # Keep per-alert for anomaly timing precision
                     "mitre": "T1095"  # Non-Application Layer Protocol
                 })
@@ -745,20 +738,10 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
     except Exception as e:
         print(f"Off-hours detection error: {e}")
     
-    # Add all new alerts to history
-    # PERFORMANCE: Compute timestamp once for all alerts missing timestamps
-    # PERFORMANCE: Convert deque to list once instead of per-alert (slicing deque is O(n))
-    now_ts = time.time()
-    with _alert_history_lock:
-        recent_history = list(_alert_history)[-50:]  # Convert once, get last 50
-        existing_keys = {(a.get('type'), a.get('ip'), a.get('msg')) for a in recent_history}
-        for alert in all_alerts:
-            if 'ts' not in alert:
-                alert['ts'] = now_ts
-            # Avoid duplicates in recent history
-            alert_key = (alert.get('type'), alert.get('ip'), alert.get('msg'))
-            if alert_key not in existing_keys:
-                _alert_history.append(alert)
+    # Escalate anomalies to alerts and persist with deduplication
+    for alert in all_alerts:
+        if _should_escalate_anomaly(alert):
+            _upsert_alert_to_history(alert)
     
     return all_alerts
 
@@ -811,6 +794,166 @@ def record_history(alerts):
     for a in alerts:
         entry = {"ts": ts, "msg": a.get('msg'), "severity": a.get('severity', 'info')}
         _alert_history.appendleft(entry)
+
+
+def _get_alert_fingerprint(alert):
+    """Generate fingerprint for alert deduplication: (type, source_ip, destination_ip, port).
+    
+    Args:
+        alert: Alert dictionary
+        
+    Returns:
+        Tuple of (type, source_ip, destination_ip, port) for fingerprinting
+    """
+    alert_type = alert.get('type', 'unknown')
+    source_ip = alert.get('ip') or alert.get('source') or alert.get('src_ip') or ''
+    dest_ip = alert.get('destination') or alert.get('dst_ip') or alert.get('dest') or ''
+    port = alert.get('port') or alert.get('dst_port') or alert.get('src_port') or ''
+    
+    return (alert_type, source_ip, dest_ip, str(port))
+
+
+def _should_escalate_anomaly(alert):
+    """Determine if an anomaly should be escalated to an alert.
+    
+    Escalation criteria:
+    - Severity is HIGH or CRITICAL, OR
+    - Same anomaly repeats ≥ 3 times within 10 minutes, OR
+    - Anomaly persists across consecutive polling intervals, OR
+    - Anomaly involves a watchlist IP
+    
+    Args:
+        alert: Anomaly/alert dictionary
+        
+    Returns:
+        Boolean indicating if anomaly should be escalated
+    """
+    severity = alert.get('severity', 'low').lower()
+    
+    # Escalate if severity is HIGH or CRITICAL
+    if severity in ('high', 'critical'):
+        return True
+    
+    # Escalate if involves watchlist IP
+    ip = alert.get('ip') or alert.get('source') or alert.get('src_ip')
+    if ip and ip in load_watchlist():
+        return True
+    
+    # Check repetition and persistence
+    fingerprint = _get_alert_fingerprint(alert)
+    now_ts = time.time()
+    
+    with _anomaly_tracker_lock:
+        # Clean old entries
+        _anomaly_tracker = {
+            k: [ts for ts in v if now_ts - ts < _ANOMALY_TRACKER_TTL]
+            for k, v in _anomaly_tracker.items()
+            if any(now_ts - ts < _ANOMALY_TRACKER_TTL for ts in v)
+        }
+        
+        # Track this anomaly
+        if fingerprint not in _anomaly_tracker:
+            _anomaly_tracker[fingerprint] = []
+        _anomaly_tracker[fingerprint].append(now_ts)
+        
+        occurrences = _anomaly_tracker[fingerprint]
+        
+        # Escalate if ≥ 3 occurrences within 10 minutes
+        if len(occurrences) >= 3:
+            return True
+        
+        # Escalate if persists across intervals (2+ occurrences with > 1 minute gap)
+        if len(occurrences) >= 2:
+            time_gaps = [occurrences[i+1] - occurrences[i] for i in range(len(occurrences)-1)]
+            if any(gap > 60 for gap in time_gaps):  # Persisted across polling intervals
+                return True
+    
+    return False
+
+
+def _upsert_alert_to_history(alert):
+    """Add or update alert in history with deduplication.
+    
+    If a matching alert (by fingerprint) exists within the last 30 minutes:
+    - Update last_seen timestamp
+    - Increment count
+    - Do not create a new alert row
+    
+    Otherwise, create a new alert with required fields.
+    
+    Args:
+        alert: Alert dictionary with at least type, severity, msg, ts
+    """
+    now_ts = time.time()
+    fingerprint = _get_alert_fingerprint(alert)
+    
+    # Ensure required fields
+    if 'ts' not in alert:
+        alert['ts'] = now_ts
+    if 'severity' not in alert:
+        alert['severity'] = 'medium'
+    if 'type' not in alert:
+        alert['type'] = 'unknown'
+    
+    # Ensure context fields for UI
+    if 'ip' not in alert:
+        alert['ip'] = alert.get('source') or alert.get('src_ip') or ''
+    if 'source' not in alert and alert.get('ip'):
+        alert['source'] = alert['ip']
+    if 'destination' not in alert and alert.get('dest_ip'):
+        alert['destination'] = alert['dest_ip']
+    
+    with _alert_history_lock:
+        # Look for matching alert within last 30 minutes
+        cutoff_ts = now_ts - 1800  # 30 minutes
+        matching_alert = None
+        
+        for existing_alert in _alert_history:
+            if existing_alert.get('ts', 0) > cutoff_ts:
+                existing_fp = _get_alert_fingerprint(existing_alert)
+                if existing_fp == fingerprint:
+                    matching_alert = existing_alert
+                    break
+        
+        if matching_alert:
+            # Update existing alert
+            matching_alert['last_seen'] = now_ts
+            matching_alert['count'] = matching_alert.get('count', 1) + 1
+            # Preserve first_seen if not set
+            if 'first_seen' not in matching_alert:
+                matching_alert['first_seen'] = matching_alert.get('ts', now_ts)
+            # Update message to reflect count (strip existing count suffix if present)
+            original_msg = matching_alert.get('msg', '')
+            if ' (x' in original_msg:
+                original_msg = original_msg.rsplit(' (x', 1)[0]
+            matching_alert['msg'] = f"{original_msg} (x{matching_alert['count']})"
+        else:
+            # Create new alert
+            alert['count'] = 1
+            alert['first_seen'] = now_ts
+            alert['last_seen'] = now_ts
+            _alert_history.append(alert)
+
+
+def add_health_alert_to_history(alert_type, message, severity='medium', **kwargs):
+    """Add a health-related alert to history with proper structure and escalation.
+    
+    Args:
+        alert_type: Type matching UI filter values (e.g., 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly')
+        message: Alert message
+        severity: 'critical', 'high', 'medium', 'low'
+        **kwargs: Additional fields (ip, source, destination, etc.)
+    """
+    alert = {
+        "type": alert_type,
+        "msg": message,
+        "severity": severity,
+        **kwargs
+    }
+    
+    # Treat as anomaly first, escalate if needed
+    if _should_escalate_anomaly(alert):
+        _upsert_alert_to_history(alert)
 
 
 def _should_deliver(alert):
@@ -1077,12 +1220,15 @@ def generate_ip_anomaly_alerts(ip, anomalies, geo):
                     "severity": anomaly.get('severity', 'medium'),
                     "feed": "ip_investigation",
                     "ip": ip,
+                    "source": ip,  # Ensure context fields for fingerprinting
                     "category": anomaly.get('type', 'UNKNOWN'),
                     "anomaly": anomaly,
                     "country": geo.get('country_code', '--') if geo else '--',
                     "ts": now
                 }
-                _alert_history.append(alert)
-                # Send notification if high severity
-                if anomaly.get('severity') == 'high':
-                    send_security_webhook(alert)
+                # Escalate and persist with deduplication
+                if _should_escalate_anomaly(alert):
+                    _upsert_alert_to_history(alert)
+                    # Send notification if high severity
+                    if anomaly.get('severity') == 'high':
+                        send_security_webhook(alert)
