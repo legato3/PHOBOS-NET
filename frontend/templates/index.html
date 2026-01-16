@@ -1237,10 +1237,166 @@
                                     {% endcall %}
                                 </template>
 
+                                <!-- Attack Timeline Widget -->
+                                <template x-if="isVisible('attackTimeline')">
+                                    {% call widget_card('attackTimeline', 'Attack Timeline', '⏰', show_spinner=True) %}
+                                    <div x-show="attackTimeline.timeline && attackTimeline.timeline.length > 0">
+                                        <div
+                                            style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                                            <div>
+                                                <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
+                                                    x-text="attackTimeline.total_24h || 0"></div>
+                                                <div style="font-size: var(--text-xs); color: var(--text-secondary);">
+                                                    Total (24h)</div>
+                                            </div>
+                                            <div x-show="attackTimeline.peak_hour"
+                                                style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: var(--space-3);">
+                                                <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
+                                                    x-text="attackTimeline.peak_hour"></div>
+                                                <div style="font-size: var(--text-xs); color: var(--text-muted);"
+                                                    x-text="(attackTimeline.peak_count || 0) + ' peak'"></div>
+                                            </div>
+                                            <div x-show="attackTimeline.has_fw_data"
+                                                style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: var(--space-3);">
+                                                <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);"
+                                                    x-text="attackTimeline.fw_blocks_24h || 0"></div>
+                                                <div style="font-size: var(--text-xs); color: var(--text-muted);">FW
+                                                    Blocks</div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-wrapper" style="height: 150px;">
+                                            <canvas id="attackTimelineChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div x-show="!attackTimeline.loading && (!attackTimeline.timeline || attackTimeline.timeline.length === 0)"
+                                        class="empty-state-compact">
+                                        <span class="empty-icon">⏰</span>
+                                        <span>No attacks in 24h</span>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
                             </div> <!-- End security-grid -->
 
-                            <!-- Firewall Logs - MOVED TO FIREWALL TAB -->
-                            <!-- Old Firewall Logs widget disabled -->
+                            <!-- Threat Activity Timeline - Full Width -->
+                            <section id="section-threat-activity-timeline" class="scroll-section"
+                                style="margin-top: var(--space-6);">
+                                {% set threat_actions %}
+                                <button class="icon-btn-small" @click="exportThreatActivityTimeline('csv')"
+                                    title="Export CSV" style="color: var(--neon-green);"
+                                    x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                </button>
+                                {% endset %}
+                                {% call widget_card('threatActivityTimeline', 'Threat Activity Timeline', '📈',
+                                card_class='wide-card', extra_actions=threat_actions, show_spinner=True) %}
+                                <!-- Time Range Selector -->
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); flex-wrap: wrap; gap: var(--space-1);">
+                                    <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
+                                        <button
+                                            @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()"
+                                            :class="{ 'btn--primary': threatActivityTimeline.timeRange === '1h', 'btn--secondary': threatActivityTimeline.timeRange !== '1h' }"
+                                            class="btn"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                            1 Hour
+                                        </button>
+                                        <button
+                                            @click="threatActivityTimeline.timeRange = '6h'; fetchThreatActivityTimeline()"
+                                            :class="{ 'btn--primary': threatActivityTimeline.timeRange === '6h', 'btn--secondary': threatActivityTimeline.timeRange !== '6h' }"
+                                            class="btn"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                            6 Hours
+                                        </button>
+                                        <button
+                                            @click="threatActivityTimeline.timeRange = '24h'; fetchThreatActivityTimeline()"
+                                            :class="{ 'btn--primary': threatActivityTimeline.timeRange === '24h', 'btn--secondary': threatActivityTimeline.timeRange !== '24h' }"
+                                            class="btn"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                            24 Hours
+                                        </button>
+                                        <button
+                                            @click="threatActivityTimeline.timeRange = '7d'; fetchThreatActivityTimeline()"
+                                            :class="{ 'btn--primary': threatActivityTimeline.timeRange === '7d', 'btn--secondary': threatActivityTimeline.timeRange !== '7d' }"
+                                            class="btn"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                                            7 Days
+                                        </button>
+                                    </div>
+                                    <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
+                                        <button @click="exportThreatActivityTimeline('csv')" class="btn btn--secondary"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
+                                            :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
+                                            📥 CSV
+                                        </button>
+                                        <button @click="exportThreatActivityTimeline('json')" class="btn btn--secondary"
+                                            style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
+                                            :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
+                                            📥 JSON
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Stats Summary -->
+                                <div
+                                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-2);">
+                                    <div class="card"
+                                        style="padding: var(--space-1) var(--space-2); text-align: center;">
+                                        <div
+                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
+                                            Total Threats</div>
+                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
+                                            x-text="threatActivityTimeline.total_24h || 0"></div>
+                                    </div>
+                                    <div class="card"
+                                        style="padding: var(--space-1) var(--space-2); text-align: center;"
+                                        x-show="threatActivityTimeline.peak_hour">
+                                        <div
+                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
+                                            Peak Hour</div>
+                                        <div style="font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
+                                            x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
+                                        <div style="font-size: var(--text-xs); color: var(--text-muted);"
+                                            x-text="(threatActivityTimeline.peak_count || 0) + ' threats'">
+                                        </div>
+                                    </div>
+                                    <div class="card"
+                                        style="padding: var(--space-1) var(--space-2); text-align: center;"
+                                        x-show="threatActivityTimeline.has_fw_data">
+                                        <div
+                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
+                                            FW Blocks</div>
+                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);"
+                                            x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Chart -->
+                                <div class="chart-wrapper" style="height: 200px; margin-bottom: var(--space-2);"
+                                    x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
+                                    <canvas id="threatActivityTimelineChart"></canvas>
+                                </div>
+
+                                <!-- Empty State -->
+                                <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)"
+                                    class="empty-state">
+                                    <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📈
+                                    </div>
+                                    <p
+                                        style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                                        No Threat Activity Data</p>
+                                    <p
+                                        style="font-size: var(--text-xs); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
+                                        No threat activity detected in the selected time range.
+                                    </p>
+                                </div>
+                                {% endcall %}
+                            </section>
 
                         </section>
                     </div>
@@ -2538,202 +2694,6 @@
                             {% endcall %}
                         </section>
 
-                        <!-- Threat Activity Timeline -->
-                        <section id="section-threat-activity-timeline" class="scroll-section"
-                            style="margin-bottom: 24px;">
-                            {% set threat_actions %}
-                            <button class="icon-btn-small" @click="exportThreatActivityTimeline('csv')"
-                                title="Export CSV" style="color: var(--neon-green);"
-                                x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                            </button>
-                            {% endset %}
-                            {% call widget_card('threatActivityTimeline', 'Threat Activity Timeline', '📈',
-                            card_class='wide-card', extra_actions=threat_actions, show_spinner=True) %}
-                            <!-- Time Range Selector -->
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); flex-wrap: wrap; gap: var(--space-1);">
-                                <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
-                                    <button
-                                        @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()"
-                                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '1h', 'btn--secondary': threatActivityTimeline.timeRange !== '1h' }"
-                                        class="btn"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                                        1 Hour
-                                    </button>
-                                    <button
-                                        @click="threatActivityTimeline.timeRange = '6h'; fetchThreatActivityTimeline()"
-                                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '6h', 'btn--secondary': threatActivityTimeline.timeRange !== '6h' }"
-                                        class="btn"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                                        6 Hours
-                                    </button>
-                                    <button
-                                        @click="threatActivityTimeline.timeRange = '24h'; fetchThreatActivityTimeline()"
-                                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '24h', 'btn--secondary': threatActivityTimeline.timeRange !== '24h' }"
-                                        class="btn"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                                        24 Hours
-                                    </button>
-                                    <button
-                                        @click="threatActivityTimeline.timeRange = '7d'; fetchThreatActivityTimeline()"
-                                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '7d', 'btn--secondary': threatActivityTimeline.timeRange !== '7d' }"
-                                        class="btn"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                                        7 Days
-                                    </button>
-                                </div>
-                                <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
-                                    <button @click="exportThreatActivityTimeline('csv')" class="btn btn--secondary"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
-                                        :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
-                                        📥 CSV
-                                    </button>
-                                    <button @click="exportThreatActivityTimeline('json')" class="btn btn--secondary"
-                                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
-                                        :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
-                                        📥 JSON
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Stats Summary -->
-                            <div
-                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-2);">
-                                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;">
-                                    <div
-                                        style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                        Total Threats</div>
-                                    <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
-                                        x-text="threatActivityTimeline.total_24h || 0"></div>
-                                </div>
-                                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;"
-                                    x-show="threatActivityTimeline.peak_hour">
-                                    <div
-                                        style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                        Peak Hour</div>
-                                    <div style="font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
-                                        x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
-                                    <div style="font-size: var(--text-xs); color: var(--text-muted);"
-                                        x-text="(threatActivityTimeline.peak_count || 0) + ' threats'">
-                                    </div>
-                                </div>
-                                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;"
-                                    x-show="threatActivityTimeline.has_fw_data">
-                                    <div
-                                        style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                        FW Blocks</div>
-                                    <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);"
-                                        x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
-                                </div>
-                            </div>
-
-                            <!-- Chart -->
-                            <div class="chart-wrapper" style="height: 200px; margin-bottom: var(--space-2);"
-                                x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
-                                <canvas id="threatActivityTimelineChart"></canvas>
-                            </div>
-
-                            <!-- Description (Collapsible) -->
-                            <div
-                                style="padding: var(--space-1) var(--space-2); background: rgba(0, 243, 255, 0.04); border-radius: var(--radius-sm); border: 1px solid rgba(0, 243, 255, 0.08);">
-                                <button
-                                    @click="threatActivityTimeline.showDescription = !threatActivityTimeline.showDescription"
-                                    style="display: flex; align-items: center; gap: var(--space-1); width: 100%; background: none; border: none; color: var(--neon-cyan); cursor: pointer; padding: 0; font-size: var(--text-xs);">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        :style="'transform: rotate(' + (threatActivityTimeline.showDescription ? '90' : '0') + 'deg); transition: transform 0.2s;'">
-                                        <polyline points="9 18 15 12 9 6"></polyline>
-                                    </svg>
-                                    <span style="font-weight: var(--font-weight-semibold);">📊 About this
-                                        timeline</span>
-                                </button>
-                                <div x-show="threatActivityTimeline.showDescription"
-                                    style="margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.4;">
-                                    Shows threat activity patterns over time. Stacked bars show threats by
-                                    severity
-                                    (Critical, High, Medium, Low), with firewall blocks as a green line
-                                    overlay.
-                                    Use
-                                    to correlate threat activity with Alert Correlation data.
-                                </div>
-                            </div>
-
-                            <!-- Empty State -->
-                            <!-- Empty State -->
-                            <div x-show="!threatActivityTimeline.loading && (!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0)"
-                                class="empty-state">
-                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📈</div>
-                                <p
-                                    style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                                    No Threat Activity Data</p>
-                                <p
-                                    style="font-size: var(--text-xs); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
-                                    No threat activity detected in the selected time range. Network appears secure or
-                                    activity is low.
-                                </p>
-                            </div>
-                            {% endcall %}
-                        </section>
-
-
-                        <!-- Attack Timeline Widget -->
-                        <section id="section-attack-timeline" class="scroll-section" style="margin-bottom: 24px;">
-                            {% call widget_card('attackTimeline', 'Attack Timeline', '⏰', card_class='wide-card',
-                            show_spinner=True) %}
-                            <div x-show="attackTimeline.timeline && attackTimeline.timeline.length > 0">
-                                <div
-                                    style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
-                                    <div class="card"
-                                        style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;">
-                                        <div
-                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                            Total (24h)</div>
-                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
-                                            x-text="attackTimeline.total_24h || 0"></div>
-                                    </div>
-                                    <div class="card"
-                                        style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;"
-                                        x-show="attackTimeline.peak_hour">
-                                        <div
-                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                            Peak Hour</div>
-                                        <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
-                                            x-text="attackTimeline.peak_hour"></div>
-                                        <div style="font-size: var(--text-xs); color: var(--text-muted);"
-                                            x-text="(attackTimeline.peak_count || 0) + ' attacks'"></div>
-                                    </div>
-                                    <div class="card"
-                                        style="padding: var(--space-2) var(--space-3); flex: 1; min-width: 100px;"
-                                        x-show="attackTimeline.has_fw_data">
-                                        <div
-                                            style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                                            FW Blocks (24h)</div>
-                                        <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-green);"
-                                            x-text="attackTimeline.fw_blocks_24h || 0"></div>
-                                    </div>
-                                </div>
-                                <div class="chart-wrapper" style="height: 200px;">
-                                    <canvas id="attackTimelineChart"></canvas>
-                                </div>
-                            </div>
-                            <div x-show="!attackTimeline.loading && (!attackTimeline.timeline || attackTimeline.timeline.length === 0)"
-                                class="empty-state">
-                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">⏰</div>
-                                <p
-                                    style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                                    No Attack Timeline Data</p>
-                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No attacks detected
-                                    in the past 24 hours. Network appears secure.</p>
-                            </div>
-                            {% endcall %}
-                        </section>
 
                         <!-- Active Flows Widget -->
                         <section id="section-flows" class="scroll-section" style="margin-bottom: 32px;">

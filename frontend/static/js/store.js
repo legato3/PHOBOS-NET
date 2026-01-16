@@ -5485,9 +5485,6 @@ export const Store = () => ({
             this.fetchFirewallStatsOverview();
             this.fetchRecentBlocks();
             this.fetchAlertCorrelation();
-            this.fetchThreatActivityTimeline();
-            // Fetch data for Attack Timeline widget
-            if (this.isVisible('attackTimeline')) this.fetchAttackTimeline();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
         } else if (tab === 'assistant') {
