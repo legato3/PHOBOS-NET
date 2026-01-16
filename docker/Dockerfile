@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     snmp \
     nmap \
     iproute2 \
+    iputils-ping \
+    traceroute \
+    whois \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
