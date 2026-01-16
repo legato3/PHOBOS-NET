@@ -130,7 +130,7 @@ export const DashboardWidgets = {
                     context.widgetVisibility[key] = saved[key];
                 }
             }
-            // Ensure new forensics widgets are visible if not in saved prefs
+            // Ensure new firewall widgets are visible if not in saved prefs
             const newWidgets = ['ipInvestigation', 'flowSearch', 'alertCorrelation'];
             newWidgets.forEach(widget => {
                 if (!(widget in saved)) {

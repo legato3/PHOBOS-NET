@@ -115,7 +115,7 @@
   5. Trends Routes (2)
   6. General API Routes (17)
   7. System Routes (7)
-  8. Forensics Routes (2)
+  8. Firewall Routes (2)
   9. Ollama Routes (2)
 
 **Note:** Routes now import functions directly from modular services; the legacy `phobos_dashboard.py` entrypoint has been removed.
@@ -244,7 +244,7 @@ All major refactoring milestones have been completed:
 
 ## Recent Bug Fixes (January 2026)
 
-### Fixed 500 Errors on Security and Forensics Pages
+### Fixed 500 Errors on Security and Firewall Pages
 - **Issue**: Multiple endpoints returning 500 errors due to missing variable references after refactoring
 - **Fixed Endpoints**:
   1. `/api/security/risk_index` - Fixed `_feed_status` reference (now uses `threats_module._feed_status`)

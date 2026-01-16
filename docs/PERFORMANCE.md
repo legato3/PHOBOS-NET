@@ -151,7 +151,7 @@ navigator.serviceWorker.ready.then(reg => reg.update());
 1. **Webpack/Rollup**: Bundle and tree-shake JavaScript
 2. **WebP Images**: Use next-gen formats with fallbacks
 3. **Critical CSS**: Inline above-the-fold CSS
-4. **Code Splitting**: Load forensics/security tabs on-demand
+4. **Code Splitting**: Load firewall/security tabs on-demand
 5. **Virtual Scrolling**: For tables with 100+ rows
 6. **Web Workers**: Offload heavy computations (sparklines, charts)
 

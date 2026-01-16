@@ -37,7 +37,7 @@
   - Protocol Anomalies
   - Off-Hours Activity
 
-### Forensics
+### Firewall
 - **Flow Search**: Advanced multi-criteria search for investigation
 - **Alert Correlation**: Group related alerts into attack chains
 - **IP Investigation**: Detailed IP drill-down with traffic patterns and related IPs
@@ -150,7 +150,7 @@ Dashboard: `http://<LXC-IP>:8080`
 - `/api/security/attack-timeline` - 24h attack timeline
 - `/api/stats/threats` - Active detected threats
 
-### Forensics
+### Firewall
 - `/api/forensics/flow-search` - Search flows by IP, port, protocol
 - `/api/forensics/alert_correlation` - Correlated alert chains
 - `/api/ip_detail/<ip>` - Deep dive IP investigation

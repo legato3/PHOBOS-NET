@@ -164,7 +164,7 @@ export const Store = () => ({
     firewallSNMPRefreshTimer: null,
     _firewallSNMPFetching: false,
 
-    // Forensics Investigation Tools
+    // Firewall Investigation Tools
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
     flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
@@ -3859,7 +3859,7 @@ export const Store = () => ({
         window.location.href = '/api/alerts_export?format=' + fmt;
     },
 
-    // === FORENSICS INVESTIGATION FUNCTIONS ===
+    // === FIREWALL INVESTIGATION FUNCTIONS ===
 
     async investigateIP() {
         if (!this.ipInvestigation.searchIP.trim()) return;

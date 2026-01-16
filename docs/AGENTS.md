@@ -50,7 +50,7 @@ Frontend Chat → /api/ollama/chat → Ollama Instance (DeepSeek Coder) → Stre
 NetFlow/Syslog Data → Anomaly Detection Algorithms → /api/security/* → Risk Score & Alerts
 ```
 
-### 6. Forensics
+### 6. Firewall
 ```
 Investigator → /api/forensics/* → Advanced Search & Correlation → Attack Chains
 ```

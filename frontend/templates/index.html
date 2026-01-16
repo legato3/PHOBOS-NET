@@ -806,7 +806,7 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Threat Detections - MOVED TO FORENSICS TAB -->
+                                <!-- Threat Detections - MOVED TO FIREWALL TAB -->
 
                                 <!-- Feed Health -->
                                 <template x-if="isVisible('feedHealth')">
@@ -1139,9 +1139,9 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Attack Timeline - MOVED TO FORENSICS TAB -->
+                                <!-- Attack Timeline - MOVED TO FIREWALL TAB -->
 
-                                <!-- MITRE ATT&CK Coverage - MOVED TO FORENSICS TAB -->
+                                <!-- MITRE ATT&CK Coverage - MOVED TO FIREWALL TAB -->
 
                                 <!-- Protocol Anomalies Widget -->
                                 <template x-if="isVisible('protocolAnomalies')">
@@ -1173,7 +1173,7 @@
 
                             </div> <!-- End security-grid -->
 
-                            <!-- Firewall Logs - MOVED TO FORENSICS TAB -->
+                            <!-- Firewall Logs - MOVED TO FIREWALL TAB -->
                             <!-- Old Firewall Logs widget disabled -->
 
                         </section>
@@ -1508,7 +1508,7 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Top Talkers - MOVED TO FORENSICS TAB -->
+                                <!-- Top Talkers - MOVED TO FIREWALL TAB -->
 
                                 <!-- Top Services -->
                                 <template x-if="isVisible('services')">
@@ -1602,7 +1602,7 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Long Flows - MOVED TO FORENSICS TAB -->
+                                <!-- Long Flows - MOVED TO FIREWALL TAB -->
 
                                 <!-- Packet Size Distribution -->
                                 <template x-if="isVisible('packetSizes')">
@@ -2032,7 +2032,7 @@
 
                     </div>
                     <!-- ============================================
-             FORENSICS TAB - Investigation & Incident Response
+             FIREWALL TAB - Investigation & Incident Response
              ============================================ -->
                     <div x-show="activeTab === 'forensics'"
                         :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
@@ -2303,7 +2303,7 @@
                             {% endcall %}
                         </section>
                         <!-- ========================================
-     FORENSICS INVESTIGATION TOOLS
+     FIREWALL INVESTIGATION TOOLS
      ======================================== -->
 
                         <!-- Alert Correlation & Attack Chains -->
@@ -4110,7 +4110,7 @@
                             begin investigation</p>
                         <p style="font-size: var(--text-sm); color: var(--text-tertiary);">Use the search bar at the
                             top
-                            of the Forensics page</p>
+                            of the Firewall page</p>
                     </div>
                 </div>
             </div>
@@ -5271,9 +5271,9 @@
                 <span class="mobile-nav-label">Servers</span>
             </button>
             <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }"
-                @click="loadTab('forensics')" title="Forensics">
+                @click="loadTab('forensics')" title="Firewall">
                 <span class="mobile-nav-icon">🔍</span>
-                <span class="mobile-nav-label">Forensics</span>
+                <span class="mobile-nav-label">Firewall</span>
             </button>
             <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
                 @click="loadTab('assistant')" title="AI Assistant">
