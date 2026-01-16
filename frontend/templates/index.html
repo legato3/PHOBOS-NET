@@ -3011,12 +3011,12 @@
                                                 <div x-show="!serverHealth.loading">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                             <!-- Network Summary -->
-                                            <template x-for="(ifaceData, ifaceName) in serverHealth.network?.interfaces" :key="ifaceName">
-                                                <div x-show="ifaceName !== 'lo' && !ifaceName.startsWith('lo:') && ($index === 0 || ifaceName === 'eth0' || ifaceName === 'eth1')">
-                                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;" x-text="'Interface (' + ifaceName + ')'"></div>
+                                            <template x-if="getPrimaryInterface()">
+                                                <div>
+                                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;" x-text="'Interface (' + getPrimaryInterface().name + ')'"></div>
                                                     <div class="server-stat-value" style="font-size: 0.9em;">
-                                                        <div>RX: <span x-text="ifaceData.rx_bytes ? (ifaceData.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
-                                                        <div style="margin-top: 4px;">TX: <span x-text="ifaceData.tx_bytes ? (ifaceData.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                        <div>RX: <span x-text="getPrimaryInterface().data.rx_bytes ? (getPrimaryInterface().data.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                        <div style="margin-top: 4px;">TX: <span x-text="getPrimaryInterface().data.tx_bytes ? (getPrimaryInterface().data.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -3055,9 +3055,9 @@
                                             <!-- NetFlow Details -->
                                             <div class="server-stat-details" x-show="serverHealth.netflow && !serverHealth.netflow.error">
                                                 <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">NetFlow Details</div>
-                                                <div x-show="serverHealth.netflow.version">
-                                                    <span>Version:</span>
-                                                    <span x-text="serverHealth.netflow.version" style="font-size: 0.85em; word-break: break-word; white-space: normal; text-align: right; display: inline-block; max-width: 65%; margin-left: auto;"></span>
+                                                <div x-show="serverHealth.netflow.version" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                                    <span style="flex-shrink: 0;">Version:</span>
+                                                    <span x-text="serverHealth.netflow.version" style="font-size: 0.85em; word-break: break-word; white-space: normal; text-align: right; flex: 1;"></span>
                                                 </div>
                                                 <div x-show="serverHealth.netflow.directory">
                                                     <span>Directory:</span>
