@@ -2679,11 +2679,12 @@
                                                     <template
                                                         x-if="flow.interesting_flags && flow.interesting_flags.length > 0">
                                                         <div style="display: flex; gap: 3px; margin-left: 4px;">
-                                                            <span
-                                                                x-for="(flag, idx) in flow.interesting_flags.slice(0, 2)"
-                                                                :key="idx" :title="getInterestingFlowTooltip(flag)"
-                                                                class="flow-interest-icon"
-                                                                x-text="getInterestingFlowIcon(flag)"></span>
+                                                            <template x-for="(flag, idx) in flow.interesting_flags.slice(0, 2)" :key="idx">
+                                                                <span
+                                                                    :title="getInterestingFlowTooltip(flag)"
+                                                                    class="flow-interest-icon"
+                                                                    x-text="getInterestingFlowIcon(flag)"></span>
+                                                            </template>
                                                         </div>
                                                     </template>
                                                 </div>

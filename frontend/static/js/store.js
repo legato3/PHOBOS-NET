@@ -2827,10 +2827,7 @@ export const Store = () => ({
             let ctx = document.getElementById('hourlyChart');
             let chartId = 'hourlyChart';
             if (!ctx || !data || !data.labels || !data.bytes || !Array.isArray(data.bytes) || data.bytes.length === 0) {
-                if (!ctx) console.warn('Hourly chart canvas not found');
-                if (data && (!data.labels || !data.bytes || !Array.isArray(data.bytes) || data.bytes.length === 0)) {
-                    console.warn('Hourly chart data invalid:', data);
-                }
+                // Silently return if canvas not found or data is empty (expected when no data available)
                 return;
             }
 
