@@ -1618,27 +1618,60 @@ def api_firewall_logs_stats():
 def api_hosts_stats():
     """Get summarized host statistics."""
     from app.services.netflow import get_merged_host_stats
-    from app.services.threats import is_ip_threat
+    from app.services.threats import is_ip_threat, get_recent_alert_ips
+    from datetime import datetime, timedelta
     
-    # 24h window for Total and Anomalies
-    hosts_24h = get_merged_host_stats("24h", limit=5000)
+    # Fetch 48h stats to determine new hosts (baseline comparison)
+    hosts_48h = get_merged_host_stats("48h", limit=10000)
+    
+    # 24h stats for Total Hosts count (to be consistent with the "Total Hosts (24h)" label)
+    # Note: hosts_48h contains 24h hosts too, but we want the count specifically for the last 24h window
+    hosts_24h = [h for h in hosts_48h if h.get('last_seen', '') > (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')]
     total_hosts = len(hosts_24h)
     
-    # Check for anomalies (threats)
-    # This is a set lookup, so fast enough for 5000 hosts
-    anomalies = 0
+    # Active hosts (1h window)
+    cutoff_1h = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+    active_hosts = sum(1 for h in hosts_48h if h.get('last_seen', '') > cutoff_1h)
+    
+    # New Hosts (24h) Logic
+    # Check if we have sufficient history (data older than 24h)
+    new_hosts = 0
+    new_hosts_display = "—"
+    
+    all_first_seens = [h['first_seen'] for h in hosts_48h if h.get('first_seen')]
+    if all_first_seens:
+        # Lexical sort works for nfdump ISO timestamps
+        min_seen = min(all_first_seens)
+        cutoff_24h_str = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # If the oldest data point is newer than ~24h ago, we are still warming up
+        # We give a 1-hour buffer (23h) to be safe against slight clock skews/intervals
+        baseline_check_str = (datetime.now() - timedelta(hours=23)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        if min_seen > baseline_check_str:
+            new_hosts_display = "Baseline warming"
+        else:
+            # We have history. Count hosts first seen AFTER the 24h cutoff
+            count = sum(1 for h in hosts_48h if h.get('first_seen', '') > cutoff_24h_str)
+            new_hosts_display = count
+
+    # Anomalies Logic
+    # 1. IPs currently in threat feeds
+    anomaly_ips = set()
     for host in hosts_24h:
         if is_ip_threat(host["ip"]):
-            anomalies += 1
+            anomaly_ips.add(host["ip"])
             
-    # Active hosts (1h window)
-    hosts_1h = get_merged_host_stats("1h", limit=5000)
-    active_hosts = len(hosts_1h)
+    # 2. IPs involved in recent behavioral alerts (last 24h)
+    recent_alerts = get_recent_alert_ips(86400)
+    anomaly_ips.update(recent_alerts)
+    
+    anomalies = len(anomaly_ips)
     
     data = {
         "total_hosts": total_hosts,
         "active_hosts": active_hosts,
-        "new_hosts": "—", # Placeholder as per conservative data rules
+        "new_hosts": new_hosts_display,
         "anomalies": anomalies
     }
     return jsonify(data)
@@ -1666,12 +1699,7 @@ def api_host_detail(ip):
     """Get details for a specific host."""
     # Overview: Geo, ASN, DNS
     from app.utils.geoip import lookup_geo
-    from app.utils.dns import resolve_ip_async # using existing resolver if available or synchronous
-    # Checking app/utils/dns.py import availability
-    try:
-        from app.utils.dns import resolve_ip
-    except ImportError:
-         resolve_ip = lambda x: x # Fallback
+    from app.utils.dns import resolve_ip
          
     from app.services.threats import is_ip_threat, get_threat_info
     
@@ -1680,30 +1708,87 @@ def api_host_detail(ip):
     is_threat = is_ip_threat(ip)
     threat_info = get_threat_info(ip) if is_threat else {}
     
-    # Activity: recent ports/destinations (24h)
-    from app.services.netflow import run_nfdump, parse_csv, get_time_range
-    tf = get_time_range("24h")
+    # Activity: recent ports/destinations
+    from app.services.netflow import run_nfdump, parse_csv, get_time_range, get_traffic_direction
+    from app.config import PORTS, REGION_MAPPING
     
-    # Top ports used (Destination Ports)
-    ports_csv = run_nfdump(["-a", f"fwd and src ip {ip}", "-s", "dstport/bytes", "-n", "5"], tf)
-    top_ports = parse_csv(ports_csv, expected_key="dp")
+    # Use 48h range to match Hosts List baseline
+    tf = get_time_range("48h")
     
-    # Top destinations (Destination IPs)
-    dests_csv = run_nfdump(["-a", f"fwd and src ip {ip}", "-s", "dstip/bytes", "-n", "5"], tf)
-    top_dests = parse_csv(dests_csv, expected_key="da")
+    # Traffic Direction
+    direction = get_traffic_direction(ip, tf)
     
-    # We add fwd filter to ensure we only count forwarded traffic initiated by this host
-    
+    # Insight: "Src Ports" in the UI should reflect "Services Hosted" (Inbound traffic to this node)
+    # Standard "Source Ports" are usually random ephemeral ports and not useful.
+    # So we map "src_ports" -> Destination Ports of INBOUND flows (dst ip = this host)
+    inbound_svc_csv = run_nfdump(["-s", "dstport/bytes", "-n", "10", "dst", "ip", ip], tf)
+    src_ports = parse_csv(inbound_svc_csv, expected_key="dp")
+    for p in src_ports:
+        try:
+            port_num = int(p.get("key", 0))
+            p["service"] = PORTS.get(port_num, "Unknown")
+        except:
+            p["service"] = "Unknown"
+
+    # Insight: "Dst Ports" in the UI should reflect "Services Accessed" (Outbound traffic from this node)
+    # This maps to Destination Ports of OUTBOUND flows (src ip = this host)
+    outbound_svc_csv = run_nfdump(["-s", "dstport/bytes", "-n", "10", "src", "ip", ip], tf)
+    dst_ports = parse_csv(outbound_svc_csv, expected_key="dp")
+    for p in dst_ports:
+        try:
+            port_num = int(p.get("key", 0))
+            p["service"] = PORTS.get(port_num, "Unknown")
+        except:
+            p["service"] = "Unknown"
+            
+    # Region
+    region_val = ""
+    if geo:
+        country = geo.get('country_code', '')
+        region_val = REGION_MAPPING.get(country, "🌐 Global")
+
     data = {
         "ip": ip,
         "hostname": hostname,
         "geo": geo,
+        "region": region_val,
         "is_threat": is_threat,
         "threat_info": threat_info,
-        "top_ports": top_ports,
-        "top_dests": top_dests
+        "direction": direction,
+        "src_ports": src_ports,
+        "dst_ports": dst_ports
     }
     return jsonify(data)
+
+
+# ===== Discovery (Active) =====
+
+@bp.route("/api/discovery/subnets")
+def api_discovery_subnets():
+    """Get detected local subnets."""
+    from app.services.discovery import get_local_subnets
+    subnets = get_local_subnets()
+    return jsonify(subnets)
+
+@bp.route("/api/discovery/scan", methods=["POST"])
+@throttle(2, 60) # Strict throttling for active scanning
+def api_discovery_scan():
+    """Trigger an active network scan."""
+    from app.services.discovery import scan_network
+    
+    data = request.get_json() or {}
+    target = data.get("target")
+    
+    if not target:
+        return jsonify({"error": "Target CIDR required"}), 400
+        
+    result = scan_network(target)
+    
+    if "error" in result:
+        return jsonify(result), 500
+        
+    return jsonify(result)
+
     hours = range_seconds / 3600
     with _syslog_stats_lock:
         receiver_stats = dict(_syslog_stats)
