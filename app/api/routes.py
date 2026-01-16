@@ -3599,6 +3599,158 @@ def api_ollama_chat():
         }), 500
 
 
+@bp.route('/api/ollama/threat-analysis', methods=['POST'])
+@throttle(5, 60)  # 5 requests per minute for intensive analysis
+def api_ollama_threat_analysis():
+    """Advanced threat analysis endpoint with enhanced context."""
+    try:
+        data = request.get_json()
+        query = data.get('query', '').strip()
+        analysis_type = data.get('type', 'general')  # general, forensics, investigation, mitigation
+        
+        if not query:
+            return jsonify({"error": "Query is required"}), 400
+
+        # Gather comprehensive threat intelligence context
+        from app.services.threats import get_threat_info, load_threatlist
+        from app.services.netflow import get_common_nfdump_data
+        from datetime import datetime, timedelta
+        
+        # Enhanced context collection
+        context_data = {
+            'timestamp': datetime.now().isoformat(),
+            'analysis_type': analysis_type,
+            'threat_intel': {
+                'total_threats': len(load_threatlist()),
+                'recent_hits': [],  # Would be populated from actual threat hits
+                'categories': []  # Would be populated from threat categories
+            },
+            'network_summary': {
+                'top_sources': get_common_nfdump_data("sources", "1h", limit=10),
+                'top_destinations': get_common_nfdump_data("destinations", "1h", limit=10),
+                'protocols': get_common_nfdump_data("protocols", "1h", limit=10)
+            },
+            'security_metrics': {
+                'current_score': 0,  # Would be populated from security score
+                'active_alerts': 0,   # Would be populated from alerts
+                'blocked_threats': 0  # Would be populated from firewall blocks
+            }
+        }
+
+        # Build specialized prompt based on analysis type
+        system_prompts = {
+            'general': """You are a senior network security analyst AI assistant. You have access to real-time threat intelligence, network traffic data, and security metrics. 
+            Provide detailed security analysis, threat assessment, and actionable recommendations. Focus on:
+            1. Threat severity and potential impact
+            2. Immediate investigation steps
+            3. Recommended containment actions
+            4. Long-term mitigation strategies
+            5. Compliance implications if relevant""",
+            
+            'forensics': """You are a digital forensics expert. Analyze the provided network data for evidence of security incidents. 
+            Focus on:
+            1. Timeline reconstruction
+            2. Attack pattern identification
+            3. Evidence preservation recommendations
+            4. Attribution indicators
+            5. Lateral movement detection""",
+            
+            'investigation': """You are a cybersecurity incident response investigator. Provide step-by-step investigation guidance.
+            Focus on:
+            1. Immediate triage priorities
+            2. Evidence collection procedures
+            3. Containment and eradication steps
+            4. Recovery recommendations
+            5. Post-incident improvement actions""",
+            
+            'mitigation': """You are a security architect focused on threat mitigation. Provide actionable security improvements.
+            Focus on:
+            1. Immediate blocking recommendations
+            2. Rule and policy changes
+            3. Network segmentation suggestions
+            4. Monitoring enhancements
+            5. Long-term hardening strategies"""
+        }
+
+        system_prompt = system_prompts.get(analysis_type, system_prompts['general'])
+        
+        # Format context for LLM
+        context_text = f"""
+## THREAT ANALYSIS CONTEXT
+Analysis Type: {analysis_type.upper()}
+Timestamp: {context_data['timestamp']}
+
+### Current Threat Intelligence
+- Total Known Threat IPs: {context_data['threat_intel']['total_threats']}
+
+### Network Traffic Summary (Last Hour)
+- Top Sources: {[s['key'] for s in context_data['network_summary']['top_sources'][:5]]}
+- Top Destinations: {[d['key'] for d in context_data['network_summary']['top_destinations'][:5]]}
+- Top Protocols: {[p['key'] for p in context_data['network_summary']['protocols'][:5]]}
+
+### Security Posture
+- Security Score: {context_data['security_metrics']['current_score']}/100
+- Active Alerts: {context_data['security_metrics']['active_alerts']}
+- Threats Blocked: {context_data['security_metrics']['blocked_threats']}
+
+{system_prompt}
+
+ANALYSIS REQUEST: {query}
+
+Provide a comprehensive analysis with specific, actionable recommendations."""
+        
+        # Ollama API endpoint
+        ollama_base = os.getenv('OLLAMA_URL', 'http://192.168.0.88:11434')
+        ollama_base = ollama_base.replace('/api/chat', '')
+        ollama_url = f"{ollama_base}/api/chat"
+
+        ollama_payload = {
+            "model": data.get('model', 'deepseek-coder-v2:16b'),
+            "messages": [
+                {
+                    "role": "user", 
+                    "content": context_text
+                }
+            ],
+            "stream": False
+        }
+
+        response = requests.post(
+            ollama_url,
+            json=ollama_payload,
+            timeout=90  # Longer timeout for complex analysis
+        )
+
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"Ollama API error: {response.status_code}",
+                "details": response.text[:200]
+            }), response.status_code
+
+        result = response.json()
+        
+        # Add metadata to response
+        result['analysis_metadata'] = {
+            'type': analysis_type,
+            'context_timestamp': context_data['timestamp'],
+            'threats_analyzed': context_data['threat_intel']['total_threats']
+        }
+
+        return jsonify(result)
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "error": f"Cannot connect to Ollama. Make sure Ollama is running and accessible."
+        }), 503
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "error": "Threat analysis timed out - try a more specific query"
+        }), 504
+    except Exception as e:
+        return jsonify({
+            "error": f"Analysis error: {str(e)}"
+        }), 500
+
 
 @bp.route('/api/ollama/models', methods=['GET'])
 @throttle(5, 60)

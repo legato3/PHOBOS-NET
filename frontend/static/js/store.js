@@ -73,7 +73,8 @@ export const Store = () => ({
         error: null,
         model: 'deepseek-coder-v2:16b',
         availableModels: ['deepseek-coder-v2:16b'], // Initialize with default model
-        includeContext: true // Include dashboard context in messages
+        includeContext: true, // Include dashboard context in messages
+        analysisType: 'general' // Analysis type: general, forensics, investigation, mitigation
     },
 
     // Mobile UI state
@@ -5531,7 +5532,22 @@ export const Store = () => ({
                 status: this.securityScore?.status || 'unknown',
                 threats: this.threats?.hits?.length || 0,
                 threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
-                alerts: this.alertHistory?.alerts?.length || 0
+                alerts: this.alertHistory?.alerts?.length || 0,
+                // Enhanced threat analysis data
+                recentAlerts: (this.alertHistory?.alerts?.slice(0, 5) || []).map(alert => ({
+                    type: alert.type,
+                    severity: alert.severity,
+                    ip: alert.ip || alert.source_ip,
+                    timestamp: alert.timestamp,
+                    message: alert.message
+                })),
+                threatHits: (this.threats?.hits?.slice(0, 10) || []).map(hit => ({
+                    ip: hit.ip,
+                    category: hit.category,
+                    feeds: hit.feeds,
+                    firstSeen: hit.first_seen,
+                    lastSeen: hit.last_seen
+                }))
             },
             network: {
                 totalFlows: this.summary?.total_flows || 0,
@@ -5546,14 +5562,27 @@ export const Store = () => ({
                     ip: d.key,
                     bytes: d.bytes_fmt || d.bytes,
                     flows: d.flows
-                }))
+                })),
+                // Network health indicators
+                healthIndicators: this.netHealth?.indicators || [],
+                healthScore: this.netHealth?.health_score || 100,
+                firewallActive: this.netHealth?.firewall_active || false
             },
             firewall: {
                 cpu: this.firewall?.cpu_percent || null,
                 memory: this.firewall?.mem_percent || null,
                 uptime: this.firewall?.sys_uptime || null,
                 blocksLastHour: this.firewall?.blocks_1h || 0,
-                syslogActive: this.firewall?.syslog_active || false
+                syslogActive: this.firewall?.syslog_active || false,
+                // Enhanced firewall metrics
+                interfaceStatus: this.firewallSNMP?.interfaces || {},
+                errorRates: this.firewallSNMP?.error_rates || {}
+            },
+            // Add forensics data
+            forensics: {
+                recentFlows: this.flows?.flows?.slice(0, 20) || [],
+                topTalkers: this.talkers?.talkers?.slice(0, 10) || [],
+                protocols: this.protocols?.protocols?.slice(0, 10) || []
             }
         };
         return context;
@@ -5573,6 +5602,22 @@ export const Store = () => ({
         if (context.security.alerts > 0) {
             contextText += `- Recent Alerts: ${context.security.alerts}\n`;
         }
+
+        // Enhanced threat analysis section
+        if (context.security.recentAlerts.length > 0) {
+            contextText += `\n### Recent Security Alerts (Last 5)\n`;
+            context.security.recentAlerts.forEach(alert => {
+                contextText += `- ${alert.type} (${alert.severity}): ${alert.message} [IP: ${alert.ip}]\n`;
+            });
+        }
+
+        if (context.security.threatHits.length > 0) {
+            contextText += `\n### Current Threat Intelligence Hits\n`;
+            context.security.threatHits.forEach(hit => {
+                contextText += `- ${hit.ip}: ${hit.category} (Sources: ${hit.feeds?.join(', ') || 'Unknown'})\n`;
+            });
+        }
+
         contextText += `\n### Network Statistics\n`;
         if (context.network.totalFlows > 0) {
             contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
@@ -5589,6 +5634,15 @@ export const Store = () => ({
         if (context.network.topDestinations.length > 0) {
             contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
         }
+
+        // Network health indicators
+        if (context.network.healthIndicators.length > 0) {
+            contextText += `\n### Network Health Indicators\n`;
+            context.network.healthIndicators.forEach(indicator => {
+                contextText += `- ${indicator.name}: ${indicator.value} (${indicator.status}) ${indicator.icon}\n`;
+            });
+        }
+
         contextText += `\n### Firewall Status\n`;
         if (context.firewall.cpu !== null) {
             contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
@@ -5598,6 +5652,21 @@ export const Store = () => ({
         }
         contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
         contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
+
+        // Forensics data
+        if (context.forensics.recentFlows.length > 0) {
+            contextText += `\n### Recent Flow Activity (Sample)\n`;
+            context.forensics.recentFlows.slice(0, 5).forEach(flow => {
+                contextText += `- ${flow.src_ip}:${flow.src_port} → ${flow.dst_ip}:${flow.dst_port} (${flow.proto}) - ${flow.bytes_fmt}\n`;
+            });
+        }
+
+        if (context.forensics.topTalkers.length > 0) {
+            contextText += `\n### Top Talkers\n`;
+            context.forensics.topTalkers.slice(0, 5).forEach(talker => {
+                contextText += `- ${talker.ip}: ${talker.bytes_fmt} (${talker.flows} flows)\n`;
+            });
+        }
 
         return contextText;
     },
@@ -5619,48 +5688,71 @@ export const Store = () => ({
         this.ollamaChat.error = null;
 
         try {
-            let messageToSend = message;
+            let response;
+            
+            // Use specialized threat analysis endpoint for non-general analysis types
+            if (this.ollamaChat.analysisType !== 'general' && this.ollamaChat.includeContext) {
+                const res = await fetch('/api/ollama/threat-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: message,
+                        type: this.ollamaChat.analysisType,
+                        model: this.ollamaChat.model
+                    })
+                });
 
-            // Optionally include dashboard context
-            if (this.ollamaChat.includeContext) {
-                const context = this.getDashboardContext();
-                const contextText = this.formatDashboardContext(context);
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                    throw new Error(errorData.error || `Request failed: ${res.status}`);
+                }
 
-                // Create enhanced message with context
-                const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
-
-                messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
-            }
-
-            const res = await fetch('/api/ollama/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: messageToSend,
-                    model: this.ollamaChat.model,
-                    stream: false
-                })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-                throw new Error(errorData.error || `Request failed: ${res.status}`);
-            }
-
-            const data = await res.json();
-
-            // Extract response message
-            let responseText = '';
-            if (data.message && data.message.content) {
-                responseText = data.message.content;
-            } else if (data.response) {
-                responseText = data.response;
-            } else if (typeof data === 'string') {
-                responseText = data;
+                response = await res.json();
             } else {
-                responseText = JSON.stringify(data);
+                // Use regular chat endpoint
+                let messageToSend = message;
+
+                // Optionally include dashboard context
+                if (this.ollamaChat.includeContext) {
+                    const context = this.getDashboardContext();
+                    const contextText = this.formatDashboardContext(context);
+
+                    // Create enhanced message with context
+                    const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
+
+                    messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
+                }
+
+                const res = await fetch('/api/ollama/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: messageToSend,
+                        model: this.ollamaChat.model,
+                        stream: false
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                    throw new Error(errorData.error || `Request failed: ${res.status}`);
+                }
+
+                response = await res.json();
+            }
+
+            // Extract response content
+            let responseText = '';
+            if (response.message && response.message.content) {
+                responseText = response.message.content;
+            } else if (response.content) {
+                responseText = response.content;
+            } else {
+                responseText = JSON.stringify(response);
             }
 
             // Add assistant response to chat

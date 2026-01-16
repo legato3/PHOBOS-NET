@@ -4227,6 +4227,13 @@
                                                 style="cursor: pointer;">
                                             <span>Use Context</span>
                                         </label>
+                                        <select x-model="ollamaChat.analysisType" class="filter-select"
+                                            style="min-width: 120px;" title="Analysis type for enhanced threat investigation">
+                                            <option value="general">General</option>
+                                            <option value="forensics">Forensics</option>
+                                            <option value="investigation">Investigation</option>
+                                            <option value="mitigation">Mitigation</option>
+                                        </select>
                                         <button class="btn btn--secondary" @click="clearChat()" title="Clear chat">
                                             Clear
                                         </button>
