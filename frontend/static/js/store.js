@@ -3294,8 +3294,10 @@ export const Store = () => ({
                 this.databaseStats.loading = false;
                 this.databaseStats.error = null;
                 
-                // Sparkline rendering disabled temporarily to prevent infinite loops
-                // Will be re-enabled with a safer implementation
+                // Render sparklines after data update (non-reactive, one-time render)
+                this.$nextTick(() => {
+                    this.renderDatabaseSizeSparklines();
+                });
             } else {
                 const errorMsg = `Database stats fetch failed: ${res.status}`;
                 console.error(errorMsg);
@@ -3311,8 +3313,64 @@ export const Store = () => ({
         }
     },
     
-    // renderDatabaseSizeSparklines() - Temporarily disabled to prevent infinite loops
-    // Will be re-implemented with a safer approach that doesn't trigger Alpine.js reactivity
+    renderDatabaseSizeSparklines() {
+        // Safe sparkline rendering: only reads existing data, no reactivity triggers
+        if (!this.databaseStats || !this.databaseStats.databases) return;
+        
+        this.databaseStats.databases.forEach(db => {
+            if (!db.size_history || db.size_history.length < 2) return;
+            
+            const canvasId = `dbSparkline_${db.name}`;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            // Check if already rendered (prevent re-rendering on reactivity)
+            if (canvas._sparklineRendered) return;
+            
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, w, h);
+            
+            // Get size history values
+            const values = db.size_history;
+            if (values.length < 2) return;
+            
+            // Calculate min/max for scaling
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1; // Avoid division by zero
+            
+            // Draw sparkline
+            const step = w / (values.length - 1);
+            const grad = ctx.createLinearGradient(0, 0, w, 0);
+            grad.addColorStop(0, '#00f3ff');
+            grad.addColorStop(1, '#bc13fe');
+            
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            
+            for (let i = 0; i < values.length; i++) {
+                const x = i * step;
+                const normalized = (values[i] - min) / range;
+                const y = h - (normalized * (h - 4)) - 2; // Leave 2px padding
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Mark as rendered to prevent re-rendering
+            canvas._sparklineRendered = true;
+        });
+    },
 
     async fetchFirewallSNMP() {
         // Prevent concurrent requests

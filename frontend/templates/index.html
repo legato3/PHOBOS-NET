@@ -3241,7 +3241,14 @@
                                         <!-- File Size -->
                                         <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
                                             <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">File Size</div>
-                                            <div style="font-size: 0.95em; color: var(--text-primary);" x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                            <div style="font-size: 0.95em; color: var(--text-primary); margin-bottom: 4px;" x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                            <template x-if="db.size_history && db.size_history.length > 1">
+                                                <canvas 
+                                                    x-bind:id="'dbSparkline_' + db.name"
+                                                    style="width: 100%; height: 24px; display: block;"
+                                                    width="120"
+                                                    height="24"></canvas>
+                                            </template>
                                         </div>
                                         
                                         <!-- Total Records -->
