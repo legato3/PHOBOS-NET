@@ -6378,6 +6378,31 @@ def api_database_stats():
             # Get historical file size samples for sparkline
             history = get_db_size_history(db_path, limit=100)
             stats['size_history'] = [h['file_size'] for h in history]
+            
+            # Calculate write-pressure hint (qualitative: normal / elevated)
+            # Compare recent growth rate vs historical baseline
+            write_pressure = 'normal'
+            if len(history) >= 10:  # Need enough history for baseline
+                # Recent activity: last 5 samples
+                recent_samples = history[-5:] if len(history) >= 5 else history
+                recent_growth = 0
+                if len(recent_samples) > 1:
+                    recent_growth = (recent_samples[-1]['file_size'] - recent_samples[0]['file_size']) / max(len(recent_samples) - 1, 1)
+                
+                # Historical baseline: all samples except recent
+                baseline_samples = history[:-5] if len(history) >= 5 else []
+                baseline_growth = 0
+                if len(baseline_samples) > 1:
+                    baseline_growth = (baseline_samples[-1]['file_size'] - baseline_samples[0]['file_size']) / max(len(baseline_samples) - 1, 1)
+                
+                # Only flag as elevated if sustained deviation (recent > 2x baseline and baseline > 0)
+                if baseline_growth > 0 and recent_growth > (baseline_growth * 2):
+                    write_pressure = 'elevated'
+                # Also flag if baseline was stable (near zero) but recent shows significant growth
+                elif baseline_growth <= 0 and recent_growth > (stats['file_size'] * 0.01):  # >1% of current size
+                    write_pressure = 'elevated'
+            
+            stats['write_pressure'] = write_pressure
                 
         except Exception as e:
             stats['error'] = str(e)
