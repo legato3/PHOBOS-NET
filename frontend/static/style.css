@@ -4545,7 +4545,7 @@ body {
 }
 
 .signal-text {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-weight: 500;
 }
 
