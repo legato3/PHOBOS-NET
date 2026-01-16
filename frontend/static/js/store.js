@@ -205,7 +205,7 @@ export const Store = () => ({
     recentBlocksRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
-    appMetadata: { name: 'PHOBOS-NET', version: 'v1.0.0', version_display: 'v1.0' }, // Application metadata from backend
+    appMetadata: { name: 'PHOBOS-NET', version: 'v1.1.0', version_display: 'v1.1' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, traffic_correlation: null, loading: true, error: null },
@@ -466,8 +466,8 @@ export const Store = () => ({
                 const data = await res.json();
                 this.appMetadata = {
                     name: data.name || 'PHOBOS-NET',
-                    version: data.version || 'v1.0.0',
-                    version_display: data.version_display || 'v1.0'
+                    version: data.version || 'v1.1.0',
+                    version_display: data.version_display || 'v1.1'
                 };
             }
         } catch (e) {
