@@ -4433,38 +4433,202 @@ body {
     border-left: 3px solid var(--neon-cyan);
 }
 
-/* Risk Header - Current vs Predictive */
+/* Risk Header - Current State Dominant */
 .risk-header {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--border-soft);
+    border-bottom: 2px solid var(--border-soft);
     margin-bottom: var(--space-4);
 }
 
-.current-risk {
+.current-state-primary {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     justify-content: space-between;
 }
 
-.predictive-risk {
+.state-label {
+    font-size: var(--fs-sm);
+    font-weight: 800;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+}
+
+.state-value-primary {
+    font-size: var(--fs-xl);
+    font-weight: 900;
+    font-family: var(--font-mono);
+    text-shadow: 0 0 10px currentColor;
+    flex-shrink: 0;
+}
+
+.risk-trend-secondary {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    justify-content: space-between;
-    opacity: 0.7; /* Subordinate to current state */
+    justify-content: flex-end;
+    opacity: 0.6; /* Clearly subordinate */
 }
 
-.risk-label {
+.trend-label {
     font-size: var(--fs-xs);
     color: var(--text-muted);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     flex-shrink: 0;
+}
+
+.trend-value {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Primary Cause Section */
+.primary-cause {
+    margin-bottom: var(--space-6);
+    padding: var(--space-4);
+    background: rgba(255, 23, 68, 0.05);
+    border: 1px solid rgba(255, 23, 68, 0.2);
+    border-radius: var(--radius-sm);
+}
+
+.cause-header h4 {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--signal-crit);
+    margin: 0 0 var(--space-2) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cause-item.critical {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: rgba(255, 23, 68, 0.1);
+    border-radius: var(--radius-xs);
+}
+
+.cause-indicator {
+    font-size: var(--fs-lg);
+    flex-shrink: 0;
+}
+
+.cause-text {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    flex-grow: 1;
+}
+
+.action-required {
+    font-size: var(--fs-xs);
+    color: var(--signal-crit);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+/* Contributing Factors */
+.contributing-factors {
+    margin-bottom: var(--space-4);
+}
+
+.factors-header h5 {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-2) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Section Rebalancing */
+.signal-category.protection-status {
+    opacity: 0.7; /* De-emphasized */
+    margin-bottom: var(--space-2);
+}
+
+.signal-category.exposure-analysis {
+    opacity: 0.8; /* Contextual */
+    margin-bottom: var(--space-2);
+}
+
+.signal-category.data-quality-critical {
+    opacity: 1; /* Elevated if critical */
+    margin-bottom: var(--space-3);
+    border-left: 3px solid var(--signal-warn);
+    padding-left: var(--space-2);
+}
+
+.signal-item.expected {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.signal-item.contextual {
+    color: var(--text-secondary);
+}
+
+.signal-item.critical {
+    color: var(--signal-warn);
+    font-weight: 600;
+}
+
+.impact-statement {
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    background: rgba(255, 180, 0, 0.1);
+    border-radius: var(--radius-xs);
+}
+
+.impact-text {
+    font-size: var(--fs-xs);
+    color: var(--signal-warn);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Operational Guidance */
+.operational-guidance {
+    padding: var(--space-3);
+    background: rgba(0, 255, 136, 0.05);
+    border: 1px solid rgba(0, 255, 136, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.guidance-title {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--signal-ok);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.guidance-item {
+    margin-top: var(--space-2);
+}
+
+.guidance-text {
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.guidance-item.urgent .guidance-text {
+    color: var(--signal-crit);
+    font-weight: 600;
 }
 
 .risk-value {
