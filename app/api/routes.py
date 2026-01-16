@@ -6274,3 +6274,115 @@ def api_performance_metrics():
     })
 
 
+@bp.route('/api/server/database-stats')
+@throttle(10, 5)
+def api_database_stats():
+    """Get read-only SQLite database statistics."""
+    from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH
+    from app.db.sqlite import _trends_db_connect, _firewall_db_connect
+    import os
+    import time as time_module
+    
+    def get_db_stats(db_path, db_name, connect_func):
+        """Get statistics for a single database."""
+        stats = {
+            'name': db_name,
+            'path': db_path,
+            'exists': os.path.exists(db_path) if db_path else False,
+            'file_size': 0,
+            'wal_size': 0,
+            'wal_exists': False,
+            'total_records': 0,
+            'sqlite_version': None,
+            'journal_mode': None,
+            'synchronous': None,
+            'page_size': None,
+            'cache_size': None,
+            'foreign_keys': None,
+            'last_write': None,
+            'error': None
+        }
+        
+        if not db_path or not os.path.exists(db_path):
+            stats['error'] = 'Database file not found'
+            return stats
+        
+        try:
+            # File system metadata
+            file_stat = os.stat(db_path)
+            stats['file_size'] = file_stat.st_size
+            stats['last_write'] = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
+            
+            # Check for WAL file
+            wal_path = db_path + '-wal'
+            if os.path.exists(wal_path):
+                stats['wal_exists'] = True
+                wal_stat = os.stat(wal_path)
+                stats['wal_size'] = wal_stat.st_size
+            
+            # PRAGMA queries (read-only)
+            conn = connect_func()
+            try:
+                # SQLite version
+                cur = conn.execute("SELECT sqlite_version()")
+                stats['sqlite_version'] = cur.fetchone()[0]
+                
+                # Journal mode
+                cur = conn.execute("PRAGMA journal_mode")
+                stats['journal_mode'] = cur.fetchone()[0]
+                
+                # Synchronous mode
+                cur = conn.execute("PRAGMA synchronous")
+                sync_val = cur.fetchone()[0]
+                sync_map = {0: 'OFF', 1: 'NORMAL', 2: 'FULL', 3: 'EXTRA'}
+                stats['synchronous'] = sync_map.get(sync_val, str(sync_val))
+                
+                # Page size
+                cur = conn.execute("PRAGMA page_size")
+                stats['page_size'] = cur.fetchone()[0]
+                
+                # Cache size (in pages)
+                cur = conn.execute("PRAGMA cache_size")
+                stats['cache_size'] = cur.fetchone()[0]
+                
+                # Foreign keys
+                cur = conn.execute("PRAGMA foreign_keys")
+                stats['foreign_keys'] = bool(cur.fetchone()[0])
+                
+                # Approximate total records (sum of row counts from all tables)
+                # This is a safe read-only query
+                cur = conn.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                """)
+                tables = [row[0] for row in cur.fetchall()]
+                
+                total_records = 0
+                for table in tables:
+                    try:
+                        cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
+                        count = cur.fetchone()[0]
+                        total_records += count
+                    except:
+                        pass  # Skip tables we can't read
+                
+                stats['total_records'] = total_records
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            stats['error'] = str(e)
+        
+        return stats
+    
+    # Get stats for both databases
+    trends_stats = get_db_stats(TRENDS_DB_PATH, 'Trends', _trends_db_connect)
+    firewall_stats = get_db_stats(FIREWALL_DB_PATH, 'Firewall', _firewall_db_connect)
+    
+    return jsonify({
+        'databases': [trends_stats, firewall_stats],
+        'timestamp': datetime.now().isoformat()
+    })
+
+

@@ -113,6 +113,7 @@ export const Store = () => ({
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
+    databaseStats: { databases: [], loading: true, error: null },
     hosts: {
         stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 },
         list: [],
@@ -3251,11 +3252,18 @@ export const Store = () => ({
 
         // Initial fetch
         this.fetchServerHealth();
+        this.fetchDatabaseStats();
 
         // Set up 2-second interval refresh for real-time updates (independent of global refresh)
         this.serverHealthRefreshTimer = setInterval(() => {
             if (this.activeTab === 'server' && !this.paused) {
                 this.fetchServerHealth();
+                // Database stats don't need frequent updates - refresh every 30 seconds
+                const now = Date.now();
+                if (!this._lastDatabaseStatsFetch || (now - this._lastDatabaseStatsFetch) > 30000) {
+                    this.fetchDatabaseStats();
+                    this._lastDatabaseStatsFetch = now;
+                }
             } else {
                 // Clean up if tab changed or paused
                 if (this.serverHealthRefreshTimer) {
@@ -3264,6 +3272,40 @@ export const Store = () => ({
                 }
             }
         }, 2000);
+    },
+
+    async fetchDatabaseStats() {
+        if (this._databaseStatsFetching) return;
+        this._databaseStatsFetching = true;
+
+        const isInitialLoad = !this.databaseStats.timestamp;
+        if (isInitialLoad) {
+            this.databaseStats.loading = true;
+        }
+        this.databaseStats.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/server/database-stats?_=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.databaseStats.databases = data.databases || [];
+                this.databaseStats.timestamp = data.timestamp;
+                this.databaseStats.loading = false;
+                this.databaseStats.error = null;
+            } else {
+                const errorMsg = `Database stats fetch failed: ${res.status}`;
+                console.error(errorMsg);
+                this.databaseStats.error = DashboardUtils?.getUserFriendlyError(new Error(errorMsg), 'load database stats') || errorMsg;
+                this.databaseStats.loading = false;
+            }
+        } catch (e) {
+            console.error('Database stats fetch error:', e);
+            this.databaseStats.error = DashboardUtils?.getUserFriendlyError(e, 'load database stats') || 'Failed to load database stats';
+            this.databaseStats.loading = false;
+        } finally {
+            this._databaseStatsFetching = false;
+        }
     },
 
     async fetchFirewallSNMP() {
