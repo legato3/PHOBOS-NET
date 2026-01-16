@@ -2976,7 +2976,21 @@
                                     </div>
 
                                     <!-- 3. Network & NetFlow -->
-                                    <div x-data="{ expanded: false }" x-show="(serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0) || (serverHealth.netflow && !serverHealth.netflow.error)">
+                                    <div x-data="{ 
+                                        expanded: false,
+                                        getPrimaryInterface() {
+                                            if (!serverHealth.network || !serverHealth.network.interfaces) return null;
+                                            const ifaces = serverHealth.network.interfaces;
+                                            // Prefer eth0, then eth1, then first non-loopback interface
+                                            return ifaces['eth0'] || ifaces['eth1'] || Object.keys(ifaces).find(name => name !== 'lo' && !name.startsWith('lo:'));
+                                        },
+                                        getInterfaceName() {
+                                            const iface = this.getPrimaryInterface();
+                                            if (!iface) return null;
+                                            const ifaces = serverHealth.network.interfaces;
+                                            return Object.keys(ifaces).find(name => ifaces[name] === iface) || Object.keys(ifaces)[0];
+                                        }
+                                    }" x-show="(serverHealth.network && serverHealth.network.interfaces && Object.keys(serverHealth.network.interfaces).length > 0) || (serverHealth.netflow && !serverHealth.netflow.error)">
                                         {% set network_badge %}
                                         <span class="server-stat-badge" :class="{
                                             'badge-success': serverHealth.netflow?.available,
@@ -2997,13 +3011,15 @@
                                                 <div x-show="!serverHealth.loading">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                             <!-- Network Summary -->
-                                            <div x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
-                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Interface (eth0)</div>
-                                                <div class="server-stat-value" style="font-size: 0.9em;">
-                                                    <div>RX: <span x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
-                                                    <div style="margin-top: 4px;">TX: <span x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                            <template x-for="(ifaceData, ifaceName) in serverHealth.network?.interfaces" :key="ifaceName">
+                                                <div x-show="ifaceName !== 'lo' && !ifaceName.startsWith('lo:') && ($index === 0 || ifaceName === 'eth0' || ifaceName === 'eth1')">
+                                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;" x-text="'Interface (' + ifaceName + ')'"></div>
+                                                    <div class="server-stat-value" style="font-size: 0.9em;">
+                                                        <div>RX: <span x-text="ifaceData.rx_bytes ? (ifaceData.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                        <div style="margin-top: 4px;">TX: <span x-text="ifaceData.tx_bytes ? (ifaceData.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </template>
                                             <!-- NetFlow Summary -->
                                             <div x-show="serverHealth.netflow && !serverHealth.netflow.error">
                                                 <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">NetFlow</div>
@@ -3015,31 +3031,33 @@
                                         </button>
                                         <div x-show="expanded" x-collapse style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
                                             <!-- Network Details -->
-                                            <div class="server-stat-details" x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
-                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Network Interface Details</div>
-                                                <div>
-                                                    <span>RX:</span>
-                                                    <span x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                            <template x-for="(ifaceData, ifaceName) in serverHealth.network?.interfaces" :key="ifaceName">
+                                                <div class="server-stat-details" x-show="ifaceName !== 'lo' && !ifaceName.startsWith('lo:') && ($index === 0 || ifaceName === 'eth0' || ifaceName === 'eth1')">
+                                                    <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);" x-text="'Network Interface Details (' + ifaceName + ')'"></div>
+                                                    <div>
+                                                        <span>RX:</span>
+                                                        <span x-text="ifaceData.rx_bytes ? (ifaceData.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                    </div>
+                                                    <div>
+                                                        <span>TX:</span>
+                                                        <span x-text="ifaceData.tx_bytes ? (ifaceData.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                    </div>
+                                                    <div>
+                                                        <span>RX Packets:</span>
+                                                        <span x-text="ifaceData.rx_packets ? ifaceData.rx_packets.toLocaleString() : '0'"></span>
+                                                    </div>
+                                                    <div>
+                                                        <span>TX Packets:</span>
+                                                        <span x-text="ifaceData.tx_packets ? ifaceData.tx_packets.toLocaleString() : '0'"></span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span>TX:</span>
-                                                    <span x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
-                                                </div>
-                                                <div>
-                                                    <span>RX Packets:</span>
-                                                    <span x-text="serverHealth.network.interfaces.eth0.rx_packets ? serverHealth.network.interfaces.eth0.rx_packets.toLocaleString() : '0'"></span>
-                                                </div>
-                                                <div>
-                                                    <span>TX Packets:</span>
-                                                    <span x-text="serverHealth.network.interfaces.eth0.tx_packets ? serverHealth.network.interfaces.eth0.tx_packets.toLocaleString() : '0'"></span>
-                                                </div>
-                                            </div>
+                                            </template>
                                             <!-- NetFlow Details -->
                                             <div class="server-stat-details" x-show="serverHealth.netflow && !serverHealth.netflow.error">
                                                 <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">NetFlow Details</div>
                                                 <div x-show="serverHealth.netflow.version">
                                                     <span>Version:</span>
-                                                    <span x-text="serverHealth.netflow.version" style="font-size: 0.85em;"></span>
+                                                    <span x-text="serverHealth.netflow.version" style="font-size: 0.85em; word-break: break-word; text-align: right; display: block; max-width: 70%; margin-left: auto;"></span>
                                                 </div>
                                                 <div x-show="serverHealth.netflow.directory">
                                                     <span>Directory:</span>
