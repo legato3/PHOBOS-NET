@@ -4442,7 +4442,7 @@ body {
 }
 
 .security-observability-card.state-degraded {
-    border-left-color: rgba(255, 149, 0, 0.6);
+    border-left-color: rgba(255, 165, 0, 0.4);
 }
 
 .security-observability-card.state-pressure {
@@ -4479,21 +4479,21 @@ body {
 }
 
 .state-stable {
-    background: rgba(0, 255, 0, 0.08);
+    background: rgba(0, 255, 0, 0.05);
     color: var(--neon-green);
-    border: 1px solid rgba(0, 255, 0, 0.3);
+    border: 1px solid rgba(0, 255, 0, 0.2);
 }
 
 .state-elevated {
-    background: rgba(255, 255, 0, 0.08);
+    background: rgba(255, 255, 0, 0.05);
     color: var(--neon-yellow);
-    border: 1px solid rgba(255, 255, 0, 0.3);
+    border: 1px solid rgba(255, 255, 0, 0.2);
 }
 
 .state-degraded {
-    background: rgba(255, 149, 0, 0.08);
-    color: #ff9500;
-    border: 1px solid rgba(255, 149, 0, 0.3);
+    background: rgba(255, 165, 0, 0.05);
+    color: #ffa500;
+    border: 1px solid rgba(255, 165, 0, 0.2);
 }
 
 .state-pressure {
@@ -4603,7 +4603,7 @@ body {
 }
 
 .value.state-degraded {
-    color: #ff9500;
+    color: #ffa500;
 }
 
 .value.state-pressure {
