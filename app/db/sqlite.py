@@ -11,6 +11,10 @@ from app.services.netflow import run_nfdump, parse_csv
 _trends_db_lock = threading.Lock()
 _firewall_db_lock = threading.Lock()
 
+# Initialization flags
+_trends_db_initialized = False
+_firewall_db_initialized = False
+
 
 def _trends_db_connect():
     conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
@@ -20,7 +24,14 @@ def _trends_db_connect():
 
 
 def _trends_db_init():
+    global _trends_db_initialized
+    if _trends_db_initialized:
+        return
+
     with _trends_db_lock:
+        if _trends_db_initialized:
+            return
+
         conn = _trends_db_connect()
         try:
             conn.execute(
@@ -34,6 +45,7 @@ def _trends_db_init():
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_traffic_rollups_bucket ON traffic_rollups(bucket_end);")
             conn.commit()
+            _trends_db_initialized = True
         finally:
             conn.close()
 
@@ -48,7 +60,14 @@ def _firewall_db_connect():
 
 def _firewall_db_init():
     """Initialize firewall log database schema."""
+    global _firewall_db_initialized
+    if _firewall_db_initialized:
+        return
+
     with _firewall_db_lock:
+        if _firewall_db_initialized:
+            return
+
         conn = _firewall_db_connect()
         try:
             conn.execute("""
@@ -89,6 +108,7 @@ def _firewall_db_init():
                 )
             """)
             conn.commit()
+            _firewall_db_initialized = True
         finally:
             conn.close()
 
