@@ -2616,6 +2616,8 @@ tr:hover td {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
 .asn-bar-container {
@@ -2636,8 +2638,9 @@ tr:hover td {
 .asn-val {
     width: 60px;
     text-align: right;
-    color: var(--text-muted);
-    font-size: 0.85em;
+    color: var(--text-primary);
+    font-size: 0.9em;
+    font-weight: 500;
 }
 
 /* Top Talkers Widget */
@@ -5361,12 +5364,13 @@ body {
 }
 
 .asn-name {
-    font-size: 0.75em;
-    color: var(--text-muted);
+    font-size: 0.85em;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100px;
+    font-weight: 500;
 }
 
 .asn-bar-wrap {

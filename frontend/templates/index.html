@@ -1495,21 +1495,17 @@
                                         <span class="status-pill running">Live</span>
                                     </div>
                                     {% endset %}
-                                    {% set asns_footer %}
-                                    <button class="btn-view-all" @click="openExpandedTable('asns')">View All</button>
-                                    {% endset %}
-                                    {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions,
-                                    footer_content=asns_footer) %}
+                                    {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions) %}
                                     <div class="widget-body-inner">
                                         <template x-for="asn in asns.asns" :key="asn.asn">
                                             <div class="asn-row">
-                                                <div class="asn-name" x-text="asn.asn" :title="asn.asn"></div>
+                                                <div class="asn-name" x-text="asn.asn" :title="asn.asn" style="color: var(--text-primary); font-weight: 500;"></div>
                                                 <div class="asn-bar-container">
                                                     <div class="asn-bar"
                                                         :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'">
                                                     </div>
                                                 </div>
-                                                <div class="asn-val" x-text="asn.bytes_fmt"></div>
+                                                <div class="asn-val" x-text="asn.bytes_fmt" style="color: var(--text-primary); font-weight: 500;"></div>
                                             </div>
                                         </template>
                                         <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)"
