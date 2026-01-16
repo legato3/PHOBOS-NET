@@ -631,7 +631,7 @@
                             <!-- Security Summary Stats -->
                             <div class="grid mb-6 grid-auto-fit">
                                 <div class="card stat-box">
-                                    <div class="value" :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')"
+                                    <div class="value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
                                         x-text="securityObservability.overall_state || 'UNKNOWN'"></div>
                                     <div class="label">Security State</div>
                                 </div>
@@ -668,12 +668,7 @@
                                 <!-- Security Observability Widget -->
                                 <template x-if="isVisible('securityObservability')">
                                     {% call widget_card('securityObservability', 'Security Observability', '🔍', show_spinner=True,
-                                    card_class="security-observability-card", card_class_bind="{ 'state-stable':
-                                    securityObservability.overall_state === 'STABLE', 'state-elevated': 
-                                    securityObservability.overall_state === 'ELEVATED', 'state-degraded': 
-                                    securityObservability.overall_state === 'DEGRADED', 'state-pressure': 
-                                    securityObservability.overall_state === 'UNDER PRESSURE', 'state-unknown': 
-                                    securityObservability.overall_state === 'UNKNOWN' }") %}
+                                    card_class="security-observability-card") %}
                                     <div class="observability-display">
                                         <!-- Overall State -->
                                         <div class="overall-state">

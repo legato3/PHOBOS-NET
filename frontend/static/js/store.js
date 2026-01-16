@@ -869,6 +869,18 @@ export const Store = () => ({
         return DashboardUtils.getCssVar(name);
     },
 
+    // Helper to get color for security state
+    getStateColor(state) {
+        const stateColors = {
+            'STABLE': this.getCssVar('--signal-ok') || '#00ff88',
+            'ELEVATED': this.getCssVar('--signal-warn') || '#ffb400',
+            'DEGRADED': '#cc8400',
+            'UNDER PRESSURE': this.getCssVar('--signal-crit') || '#ff1744',
+            'UNKNOWN': this.getCssVar('--text-muted') || '#888'
+        };
+        return stateColors[state] || stateColors['UNKNOWN'];
+    },
+
     getFlagColor(index) {
         // Return color for flag at given index - matches chart colors
         const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
