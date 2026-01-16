@@ -4442,7 +4442,7 @@ body {
 }
 
 .security-observability-card.state-degraded {
-    border-left-color: #ff9500;
+    border-left-color: rgba(255, 149, 0, 0.6);
 }
 
 .security-observability-card.state-pressure {
@@ -4479,33 +4479,33 @@ body {
 }
 
 .state-stable {
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(0, 255, 0, 0.08);
     color: var(--neon-green);
-    border: 1px solid var(--neon-green);
+    border: 1px solid rgba(0, 255, 0, 0.3);
 }
 
 .state-elevated {
-    background: rgba(255, 255, 0, 0.1);
+    background: rgba(255, 255, 0, 0.08);
     color: var(--neon-yellow);
-    border: 1px solid var(--neon-yellow);
+    border: 1px solid rgba(255, 255, 0, 0.3);
 }
 
 .state-degraded {
-    background: rgba(255, 149, 0, 0.1);
+    background: rgba(255, 149, 0, 0.08);
     color: #ff9500;
-    border: 1px solid #ff9500;
+    border: 1px solid rgba(255, 149, 0, 0.3);
 }
 
 .state-pressure {
-    background: rgba(255, 0, 0, 0.1);
+    background: rgba(255, 0, 0, 0.08);
     color: var(--signal-crit);
-    border: 1px solid var(--signal-crit);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
 .state-unknown {
-    background: rgba(128, 128, 128, 0.1);
+    background: rgba(128, 128, 128, 0.08);
     color: var(--text-muted);
-    border: 1px solid var(--text-muted);
+    border: 1px solid rgba(128, 128, 128, 0.3);
 }
 
 .state-updated {
