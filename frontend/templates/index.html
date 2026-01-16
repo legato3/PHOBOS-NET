@@ -2797,7 +2797,18 @@
                                             'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 || (serverHealth.disk?.root?.percent_used || 0) >= 90
                                         }">HEALTHY</span>
                                         {% endset %}
-                                        {% call widget_card('server_health', 'System Health', '💚', extra_actions=health_badge) %}
+                                        <div class="card">
+                                            <h2>
+                                                <div class="card-title-content">
+                                                    <span class="title-icon">💚</span>
+                                                    <span>System Health</span>
+                                                </div>
+                                                <div class="card-actions">
+                                                    {{ health_badge | safe }}
+                                                </div>
+                                            </h2>
+                                            <div class="widget-body" style="min-height: 300px;">
+                                                <div x-show="!serverHealth.loading">
                                         <div class="server-stat-value" style="font-size: 1.1em;">
                                             <span x-show="serverHealth.cpu && serverHealth.cpu.percent !== undefined">
                                                 CPU: <span :class="{
@@ -2840,7 +2851,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% endcall %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- 2. CPU & Memory -->
@@ -2852,7 +2865,18 @@
                                             'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
                                         }">OK</span>
                                         {% endset %}
-                                        {% call widget_card('server_cpu_memory', 'CPU & Memory', '⚡💾', extra_actions=cpu_mem_badge) %}
+                                        <div class="card">
+                                            <h2>
+                                                <div class="card-title-content">
+                                                    <span class="title-icon">⚡💾</span>
+                                                    <span>CPU & Memory</span>
+                                                </div>
+                                                <div class="card-actions">
+                                                    {{ cpu_mem_badge | safe }}
+                                                </div>
+                                            </h2>
+                                            <div class="widget-body" style="min-height: 300px;">
+                                                <div x-show="!serverHealth.loading">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                             <!-- CPU Summary -->
                                             <div x-show="serverHealth.cpu && !serverHealth.cpu.error">
@@ -2946,7 +2970,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% endcall %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- 3. Network & NetFlow -->
@@ -2957,7 +2983,18 @@
                                             'badge-error': serverHealth.netflow && !serverHealth.netflow.available
                                         }" x-text="serverHealth.netflow?.available ? 'ONLINE' : 'ACTIVE'"></span>
                                         {% endset %}
-                                        {% call widget_card('server_network_netflow', 'Network & NetFlow', '🌐', extra_actions=network_badge) %}
+                                        <div class="card">
+                                            <h2>
+                                                <div class="card-title-content">
+                                                    <span class="title-icon">🌐</span>
+                                                    <span>Network & NetFlow</span>
+                                                </div>
+                                                <div class="card-actions">
+                                                    {{ network_badge | safe }}
+                                                </div>
+                                            </h2>
+                                            <div class="widget-body" style="min-height: 300px;">
+                                                <div x-show="!serverHealth.loading">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                             <!-- Network Summary -->
                                             <div x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
@@ -3014,7 +3051,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% endcall %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- 4. Storage & Database -->
@@ -3026,7 +3065,18 @@
                                             'badge-error': (serverHealth.disk?.root?.percent_used || 0) >= 90
                                         }" x-text="serverHealth.disk?.root?.percent_used ? serverHealth.disk.root.percent_used + '%' : 'OK'"></span>
                                         {% endset %}
-                                        {% call widget_card('server_storage_db', 'Storage & Database', '💿🗄️', extra_actions=storage_badge) %}
+                                        <div class="card">
+                                            <h2>
+                                                <div class="card-title-content">
+                                                    <span class="title-icon">💿🗄️</span>
+                                                    <span>Storage & Database</span>
+                                                </div>
+                                                <div class="card-actions">
+                                                    {{ storage_badge | safe }}
+                                                </div>
+                                            </h2>
+                                            <div class="widget-body" style="min-height: 300px;">
+                                                <div x-show="!serverHealth.loading">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                             <!-- Disk Summary -->
                                             <div x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
@@ -3066,7 +3116,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {% endcall %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
