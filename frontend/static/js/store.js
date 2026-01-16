@@ -112,7 +112,19 @@ export const Store = () => ({
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
-    hosts: { stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 }, list: [], loading: true },
+    hosts: {
+        stats: { total_hosts: 0, active_hosts: 0, new_hosts: '—', anomalies: 0 },
+        list: [],
+        loading: true,
+        viewMode: 'observed',
+        discovery: {
+            loading: false,
+            results: null,
+            subnets: [],
+            target: '',
+            error: null
+        }
+    },
 
     // Security Features
     securityScore: { score: 100, grade: 'A', status: 'excellent', reasons: [], loading: true, trend: null, prevScore: null, fw_blocks_1h: 0, fw_threats_blocked: 0 },
@@ -415,27 +427,24 @@ export const Store = () => ({
     },
 
     // Hosts Tab
-    hostDetailOpen: false,
-    selectedHost: null,
-    hostDetailLoading: false,
-
-    async openHostDetail(ip) {
-        this.selectedHost = { ip: ip, loading: true };
-        this.hostDetailOpen = true;
-        this.hostDetailLoading = true;
+    async openHostDetail(ip, extraData = {}) {
+        this.selectedIP = ip;
+        this.ipLoading = true;
+        this.ipDetails = { ...extraData };
+        this.modalOpen = true;
 
         try {
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const res = await safeFetchFn(`/api/hosts/${ip}/detail`);
             if (res.ok) {
                 const data = await res.json();
-                this.selectedHost = { ...data, loading: false };
+                this.ipDetails = { ...data, ...extraData };
             }
         } catch (e) {
             console.error('Failed to load host detail:', e);
-            this.selectedHost = { ip: ip, error: 'Failed to load details' };
+            this.ipDetails = { error: 'Failed to load details', ...extraData };
         } finally {
-            this.hostDetailLoading = false;
+            this.ipLoading = false;
         }
     },
 
@@ -1452,11 +1461,67 @@ export const Store = () => ({
             if (statsRes.ok && listRes.ok) {
                 const stats = await statsRes.json();
                 const list = await listRes.json();
-                this.hosts = { stats, list, loading: false };
+                this.hosts = {
+                    ...this.hosts,
+                    stats,
+                    list,
+                    loading: false
+                };
             }
         } catch (e) {
             console.error('Failed to fetch hosts:', e);
             this.hosts.loading = false;
+        }
+    },
+
+    switchHostsView(mode) {
+        this.hosts.viewMode = mode;
+        if (mode === 'discovered' && this.hosts.discovery.subnets.length === 0) {
+            this.fetchDiscoverySubnets();
+        }
+    },
+
+    async fetchDiscoverySubnets() {
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/discovery/subnets');
+            if (res.ok) {
+                const subnets = await res.json();
+                this.hosts.discovery.subnets = subnets;
+                if (subnets.length > 0 && !this.hosts.discovery.target) {
+                    this.hosts.discovery.target = subnets[0].cidr;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch subnets:', e);
+        }
+    },
+
+    async runDiscoveryScan() {
+        if (!this.hosts.discovery.target) return;
+
+        this.hosts.discovery.loading = true;
+        this.hosts.discovery.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/discovery/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: this.hosts.discovery.target })
+            });
+
+            if (res.ok) {
+                this.hosts.discovery.results = await res.json();
+            } else {
+                const err = await res.json();
+                this.hosts.discovery.error = err.error || 'Scan failed';
+            }
+        } catch (e) {
+            console.error('Discovery scan failed:', e);
+            this.hosts.discovery.error = e.message || 'Scan failed';
+        } finally {
+            this.hosts.discovery.loading = false;
         }
     },
 
@@ -4572,6 +4637,21 @@ export const Store = () => ({
     toggleSidebar() {
         this.sidebarCollapsed = !this.sidebarCollapsed;
     },
+    
+    toggleSidebarMobile() {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        // Add/remove backdrop on mobile
+        if (window.innerWidth <= 768) {
+            if (this.sidebarCollapsed) {
+                document.body.classList.remove('sidebar-open');
+            } else {
+                document.body.classList.add('sidebar-open');
+            }
+        }
+    },
+    
+    // Mobile world map visibility
+    worldMapMobileVisible: false,
 
     // Widget Management Methods - Using DashboardWidgets module
     loadWidgetPreferences() {

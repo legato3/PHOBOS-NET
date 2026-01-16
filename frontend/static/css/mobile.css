@@ -1,0 +1,428 @@
+/* ============================================
+   MOBILE-FIRST LAYOUT REDESIGN
+   PHOBOS-NET v1.0
+   ============================================ */
+
+/* Mobile breakpoints */
+@media (max-width: 768px) {
+    /* ============================================
+       LAYOUT STRUCTURE
+       ============================================ */
+    
+    /* Sidebar: Overlay on mobile */
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        z-index: 1000;
+        width: 280px;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    .sidebar:not(.collapsed) {
+        left: 0;
+    }
+    
+    /* Sidebar backdrop overlay */
+    body.sidebar-open::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 999;
+        backdrop-filter: blur(4px);
+    }
+    
+    /* Main content: Full width on mobile */
+    .main-content {
+        margin-left: 0 !important;
+        width: 100%;
+    }
+    
+    /* Header: Stacked layout */
+    .header {
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        align-items: stretch;
+    }
+    
+    .header-left,
+    .header-center,
+    .header-right {
+        width: 100%;
+    }
+    
+    .header-center {
+        order: 2;
+    }
+    
+    .header-right {
+        order: 3;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+    
+    /* ============================================
+       STAT BOXES: Max 2 per row (override existing)
+       ============================================ */
+    
+    .summary-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: var(--space-3);
+    }
+    
+    .grid-auto-fit {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-3);
+    }
+    
+    .stat-box {
+        min-height: 90px;
+        padding: var(--space-4);
+    }
+    
+    .stat-box .value {
+        font-size: 1.5em;
+        line-height: 1.2;
+    }
+    
+    .stat-box .label {
+        font-size: var(--text-sm);
+        margin-top: var(--space-1);
+    }
+    
+    /* ============================================
+       TABLES: Horizontal scroll with touch support
+       ============================================ */
+    
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 calc(-1 * var(--space-4));
+        padding: 0 var(--space-4);
+    }
+    
+    .table-container table {
+        min-width: 600px;
+    }
+    
+    /* Table wrapper for scroll indication */
+    .table-wrapper {
+        position: relative;
+    }
+    
+    /* Scroll hint for tables */
+    .table-container::after {
+        content: '→ Scroll →';
+        position: absolute;
+        right: var(--space-2);
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-2);
+        font-size: var(--text-xs);
+        pointer-events: none;
+        opacity: 0.4;
+        background: var(--bg-0);
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-sm);
+    }
+    
+    /* Hide scroll hint when scrolled */
+    .table-container.scrolled::after {
+        display: none;
+    }
+    
+    /* ============================================
+       WORLD MAP: Disabled by default, toggle to show
+       ============================================ */
+    
+    .world-map-card {
+        display: none !important;
+    }
+    
+    .world-map-toggle {
+        display: block !important;
+        margin: var(--space-4) 0;
+        padding: var(--space-3);
+        background: var(--bg-1);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        text-align: center;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.2s ease;
+        width: 100%;
+        min-height: 44px;
+        color: var(--text-0);
+        font-size: var(--text-base);
+    }
+    
+    .world-map-toggle:hover {
+        background: var(--bg-2);
+        border-color: var(--signal-primary);
+    }
+    
+    .world-map-toggle.active {
+        background: var(--bg-2);
+        border-color: var(--signal-primary);
+    }
+    
+    /* Show world map when toggle is active */
+    .world-map-toggle.active ~ * .world-map-card,
+    .world-map-toggle.active + * .world-map-card {
+        display: block !important;
+    }
+    
+    /* Alternative: Use Alpine.js x-show on the card itself */
+    .world-map-card[data-mobile-visible="true"] {
+        display: block !important;
+    }
+    
+    /* ============================================
+       WIDGETS & CARDS
+       ============================================ */
+    
+    .card {
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+    }
+    
+    .card h2 {
+        font-size: var(--text-lg);
+        margin-bottom: var(--space-3);
+    }
+    
+    /* Grid layouts: Single column */
+    .grid,
+    .security-grid,
+    .network-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-4);
+    }
+    
+    /* ============================================
+       MODALS: Full-width, scrollable, bottom sheet style
+       ============================================ */
+    
+    .modal {
+        padding: 0;
+        align-items: flex-end;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        max-height: 90vh;
+        margin: 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .modal-header {
+        padding: var(--space-4);
+        position: sticky;
+        top: 0;
+        background: var(--bg-1);
+        z-index: 10;
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
+    }
+    
+    .modal-body {
+        padding: var(--space-4);
+        overflow-y: auto;
+        flex: 1;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* ============================================
+       FORMS & INPUTS: Touch-friendly (44px minimum)
+       ============================================ */
+    
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    select,
+    textarea {
+        min-height: 44px; /* iOS touch target */
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: var(--space-3);
+    }
+    
+    button,
+    .btn {
+        min-height: 44px;
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--text-base);
+        touch-action: manipulation;
+    }
+    
+    /* ============================================
+       SEARCH & FILTERS
+       ============================================ */
+    
+    .search-wrapper {
+        width: 100%;
+    }
+    
+    .global-search {
+        width: 100%;
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+    
+    .header-select {
+        min-width: 120px;
+        width: 100%;
+        font-size: 16px;
+    }
+    
+    /* ============================================
+       COMPACT GRID: Single column
+       ============================================ */
+    
+    .compact-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* ============================================
+       HIDE DENSE CONTENT ON MOBILE
+       ============================================ */
+    
+    .mobile-hide {
+        display: none !important;
+    }
+    
+    /* Secondary info that can be hidden */
+    .subsection-content {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Hide less critical info */
+    .status-bar-group:not(:first-child) {
+        display: none;
+    }
+    
+    /* Hide search shortcut hint on mobile */
+    .search-shortcut {
+        display: none;
+    }
+    
+    /* Compact header controls */
+    .header-controls {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+    
+    .header-control-group {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    /* ============================================
+       TOUCH-FRIENDLY INTERACTIONS
+       ============================================ */
+    
+    /* Increase tap targets */
+    .sidebar-item,
+    .header-action-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Remove hover effects on touch devices */
+    @media (hover: none) {
+        .card:hover {
+            transform: none;
+        }
+        
+        .stat-box:hover {
+            transform: none;
+        }
+    }
+}
+
+/* ============================================
+   SMALL MOBILE (480px and below)
+   ============================================ */
+
+@media (max-width: 480px) {
+    /* Even more compact */
+    .stat-box {
+        min-height: 80px;
+        padding: var(--space-3);
+    }
+    
+    .stat-box .value {
+        font-size: 1.3em;
+    }
+    
+    .card {
+        padding: var(--space-3);
+    }
+    
+    .header {
+        padding: var(--space-2);
+    }
+    
+    .page-title {
+        font-size: var(--text-lg);
+    }
+    
+    /* Single column for everything */
+    .summary-stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Smaller text */
+    .label,
+    .sublabel {
+        font-size: var(--text-xs);
+    }
+    
+    /* Hide search shortcut hint */
+    .search-shortcut {
+        display: none;
+    }
+}
+
+/* ============================================
+   TABLET (769px - 1024px)
+   ============================================ */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    /* Stat boxes: 3 per row */
+    .summary-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    /* Sidebar: Can stay visible but narrower */
+    .sidebar {
+        width: 200px;
+    }
+    
+    .main-content {
+        margin-left: 200px;
+    }
+    
+    /* Tables: Can show but with horizontal scroll */
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    /* World map: Can show on tablet */
+    .world-map-card {
+        display: block !important;
+    }
+    
+    .world-map-toggle {
+        display: none;
+    }
+}
