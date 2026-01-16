@@ -1657,27 +1657,12 @@ export const Store = () => ({
             // Destinations is optional - don't block on it
             
             const totalBytes = this.summary.total_bytes || 0;
-            if (totalBytes === 0) {
-                // Even with no traffic, show a baseline insight indicating no activity
-                panel.insights = [{
-                    id: 'no-traffic',
-                    type: 'anomaly',
-                    tier: 'baseline',
-                    label: 'Traffic Status',
-                    key: 'No Activity',
-                    absolute: '0 B',
-                    relative: 'No traffic in time window',
-                    isStabilityConfirmation: false
-                }];
-                panel.loading = false;
-                return;
-            }
             
             // ============================================
             // BASELINE INSIGHTS (Always shown, no thresholds)
             // ============================================
             
-            // 1. Top Talker (always shown)
+            // 1. Top Talker (always shown if data exists)
             if (this.sources.sources && this.sources.sources.length > 0) {
                 const topSource = this.sources.sources[0];
                 const bytes = topSource.bytes || 0;
@@ -1689,13 +1674,13 @@ export const Store = () => ({
                     label: 'Top Talker',
                     key: topSource.key,
                     absolute: topSource.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    relative: totalBytes > 0 ? `${(pct * 100).toFixed(1)}% of total traffic` : 'No traffic',
                     bytes: bytes,
                     pct: pct
                 });
             }
             
-            // 2. Dominant Protocol (always shown)
+            // 2. Dominant Protocol (always shown if data exists)
             if (this.protocols.protocols && this.protocols.protocols.length > 0) {
                 const topProto = this.protocols.protocols[0];
                 const bytes = topProto.bytes || 0;
@@ -1707,7 +1692,7 @@ export const Store = () => ({
                     label: 'Dominant Protocol',
                     key: topProto.proto_name || topProto.key,
                     absolute: topProto.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    relative: totalBytes > 0 ? `${(pct * 100).toFixed(1)}% of total traffic` : 'No traffic',
                     bytes: bytes,
                     pct: pct
                 });
@@ -1725,7 +1710,7 @@ export const Store = () => ({
                     label: 'Top Destination',
                     key: topDest.key,
                     absolute: topDest.bytes_fmt || this.fmtBytes(bytes),
-                    relative: `${(pct * 100).toFixed(1)}% of total traffic`,
+                    relative: totalBytes > 0 ? `${(pct * 100).toFixed(1)}% of total traffic` : 'No traffic',
                     bytes: bytes,
                     pct: pct
                 });
@@ -1763,24 +1748,38 @@ export const Store = () => ({
             // Build final insights array
             let finalInsights = [...baselineInsights];
             
-            // Add stable notable insights (limited to fit within max display)
-            const maxNotable = Math.max(0, 4 - baselineInsights.length);
-            if (stableNotableInsights.length > 0) {
-                finalInsights.push(...stableNotableInsights.slice(0, maxNotable));
-            } else if (baselineInsights.length > 0) {
-                // If no notable insights exist, add stability confirmation
-                // Only add if we have room (max 4 total)
-                if (finalInsights.length < 4) {
-                    finalInsights.push({
-                        id: 'stability',
-                        type: 'anomaly',
-                        tier: 'baseline',
-                        label: 'Traffic Patterns',
-                        key: 'Stable',
-                        absolute: 'No anomalies detected',
-                        relative: 'Within normal baseline',
-                        isStabilityConfirmation: true
-                    });
+            // If we have no baseline insights at all (truly no data), show "No Activity"
+            if (baselineInsights.length === 0) {
+                finalInsights = [{
+                    id: 'no-traffic',
+                    type: 'anomaly',
+                    tier: 'baseline',
+                    label: 'Traffic Status',
+                    key: 'No Activity',
+                    absolute: '0 B',
+                    relative: 'No traffic in time window',
+                    isStabilityConfirmation: false
+                }];
+            } else {
+                // Add stable notable insights (limited to fit within max display)
+                const maxNotable = Math.max(0, 4 - baselineInsights.length);
+                if (stableNotableInsights.length > 0) {
+                    finalInsights.push(...stableNotableInsights.slice(0, maxNotable));
+                } else if (baselineInsights.length > 0) {
+                    // If no notable insights exist, add stability confirmation
+                    // Only add if we have room (max 4 total)
+                    if (finalInsights.length < 4) {
+                        finalInsights.push({
+                            id: 'stability',
+                            type: 'anomaly',
+                            tier: 'baseline',
+                            label: 'Traffic Patterns',
+                            key: 'Stable',
+                            absolute: 'No anomalies detected',
+                            relative: 'Within normal baseline',
+                            isStabilityConfirmation: true
+                        });
+                    }
                 }
             }
             
