@@ -3995,13 +3995,29 @@ def api_forensics_session():
         # Find column indices
         try:
             # Map actual nfdump columns to expected names (case-insensitive)
-            ts_idx = header.index('firstseen') if 'firstseen' in header else -1
-            te_idx = header.index('duration') if 'duration' in header else -1
-            sp_idx = header.index('srcport') if 'srcport' in header else -1
-            dp_idx = header.index('dstport') if 'dstport' in header else -1
-            pr_idx = header.index('proto') if 'proto' in header else -1
-            ibyt_idx = header.index('bytes') if 'bytes' in header else -1
-            ipkt_idx = header.index('packets') if 'packets' in header else -1
+            # Handle different nfdump output formats
+            if 'ts' in header and 'te' in header:
+                # Standard format
+                ts_idx = header.index('ts') if 'ts' in header else -1
+                te_idx = header.index('te') if 'te' in header else -1
+                sa_idx = header.index('sa') if 'sa' in header else -1
+                da_idx = header.index('da') if 'da' in header else -1
+                sp_idx = header.index('sp') if 'sp' in header else -1
+                dp_idx = header.index('dp') if 'dp' in header else -1
+                pr_idx = header.index('proto') if 'proto' in header else -1
+                ibyt_idx = header.index('ibyt') if 'ibyt' in header else -1
+                ipkt_idx = header.index('ipkt') if 'ipkt' in header else -1
+            else:
+                # CSV format
+                ts_idx = header.index('firstseen') if 'firstseen' in header else -1
+                te_idx = header.index('duration') if 'duration' in header else -1
+                sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
+                da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
+                sp_idx = header.index('srcport') if 'srcport' in header else -1
+                dp_idx = header.index('dstport') if 'dstport' in header else -1
+                pr_idx = header.index('proto') if 'proto' in header else -1
+                ibyt_idx = header.index('bytes') if 'bytes' in header else -1
+                ipkt_idx = header.index('packets') if 'packets' in header else -1
             
             if -1 in [ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
                 raise ValueError(f"Missing required columns. Available columns: {header}")
