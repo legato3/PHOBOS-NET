@@ -4442,7 +4442,7 @@ body {
 }
 
 .security-observability-card.state-degraded {
-    border-left-color: rgba(255, 165, 0, 0.4);
+    border-left-color: rgba(255, 165, 0, 0.25);
 }
 
 .security-observability-card.state-pressure {
@@ -4491,9 +4491,9 @@ body {
 }
 
 .state-degraded {
-    background: rgba(255, 165, 0, 0.05);
-    color: #ffa500;
-    border: 1px solid rgba(255, 165, 0, 0.2);
+    background: rgba(255, 165, 0, 0.02);
+    color: #cc8400;
+    border: 1px solid rgba(255, 165, 0, 0.15);
 }
 
 .state-pressure {
@@ -4603,7 +4603,7 @@ body {
 }
 
 .value.state-degraded {
-    color: #ffa500;
+    color: #cc8400;
 }
 
 .value.state-pressure {
