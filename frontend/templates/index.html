@@ -3257,8 +3257,11 @@
                                                 <template x-if="db.wal_exists">
                                                     <span x-text="fmtBytes(db.wal_size)"></span>
                                                 </template>
-                                                <template x-if="!db.wal_exists">
-                                                    <span style="color: var(--text-secondary);">None</span>
+                                                <template x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'">
+                                                    <span style="color: var(--text-secondary); opacity: 0.8;" title="WAL mode enabled but no active WAL file (no pending transactions)">WAL mode (idle)</span>
+                                                </template>
+                                                <template x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')">
+                                                    <span style="color: var(--text-secondary); opacity: 0.7;" title="WAL mode not enabled">Not enabled</span>
                                                 </template>
                                             </div>
                                         </div>
@@ -3292,11 +3295,24 @@
                                             </div>
                                             <div>
                                                 <span style="color: var(--text-secondary);">Cache:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.cache_size ? db.cache_size + ' pages' : 'N/A'"></span>
+                                                <span style="color: var(--text-primary); margin-left: 6px;">
+                                                    <template x-if="db.cache_size && db.page_size">
+                                                        <span x-text="db.cache_size + ' pages'"></span>
+                                                        <span style="color: var(--text-secondary); opacity: 0.7; margin-left: 4px;" x-text="'(' + fmtBytes(db.cache_size * db.page_size) + ')'"></span>
+                                                    </template>
+                                                    <template x-if="db.cache_size && !db.page_size">
+                                                        <span x-text="db.cache_size + ' pages'"></span>
+                                                    </template>
+                                                    <template x-if="!db.cache_size">
+                                                        <span>N/A</span>
+                                                    </template>
+                                                </span>
                                             </div>
                                             <div>
                                                 <span style="color: var(--text-secondary);">Foreign Keys:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.foreign_keys !== null ? (db.foreign_keys ? 'Enabled' : 'Disabled') : 'N/A'"></span>
+                                                <span style="color: var(--text-primary); margin-left: 6px;" 
+                                                    :title="db.foreign_keys ? 'Enabled: Enforces referential integrity but may impact write performance' : (db.foreign_keys === false ? 'Disabled: Better write performance but no referential integrity checks' : '')"
+                                                    x-text="db.foreign_keys !== null ? (db.foreign_keys ? 'Enabled' : 'Disabled') : 'N/A'"></span>
                                             </div>
                                         </div>
                                         <template x-if="db.path">
