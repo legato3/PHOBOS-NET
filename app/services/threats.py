@@ -828,6 +828,7 @@ def _should_escalate_anomaly(alert):
     Returns:
         Boolean indicating if anomaly should be escalated
     """
+    global _anomaly_tracker
     severity = alert.get('severity', 'low').lower()
     
     # Escalate if severity is HIGH or CRITICAL
