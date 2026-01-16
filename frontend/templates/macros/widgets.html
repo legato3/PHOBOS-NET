@@ -54,7 +54,7 @@ card_class_bind=None, footer_content=None) %}
             <div>
                 <span>{{ title }}</span>
                 <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;" 
-                     x-text="'Based on last ' + ({{ time_window_expr }} === '1h' ? '1 hour' : {{ time_window_expr }} === '24h' ? '24 hours' : {{ time_window_expr }})"></div>
+                     x-text="'Based on last ' + ({{ time_window_expr }} === '1h' ? '1h' : {{ time_window_expr }} === '24h' ? '24h' : {{ time_window_expr }})"></div>
             </div>
         </div>
         <div class="card-actions">

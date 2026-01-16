@@ -909,8 +909,8 @@ export const Store = () => ({
 
         if (signals.length === 0) {
             state = 'healthy';
-            explanation = 'All systems operating normally.';
-            shortExplanation = '';
+            explanation = 'All systems operating normally. Traffic within baseline.';
+            shortExplanation = 'traffic within baseline';
         } else if (hasAlerts) {
             // Active alerts present: Unhealthy (critical)
             state = 'unhealthy';
@@ -1761,25 +1761,23 @@ export const Store = () => ({
                     isStabilityConfirmation: false
                 }];
             } else {
-                // Add stable notable insights (limited to fit within max display)
-                const maxNotable = Math.max(0, 4 - baselineInsights.length);
+                // Add stable notable insights (max 2 notable insights as per requirements)
+                const maxNotable = 2;
                 if (stableNotableInsights.length > 0) {
                     finalInsights.push(...stableNotableInsights.slice(0, maxNotable));
                 } else if (baselineInsights.length > 0) {
                     // If no notable insights exist, add stability confirmation
-                    // Only add if we have room (max 4 total)
-                    if (finalInsights.length < 4) {
-                        finalInsights.push({
-                            id: 'stability',
-                            type: 'anomaly',
-                            tier: 'baseline',
-                            label: 'Traffic Patterns',
-                            key: 'Stable',
-                            absolute: 'No anomalies detected',
-                            relative: 'Within normal baseline',
-                            isStabilityConfirmation: true
-                        });
-                    }
+                    // Always show stability confirmation when no notable insights (traffic patterns stable)
+                    finalInsights.push({
+                        id: 'stability',
+                        type: 'anomaly',
+                        tier: 'baseline',
+                        label: 'Traffic Patterns',
+                        key: 'Stable',
+                        absolute: 'No anomalies detected',
+                        relative: 'Within normal baseline',
+                        isStabilityConfirmation: true
+                    });
                 }
             }
             

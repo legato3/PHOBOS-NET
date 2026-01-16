@@ -308,6 +308,37 @@
     }
     
     /* ============================================
+       INSIGHT PANELS: Mobile consistency
+       ============================================ */
+    
+    /* Insight panels: Full width, single column on mobile */
+    .card[role="button"] {
+        min-height: 44px; /* Touch target */
+        -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Insight cards grid: Single column on mobile */
+    .card[role="button"] .widget-body > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-2);
+    }
+    
+    /* Insight cards: Full width, no horizontal scroll */
+    .card[role="button"] .card {
+        min-width: 0;
+        width: 100%;
+        margin: 0;
+    }
+    
+    /* Expand/collapse indicator: Larger tap target */
+    .card[role="button"] .card-actions span {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        padding: var(--space-1);
+    }
+    
+    /* ============================================
        MODALS: Full-width, scrollable, bottom sheet style
        ============================================ */
     

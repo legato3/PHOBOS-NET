@@ -350,9 +350,9 @@
                                         x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
                                         ...</div>
                                     <div class="label mobile-secondary-label">Overall Health</div>
-                                    <!-- Mobile: Hide explanatory text -->
+                                    <!-- Always show inline explanation (even when healthy) -->
                                     <template x-if="overallHealth.shortExplanation">
-                                        <div class="mobile-hide" style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic;"
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
                                             x-text="overallHealth.shortExplanation"></div>
                                     </template>
                                 </div>
