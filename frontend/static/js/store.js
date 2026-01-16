@@ -899,11 +899,14 @@ export const Store = () => ({
     // Predictive risk data (48h forecast)
     predictiveRisk: {
         score: 25,
-        level: 'Moderate',
-        trend: 'up', // 'up', 'down', 'stable'
-        confidence: 0.78,
-        factors: ['Threat velocity +15%', 'Anomaly acceleration detected', 'Coverage gaps increasing']
+        level: 'MODERATE',
+        trend: 'up',
+        confidence: 'medium',
+        factors: ['elevated_threat_velocity', 'feed_gaps']
     },
+
+    // UI state for details toggle
+    showObservabilityDetails: false,
 
     getFlagColor(index) {
         // Return color for flag at given index - matches chart colors
