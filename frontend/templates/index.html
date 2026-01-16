@@ -3698,6 +3698,67 @@
                                 </p>
                             </div>
                         </div>
+                        
+                        <!-- Reputation Context -->
+                        <div class="card">
+                            <h4 style="margin-bottom: 10px; font-size: 0.95em; color: var(--text-secondary); font-weight: 500;">Reputation Context</h4>
+                            
+                            <!-- Geographic Context -->
+                            <template x-if="ipDetails?.geo">
+                                <div style="margin-bottom: 12px;">
+                                    <template x-if="ipDetails.geo.country || ipDetails.geo.country_iso || ipDetails.geo.country_code">
+                                        <p style="font-size: 0.9em; margin-bottom: 6px;">
+                                            <strong style="color: var(--text-secondary);">Country:</strong> 
+                                            <span x-text="ipDetails.geo.country || ipDetails.geo.country_iso || ipDetails.geo.country_code || 'N/A'"></span>
+                                            <template x-if="(ipDetails.geo.country_iso || ipDetails.geo.country_code) && (ipDetails.geo.country_iso || ipDetails.geo.country_code) !== ipDetails.geo.country">
+                                                <span style="color: var(--text-secondary); opacity: 0.7;"> (<span x-text="ipDetails.geo.country_iso || ipDetails.geo.country_code"></span>)</span>
+                                            </template>
+                                        </p>
+                                    </template>
+                                    <template x-if="ipDetails.geo.asn">
+                                        <p style="font-size: 0.9em; margin-bottom: 6px;">
+                                            <strong style="color: var(--text-secondary);">ASN:</strong> 
+                                            <span x-text="ipDetails.geo.asn"></span>
+                                            <template x-if="ipDetails.geo.asn_org">
+                                                <span style="color: var(--text-secondary); opacity: 0.8;"> · <span x-text="ipDetails.geo.asn_org"></span></span>
+                                            </template>
+                                        </p>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <!-- Threat List Presence (Passive, Informative) -->
+                            <template x-if="ipDetails?.is_threat && ipDetails?.threat_info">
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+                                    <p style="font-size: 0.9em; margin-bottom: 6px;">
+                                        <strong style="color: var(--text-secondary);">Threat List:</strong> 
+                                        <span style="color: var(--text-primary);" x-text="ipDetails.threat_info.feed || 'Unknown'"></span>
+                                    </p>
+                                    <template x-if="ipDetails.threat_info.category && ipDetails.threat_info.category !== 'UNKNOWN'">
+                                        <p style="font-size: 0.85em; color: var(--text-secondary); opacity: 0.8; margin-bottom: 4px;">
+                                            Category: <span x-text="ipDetails.threat_info.category"></span>
+                                        </p>
+                                    </template>
+                                    <template x-if="ipDetails.threat_info.mitre_name">
+                                        <p style="font-size: 0.85em; color: var(--text-secondary); opacity: 0.8;">
+                                            MITRE: <span x-text="ipDetails.threat_info.mitre_name"></span>
+                                            <template x-if="ipDetails.threat_info.mitre_technique">
+                                                <span style="opacity: 0.6;"> (<span x-text="ipDetails.threat_info.mitre_technique"></span>)</span>
+                                            </template>
+                                        </p>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <!-- No threat list presence -->
+                            <template x-if="!ipDetails?.is_threat">
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+                                    <p style="font-size: 0.85em; color: var(--text-secondary); opacity: 0.7; font-style: italic;">
+                                        Not present in known threat lists
+                                    </p>
+                                </div>
+                            </template>
+                        </div>
                         <div class="card">
                             <p>⬆️ Upload: <strong class="text-green"
                                     x-text="fmtBytes(ipDetails?.direction?.upload || 0)"></strong></p>
