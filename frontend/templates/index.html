@@ -126,25 +126,25 @@
                         <span class="sidebar-icon">🔥</span>
                         <span class="sidebar-item-text">Firewall</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall-snmp' }"
+                        @click="loadTab('firewall-snmp')" role="tab" :aria-selected="activeTab === 'firewall-snmp'"
+                        id="firewall-snmp-tab-btn" aria-controls="firewall-snmp-tab" aria-label="Interfaces"
+                        title="Interfaces">
+                        <span class="sidebar-icon">📡</span>
+                        <span class="sidebar-item-text">Interfaces</span>
+                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }"
                         @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'"
                         id="server-tab-btn" aria-controls="server-tab" aria-label="Server" title="Server">
                         <span class="sidebar-icon">🖥️</span>
                         <span class="sidebar-item-text">Server</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall-snmp' }"
-                        @click="loadTab('firewall-snmp')" role="tab" :aria-selected="activeTab === 'firewall-snmp'"
-                        id="firewall-snmp-tab-btn" aria-controls="firewall-snmp-tab" aria-label="Firewall SNMP Status"
-                        title="Firewall SNMP Status">
-                        <span class="sidebar-icon">📡</span>
-                        <span class="sidebar-item-text">Firewall SNMP</span>
-                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
                         @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
-                        id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="AI Assistant"
-                        title="AI Assistant">
+                        id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="Assistant"
+                        title="Assistant">
                         <span class="sidebar-icon">🤖</span>
-                        <span class="sidebar-item-text">AI Assistant</span>
+                        <span class="sidebar-item-text">Assistant</span>
                     </button>
                 </nav>
 
@@ -2784,582 +2784,616 @@
                                 </div>
                             </template>
 
-                            <!-- Server Health Content -->
+                            <!-- Server Health Content - Reorganized into 4 Primary Widgets -->
                             <template x-if="!serverHealth.loading && !serverHealth.error">
-                                <div class="grid"
-                                    style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
 
-                                    <!-- CPU Statistics -->
-                                    {% set cpu_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.cpu.percent < 70,
-                                    'badge-warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
-                                    'badge-error': serverHealth.cpu.percent >= 90
-                                }" x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.cpu && !serverHealth.cpu.error">
-                                        {% call widget_card('server_cpu', 'CPU', '⚡', extra_actions=cpu_badge) %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'">
+                                    <!-- 1. System Health (Composite) -->
+                                    <div x-data="{ expanded: false }" x-show="serverHealth.cpu || serverHealth.memory || serverHealth.disk">
+                                        {% set health_badge %}
+                                        <span class="server-stat-badge" :class="{
+                                            'badge-success': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80 && (serverHealth.disk?.root?.percent_used || 0) < 80,
+                                            'badge-warning': (serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 || (serverHealth.disk?.root?.percent_used || 0) >= 80,
+                                            'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 || (serverHealth.disk?.root?.percent_used || 0) >= 90
+                                        }">HEALTHY</span>
+                                        {% endset %}
+                                        {% call widget_card('server_health', 'System Health', '💚', extra_actions=health_badge) %}
+                                        <div class="server-stat-value" style="font-size: 1.1em;">
+                                            <span x-show="serverHealth.cpu && serverHealth.cpu.percent !== undefined">
+                                                CPU: <span :class="{
+                                                    'text-green': serverHealth.cpu.percent < 70,
+                                                    'text-yellow': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
+                                                    'text-red': serverHealth.cpu.percent >= 90
+                                                }" x-text="serverHealth.cpu.percent + '%'"></span>
+                                            </span>
+                                            <span x-show="serverHealth.memory && serverHealth.memory.percent !== undefined" style="margin-left: 12px;">
+                                                MEM: <span :class="{
+                                                    'text-green': serverHealth.memory.percent < 80,
+                                                    'text-yellow': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
+                                                    'text-red': serverHealth.memory.percent >= 90
+                                                }" x-text="serverHealth.memory.percent + '%'"></span>
+                                            </span>
+                                            <span x-show="serverHealth.disk && serverHealth.disk.root && serverHealth.disk.root.percent_used !== undefined" style="margin-left: 12px;">
+                                                DISK: <span :class="{
+                                                    'text-green': serverHealth.disk.root.percent_used < 80,
+                                                    'text-yellow': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
+                                                    'text-red': serverHealth.disk.root.percent_used >= 90
+                                                }" x-text="serverHealth.disk.root.percent_used + '%'"></span>
+                                            </span>
                                         </div>
-                                        <!-- Progress Bar -->
-                                        <div class="server-stat-progress"
-                                            x-show="serverHealth.cpu.percent !== undefined">
-                                            <div class="server-stat-progress-bar" :class="{
-                                        'warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
-                                        'error': serverHealth.cpu.percent >= 90
-                                    }" :style="'width: ' + (serverHealth.cpu.percent || 0) + '%'"></div>
-                                        </div>
-                                        <div class="server-stat-details" x-show="serverHealth.cpu.load_1min">
-                                            <div>
-                                                <span>Load 1m:</span>
-                                                <span x-text="serverHealth.cpu.load_1min"></span>
-                                            </div>
-                                            <div>
-                                                <span>Load 5m:</span>
-                                                <span x-text="serverHealth.cpu.load_5min"></span>
-                                            </div>
-                                            <div>
-                                                <span>Load 15m:</span>
-                                                <span x-text="serverHealth.cpu.load_15min"></span>
-                                            </div>
-                                            <div x-show="serverHealth.cpu.frequency_mhz">
-                                                <span>Frequency:</span>
-                                                <span x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.cpu?.process_count">
-                                                <span>Processes:</span>
-                                                <span x-text="serverHealth.cpu?.process_count?.toLocaleString()"></span>
+                                        <button @click="expanded = !expanded" style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
+                                            <span x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
+                                        </button>
+                                        <div x-show="expanded" x-collapse style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <div class="server-stat-details">
+                                                <div x-show="serverHealth.system && serverHealth.system.hostname">
+                                                    <span>Hostname:</span>
+                                                    <span x-text="serverHealth.system.hostname"></span>
+                                                </div>
+                                                <div x-show="serverHealth.system && serverHealth.system.uptime_formatted">
+                                                    <span>Uptime:</span>
+                                                    <span x-text="serverHealth.system.uptime_formatted"></span>
+                                                </div>
+                                                <div x-show="serverHealth.timestamp">
+                                                    <span>Last Update:</span>
+                                                    <span x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
+                                                </div>
                                             </div>
                                         </div>
                                         {% endcall %}
                                     </div>
 
-
-
-                                    <!-- Memory Statistics -->
-                                    {% set mem_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.memory.percent < 80,
-                                    'badge-warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
-                                    'badge-error': serverHealth.memory.percent >= 90
-                                }" x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'"></span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.memory && !serverHealth.memory.error">
-                                        {% call widget_card('server_memory', 'Memory', '💾', extra_actions=mem_badge) %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'">
-                                        </div>
-                                        <!-- Progress Bar -->
-                                        <div class="server-stat-progress"
-                                            x-show="serverHealth.memory.percent !== undefined">
-                                            <div class="server-stat-progress-bar" :class="{
-                                        'warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
-                                        'error': serverHealth.memory.percent >= 90
-                                    }" :style="'width: ' + (serverHealth.memory.percent || 0) + '%'"></div>
-                                        </div>
-                                        <div class="server-stat-details" x-show="serverHealth.memory.total_gb">
-                                            <div>
-                                                <span>Used:</span>
-                                                <span
-                                                    x-text="serverHealth.memory.used_gb ? serverHealth.memory.used_gb + ' GB' : 'N/A'"></span>
+                                    <!-- 2. CPU & Memory -->
+                                    <div x-data="{ expanded: false }" x-show="(serverHealth.cpu && !serverHealth.cpu.error) || (serverHealth.memory && !serverHealth.memory.error)">
+                                        {% set cpu_mem_badge %}
+                                        <span class="server-stat-badge" :class="{
+                                            'badge-success': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
+                                            'badge-warning': (serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80,
+                                            'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
+                                        }">OK</span>
+                                        {% endset %}
+                                        {% call widget_card('server_cpu_memory', 'CPU & Memory', '⚡💾', extra_actions=cpu_mem_badge) %}
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                            <!-- CPU Summary -->
+                                            <div x-show="serverHealth.cpu && !serverHealth.cpu.error">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">CPU</div>
+                                                <div class="server-stat-value" x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'"></div>
+                                                <div class="server-stat-progress" x-show="serverHealth.cpu.percent !== undefined">
+                                                    <div class="server-stat-progress-bar" :class="{
+                                                        'warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
+                                                        'error': serverHealth.cpu.percent >= 90
+                                                    }" :style="'width: ' + (serverHealth.cpu.percent || 0) + '%'"></div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span>Available:</span>
-                                                <span
-                                                    x-text="serverHealth.memory.available_gb ? serverHealth.memory.available_gb + ' GB' : 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span>Total:</span>
-                                                <span
-                                                    x-text="serverHealth.memory.total_gb ? serverHealth.memory.total_gb + ' GB' : 'N/A'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.memory.buffers_gb">
-                                                <span>Buffers:</span>
-                                                <span x-text="serverHealth.memory.buffers_gb + ' GB'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.memory.cached_gb">
-                                                <span>Cached:</span>
-                                                <span x-text="serverHealth.memory.cached_gb + ' GB'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.memory.process_mb">
-                                                <span>Process:</span>
-                                                <span x-text="serverHealth.memory.process_mb + ' MB'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.memory.pressure">
-                                                <span>Pressure:</span>
-                                                <span :class="{
-                                        'text-green': serverHealth.memory.pressure === 'low',
-                                        'text-yellow': serverHealth.memory.pressure === 'medium',
-                                        'text-red': serverHealth.memory.pressure === 'high'
-                                    }" x-text="serverHealth.memory.pressure ? serverHealth.memory.pressure.toUpperCase() : 'N/A'"></span>
-                                            </div>
-                                            <div
-                                                x-show="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0 && serverHealth.memory.swap_percent !== undefined">
-                                                <span>Swap:</span>
-                                                <span x-text="serverHealth.memory.swap_percent + '%'"></span>
+                                            <!-- Memory Summary -->
+                                            <div x-show="serverHealth.memory && !serverHealth.memory.error">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Memory</div>
+                                                <div class="server-stat-value" x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'"></div>
+                                                <div class="server-stat-progress" x-show="serverHealth.memory.percent !== undefined">
+                                                    <div class="server-stat-progress-bar" :class="{
+                                                        'warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
+                                                        'error': serverHealth.memory.percent >= 90
+                                                    }" :style="'width: ' + (serverHealth.memory.percent || 0) + '%'"></div>
+                                                </div>
                                             </div>
                                         </div>
-                                        {% endcall %}
-                                    </div>
-
-                                    <!-- Disk Statistics - Root -->
-                                    {% set disk_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.disk.root.percent_used < 80,
-                                    'badge-warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
-                                    'badge-error': serverHealth.disk.root.percent_used >= 90
-                                }" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></span>
-                                    {% endset %}
-                                    <div
-                                        x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
-                                        {% call widget_card('server_disk', 'Disk (Root)', '💿',
-                                        extra_actions=disk_badge) %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'">
-                                        </div>
-                                        <!-- Progress Bar -->
-                                        <div class="server-stat-progress"
-                                            x-show="serverHealth.disk.root.percent_used !== undefined">
-                                            <div class="server-stat-progress-bar" :class="{
-                                        'warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
-                                        'error': serverHealth.disk.root.percent_used >= 90
-                                    }" :style="'width: ' + (serverHealth.disk.root.percent_used || 0) + '%'"></div>
-                                        </div>
-                                        <div class="server-stat-details">
-                                            <div>
-                                                <span>Used:</span>
-                                                <span
-                                                    x-text="serverHealth.disk.root.used_gb ? serverHealth.disk.root.used_gb + ' GB' : 'N/A'"></span>
+                                        <button @click="expanded = !expanded" style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
+                                            <span x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
+                                        </button>
+                                        <div x-show="expanded" x-collapse style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <!-- CPU Details -->
+                                            <div class="server-stat-details" x-show="serverHealth.cpu && serverHealth.cpu.load_1min">
+                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">CPU Details</div>
+                                                <div>
+                                                    <span>Load 1m:</span>
+                                                    <span x-text="serverHealth.cpu.load_1min"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Load 5m:</span>
+                                                    <span x-text="serverHealth.cpu.load_5min"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Load 15m:</span>
+                                                    <span x-text="serverHealth.cpu.load_15min"></span>
+                                                </div>
+                                                <div x-show="serverHealth.cpu.frequency_mhz">
+                                                    <span>Frequency:</span>
+                                                    <span x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.cpu?.process_count">
+                                                    <span>Processes:</span>
+                                                    <span x-text="serverHealth.cpu?.process_count?.toLocaleString()"></span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span>Free:</span>
-                                                <span
-                                                    x-text="serverHealth.disk.root.free_gb ? serverHealth.disk.root.free_gb + ' GB' : 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span>Total:</span>
-                                                <span
-                                                    x-text="serverHealth.disk.root.total_gb ? serverHealth.disk.root.total_gb + ' GB' : 'N/A'"></span>
+                                            <!-- Memory Details -->
+                                            <div class="server-stat-details" x-show="serverHealth.memory && serverHealth.memory.total_gb">
+                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Memory Details</div>
+                                                <div>
+                                                    <span>Used:</span>
+                                                    <span x-text="serverHealth.memory.used_gb ? serverHealth.memory.used_gb + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Available:</span>
+                                                    <span x-text="serverHealth.memory.available_gb ? serverHealth.memory.available_gb + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Total:</span>
+                                                    <span x-text="serverHealth.memory.total_gb ? serverHealth.memory.total_gb + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.memory.buffers_gb">
+                                                    <span>Buffers:</span>
+                                                    <span x-text="serverHealth.memory.buffers_gb + ' GB'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.memory.cached_gb">
+                                                    <span>Cached:</span>
+                                                    <span x-text="serverHealth.memory.cached_gb + ' GB'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.memory.process_mb">
+                                                    <span>Process:</span>
+                                                    <span x-text="serverHealth.memory.process_mb + ' MB'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.memory.pressure">
+                                                    <span>Pressure:</span>
+                                                    <span :class="{
+                                                        'text-green': serverHealth.memory.pressure === 'low',
+                                                        'text-yellow': serverHealth.memory.pressure === 'medium',
+                                                        'text-red': serverHealth.memory.pressure === 'high'
+                                                    }" x-text="serverHealth.memory.pressure ? serverHealth.memory.pressure.toUpperCase() : 'N/A'"></span>
+                                                </div>
+                                                <div x-show="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0 && serverHealth.memory.swap_percent !== undefined">
+                                                    <span>Swap:</span>
+                                                    <span x-text="serverHealth.memory.swap_percent + '%'"></span>
+                                                </div>
                                             </div>
                                         </div>
                                         {% endcall %}
                                     </div>
 
-                                    <!-- NetFlow Statistics -->
-                                    {% set netflow_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.netflow.available,
-                                    'badge-error': !serverHealth.netflow.available
-                                }" x-text="serverHealth.netflow.available ? 'ONLINE' : 'OFFLINE'"></span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.netflow && !serverHealth.netflow.error">
-                                        {% call widget_card('server_netflow', 'NetFlow', '🌐',
-                                        extra_actions=netflow_badge)
-                                        %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() + ' files' : 'N/A'">
-                                        </div>
-                                        <div class="server-stat-details">
-                                            <div x-show="serverHealth.netflow.version">
-                                                <span>Version:</span>
-                                                <span x-text="serverHealth.netflow.version"
-                                                    style="font-size: 0.85em;"></span>
+                                    <!-- 3. Network & NetFlow -->
+                                    <div x-data="{ expanded: false }" x-show="(serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0) || (serverHealth.netflow && !serverHealth.netflow.error)">
+                                        {% set network_badge %}
+                                        <span class="server-stat-badge" :class="{
+                                            'badge-success': serverHealth.netflow?.available,
+                                            'badge-error': serverHealth.netflow && !serverHealth.netflow.available
+                                        }" x-text="serverHealth.netflow?.available ? 'ONLINE' : 'ACTIVE'"></span>
+                                        {% endset %}
+                                        {% call widget_card('server_network_netflow', 'Network & NetFlow', '🌐', extra_actions=network_badge) %}
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                            <!-- Network Summary -->
+                                            <div x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Interface (eth0)</div>
+                                                <div class="server-stat-value" style="font-size: 0.9em;">
+                                                    <div>RX: <span x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                    <div style="margin-top: 4px;">TX: <span x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span></div>
+                                                </div>
                                             </div>
-                                            <div x-show="serverHealth.netflow.directory">
-                                                <span>Directory:</span>
-                                                <span x-text="serverHealth.netflow.directory"
-                                                    style="font-size: 0.85em;"></span>
-                                            </div>
-                                            <div x-show="serverHealth.netflow.files_count !== undefined">
-                                                <span>Files:</span>
-                                                <span x-text="serverHealth.netflow.files_count.toLocaleString()"></span>
+                                            <!-- NetFlow Summary -->
+                                            <div x-show="serverHealth.netflow && !serverHealth.netflow.error">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">NetFlow</div>
+                                                <div class="server-stat-value" x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() + ' files' : 'N/A'"></div>
                                             </div>
                                         </div>
-                                        {% endcall %}
-                                    </div>
-
-                                    <!-- Syslog Statistics -->
-                                    {% set syslog_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.syslog.active,
-                                    'badge-error': !serverHealth.syslog.active
-                                }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.syslog && !serverHealth.syslog.error">
-                                        {% call widget_card('server_syslog', 'Syslog', '📝', extra_actions=syslog_badge)
-                                        %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'">
-                                        </div>
-                                        <div class="server-stat-details">
-                                            <div>
-                                                <span>Received:</span>
-                                                <span
-                                                    x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
+                                        <button @click="expanded = !expanded" style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
+                                            <span x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
+                                        </button>
+                                        <div x-show="expanded" x-collapse style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <!-- Network Details -->
+                                            <div class="server-stat-details" x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
+                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Network Interface Details</div>
+                                                <div>
+                                                    <span>RX:</span>
+                                                    <span x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>TX:</span>
+                                                    <span x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>RX Packets:</span>
+                                                    <span x-text="serverHealth.network.interfaces.eth0.rx_packets ? serverHealth.network.interfaces.eth0.rx_packets.toLocaleString() : '0'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>TX Packets:</span>
+                                                    <span x-text="serverHealth.network.interfaces.eth0.tx_packets ? serverHealth.network.interfaces.eth0.tx_packets.toLocaleString() : '0'"></span>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <span>Parsed:</span>
-                                                <span
-                                                    x-text="serverHealth.syslog.parsed ? serverHealth.syslog.parsed.toLocaleString() : '0'"></span>
-                                            </div>
-                                            <div>
-                                                <span>Errors:</span>
-                                                <span
-                                                    x-text="serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"
-                                                    :class="serverHealth.syslog.errors > 0 ? 'text-red' : ''"></span>
-                                            </div>
-                                            <div x-show="serverHealth.syslog.last_log">
-                                                <span>Last Log:</span>
-                                                <span
-                                                    x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
+                                            <!-- NetFlow Details -->
+                                            <div class="server-stat-details" x-show="serverHealth.netflow && !serverHealth.netflow.error">
+                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">NetFlow Details</div>
+                                                <div x-show="serverHealth.netflow.version">
+                                                    <span>Version:</span>
+                                                    <span x-text="serverHealth.netflow.version" style="font-size: 0.85em;"></span>
+                                                </div>
+                                                <div x-show="serverHealth.netflow.directory">
+                                                    <span>Directory:</span>
+                                                    <span x-text="serverHealth.netflow.directory" style="font-size: 0.85em;"></span>
+                                                </div>
+                                                <div x-show="serverHealth.netflow.files_count !== undefined">
+                                                    <span>Files:</span>
+                                                    <span x-text="serverHealth.netflow.files_count.toLocaleString()"></span>
+                                                </div>
                                             </div>
                                         </div>
                                         {% endcall %}
                                     </div>
 
-                                    <!-- Database Statistics -->
-                                    {% set db_badge %}
-                                    <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.database.connected,
-                                    'badge-error': !serverHealth.database.connected
-                                }" x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.database">
-                                        {% call widget_card('server_database', 'Database', '🗄️',
-                                        extra_actions=db_badge) %}
-                                        <div class="server-stat-value"
-                                            x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'">
-                                        </div>
-                                        <div class="server-stat-details">
-                                            <div>
-                                                <span>Logs:</span>
-                                                <span
-                                                    x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></span>
+                                    <!-- 4. Storage & Database -->
+                                    <div x-data="{ expanded: false }" x-show="(serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error) || databaseStats.databases?.length > 0">
+                                        {% set storage_badge %}
+                                        <span class="server-stat-badge" :class="{
+                                            'badge-success': (serverHealth.disk?.root?.percent_used || 0) < 80,
+                                            'badge-warning': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90,
+                                            'badge-error': (serverHealth.disk?.root?.percent_used || 0) >= 90
+                                        }" x-text="serverHealth.disk?.root?.percent_used ? serverHealth.disk.root.percent_used + '%' : 'OK'"></span>
+                                        {% endset %}
+                                        {% call widget_card('server_storage_db', 'Storage & Database', '💿🗄️', extra_actions=storage_badge) %}
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                            <!-- Disk Summary -->
+                                            <div x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Disk (Root)</div>
+                                                <div class="server-stat-value" x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'"></div>
+                                                <div class="server-stat-progress" x-show="serverHealth.disk.root.percent_used !== undefined">
+                                                    <div class="server-stat-progress-bar" :class="{
+                                                        'warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
+                                                        'error': serverHealth.disk.root.percent_used >= 90
+                                                    }" :style="'width: ' + (serverHealth.disk.root.percent_used || 0) + '%'"></div>
+                                                </div>
                                             </div>
-                                            <div x-show="serverHealth.database.size_mb">
-                                                <span>Size:</span>
-                                                <span x-text="serverHealth.database.size_mb + ' MB'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
-                                                <span>Growth (1h):</span>
-                                                <span
-                                                    x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.database?.growth_rate_per_day !== undefined">
-                                                <span>Growth (24h):</span>
-                                                <span
-                                                    x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.database.path">
-                                                <span>Path:</span>
-                                                <span x-text="serverHealth.database.path"
-                                                    style="font-size: 0.85em;"></span>
+                                            <!-- Database Summary -->
+                                            <div x-show="databaseStats.databases && databaseStats.databases.length > 0">
+                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">SQLite Databases</div>
+                                                <div class="server-stat-value" x-text="databaseStats.databases.length + ' databases'"></div>
                                             </div>
                                         </div>
-                                        {% endcall %}
-                                    </div>
-
-
-                                    <!-- System Information (Combined with Uptime) -->
-                                    {% set system_badge %}
-                                    <span class="server-stat-badge badge-success">ONLINE</span>
-                                    {% endset %}
-                                    <div x-show="serverHealth.system && !serverHealth.system.error">
-                                        {% call widget_card('server_system', 'System', '🖥️',
-                                        extra_actions=system_badge) %}
-                                        <div class="server-stat-value" x-text="serverHealth.system.hostname || 'N/A'"
-                                            style="font-size: 1.2em;"></div>
-                                        <div class="server-stat-details">
-                                            <div x-show="serverHealth.system.uptime_formatted">
-                                                <span>Uptime:</span>
-                                                <span x-text="serverHealth.system.uptime_formatted || 'N/A'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.system.uptime_seconds">
-                                                <span>Total Uptime:</span>
-                                                <span
-                                                    x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
-                                            </div>
-                                            <div x-show="serverHealth.system.boot_time_formatted">
-                                                <span>Boot Time:</span>
-                                                <span x-text="serverHealth.system.boot_time_formatted"></span>
-                                            </div>
-                                            <div x-show="serverHealth.system.kernel_version">
-                                                <span>Kernel:</span>
-                                                <span x-text="serverHealth.system.kernel_version"
-                                                    style="font-size: 0.85em;"></span>
-                                            </div>
-                                            <div x-show="serverHealth.system.os_info">
-                                                <span>OS:</span>
-                                                <span x-text="serverHealth.system.os_info"
-                                                    style="font-size: 0.85em;"></span>
-                                            </div>
-                                            <div x-show="serverHealth.timestamp">
-                                                <span>Last Update:</span>
-                                                <span
-                                                    x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
+                                        <button @click="expanded = !expanded" style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
+                                            <span x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
+                                        </button>
+                                        <div x-show="expanded" x-collapse style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                            <!-- Disk Details -->
+                                            <div class="server-stat-details" x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
+                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Disk Details</div>
+                                                <div>
+                                                    <span>Used:</span>
+                                                    <span x-text="serverHealth.disk.root.used_gb ? serverHealth.disk.root.used_gb + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Free:</span>
+                                                    <span x-text="serverHealth.disk.root.free_gb ? serverHealth.disk.root.free_gb + ' GB' : 'N/A'"></span>
+                                                </div>
+                                                <div>
+                                                    <span>Total:</span>
+                                                    <span x-text="serverHealth.disk.root.total_gb ? serverHealth.disk.root.total_gb + ' GB' : 'N/A'"></span>
+                                                </div>
                                             </div>
                                         </div>
                                         {% endcall %}
                                     </div>
                                 </div>
-                    </div>
 
-                    <!-- Process/Application Information (Combined) -->
-                    {% set process_badge %}
-                    <span class="server-stat-badge badge-success">ACTIVE</span>
-                    {% endset %}
-                    <div
-                        x-show="(serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error) || serverHealth.process">
-                        {% call widget_card('server_process', 'Process', '⚙️', extra_actions=process_badge) %}
-                        <div class="server-stat-value"
-                            x-text="serverHealth.process && serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : (serverHealth.system && serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() + ' threads' : 'N/A')">
-                        </div>
-                        <div class="server-stat-details">
-                            <div x-show="serverHealth.process && serverHealth.process.process_memory_mb">
-                                <span>Memory:</span>
-                                <span x-text="serverHealth.process.process_memory_mb + ' MB'"></span>
-                            </div>
-                            <div x-show="serverHealth.process && serverHealth.process.threads">
-                                <span>Threads:</span>
-                                <span x-text="serverHealth.process.threads.toLocaleString()"></span>
-                            </div>
-                            <div x-show="serverHealth.system && serverHealth.system.process_threads !== undefined">
-                                <span>System Threads:</span>
-                                <span
-                                    x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></span>
-                            </div>
-                            <div x-show="serverHealth.system && serverHealth.system.process_name">
-                                <span>Process:</span>
-                                <span x-text="serverHealth.system.process_name || 'N/A'"
-                                    style="font-size: 0.85em;"></span>
-                            </div>
-                        </div>
-                        {% endcall %}
-                    </div>
+                                <!-- System Diagnostics (Collapsed by default) -->
+                                <div x-data="{ expanded: false }" style="margin-top: 32px;">
+                                    <button @click="expanded = !expanded" style="width: 100%; padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-size: 1.1em; font-weight: 600; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>🔧 System Diagnostics</span>
+                                        <span x-text="expanded ? '▼' : '▶'" style="font-size: 0.9em;"></span>
+                                    </button>
+                                    <div x-show="expanded" x-collapse style="margin-top: 16px;">
+                                        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                                            <!-- Full Syslog Widget -->
+                                            {% set syslog_badge %}
+                                            <span class="server-stat-badge" :class="{
+                                                'badge-success': serverHealth.syslog.active,
+                                                'badge-error': !serverHealth.syslog.active
+                                            }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                            {% endset %}
+                                            <div x-show="serverHealth.syslog && !serverHealth.syslog.error">
+                                                {% call widget_card('server_syslog', 'Syslog', '📝', extra_actions=syslog_badge) %}
+                                                <div class="server-stat-value" x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></div>
+                                                <div class="server-stat-details">
+                                                    <div>
+                                                        <span>Received:</span>
+                                                        <span x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
+                                                    </div>
+                                                    <div>
+                                                        <span>Parsed:</span>
+                                                        <span x-text="serverHealth.syslog.parsed ? serverHealth.syslog.parsed.toLocaleString() : '0'"></span>
+                                                    </div>
+                                                    <div>
+                                                        <span>Errors:</span>
+                                                        <span x-text="serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"
+                                                            :class="serverHealth.syslog.errors > 0 ? 'text-red' : ''"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.syslog.last_log">
+                                                        <span>Last Log:</span>
+                                                        <span x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
+                                                    </div>
+                                                </div>
+                                                {% endcall %}
+                                            </div>
 
-                    <!-- Network Statistics (eth0 only) -->
-                    {% set network_badge %}
-                    <span class="server-stat-badge badge-success">ACTIVE</span>
-                    {% endset %}
-                    <div
-                        x-show="serverHealth.network && serverHealth.network.interfaces && serverHealth.network.interfaces.eth0">
-                        {% call widget_card('server_network', 'Network Interface (eth0)', '🌐',
-                        extra_actions=network_badge)
-                        %}
-                        <div class="server-stat-details">
-                            <div>
-                                <span>RX:</span>
-                                <span
-                                    x-text="serverHealth.network.interfaces.eth0.rx_bytes ? (serverHealth.network.interfaces.eth0.rx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
-                            </div>
-                            <div>
-                                <span>TX:</span>
-                                <span
-                                    x-text="serverHealth.network.interfaces.eth0.tx_bytes ? (serverHealth.network.interfaces.eth0.tx_bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'N/A'"></span>
-                            </div>
-                            <div>
-                                <span>RX Packets:</span>
-                                <span
-                                    x-text="serverHealth.network.interfaces.eth0.rx_packets ? serverHealth.network.interfaces.eth0.rx_packets.toLocaleString() : '0'"></span>
-                            </div>
-                            <div>
-                                <span>TX Packets:</span>
-                                <span
-                                    x-text="serverHealth.network.interfaces.eth0.tx_packets ? serverHealth.network.interfaces.eth0.tx_packets.toLocaleString() : '0'"></span>
-                            </div>
-                        </div>
-                        {% endcall %}
-                    </div>
+                                            <!-- Full Database Widget (old one) -->
+                                            {% set db_badge %}
+                                            <span class="server-stat-badge" :class="{
+                                                'badge-success': serverHealth.database.connected,
+                                                'badge-error': !serverHealth.database.connected
+                                            }" x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
+                                            {% endset %}
+                                            <div x-show="serverHealth.database">
+                                                {% call widget_card('server_database', 'Database', '🗄️', extra_actions=db_badge) %}
+                                                <div class="server-stat-value" x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></div>
+                                                <div class="server-stat-details">
+                                                    <div>
+                                                        <span>Logs:</span>
+                                                        <span x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.database.size_mb">
+                                                        <span>Size:</span>
+                                                        <span x-text="serverHealth.database.size_mb + ' MB'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
+                                                        <span>Growth (1h):</span>
+                                                        <span x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.database?.growth_rate_per_day !== undefined">
+                                                        <span>Growth (24h):</span>
+                                                        <span x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.database.path">
+                                                        <span>Path:</span>
+                                                        <span x-text="serverHealth.database.path" style="font-size: 0.85em;"></span>
+                                                    </div>
+                                                </div>
+                                                {% endcall %}
+                                            </div>
 
-                    <!-- Cache Statistics -->
-                    {% set cache_badge %}
-                    <span class="server-stat-badge badge-success">ACTIVE</span>
-                    {% endset %}
-                    <div x-show="serverHealth.cache">
-                        {% call widget_card('server_cache', 'Cache', '💾', extra_actions=cache_badge) %}
-                        <div class="server-stat-value"
-                            x-text="(serverHealth.cache.dns_cache_size || 0) + (serverHealth.cache.geo_cache_size || 0) + (serverHealth.cache.common_cache_size || 0) + ' entries'">
-                        </div>
-                        <div class="server-stat-details">
-                            <div x-show="serverHealth.cache.dns_cache_size !== undefined">
-                                <span>DNS Cache:</span>
-                                <span x-text="serverHealth.cache.dns_cache_size.toLocaleString() + ' entries'"></span>
-                            </div>
-                            <div x-show="serverHealth.cache.geo_cache_size !== undefined">
-                                <span>GeoIP Cache:</span>
-                                <span x-text="serverHealth.cache.geo_cache_size.toLocaleString() + ' entries'"></span>
-                            </div>
-                            <div x-show="serverHealth.cache.common_cache_size !== undefined">
-                                <span>Common Cache:</span>
-                                <span
-                                    x-text="serverHealth.cache.common_cache_size.toLocaleString() + ' entries'"></span>
-                            </div>
-                            <div x-show="serverHealth.cache.bandwidth_history_size !== undefined">
-                                <span>Bandwidth History:</span>
-                                <span
-                                    x-text="serverHealth.cache.bandwidth_history_size.toLocaleString() + ' entries'"></span>
-                            </div>
-                        </div>
-                        {% endcall %}
-                    </div>
-                </div>
-                </template>
+                                            <!-- Full System Information -->
+                                            {% set system_badge %}
+                                            <span class="server-stat-badge badge-success">ONLINE</span>
+                                            {% endset %}
+                                            <div x-show="serverHealth.system && !serverHealth.system.error">
+                                                {% call widget_card('server_system', 'System', '🖥️', extra_actions=system_badge) %}
+                                                <div class="server-stat-value" x-text="serverHealth.system.hostname || 'N/A'" style="font-size: 1.2em;"></div>
+                                                <div class="server-stat-details">
+                                                    <div x-show="serverHealth.system.uptime_formatted">
+                                                        <span>Uptime:</span>
+                                                        <span x-text="serverHealth.system.uptime_formatted || 'N/A'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system.uptime_seconds">
+                                                        <span>Total Uptime:</span>
+                                                        <span x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system.boot_time_formatted">
+                                                        <span>Boot Time:</span>
+                                                        <span x-text="serverHealth.system.boot_time_formatted"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system.kernel_version">
+                                                        <span>Kernel:</span>
+                                                        <span x-text="serverHealth.system.kernel_version" style="font-size: 0.85em;"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system.os_info">
+                                                        <span>OS:</span>
+                                                        <span x-text="serverHealth.system.os_info" style="font-size: 0.85em;"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.timestamp">
+                                                        <span>Last Update:</span>
+                                                        <span x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
+                                                    </div>
+                                                </div>
+                                                {% endcall %}
+                                            </div>
 
-                <!-- Database (SQLite) Statistics - Always visible -->
-                <div style="margin-top: 32px;">
-                    <h2 style="margin-bottom: 20px; font-size: 1.2em; color: var(--text-primary);">Database (SQLite)</h2>
-                    
-                    <!-- Loading State -->
-                    <template x-if="databaseStats.loading">
-                        <div class="empty-state">
-                            <span>Loading database statistics...</span>
-                        </div>
-                    </template>
+                                            <!-- Process Widget -->
+                                            {% set process_badge %}
+                                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                                            {% endset %}
+                                            <div x-show="(serverHealth.system && serverHealth.system.process_threads !== undefined && !serverHealth.system.error) || serverHealth.process">
+                                                {% call widget_card('server_process', 'Process', '⚙️', extra_actions=process_badge) %}
+                                                <div class="server-stat-value" x-text="serverHealth.process && serverHealth.process.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : (serverHealth.system && serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() + ' threads' : 'N/A')"></div>
+                                                <div class="server-stat-details">
+                                                    <div x-show="serverHealth.process && serverHealth.process.process_memory_mb">
+                                                        <span>Memory:</span>
+                                                        <span x-text="serverHealth.process.process_memory_mb + ' MB'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.process && serverHealth.process.threads">
+                                                        <span>Threads:</span>
+                                                        <span x-text="serverHealth.process.threads.toLocaleString()"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system && serverHealth.system.process_threads !== undefined">
+                                                        <span>System Threads:</span>
+                                                        <span x-text="serverHealth.system.process_threads ? serverHealth.system.process_threads.toLocaleString() : '0'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.system && serverHealth.system.process_name">
+                                                        <span>Process:</span>
+                                                        <span x-text="serverHealth.system.process_name || 'N/A'" style="font-size: 0.85em;"></span>
+                                                    </div>
+                                                </div>
+                                                {% endcall %}
+                                            </div>
 
-                    <!-- Error State -->
-                    <template x-if="databaseStats.error && !databaseStats.loading">
-                        <div class="empty-state" style="color: var(--neon-red);">
-                            <span x-text="databaseStats.error"></span>
-                        </div>
-                    </template>
-
-                    <!-- Database Stats Content -->
-                    <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
-                        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
-                            <template x-for="db in databaseStats.databases" :key="db.name">
-                                <div class="card">
-                                    <h3 style="margin-bottom: 12px; font-size: 1em; color: var(--text-primary);">
-                                        <span x-text="db.name"></span> Database
-                                        <template x-if="db.error">
-                                            <span style="color: var(--neon-red); font-size: 0.85em; margin-left: 8px;">⚠️</span>
-                                        </template>
-                                    </h3>
-                                    
-                                    <!-- Stat Cards -->
-                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
-                                        <!-- File Size -->
-                                        <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                            <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">File Size</div>
-                                            <div style="font-size: 0.95em; color: var(--text-primary); margin-bottom: 4px;" x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
-                                            <template x-if="db.size_history && db.size_history.length > 1">
-                                                <canvas 
-                                                    x-bind:id="'dbSparkline_' + db.name"
-                                                    style="width: 100%; height: 24px; display: block;"
-                                                    width="120"
-                                                    height="24"></canvas>
-                                            </template>
-                                        </div>
-                                        
-                                        <!-- Total Records -->
-                                        <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                            <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Records</div>
-                                            <div style="font-size: 0.95em; color: var(--text-primary);" x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'"></div>
-                                        </div>
-                                        
-                                        <!-- WAL Status -->
-                                        <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                            <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">WAL</div>
-                                            <div style="font-size: 0.95em; color: var(--text-primary);">
-                                                <template x-if="db.wal_exists">
-                                                    <span x-text="fmtBytes(db.wal_size)"></span>
-                                                </template>
-                                                <template x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'">
-                                                    <span style="color: var(--text-secondary); opacity: 0.8;" title="WAL mode enabled but no active WAL file (no pending transactions)">WAL mode (idle)</span>
-                                                </template>
-                                                <template x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')">
-                                                    <span style="color: var(--text-secondary); opacity: 0.7;" title="WAL mode not enabled">Not enabled</span>
-                                                </template>
+                                            <!-- Cache Widget -->
+                                            {% set cache_badge %}
+                                            <span class="server-stat-badge badge-success">ACTIVE</span>
+                                            {% endset %}
+                                            <div x-show="serverHealth.cache">
+                                                {% call widget_card('server_cache', 'Cache', '💾', extra_actions=cache_badge) %}
+                                                <div class="server-stat-value" x-text="(serverHealth.cache.dns_cache_size || 0) + (serverHealth.cache.geo_cache_size || 0) + (serverHealth.cache.common_cache_size || 0) + ' entries'"></div>
+                                                <div class="server-stat-details">
+                                                    <div x-show="serverHealth.cache.dns_cache_size !== undefined">
+                                                        <span>DNS Cache:</span>
+                                                        <span x-text="serverHealth.cache.dns_cache_size.toLocaleString() + ' entries'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.cache.geo_cache_size !== undefined">
+                                                        <span>GeoIP Cache:</span>
+                                                        <span x-text="serverHealth.cache.geo_cache_size.toLocaleString() + ' entries'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.cache.common_cache_size !== undefined">
+                                                        <span>Common Cache:</span>
+                                                        <span x-text="serverHealth.cache.common_cache_size.toLocaleString() + ' entries'"></span>
+                                                    </div>
+                                                    <div x-show="serverHealth.cache.bandwidth_history_size !== undefined">
+                                                        <span>Bandwidth History:</span>
+                                                        <span x-text="serverHealth.cache.bandwidth_history_size.toLocaleString() + ' entries'"></span>
+                                                    </div>
+                                                </div>
+                                                {% endcall %}
                                             </div>
                                         </div>
-                                        
-                                        <!-- Last Write -->
-                                        <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                            <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Last Write</div>
-                                            <div style="font-size: 0.85em; color: var(--text-primary);" x-text="db.last_write ? new Date(db.last_write).toLocaleString() : 'N/A'"></div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Write Pressure Hint -->
-                                    <template x-if="db.write_pressure">
-                                        <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
-                                            <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                                <span style="opacity: 0.8;">Write Activity:</span>
-                                                <span style="margin-left: 6px; color: var(--text-primary);" 
-                                                    :class="db.write_pressure === 'elevated' ? 'text-warn' : ''"
-                                                    x-text="db.write_pressure === 'elevated' ? 'Elevated' : 'Normal'"></span>
-                                            </div>
-                                        </div>
-                                    </template>
-                                    
-                                    <!-- Retention Awareness -->
-                                    <template x-if="db.oldest_record_age">
-                                        <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
-                                            <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                                <span style="opacity: 0.8;">Oldest Record:</span>
-                                                <span style="margin-left: 6px; color: var(--text-primary);" 
-                                                    x-text="db.oldest_record_age"></span>
-                                            </div>
-                                        </div>
-                                    </template>
-                                    
-                                    <!-- Detail Panel -->
-                                    <div style="padding: 12px; background: rgba(0,0,0,0.15); border-radius: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">Configuration</div>
-                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.85em;">
-                                            <div>
-                                                <span style="color: var(--text-secondary);">SQLite:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.sqlite_version || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span style="color: var(--text-secondary);">Journal:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.journal_mode || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span style="color: var(--text-secondary);">Sync:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.synchronous || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span style="color: var(--text-secondary);">Page Size:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span style="color: var(--text-secondary);">Cache:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;">
-                                                    <template x-if="db.cache_size && db.page_size">
-                                                        <span x-text="db.cache_size + ' pages'"></span>
-                                                        <span style="color: var(--text-secondary); opacity: 0.7; margin-left: 4px;" x-text="'(' + fmtBytes(db.cache_size * db.page_size) + ')'"></span>
-                                                    </template>
-                                                    <template x-if="db.cache_size && !db.page_size">
-                                                        <span x-text="db.cache_size + ' pages'"></span>
-                                                    </template>
-                                                    <template x-if="!db.cache_size">
-                                                        <span>N/A</span>
-                                                    </template>
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span style="color: var(--text-secondary);">Foreign Keys:</span>
-                                                <span style="color: var(--text-primary); margin-left: 6px;" 
-                                                    :title="db.foreign_keys ? 'Enabled: Enforces referential integrity but may impact write performance' : (db.foreign_keys === false ? 'Disabled: Better write performance but no referential integrity checks' : '')"
-                                                    x-text="db.foreign_keys !== null ? (db.foreign_keys ? 'Enabled' : 'Disabled') : 'N/A'"></span>
-                                            </div>
-                                        </div>
-                                        <template x-if="db.path">
-                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);">
-                                                <div style="font-size: 0.75em; color: var(--text-secondary);">Path:</div>
-                                                <div style="font-size: 0.8em; color: var(--text-primary); font-family: monospace; word-break: break-all;" x-text="db.path"></div>
-                                            </div>
-                                        </template>
                                     </div>
                                 </div>
                             </template>
-                        </div>
-                    </template>
-                </div>
 
-                </section>
-        </div>
+                            <!-- Database (SQLite) Statistics - Always visible (moved here from below) -->
+                            <div style="margin-top: 32px;" x-show="!serverHealth.loading && !serverHealth.error">
+                                <h2 style="margin-bottom: 20px; font-size: 1.2em; color: var(--text-primary);">Database (SQLite)</h2>
+                                
+                                <!-- Loading State -->
+                                <template x-if="databaseStats.loading">
+                                    <div class="empty-state">
+                                        <span>Loading database statistics...</span>
+                                    </div>
+                                </template>
+
+                                <!-- Error State -->
+                                <template x-if="databaseStats.error && !databaseStats.loading">
+                                    <div class="empty-state" style="color: var(--neon-red);">
+                                        <span x-text="databaseStats.error"></span>
+                                    </div>
+                                </template>
+
+                                <!-- Database Stats Content -->
+                                <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
+                                    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                                        <template x-for="db in databaseStats.databases" :key="db.name">
+                                            <div class="card">
+                                                <h3 style="margin-bottom: 12px; font-size: 1em; color: var(--text-primary);">
+                                                    <span x-text="db.name"></span> Database
+                                                    <template x-if="db.error">
+                                                        <span style="color: var(--neon-red); font-size: 0.85em; margin-left: 8px;">⚠️</span>
+                                                    </template>
+                                                </h3>
+                                                
+                                                <!-- Stat Cards -->
+                                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                                                    <!-- File Size -->
+                                                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">File Size</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary); margin-bottom: 4px;" x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                                        <template x-if="db.size_history && db.size_history.length > 1">
+                                                            <canvas 
+                                                                x-bind:id="'dbSparkline_' + db.name"
+                                                                style="width: 100%; height: 24px; display: block;"
+                                                                width="120"
+                                                                height="24"></canvas>
+                                                        </template>
+                                                    </div>
+                                                    
+                                                    <!-- Total Records -->
+                                                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Records</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary);" x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'"></div>
+                                                    </div>
+                                                    
+                                                    <!-- WAL Status -->
+                                                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">WAL</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary);">
+                                                            <template x-if="db.wal_exists">
+                                                                <span x-text="fmtBytes(db.wal_size)"></span>
+                                                            </template>
+                                                            <template x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'">
+                                                                <span style="color: var(--text-secondary); opacity: 0.8;" title="WAL mode enabled but no active WAL file (no pending transactions)">WAL mode (idle)</span>
+                                                            </template>
+                                                            <template x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')">
+                                                                <span style="color: var(--text-secondary); opacity: 0.7;" title="WAL mode not enabled">Not enabled</span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Last Write -->
+                                                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Last Write</div>
+                                                        <div style="font-size: 0.85em; color: var(--text-primary);" x-text="db.last_write ? new Date(db.last_write).toLocaleString() : 'N/A'"></div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Write Pressure Hint -->
+                                                <template x-if="db.write_pressure">
+                                                    <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
+                                                        <div style="font-size: 0.8em; color: var(--text-secondary);">
+                                                            <span style="opacity: 0.8;">Write Activity:</span>
+                                                            <span style="margin-left: 6px; color: var(--text-primary);" 
+                                                                :class="db.write_pressure === 'elevated' ? 'text-warn' : ''"
+                                                                x-text="db.write_pressure === 'elevated' ? 'Elevated' : 'Normal'"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                
+                                                <!-- Retention Awareness -->
+                                                <template x-if="db.oldest_record_age">
+                                                    <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
+                                                        <div style="font-size: 0.8em; color: var(--text-secondary);">
+                                                            <span style="opacity: 0.8;">Oldest Record:</span>
+                                                            <span style="margin-left: 6px; color: var(--text-primary);" 
+                                                                x-text="db.oldest_record_age"></span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                
+                                                <!-- Detail Panel -->
+                                                <div style="padding: 12px; background: rgba(0,0,0,0.15); border-radius: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">Configuration</div>
+                                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.85em;">
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">SQLite:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.sqlite_version || 'N/A'"></span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">Journal:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.journal_mode || 'N/A'"></span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">Sync:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.synchronous || 'N/A'"></span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">Page Size:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;" x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">Cache:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;">
+                                                                <template x-if="db.cache_size && db.page_size">
+                                                                    <span x-text="db.cache_size + ' pages'"></span>
+                                                                    <span style="color: var(--text-secondary); opacity: 0.7; margin-left: 4px;" x-text="'(' + fmtBytes(db.cache_size * db.page_size) + ')'"></span>
+                                                                </template>
+                                                                <template x-if="db.cache_size && !db.page_size">
+                                                                    <span x-text="db.cache_size + ' pages'"></span>
+                                                                </template>
+                                                                <template x-if="!db.cache_size">
+                                                                    <span>N/A</span>
+                                                                </template>
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <span style="color: var(--text-secondary);">Foreign Keys:</span>
+                                                            <span style="color: var(--text-primary); margin-left: 6px;" 
+                                                                :title="db.foreign_keys ? 'Enabled: Enforces referential integrity but may impact write performance' : (db.foreign_keys === false ? 'Disabled: Better write performance but no referential integrity checks' : '')"
+                                                                x-text="db.foreign_keys !== null ? (db.foreign_keys ? 'Enabled' : 'Disabled') : 'N/A'"></span>
+                                                        </div>
+                                                    </div>
+                                                    <template x-if="db.path">
+                                                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                                            <div style="font-size: 0.75em; color: var(--text-secondary);">Path:</div>
+                                                            <div style="font-size: 0.8em; color: var(--text-primary); font-family: monospace; word-break: break-all;" x-text="db.path"></div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    </div>
 
         <!-- ============================================
              FIREWALL SNMP STATUS TAB
@@ -3649,7 +3683,7 @@
             <section id="section-assistant" class="scroll-section" style="margin-bottom: 32px;">
                 <div class="card wide-card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
                     <h2>
-                        <span>🤖 AI Assistant</span>
+                        <span>🤖 Assistant</span>
                         <div class="card-actions">
                             <select x-model="ollamaChat.model" class="filter-select" style="min-width: 150px;"
                                 @change="fetchOllamaModels()" title="Select Ollama model">
@@ -5522,7 +5556,7 @@
                 <span class="mobile-nav-label">Firewall</span>
             </button>
             <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
-                @click="loadTab('assistant')" title="AI Assistant">
+                @click="loadTab('assistant')" title="Assistant">
                 <span class="mobile-nav-icon">🤖</span>
                 <span class="mobile-nav-label">AI</span>
             </button>
