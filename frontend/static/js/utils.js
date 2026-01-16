@@ -122,7 +122,9 @@ async function safeFetch(url, options = {}) {
 
     // If same request is already in flight, reuse the promise
     if (_inFlightRequests.has(requestKey)) {
-        return _inFlightRequests.get(requestKey);
+        const cachedResponse = await _inFlightRequests.get(requestKey);
+        // Return a fresh clone for each caller
+        return cachedResponse.clone();
     }
 
     // Create new request promise
@@ -139,17 +141,19 @@ async function safeFetch(url, options = {}) {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
+                // Clone before reading body for error
+                const errorClone = response.clone();
                 let errorData;
                 try {
-                    errorData = await response.json();
+                    errorData = await errorClone.json();
                 } catch {
                     errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
                 }
                 throw errorData;
             }
 
-            // Clone response to allow multiple reads (for deduplication)
-            return response.clone();
+            // Return response (will be cloned when retrieved from cache)
+            return response;
         } catch (error) {
             if (error.name === 'AbortError') {
                 throw new Error('Request timeout: The request took too long to complete.');
