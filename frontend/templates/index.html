@@ -4753,10 +4753,10 @@
                                     <div x-show="tools.whois.error" class="tool-error" x-text="tools.whois.error"></div>
                                     <div x-show="tools.whois.result" class="tool-result">
                                         <div class="whois-result">
-                                            <div><strong>ASN:</strong> <span x-text="tools.whois.result.asn || 'N/A'"></span></div>
-                                            <div><strong>Organization:</strong> <span x-text="tools.whois.result.org || 'N/A'"></span></div>
-                                            <div><strong>Country:</strong> <span x-text="tools.whois.result.country || 'N/A'"></span></div>
-                                            <div><strong>Network:</strong> <span x-text="tools.whois.result.network || 'N/A'"></span></div>
+                                            <div><strong>ASN:</strong> <span x-text="tools.whois.result?.asn || 'N/A'"></span></div>
+                                            <div><strong>Organization:</strong> <span x-text="tools.whois.result?.org || 'N/A'"></span></div>
+                                            <div><strong>Country:</strong> <span x-text="tools.whois.result?.country || 'N/A'"></span></div>
+                                            <div><strong>Network:</strong> <span x-text="tools.whois.result?.network || 'N/A'"></span></div>
                                         </div>
                                     </div>
                                 </div>
