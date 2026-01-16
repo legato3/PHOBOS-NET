@@ -338,7 +338,7 @@
                             <!-- Top Row: Summary Stats (Compact Horizontal) -->
                             <div class="summary-stats-grid">
                                 <!-- Mobile: Priority Stats (Above Fold) -->
-                                <div class="stat-box mobile-priority-stat" :class="{ 
+                                <div class="stat-box mobile-priority-stat mobile-health-card" :class="{ 
                                         'status-ok': overallHealth.state === 'healthy',
                                         'status-warning': overallHealth.state === 'degraded',
                                         'status-error': overallHealth.state === 'unhealthy'
@@ -348,27 +348,27 @@
                                             'text-green': overallHealth.state === 'healthy',
                                             'text-yellow': overallHealth.state === 'degraded',
                                             'text-red': overallHealth.state === 'unhealthy'
-                                        }" style="font-size: 1.5em; font-weight: 600; text-transform: capitalize;"
+                                        }" style="font-size: 1.3em; font-weight: 500; text-transform: capitalize;"
                                         x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
                                         ...</div>
-                                    <div class="label">Overall Health</div>
+                                    <div class="label mobile-secondary-label">Overall Health</div>
                                     <!-- Mobile: Hide explanatory text -->
                                     <template x-if="overallHealth.shortExplanation">
                                         <div class="mobile-hide" style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic;"
                                             x-text="overallHealth.shortExplanation"></div>
                                     </template>
                                 </div>
-                                <div class="stat-box mobile-priority-stat" :class="{ 'status-warning': alertHistory.total > 0 }"
+                                <div class="stat-box mobile-priority-stat" :class="{ 'status-warning': alertHistory.total > 0, 'mobile-zero-state': alertHistory.total === 0 }"
                                     @click="navigateToActiveAlerts()" style="cursor: pointer;"
                                     title="Click to view active alerts">
-                                    <div class="value"
+                                    <div class="value" :class="{ 'mobile-zero-value': alertHistory.total === 0 }"
                                         x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
                                         ...</div>
                                     <div class="label">Active Alerts</div>
                                 </div>
                                 
-                                <!-- Mobile: Secondary Stats (Below Fold) -->
-                                <div class="stat-box mobile-secondary-stat" @click="navigateToActiveFlows()" style="cursor: pointer;"
+                                <!-- Mobile: Priority Stats (Above Fold) -->
+                                <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()" style="cursor: pointer;"
                                     title="Click to view active flows">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
