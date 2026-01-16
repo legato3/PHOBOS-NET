@@ -4436,9 +4436,9 @@ body {
 /* Risk Header - Current vs Predictive */
 .risk-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-4) 0;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
     border-bottom: 1px solid var(--border-soft);
     margin-bottom: var(--space-4);
 }
@@ -4447,12 +4447,14 @@ body {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    justify-content: space-between;
 }
 
 .predictive-risk {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    justify-content: space-between;
     opacity: 0.7; /* Subordinate to current state */
 }
 
@@ -4462,12 +4464,17 @@ body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    flex-shrink: 0;
 }
 
 .risk-value {
     font-size: var(--fs-lg);
     font-weight: 700;
     font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
 }
 
 .risk-value.predictive {
@@ -4476,6 +4483,7 @@ body {
     border: 1px dashed var(--border-medium);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+    max-width: 100px;
 }
 
 .risk-trend {
@@ -4483,6 +4491,36 @@ body {
     font-weight: 700;
     padding: 2px 4px;
     border-radius: var(--radius-xs);
+    flex-shrink: 0;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .risk-header {
+        gap: var(--space-1);
+        padding: var(--space-2) 0;
+    }
+    
+    .current-risk,
+    .predictive-risk {
+        flex-wrap: wrap;
+        gap: var(--space-1);
+    }
+    
+    .risk-value {
+        font-size: var(--fs-md);
+        max-width: 80px;
+    }
+    
+    .risk-value.predictive {
+        font-size: var(--fs-sm);
+        max-width: 70px;
+    }
+    
+    .risk-label {
+        font-size: 10px;
+        letter-spacing: 0.02em;
+    }
 }
 
 .trend-up {
