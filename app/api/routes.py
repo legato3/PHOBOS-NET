@@ -3752,6 +3752,485 @@ Provide a comprehensive analysis with specific, actionable recommendations."""
         }), 500
 
 
+@bp.route('/api/forensics/timeline', methods=['POST'])
+@throttle(5, 60)
+def api_forensics_timeline():
+    """Generate detailed incident timeline with network forensics data."""
+    try:
+        data = request.get_json()
+        target_ip = data.get('target_ip', '').strip()
+        time_range = data.get('time_range', '24h')
+        include_context = data.get('include_context', True)
+        
+        if not target_ip:
+            return jsonify({"error": "Target IP is required"}), 400
+
+        # Validate IP format
+        import re
+        ip_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        if not re.match(ip_pattern, target_ip):
+            return jsonify({"error": "Invalid IP address format"}), 400
+
+        from app.services.netflow import run_nfdump, get_time_range
+        from app.services.threats import get_threat_info, load_threatlist
+        from datetime import datetime, timedelta
+        
+        # Generate timeline data
+        tf = get_time_range(time_range)
+        
+        # Get all flows involving target IP
+        nfdump_cmd = [
+            f"src or dst {target_ip}",
+            "-o", "csv",
+            "-t", tf
+        ]
+        
+        output = run_nfdump(nfdump_cmd)
+        
+        if not output or not output.strip():
+            return jsonify({
+                "error": "No network traffic found for target IP in specified time range",
+                "target_ip": target_ip,
+                "time_range": time_range
+            }), 404
+
+        # Parse timeline data
+        lines = output.strip().split('\n')
+        if len(lines) < 2:
+            return jsonify({"error": "Insufficient data for timeline analysis"}), 404
+
+        header_line = lines[0].lower()
+        header = [c.strip() for c in header_line.split(',')]
+        
+        # Find column indices
+        try:
+            ts_idx = header.index('ts')
+            te_idx = header.index('te')
+            sa_idx = header.index('sa')
+            da_idx = header.index('da')
+            sp_idx = header.index('sp')
+            dp_idx = header.index('dp')
+            pr_idx = header.index('pr')
+            flg_idx = header.index('flg') if 'flg' in header else header.index('flags') if 'flags' in header else -1
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else -1
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else header.index('pkt') if 'pkt' in header else -1
+        except ValueError as e:
+            return jsonify({"error": f"Required columns not found in NetFlow data: {e}"}), 500
+
+        timeline_events = []
+        total_bytes = 0
+        total_packets = 0
+        unique_ports = set()
+        unique_protocols = set()
+        
+        # Process each flow
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'):
+                continue
+                
+            parts = line.split(',')
+            if len(parts) <= max(ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx):
+                continue
+                
+            try:
+                start_time = parts[ts_idx]
+                end_time = parts[te_idx]
+                src_ip = parts[sa_idx]
+                dst_ip = parts[da_idx]
+                src_port = parts[sp_idx]
+                dst_port = parts[dp_idx]
+                protocol = parts[pr_idx]
+                flags = parts[flg_idx].upper() if flg_idx >= 0 and len(parts) > flg_idx else ''
+                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and len(parts) > ibyt_idx and parts[ibyt_idx] else 0
+                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and len(parts) > ipkt_idx and parts[ipkt_idx] else 0
+                
+                # Determine direction
+                direction = 'outbound' if src_ip == target_ip else 'inbound'
+                
+                # Check for suspicious patterns
+                suspicious = False
+                suspicious_indicators = []
+                
+                if flags and ('S' in flags and 'A' not in flags):
+                    suspicious = True
+                    suspicious_indicators.append('SYN-only (potential scan)')
+                
+                if bytes_xfer > 10000000:  # > 10MB
+                    suspicious = True
+                    suspicious_indicators.append('Large data transfer')
+                
+                if int(dst_port) in [22, 23, 3389, 5900]:
+                    suspicious = True
+                    suspicious_indicators.append('Remote access port')
+                
+                timeline_events.append({
+                    'timestamp': start_time,
+                    'end_timestamp': end_time,
+                    'src_ip': src_ip,
+                    'dst_ip': dst_ip,
+                    'src_port': src_port,
+                    'dst_port': dst_port,
+                    'protocol': protocol,
+                    'direction': direction,
+                    'bytes': bytes_xfer,
+                    'packets': packets,
+                    'flags': flags,
+                    'suspicious': suspicious,
+                    'indicators': suspicious_indicators
+                })
+                
+                total_bytes += bytes_xfer
+                total_packets += packets
+                unique_ports.add(dst_port if direction == 'outbound' else src_port)
+                unique_protocols.add(protocol)
+                
+            except (ValueError, IndexError) as e:
+                continue  # Skip malformed lines
+
+        # Sort timeline by timestamp
+        timeline_events.sort(key=lambda x: x['timestamp'])
+
+        # Get threat intelligence for target IP
+        threat_info = None
+        if include_context:
+            try:
+                threat_info = get_threat_info(target_ip)
+            except:
+                pass
+
+        # Generate summary statistics
+        summary = {
+            'target_ip': target_ip,
+            'time_range': time_range,
+            'total_events': len(timeline_events),
+            'total_bytes': total_bytes,
+            'total_packets': total_packets,
+            'unique_ports': len(unique_ports),
+            'unique_protocols': len(unique_protocols),
+            'suspicious_events': len([e for e in timeline_events if e['suspicious']]),
+            'first_seen': timeline_events[0]['timestamp'] if timeline_events else None,
+            'last_seen': timeline_events[-1]['timestamp'] if timeline_events else None,
+            'threat_intel': threat_info
+        }
+
+        return jsonify({
+            'summary': summary,
+            'timeline': timeline_events,
+            'analysis_metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'data_source': 'netflow',
+                'time_range_processed': time_range
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Timeline analysis failed: {str(e)}"
+        }), 500
+
+
+@bp.route('/api/forensics/session', methods=['POST'])
+@throttle(3, 60)
+def api_forensics_session():
+    """Reconstruct communication session between two endpoints."""
+    try:
+        data = request.get_json()
+        src_ip = data.get('src_ip', '').strip()
+        dst_ip = data.get('dst_ip', '').strip()
+        time_range = data.get('time_range', '1h')
+        
+        if not src_ip or not dst_ip:
+            return jsonify({"error": "Both source and destination IPs are required"}), 400
+
+        # Validate IP formats
+        import re
+        ip_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        if not re.match(ip_pattern, src_ip) or not re.match(ip_pattern, dst_ip):
+            return jsonify({"error": "Invalid IP address format"}), 400
+
+        from app.services.netflow import run_nfdump, get_time_range
+        from datetime import datetime
+        
+        # Get session data
+        tf = get_time_range(time_range)
+        
+        # Get flows between the two IPs
+        nfdump_cmd = [
+            f"src {src_ip} and dst {dst_ip}",
+            "-o", "csv",
+            "-t", tf,
+            "-s", "srcip/dstip/bytes"
+        ]
+        
+        output = run_nfdump(nfdump_cmd)
+        
+        if not output or not output.strip():
+            return jsonify({
+                "error": "No communication found between specified IPs",
+                "src_ip": src_ip,
+                "dst_ip": dst_ip,
+                "time_range": time_range
+            }), 404
+
+        # Parse session data
+        lines = output.strip().split('\n')
+        if len(lines) < 2:
+            return jsonify({"error": "Insufficient data for session analysis"}), 404
+
+        header_line = lines[0].lower()
+        header = [c.strip() for c in header_line.split(',')]
+        
+        # Find column indices
+        try:
+            ts_idx = header.index('ts')
+            te_idx = header.index('te')
+            sp_idx = header.index('sp')
+            dp_idx = header.index('dp')
+            pr_idx = header.index('pr')
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else -1
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else header.index('pkt') if 'pkt' in header else -1
+        except ValueError as e:
+            return jsonify({"error": f"Required columns not found: {e}"}), 500
+
+        session_flows = []
+        total_bytes = 0
+        total_packets = 0
+        session_duration = 0
+        ports_used = set()
+        
+        first_timestamp = None
+        last_timestamp = None
+        
+        for line in lines[1:]:
+            if not line or line.startswith('ts,'):
+                continue
+                
+            parts = line.split(',')
+            if len(parts) <= max(ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx):
+                continue
+                
+            try:
+                start_time = parts[ts_idx]
+                end_time = parts[te_idx]
+                src_port = parts[sp_idx]
+                dst_port = parts[dp_idx]
+                protocol = parts[pr_idx]
+                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and parts[ibyt_idx] else 0
+                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and parts[ipkt_idx] else 0
+                
+                session_flows.append({
+                    'timestamp': start_time,
+                    'end_timestamp': end_time,
+                    'src_port': src_port,
+                    'dst_port': dst_port,
+                    'protocol': protocol,
+                    'bytes': bytes_xfer,
+                    'packets': packets
+                })
+                
+                total_bytes += bytes_xfer
+                total_packets += packets
+                ports_used.add(f"{src_port}->{dst_port}")
+                
+                # Track session duration
+                if not first_timestamp:
+                    first_timestamp = start_time
+                last_timestamp = end_time
+                
+            except (ValueError, IndexError):
+                continue
+
+        # Calculate session duration
+        if first_timestamp and last_timestamp:
+            try:
+                start_dt = datetime.strptime(first_timestamp, '%Y-%m-%d %H:%M:%S')
+                end_dt = datetime.strptime(last_timestamp, '%Y-%m-%d %H:%M:%S')
+                session_duration = (end_dt - start_dt).total_seconds()
+            except:
+                session_duration = 0
+
+        # Analyze session patterns
+        session_analysis = {
+            'communication_pattern': 'continuous' if len(session_flows) > 5 else 'sporadic',
+            'data_volume_profile': 'heavy' if total_bytes > 10000000 else 'light',
+            'port_diversity': len(ports_used),
+            'protocol_consistency': len(set(f['protocol'] for f in session_flows)) == 1
+        }
+
+        # Generate session summary
+        summary = {
+            'src_ip': src_ip,
+            'dst_ip': dst_ip,
+            'time_range': time_range,
+            'total_flows': len(session_flows),
+            'total_bytes': total_bytes,
+            'total_packets': total_packets,
+            'session_duration_seconds': session_duration,
+            'unique_port_combinations': len(ports_used),
+            'first_seen': first_timestamp,
+            'last_seen': last_timestamp,
+            'analysis': session_analysis
+        }
+
+        return jsonify({
+            'summary': summary,
+            'flows': session_flows,
+            'session_metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'data_source': 'netflow',
+                'time_range_processed': time_range
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Session reconstruction failed: {str(e)}"
+        }), 500
+
+
+@bp.route('/api/forensics/evidence', methods=['POST'])
+@throttle(2, 60)
+def api_forensics_evidence():
+    """Generate evidence collection report for incident response."""
+    try:
+        data = request.get_json()
+        incident_type = data.get('incident_type', 'general')  # malware, data_exfiltration, dos, scan, general
+        target_ips = data.get('target_ips', [])
+        time_range = data.get('time_range', '24h')
+        preserve_data = data.get('preserve_data', True)
+        
+        if not target_ips:
+            return jsonify({"error": "Target IPs are required for evidence collection"}), 400
+
+        from app.services.netflow import run_nfdump, get_time_range
+        from app.services.threats import get_threat_info, load_threatlist
+        from datetime import datetime, timedelta
+        
+        tf = get_time_range(time_range)
+        collection_timestamp = datetime.now().isoformat()
+        
+        evidence_report = {
+            'incident_metadata': {
+                'incident_type': incident_type,
+                'collection_timestamp': collection_timestamp,
+                'time_range': time_range,
+                'target_ips': target_ips,
+                'preservation_requested': preserve_data
+            },
+            'evidence_items': []
+        }
+
+        # Collect evidence for each target IP
+        for target_ip in target_ips:
+            # NetFlow evidence
+            nfdump_cmd = [
+                f"src or dst {target_ip}",
+                "-o", "csv",
+                "-t", tf
+            ]
+            
+            output = run_nfdump(nfdump_cmd)
+            
+            if output and output.strip():
+                # Count total flows
+                lines = output.strip().split('\n')
+                flow_count = len([l for l in lines[1:] if l and not l.startswith('ts,')])
+                
+                evidence_report['evidence_items'].append({
+                    'type': 'netflow_records',
+                    'target': target_ip,
+                    'description': f'Network flow records for {target_ip}',
+                    'record_count': flow_count,
+                    'time_range': time_range,
+                    'data_hash': hash(output)[:16] if output else None,
+                    'collection_method': 'nfdump',
+                    'preserved': preserve_data
+                })
+
+            # Threat intelligence evidence
+            try:
+                threat_info = get_threat_info(target_ip)
+                if threat_info and any(threat_info.values()):
+                    evidence_report['evidence_items'].append({
+                        'type': 'threat_intelligence',
+                        'target': target_ip,
+                        'description': f'Threat intelligence data for {target_ip}',
+                        'threat_data': threat_info,
+                        'collection_timestamp': collection_timestamp,
+                        'preserved': True
+                    })
+            except:
+                pass
+
+            # DNS resolution evidence
+            try:
+                from app.utils.dns import resolve_ip
+                dns_info = resolve_ip(target_ip)
+                if dns_info:
+                    evidence_report['evidence_items'].append({
+                        'type': 'dns_resolution',
+                        'target': target_ip,
+                        'description': f'DNS resolution records for {target_ip}',
+                        'dns_data': dns_info,
+                        'collection_timestamp': collection_timestamp,
+                        'preserved': True
+                    })
+            except:
+                pass
+
+        # Generate chain of custody summary
+        evidence_report['chain_of_custody'] = {
+            'collector': 'PHOBOS-NET Automated System',
+            'collection_start': collection_timestamp,
+            'collection_method': 'automated',
+            'integrity_check': 'hash_verification',
+            'preservation_status': 'active' if preserve_data else 'temporary'
+        }
+
+        # Add incident-specific evidence recommendations
+        recommendations = {
+            'malware': [
+                'Preserve full packet captures if available',
+                'Check for C2 communication patterns',
+                'Analyze data exfiltration attempts',
+                'Review endpoint logs for malware artifacts'
+            ],
+            'data_exfiltration': [
+                'Identify large data transfers',
+                'Check for unusual destination IPs',
+                'Analyze encryption protocols used',
+                'Review user access logs'
+            ],
+            'dos': [
+                'Document attack source and volume',
+                'Preserve traffic samples during attack',
+                'Analyze attack patterns and timing',
+                'Review network device logs'
+            ],
+            'scan': [
+                'Document scanning patterns and tools',
+                'Identify targeted services and ports',
+                'Analyze scan frequency and duration',
+                'Review firewall logs for blocked attempts'
+            ],
+            'general': [
+                'Preserve all available network logs',
+                'Document timeline of events',
+                'Collect system and application logs',
+                'Interview relevant personnel'
+            ]
+        }
+
+        evidence_report['recommendations'] = recommendations.get(incident_type, recommendations['general'])
+
+        return jsonify(evidence_report)
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Evidence collection failed: {str(e)}"
+        }), 500
+
+
 @bp.route('/api/ollama/models', methods=['GET'])
 @throttle(5, 60)
 def api_ollama_models():

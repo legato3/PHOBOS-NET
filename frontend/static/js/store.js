@@ -77,6 +77,34 @@ export const Store = () => ({
         analysisType: 'general' // Analysis type: general, forensics, investigation, mitigation
     },
 
+    // Forensics state
+    forensics: {
+        timeline: {
+            targetIp: '',
+            timeRange: '24h',
+            loading: false,
+            error: null,
+            data: null
+        },
+        session: {
+            srcIp: '',
+            dstIp: '',
+            timeRange: '1h',
+            loading: false,
+            error: null,
+            data: null
+        },
+        evidence: {
+            incidentType: 'general',
+            targetIps: [],
+            timeRange: '24h',
+            preserveData: true,
+            loading: false,
+            error: null,
+            report: null
+        }
+    },
+
     // Mobile UI state
     showMobileFilters: false,
     worldMapMobileVisible: false,
@@ -5785,6 +5813,128 @@ export const Store = () => ({
     clearChat() {
         this.ollamaChat.messages = [];
         this.ollamaChat.error = null;
+    },
+
+    // ----- Forensics Methods -----
+    async generateTimeline() {
+        const { targetIp, timeRange } = this.forensics.timeline;
+        if (!targetIp) {
+            this.forensics.timeline.error = 'Target IP is required';
+            return;
+        }
+
+        this.forensics.timeline.loading = true;
+        this.forensics.timeline.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/forensics/timeline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_ip: targetIp,
+                    time_range: timeRange,
+                    include_context: true
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                this.forensics.timeline.data = data;
+            } else {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                throw new Error(errorData.error || `Request failed: ${res.status}`);
+            }
+        } catch (e) {
+            console.error('Timeline generation error:', e);
+            this.forensics.timeline.error = e.message || 'Failed to generate timeline';
+        } finally {
+            this.forensics.timeline.loading = false;
+        }
+    },
+
+    async reconstructSession() {
+        const { srcIp, dstIp, timeRange } = this.forensics.session;
+        if (!srcIp || !dstIp) {
+            this.forensics.session.error = 'Both source and destination IPs are required';
+            return;
+        }
+
+        this.forensics.session.loading = true;
+        this.forensics.session.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/forensics/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    src_ip: srcIp,
+                    dst_ip: dstIp,
+                    time_range: timeRange
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                this.forensics.session.data = data;
+            } else {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                throw new Error(errorData.error || `Request failed: ${res.status}`);
+            }
+        } catch (e) {
+            console.error('Session reconstruction error:', e);
+            this.forensics.session.error = e.message || 'Failed to reconstruct session';
+        } finally {
+            this.forensics.session.loading = false;
+        }
+    },
+
+    async collectEvidence() {
+        const { incidentType, targetIps, timeRange, preserveData } = this.forensics.evidence;
+        if (!targetIps.length) {
+            this.forensics.evidence.error = 'Target IPs are required for evidence collection';
+            return;
+        }
+
+        this.forensics.evidence.loading = true;
+        this.forensics.evidence.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/forensics/evidence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    incident_type: incidentType,
+                    target_ips: targetIps,
+                    time_range: timeRange,
+                    preserve_data: preserveData
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                this.forensics.evidence.report = data;
+            } else {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                throw new Error(errorData.error || `Request failed: ${res.status}`);
+            }
+        } catch (e) {
+            console.error('Evidence collection error:', e);
+            this.forensics.evidence.error = e.message || 'Failed to collect evidence';
+        } finally {
+            this.forensics.evidence.loading = false;
+        }
+    },
+
+    clearForensicsData() {
+        this.forensics.timeline.data = null;
+        this.forensics.timeline.error = null;
+        this.forensics.session.data = null;
+        this.forensics.session.error = null;
+        this.forensics.evidence.report = null;
+        this.forensics.evidence.error = null;
     },
 
     // ----- Expanded Views & Graph -----

@@ -143,6 +143,12 @@
                         <span class="sidebar-icon">🤖</span>
                         <span class="sidebar-item-text">Assistant</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
+                        @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'"
+                        id="forensics-tab-btn" aria-controls="forensics-tab" aria-label="Forensics" title="Forensics">
+                        <span class="sidebar-icon">🔍</span>
+                        <span class="sidebar-item-text">Forensics</span>
+                    </button>
                 </nav>
 
                 <div class="sidebar-footer">
@@ -4300,6 +4306,296 @@
                                             <span x-show="!ollamaChat.loading">Send</span>
                                             <span x-show="ollamaChat.loading">...</span>
                                         </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ============================================
+             NETWORK FORENSICS TAB - Incident Response Tools
+             ============================================ -->
+                    <div x-show="activeTab === 'forensics'"
+                        :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
+                        role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+                        
+                        <!-- Timeline Analysis Section -->
+                        <section id="section-forensics-timeline" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>🔍 Timeline Analysis</span>
+                                    <div class="card-actions">
+                                        <input type="text" x-model="forensics.timeline.targetIp" 
+                                            placeholder="Target IP (e.g., 192.168.1.100)"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <select x-model="forensics.timeline.timeRange" class="filter-select">
+                                            <option value="1h">Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h" selected>Last 24 Hours</option>
+                                            <option value="7d">Last 7 Days</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="generateTimeline()" 
+                                            :disabled="!forensics.timeline.targetIp || forensics.timeline.loading">
+                                            <span x-show="!forensics.timeline.loading">Generate Timeline</span>
+                                            <span x-show="forensics.timeline.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.timeline.data = null" 
+                                            title="Clear timeline">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.timeline.error" class="alert alert--danger" style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.timeline.error"></span>
+                                </div>
+
+                                <div x-show="forensics.timeline.data" style="margin-top: 16px;">
+                                    <!-- Timeline Summary -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Summary</h3>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                            <div>
+                                                <div class="label">Target IP</div>
+                                                <div x-text="forensics.timeline.data.summary.target_ip"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Events</div>
+                                                <div x-text="forensics.timeline.data.summary.total_events"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Bytes</div>
+                                                <div x-text="DashboardUtils.formatBytes(forensics.timeline.data.summary.total_bytes)"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Suspicious Events</div>
+                                                <div x-text="forensics.timeline.data.summary.suspicious_events" 
+                                                    :style="forensics.timeline.data.summary.suspicious_events > 0 ? 'color: var(--neon-red)' : 'color: var(--neon-green)'"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Timeline Events -->
+                                    <div class="card">
+                                        <h3>Timeline Events</h3>
+                                        <div style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table-fixed table-compact" style="width: 100%;">
+                                                <thead style="position: sticky; top: 0; background: #111;">
+                                                    <tr>
+                                                        <th style="padding: 8px;">Timestamp</th>
+                                                        <th style="padding: 8px;">Direction</th>
+                                                        <th style="padding: 8px;">Source IP</th>
+                                                        <th style="padding: 8px;">Dest IP</th>
+                                                        <th style="padding: 8px;">Port</th>
+                                                        <th style="padding: 8px;">Protocol</th>
+                                                        <th style="padding: 8px;">Bytes</th>
+                                                        <th style="padding: 8px;">Indicators</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="event in forensics.timeline.data.timeline" :key="event.timestamp">
+                                                        <tr :style="event.suspicious ? 'background: rgba(255, 0, 0, 0.1)' : ''">
+                                                            <td style="padding: 6px; font-size: 12px;" x-text="event.timestamp"></td>
+                                                            <td style="padding: 6px;">
+                                                                <span x-text="event.direction" 
+                                                                    :style="event.direction === 'outbound' ? 'color: var(--neon-orange)' : 'color: var(--neon-cyan)'"></span>
+                                                            </td>
+                                                            <td style="padding: 6px; font-family: monospace;" x-text="event.src_ip"></td>
+                                                            <td style="padding: 6px; font-family: monospace;" x-text="event.dst_ip"></td>
+                                                            <td style="padding: 6px;" x-text="event.direction === 'outbound' ? event.dst_port : event.src_port"></td>
+                                                            <td style="padding: 6px;" x-text="event.protocol"></td>
+                                                            <td style="padding: 6px;" x-text="DashboardUtils.formatBytes(event.bytes)"></td>
+                                                            <td style="padding: 6px;">
+                                                                <template x-for="indicator in event.indicators" :key="indicator">
+                                                                    <span class="badge badge--warning" style="font-size: 10px; margin-right: 4px;" x-text="indicator"></span>
+                                                                </template>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Session Reconstruction Section -->
+                        <section id="section-forensics-session" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>🔗 Session Reconstruction</span>
+                                    <div class="card-actions">
+                                        <input type="text" x-model="forensics.session.srcIp" 
+                                            placeholder="Source IP"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <input type="text" x-model="forensics.session.dstIp" 
+                                            placeholder="Destination IP"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <select x-model="forensics.session.timeRange" class="filter-select">
+                                            <option value="1h" selected>Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h">Last 24 Hours</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="reconstructSession()" 
+                                            :disabled="!forensics.session.srcIp || !forensics.session.dstIp || forensics.session.loading">
+                                            <span x-show="!forensics.session.loading">Reconstruct</span>
+                                            <span x-show="forensics.session.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.session.data = null" 
+                                            title="Clear session">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.session.error" class="alert alert--danger" style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.session.error"></span>
+                                </div>
+
+                                <div x-show="forensics.session.data" style="margin-top: 16px;">
+                                    <!-- Session Summary -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Session Summary</h3>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                            <div>
+                                                <div class="label">Communication</div>
+                                                <div x-text="forensics.session.data.summary.src_ip + ' → ' + forensics.session.data.summary.dst_ip"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Duration</div>
+                                                <div x-text="Math.round(forensics.session.data.summary.session_duration_seconds) + ' seconds'"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Flows</div>
+                                                <div x-text="forensics.session.data.summary.total_flows"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Data Volume</div>
+                                                <div x-text="DashboardUtils.formatBytes(forensics.session.data.summary.total_bytes)"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Session Flows -->
+                                    <div class="card">
+                                        <h3>Communication Flows</h3>
+                                        <div style="max-height: 300px; overflow-y: auto;">
+                                            <table class="table-fixed table-compact" style="width: 100%;">
+                                                <thead style="position: sticky; top: 0; background: #111;">
+                                                    <tr>
+                                                        <th style="padding: 8px;">Timestamp</th>
+                                                        <th style="padding: 8px;">Source Port</th>
+                                                        <th style="padding: 8px;">Dest Port</th>
+                                                        <th style="padding: 8px;">Protocol</th>
+                                                        <th style="padding: 8px;">Bytes</th>
+                                                        <th style="padding: 8px;">Packets</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="flow in forensics.session.data.flows" :key="flow.timestamp">
+                                                        <tr>
+                                                            <td style="padding: 6px; font-size: 12px;" x-text="flow.timestamp"></td>
+                                                            <td style="padding: 6px;" x-text="flow.src_port"></td>
+                                                            <td style="padding: 6px;" x-text="flow.dst_port"></td>
+                                                            <td style="padding: 6px;" x-text="flow.protocol"></td>
+                                                            <td style="padding: 6px;" x-text="DashboardUtils.formatBytes(flow.bytes)"></td>
+                                                            <td style="padding: 6px;" x-text="flow.packets"></td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Evidence Collection Section -->
+                        <section id="section-forensics-evidence" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>📦 Evidence Collection</span>
+                                    <div class="card-actions">
+                                        <select x-model="forensics.evidence.incidentType" class="filter-select">
+                                            <option value="general">General</option>
+                                            <option value="malware">Malware</option>
+                                            <option value="data_exfiltration">Data Exfiltration</option>
+                                            <option value="dos">Denial of Service</option>
+                                            <option value="scan">Scanning</option>
+                                        </select>
+                                        <textarea x-model="forensics.evidence.targetIpsString" 
+                                            placeholder="Target IPs (one per line)"
+                                            style="width: 300px; height: 60px; padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 12px;"
+                                            @input="forensics.evidence.targetIps = $el.value.split('\\n').map(ip => ip.trim()).filter(ip => ip)"></textarea>
+                                        <select x-model="forensics.evidence.timeRange" class="filter-select">
+                                            <option value="1h">Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h" selected>Last 24 Hours</option>
+                                            <option value="7d">Last 7 Days</option>
+                                        </select>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                            <input type="checkbox" x-model="forensics.evidence.preserveData">
+                                            <span>Preserve Data</span>
+                                        </label>
+                                        <button class="btn btn--primary" @click="collectEvidence()" 
+                                            :disabled="!forensics.evidence.targetIps.length || forensics.evidence.loading">
+                                            <span x-show="!forensics.evidence.loading">Collect Evidence</span>
+                                            <span x-show="forensics.evidence.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.evidence.report = null" 
+                                            title="Clear report">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.evidence.error" class="alert alert--danger" style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.evidence.error"></span>
+                                </div>
+
+                                <div x-show="forensics.evidence.report" style="margin-top: 16px;">
+                                    <!-- Evidence Report -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Evidence Report</h3>
+                                        <div style="margin-bottom: 16px;">
+                                            <strong>Incident Type:</strong> <span x-text="forensics.evidence.report.incident_metadata.incident_type"></span><br>
+                                            <strong>Collection Time:</strong> <span x-text="new Date(forensics.evidence.report.incident_metadata.collection_timestamp).toLocaleString()"></span><br>
+                                            <strong>Target IPs:</strong> <span x-text="forensics.evidence.report.incident_metadata.target_ips.join(', ')"></span>
+                                        </div>
+                                        
+                                        <h4>Chain of Custody</h4>
+                                        <div style="background: rgba(0,255,0,0.1); padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                                            <div><strong>Collector:</strong> <span x-text="forensics.evidence.report.chain_of_custody.collector"></span></div>
+                                            <div><strong>Method:</strong> <span x-text="forensics.evidence.report.chain_of_custody.collection_method"></span></div>
+                                            <div><strong>Integrity Check:</strong> <span x-text="forensics.evidence.report.chain_of_custody.integrity_check"></span></div>
+                                            <div><strong>Preservation Status:</strong> <span x-text="forensics.evidence.report.chain_of_custody.preservation_status"></span></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Evidence Items -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Evidence Items</h3>
+                                        <template x-for="item in forensics.evidence.report.evidence_items" :key="item.type + item.target">
+                                            <div style="background: var(--card-bg); padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid var(--neon-cyan);">
+                                                <div style="font-weight: bold;" x-text="item.type + ' - ' + item.target"></div>
+                                                <div style="font-size: 12px; color: var(--text-secondary);" x-text="item.description"></div>
+                                                <div style="font-size: 11px; margin-top: 4px;">
+                                                    <span x-text="'Records: ' + (item.record_count || 'N/A')"></span>
+                                                    <span x-show="item.preserved" style="color: var(--neon-green); margin-left: 12px;">✓ Preserved</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Recommendations -->
+                                    <div class="card">
+                                        <h3>Investigation Recommendations</h3>
+                                        <ul style="margin: 0; padding-left: 20px;">
+                                            <template x-for="recommendation in forensics.evidence.report.recommendations" :key="recommendation">
+                                                <li style="margin-bottom: 4px;" x-text="recommendation"></li>
+                                            </template>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
