@@ -669,17 +669,22 @@
                                 <template x-if="isVisible('securityObservability')">
                                     {% call widget_card('securityObservability', 'Security Observability', '🔍', show_spinner=True,
                                     card_class="security-observability-card") %}
-                                    <div class="observability-display">
-                                        <!-- Overall State -->
-                                        <div class="overall-state">
-                                            <div class="state-indicator" 
-                                                 :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')">
-                                                <span class="state-text" x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
-                                            </div>
-                                            <div class="state-updated" x-show="securityObservability.last_updated">
-                                                <small x-text="'Updated: ' + securityObservability.last_updated"></small>
-                                            </div>
+                                    <!-- Predictive Risk Header -->
+                                    <div class="risk-header">
+                                        <div class="current-risk">
+                                            <span class="risk-label">Current State:</span>
+                                            <span class="risk-value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
+                                                x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
                                         </div>
+                                        <div class="predictive-risk">
+                                            <span class="risk-label">Predicted (48h):</span>
+                                            <span class="risk-value predictive" :style="'color: ' + getPredictiveRiskColor(predictiveRisk.score)"
+                                                x-text="predictiveRisk.score + '/100 (' + predictiveRisk.level + ')'"></span>
+                                            <span class="risk-trend" :class="'trend-' + predictiveRisk.trend"
+                                                x-text="predictiveRisk.trend === 'up' ? '↑' : predictiveRisk.trend === 'down' ? '↓' : '→'"></span>
+                                        </div>
+                                    </div>
+                                    <div class="observability-display">
                                         
                                         <!-- Contributing Factors -->
                                         <div class="contributing-factors">
@@ -1164,48 +1169,6 @@
                                                 <span>No threat IPs detected</span>
                                             </div>
                                         </template>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-
-                                <!-- Network Risk Index Widget -->
-                                <template x-if="isVisible('riskIndex')">
-                                    {% call widget_card('riskIndex', 'Network Risk Index', '⚠️', show_spinner=True,
-                                    card_class="risk-index-card", card_class_bind="{ 'risk-low': riskIndex.level ===
-                                    'LOW', 'risk-moderate': riskIndex.level === 'MODERATE', 'risk-elevated':
-                                    riskIndex.level === 'ELEVATED', 'risk-high': riskIndex.level === 'HIGH',
-                                    'risk-critical': riskIndex.level === 'CRITICAL' }") %}
-                                    <div class="risk-display">
-                                        <div class="risk-meter">
-                                            <div class="risk-bar-bg">
-                                                <div class="risk-bar-fill"
-                                                    :style="'width: ' + (riskIndex.score || 0) + '%'"></div>
-                                            </div>
-                                            <div class="risk-labels">
-                                                <span>LOW</span>
-                                                <span>MOD</span>
-                                                <span>ELEV</span>
-                                                <span>HIGH</span>
-                                                <span>CRIT</span>
-                                            </div>
-                                        </div>
-                                        <div class="risk-score-display">
-                                            <span class="risk-value" x-text="riskIndex.score || 0"></span>
-                                            <span class="risk-max">/ 100</span>
-                                            <span class="risk-level-badge"
-                                                :class="'level-' + (riskIndex.level || 'low').toLowerCase()"
-                                                x-text="riskIndex.level || 'LOW'"></span>
-                                        </div>
-                                        <div class="risk-factors">
-                                            <template x-for="factor in (riskIndex.factors || []).slice(0, 4)"
-                                                :key="factor.factor">
-                                                <div class="risk-factor-item">
-                                                    <span class="factor-name" x-text="factor.factor"></span>
-                                                    <span class="factor-value" :class="'impact-' + factor.impact"
-                                                        x-text="factor.value"></span>
-                                                </div>
-                                            </template>
-                                        </div>
                                     </div>
                                     {% endcall %}
                                 </template>

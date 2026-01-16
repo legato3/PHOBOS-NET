@@ -36,7 +36,7 @@ export const DashboardWidgets = {
         ipInvestigation: true,
         flowSearch: true,
         alertCorrelation: true,
-        riskIndex: true,
+        // Removed: riskIndex: true, // Replaced with predictiveRisk in securityObservability
         mitreHeatmap: true,
         protocolAnomalies: true,
         attackTimeline: true,
@@ -86,7 +86,7 @@ export const DashboardWidgets = {
         threatVelocity: 'Threat Velocity',
         topThreatIPs: 'Top Threat IPs',
         compromisedHosts: 'At-Risk Internal Hosts',
-        riskIndex: 'Network Risk Index',
+        // Removed: riskIndex: 'Network Risk Index', // Replaced with predictiveRisk in securityObservability
         flows: 'Active Flows',
         talkers: 'Top Talkers',
         services: 'Top Services',
