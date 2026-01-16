@@ -1274,13 +1274,9 @@ export const Store = () => ({
                     this.config.refresh_interval = this.refreshInterval;
                 }
             }
-            // Ensure system resources data is loaded for display
-            if (this.serverHealth.loading) {
-                this.fetchServerHealth();
-            }
-            if (this.feedHealth.loading) {
-                this.fetchFeedHealth();
-            }
+            // Always fetch system resources data when opening config modal to ensure fresh status
+            this.fetchServerHealth();
+            this.fetchFeedHealth();
         } catch (e) { console.error('Failed to load config:', e); }
         this.configLoading = false;
     },
