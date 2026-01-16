@@ -2982,13 +2982,23 @@
                                             if (!serverHealth.network || !serverHealth.network.interfaces) return null;
                                             const ifaces = serverHealth.network.interfaces;
                                             // Prefer eth0, then eth1, then first non-loopback interface
-                                            return ifaces['eth0'] || ifaces['eth1'] || Object.keys(ifaces).find(name => name !== 'lo' && !name.startsWith('lo:'));
-                                        },
-                                        getInterfaceName() {
-                                            const iface = this.getPrimaryInterface();
-                                            if (!iface) return null;
-                                            const ifaces = serverHealth.network.interfaces;
-                                            return Object.keys(ifaces).find(name => ifaces[name] === iface) || Object.keys(ifaces)[0];
+                                            let ifaceName = null;
+                                            let ifaceData = null;
+                                            if (ifaces['eth0']) {
+                                                ifaceName = 'eth0';
+                                                ifaceData = ifaces['eth0'];
+                                            } else if (ifaces['eth1']) {
+                                                ifaceName = 'eth1';
+                                                ifaceData = ifaces['eth1'];
+                                            } else {
+                                                const name = Object.keys(ifaces).find(n => n !== 'lo' && !n.startsWith('lo:'));
+                                                if (name) {
+                                                    ifaceName = name;
+                                                    ifaceData = ifaces[name];
+                                                }
+                                            }
+                                            if (!ifaceName || !ifaceData) return null;
+                                            return { name: ifaceName, data: ifaceData };
                                         }
                                     }" x-show="(serverHealth.network && serverHealth.network.interfaces && Object.keys(serverHealth.network.interfaces).length > 0) || (serverHealth.netflow && !serverHealth.netflow.error)">
                                         {% set network_badge %}
