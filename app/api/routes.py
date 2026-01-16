@@ -3804,16 +3804,35 @@ def api_forensics_timeline():
         
         # Find column indices
         try:
-            ts_idx = header.index('ts')
-            te_idx = header.index('te')
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            sp_idx = header.index('sp')
-            dp_idx = header.index('dp')
-            pr_idx = header.index('pr')
-            flg_idx = header.index('flg') if 'flg' in header else header.index('flags') if 'flags' in header else -1
-            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else -1
-            ipkt_idx = header.index('ipkt') if 'ipkt' in header else header.index('pkt') if 'pkt' in header else -1
+            # Map actual nfdump columns to expected names
+            column_mapping = {
+                'firstSeen': 'ts',
+                'duration': 'te', 
+                'proto': 'pr',
+                'srcAddr': 'sa',
+                'srcPort': 'sp',
+                'dstAddr': 'da',
+                'dstPort': 'dp',
+                'packets': 'ipkt',
+                'bytes': 'ibyt',
+                'flows': 'flows'
+            }
+            
+            # Find indices for actual columns
+            ts_idx = header.index('firstSeen') if 'firstSeen' in header else -1
+            te_idx = header.index('duration') if 'duration' in header else -1
+            sa_idx = header.index('srcAddr') if 'srcAddr' in header else -1
+            da_idx = header.index('dstAddr') if 'dstAddr' in header else -1
+            sp_idx = header.index('srcPort') if 'srcPort' in header else -1
+            dp_idx = header.index('dstPort') if 'dstPort' in header else -1
+            pr_idx = header.index('proto') if 'proto' in header else -1
+            flg_idx = -1  # Flags not available in this format
+            ibyt_idx = header.index('bytes') if 'bytes' in header else -1
+            ipkt_idx = header.index('packets') if 'packets' in header else -1
+            
+            if -1 in [ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
+                raise ValueError(f"Missing required columns. Available columns: {header}")
+                
         except ValueError as e:
             return jsonify({"error": f"Required columns not found in NetFlow data: {e}"}), 500
 
@@ -3834,13 +3853,13 @@ def api_forensics_timeline():
                 
             try:
                 start_time = parts[ts_idx]
-                end_time = parts[te_idx]
+                end_time = parts[te_idx] if te_idx >= 0 and len(parts) > te_idx else start_time
                 src_ip = parts[sa_idx]
                 dst_ip = parts[da_idx]
                 src_port = parts[sp_idx]
                 dst_port = parts[dp_idx]
                 protocol = parts[pr_idx]
-                flags = parts[flg_idx].upper() if flg_idx >= 0 and len(parts) > flg_idx else ''
+                flags = ''  # Flags not available in this format
                 bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and len(parts) > ibyt_idx and parts[ibyt_idx] else 0
                 packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and len(parts) > ipkt_idx and parts[ipkt_idx] else 0
                 
@@ -3851,17 +3870,24 @@ def api_forensics_timeline():
                 suspicious = False
                 suspicious_indicators = []
                 
-                if flags and ('S' in flags and 'A' not in flags):
-                    suspicious = True
-                    suspicious_indicators.append('SYN-only (potential scan)')
-                
+                # Check for large data transfers
                 if bytes_xfer > 10000000:  # > 10MB
                     suspicious = True
                     suspicious_indicators.append('Large data transfer')
                 
-                if int(dst_port) in [22, 23, 3389, 5900]:
+                # Check for remote access ports
+                try:
+                    dst_port_int = int(dst_port)
+                    if dst_port_int in [22, 23, 3389, 5900]:
+                        suspicious = True
+                        suspicious_indicators.append('Remote access port')
+                except:
+                    pass
+                
+                # Check for unusual protocols
+                if protocol in ['1', 'ICMP'] and packets > 100:
                     suspicious = True
-                    suspicious_indicators.append('Remote access port')
+                    suspicious_indicators.append('High ICMP volume')
                 
                 timeline_events.append({
                     'timestamp': start_time,
@@ -3982,13 +4008,18 @@ def api_forensics_session():
         
         # Find column indices
         try:
-            ts_idx = header.index('ts')
-            te_idx = header.index('te')
-            sp_idx = header.index('sp')
-            dp_idx = header.index('dp')
-            pr_idx = header.index('pr')
-            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else -1
-            ipkt_idx = header.index('ipkt') if 'ipkt' in header else header.index('pkt') if 'pkt' in header else -1
+            # Map actual nfdump columns to expected names
+            ts_idx = header.index('firstSeen') if 'firstSeen' in header else -1
+            te_idx = header.index('duration') if 'duration' in header else -1
+            sp_idx = header.index('srcPort') if 'srcPort' in header else -1
+            dp_idx = header.index('dstPort') if 'dstPort' in header else -1
+            pr_idx = header.index('proto') if 'proto' in header else -1
+            ibyt_idx = header.index('bytes') if 'bytes' in header else -1
+            ipkt_idx = header.index('packets') if 'packets' in header else -1
+            
+            if -1 in [ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
+                raise ValueError(f"Missing required columns. Available columns: {header}")
+                
         except ValueError as e:
             return jsonify({"error": f"Required columns not found: {e}"}), 500
 
@@ -4011,12 +4042,12 @@ def api_forensics_session():
                 
             try:
                 start_time = parts[ts_idx]
-                end_time = parts[te_idx]
+                end_time = parts[te_idx] if te_idx >= 0 and len(parts) > te_idx else start_time
                 src_port = parts[sp_idx]
                 dst_port = parts[dp_idx]
                 protocol = parts[pr_idx]
-                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and parts[ibyt_idx] else 0
-                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and parts[ipkt_idx] else 0
+                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and len(parts) > ibyt_idx and parts[ibyt_idx] else 0
+                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and len(parts) > ipkt_idx and parts[ipkt_idx] else 0
                 
                 session_flows.append({
                     'timestamp': start_time,
