@@ -4747,349 +4747,348 @@ export const Store = () => ({
                     if (this.packetSizes && this.packetSizes.labels) this.updatePktSizeChart(this.packetSizes);
                 }, 200);
             });
-        }, 200);
-    });
+
         } else if (tab === 'hosts') {
-    this.fetchHosts();
-} else if (tab === 'forensics') {
-    if (now - this.lastFetch.flows > this.mediumTTL) {
-        this.fetchFlows();
-        this.lastFetch.flows = now;
-    }
-    this.fetchFirewallStatsOverview();
-    this.fetchRecentBlocks();
-    this.fetchAlertCorrelation();
-    this.fetchThreatActivityTimeline();
-    // Start auto-refresh for firewall logs
-    this.startRecentBlocksAutoRefresh();
-} else if (tab === 'assistant') {
-    // Load available models when assistant tab is opened
-    this.fetchOllamaModels();
-}
+            this.fetchHosts();
+        } else if (tab === 'forensics') {
+            if (now - this.lastFetch.flows > this.mediumTTL) {
+                this.fetchFlows();
+                this.lastFetch.flows = now;
+            }
+            this.fetchFirewallStatsOverview();
+            this.fetchRecentBlocks();
+            this.fetchAlertCorrelation();
+            this.fetchThreatActivityTimeline();
+            // Start auto-refresh for firewall logs
+            this.startRecentBlocksAutoRefresh();
+        } else if (tab === 'assistant') {
+            // Load available models when assistant tab is opened
+            this.fetchOllamaModels();
+        }
     },
 
     // ----- Ollama Chat Methods -----
     async fetchOllamaModels() {
-    try {
-        const res = await fetch('/api/ollama/models');
-        if (res.ok) {
-            const data = await res.json();
-            const models = data.models || [];
-            // Ensure default model is in the list if no models returned
-            if (models.length === 0) {
-                this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
-            } else {
-                // Ensure default model is included if not already present
-                const defaultModel = 'deepseek-coder-v2:16b';
-                if (!models.includes(defaultModel)) {
-                    this.ollamaChat.availableModels = [defaultModel, ...models];
+        try {
+            const res = await fetch('/api/ollama/models');
+            if (res.ok) {
+                const data = await res.json();
+                const models = data.models || [];
+                // Ensure default model is in the list if no models returned
+                if (models.length === 0) {
+                    this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
                 } else {
-                    this.ollamaChat.availableModels = models;
+                    // Ensure default model is included if not already present
+                    const defaultModel = 'deepseek-coder-v2:16b';
+                    if (!models.includes(defaultModel)) {
+                        this.ollamaChat.availableModels = [defaultModel, ...models];
+                    } else {
+                        this.ollamaChat.availableModels = models;
+                    }
                 }
             }
+        } catch (e) {
+            console.error('Failed to fetch Ollama models:', e);
+            // Fallback to default model if fetch fails
+            this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
         }
-    } catch (e) {
-        console.error('Failed to fetch Ollama models:', e);
-        // Fallback to default model if fetch fails
-        this.ollamaChat.availableModels = ['deepseek-coder-v2:16b'];
-    }
-},
+    },
 
-getDashboardContext() {
-    // Gather current dashboard data for context
-    const context = {
-        timestamp: new Date().toISOString(),
-        timeRange: this.timeRange,
-        security: {
-            score: this.securityScore?.score || 0,
-            grade: this.securityScore?.grade || 'N/A',
-            status: this.securityScore?.status || 'unknown',
-            threats: this.threats?.hits?.length || 0,
-            threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
-            alerts: this.alertHistory?.alerts?.length || 0
-        },
-        network: {
-            totalFlows: this.summary?.total_flows || 0,
-            totalBytes: this.summary?.total_bytes_fmt || this.summary?.total_bytes || 0,
-            totalPackets: this.summary?.total_packets || 0,
-            topSources: (this.sources?.sources?.slice(0, 5) || []).map(s => ({
-                ip: s.key,
-                bytes: s.bytes_fmt || s.bytes,
-                flows: s.flows
-            })),
-            topDestinations: (this.destinations?.destinations?.slice(0, 5) || []).map(d => ({
-                ip: d.key,
-                bytes: d.bytes_fmt || d.bytes,
-                flows: d.flows
-            }))
-        },
-        firewall: {
-            cpu: this.firewall?.cpu_percent || null,
-            memory: this.firewall?.mem_percent || null,
-            uptime: this.firewall?.sys_uptime || null,
-            blocksLastHour: this.firewall?.blocks_1h || 0,
-            syslogActive: this.firewall?.syslog_active || false
+    getDashboardContext() {
+        // Gather current dashboard data for context
+        const context = {
+            timestamp: new Date().toISOString(),
+            timeRange: this.timeRange,
+            security: {
+                score: this.securityScore?.score || 0,
+                grade: this.securityScore?.grade || 'N/A',
+                status: this.securityScore?.status || 'unknown',
+                threats: this.threats?.hits?.length || 0,
+                threatsBlocked: this.securityScore?.fw_threats_blocked || 0,
+                alerts: this.alertHistory?.alerts?.length || 0
+            },
+            network: {
+                totalFlows: this.summary?.total_flows || 0,
+                totalBytes: this.summary?.total_bytes_fmt || this.summary?.total_bytes || 0,
+                totalPackets: this.summary?.total_packets || 0,
+                topSources: (this.sources?.sources?.slice(0, 5) || []).map(s => ({
+                    ip: s.key,
+                    bytes: s.bytes_fmt || s.bytes,
+                    flows: s.flows
+                })),
+                topDestinations: (this.destinations?.destinations?.slice(0, 5) || []).map(d => ({
+                    ip: d.key,
+                    bytes: d.bytes_fmt || d.bytes,
+                    flows: d.flows
+                }))
+            },
+            firewall: {
+                cpu: this.firewall?.cpu_percent || null,
+                memory: this.firewall?.mem_percent || null,
+                uptime: this.firewall?.sys_uptime || null,
+                blocksLastHour: this.firewall?.blocks_1h || 0,
+                syslogActive: this.firewall?.syslog_active || false
+            }
+        };
+        return context;
+    },
+
+    formatDashboardContext(context) {
+        // Format context as a readable string for the LLM
+        let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
+        contextText += `Time Range: ${context.timeRange}\n\n`;
+
+        contextText += `### Security Metrics\n`;
+        contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
+        contextText += `- Active Threats Detected: ${context.security.threats}\n`;
+        if (context.security.threatsBlocked > 0) {
+            contextText += `- Threats Blocked by Firewall: ${context.security.threatsBlocked}\n`;
         }
-    };
-    return context;
-},
+        if (context.security.alerts > 0) {
+            contextText += `- Recent Alerts: ${context.security.alerts}\n`;
+        }
+        contextText += `\n### Network Statistics\n`;
+        if (context.network.totalFlows > 0) {
+            contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
+        }
+        if (context.network.totalBytes) {
+            contextText += `- Total Traffic: ${context.network.totalBytes}\n`;
+        }
+        if (context.network.totalPackets > 0) {
+            contextText += `- Total Packets: ${context.network.totalPackets.toLocaleString()}\n`;
+        }
+        if (context.network.topSources.length > 0) {
+            contextText += `- Top Sources: ${context.network.topSources.map(s => `${s.ip} (${s.bytes}, ${s.flows} flows)`).join(', ')}\n`;
+        }
+        if (context.network.topDestinations.length > 0) {
+            contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
+        }
+        contextText += `\n### Firewall Status\n`;
+        if (context.firewall.cpu !== null) {
+            contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
+        }
+        if (context.firewall.memory !== null) {
+            contextText += `- Memory Usage: ${context.firewall.memory}%\n`;
+        }
+        contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
+        contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
 
-formatDashboardContext(context) {
-    // Format context as a readable string for the LLM
-    let contextText = `## Current Dashboard Data (as of ${new Date(context.timestamp).toLocaleString()})\n\n`;
-    contextText += `Time Range: ${context.timeRange}\n\n`;
-
-    contextText += `### Security Metrics\n`;
-    contextText += `- Security Score: ${context.security.score}/100 (Grade: ${context.security.grade}, Status: ${context.security.status})\n`;
-    contextText += `- Active Threats Detected: ${context.security.threats}\n`;
-    if (context.security.threatsBlocked > 0) {
-        contextText += `- Threats Blocked by Firewall: ${context.security.threatsBlocked}\n`;
-    }
-    if (context.security.alerts > 0) {
-        contextText += `- Recent Alerts: ${context.security.alerts}\n`;
-    }
-    contextText += `\n### Network Statistics\n`;
-    if (context.network.totalFlows > 0) {
-        contextText += `- Total Flows: ${context.network.totalFlows.toLocaleString()}\n`;
-    }
-    if (context.network.totalBytes) {
-        contextText += `- Total Traffic: ${context.network.totalBytes}\n`;
-    }
-    if (context.network.totalPackets > 0) {
-        contextText += `- Total Packets: ${context.network.totalPackets.toLocaleString()}\n`;
-    }
-    if (context.network.topSources.length > 0) {
-        contextText += `- Top Sources: ${context.network.topSources.map(s => `${s.ip} (${s.bytes}, ${s.flows} flows)`).join(', ')}\n`;
-    }
-    if (context.network.topDestinations.length > 0) {
-        contextText += `- Top Destinations: ${context.network.topDestinations.map(d => `${d.ip} (${d.bytes}, ${d.flows} flows)`).join(', ')}\n`;
-    }
-    contextText += `\n### Firewall Status\n`;
-    if (context.firewall.cpu !== null) {
-        contextText += `- CPU Usage: ${context.firewall.cpu}%\n`;
-    }
-    if (context.firewall.memory !== null) {
-        contextText += `- Memory Usage: ${context.firewall.memory}%\n`;
-    }
-    contextText += `- Blocks Last Hour: ${context.firewall.blocksLastHour}\n`;
-    contextText += `- Syslog Active: ${context.firewall.syslogActive ? 'Yes' : 'No'}\n`;
-
-    return contextText;
-},
+        return contextText;
+    },
 
     async sendChatMessage() {
-    const message = this.ollamaChat.inputMessage.trim();
-    if (!message || this.ollamaChat.loading) return;
+        const message = this.ollamaChat.inputMessage.trim();
+        if (!message || this.ollamaChat.loading) return;
 
-    // Add user message to chat
-    this.ollamaChat.messages.push({
-        role: 'user',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-    });
-
-    // Clear input
-    this.ollamaChat.inputMessage = '';
-    this.ollamaChat.loading = true;
-    this.ollamaChat.error = null;
-
-    try {
-        let messageToSend = message;
-
-        // Optionally include dashboard context
-        if (this.ollamaChat.includeContext) {
-            const context = this.getDashboardContext();
-            const contextText = this.formatDashboardContext(context);
-
-            // Create enhanced message with context
-            const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
-
-            messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
-        }
-
-        const res = await fetch('/api/ollama/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: messageToSend,
-                model: this.ollamaChat.model,
-                stream: false
-            })
-        });
-
-        if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            throw new Error(errorData.error || `Request failed: ${res.status}`);
-        }
-
-        const data = await res.json();
-
-        // Extract response message
-        let responseText = '';
-        if (data.message && data.message.content) {
-            responseText = data.message.content;
-        } else if (data.response) {
-            responseText = data.response;
-        } else if (typeof data === 'string') {
-            responseText = data;
-        } else {
-            responseText = JSON.stringify(data);
-        }
-
-        // Add assistant response to chat
+        // Add user message to chat
         this.ollamaChat.messages.push({
-            role: 'assistant',
-            content: responseText,
+            role: 'user',
+            content: message,
             timestamp: new Date().toLocaleTimeString()
         });
 
-    } catch (e) {
-        console.error('Chat error:', e);
-        this.ollamaChat.error = e.message || 'Failed to get response from Ollama';
-        this.ollamaChat.messages.push({
-            role: 'assistant',
-            content: `Error: ${this.ollamaChat.error}`,
-            timestamp: new Date().toLocaleTimeString()
-        });
-    } finally {
-        this.ollamaChat.loading = false;
-        // Scroll to bottom of chat
-        this.$nextTick(() => {
-            const chatMessages = document.querySelector('.chat-messages');
-            if (chatMessages) {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+        // Clear input
+        this.ollamaChat.inputMessage = '';
+        this.ollamaChat.loading = true;
+        this.ollamaChat.error = null;
+
+        try {
+            let messageToSend = message;
+
+            // Optionally include dashboard context
+            if (this.ollamaChat.includeContext) {
+                const context = this.getDashboardContext();
+                const contextText = this.formatDashboardContext(context);
+
+                // Create enhanced message with context
+                const systemPrompt = `You are an AI assistant for a network security and traffic monitoring dashboard. You have access to real-time network data, security metrics, threat intelligence, and firewall statistics. Use the following dashboard context to answer questions accurately.\n\n${contextText}\n\nWhen answering questions, reference specific metrics when relevant. Be concise but informative.`;
+
+                messageToSend = `${systemPrompt}\n\nUser Question: ${message}`;
             }
-        });
-    }
-},
 
-clearChat() {
-    this.ollamaChat.messages = [];
-    this.ollamaChat.error = null;
-},
+            const res = await fetch('/api/ollama/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: messageToSend,
+                    model: this.ollamaChat.model,
+                    stream: false
+                })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                throw new Error(errorData.error || `Request failed: ${res.status}`);
+            }
+
+            const data = await res.json();
+
+            // Extract response message
+            let responseText = '';
+            if (data.message && data.message.content) {
+                responseText = data.message.content;
+            } else if (data.response) {
+                responseText = data.response;
+            } else if (typeof data === 'string') {
+                responseText = data;
+            } else {
+                responseText = JSON.stringify(data);
+            }
+
+            // Add assistant response to chat
+            this.ollamaChat.messages.push({
+                role: 'assistant',
+                content: responseText,
+                timestamp: new Date().toLocaleTimeString()
+            });
+
+        } catch (e) {
+            console.error('Chat error:', e);
+            this.ollamaChat.error = e.message || 'Failed to get response from Ollama';
+            this.ollamaChat.messages.push({
+                role: 'assistant',
+                content: `Error: ${this.ollamaChat.error}`,
+                timestamp: new Date().toLocaleTimeString()
+            });
+        } finally {
+            this.ollamaChat.loading = false;
+            // Scroll to bottom of chat
+            this.$nextTick(() => {
+                const chatMessages = document.querySelector('.chat-messages');
+                if (chatMessages) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            });
+        }
+    },
+
+    clearChat() {
+        this.ollamaChat.messages = [];
+        this.ollamaChat.error = null;
+    },
 
     // ----- Expanded Views & Graph -----
 
     async openExpandedTable(type) {
-    this.expandedModalOpen = true;
-    this.expandedLoading = true;
-    this.expandedData = [];
+        this.expandedModalOpen = true;
+        this.expandedLoading = true;
+        this.expandedData = [];
 
-    const titles = {
-        'sources': 'Top 100 Sources',
-        'destinations': 'Top 100 Destinations',
-        'ports': 'Top 100 Ports',
-        'conversations': 'Active Flows (Top 100)',
-        'flows': 'Active Flows (Top 100)',
-        'countries': 'Top Countries by Traffic'
-    };
-    this.expandedTitle = titles[type] || 'Expanded Data';
+        const titles = {
+            'sources': 'Top 100 Sources',
+            'destinations': 'Top 100 Destinations',
+            'ports': 'Top 100 Ports',
+            'conversations': 'Active Flows (Top 100)',
+            'flows': 'Active Flows (Top 100)',
+            'countries': 'Top Countries by Traffic'
+        };
+        this.expandedTitle = titles[type] || 'Expanded Data';
 
-    try {
-        let url = '';
-        let processRow = null;
+        try {
+            let url = '';
+            let processRow = null;
 
-        if (type === 'sources') {
-            url = `/api/stats/sources?range=${this.timeRange}&limit=100`;
-            this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
-            processRow = (row) => [
-                `<span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
-                row.hostname || '-',
-                row.region || '-',
-                row.flows.toLocaleString(),
-                row.bytes_fmt
-            ];
-        } else if (type === 'destinations') {
-            url = `/api/stats/destinations?range=${this.timeRange}&limit=100`;
-            this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
-            processRow = (row) => [
-                `<span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
-                row.hostname || '-',
-                row.region || '-',
-                row.flows.toLocaleString(),
-                row.bytes_fmt
-            ];
-        } else if (type === 'ports') {
-            url = `/api/stats/ports?range=${this.timeRange}&limit=100`;
-            this.expandedColumns = ['Port', 'Service', 'Flows', 'Bytes'];
-            processRow = (row) => [
-                `<span class="text-cyan">${row.key}</span>`,
-                row.service,
-                (row.flows || 0).toLocaleString(),
-                row.bytes_fmt
-            ];
-        } else if (type === 'conversations' || type === 'flows') {
-            url = `/api/flows?range=${this.timeRange}&limit=100`;
-            this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
-            processRow = (row) => [
-                `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,
-                `<div class="truncate" style="max-width:200px" title="${row.dst_hostname || ''}"><span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.dst}')">${row.dst}</span></div>`,
-                `${row.proto}/${row.port}`,
-                row.service,
-                row.packets.toLocaleString(),
-                row.bytes_fmt
-            ];
-        } else if (type === 'countries') {
-            url = `/api/stats/countries?range=${this.timeRange}&limit=100`; // Assuming endpoint exists or maps to threats
-            // Actually threatsByCountry uses /api/stats/threats/by_country if it's threats, or just flow stats? 
-            // Let's assume flow stats by country for now, or fallback to threat countries if that's what the widget is.
-            // The widget title is "Top Countries" (Network tab) or "Threats by Country" (Security tab)?
-            // Network tab "Top Countries" uses `this.fetchCountries`.
-            // Security tab "Threats by Country" uses `this.fetchThreatsByCountry`.
-            // The chart is in Network tab "Top Countries" (line 1240 index.html).
-            // So I need /api/stats/countries (Network tab).
-            url = `/api/stats/countries?range=${this.timeRange}&limit=100`;
-            this.expandedColumns = ['Country', 'Flows', 'Bytes', '%'];
-            processRow = (row) => [
-                `<span class="country-flag">${row.country_code}</span> ${row.country_name}`,
-                (row.flows || 0).toLocaleString(),
-                row.bytes_fmt,
-                row.pct ? row.pct + '%' : '-'
-            ];
+            if (type === 'sources') {
+                url = `/api/stats/sources?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+                processRow = (row) => [
+                    `<span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                    row.hostname || '-',
+                    row.region || '-',
+                    row.flows.toLocaleString(),
+                    row.bytes_fmt
+                ];
+            } else if (type === 'destinations') {
+                url = `/api/stats/destinations?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['IP', 'Hostname', 'Region', 'Flows', 'Bytes'];
+                processRow = (row) => [
+                    `<span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.key}')">${row.key}</span>`,
+                    row.hostname || '-',
+                    row.region || '-',
+                    row.flows.toLocaleString(),
+                    row.bytes_fmt
+                ];
+            } else if (type === 'ports') {
+                url = `/api/stats/ports?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['Port', 'Service', 'Flows', 'Bytes'];
+                processRow = (row) => [
+                    `<span class="text-cyan">${row.key}</span>`,
+                    row.service,
+                    (row.flows || 0).toLocaleString(),
+                    row.bytes_fmt
+                ];
+            } else if (type === 'conversations' || type === 'flows') {
+                url = `/api/flows?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['Source', 'Target', 'Proto/Port', 'Service', 'Packets', 'Bytes'];
+                processRow = (row) => [
+                    `<div class="truncate" style="max-width:200px" title="${row.src_hostname || ''}"><span class="text-cyan clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.src}')">${row.src}</span></div>`,
+                    `<div class="truncate" style="max-width:200px" title="${row.dst_hostname || ''}"><span class="text-purple clickable" onclick="document.querySelector('[x-data]').__x.$data.openIPModal('${row.dst}')">${row.dst}</span></div>`,
+                    `${row.proto}/${row.port}`,
+                    row.service,
+                    row.packets.toLocaleString(),
+                    row.bytes_fmt
+                ];
+            } else if (type === 'countries') {
+                url = `/api/stats/countries?range=${this.timeRange}&limit=100`; // Assuming endpoint exists or maps to threats
+                // Actually threatsByCountry uses /api/stats/threats/by_country if it's threats, or just flow stats? 
+                // Let's assume flow stats by country for now, or fallback to threat countries if that's what the widget is.
+                // The widget title is "Top Countries" (Network tab) or "Threats by Country" (Security tab)?
+                // Network tab "Top Countries" uses `this.fetchCountries`.
+                // Security tab "Threats by Country" uses `this.fetchThreatsByCountry`.
+                // The chart is in Network tab "Top Countries" (line 1240 index.html).
+                // So I need /api/stats/countries (Network tab).
+                url = `/api/stats/countries?range=${this.timeRange}&limit=100`;
+                this.expandedColumns = ['Country', 'Flows', 'Bytes', '%'];
+                processRow = (row) => [
+                    `<span class="country-flag">${row.country_code}</span> ${row.country_name}`,
+                    (row.flows || 0).toLocaleString(),
+                    row.bytes_fmt,
+                    row.pct ? row.pct + '%' : '-'
+                ];
+            }
+
+            const res = await fetch(url);
+            if (res.ok) {
+                const json = await res.json();
+                const list = json[type] || json.conversations || [];
+                this.expandedData = list.map(processRow);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            this.expandedLoading = false;
         }
-
-        const res = await fetch(url);
-        if (res.ok) {
-            const json = await res.json();
-            const list = json[type] || json.conversations || [];
-            this.expandedData = list.map(processRow);
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        this.expandedLoading = false;
-    }
-},
+    },
 
 
     // ----- Sparklines -----
     async renderSparklines(kind) {
-    const canvases = document.querySelectorAll(`canvas.spark[data-kind="${kind}"]`);
-    Charts.renderSparklines(canvases, this.timeRange, (k, ip) => this.openTrendModal(k, ip));
-},
+        const canvases = document.querySelectorAll(`canvas.spark[data-kind="${kind}"]`);
+        Charts.renderSparklines(canvases, this.timeRange, (k, ip) => this.openTrendModal(k, ip));
+    },
 
-openTrendModal(kind, ip) {
-    this.trendKind = kind;
-    this.trendIP = ip;
-    this.trendModalOpen = true;
-    this.$nextTick(() => this.fetchIpTrend());
-},
+    openTrendModal(kind, ip) {
+        this.trendKind = kind;
+        this.trendIP = ip;
+        this.trendModalOpen = true;
+        this.$nextTick(() => this.fetchIpTrend());
+    },
 
     async fetchIpTrend() {
-    try {
-        const range = this.timeRange === '15m' ? '6h' : this.timeRange; // ensure enough buckets for spark
-        const url = this.trendKind === 'source' ? `/api/trends/source/${this.trendIP}?range=${range}` : `/api/trends/dest/${this.trendIP}?range=${range}`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const data = await res.json();
-        this.updateTrendChart(data);
-    } catch (e) { console.error(e); }
-},
+        try {
+            const range = this.timeRange === '15m' ? '6h' : this.timeRange; // ensure enough buckets for spark
+            const url = this.trendKind === 'source' ? `/api/trends/source/${this.trendIP}?range=${range}` : `/api/trends/dest/${this.trendIP}?range=${range}`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+            this.updateTrendChart(data);
+        } catch (e) { console.error(e); }
+    },
 
-updateTrendChart(data) {
-    const ctx = document.getElementById('ipTrendChart');
-    this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
-}
+    updateTrendChart(data) {
+        const ctx = document.getElementById('ipTrendChart');
+        this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
+    }
 });
