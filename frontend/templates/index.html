@@ -1237,45 +1237,6 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Attack Timeline Widget -->
-                                <template x-if="isVisible('attackTimeline')">
-                                    {% call widget_card('attackTimeline', 'Attack Timeline', '⏰', show_spinner=True) %}
-                                    <div x-show="attackTimeline.timeline && attackTimeline.timeline.length > 0">
-                                        <div
-                                            style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
-                                            <div>
-                                                <div style="font-size: var(--text-xl); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
-                                                    x-text="attackTimeline.total_24h || 0"></div>
-                                                <div style="font-size: var(--text-xs); color: var(--text-secondary);">
-                                                    Total (24h)</div>
-                                            </div>
-                                            <div x-show="attackTimeline.peak_hour"
-                                                style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: var(--space-3);">
-                                                <div style="font-size: var(--text-lg); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
-                                                    x-text="attackTimeline.peak_hour"></div>
-                                                <div style="font-size: var(--text-xs); color: var(--text-muted);"
-                                                    x-text="(attackTimeline.peak_count || 0) + ' peak'"></div>
-                                            </div>
-                                            <div x-show="attackTimeline.has_fw_data"
-                                                style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: var(--space-3);">
-                                                <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);"
-                                                    x-text="attackTimeline.fw_blocks_24h || 0"></div>
-                                                <div style="font-size: var(--text-xs); color: var(--text-muted);">FW
-                                                    Blocks</div>
-                                            </div>
-                                        </div>
-                                        <div class="chart-wrapper" style="height: 150px;">
-                                            <canvas id="attackTimelineChart"></canvas>
-                                        </div>
-                                    </div>
-                                    <div x-show="!attackTimeline.loading && (!attackTimeline.timeline || attackTimeline.timeline.length === 0)"
-                                        class="empty-state-compact">
-                                        <span class="empty-icon">⏰</span>
-                                        <span>No attacks in 24h</span>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-
                             </div> <!-- End security-grid -->
 
                             <!-- Threat Activity Timeline - Full Width -->
