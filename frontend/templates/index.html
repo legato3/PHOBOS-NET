@@ -4727,46 +4727,6 @@
                                 </div>
                             </div>
 
-                            <!-- IP Reputation Tool -->
-                            <div class="card">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">🎯</span>
-                                        <span>IP Reputation</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <div class="spinner" x-show="tools.reputation.loading"></div>
-                                    </div>
-                                </h2>
-                                <div class="widget-body">
-                                    <p class="text-muted mb-3">Check threat intelligence for IPs</p>
-                                    <div class="tool-input-group">
-                                        <input type="text" x-model="tools.reputation.ip" 
-                                            placeholder="IP address (e.g., 1.2.3.4)"
-                                            class="tool-input"
-                                            @keydown.enter="runReputationCheck()">
-                                        <button class="btn btn--primary" @click="runReputationCheck()" 
-                                            :disabled="!tools.reputation.ip || tools.reputation.loading">
-                                            Lookup
-                                        </button>
-                                    </div>
-                                    <div x-show="tools.reputation.error" class="tool-error" x-text="tools.reputation.error"></div>
-                                    <div x-show="tools.reputation.result" class="tool-result">
-                                        <div class="reputation-result">
-                                            <div class="reputation-status" 
-                                                :class="tools.reputation.result.is_threat ? 'threat-positive' : 'threat-negative'">
-                                                <span x-text="tools.reputation.result.is_threat ? '⚠️ THREAT DETECTED' : '✓ NO THREAT FOUND'"></span>
-                                            </div>
-                                            <div class="reputation-details" x-show="tools.reputation.result.feeds">
-                                                <div><strong>Matched Feeds:</strong> <span x-text="tools.reputation.result.feeds?.join(', ') || 'None'"></span></div>
-                                                <div><strong>Category:</strong> <span x-text="tools.reputation.result.category || 'Unknown'"></span></div>
-                                                <div><strong>Last Seen:</strong> <span x-text="tools.reputation.result.last_seen || 'N/A'"></span></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- Whois / ASN Lookup Tool -->
                             <div class="card">
                                 <h2>

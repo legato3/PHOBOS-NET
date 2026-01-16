@@ -99,25 +99,41 @@ def ping_host(host: str, mode: str = 'ping') -> Dict[str, Any]:
     # Sanitize host
     host = re.sub(r'[^a-zA-Z0-9.\-]', '', host)
     
+    if not host:
+        return {'error': 'Invalid host'}
+    
     try:
         if mode == 'traceroute':
-            result = subprocess.run(
-                ['traceroute', '-m', '15', '-w', '2', host],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            # Try traceroute first, fall back to tracepath
+            try:
+                result = subprocess.run(
+                    ['traceroute', '-m', '15', '-w', '2', host],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+            except FileNotFoundError:
+                # Try tracepath as fallback
+                result = subprocess.run(
+                    ['tracepath', host],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
         else:
+            # Ping with count and timeout
             result = subprocess.run(
-                ['ping', '-c', '4', '-W', '2', host],
+                ['ping', '-c', '4', '-w', '5', host],
                 capture_output=True,
                 text=True,
                 timeout=15
             )
         
         output = result.stdout.strip()
-        if result.returncode != 0 and result.stderr:
+        if not output and result.stderr:
             output = result.stderr.strip()
+        if not output:
+            output = f"No response from {host}"
         
         return {'result': output, 'host': host, 'mode': mode}
     except subprocess.TimeoutExpired:
