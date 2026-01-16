@@ -118,9 +118,9 @@
                         <span class="sidebar-icon">🖥️</span>
                         <span class="sidebar-item-text">Hosts</span>
                     </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
-                        @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'"
-                        id="forensics-tab-btn" aria-controls="forensics-tab" aria-label="Firewall" title="Firewall">
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall' }"
+                        @click="loadTab('firewall')" role="tab" :aria-selected="activeTab === 'firewall'"
+                        id="firewall-tab-btn" aria-controls="firewall-tab" aria-label="Firewall" title="Firewall">
                         <span class="sidebar-icon">🔥</span>
                         <span class="sidebar-item-text">Firewall</span>
                     </button>
@@ -2245,9 +2245,9 @@
                     <!-- ============================================
              FIREWALL TAB - Investigation & Incident Response
              ============================================ -->
-                    <div x-show="activeTab === 'forensics'"
-                        :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
-                        role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+                    <div x-show="activeTab === 'firewall'"
+                        :style="activeTab === 'firewall' ? 'display:block' : 'display:none'" id="firewall-tab"
+                        role="tabpanel" aria-labelledby="firewall-tab-btn" tabindex="0">
 
                         <!-- Firewall Stats Overview (4 stat boxes) -->
                         <div class="grid mb-6 grid-auto-fit">
