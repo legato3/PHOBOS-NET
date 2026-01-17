@@ -638,14 +638,15 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: 240px;
+    left: 0;
+    margin-left: 240px;
     z-index: 1001;
-    transition: left var(--transition-base), border-color var(--transition-fast);
+    transition: margin-left var(--transition-base), border-color var(--transition-fast);
     /* Control surface feel: no flat grey */
 }
 
 body.sidebar-collapsed .header {
-    left: 64px;
+    margin-left: 64px;
 }
 
 .header-left,
