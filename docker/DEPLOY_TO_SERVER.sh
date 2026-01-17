@@ -37,12 +37,12 @@ scp -i "$SSH_KEY" docker/.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/
 
 # Copy application files (new modular structure)
 echo "📦 Copying application files..."
-ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{app,frontend/{templates,static},scripts,sample_data,docker-data}"
+ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{app,frontend/{templates,src},scripts,sample_data,docker-data}"
 # Copy app directory (modular structure)
 scp -i "$SSH_KEY" -r app/ $USER@$SERVER:$REMOTE_DIR/
 # Copy frontend directory
 scp -i "$SSH_KEY" -r frontend/templates/* $USER@$SERVER:$REMOTE_DIR/frontend/templates/ 2>/dev/null || true
-scp -i "$SSH_KEY" -r frontend/static/* $USER@$SERVER:$REMOTE_DIR/frontend/static/ 2>/dev/null || true
+scp -i "$SSH_KEY" -r frontend/src/* $USER@$SERVER:$REMOTE_DIR/frontend/src/ 2>/dev/null || true
 # Copy scripts
 scp -i "$SSH_KEY" scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
 # scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
