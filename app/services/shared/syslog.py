@@ -194,22 +194,25 @@ def _insert_fw_log(parsed: dict, raw_log: str):
         severity = 'low'
         alert_type = 'firewall_block'
         msg = f"Blocked {src_ip}"
+        mitre = ''
         
         if is_threat:
             should_alert = True
             severity = 'high'
             alert_type = 'threat_blocked'
             msg = f"🔥 Threat IP blocked: {src_ip}"
+            mitre = 'T1595'  # Active Scanning - threat IP attempting access
             if country_name:
                 msg += f" ({country_name})"
         elif dst_port in HIGH_VALUE_PORTS:
             should_alert = True
             severity = 'medium'
             alert_type = 'sensitive_port_blocked'
-            port_names = {22: 'SSH', 23: 'Telnet', 445: 'SMB', 3389: 'RDP', 
+            port_names = {22: 'SSH', 23: 'Telnet', 445: 'SMB', 3389: 'RDP',
                          5900: 'VNC', 1433: 'MSSQL', 3306: 'MySQL', 5432: 'PostgreSQL', 27017: 'MongoDB'}
             service = port_names.get(dst_port, str(dst_port))
             msg = f"🛡️ {service} probe blocked: {src_ip}:{dst_port}"
+            mitre = 'T1046'  # Network Service Discovery
         
         if should_alert:
             alert = {
@@ -219,7 +222,8 @@ def _insert_fw_log(parsed: dict, raw_log: str):
                 'port': dst_port,
                 'msg': msg,
                 'ts': now,
-                'source': 'firewall'
+                'source': 'firewall',
+                'mitre': mitre
             }
             # Use escalation and deduplication from threats module
             from app.services.security.threats import _should_escalate_anomaly, _upsert_alert_to_history
