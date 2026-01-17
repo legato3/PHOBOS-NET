@@ -3760,24 +3760,39 @@ export const Store = () => ({
     },
 
     async fetchProtocolHierarchy() {
+        console.log('fetchProtocolHierarchy called');
         this.protocolHierarchy.loading = true;
         try {
             const res = await fetch(`/api/stats/protocol_hierarchy?range=${this.timeRange}`);
+            console.log('Protocol hierarchy response:', res.ok);
             if (res.ok) {
                 const data = await res.json();
+                console.log('Protocol hierarchy data:', data);
                 this.protocolHierarchy = { data: data, loading: false };
                 this.$nextTick(() => {
                     setTimeout(() => this.renderProtocolHierarchyChart(), 100);
                 });
             }
-        } catch (e) { console.error(e); } finally { this.protocolHierarchy.loading = false; }
+        } catch (e) { 
+            console.error('fetchProtocolHierarchy error:', e); 
+        } finally { 
+            this.protocolHierarchy.loading = false; 
+        }
     },
 
     renderProtocolHierarchyChart() {
+        console.log('renderProtocolHierarchyChart called');
         const ctx = document.getElementById('protocolHierarchyChart');
-        if (!ctx || !this.protocolHierarchy.data) return;
+        console.log('Canvas element:', ctx);
+        console.log('Protocol hierarchy data:', this.protocolHierarchy.data);
+        
+        if (!ctx || !this.protocolHierarchy.data) {
+            console.log('Missing canvas or data, skipping render');
+            return;
+        }
 
         if (typeof Chart === 'undefined') {
+            console.log('Chart not defined, retrying...');
             setTimeout(() => this.renderProtocolHierarchyChart(), 100);
             return;
         }
