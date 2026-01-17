@@ -760,6 +760,11 @@ export const Store = () => ({
 
         // Watchers
         this.$watch('timeRange', () => {
+            // Reset all fetch timestamps to force refresh with new time range
+            this.lastFetch = {
+                summary: 0, network: 0, security: 0, server: 0,
+                firewall: 0, hosts: 0, forensics: 0, worldmap: 0
+            };
             this.loadAll();
         });
         this.$watch('activeTab', (val) => {
