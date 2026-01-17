@@ -171,13 +171,6 @@ def lookup_geo(ip):
         except Exception:
             pass
     
-    # Mock ASN if missing and external
-    if 'asn_org' not in res and not is_internal(ip):
-        seed = sum(ord(c) for c in ip)
-        orgs = ["Google LLC", "Amazon.com", "Cloudflare, Inc.", "Microsoft Corp", "Akamai", "DigitalOcean", "Comcast", "Verizon"]
-        res['asn_org'] = orgs[seed % len(orgs)]
-        res['asn'] = 1000 + (seed % 5000)
-
     # Fallback country detection when no MMDB available (basic IP range heuristics)
     if not res.get('country_iso') and not is_internal(ip):
         iso = _guess_country_from_ip(ip)
