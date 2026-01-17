@@ -177,7 +177,6 @@ export const Store = () => ({
     protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
     protocolHierarchy: { data: null, loading: true },
     trafficScatter: { data: null, loading: true },
-    noiseMetrics: { score: 0, level: 'Low', total_flows: 0, noise_flows: 0, breakdown: {}, loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
@@ -3914,17 +3913,6 @@ export const Store = () => ({
         });
     },
 
-    async fetchNoiseMetrics() {
-        this.noiseMetrics.loading = true;
-        try {
-            const res = await fetch(`/api/stats/noise?range=${this.timeRange}`);
-            if (res.ok) {
-                const data = await res.json();
-                this.noiseMetrics = { ...data, loading: false };
-            }
-        } catch (e) { console.error(e); } finally { this.noiseMetrics.loading = false; }
-    },
-
     // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range
     // Note: Returns anomalies_24h field, not time-range dependent
     async fetchNetworkStatsOverview() {
@@ -5919,7 +5907,6 @@ export const Store = () => ({
                 this.fetchASNs();
                 this.fetchCountries();
                 this.fetchTalkers();
-                this.fetchNoiseMetrics();
                 this.fetchServices();
                 this.fetchHourlyTraffic();
                 this.lastFetch.network = now;

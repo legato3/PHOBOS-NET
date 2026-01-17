@@ -1521,37 +1521,6 @@
                             <div class="grid" data-reorder="true" data-grid-id="network-overview"
                                 style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
 
-                                <!-- Network Noise Level -->
-                                <template x-if="isVisible('noiseMetrics')">
-                                    {% call widget_card('noiseMetrics', 'Network Noise Level', '🔊', show_spinner=True)
-                                    %}
-                                    <div class="noise-display" style="text-align: center; padding: var(--space-2);">
-                                        <div class="noise-gauge-container"
-                                            style="height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-bottom: 8px; position: relative;">
-                                            <div class="noise-gauge-fill"
-                                                :style="'width: ' + noiseMetrics.score + '%; background: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; height: 100%; transition: width 1s ease;'">
-                                            </div>
-                                        </div>
-                                        <div class="noise-stat-row"
-                                            style="display: flex; justify-content: space-between; align-items: baseline;">
-                                            <span class="noise-score" style="font-size: 2em; font-weight: bold;"
-                                                :style="'color: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')"
-                                                x-text="noiseMetrics.score + '%'"></span>
-                                            <span class="noise-label text-muted"
-                                                x-text="(noiseMetrics.level || 'Low') + ' Noise'"></span>
-                                        </div>
-                                        <div class="noise-details text-xs text-muted mt-2"
-                                            style="display: flex; justify-content: space-around; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">
-                                            <div>Good: <span class="text-green"
-                                                    x-text="fmtBytes(0) == '0 B' ? ((noiseMetrics.total_flows - noiseMetrics.noise_flows) || 0).toLocaleString() : ''"></span>
-                                                flows</div>
-                                            <div>Noise: <span class="text-red"
-                                                    x-text="(noiseMetrics.noise_flows || 0).toLocaleString()"></span>
-                                                flows</div>
-                                        </div>
-                                    </div>
-                                    {% endcall %}
-                                </template>
 
                                 <!-- Top Sources -->
                                 <template x-if="isVisible('sources')">
