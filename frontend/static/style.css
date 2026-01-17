@@ -233,7 +233,8 @@ body {
     line-height: 1.5;
     letter-spacing: -0.01em;
     margin: 0;
-    padding: var(--space-4);
+    /* Do not pad the body; fixed header/sidebar are viewport-anchored */
+    padding: 0;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -324,7 +325,8 @@ body {
 /* Layout Wrapper with Sidebar */
 .layout-wrapper {
     display: flex;
-    gap: var(--space-6);
+    /* Avoid double-offset with fixed sidebar + main margin */
+    gap: 0;
     max-width: 100%;
     margin: 0;
     transition: gap 0.3s ease;
@@ -582,11 +584,14 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
+    /* Ensure content starts below fixed header */
+    padding-top: var(--header-height);
     margin-left: var(--sidebar-width);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    height: calc(100vh - var(--header-height));
+    /* Full viewport height */
+    height: 100vh;
     overflow: hidden;
     background: var(--bg-primary);
 }
