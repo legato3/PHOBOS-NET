@@ -316,35 +316,6 @@
                         :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab"
                         role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
-                        <!-- Mobile Quick Stats Bar -->
-                        <div class="mobile-stats-bar">
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
-                                <span class="mobile-stat-label">CPU</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
-                                <span class="mobile-stat-label">MEM</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }"
-                                    x-text="threats.hits.length"></span>
-                                <span class="mobile-stat-label">Threats</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
-                                <span class="mobile-stat-label">Flows</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'"
-                                    x-text="paused ? '⏸' : '▶'"></span>
-                                <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
-                            </div>
-                        </div>
-
                         <!-- Summary Stats & Bandwidth - Horizontal Layout -->
                         <section id="section-summary" class="scroll-section mb-8">
 
@@ -370,6 +341,12 @@
                                         <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
                                             x-text="overallHealth.shortExplanation"></div>
                                     </template>
+                                    <!-- Mobile-only system metrics integrated into health card -->
+                                    <div class="mobile-health-metrics" style="display:none;">
+                                        <span class="badge" :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
+                                        <span class="badge" :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
+                                        <span class="badge">Flows: <span x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
+                                    </div>
                                 </div>
                                 <div class="stat-box mobile-priority-stat"
                                     :class="{ 'status-warning': alertHistory.total > 0, 'mobile-zero-state': alertHistory.total === 0 }"
@@ -392,10 +369,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.active_flows.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.active_flows.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Active Flows</div>
@@ -410,10 +389,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.external_connections.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.external_connections.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">External Connections</div>
@@ -425,10 +406,12 @@
                                             x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
-                                                x-text="firewallStatsOverview.trends.blocked_events.indicator"
-                                                :title="'Since last hour: ' + (firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                                    x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Blocked Events (24h)</div>
@@ -442,10 +425,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.anomalies.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.anomalies.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Anomalies (24h)</div>
@@ -465,10 +450,19 @@
                                     {% endset %}
                                     {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
                                     extra_actions=bw_actions) %}
-                                    <div class="chart-wrapper chart-expandable"
-                                        @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
-                                        title="Click to expand">
-                                        <canvas id="bwChart"></canvas>
+                                    <!-- Mobile Toggle for Bandwidth Chart -->
+                                    <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
+                                        <button class="world-map-toggle" style="margin-bottom: 12px;"
+                                                x-show="window.innerWidth <= 768"
+                                                @click="collapsed = !collapsed">
+                                            <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
+                                        </button>
+                                        <div class="chart-wrapper chart-expandable"
+                                            x-show="!collapsed || window.innerWidth > 768"
+                                            @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                                            title="Click to expand">
+                                            <canvas id="bwChart"></canvas>
+                                        </div>
                                     </div>
                                     {% endcall %}
                                 </template>
@@ -6703,20 +6697,20 @@
                     <span class="mobile-nav-icon">🕸️</span>
                     <span class="mobile-nav-label">Network</span>
                 </button>
-                <button class="mobile-nav-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')"
-                    title="Servers">
-                    <span class="mobile-nav-icon">🖥️</span>
-                    <span class="mobile-nav-label">Servers</span>
-                </button>
                 <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }"
-                    @click="loadTab('forensics')" title="Firewall">
+                    @click="loadTab('forensics')" title="Forensics">
                     <span class="mobile-nav-icon">🔍</span>
-                    <span class="mobile-nav-label">Firewall</span>
+                    <span class="mobile-nav-label">Forensics</span>
                 </button>
                 <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
                     @click="loadTab('assistant')" title="Assistant">
                     <span class="mobile-nav-icon">🤖</span>
-                    <span class="mobile-nav-label">AI</span>
+                    <span class="mobile-nav-label">Assistant</span>
+                </button>
+                <button class="mobile-nav-item" :class="{ 'active': ['server', 'hosts', 'firewall', 'firewall-snmp'].includes(activeTab) || mobileMoreModalOpen }"
+                    @click="mobileMoreModalOpen = true" title="More">
+                    <span class="mobile-nav-icon">⋯</span>
+                    <span class="mobile-nav-label">More</span>
                 </button>
             </nav>
 
@@ -6725,6 +6719,50 @@
     </div>
 
     <!-- App Logic already loaded in <head> to ensure Alpine picks it up -->
+
+    <!-- Mobile More Menu Modal -->
+    <div class="modal" x-show="mobileMoreModalOpen"
+        :style="mobileMoreModalOpen ? 'display:flex' : 'display:none'"
+        @click.self="mobileMoreModalOpen = false">
+        <div class="modal-content" style="max-width: 100%;">
+            <div class="modal__header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; color:var(--text-0);">More Navigation</h3>
+                <button @click="mobileMoreModalOpen = false"
+                    style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                    aria-label="Close">×</button>
+            </div>
+            <div class="modal__body" style="color:var(--text-0);">
+                <div class="grid grid-2" style="gap: var(--space-3);">
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'server' }"
+                        @click="loadTab('server'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🖥️</span>
+                        <span>Server Health</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'hosts' }"
+                        @click="loadTab('hosts'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🖥️</span>
+                        <span>Hosts</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall' }"
+                        @click="loadTab('firewall'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🔥</span>
+                        <span>Firewall Logs</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall-snmp' }"
+                        @click="loadTab('firewall-snmp'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">📡</span>
+                        <span>Interfaces</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal__footer"
+                style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
+                <button class="btn btn--primary" @click="mobileMoreModalOpen = false"
+                    style="min-height:44px;">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Overall Health Details Modal -->
     <div class="modal" x-show="overallHealthModalOpen" :style="overallHealthModalOpen ? 'display:flex' : 'display:none'"
