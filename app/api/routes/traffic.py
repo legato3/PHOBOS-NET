@@ -581,6 +581,56 @@ def api_stats_countries():
         _stats_countries_cache["key"] = range_key
         _stats_countries_cache["win"] = win
     return jsonify(data)
+
+
+@bp.route("/api/stats/worldmap")
+@throttle(5, 10)
+def api_stats_worldmap():
+    """World map data endpoint."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    
+    # Use existing worldmap lock/cache or countries cache
+    with _lock_worldmap:
+         # Note: _lock_worldmap and cache might not be defined in app_state if not migrated. 
+         # We can fail back to countries cache if needed of use independent cache.
+         # Let's verify _lock_worldmap in imports. It is imported (line 41).
+         pass
+
+    # Reuse api_stats_countries logic basically
+    # Or just call it? calling route functions is not ideal.
+    # Let's duplicate logic for now (it's cheap since it uses common cache)
+    
+    sources = get_common_nfdump_data("sources", range_key)[:100]
+    dests = get_common_nfdump_data("dests", range_key)[:100]
+
+    country_bytes = {}
+    for item in sources + dests:
+        ip = item.get("key")
+        b = item.get("bytes", 0)
+        geo = lookup_geo(ip) or {}
+        iso = geo.get('country_iso') or '??'
+        name = geo.get('country') or 'Unknown'
+        if iso != '??':
+            if iso not in country_bytes:
+                country_bytes[iso] = {"name": name, "iso": iso, "bytes": 0, "flows": 0}
+            country_bytes[iso]["bytes"] += b
+            country_bytes[iso]["flows"] += 1
+            
+    map_data = []
+    total_bytes = sum(c['bytes'] for c in country_bytes.values())
+    for iso, c in country_bytes.items():
+        map_data.append({
+            "iso": c['iso'],
+            "name": c['name'],
+            "bytes": c['bytes'],
+            "bytes_fmt": fmt_bytes(c['bytes']),
+            "flows": c['flows'],
+            "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
+        })
+        
+    return jsonify(map_data)
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
 def api_stats_talkers():

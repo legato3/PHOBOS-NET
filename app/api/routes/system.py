@@ -107,7 +107,19 @@ def wallboard():
 def favicon():
     """Serve favicon file."""
     from flask import send_from_directory
-    return send_from_directory('../frontend/static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory('../frontend/src', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+@bp.route("/debug/paths")
+def debug_paths():
+    """Debug route to inspect Flask paths."""
+    return jsonify({
+        "static_folder": current_app.static_folder,
+        "template_folder": current_app.template_folder,
+        "root_path": current_app.root_path,
+        "cwd": os.getcwd(),
+        "static_folder_exists": os.path.exists(current_app.static_folder) if current_app.static_folder else False,
+        "src_exists": os.path.exists("../frontend/src")
+    })
 
 
 @bp.route("/api/stats/summary")

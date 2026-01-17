@@ -6,11 +6,17 @@ import time
 from flask import Flask, request, g
 from flask_compress import Compress
 
+import os
+
 def create_app():
     """Create and configure the Flask application."""
+    # Base directory relative to this file
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    
     app = Flask(__name__, 
-                static_folder='../frontend/src',
-                template_folder='../frontend/templates')
+                static_url_path='/static',
+                static_folder=os.path.join(base_dir, 'frontend', 'src'),
+                template_folder=os.path.join(base_dir, 'frontend', 'templates'))
     
     # Configure compression
     Compress(app)

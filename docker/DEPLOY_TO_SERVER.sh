@@ -30,25 +30,26 @@ ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/docker"
 
 # Copy docker files
 echo "📦 Copying Docker files..."
-scp -i "$SSH_KEY" docker/docker-compose.yml $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" docker/Dockerfile $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" docker/docker-entrypoint.sh $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" docker/.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
+scp -i "$SSH_KEY" ./docker-compose.yml $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" ./Dockerfile $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" ./docker-entrypoint.sh $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" ./.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
 
 # Copy application files (new modular structure)
 echo "📦 Copying application files..."
+# Clean old files first to avoid legacy conflicts
+ssh -i "$SSH_KEY" $USER@$SERVER "rm -rf $REMOTE_DIR/{app,frontend,scripts}"
 ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/{app,frontend/{templates,src},scripts,sample_data,docker-data}"
 # Copy app directory (modular structure)
-scp -i "$SSH_KEY" -r app/ $USER@$SERVER:$REMOTE_DIR/
+scp -i "$SSH_KEY" -r ../app/ $USER@$SERVER:$REMOTE_DIR/
 # Copy frontend directory
-scp -i "$SSH_KEY" -r frontend/templates/* $USER@$SERVER:$REMOTE_DIR/frontend/templates/ 2>/dev/null || true
-scp -i "$SSH_KEY" -r frontend/src/* $USER@$SERVER:$REMOTE_DIR/frontend/src/ 2>/dev/null || true
+scp -i "$SSH_KEY" -r ../frontend/* $USER@$SERVER:$REMOTE_DIR/frontend/ 2>/dev/null || true
 # Copy scripts
-scp -i "$SSH_KEY" scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
+scp -i "$SSH_KEY" ../scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/scripts/ 2>/dev/null || true
 # scp -i "$SSH_KEY" -r sample_data/* $USER@$SERVER:$REMOTE_DIR/sample_data/ 2>/dev/null || true
 # Copy docker-data files
-scp -i "$SSH_KEY" docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
-scp -i "$SSH_KEY" docker-data/requirements.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+scp -i "$SSH_KEY" ../docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+scp -i "$SSH_KEY" ../docker-data/requirements.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
 if [ "$REBUILD" = true ]; then
     # Full rebuild (needed for Dockerfile/requirements.txt changes)

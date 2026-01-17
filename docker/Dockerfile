@@ -29,8 +29,7 @@ COPY app/ ./app/
 COPY docker-data/threat-feeds.txt .
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
-COPY frontend/templates/ ./frontend/templates/
-COPY frontend/src/ ./frontend/src/
+COPY frontend/ ./frontend/
 #COPY sample_data/ ./sample_data/
 
 # Make entrypoint script executable
