@@ -34,6 +34,8 @@ _lock_flows = threading.Lock()
 _lock_countries = threading.Lock()
 _lock_worldmap = threading.Lock()
 _lock_compromised = threading.Lock()
+_lock_proto_hierarchy = threading.Lock()
+_lock_noise = threading.Lock()
 _cache_lock = threading.Lock()  # Generic small cache lock (e.g., packet sizes)
 _mock_lock = threading.Lock()  # Lock for mock data cache
 _throttle_lock = threading.Lock()  # Lock for rate limiting
@@ -60,6 +62,8 @@ _stats_flow_stats_cache = {"data": None, "ts": 0, "key": None}
 _stats_proto_mix_cache = {"data": None, "ts": 0, "key": None}
 _stats_net_health_cache = {"data": None, "ts": 0, "key": None}
 _stats_compromised_cache = {"data": None, "ts": 0, "key": None}
+_stats_proto_hierarchy_cache = {"data": None, "ts": 0, "key": None}
+_stats_noise_metrics_cache = {"data": None, "ts": 0, "key": None}
 _server_health_cache = {"data": None, "ts": 0}
 
 # ==================== Data Caches ====================
