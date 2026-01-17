@@ -467,6 +467,51 @@
                                     {% endcall %}
                                 </template>
                             </div>
+
+                            <!-- New Overview Widgets Row -->
+                            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4);">
+                                <!-- Noise Level -->
+                                <template x-if="isVisible('noiseMetrics')">
+                                    {% call widget_card('noiseMetrics', 'Network Noise Level', '🔊', show_spinner=True) %}
+                                    <div class="noise-display" style="text-align: center; padding: var(--space-2);">
+                                        <div class="noise-gauge-container" style="height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-bottom: 8px; position: relative;">
+                                            <div class="noise-gauge-fill" :style="'width: ' + noiseMetrics.score + '%; background: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; height: 100%; transition: width 1s ease;'"></div>
+                                        </div>
+                                        <div class="noise-stat-row" style="display: flex; justify-content: space-between; align-items: baseline;">
+                                            <span class="noise-score" style="font-size: 2em; font-weight: bold;" :style="'color: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')" x-text="noiseMetrics.score + '%'"></span>
+                                            <span class="noise-label text-muted" x-text="(noiseMetrics.level || 'Low') + ' Noise'"></span>
+                                        </div>
+                                        <div class="noise-details text-xs text-muted mt-2" style="display: flex; justify-content: space-around; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">
+                                            <div>Good: <span class="text-green" x-text="fmtBytes(0) == '0 B' ? ((noiseMetrics.total_flows - noiseMetrics.noise_flows) || 0).toLocaleString() : ''"></span> flows</div>
+                                            <div>Noise: <span class="text-red" x-text="(noiseMetrics.noise_flows || 0).toLocaleString()"></span> flows</div>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- New Devices -->
+                                <template x-if="isVisible('newDevices')">
+                                    {% call widget_card('newDevices', 'New Devices (24h)', '🆕', show_spinner=True) %}
+                                    <div class="new-devices-list" style="max-height: 200px; overflow-y: auto;">
+                                        <template x-for="dev in newDevices.list" :key="dev.ip">
+                                            <div class="device-row" @click="openIPModal(dev.ip)" style="cursor: pointer; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
+                                                <div>
+                                                    <div class="text-cyan font-mono text-sm" x-text="dev.ip"></div>
+                                                    <div class="text-xs text-muted" x-text="dev.hostname || 'Unknown'"></div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="text-xs text-muted" x-text="formatFlowTimestamp(dev.first_seen)"></div>
+                                                    <div class="text-green text-xs" x-text="fmtBytes(dev.total_bytes)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div x-show="!newDevices.list.length" class="text-muted text-center py-4" style="font-style: italic;">
+                                            No new devices detected in last 24h
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+                            </div>
                         </section>
 
 
@@ -1535,6 +1580,26 @@
                             <!-- Supporting Network Metrics -->
                             <div class="grid" data-reorder="true" data-grid-id="network-overview"
                                 style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
+
+                                <!-- Protocol Hierarchy -->
+                                <template x-if="isVisible('protocolHierarchy')">
+                                    {% call widget_card('protocolHierarchy', 'Protocol Hierarchy', '🧬', show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 250px; position: relative;">
+                                        <canvas id="protocolHierarchyChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-2">Outer: Service • Inner: Protocol</div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Traffic Scatter -->
+                                <template x-if="isVisible('trafficScatter')">
+                                    {% call widget_card('trafficScatter', 'Traffic Distribution', '💠', show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 250px; position: relative;">
+                                        <canvas id="trafficScatterChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-2">X: Download • Y: Upload</div>
+                                    {% endcall %}
+                                </template>
 
                                 <!-- Top Sources -->
                                 <template x-if="isVisible('sources')">

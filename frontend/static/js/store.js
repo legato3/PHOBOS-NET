@@ -139,6 +139,9 @@ export const Store = () => ({
     hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
     flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
     protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
+    protocolHierarchy: { data: null, loading: true },
+    noiseMetrics: { score: 0, level: 'Low', total_flows: 0, noise_flows: 0, breakdown: {}, loading: true },
+    newDevices: { list: [], count: 0, loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
@@ -1483,6 +1486,7 @@ export const Store = () => ({
                 if (this.isVisible('packetSizes')) this.fetchPacketSizes();
                 if (this.isVisible('protocols')) this.fetchProtocols();
                 if (this.isVisible('flowStats')) this.fetchFlowStats();
+                if (this.isVisible('protocolHierarchy')) this.fetchProtocolHierarchy();
 
                 // Network Health is now always visible as a stat box
                 this.fetchNetHealth();
@@ -1562,6 +1566,9 @@ export const Store = () => ({
         // Fetch Overview Widgets (New)
 
         if (this.isVisible('talkers')) this.fetchTalkers();
+        if (this.isVisible('noiseMetrics')) this.fetchNoiseMetrics();
+        if (this.isVisible('newDevices')) this.fetchNewDevices();
+
         // Network Health is now always visible as a stat box
         this.fetchNetHealth();
 
@@ -1589,7 +1596,8 @@ export const Store = () => ({
                 this.fetchTalkers(),
                 this.fetchServices(),
                 this.fetchHourlyTraffic(),
-                this.fetchHosts()
+                this.fetchHosts(),
+                this.fetchProtocolHierarchy()
             ]);
             this.lastFetch.network = now;
         }
@@ -1958,11 +1966,77 @@ export const Store = () => ({
                     list,
                     loading: false
                 };
+                this.$nextTick(() => this.renderTrafficScatter());
             }
         } catch (e) {
             console.error('Failed to fetch hosts:', e);
             this.hosts.loading = false;
         }
+    },
+
+    renderTrafficScatter() {
+        const ctx = document.getElementById('trafficScatterChart');
+        if (!ctx || !this.hosts.list || this.hosts.list.length === 0) return;
+
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderTrafficScatter(), 100);
+            return;
+        }
+
+        const dataPoints = this.hosts.list.slice(0, 50).map(h => ({
+            x: h.rx_bytes,
+            y: h.tx_bytes,
+            ip: h.ip,
+            hostname: h.hostname
+        }));
+
+        if (_chartInstances['trafficScatter']) {
+            _chartInstances['trafficScatter'].destroy();
+        }
+
+        _chartInstances['trafficScatter'] = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Hosts',
+                    data: dataPoints,
+                    backgroundColor: this.getCssVar('--neon-cyan') || '#00f3ff',
+                    borderColor: 'rgba(0, 243, 255, 0.5)',
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        position: 'bottom',
+                        title: { display: true, text: 'Download Bytes', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#666', callback: (v) => this.fmtBytes(v) }
+                    },
+                    y: {
+                        type: 'logarithmic',
+                        title: { display: true, text: 'Upload Bytes', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#666', callback: (v) => this.fmtBytes(v) }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pt = ctx.raw;
+                                return `${pt.ip}: ↓${this.fmtBytes(pt.x)} ↑${this.fmtBytes(pt.y)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     },
 
     switchHostsView(mode) {
@@ -3501,6 +3575,134 @@ export const Store = () => ({
                 });
             }
         } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
+    },
+
+    async fetchProtocolHierarchy() {
+        this.protocolHierarchy.loading = true;
+        try {
+            const res = await fetch(`/api/stats/protocol_hierarchy?range=${this.timeRange}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.protocolHierarchy = { data: data, loading: false };
+                this.$nextTick(() => {
+                    setTimeout(() => this.renderProtocolHierarchyChart(), 100);
+                });
+            }
+        } catch (e) { console.error(e); } finally { this.protocolHierarchy.loading = false; }
+    },
+
+    renderProtocolHierarchyChart() {
+        const ctx = document.getElementById('protocolHierarchyChart');
+        if (!ctx || !this.protocolHierarchy.data) return;
+
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderProtocolHierarchyChart(), 100);
+            return;
+        }
+
+        // Prepare data for double doughnut
+        // Inner ring: L4 Protocols
+        // Outer ring: L7 Services
+        const hierarchy = this.protocolHierarchy.data;
+        const l4Labels = [];
+        const l4Data = [];
+        const l4Colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00'];
+        const l4Backgrounds = [];
+
+        const l7Labels = [];
+        const l7Data = [];
+        const l7Backgrounds = [];
+
+        if (hierarchy.children) {
+            hierarchy.children.forEach((l4, i) => {
+                l4Labels.push(l4.name);
+                l4Data.push(l4.total_bytes);
+                const color = l4Colors[i % l4Colors.length];
+                l4Backgrounds.push(color);
+
+                if (l4.children) {
+                    l4.children.forEach(l7 => {
+                        l7Labels.push(l7.name);
+                        l7Data.push(l7.value);
+                        // Make L7 color a transparent version of L4 color
+                        l7Backgrounds.push(color.replace('1)', '0.6)').replace(')', ', 0.6)')); // Approximate transparency hack or use chroma.js if available
+                        // Actually just use same color but let segments verify
+                        l7Backgrounds.push(color);
+                    });
+                }
+            });
+        }
+
+        // Destroy existing
+        if (_chartInstances['protocolHierarchy']) {
+            _chartInstances['protocolHierarchy'].destroy();
+        }
+
+        _chartInstances['protocolHierarchy'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: l7Labels, // Tooltip shows L7 labels primarily
+                datasets: [
+                    {
+                        label: 'Service',
+                        data: l7Data,
+                        backgroundColor: l7Backgrounds,
+                        weight: 2
+                    },
+                    {
+                        label: 'Protocol',
+                        data: l4Data,
+                        backgroundColor: l4Backgrounds,
+                        weight: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const val = this.fmtBytes(context.raw);
+                                return `${context.chart.data.labels[context.dataIndex] || ''}: ${val}`;
+                            }
+                        }
+                    }
+                },
+                cutout: '30%'
+            }
+        });
+    },
+
+    async fetchNoiseMetrics() {
+        this.noiseMetrics.loading = true;
+        try {
+            const res = await fetch(`/api/stats/noise?range=${this.timeRange}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.noiseMetrics = { ...data, loading: false };
+            }
+        } catch (e) { console.error(e); } finally { this.noiseMetrics.loading = false; }
+    },
+
+    async fetchNewDevices() {
+        this.newDevices.loading = true;
+        try {
+            // Re-use api_hosts_list but filter client-side for "new"
+            const res = await fetch(`/api/hosts/list?range=48h&limit=500`);
+            if (res.ok) {
+                const data = await res.json();
+                // Filter for is_new = true
+                const newHosts = data.filter(h => h.is_new);
+                this.newDevices = {
+                    list: newHosts.slice(0, 10), // Top 10
+                    count: newHosts.length,
+                    loading: false
+                };
+            }
+        } catch (e) { console.error(e); } finally { this.newDevices.loading = false; }
     },
 
     // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range

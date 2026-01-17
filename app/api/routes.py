@@ -37,14 +37,18 @@ from app.core.state import (
     _shutdown_event,
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
-    _lock_flows, _lock_countries, _lock_worldmap, _lock_compromised, _cache_lock, _mock_lock,
+    _lock_flows, _lock_countries, _lock_worldmap, _lock_compromised,
+    _lock_proto_hierarchy, _lock_noise,
+    _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
     _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
     _stats_flags_cache, _stats_asns_cache, _stats_durations_cache,
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
-    _stats_proto_mix_cache, _stats_net_health_cache, _stats_compromised_cache, _server_health_cache,
+    _stats_proto_mix_cache, _stats_net_health_cache, _stats_compromised_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
+    _server_health_cache,
     _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
     _flows_cache, _common_data_cache,
     _request_times,
@@ -988,6 +992,228 @@ def api_stats_talkers():
         _stats_talkers_cache["win"] = win
     return jsonify({"flows": flows})
 
+
+
+@bp.route("/api/stats/protocol_hierarchy")
+@throttle(5, 10)
+def api_stats_protocol_hierarchy():
+    """Hierarchy of protocols (L4 -> L7) for sunburst visualization."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+
+    with _lock_proto_hierarchy:
+        if _stats_proto_hierarchy_cache["data"] and _stats_proto_hierarchy_cache["key"] == range_key and _stats_proto_hierarchy_cache.get("win") == win:
+            return jsonify(_stats_proto_hierarchy_cache["data"])
+
+    tf = get_time_range(range_key)
+    # Aggregation: proto, dstport.
+    # Use -A proto,dstport -O bytes
+    output = run_nfdump(["-A", "proto,dstport", "-O", "bytes", "-n", "100"], tf)
+
+    hierarchy = {"name": "Root", "children": []}
+
+    # Structure:
+    # {
+    #   "name": "Root",
+    #   "children": [
+    #     {
+    #       "name": "TCP",
+    #       "children": [ {"name": "HTTP", "value": 123}, ... ]
+    #     },
+    #     ...
+    #   ]
+    # }
+
+    l4_groups = defaultdict(lambda: defaultdict(int))
+
+    try:
+        lines = output.strip().split("\n")
+
+        # NFDump CSV indices (standard)
+        # ts,td,pr,sa,sp,da,dp,ipkt,ibyt,fl
+        # With -A proto,dstport, usually we get aggregated output.
+        # Let's try dynamic parsing or standard indices.
+        pr_idx, dp_idx, ibyt_idx = 2, 6, 8 # Defaults
+        start_idx = 0
+
+        if lines:
+            line0 = lines[0].lower()
+            if 'ts' in line0 or 'date' in line0 or 'ibyt' in line0:
+                header = line0.split(',')
+                try:
+                    pr_idx = header.index('pr') if 'pr' in header else header.index('proto')
+                    dp_idx = header.index('dp') if 'dp' in header else header.index('dstport')
+                    ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('bytes')
+                    start_idx = 1
+                except:
+                    pass
+
+        for line in lines[start_idx:]:
+            if not line or line.startswith('ts,') or line.startswith('Date,'): continue
+            parts = line.split(',')
+            if len(parts) > max(pr_idx, dp_idx, ibyt_idx):
+                try:
+                    proto_val = parts[pr_idx].strip()
+                    port_val = int(parts[dp_idx].strip())
+                    bytes_val = int(parts[ibyt_idx].strip())
+
+                    # Map L4
+                    proto_name = "Other"
+                    if proto_val == "6" or proto_val.upper() == "TCP": proto_name = "TCP"
+                    elif proto_val == "17" or proto_val.upper() == "UDP": proto_name = "UDP"
+                    elif proto_val == "1" or proto_val.upper() == "ICMP": proto_name = "ICMP"
+
+                    # Map L7 (Service)
+                    service_name = PORTS.get(port_val, str(port_val))
+
+                    l4_groups[proto_name][service_name] += bytes_val
+                except:
+                    pass
+
+        # Build hierarchy list
+        for proto, services in l4_groups.items():
+            children = []
+            for svc, b in services.items():
+                children.append({"name": svc, "value": b, "bytes_fmt": fmt_bytes(b)})
+
+            # Sort children by bytes
+            children.sort(key=lambda x: x["value"], reverse=True)
+
+            hierarchy["children"].append({
+                "name": proto,
+                "children": children,
+                "total_bytes": sum(c["value"] for c in children)
+            })
+
+        # Sort L4 by total bytes
+        hierarchy["children"].sort(key=lambda x: x["total_bytes"], reverse=True)
+
+    except Exception as e:
+        print(f"Hierarchy parse error: {e}")
+
+    with _lock_proto_hierarchy:
+        _stats_proto_hierarchy_cache["data"] = hierarchy
+        _stats_proto_hierarchy_cache["ts"] = now
+        _stats_proto_hierarchy_cache["key"] = range_key
+        _stats_proto_hierarchy_cache["win"] = win
+
+    return jsonify(hierarchy)
+
+
+@bp.route("/api/stats/noise")
+@throttle(5, 10)
+def api_noise_metrics():
+    """Calculate Network Noise Score (Unproductive vs Productive Traffic)."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+
+    with _lock_noise:
+        if _stats_noise_metrics_cache["data"] and _stats_noise_metrics_cache["key"] == range_key and _stats_noise_metrics_cache.get("win") == win:
+            return jsonify(_stats_noise_metrics_cache["data"])
+
+    # 1. Total Flows (Productive + Noise)
+    tf = get_time_range(range_key)
+    # We use a large limit to get a statistical sample for ratios
+    output = run_nfdump(["-n", "2000"], tf)
+
+    total_flows = 0
+    syn_only = 0
+    small_flows = 0
+
+    try:
+        lines = output.strip().split("\n")
+        # Reuse parsing logic from net_health
+        flg_idx, pr_idx, ibyt_idx = 10, 7, 12 # Fallbacks
+        start_idx = 0
+
+        if lines:
+            line0 = lines[0].lower()
+            if 'ts' in line0 or 'ibyt' in line0:
+                header = line0.split(',')
+                try:
+                    flg_idx = header.index('flg') if 'flg' in header else header.index('flags')
+                    pr_idx = header.index('pr') if 'pr' in header else header.index('proto')
+                    ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('bytes')
+                    start_idx = 1
+                except:
+                    pass
+
+        for line in lines[start_idx:]:
+            if not line or line.startswith('ts,'): continue
+            parts = line.split(',')
+            total_flows += 1
+            if len(parts) > max(flg_idx, pr_idx, ibyt_idx):
+                try:
+                    flags = parts[flg_idx].upper()
+                    b = int(parts[ibyt_idx])
+
+                    if flags == 'S' or flags == '.S': syn_only += 1
+                    if b < 64: small_flows += 1 # Strict tiny flows
+                except: pass
+
+    except:
+        pass
+
+    # 2. Blocked Flows (Definitely Noise)
+    fw_stats = _get_firewall_block_stats(hours=1) # Fixed to 1h for now or should scale?
+    # Ideally should match range_key duration.
+    hours_map = {'15m': 0.25, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
+    h = hours_map.get(range_key, 1)
+    fw_stats_ranged = _get_firewall_block_stats(hours=h)
+    blocked_count = fw_stats_ranged.get('blocks', 0)
+
+    # 3. Threat Flows (Noise/Malicious)
+    # Get from threats list matching
+    threat_set = load_threatlist()
+    threat_flows = 0
+    # We could scan the flows list again or just use a ratio.
+    # For now, let's use the blocked_count as a strong signal, and syn_only as another.
+
+    # Calculate Noise Components
+    # Note: blocked_count is from syslog, total_flows is from NetFlow. They might overlap or not depending on where NetFlow is captured.
+    # Assuming NetFlow captures ingress BEFORE blocking (common on OPNsense promiscuous), blocked flows are part of total.
+    # If NetFlow is on internal interface, blocked flows might not be seen.
+    # We will assume Noise = (SYN_Only + Tiny + Blocked)
+    # But SYN_Only/Tiny are subsets of Total. Blocked is separate source.
+
+    # If total_flows is low (e.g. mock), we need to avoid div/0
+    effective_total = total_flows + blocked_count
+
+    noise_flows = syn_only + blocked_count # Simplified: Scans + Blocks
+
+    noise_score = 0
+    if effective_total > 0:
+        noise_score = int((noise_flows / effective_total) * 100)
+
+    # Cap at 100
+    noise_score = min(100, noise_score)
+
+    # Classification
+    noise_level = "Low"
+    if noise_score > 50: noise_level = "High"
+    elif noise_score > 20: noise_level = "Moderate"
+
+    data = {
+        "score": noise_score,
+        "level": noise_level,
+        "total_flows": effective_total,
+        "noise_flows": noise_flows,
+        "breakdown": {
+            "scans": syn_only,
+            "blocked": blocked_count,
+            "tiny": small_flows
+        }
+    }
+
+    with _lock_noise:
+        _stats_noise_metrics_cache["data"] = data
+        _stats_noise_metrics_cache["ts"] = now
+        _stats_noise_metrics_cache["key"] = range_key
+        _stats_noise_metrics_cache["win"] = win
+
+    return jsonify(data)
 
 
 @bp.route("/api/stats/services")
