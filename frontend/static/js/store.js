@@ -1687,6 +1687,18 @@ export const Store = () => ({
                 this.fetchNetHealth();
                 this.lastFetch.network = now;
             }
+            
+            // Always render charts when section is visible
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    if (this.protocolHierarchy.data) {
+                        this.renderProtocolHierarchyChart();
+                    }
+                    if (this.hosts.list && this.hosts.list.length > 0) {
+                        this.renderTrafficScatter();
+                    }
+                }, 100);
+            });
         }
         if (sectionId === 'section-security') {
             if (now - this.lastFetch.security > this.heavyTTL) {
