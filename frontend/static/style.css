@@ -70,10 +70,7 @@
     --text-3xl: var(--fs-3xl);
     --text-4xl: 2.5rem;
 
-    /* Layout */
-    --header-height: var(--header-height);
-    --sidebar-width: var(--sidebar-width);
-    --sidebar-collapsed: var(--sidebar-collapsed);
+    /* Layout tokens already imported from tokens.css */
     --container-padding: var(--space-4);
 
     /* Surfaces - Signal panels */
@@ -341,6 +338,11 @@ body.sidebar-collapsed .layout-wrapper {
     grid-template-columns: var(--sidebar-collapsed) 1fr;
 }
 
+.layout-wrapper>* {
+    min-width: 0;
+    min-height: 0;
+}
+
 
 
 /* CYBERPUNK UI: Sidebar - Signal navigation panel */
@@ -350,6 +352,8 @@ body.sidebar-collapsed .layout-wrapper {
     flex-direction: column;
     width: 100%;
     height: 100%;
+    min-width: 0;
+    /* Important: prevents expansion in grid */
     background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
@@ -377,6 +381,8 @@ body.sidebar-collapsed .layout-wrapper {
     background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+    /* Match the main header */
     box-shadow: var(--shadow-soft);
     overflow: hidden;
     box-sizing: border-box;
