@@ -233,8 +233,7 @@ body {
     line-height: 1.5;
     letter-spacing: -0.01em;
     margin: 0;
-    /* Do not pad the body; fixed header/sidebar are viewport-anchored */
-    padding: 0;
+    padding: var(--space-4);
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -325,8 +324,7 @@ body {
 /* Layout Wrapper with Sidebar */
 .layout-wrapper {
     display: flex;
-    /* Avoid double-offset with fixed sidebar + main margin */
-    gap: 0;
+    gap: var(--space-6);
     max-width: 100%;
     margin: 0;
     transition: gap 0.3s ease;
@@ -4581,7 +4579,8 @@ body {
 }
 
 .risk-value.predictive {
-    font-size: var(--fs-md); /* Smaller than current state */
+    font-size: var(--fs-md);
+    /* Smaller than current state */
     opacity: 0.8;
     border: 1px dashed var(--border-medium);
     padding: 2px 6px;
@@ -4603,23 +4602,23 @@ body {
         gap: var(--space-1);
         padding: var(--space-2) 0;
     }
-    
+
     .current-risk,
     .predictive-risk {
         flex-wrap: wrap;
         gap: var(--space-1);
     }
-    
+
     .risk-value {
         font-size: var(--fs-md);
         max-width: 80px;
     }
-    
+
     .risk-value.predictive {
         font-size: var(--fs-sm);
         max-width: 70px;
     }
-    
+
     .risk-label {
         font-size: 10px;
         letter-spacing: 0.02em;
@@ -9822,7 +9821,7 @@ body.compact-mode {
     .tool-input-group {
         flex-direction: column;
     }
-    
+
     .tool-input,
     .tool-input-sm,
     .tool-select {
