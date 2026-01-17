@@ -1020,7 +1020,7 @@ def api_alerts():
     # Also run all detections to capture protocol anomalies, DNS anomalies, port scans, etc.
     # This ensures all detection types are persisted to alert history
     try:
-        protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+        protocols_data = get_common_nfdump_data("protos", range_key)[:20]
         all_detection_alerts = run_all_detections(ports, sources, dests, protocols_data)
         # Alerts from run_all_detections are already added to history by that function
     except Exception as e:
@@ -1481,7 +1481,7 @@ def api_ollama_threat_analysis():
             'network_summary': {
                 'top_sources': get_common_nfdump_data("sources", "1h")[:10],
                 'top_destinations': get_common_nfdump_data("destinations", "1h")[:10],
-                'protocols': get_common_nfdump_data("protocols", "1h")[:10]
+                'protocols': get_common_nfdump_data("protos", "1h")[:10]
             },
             'security_metrics': {
                 'current_score': 0,  # Would be populated from security score
@@ -2772,7 +2772,7 @@ def api_protocol_anomalies():
     """Get protocol anomaly data for Security Center."""
 
     range_key = request.args.get('range', '1h')
-    protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+    protocols_data = get_common_nfdump_data("protos", range_key)[:20]
 
     anomalies = []
     for proto in protocols_data:
@@ -2820,7 +2820,7 @@ def api_run_detection():
         ports_data = get_common_nfdump_data("ports", range_key)[:50]
         sources_data = get_common_nfdump_data("sources", range_key)[:50]
         destinations_data = get_common_nfdump_data("destinations", range_key)[:50]
-        protocols_data = get_common_nfdump_data("protocols", range_key)[:20]
+        protocols_data = get_common_nfdump_data("protos", range_key)[:20]
 
         # Run all detections
         new_alerts = run_all_detections(ports_data, sources_data, destinations_data, protocols_data)
