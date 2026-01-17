@@ -1819,7 +1819,7 @@ export const Store = () => ({
                 this.fetchTopThreatIPs(),
                 this.fetchCompromisedHosts(),
                 // Removed: this.fetchRiskIndex(), // Replaced with predictiveRisk in securityObservability
-                this.fetchAttackTimeline(),
+                // Removed: this.fetchAttackTimeline(), // Replaced by Threat Activity Timeline
                 this.fetchMitreHeatmap(),
                 this.fetchProtocolAnomalies(),
                 this.fetchRecentBlocks(),
@@ -1828,6 +1828,11 @@ export const Store = () => ({
                 this.fetchMaliciousPorts()
             ]);
             this.lastFetch.security = now;
+        }
+
+        if (this.isSectionVisible('section-threat-activity-timeline') && (now - (this.lastFetch.threatActivityTimeline || 0) > this.heavyTTL)) {
+            this.fetchThreatActivityTimeline();
+            this.lastFetch.threatActivityTimeline = now;
         }
 
         if (this.isSectionVisible('section-flows') && (now - this.lastFetch.flows > this.mediumTTL)) {
