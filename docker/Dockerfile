@@ -27,6 +27,9 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 # Copy the entire app directory structure
 COPY app/ ./app/
 COPY docker-data/threat-feeds.txt .
+COPY docker-data/GeoLite2-City.mmdb /root/GeoLite2-City.mmdb
+COPY docker-data/GeoLite2-ASN.mmdb /root/GeoLite2-ASN.mmdb
+COPY docker-data/GeoLite2-Country.mmdb /root/GeoLite2-Country.mmdb
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY frontend/ ./frontend/
