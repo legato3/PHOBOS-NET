@@ -176,6 +176,7 @@ export const Store = () => ({
     flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
     protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
     protocolHierarchy: { data: null, loading: true },
+    trafficScatter: { data: null, loading: true },
     noiseMetrics: { score: 0, level: 'Low', total_flows: 0, noise_flows: 0, breakdown: {}, loading: true },
     newDevices: { list: [], count: 0, loading: true },
 
@@ -1664,10 +1665,6 @@ export const Store = () => ({
             }
         }
         if (sectionId === 'section-network') {
-            console.log('Loading Network section widgets');
-            console.log('protocolHierarchy visible:', this.isVisible('protocolHierarchy'));
-            console.log('trafficScatter visible:', this.isVisible('trafficScatter'));
-            
             if (now - this.lastFetch.network > this.heavyTTL) {
                 if (this.isVisible('sources')) this.fetchSources();
                 if (this.isVisible('destinations')) this.fetchDestinations();
@@ -1683,7 +1680,6 @@ export const Store = () => ({
                 if (this.isVisible('protocols')) this.fetchProtocols();
                 if (this.isVisible('flowStats')) this.fetchFlowStats();
                 if (this.isVisible('protocolHierarchy')) {
-                    console.log('Fetching protocol hierarchy');
                     this.fetchProtocolHierarchy();
                 }
 
@@ -1763,16 +1759,12 @@ export const Store = () => ({
         this.fetchPorts();
 
         // Fetch Overview Widgets (New)
-        console.log('Loading Overview widgets');
-        console.log('protocolHierarchy visible in overview:', this.isVisible('protocolHierarchy'));
-        
         if (this.isVisible('talkers')) this.fetchTalkers();
         if (this.isVisible('noiseMetrics')) this.fetchNoiseMetrics();
         if (this.isVisible('newDevices')) this.fetchNewDevices();
         
         // Also fetch protocol hierarchy if visible
         if (this.isVisible('protocolHierarchy')) {
-            console.log('Fetching protocol hierarchy from overview');
             this.fetchProtocolHierarchy();
         }
 
@@ -2182,13 +2174,9 @@ export const Store = () => ({
     },
 
     renderTrafficScatter() {
-        console.log('renderTrafficScatter called');
         const ctx = document.getElementById('trafficScatterChart');
-        console.log('Traffic scatter canvas:', ctx);
-        console.log('Hosts list length:', this.hosts.list ? this.hosts.list.length : 0);
-        
         if (!ctx || !this.hosts.list || this.hosts.list.length === 0) {
-            console.log('Missing canvas or hosts data, skipping traffic scatter render');
+            this.trafficScatter.loading = false;
             return;
         }
 
@@ -2251,6 +2239,9 @@ export const Store = () => ({
                 }
             }
         });
+
+        // Set loading to false after successful chart creation
+        this.trafficScatter.loading = false;
     },
 
     switchHostsView(mode) {
@@ -3782,14 +3773,11 @@ export const Store = () => ({
     },
 
     async fetchProtocolHierarchy() {
-        console.log('fetchProtocolHierarchy called');
         this.protocolHierarchy.loading = true;
         try {
             const res = await fetch(`/api/stats/protocol_hierarchy?range=${this.timeRange}`);
-            console.log('Protocol hierarchy response:', res.ok);
             if (res.ok) {
                 const data = await res.json();
-                console.log('Protocol hierarchy data:', data);
                 this.protocolHierarchy = { data: data, loading: false };
                 this.$nextTick(() => {
                     setTimeout(() => this.renderProtocolHierarchyChart(), 100);
@@ -3803,18 +3791,10 @@ export const Store = () => ({
     },
 
     renderProtocolHierarchyChart() {
-        console.log('renderProtocolHierarchyChart called');
         const ctx = document.getElementById('protocolHierarchyChart');
-        console.log('Canvas element:', ctx);
-        console.log('Protocol hierarchy data:', this.protocolHierarchy.data);
-        
-        if (!ctx || !this.protocolHierarchy.data) {
-            console.log('Missing canvas or data, skipping render');
-            return;
-        }
+        if (!ctx || !this.protocolHierarchy.data) return;
 
         if (typeof Chart === 'undefined') {
-            console.log('Chart not defined, retrying...');
             setTimeout(() => this.renderProtocolHierarchyChart(), 100);
             return;
         }
