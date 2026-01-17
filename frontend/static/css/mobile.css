@@ -3310,7 +3310,9 @@
     /* Main content: Full width on mobile */
     .main-content {
         margin-left: 0 !important;
+        margin-top: var(--header-height) !important;
         width: 100%;
+        height: calc(100vh - var(--header-height)) !important;
     }
     
     /* Header: Compact layout */
