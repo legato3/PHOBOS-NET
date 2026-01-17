@@ -582,7 +582,7 @@ body {
     padding: 0;
     /* Ensure content starts below fixed header */
     padding-top: var(--header-height);
-    margin-left: var(--sidebar-width);
+    margin-left: 240px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
@@ -593,7 +593,26 @@ body {
 }
 
 body.sidebar-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed);
+    margin-left: 64px;
+}
+
+/* Desktop: Ensure main-content respects sidebar width */
+@media (min-width: 769px) {
+    .main-content {
+        margin-left: 240px !important;
+    }
+
+    body.sidebar-collapsed .main-content {
+        margin-left: 64px !important;
+    }
+
+    .header {
+        left: 240px !important;
+    }
+
+    body.sidebar-collapsed .header {
+        left: 64px !important;
+    }
 }
 
 .content-scroll-area {
