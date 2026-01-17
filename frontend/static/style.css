@@ -580,13 +580,10 @@ body {
     min-width: 0;
     width: auto;
     padding: 0;
-    /* Ensure content starts below fixed header */
-    padding-top: var(--header-height);
     margin-left: 240px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    /* Full viewport height */
     height: 100vh;
     overflow: hidden;
     background: var(--bg-primary);
@@ -619,10 +616,10 @@ body.sidebar-collapsed .main-content {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-4);
+    padding-top: calc(var(--header-height) + var(--space-4));
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
-    /* No margin-top needed - main-content already accounts for header */
 }
 
 /* CYBERPUNK UI: Header - Signal command bar (control surface) */
@@ -641,14 +638,14 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: var(--sidebar-width);
+    left: 240px;
     z-index: 1001;
     transition: left var(--transition-base), border-color var(--transition-fast);
     /* Control surface feel: no flat grey */
 }
 
 body.sidebar-collapsed .header {
-    left: var(--sidebar-collapsed);
+    left: 64px;
 }
 
 .header-left,
