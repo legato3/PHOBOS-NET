@@ -233,7 +233,8 @@ body {
     line-height: 1.5;
     letter-spacing: -0.01em;
     margin: 0;
-    padding: var(--space-4);
+    /* Do not pad the body; fixed header/sidebar are viewport-anchored */
+    padding: 0;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -324,7 +325,8 @@ body {
 /* Layout Wrapper with Sidebar */
 .layout-wrapper {
     display: flex;
-    gap: var(--space-6);
+    /* Avoid double-offset with fixed sidebar + main margin */
+    gap: 0;
     max-width: 100%;
     margin: 0;
     transition: gap 0.3s ease;
@@ -582,7 +584,7 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
-    margin-left: var(--sidebar-width);
+        /* margin-left removed to fix alignment regression */
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
@@ -592,7 +594,7 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 body.sidebar-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed);
+    /* margin-left removed for alignment fix */
 }
 
 .content-scroll-area {
@@ -621,7 +623,7 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: var(--sidebar-width);
+    left: 0;
     z-index: 1001;
     transition: left var(--transition-base), border-color var(--transition-fast);
     /* Control surface feel: no flat grey */
