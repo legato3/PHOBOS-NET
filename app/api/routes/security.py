@@ -2770,16 +2770,23 @@ def api_mitre_heatmap():
 @throttle(5, 10)
 def api_protocol_anomalies():
     """Get protocol anomaly data for Security Center."""
+    from app.config import PROTOS
 
     range_key = request.args.get('range', '1h')
     protocols_data = get_common_nfdump_data("protos", range_key)[:20]
 
     anomalies = []
     for proto in protocols_data:
-        proto_name = proto.get('key') or proto.get('proto')
+        proto_num = proto.get('key') or proto.get('proto')
         proto_bytes = proto.get('bytes', 0)
 
-        baseline = threats_module._protocol_baseline.get(proto_name, {})
+        # Convert protocol number to name
+        try:
+            proto_name = PROTOS.get(int(proto_num), f"Proto {proto_num}")
+        except (ValueError, TypeError):
+            proto_name = str(proto_num)
+
+        baseline = threats_module._protocol_baseline.get(proto_num, {})
         avg = baseline.get('total_bytes', proto_bytes) / max(baseline.get('samples', 1), 1)
 
         deviation = (proto_bytes / avg) if avg > 0 else 1
@@ -2799,7 +2806,7 @@ def api_protocol_anomalies():
     anomalies.sort(key=lambda x: (not x['is_anomaly'], -x['deviation']))
 
     total_samples = sum(b.get('samples', 0) for b in threats_module._protocol_baseline.values())
-    status = 'warming' if total_samples < 50 else 'active'
+    status = 'warming' if total_samples < 10 else 'active'
 
     return jsonify({
         'protocols': anomalies,
