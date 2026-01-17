@@ -13,3 +13,7 @@
 ## 2026-01-22 - [Collapsible Sidebar Accessibility]
 **Learning:** Collapsible sidebars that hide text labels using `display: none` render the navigation buttons inaccessible to screen readers (who hear nothing or just an icon) and confusing for mouse users (no hover context).
 **Action:** Always add static `aria-label` and `title` attributes to sidebar navigation buttons. This ensures the accessible name persists even when the visual text label is hidden via CSS.
+
+## 2026-01-26 - [Dynamic Accessible Labels]
+**Learning:** For interactive elements with visual badges (like notification counts), ensuring the `aria-label` dynamically reflects the count is critical for screen reader users who cannot perceive the badge.
+**Action:** Use Alpine's `:aria-label` binding to include status/count information in the accessible name, e.g., `:aria-label="'Alerts (' + count + ' active)'"`.
