@@ -14,6 +14,7 @@ from app.core.state import (
     _shutdown_event,
     _common_data_lock,
     _common_data_cache,
+    add_app_log,
 )
 
 # Import config
@@ -113,9 +114,14 @@ def start_agg_thread():
                     _common_data_cache[f"ports:{range_key}:{win}"] = {"data": ports, "ts": now_ts, "win": win}
                     _common_data_cache[f"dests:{range_key}:{win}"] = {"data": dests, "ts": now_ts, "win": win}
                     _common_data_cache[f"protos:{range_key}:{win}"] = {"data": protos, "ts": now_ts, "win": win}
-            except Exception:
-                pass
-            time.sleep(60)
+            except Exception as e:
+                add_app_log(f"Agg thread error: {e}", 'ERROR')
+
+            # Align next run to the minute boundary to prevent drift
+            now = time.time()
+            next_minute = (int(now) // 60 + 1) * 60
+            sleep_time = max(1, next_minute - now)
+            _shutdown_event.wait(timeout=sleep_time)
 
     t = threading.Thread(target=loop, daemon=True)
     t.start()
