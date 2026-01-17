@@ -2551,8 +2551,11 @@ def api_bandwidth():
                 # Normal behavior (or single bucket)
                 # Use a reasonable number of workers to avoid overloading the system
                 # 8 workers allows decent parallelism without excessive context switching
-                with ThreadPoolExecutor(max_workers=8) as executor:
-                    list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+                try:
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+                except Exception as e:
+                    add_app_log(f"Bandwidth computation partial failure: {e}", 'WARN')
 
             # Re-fetch data after computation
             with _trends_db_lock:
