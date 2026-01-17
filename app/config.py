@@ -161,8 +161,15 @@ OFF_HOURS_THRESHOLD_MB = 100
 
 # Phase 2: Long-lived low-volume external flow detection thresholds
 # Detection: flows with duration > DURATION_THRESHOLD seconds AND bytes < BYTES_THRESHOLD AND external (not internal)
-LONG_LOW_DURATION_THRESHOLD = float(os.getenv('LONG_LOW_DURATION_THRESHOLD', '300'))  # 5 minutes default
-LONG_LOW_BYTES_THRESHOLD = int(os.getenv('LONG_LOW_BYTES_THRESHOLD', '100000'))  # 100 KB default
+try:
+    LONG_LOW_DURATION_THRESHOLD = float(os.getenv('LONG_LOW_DURATION_THRESHOLD', '300'))  # 5 minutes default
+except (ValueError, TypeError):
+    LONG_LOW_DURATION_THRESHOLD = 300.0
+
+try:
+    LONG_LOW_BYTES_THRESHOLD = int(os.getenv('LONG_LOW_BYTES_THRESHOLD', '100000'))  # 100 KB default
+except (ValueError, TypeError):
+    LONG_LOW_BYTES_THRESHOLD = 100000
 
 # Baseline tracking configuration
 BASELINE_WINDOW_SIZE = int(os.getenv('BASELINE_WINDOW_SIZE', '100'))  # Number of samples in rolling window

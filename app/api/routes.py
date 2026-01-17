@@ -7626,7 +7626,7 @@ def api_tools_reputation():
     """IP reputation check tool."""
     ip = request.args.get('ip', '')
     # Get threat feeds from app state if available
-    threat_feeds = getattr(current_app, 'threat_feeds', None) or _threat_ips
+    threat_feeds = getattr(current_app, 'threat_feeds', None) or threats_module.load_threatlist()
     result = check_reputation(ip, threat_feeds)
     return jsonify(result)
 
