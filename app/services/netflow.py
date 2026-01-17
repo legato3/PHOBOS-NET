@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX
 from app.utils.helpers import get_time_range
 
@@ -423,10 +424,17 @@ def get_merged_host_stats(range_key="24h", limit=1000):
             
     tf = get_time_range(range_key)
     
-    # Run two queries: Sources (TX) and Destinations (RX)
+    # Run two queries: Sources (TX) and Destinations (RX) in parallel
     # We ask for a higher limit to handle merging
-    src_rows = parse_csv(run_nfdump(["-s", "srcip/bytes/flows", "-n", str(limit * 2)], tf), expected_key='sa')
-    dst_rows = parse_csv(run_nfdump(["-s", "dstip/bytes/flows", "-n", str(limit * 2)], tf), expected_key='da')
+    src_cmd = ["-s", "srcip/bytes/flows", "-n", str(limit * 2)]
+    dst_cmd = ["-s", "dstip/bytes/flows", "-n", str(limit * 2)]
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_src = executor.submit(run_nfdump, src_cmd, tf)
+        future_dst = executor.submit(run_nfdump, dst_cmd, tf)
+        
+        src_rows = parse_csv(future_src.result(), expected_key='sa')
+        dst_rows = parse_csv(future_dst.result(), expected_key='da')
     
     hosts = {}
     
@@ -478,9 +486,11 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         if row.get("te") and (not hosts[ip]["last_seen"] or row.get("te") > hosts[ip]["last_seen"]):
              hosts[ip]["last_seen"] = row.get("te")
     
-    # Update host memory with first_seen timestamps
+    # Update host memory with first_seen timestamps (Async)
     from app.db.sqlite import update_host_memory, get_hosts_memory
-    update_host_memory(hosts)
+    
+    # Run update in background thread to avoid blocking
+    threading.Thread(target=update_host_memory, args=(hosts,), daemon=True).start()
     
     # Get persisted first_seen timestamps from memory
     ip_list = list(hosts.keys())
