@@ -50,6 +50,10 @@ scp -i "$SSH_KEY" ../scripts/gunicorn_config.py $USER@$SERVER:$REMOTE_DIR/script
 # Copy docker-data files
 scp -i "$SSH_KEY" ../docker-data/threat-feeds.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 scp -i "$SSH_KEY" ../docker-data/requirements.txt $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+# Copy GeoIP databases if present
+scp -i "$SSH_KEY" ../docker-data/GeoLite2-City.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+scp -i "$SSH_KEY" ../docker-data/GeoLite2-ASN.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
+scp -i "$SSH_KEY" ../docker-data/GeoLite2-Country.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
 if [ "$REBUILD" = true ]; then
     # Full rebuild (needed for Dockerfile/requirements.txt changes)
