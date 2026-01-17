@@ -21,8 +21,8 @@ OBS_ROUTE_SLOW_WARN_MS = float(os.getenv('OBS_ROUTE_SLOW_WARN_MS', '2000'))  # W
 OBS_SERVICE_SLOW_MS = float(os.getenv('OBS_SERVICE_SLOW_MS', '500'))  # Warn if service function > 500ms
 
 # Paths
-MMDB_CITY = "/root/GeoLite2-City.mmdb"
-MMDB_ASN = "/root/GeoLite2-ASN.mmdb"
+MMDB_CITY = os.environ.get("MMDB_CITY", "/app/data/GeoLite2-City.mmdb")
+MMDB_ASN = os.environ.get("MMDB_ASN", "/app/data/GeoLite2-ASN.mmdb")
 THREATLIST_PATH = "/root/threat-ips.txt"
 THREAT_FEED_URL_PATH = "/root/threat-feed.url"
 THREAT_WHITELIST = "/root/threat-whitelist.txt"
