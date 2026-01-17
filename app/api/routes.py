@@ -4945,10 +4945,14 @@ def api_protocol_anomalies():
     # Sort anomalies first, then by deviation
     anomalies.sort(key=lambda x: (not x['is_anomaly'], -x['deviation']))
 
+    total_samples = sum(b.get('samples', 0) for b in threats_module._protocol_baseline.values())
+    status = 'warming' if total_samples < 50 else 'active'
+
     return jsonify({
         'protocols': anomalies,
         'anomaly_count': sum(1 for a in anomalies if a['is_anomaly']),
-        'baseline_samples': sum(b.get('samples', 0) for b in threats_module._protocol_baseline.values())
+        'baseline_samples': total_samples,
+        'status': status
     })
 
 
@@ -5254,7 +5258,7 @@ def api_compromised_hosts():
         results.append({
             "ip": ip,
             "hostname": data["hostname"],
-            "role": "Victim" if data["direction"] == "inbound" else "Exfiltrator?",
+            "role": "Inbound from Threat" if data["direction"] == "inbound" else "Outbound to Threat",
             "direction": data["direction"],
             "threat_ip": data["top_threat"],
             "threat_count": threat_count,
@@ -5353,9 +5357,19 @@ def api_risk_index():
         risk_factors.append({'factor': 'Suspicious Ports', 'value': 'Normal', 'impact': 'low', 'points': 0})
 
     # Factor 5: External exposure (0-15 points)
-    # Simplified: assume some external exposure exists
-    risk_score += 5
-    risk_factors.append({'factor': 'External Traffic', 'value': 'Present', 'impact': 'medium', 'points': 5})
+    # Only penalize if significant external traffic is detected (> 50 MB)
+    try:
+        sources_data = get_common_nfdump_data("sources", "1h")
+        external_bytes = sum(s.get('bytes', 0) for s in sources_data if not s.get('internal', False) and not is_internal(s.get('key', '')))
+
+        if external_bytes > 50 * 1024 * 1024:  # > 50 MB
+            risk_score += 5
+            risk_factors.append({'factor': 'External Exposure', 'value': '> 50MB', 'impact': 'medium', 'points': 5})
+        else:
+            risk_factors.append({'factor': 'External Exposure', 'value': 'Low', 'impact': 'low', 'points': 0})
+    except Exception:
+        # Fallback if calculation fails
+        risk_factors.append({'factor': 'External Exposure', 'value': 'Unknown', 'impact': 'low', 'points': 0})
 
     # Calculate risk level
     if risk_score <= 15:

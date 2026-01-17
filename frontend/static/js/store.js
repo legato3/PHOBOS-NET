@@ -298,7 +298,7 @@ export const Store = () => ({
             securityObservability: 'Security Observability',
             alertHistory: 'Alert History',
             threatsByCountry: 'Threats by Country',
-            threatVelocity: 'Threat Velocity',
+            threatVelocity: 'Threat Trend (1h)',
             topThreatIPs: 'Top Threat IPs',
             riskIndex: 'Network Risk Index',
             conversations: 'Active Flows',
@@ -311,7 +311,7 @@ export const Store = () => ({
 
             netHealth: 'Network Health',
             insights: 'Traffic Insights',
-            mitreHeatmap: 'MITRE ATT&CK Coverage',
+            mitreHeatmap: 'Detected Techniques',
             protocolAnomalies: 'Protocol Anomalies',
             attackTimeline: 'Attack Timeline',
             recentBlocks: 'Firewall Logs'

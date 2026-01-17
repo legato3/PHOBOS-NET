@@ -511,8 +511,8 @@
                                         </button>
                                         <button class="world-map-mode-btn"
                                             :class="{ 'active': worldMapMode === 'attacks' }"
-                                            @click="worldMapMode = 'attacks'" title="Attacks view - emphasize threats">
-                                            Attacks
+                                            @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
+                                            Threats & Blocks
                                         </button>
                                     </div>
                                     <div class="world-map-layer-toggles">
@@ -1056,7 +1056,7 @@
 
                                 <!-- Threat Velocity Widget -->
                                 <template x-if="isVisible('threatVelocity')">
-                                    {% call widget_card('threatVelocity', 'Threat Velocity', '📈',
+                                    {% call widget_card('threatVelocity', 'Threat Trend (1h)', '📈',
                                     show_spinner=True) %}
                                     <div class="velocity-display">
                                         <div class="velocity-main">
@@ -1107,7 +1107,7 @@
                                                     </div>
                                                     <div class="compromised-role">
                                                         <span class="badge"
-                                                            :class="host.role === 'Exfiltrator?' ? 'badge-warn' : 'badge-danger'"
+                                                            :class="host.role && host.role.includes('Outbound') ? 'badge-warn' : 'badge-danger'"
                                                             x-text="host.role"></span>
                                                         <div class="text-xs text-muted" x-text="host.direction"></div>
                                                     </div>
@@ -1217,7 +1217,7 @@
 
                                 <!-- MITRE ATT&CK Coverage Widget -->
                                 <template x-if="isVisible('mitreHeatmap')">
-                                    {% call widget_card('mitreHeatmap', 'MITRE ATT&CK Coverage', '🎯',
+                                    {% call widget_card('mitreHeatmap', 'Detected Techniques', '🎯',
                                     show_spinner=True) %}
                                     <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                                         <div
@@ -1275,10 +1275,11 @@
                                     show_spinner=True) %}
                                     <div class="anomaly-summary"
                                         :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
-                                        <span x-show="protocolAnomalies.anomaly_count > 0" class="text-red">⚠️
+                                        <span x-show="protocolAnomalies.status === 'warming'" class="text-yellow" style="font-style:italic;">⚠️ Baseline Warming (learning phase)</span>
+                                        <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count > 0" class="text-red">⚠️
                                             <span x-text="protocolAnomalies.anomaly_count"></span> anomalies
                                             detected</span>
-                                        <span x-show="protocolAnomalies.anomaly_count === 0" class="text-green">✅ No
+                                        <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count === 0" class="text-green">✅ No
                                             anomalies</span>
                                     </div>
                                     <div class="protocol-anomaly-list">
@@ -1488,14 +1489,15 @@
                             <div class="grid mb-6 grid-auto-fit" style="margin-top: var(--space-4);">
                                 <!-- Health Score Stat Box -->
                                 <div class="card stat-box"
-                                    :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')">
+                                    :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
+                                    title="Score based on static thresholds for TCP resets, SYN floods, and ICMP traffic.">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span class="health-icon" x-text="netHealth.status_icon || '💚'"
                                             style="font-size: 1.2em;"></span>
                                         <span
                                             x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                                     </div>
-                                    <div class="label">Network Health
+                                    <div class="label">Network Health <span style="opacity:0.6; cursor:help;">ℹ️</span>
                                         <span
                                             x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                                             style="margin-left: 4px; font-weight: normal;"></span>
