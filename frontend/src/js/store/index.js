@@ -1601,7 +1601,7 @@ export const Store = () => ({
         // Trigger specific data loads based on visibility
         const now = Date.now();
 
-        if (sectionId === 'section-worldmap' && this.isVisible('worldMap')) {
+        if (sectionId === 'section-worldmap' && this.isVisible('worldmap')) {
             if (now - this.lastFetch.worldmap > this.heavyTTL) {
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
