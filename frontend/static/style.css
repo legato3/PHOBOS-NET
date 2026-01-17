@@ -584,7 +584,7 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     min-width: 0;
     padding: 0;
-        /* margin-left removed to fix alignment regression */
+    margin-left: var(--sidebar-width);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
@@ -594,7 +594,7 @@ body.sidebar-collapsed .layout-wrapper {
 }
 
 body.sidebar-collapsed .main-content {
-    /* margin-left removed for alignment fix */
+    margin-left: var(--sidebar-collapsed);
 }
 
 .content-scroll-area {
@@ -623,7 +623,7 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: 0;
+    left: var(--sidebar-width);
     z-index: 1001;
     transition: left var(--transition-base), border-color var(--transition-fast);
     /* Control surface feel: no flat grey */
