@@ -586,51 +586,125 @@ def api_stats_countries():
 @bp.route("/api/stats/worldmap")
 @throttle(5, 10)
 def api_stats_worldmap():
-    """World map data endpoint."""
+    """World map data endpoint with geo-located sources, destinations, and threats."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    
-    # Use existing worldmap lock/cache or countries cache
-    with _lock_worldmap:
-         # Note: _lock_worldmap and cache might not be defined in app_state if not migrated. 
-         # We can fail back to countries cache if needed of use independent cache.
-         # Let's verify _lock_worldmap in imports. It is imported (line 41).
-         pass
 
-    # Reuse api_stats_countries logic basically
-    # Or just call it? calling route functions is not ideal.
-    # Let's duplicate logic for now (it's cheap since it uses common cache)
-    
-    sources = get_common_nfdump_data("sources", range_key)[:100]
-    dests = get_common_nfdump_data("dests", range_key)[:100]
+    # Get source and destination data
+    sources_raw = get_common_nfdump_data("sources", range_key)[:100]
+    dests_raw = get_common_nfdump_data("dests", range_key)[:100]
 
-    country_bytes = {}
-    for item in sources + dests:
+    # Build sources with geo data
+    sources = []
+    source_countries = {}
+    for item in sources_raw:
         ip = item.get("key")
+        if not ip or is_internal(ip):
+            continue
         b = item.get("bytes", 0)
         geo = lookup_geo(ip) or {}
+        lat = geo.get('lat')
+        lng = geo.get('lng')
         iso = geo.get('country_iso') or '??'
-        name = geo.get('country') or 'Unknown'
+        country = geo.get('country') or 'Unknown'
+        if lat and lng:
+            sources.append({
+                "ip": ip,
+                "lat": lat,
+                "lng": lng,
+                "bytes": b,
+                "bytes_fmt": fmt_bytes(b),
+                "country": country,
+                "iso": iso
+            })
+        # Aggregate by country
         if iso != '??':
-            if iso not in country_bytes:
-                country_bytes[iso] = {"name": name, "iso": iso, "bytes": 0, "flows": 0}
-            country_bytes[iso]["bytes"] += b
-            country_bytes[iso]["flows"] += 1
-            
-    map_data = []
-    total_bytes = sum(c['bytes'] for c in country_bytes.values())
-    for iso, c in country_bytes.items():
-        map_data.append({
-            "iso": c['iso'],
-            "name": c['name'],
-            "bytes": c['bytes'],
-            "bytes_fmt": fmt_bytes(c['bytes']),
-            "flows": c['flows'],
-            "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
-        })
-        
-    return jsonify(map_data)
+            if iso not in source_countries:
+                source_countries[iso] = {"name": country, "iso": iso, "bytes": 0, "flows": 0}
+            source_countries[iso]["bytes"] += b
+            source_countries[iso]["flows"] += 1
+
+    # Build destinations with geo data
+    destinations = []
+    dest_countries = {}
+    for item in dests_raw:
+        ip = item.get("key")
+        if not ip or is_internal(ip):
+            continue
+        b = item.get("bytes", 0)
+        geo = lookup_geo(ip) or {}
+        lat = geo.get('lat')
+        lng = geo.get('lng')
+        iso = geo.get('country_iso') or '??'
+        country = geo.get('country') or 'Unknown'
+        if lat and lng:
+            destinations.append({
+                "ip": ip,
+                "lat": lat,
+                "lng": lng,
+                "bytes": b,
+                "bytes_fmt": fmt_bytes(b),
+                "country": country,
+                "iso": iso
+            })
+        # Aggregate by country
+        if iso != '??':
+            if iso not in dest_countries:
+                dest_countries[iso] = {"name": country, "iso": iso, "bytes": 0, "flows": 0}
+            dest_countries[iso]["bytes"] += b
+            dest_countries[iso]["flows"] += 1
+
+    # Get threat data if available
+    threats = []
+    threat_countries = {}
+    try:
+        threat_hits = threats_module._threat_hits if hasattr(threats_module, '_threat_hits') else []
+        for hit in list(threat_hits)[:50]:
+            ip = hit.get('ip') or hit.get('src_ip')
+            if not ip:
+                continue
+            geo = lookup_geo(ip) or {}
+            lat = geo.get('lat')
+            lng = geo.get('lng')
+            iso = geo.get('country_iso') or '??'
+            country = geo.get('country') or 'Unknown'
+            if lat and lng:
+                threats.append({
+                    "ip": ip,
+                    "lat": lat,
+                    "lng": lng,
+                    "feed": hit.get('feed', 'unknown'),
+                    "country": country,
+                    "iso": iso
+                })
+            if iso != '??':
+                if iso not in threat_countries:
+                    threat_countries[iso] = {"name": country, "iso": iso, "count": 0}
+                threat_countries[iso]["count"] += 1
+    except Exception:
+        pass
+
+    # Sort country lists by bytes/count
+    source_countries_list = sorted(source_countries.values(), key=lambda x: x['bytes'], reverse=True)
+    dest_countries_list = sorted(dest_countries.values(), key=lambda x: x['bytes'], reverse=True)
+    threat_countries_list = sorted(threat_countries.values(), key=lambda x: x['count'], reverse=True)
+
+    return jsonify({
+        "sources": sources,
+        "destinations": destinations,
+        "threats": threats,
+        "blocked": [],  # Placeholder for firewall blocked IPs
+        "source_countries": source_countries_list,
+        "dest_countries": dest_countries_list,
+        "threat_countries": threat_countries_list,
+        "blocked_countries": [],
+        "summary": {
+            "total_sources": len(sources),
+            "total_destinations": len(destinations),
+            "total_threats": len(threats),
+            "source_country_count": len(source_countries),
+            "dest_country_count": len(dest_countries)
+        }
+    })
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
 def api_stats_talkers():
