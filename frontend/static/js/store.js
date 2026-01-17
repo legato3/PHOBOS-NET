@@ -2166,7 +2166,7 @@ export const Store = () => ({
             const safeFetchFn = DashboardUtils?.safeFetch || fetch;
             const [statsRes, listRes] = await Promise.all([
                 safeFetchFn(`/api/hosts/stats`),
-                safeFetchFn(`/api/hosts/list?range=${this.timeRange}&limit=150`)
+                safeFetchFn(`/api/hosts/list?range=${this.timeRange}&limit=60`)
             ]);
 
             if (statsRes.ok && listRes.ok) {

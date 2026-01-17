@@ -414,9 +414,8 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     # PERFORMANCE: Cache result to avoid heavy nfdump 48h queries
     now = time.time()
     win = int(now // 60)
-    # Different cache key for different limits, though larger limit could satisfy smaller one.
-    # For now, keep it simple.
-    cache_key = f"merged_host_stats:{range_key}:{limit}:{win}"
+    # Use fixed cache key for traffic matrix (always request enough data)
+    cache_key = f"merged_host_stats:{range_key}:win"
     
     with _common_data_lock:
         if cache_key in _common_data_cache:
@@ -425,9 +424,10 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     tf = get_time_range(range_key)
     
     # Run two queries: Sources (TX) and Destinations (RX) in parallel
-    # We ask for a higher limit to handle merging
-    src_cmd = ["-s", "srcip/bytes/flows", "-n", str(limit * 2)]
-    dst_cmd = ["-s", "dstip/bytes/flows", "-n", str(limit * 2)]
+    # Fixed higher limit for traffic matrix cache efficiency
+    query_limit = max(200, limit * 2)  # Minimum 200 for matrix, 2x for safety
+    src_cmd = ["-s", "srcip/bytes/flows", "-n", str(query_limit)]
+    dst_cmd = ["-s", "dstip/bytes/flows", "-n", str(query_limit)]
     
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_src = executor.submit(run_nfdump, src_cmd, tf)
@@ -492,9 +492,9 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     # Run update in background thread to avoid blocking
     threading.Thread(target=update_host_memory, args=(hosts,), daemon=True).start()
     
-    # Get persisted first_seen timestamps from memory
+    # Get persisted first_seen timestamps from memory (batch query)
     ip_list = list(hosts.keys())
-    memory_data = get_hosts_memory(ip_list)
+    memory_data = get_hosts_memory(ip_list) if ip_list else {}
     
     # Convert to list and enrich
     import ipaddress
@@ -545,9 +545,8 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     # Sort by total volume
     result.sort(key=lambda x: x["total_bytes"], reverse=True)
     
-    final_result = result[:limit]
-    
     with _common_data_lock:
-        _common_data_cache[cache_key] = {"data": final_result, "ts": now}
+        # Cache the full result (not limit-sliced) for reuse
+        _common_data_cache[cache_key] = {"data": result, "ts": now}
         
-    return final_result
+    return result[:limit]
