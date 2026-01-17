@@ -1,0 +1,286 @@
+<div x-show="activeTab === 'firewall-snmp'"
+                        :style="activeTab === 'firewall-snmp' ? 'display:block' : 'display:none'" id="firewall-snmp-tab"
+                        role="tabpanel" aria-labelledby="firewall-snmp-tab-btn" tabindex="0">
+                        <section id="section-firewall-snmp" class="scroll-section" style="margin-bottom: 32px;">
+
+                            <!-- Loading State -->
+                            <template x-if="firewallSNMP.loading">
+                                <div class="empty-state">
+                                    <div class="loader">Loading firewall status...</div>
+                                </div>
+                            </template>
+
+                            <!-- Error State -->
+                            <template x-if="!firewallSNMP.loading && firewallSNMP.error && !firewallSNMP.poll_success">
+                                <div class="empty-state">
+                                    <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">⚠️
+                                    </div>
+                                    <p
+                                        style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                                        SNMP Unavailable</p>
+                                    <p style="font-size: var(--text-xs); color: var(--text-tertiary);"
+                                        x-text="firewallSNMP.error">
+                                    </p>
+                                </div>
+                            </template>
+
+                            <!-- Content -->
+                            <template x-if="!firewallSNMP.loading && firewallSNMP.poll_success">
+                                <div>
+                                    <!-- Top Stat Boxes -->
+                                    <div class="stat-grid"
+                                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
+                                        <!-- CPU Usage -->
+                                        <div class="stat-box">
+                                            <div class="stat-label">CPU Usage</div>
+                                            <div class="stat-value"
+                                                :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
+                                                x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : 'N/A'">
+                                            </div>
+                                            <div class="stat-desc" x-show="firewallSNMP.cpu_percent !== null">
+                                                <span
+                                                    x-text="firewallSNMP.cpu_percent < 50 ? 'Normal' : firewallSNMP.cpu_percent < 80 ? 'Elevated' : 'High'"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Memory Usage -->
+                                        <div class="stat-box">
+                                            <div class="stat-label">Memory Usage</div>
+                                            <div class="stat-value"
+                                                :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
+                                                x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : 'N/A'">
+                                            </div>
+                                            <div class="stat-desc" x-show="firewallSNMP.memory_percent !== null">
+                                                <span
+                                                    x-text="firewallSNMP.memory_percent < 70 ? 'Normal' : firewallSNMP.memory_percent < 85 ? 'Elevated' : 'High'"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Active Firewall Sessions -->
+                                        <div class="stat-box">
+                                            <div class="stat-label">Active Firewall Sessions</div>
+                                            <div class="stat-value"
+                                                x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : 'N/A'">
+                                            </div>
+                                            <div class="stat-desc">TCP connections</div>
+                                        </div>
+
+                                        <!-- Interface Throughput -->
+                                        <div class="stat-box">
+                                            <div class="stat-label">Total Throughput</div>
+                                            <div class="stat-value"
+                                                x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) + ' Mbps' : 'N/A'">
+                                            </div>
+                                            <div class="stat-desc">Aggregate RX + TX</div>
+                                        </div>
+
+                                        <!-- Uptime -->
+                                        <div class="stat-box">
+                                            <div class="stat-label">Uptime</div>
+                                            <div class="stat-value" style="font-size: var(--fs-sm);"
+                                                x-text="firewallSNMP.uptime_formatted || 'N/A'"></div>
+                                            <div class="stat-desc">System uptime</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Interface Table -->
+                                    <div class="card">
+                                        <h2>
+                                            <div class="card-title-content">
+                                                <span class="title-icon">🌐</span>
+                                                <span>Network Interfaces</span>
+                                            </div>
+                                        </h2>
+                                        <div class="widget-body">
+                                            <template
+                                                x-if="firewallSNMP.interfaces && firewallSNMP.interfaces.length > 0">
+                                                <div>
+                                                    <table class="table-fixed table-compact">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Interface</th>
+                                                                <th>Status</th>
+                                                                <th>RX Rate</th>
+                                                                <th>TX Rate</th>
+                                                                <th>Errors</th>
+                                                                <th>Drops</th>
+                                                                <th>Utilization</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="iface in firewallSNMP.interfaces"
+                                                                :key="iface.name">
+                                                                <tr>
+                                                                    <td><strong x-text="iface.name"></strong></td>
+                                                                    <td>
+                                                                        <span class="badge" :class="{ 
+                                                                    'badge-success': iface.status === 'up', 
+                                                                    'badge-error': iface.status === 'down',
+                                                                    'badge-warning': iface.status === 'stale' || iface.status === 'unknown' || iface.status === 'admin_down'
+                                                                }" x-text="iface.status === 'up' ? 'UP' : iface.status === 'down' ? 'DOWN' : iface.status === 'stale' ? 'STALE' : iface.status === 'admin_down' ? 'ADMIN DOWN' : 'UNKNOWN'"></span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span
+                                                                            x-show="iface.rx_mbps != null && iface.rx_mbps !== undefined"
+                                                                            x-text="(typeof iface.rx_mbps === 'number' ? iface.rx_mbps : 0).toFixed(2) + ' Mbps'"></span>
+                                                                        <span
+                                                                            x-show="iface.rx_mbps == null || iface.rx_mbps === undefined"
+                                                                            class="text-muted">—</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span
+                                                                            x-show="iface.tx_mbps != null && iface.tx_mbps !== undefined"
+                                                                            x-text="(typeof iface.tx_mbps === 'number' ? iface.tx_mbps : 0).toFixed(2) + ' Mbps'"></span>
+                                                                        <span
+                                                                            x-show="iface.tx_mbps == null || iface.tx_mbps === undefined"
+                                                                            class="text-muted">—</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <template
+                                                                            x-if="iface.rx_errors !== null && iface.rx_errors !== undefined && iface.tx_errors !== null && iface.tx_errors !== undefined">
+                                                                            <span
+                                                                                :class="{ 'text-warn': (iface.rx_errors + iface.tx_errors) > 0, 'text-muted': (iface.rx_errors + iface.tx_errors) === 0 }"
+                                                                                x-text="(iface.rx_errors + iface.tx_errors).toFixed(1) + '/s'"></span>
+                                                                        </template>
+                                                                        <template
+                                                                            x-if="iface.rx_errors === null || iface.rx_errors === undefined || iface.tx_errors === null || iface.tx_errors === undefined">
+                                                                            <span class="text-muted">—</span>
+                                                                        </template>
+                                                                    </td>
+                                                                    <td>
+                                                                        <template
+                                                                            x-if="iface.rx_drops !== null && iface.rx_drops !== undefined && iface.tx_drops !== null && iface.tx_drops !== undefined">
+                                                                            <span
+                                                                                :class="{ 'text-warn': (iface.rx_drops + iface.tx_drops) > 0, 'text-muted': (iface.rx_drops + iface.tx_drops) === 0 }"
+                                                                                x-text="(iface.rx_drops + iface.tx_drops).toFixed(1) + '/s'"></span>
+                                                                        </template>
+                                                                        <template
+                                                                            x-if="iface.rx_drops === null || iface.rx_drops === undefined || iface.tx_drops === null || iface.tx_drops === undefined">
+                                                                            <span class="text-muted">—</span>
+                                                                        </template>
+                                                                    </td>
+                                                                    <td>
+                                                                        <div
+                                                                            style="display: flex; align-items: center; gap: var(--space-2);">
+                                                                            <span x-show="iface.utilization != null"
+                                                                                :class="{ 'text-warn': iface.utilization > 80, 'text-crit': iface.utilization > 90, 'text-muted': iface.utilization <= 80 }"
+                                                                                x-text="(iface.utilization || 0).toFixed(1) + '%'"
+                                                                                :title="iface.speed_mbps ? 'Link speed: ' + iface.speed_mbps + ' Mbps' : ''"></span>
+                                                                            <span x-show="iface.utilization == null"
+                                                                                class="text-muted">—</span>
+                                                                            <!-- Utilization sparkline -->
+                                                                            <template
+                                                                                x-if="iface.utilization_history && iface.utilization_history.length >= 2">
+                                                                                <svg width="60" height="16"
+                                                                                    style="opacity: 0.5; margin-left: var(--space-1);"
+                                                                                    :title="'Utilization trend (' + iface.utilization_history.length + ' samples)'"
+                                                                                    x-effect="
+                                                                            if (iface.utilization_history && iface.utilization_history.length >= 2) {
+                                                                                const history = iface.utilization_history;
+                                                                                const width = 60;
+                                                                                const height = 16;
+                                                                                const maxVal = Math.max(...history, 1) || 1;
+                                                                                const points = history.map((val, idx) => {
+                                                                                    const x = idx * (width / Math.max(history.length - 1, 1));
+                                                                                    const y = height - (val / maxVal) * height;
+                                                                                    return x + ',' + y;
+                                                                                }).join(' ');
+                                                                                const polyline = $el.querySelector('polyline');
+                                                                                if (polyline) polyline.setAttribute('points', points);
+                                                                            }
+                                                                        ">
+                                                                                    <polyline fill="none"
+                                                                                        stroke="currentColor"
+                                                                                        stroke-width="1"
+                                                                                        style="color: var(--text-muted);">
+                                                                                    </polyline>
+                                                                                </svg>
+                                                                            </template>
+                                                                            <!-- Saturation hint -->
+                                                                            <template x-if="iface.saturation_hint">
+                                                                                <span class="text-muted"
+                                                                                    style="font-size: 0.85em; opacity: 0.7; margin-left: var(--space-2);"
+                                                                                    :title="'Sustained utilization above baseline: ' + iface.saturation_hint"
+                                                                                    x-text="'⚠ ' + iface.saturation_hint"></span>
+                                                                            </template>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </template>
+                                            <template
+                                                x-if="!firewallSNMP.interfaces || firewallSNMP.interfaces.length === 0">
+                                                <div class="empty-state">
+                                                    <p class="text-muted">No interface data available</p>
+                                                </div>
+                                            </template>
+
+                                            <!-- Traffic Correlation Status -->
+                                            <template
+                                                x-if="firewallSNMP.traffic_correlation && firewallSNMP.traffic_correlation.status">
+                                                <div
+                                                    style="margin-top: var(--space-4); padding: var(--space-3); background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius);">
+                                                    <div
+                                                        style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                                                        <span
+                                                            style="font-size: 0.9em; font-weight: var(--font-weight-semibold); color: var(--text-secondary);">Traffic
+                                                            Correlation (1h):</span>
+                                                        <span class="badge" :class="{
+                                                    'badge-success': firewallSNMP.traffic_correlation.status === 'aligned',
+                                                    'badge-warning': firewallSNMP.traffic_correlation.status === 'flow_heavy' || firewallSNMP.traffic_correlation.status === 'interface_heavy'
+                                                }" x-text="firewallSNMP.traffic_correlation.status === 'aligned' ? 'Aligned' : firewallSNMP.traffic_correlation.status === 'flow_heavy' ? 'Flow-heavy' : firewallSNMP.traffic_correlation.status === 'interface_heavy' ? 'Interface-heavy' : 'Unknown'"></span>
+                                                    </div>
+                                                    <template x-if="firewallSNMP.traffic_correlation.hint">
+                                                        <p style="font-size: 0.85em; color: var(--text-muted); margin: 0;"
+                                                            x-text="firewallSNMP.traffic_correlation.hint"></p>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        <!-- System Info Panel -->
+                                        <div class="card">
+                                            <h2>
+                                                <div class="card-title-content">
+                                                    <span class="title-icon">ℹ️</span>
+                                                    <span>System Information</span>
+                                                </div>
+                                            </h2>
+                                            <div class="widget-body">
+                                                <div
+                                                    style="display: flex; flex-direction: column; gap: var(--space-3);">
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span class="text-secondary">Uptime:</span>
+                                                        <span
+                                                            x-text="firewallSNMP.uptime_formatted || 'Unknown'"></span>
+                                                    </div>
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span class="text-secondary">Last SNMP Poll:</span>
+                                                        <span
+                                                            x-text="firewallSNMP.last_poll ? timeAgo(firewallSNMP.last_poll) : 'Never'"></span>
+                                                    </div>
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span class="text-secondary">SNMP Status:</span>
+                                                        <span class="badge"
+                                                            :class="{ 'badge-success': firewallSNMP.poll_success, 'badge-error': !firewallSNMP.poll_success }"
+                                                            x-text="firewallSNMP.poll_success ? 'ACTIVE' : 'ERROR'"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                            </template>
+
+                        </section>
+                    </div>
+
+                    <!-- ============================================
+             AI ASSISTANT TAB - Ollama Chat Interface
+             ============================================ -->

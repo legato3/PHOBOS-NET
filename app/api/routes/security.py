@@ -781,23 +781,6 @@ def api_discovery_scan():
         
     return jsonify(result)
 
-    hours = range_seconds / 3600
-    with _syslog_stats_lock:
-        receiver_stats = dict(_syslog_stats)
-    data = {
-        "blocks_total": blocks,
-        "blocks_per_hour": round(blocks / hours, 1) if hours > 0 else 0,
-        "passes_total": passes,
-        "unique_blocked_ips": unique_blocked,
-        "top_blocked_ports": top_ports,
-        "top_blocked_countries": top_countries,
-        "threat_hits": threat_hits,
-        "receiver_stats": receiver_stats
-    }
-    return jsonify(data)
-
-
-
 @bp.route("/api/firewall/logs/blocked")
 @throttle(5, 10)
 def api_firewall_logs_blocked():

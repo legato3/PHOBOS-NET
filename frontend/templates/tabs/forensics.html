@@ -1,632 +1,337 @@
-                                                    <span
-                                                        style="color:var(--text-muted); margin-left:4px; font-size: 0.8em;"
-                                                        x-text="flow.duration"></span>
+<div x-show="activeTab === 'forensics'"
+                        :style="activeTab === 'forensics' ? 'display:block' : 'display:none'" id="forensics-tab"
+                        role="tabpanel" aria-labelledby="forensics-tab-btn" tabindex="0">
+
+                        <!-- Timeline Analysis Section -->
+                        <section id="section-forensics-timeline" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>🔍 Timeline Analysis</span>
+                                    <div class="card-actions">
+                                        <input type="text" x-model="forensics.timeline.targetIp"
+                                            placeholder="Target IP (e.g., 192.168.1.100)"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <select x-model="forensics.timeline.timeRange" class="filter-select">
+                                            <option value="1h">Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h" selected>Last 24 Hours</option>
+                                            <option value="7d">Last 7 Days</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="generateTimeline()"
+                                            :disabled="!forensics.timeline.targetIp || forensics.timeline.loading">
+                                            <span x-show="!forensics.timeline.loading">Generate Timeline</span>
+                                            <span x-show="forensics.timeline.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.timeline.data = null"
+                                            title="Clear timeline">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.timeline.error" class="alert alert--danger"
+                                    style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.timeline.error"></span>
+                                </div>
+
+                                <div x-show="forensics.timeline.data" style="margin-top: 16px;">
+                                    <!-- Timeline Summary -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Summary</h3>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                            <div>
+                                                <div class="label">Target IP</div>
+                                                <div x-text="forensics.timeline.data.summary.target_ip"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Events</div>
+                                                <div x-text="forensics.timeline.data.summary.total_events"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Bytes</div>
+                                                <div
+                                                    x-text="DashboardUtils.formatBytes(forensics.timeline.data.summary.total_bytes)">
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                            <div x-show="flows.flows.length > (flows.viewLimit || 15)"
-                                style="margin-top: var(--space-2); padding: var(--space-2); background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--text-sm);">
-                                Showing <strong x-text="flows.viewLimit || 15"></strong> of <strong
-                                    x-text="flows.flows.length"></strong> flows. Use controls above to show more.
+                                            </div>
+                                            <div>
+                                                <div class="label">Suspicious Events</div>
+                                                <div x-text="forensics.timeline.data.summary.suspicious_events"
+                                                    :style="forensics.timeline.data.summary.suspicious_events > 0 ? 'color: var(--neon-red)' : 'color: var(--neon-green)'">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Timeline Events -->
+                                    <div class="card">
+                                        <h3>Timeline Events</h3>
+                                        <div style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table-fixed table-compact" style="width: 100%;">
+                                                <thead style="position: sticky; top: 0; background: #111;">
+                                                    <tr>
+                                                        <th style="padding: 8px;">Timestamp</th>
+                                                        <th style="padding: 8px;">Direction</th>
+                                                        <th style="padding: 8px;">Source IP</th>
+                                                        <th style="padding: 8px;">Dest IP</th>
+                                                        <th style="padding: 8px;">Port</th>
+                                                        <th style="padding: 8px;">Protocol</th>
+                                                        <th style="padding: 8px;">Bytes</th>
+                                                        <th style="padding: 8px;">Indicators</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="event in forensics.timeline.data.timeline"
+                                                        :key="event.timestamp">
+                                                        <tr
+                                                            :style="event.suspicious ? 'background: rgba(255, 0, 0, 0.1)' : ''">
+                                                            <td style="padding: 6px; font-size: 12px;"
+                                                                x-text="event.timestamp"></td>
+                                                            <td style="padding: 6px;">
+                                                                <span x-text="event.direction"
+                                                                    :style="event.direction === 'outbound' ? 'color: var(--neon-orange)' : 'color: var(--neon-cyan)'"></span>
+                                                            </td>
+                                                            <td style="padding: 6px; font-family: monospace;"
+                                                                x-text="event.src_ip"></td>
+                                                            <td style="padding: 6px; font-family: monospace;"
+                                                                x-text="event.dst_ip"></td>
+                                                            <td style="padding: 6px;"
+                                                                x-text="event.direction === 'outbound' ? event.dst_port : event.src_port">
+                                                            </td>
+                                                            <td style="padding: 6px;" x-text="event.protocol"></td>
+                                                            <td style="padding: 6px;"
+                                                                x-text="DashboardUtils.formatBytes(event.bytes)"></td>
+                                                            <td style="padding: 6px;">
+                                                                <template x-for="indicator in event.indicators"
+                                                                    :key="indicator">
+                                                                    <span class="badge badge--warning"
+                                                                        style="font-size: 10px; margin-right: 4px;"
+                                                                        x-text="indicator"></span>
+                                                                </template>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            {% endcall %}
+                        </section>
+
+                        <!-- Session Reconstruction Section -->
+                        <section id="section-forensics-session" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>🔗 Session Reconstruction</span>
+                                    <div class="card-actions">
+                                        <input type="text" x-model="forensics.session.srcIp" placeholder="Source IP"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <input type="text" x-model="forensics.session.dstIp"
+                                            placeholder="Destination IP"
+                                            style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                                        <select x-model="forensics.session.timeRange" class="filter-select">
+                                            <option value="1h" selected>Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h">Last 24 Hours</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="reconstructSession()"
+                                            :disabled="!forensics.session.srcIp || !forensics.session.dstIp || forensics.session.loading">
+                                            <span x-show="!forensics.session.loading">Reconstruct</span>
+                                            <span x-show="forensics.session.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.session.data = null"
+                                            title="Clear session">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.session.error" class="alert alert--danger"
+                                    style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.session.error"></span>
+                                </div>
+
+                                <div x-show="forensics.session.data" style="margin-top: 16px;">
+                                    <!-- Session Summary -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Session Summary</h3>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                            <div>
+                                                <div class="label">Communication</div>
+                                                <div
+                                                    x-text="forensics.session.data.summary.src_ip + ' → ' + forensics.session.data.summary.dst_ip">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Duration</div>
+                                                <div
+                                                    x-text="Math.round(forensics.session.data.summary.session_duration_seconds) + ' seconds'">
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Total Flows</div>
+                                                <div x-text="forensics.session.data.summary.total_flows"></div>
+                                            </div>
+                                            <div>
+                                                <div class="label">Data Volume</div>
+                                                <div
+                                                    x-text="DashboardUtils.formatBytes(forensics.session.data.summary.total_bytes)">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Session Flows -->
+                                    <div class="card">
+                                        <h3>Communication Flows</h3>
+                                        <div style="max-height: 300px; overflow-y: auto;">
+                                            <table class="table-fixed table-compact" style="width: 100%;">
+                                                <thead style="position: sticky; top: 0; background: #111;">
+                                                    <tr>
+                                                        <th style="padding: 8px;">Timestamp</th>
+                                                        <th style="padding: 8px;">Source Port</th>
+                                                        <th style="padding: 8px;">Dest Port</th>
+                                                        <th style="padding: 8px;">Protocol</th>
+                                                        <th style="padding: 8px;">Bytes</th>
+                                                        <th style="padding: 8px;">Packets</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="flow in forensics.session.data.flows"
+                                                        :key="flow.timestamp">
+                                                        <tr>
+                                                            <td style="padding: 6px; font-size: 12px;"
+                                                                x-text="flow.timestamp"></td>
+                                                            <td style="padding: 6px;" x-text="flow.src_port"></td>
+                                                            <td style="padding: 6px;" x-text="flow.dst_port"></td>
+                                                            <td style="padding: 6px;" x-text="flow.protocol"></td>
+                                                            <td style="padding: 6px;"
+                                                                x-text="DashboardUtils.formatBytes(flow.bytes)"></td>
+                                                            <td style="padding: 6px;" x-text="flow.packets"></td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Evidence Collection Section -->
+                        <section id="section-forensics-evidence" class="scroll-section" style="margin-bottom: 32px;">
+                            <div class="card">
+                                <h2>
+                                    <span>📦 Evidence Collection</span>
+                                    <div class="card-actions">
+                                        <select x-model="forensics.evidence.incidentType" class="filter-select">
+                                            <option value="general">General</option>
+                                            <option value="malware">Malware</option>
+                                            <option value="data_exfiltration">Data Exfiltration</option>
+                                            <option value="dos">Denial of Service</option>
+                                            <option value="scan">Scanning</option>
+                                        </select>
+                                        <textarea x-model="forensics.evidence.targetIpsString"
+                                            placeholder="Target IPs (one per line)"
+                                            style="width: 300px; height: 60px; padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary); font-family: monospace; font-size: 12px;"
+                                            @input="forensics.evidence.targetIps = $el.value.split('\\n').map(ip => ip.trim()).filter(ip => ip)"></textarea>
+                                        <select x-model="forensics.evidence.timeRange" class="filter-select">
+                                            <option value="1h">Last Hour</option>
+                                            <option value="6h">Last 6 Hours</option>
+                                            <option value="24h" selected>Last 24 Hours</option>
+                                            <option value="7d">Last 7 Days</option>
+                                        </select>
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                            <input type="checkbox" x-model="forensics.evidence.preserveData">
+                                            <span>Preserve Data</span>
+                                        </label>
+                                        <button class="btn btn--primary" @click="collectEvidence()"
+                                            :disabled="!forensics.evidence.targetIps.length || forensics.evidence.loading">
+                                            <span x-show="!forensics.evidence.loading">Collect Evidence</span>
+                                            <span x-show="forensics.evidence.loading">...</span>
+                                        </button>
+                                        <button class="btn btn--secondary" @click="forensics.evidence.report = null"
+                                            title="Clear report">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </h2>
+
+                                <div x-show="forensics.evidence.error" class="alert alert--danger"
+                                    style="margin: 16px 0;">
+                                    <strong>Error:</strong> <span x-text="forensics.evidence.error"></span>
+                                </div>
+
+                                <div x-show="forensics.evidence.report" style="margin-top: 16px;">
+                                    <!-- Evidence Report -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Evidence Report</h3>
+                                        <div style="margin-bottom: 16px;">
+                                            <strong>Incident Type:</strong> <span
+                                                x-text="forensics.evidence.report.incident_metadata.incident_type"></span><br>
+                                            <strong>Collection Time:</strong> <span
+                                                x-text="new Date(forensics.evidence.report.incident_metadata.collection_timestamp).toLocaleString()"></span><br>
+                                            <strong>Target IPs:</strong> <span
+                                                x-text="forensics.evidence.report.incident_metadata.target_ips.join(', ')"></span>
+                                        </div>
+
+                                        <h4>Chain of Custody</h4>
+                                        <div
+                                            style="background: rgba(0,255,0,0.1); padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                                            <div><strong>Collector:</strong> <span
+                                                    x-text="forensics.evidence.report.chain_of_custody.collector"></span>
+                                            </div>
+                                            <div><strong>Method:</strong> <span
+                                                    x-text="forensics.evidence.report.chain_of_custody.collection_method"></span>
+                                            </div>
+                                            <div><strong>Integrity Check:</strong> <span
+                                                    x-text="forensics.evidence.report.chain_of_custody.integrity_check"></span>
+                                            </div>
+                                            <div><strong>Preservation Status:</strong> <span
+                                                    x-text="forensics.evidence.report.chain_of_custody.preservation_status"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Evidence Items -->
+                                    <div class="card" style="margin-bottom: 16px;">
+                                        <h3>Evidence Items</h3>
+                                        <template x-for="item in forensics.evidence.report.evidence_items"
+                                            :key="item.type + item.target">
+                                            <div
+                                                style="background: var(--card-bg); padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid var(--neon-cyan);">
+                                                <div style="font-weight: bold;"
+                                                    x-text="item.type + ' - ' + item.target"></div>
+                                                <div style="font-size: 12px; color: var(--text-secondary);"
+                                                    x-text="item.description"></div>
+                                                <div style="font-size: 11px; margin-top: 4px;">
+                                                    <span x-text="'Records: ' + (item.record_count || 'N/A')"></span>
+                                                    <span x-show="item.preserved"
+                                                        style="color: var(--neon-green); margin-left: 12px;">✓
+                                                        Preserved</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Recommendations -->
+                                    <div class="card">
+                                        <h3>Investigation Recommendations</h3>
+                                        <ul style="margin: 0; padding-left: 20px;">
+                                            <template
+                                                x-for="recommendation in forensics.evidence.report.recommendations"
+                                                :key="recommendation">
+                                                <li style="margin-bottom: 4px;" x-text="recommendation"></li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
                         </section>
                     </div>
 
                     <!-- ============================================
-             SERVER TAB - Server Health & Statistics
+             TOOLS TAB - Network & Security Utilities
              ============================================ -->
-                    <div x-show="activeTab === 'server'"
-                        :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
-                        role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
-                        <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
-                            <!-- Loading State -->
-                            <template x-if="serverHealth.loading">
-                                <div class="empty-state">
-                                    <span>Loading server health data...</span>
-                                </div>
-                            </template>
-
-                            <!-- Error State -->
-                            <template x-if="serverHealth.error && !serverHealth.loading">
-                                <div class="empty-state" style="color: var(--neon-red);">
-                                    <span x-text="serverHealth.error"></span>
-                                </div>
-                            </template>
-
-                            <!-- Server Health Content - Reorganized into 4 Primary Widgets -->
-                            <template x-if="!serverHealth.loading && !serverHealth.error">
-                                <div class="grid"
-                                    style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
-
-                                    <!-- 1. System Health (Composite) -->
-                                    <div x-data="{ expanded: false }"
-                                        x-show="serverHealth.cpu || serverHealth.memory || serverHealth.disk">
-                                        {% set health_badge %}
-                                        <span class="server-stat-badge" :class="{
-                                            'badge-success': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80 && (serverHealth.disk?.root?.percent_used || 0) < 80,
-                                            'badge-warning': (serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 || (serverHealth.disk?.root?.percent_used || 0) >= 80,
-                                            'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 || (serverHealth.disk?.root?.percent_used || 0) >= 90
-                                        }">HEALTHY</span>
-                                        {% endset %}
-                                        <div class="card">
-                                            <h2>
-                                                <div class="card-title-content">
-                                                    <span class="title-icon">💚</span>
-                                                    <span>System Health</span>
-                                                </div>
-                                                <div class="card-actions">
-                                                    {{ health_badge | safe }}
-                                                </div>
-                                            </h2>
-                                            <div class="widget-body" style="min-height: 300px;">
-                                                <div x-show="!serverHealth.loading">
-                                                    <div class="server-stat-value" style="font-size: 1.1em;">
-                                                        <span
-                                                            x-show="serverHealth.cpu && serverHealth.cpu.percent !== undefined">
-                                                            CPU: <span :class="{
-                                                    'text-green': serverHealth.cpu.percent < 70,
-                                                    'text-yellow': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
-                                                    'text-red': serverHealth.cpu.percent >= 90
-                                                }" x-text="serverHealth.cpu.percent + '%'"></span>
-                                                        </span>
-                                                        <span
-                                                            x-show="serverHealth.memory && serverHealth.memory.percent !== undefined"
-                                                            style="margin-left: 12px;">
-                                                            MEM: <span :class="{
-                                                    'text-green': serverHealth.memory.percent < 80,
-                                                    'text-yellow': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
-                                                    'text-red': serverHealth.memory.percent >= 90
-                                                }" x-text="serverHealth.memory.percent + '%'"></span>
-                                                        </span>
-                                                        <span
-                                                            x-show="serverHealth.disk && serverHealth.disk.root && serverHealth.disk.root.percent_used !== undefined"
-                                                            style="margin-left: 12px;">
-                                                            DISK: <span :class="{
-                                                    'text-green': serverHealth.disk.root.percent_used < 80,
-                                                    'text-yellow': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
-                                                    'text-red': serverHealth.disk.root.percent_used >= 90
-                                                }" x-text="serverHealth.disk.root.percent_used + '%'"></span>
-                                                        </span>
-                                                    </div>
-                                                    <button @click="expanded = !expanded"
-                                                        style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
-                                                        <span
-                                                            x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
-                                                    </button>
-                                                    <div x-show="expanded" x-collapse
-                                                        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                        <div class="server-stat-details">
-                                                            <div
-                                                                x-show="serverHealth.system && serverHealth.system.hostname">
-                                                                <span>Hostname:</span>
-                                                                <span x-text="serverHealth.system.hostname"></span>
-                                                            </div>
-                                                            <div
-                                                                x-show="serverHealth.system && serverHealth.system.uptime_formatted">
-                                                                <span>Uptime:</span>
-                                                                <span
-                                                                    x-text="serverHealth.system.uptime_formatted"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.timestamp">
-                                                                <span>Last Update:</span>
-                                                                <span
-                                                                    x-text="serverHealth.timestamp ? new Date(serverHealth.timestamp).toLocaleString() : 'N/A'"></span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 2. CPU & Memory -->
-                                    <div x-data="{ expanded: false }"
-                                        x-show="(serverHealth.cpu && !serverHealth.cpu.error) || (serverHealth.memory && !serverHealth.memory.error)">
-                                        {% set cpu_mem_badge %}
-                                        <span class="server-stat-badge" :class="{
-                                            'badge-success': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
-                                            'badge-warning': (serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80,
-                                            'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
-                                        }">OK</span>
-                                        {% endset %}
-                                        <div class="card">
-                                            <h2>
-                                                <div class="card-title-content">
-                                                    <span class="title-icon">⚡💾</span>
-                                                    <span>CPU & Memory</span>
-                                                </div>
-                                                <div class="card-actions">
-                                                    {{ cpu_mem_badge | safe }}
-                                                </div>
-                                            </h2>
-                                            <div class="widget-body" style="min-height: 300px;">
-                                                <div x-show="!serverHealth.loading">
-                                                    <div
-                                                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                                                        <!-- CPU Summary -->
-                                                        <div x-show="serverHealth.cpu && !serverHealth.cpu.error">
-                                                            <div
-                                                                style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">
-                                                                CPU</div>
-                                                            <div class="server-stat-value"
-                                                                x-text="serverHealth.cpu.percent ? serverHealth.cpu.percent + '%' : 'N/A'">
-                                                            </div>
-                                                            <div class="server-stat-progress"
-                                                                x-show="serverHealth.cpu.percent !== undefined">
-                                                                <div class="server-stat-progress-bar" :class="{
-                                                        'warning': serverHealth.cpu.percent >= 70 && serverHealth.cpu.percent < 90,
-                                                        'error': serverHealth.cpu.percent >= 90
-                                                    }" :style="'width: ' + (serverHealth.cpu.percent || 0) + '%'">
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <!-- Memory Summary -->
-                                                        <div x-show="serverHealth.memory && !serverHealth.memory.error">
-                                                            <div
-                                                                style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">
-                                                                Memory</div>
-                                                            <div class="server-stat-value"
-                                                                x-text="serverHealth.memory.percent ? serverHealth.memory.percent + '%' : 'N/A'">
-                                                            </div>
-                                                            <div class="server-stat-progress"
-                                                                x-show="serverHealth.memory.percent !== undefined">
-                                                                <div class="server-stat-progress-bar" :class="{
-                                                        'warning': serverHealth.memory.percent >= 80 && serverHealth.memory.percent < 90,
-                                                        'error': serverHealth.memory.percent >= 90
-                                                    }" :style="'width: ' + (serverHealth.memory.percent || 0) + '%'">
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <button @click="expanded = !expanded"
-                                                        style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
-                                                        <span
-                                                            x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
-                                                    </button>
-                                                    <div x-show="expanded" x-collapse
-                                                        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                        <!-- CPU Details -->
-                                                        <div class="server-stat-details"
-                                                            x-show="serverHealth.cpu && serverHealth.cpu.load_1min">
-                                                            <div
-                                                                style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
-                                                                CPU Details</div>
-                                                            <div>
-                                                                <span>Load 1m:</span>
-                                                                <span x-text="serverHealth.cpu.load_1min"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Load 5m:</span>
-                                                                <span x-text="serverHealth.cpu.load_5min"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Load 15m:</span>
-                                                                <span x-text="serverHealth.cpu.load_15min"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.cpu.frequency_mhz">
-                                                                <span>Frequency:</span>
-                                                                <span
-                                                                    x-text="serverHealth.cpu.frequency_mhz + ' MHz'"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.cpu?.process_count">
-                                                                <span>Processes:</span>
-                                                                <span
-                                                                    x-text="serverHealth.cpu?.process_count?.toLocaleString()"></span>
-                                                            </div>
-                                                        </div>
-                                                        <!-- Memory Details -->
-                                                        <div class="server-stat-details"
-                                                            x-show="serverHealth.memory && serverHealth.memory.total_gb">
-                                                            <div
-                                                                style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
-                                                                Memory Details</div>
-                                                            <div>
-                                                                <span>Used:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.used_gb ? serverHealth.memory.used_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Available:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.available_gb ? serverHealth.memory.available_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Total:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.total_gb ? serverHealth.memory.total_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.memory.buffers_gb">
-                                                                <span>Buffers:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.buffers_gb + ' GB'"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.memory.cached_gb">
-                                                                <span>Cached:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.cached_gb + ' GB'"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.memory.process_mb">
-                                                                <span>Process:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.process_mb + ' MB'"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.memory.pressure">
-                                                                <span>Pressure:</span>
-                                                                <span :class="{
-                                                        'text-green': serverHealth.memory.pressure === 'low',
-                                                        'text-yellow': serverHealth.memory.pressure === 'medium',
-                                                        'text-red': serverHealth.memory.pressure === 'high'
-                                                    }" x-text="serverHealth.memory.pressure ? serverHealth.memory.pressure.toUpperCase() : 'N/A'"></span>
-                                                            </div>
-                                                            <div
-                                                                x-show="serverHealth.memory.swap_total_gb && serverHealth.memory.swap_total_gb > 0 && serverHealth.memory.swap_percent !== undefined">
-                                                                <span>Swap:</span>
-                                                                <span
-                                                                    x-text="serverHealth.memory.swap_percent + '%'"></span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 3. Network & NetFlow -->
-                                    <div x-data="{ 
-                                        expanded: false,
-                                        getPrimaryInterface() {
-                                            if (!serverHealth.network || !serverHealth.network.interfaces) return null;
-                                            const ifaces = serverHealth.network.interfaces;
-                                            // Prefer eth0, then eth1, then first non-loopback interface
-                                            let ifaceName = null;
-                                            let ifaceData = null;
-                                            if (ifaces['eth0']) {
-                                                ifaceName = 'eth0';
-                                                ifaceData = ifaces['eth0'];
-                                            } else if (ifaces['eth1']) {
-                                                ifaceName = 'eth1';
-                                                ifaceData = ifaces['eth1'];
-                                            } else {
-                                                const name = Object.keys(ifaces).find(n => n !== 'lo' && !n.startsWith('lo:'));
-                                                if (name) {
-                                                    ifaceName = name;
-                                                    ifaceData = ifaces[name];
-                                                }
-                                            }
-                                            if (!ifaceName || !ifaceData) return null;
-                                            return { name: ifaceName, data: ifaceData };
-                                        }
-                                    }"
-                                        x-show="(serverHealth.network && serverHealth.network.interfaces && Object.keys(serverHealth.network.interfaces).length > 0) || (serverHealth.netflow && !serverHealth.netflow.error)">
-                                        {% set network_badge %}
-                                        <span class="server-stat-badge" :class="{
-                                            'badge-success': serverHealth.netflow?.available,
-                                            'badge-error': serverHealth.netflow && !serverHealth.netflow.available
-                                        }" x-text="serverHealth.netflow?.available ? 'ONLINE' : 'ACTIVE'"></span>
-                                        {% endset %}
-                                        <div class="card">
-                                            <h2>
-                                                <div class="card-title-content">
-                                                    <span class="title-icon">🌐</span>
-                                                    <span>Network & NetFlow</span>
-                                                </div>
-                                                <div class="card-actions">
-                                                    {{ network_badge | safe }}
-                                                </div>
-                                            </h2>
-                                            <div class="widget-body" style="min-height: 300px;">
-                                                <div x-show="!serverHealth.loading">
-                                                    <div
-                                                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                                                        <!-- Network Summary -->
-                                                        <template x-if="getPrimaryInterface()">
-                                                            <div>
-                                                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;"
-                                                                    x-text="'Interface (' + getPrimaryInterface().name + ')'">
-                                                                </div>
-                                                                <div class="server-stat-value"
-                                                                    style="font-size: 0.9em;">
-                                                                    <div>RX: <span
-                                                                            x-text="getPrimaryInterface().data.rx_bytes ? fmtBytes(getPrimaryInterface().data.rx_bytes) : 'N/A'"></span>
-                                                                    </div>
-                                                                    <div style="margin-top: 4px;">TX: <span
-                                                                            x-text="getPrimaryInterface().data.tx_bytes ? fmtBytes(getPrimaryInterface().data.tx_bytes) : 'N/A'"></span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </template>
-                                                        <!-- NetFlow Summary -->
-                                                        <div
-                                                            x-show="serverHealth.netflow && !serverHealth.netflow.error">
-                                                            <div
-                                                                style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">
-                                                                NetFlow</div>
-                                                            <div class="server-stat-value"
-                                                                x-text="serverHealth.netflow.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() + ' files' : 'N/A'">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <button @click="expanded = !expanded"
-                                                        style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
-                                                        <span
-                                                            x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
-                                                    </button>
-                                                    <div x-show="expanded" x-collapse
-                                                        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                        <!-- Network Details -->
-                                                        <template x-if="getPrimaryInterface()">
-                                                            <div class="server-stat-details">
-                                                                <div style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);"
-                                                                    x-text="'Network Interface Details (' + getPrimaryInterface().name + ')'">
-                                                                </div>
-                                                                <div>
-                                                                    <span>RX:</span>
-                                                                    <span
-                                                                        x-text="getPrimaryInterface().data.rx_bytes ? fmtBytes(getPrimaryInterface().data.rx_bytes) : 'N/A'"></span>
-                                                                </div>
-                                                                <div>
-                                                                    <span>TX:</span>
-                                                                    <span
-                                                                        x-text="getPrimaryInterface().data.tx_bytes ? fmtBytes(getPrimaryInterface().data.tx_bytes) : 'N/A'"></span>
-                                                                </div>
-                                                                <div>
-                                                                    <span>RX Packets:</span>
-                                                                    <span
-                                                                        x-text="getPrimaryInterface().data.rx_packets ? getPrimaryInterface().data.rx_packets.toLocaleString() : '0'"></span>
-                                                                </div>
-                                                                <div>
-                                                                    <span>TX Packets:</span>
-                                                                    <span
-                                                                        x-text="getPrimaryInterface().data.tx_packets ? getPrimaryInterface().data.tx_packets.toLocaleString() : '0'"></span>
-                                                                </div>
-                                                            </div>
-                                                        </template>
-                                                        <!-- NetFlow Details -->
-                                                        <div class="server-stat-details"
-                                                            x-show="serverHealth.netflow && !serverHealth.netflow.error">
-                                                            <div
-                                                                style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
-                                                                NetFlow Details</div>
-                                                            <div x-show="serverHealth.netflow.version"
-                                                                style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                                                                <span style="flex-shrink: 0;">Version:</span>
-                                                                <span x-text="serverHealth.netflow.version"
-                                                                    style="font-size: 0.85em; word-break: break-word; white-space: normal; text-align: right; flex: 1;"></span>
-                                                            </div>
-                                                            <div x-show="serverHealth.netflow.directory">
-                                                                <span>Directory:</span>
-                                                                <span x-text="serverHealth.netflow.directory"
-                                                                    style="font-size: 0.85em;"></span>
-                                                            </div>
-                                                            <div
-                                                                x-show="serverHealth.netflow.files_count !== undefined">
-                                                                <span>Files:</span>
-                                                                <span
-                                                                    x-text="serverHealth.netflow.files_count.toLocaleString()"></span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 4. Storage & Database -->
-                                    <div x-data="{ expanded: false }"
-                                        x-show="(serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error) || databaseStats.databases?.length > 0">
-                                        {% set storage_badge %}
-                                        <span class="server-stat-badge" :class="{
-                                            'badge-success': (serverHealth.disk?.root?.percent_used || 0) < 80,
-                                            'badge-warning': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90,
-                                            'badge-error': (serverHealth.disk?.root?.percent_used || 0) >= 90
-                                        }"
-                                            x-text="serverHealth.disk?.root?.percent_used ? serverHealth.disk.root.percent_used + '%' : 'OK'"></span>
-                                        {% endset %}
-                                        <div class="card">
-                                            <h2>
-                                                <div class="card-title-content">
-                                                    <span class="title-icon">💿🗄️</span>
-                                                    <span>Storage & Database</span>
-                                                </div>
-                                                <div class="card-actions">
-                                                    {{ storage_badge | safe }}
-                                                </div>
-                                            </h2>
-                                            <div class="widget-body" style="min-height: 300px;">
-                                                <div x-show="!serverHealth.loading">
-                                                    <div
-                                                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                                                        <!-- Disk Summary -->
-                                                        <div
-                                                            x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
-                                                            <div
-                                                                style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">
-                                                                Disk (Root)</div>
-                                                            <div class="server-stat-value"
-                                                                x-text="serverHealth.disk.root.percent_used ? serverHealth.disk.root.percent_used + '%' : 'N/A'">
-                                                            </div>
-                                                            <div class="server-stat-progress"
-                                                                x-show="serverHealth.disk.root.percent_used !== undefined">
-                                                                <div class="server-stat-progress-bar" :class="{
-                                                        'warning': serverHealth.disk.root.percent_used >= 80 && serverHealth.disk.root.percent_used < 90,
-                                                        'error': serverHealth.disk.root.percent_used >= 90
-                                                    }" :style="'width: ' + (serverHealth.disk.root.percent_used || 0) + '%'">
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <!-- Database Summary -->
-                                                        <div
-                                                            x-show="databaseStats.databases && databaseStats.databases.length > 0">
-                                                            <div
-                                                                style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">
-                                                                SQLite Databases</div>
-                                                            <div class="server-stat-value"
-                                                                x-text="databaseStats.databases.length + ' databases'">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <button @click="expanded = !expanded"
-                                                        style="margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85em;">
-                                                        <span
-                                                            x-text="expanded ? '▼ Hide Details' : '▶ Show Details'"></span>
-                                                    </button>
-                                                    <div x-show="expanded" x-collapse
-                                                        style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                                        <!-- Disk Details -->
-                                                        <div class="server-stat-details"
-                                                            x-show="serverHealth.disk && serverHealth.disk.root && !serverHealth.disk.error">
-                                                            <div
-                                                                style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
-                                                                Disk Details</div>
-                                                            <div>
-                                                                <span>Used:</span>
-                                                                <span
-                                                                    x-text="serverHealth.disk.root.used_gb ? serverHealth.disk.root.used_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Free:</span>
-                                                                <span
-                                                                    x-text="serverHealth.disk.root.free_gb ? serverHealth.disk.root.free_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                            <div>
-                                                                <span>Total:</span>
-                                                                <span
-                                                                    x-text="serverHealth.disk.root.total_gb ? serverHealth.disk.root.total_gb + ' GB' : 'N/A'"></span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <!-- System Diagnostics (Collapsed by default) -->
-                            <template x-if="!serverHealth.loading && !serverHealth.error">
-                                <div x-data="{ expanded: false }" style="margin-top: 32px;">
-                                    <button @click="expanded = !expanded"
-                                        style="width: 100%; padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-size: 1.1em; font-weight: 600; text-align: left; display: flex; justify-content: space-between; align-items: center;">
-                                        <span>🔧 System Diagnostics</span>
-                                        <span x-text="expanded ? '▼' : '▶'" style="font-size: 0.9em;"></span>
-                                    </button>
-                                    <div x-show="expanded" x-collapse style="margin-top: 16px;">
-                                        <div class="grid"
-                                            style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                                            <!-- Full Syslog Widget -->
-                                            {% set syslog_badge %}
-                                            <span class="server-stat-badge" :class="{
-                                                'badge-success': serverHealth.syslog.active,
-                                                'badge-error': !serverHealth.syslog.active
-                                            }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                            {% endset %}
-                                            <div x-show="serverHealth.syslog && !serverHealth.syslog.error">
-                                                {% call widget_card('server_syslog', 'Syslog', '📝',
-                                                extra_actions=syslog_badge) %}
-                                                <div class="server-stat-value"
-                                                    x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'">
-                                                </div>
-                                                <div class="server-stat-details">
-                                                    <div>
-                                                        <span>Received:</span>
-                                                        <span
-                                                            x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div>
-                                                        <span>Parsed:</span>
-                                                        <span
-                                                            x-text="serverHealth.syslog.parsed ? serverHealth.syslog.parsed.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div>
-                                                        <span>Errors:</span>
-                                                        <span
-                                                            x-text="serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"
-                                                            :class="serverHealth.syslog.errors > 0 ? 'text-red' : ''"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.syslog.last_log">
-                                                        <span>Last Log:</span>
-                                                        <span
-                                                            x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
-                                                    </div>
-                                                </div>
-                                                {% endcall %}
-                                            </div>
-
-                                            <!-- Full Database Widget (old one) -->
-                                            {% set db_badge %}
-                                            <span class="server-stat-badge" :class="{
-                                                'badge-success': serverHealth.database.connected,
-                                                'badge-error': !serverHealth.database.connected
-                                            }"
-                                                x-text="serverHealth.database.connected ? 'CONNECTED' : 'DISCONNECTED'"></span>
-                                            {% endset %}
-                                            <div x-show="serverHealth.database">
-                                                {% call widget_card('server_database', 'Database', '🗄️',
-                                                extra_actions=db_badge) %}
-                                                <div class="server-stat-value"
-                                                    x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'">
-                                                </div>
-                                                <div class="server-stat-details">
-                                                    <div>
-                                                        <span>Logs:</span>
-                                                        <span
-                                                            x-text="serverHealth.database.log_count ? serverHealth.database.log_count.toLocaleString() : '0'"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.database.size_mb">
-                                                        <span>Size:</span>
-                                                        <span x-text="serverHealth.database.size_mb + ' MB'"></span>
-                                                    </div>
-                                                    <div
-                                                        x-show="serverHealth.database?.growth_rate_per_hour !== undefined">
-                                                        <span>Growth (1h):</span>
-                                                        <span
-                                                            x-text="(serverHealth.database?.growth_rate_per_hour || 0).toLocaleString() + ' logs'"></span>
-                                                    </div>
-                                                    <div
-                                                        x-show="serverHealth.database?.growth_rate_per_day !== undefined">
-                                                        <span>Growth (24h):</span>
-                                                        <span
-                                                            x-text="(serverHealth.database?.growth_rate_per_day || 0).toLocaleString() + ' logs'"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.database.path">
-                                                        <span>Path:</span>
-                                                        <span x-text="serverHealth.database.path"
-                                                            style="font-size: 0.85em;"></span>
-                                                    </div>
-                                                </div>
-                                                {% endcall %}
-                                            </div>
-
-                                            <!-- Full System Information -->
-                                            {% set system_badge %}
-                                            <span class="server-stat-badge badge-success">ONLINE</span>
-                                            {% endset %}
-                                            <div x-show="serverHealth.system && !serverHealth.system.error">
-                                                {% call widget_card('server_system', 'System', '🖥️',
-                                                extra_actions=system_badge) %}
-                                                <div class="server-stat-value"
-                                                    x-text="serverHealth.system.hostname || 'N/A'"
-                                                    style="font-size: 1.2em;"></div>
-                                                <div class="server-stat-details">
-                                                    <div x-show="serverHealth.system.uptime_formatted">
-                                                        <span>Uptime:</span>
-                                                        <span
-                                                            x-text="serverHealth.system.uptime_formatted || 'N/A'"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.system.uptime_seconds">
-                                                        <span>Total Uptime:</span>
-                                                        <span
-                                                            x-text="serverHealth.system.uptime_seconds ? Math.floor(serverHealth.system.uptime_seconds / 86400) + ' days' : 'N/A'"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.system.boot_time_formatted">
-                                                        <span>Boot Time:</span>
-                                                        <span x-text="serverHealth.system.boot_time_formatted"></span>
-                                                    </div>
-                                                    <div x-show="serverHealth.system.kernel_version">
-                                                        <span>Kernel:</span>
-                                                        <span x-text="serverHealth.system.kernel_version"
-                                                            style="font-size: 0.85em;"></span>
