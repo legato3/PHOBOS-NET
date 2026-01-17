@@ -340,8 +340,8 @@ body {
 /* CYBERPUNK UI: Sidebar - Signal navigation panel */
 .sidebar {
     grid-area: sidebar-header / sidebar-header / sidebar-nav / sidebar-nav;
-    display: grid;
-    grid-template-rows: var(--header-height) 1fr;
+    display: flex;
+    flex-direction: column;
     background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
@@ -350,7 +350,6 @@ body {
     overflow: hidden;
     transition: width var(--transition-base), border-color var(--transition-fast);
     z-index: 999;
-    /* No flat grey - signal panel styling */
 }
 
 .sidebar.collapsed {
@@ -360,18 +359,20 @@ body {
 /* CYBERPUNK UI: Sidebar header - Part of control surface */
 .sidebar-header {
     height: var(--header-height);
+    min-height: var(--header-height);
+    max-height: var(--header-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--space-4);
     flex-shrink: 0;
-    /* Match header: same background, blur, border */
     background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-soft);
     box-shadow: var(--shadow-soft);
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .sidebar-logo {
