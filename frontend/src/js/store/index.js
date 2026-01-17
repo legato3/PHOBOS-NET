@@ -11,6 +11,10 @@ export const Store = () => ({
     activeTab: 'overview',
     mapStatus: '', // Debug status for map loading
 
+    // Widget State
+    widgetVisibility: { ...DashboardWidgets.defaultVisibility },
+    minimizedWidgets: new Set(),
+
     // Server Widget Aliases (for macro compatibility)
     get server_cpu() { return { loading: this.serverHealth.loading }; },
     get server_memory() { return { loading: this.serverHealth.loading }; },

@@ -4,9 +4,9 @@
    ============================================ */
 
 /* Import cyberpunk tokens and base layout */
-@import url("css/tokens.css");
-@import url("css/base.css");
-@import url("css/compromised.css");
+@import url("tokens.css");
+@import url("base.css");
+@import url("compromised.css");
 
 :root {
     /* ============================================
