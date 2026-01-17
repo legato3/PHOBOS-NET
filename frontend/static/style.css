@@ -612,6 +612,7 @@ body.sidebar-collapsed .main-content {
     justify-content: space-between;
     align-items: center;
     padding: 0 var(--space-4);
+    padding-left: calc(var(--sidebar-width) + var(--space-4));
     height: var(--header-height);
     /* Control surface: glass effect with gradient background */
     background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
@@ -622,14 +623,14 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: var(--sidebar-width);
-    z-index: var(--z-header);
-    transition: left var(--transition-base), border-color var(--transition-fast);
+    left: 0;
+    z-index: 1001;
+    transition: padding-left var(--transition-base), border-color var(--transition-fast);
     /* Control surface feel: no flat grey */
 }
 
 body.sidebar-collapsed .header {
-    left: var(--sidebar-collapsed);
+    padding-left: calc(var(--sidebar-collapsed) + var(--space-4));
 }
 
 .header-left,
