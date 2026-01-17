@@ -226,9 +226,12 @@ def _insert_fw_log(parsed: dict, raw_log: str):
                 'mitre': mitre
             }
             # Use escalation and deduplication from threats module
-            from app.services.security.threats import _should_escalate_anomaly, _upsert_alert_to_history
+            from app.services.security.threats import _should_escalate_anomaly, _upsert_alert_to_history, update_threat_timeline
             if _should_escalate_anomaly(alert):
                 _upsert_alert_to_history(alert)
+            # Track threat IPs in timeline for Top Threat IPs widget
+            if is_threat:
+                update_threat_timeline(src_ip)
     
     # Add to buffer for batch insert
     log_tuple = (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],
