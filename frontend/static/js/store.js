@@ -178,7 +178,6 @@ export const Store = () => ({
     protocolHierarchy: { data: null, loading: true },
     trafficScatter: { data: null, loading: true },
     noiseMetrics: { score: 0, level: 'Low', total_flows: 0, noise_flows: 0, breakdown: {}, loading: true },
-    newDevices: { list: [], count: 0, loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
@@ -246,14 +245,14 @@ export const Store = () => ({
     },
 
     // Security Features
-    securityObservability: { 
-        overall_state: 'UNKNOWN', 
-        contributing_factors: [], 
-        protection_signals: [], 
-        exposure_signals: [], 
-        data_quality_signals: [], 
-        loading: true, 
-        last_updated: null 
+    securityObservability: {
+        overall_state: 'UNKNOWN',
+        contributing_factors: [],
+        protection_signals: [],
+        exposure_signals: [],
+        data_quality_signals: [],
+        loading: true,
+        last_updated: null
     },
     alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
@@ -1687,7 +1686,7 @@ export const Store = () => ({
                 this.fetchNetHealth();
                 this.lastFetch.network = now;
             }
-            
+
             // Always render charts when section is visible
             this.$nextTick(() => {
                 setTimeout(() => {
@@ -1772,9 +1771,7 @@ export const Store = () => ({
 
         // Fetch Overview Widgets (New)
         if (this.isVisible('talkers')) this.fetchTalkers();
-        if (this.isVisible('noiseMetrics')) this.fetchNoiseMetrics();
-        if (this.isVisible('newDevices')) this.fetchNewDevices();
-        
+
         // Also fetch protocol hierarchy if visible
         if (this.isVisible('protocolHierarchy')) {
             this.fetchProtocolHierarchy();
@@ -2214,10 +2211,21 @@ export const Store = () => ({
                 datasets: [{
                     label: 'Hosts',
                     data: dataPoints,
-                    backgroundColor: this.getCssVar('--neon-cyan') || '#00f3ff',
-                    borderColor: 'rgba(0, 243, 255, 0.5)',
-                    pointRadius: 5,
-                    pointHoverRadius: 8
+                    backgroundColor: (context) => {
+                        const pt = context.raw;
+                        if (!pt) return 'rgba(0, 243, 255, 0.6)';
+                        // Color scale based on upload/download ratio or just use primary color
+                        return pt.y > pt.x ? 'rgba(188, 19, 254, 0.7)' : 'rgba(0, 243, 255, 0.7)';
+                    },
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    pointRadius: (context) => {
+                        const pt = context.raw;
+                        if (!pt) return 5;
+                        // Size based on total traffic
+                        return Math.max(4, Math.min(12, Math.sqrt((pt.x + pt.y) / 1000000)));
+                    },
+                    pointHoverRadius: 15
                 }]
             },
             options: {
@@ -3795,10 +3803,10 @@ export const Store = () => ({
                     setTimeout(() => this.renderProtocolHierarchyChart(), 100);
                 });
             }
-        } catch (e) { 
-            console.error('fetchProtocolHierarchy error:', e); 
-        } finally { 
-            this.protocolHierarchy.loading = false; 
+        } catch (e) {
+            console.error('fetchProtocolHierarchy error:', e);
+        } finally {
+            this.protocolHierarchy.loading = false;
         }
     },
 
@@ -3817,7 +3825,21 @@ export const Store = () => ({
         const hierarchy = this.protocolHierarchy.data;
         const l4Labels = [];
         const l4Data = [];
-        const l4Colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00'];
+        // Helper to add alpha to hex colors (Cyberpunk Style)
+        const addAlpha = (hex, alpha) => {
+            if (!hex.startsWith('#')) return hex; // Fallback if not hex
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        const cyan = this.getCssVar('--neon-cyan') || '#00eaff';
+        const purple = this.getCssVar('--neon-purple') || '#bc13fe';
+        const green = this.getCssVar('--neon-green') || '#00ff88';
+        const yellow = this.getCssVar('--neon-yellow') || '#ffff00';
+
+        const l4Colors = [cyan, purple, green, yellow];
         const l4Backgrounds = [];
 
         const l7Labels = [];
@@ -3835,10 +3857,7 @@ export const Store = () => ({
                     l4.children.forEach(l7 => {
                         l7Labels.push(l7.name);
                         l7Data.push(l7.value);
-                        // Make L7 color a transparent version of L4 color
-                        l7Backgrounds.push(color.replace('1)', '0.6)').replace(')', ', 0.6)')); // Approximate transparency hack or use chroma.js if available
-                        // Actually just use same color but let segments verify
-                        l7Backgrounds.push(color);
+                        l7Backgrounds.push(addAlpha(color, 0.6));
                     });
                 }
             });
@@ -3852,25 +3871,33 @@ export const Store = () => ({
         _chartInstances['protocolHierarchy'] = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: l7Labels, // Tooltip shows L7 labels primarily
+                labels: l7Labels,
                 datasets: [
                     {
-                        label: 'Service',
+                        label: 'Service (L7)',
                         data: l7Data,
                         backgroundColor: l7Backgrounds,
-                        weight: 2
+                        borderColor: 'rgba(0,0,0,0.5)',
+                        borderWidth: 1,
+                        weight: 2,
+                        hoverOffset: 15
                     },
                     {
-                        label: 'Protocol',
+                        label: 'Protocol (L4)',
                         data: l4Data,
                         backgroundColor: l4Backgrounds,
-                        weight: 1
+                        borderColor: 'rgba(0,0,0,0.5)',
+                        borderWidth: 2,
+                        weight: 1,
+                        hoverOffset: 10
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '45%',
+                radius: '90%',
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -3896,24 +3923,6 @@ export const Store = () => ({
                 this.noiseMetrics = { ...data, loading: false };
             }
         } catch (e) { console.error(e); } finally { this.noiseMetrics.loading = false; }
-    },
-
-    async fetchNewDevices() {
-        this.newDevices.loading = true;
-        try {
-            // Re-use api_hosts_list but filter client-side for "new"
-            const res = await fetch(`/api/hosts/list?range=48h&limit=500`);
-            if (res.ok) {
-                const data = await res.json();
-                // Filter for is_new = true
-                const newHosts = data.filter(h => h.is_new);
-                this.newDevices = {
-                    list: newHosts.slice(0, 10), // Top 10
-                    count: newHosts.length,
-                    loading: false
-                };
-            }
-        } catch (e) { console.error(e); } finally { this.newDevices.loading = false; }
     },
 
     // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range
@@ -5910,6 +5919,7 @@ export const Store = () => ({
                 this.fetchASNs();
                 this.fetchCountries();
                 this.fetchTalkers();
+                this.fetchNoiseMetrics();
                 this.fetchServices();
                 this.fetchHourlyTraffic();
                 this.lastFetch.network = now;
@@ -6137,7 +6147,7 @@ export const Store = () => ({
 
         try {
             let response;
-            
+
             // Use specialized threat analysis endpoint for non-general analysis types
             if (this.ollamaChat.analysisType !== 'general' && this.ollamaChat.includeContext) {
                 const res = await fetch('/api/ollama/threat-analysis', {
