@@ -5,7 +5,7 @@ import time
 import os
 from datetime import datetime, timedelta
 from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH, FIREWALL_RETENTION_DAYS
-from app.services.netflow import run_nfdump, parse_csv
+from app.services.netflow.netflow import run_nfdump, parse_csv
 
 # Database locks
 _trends_db_lock = threading.Lock()

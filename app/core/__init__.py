@@ -1,6 +1,6 @@
 """Core modules for PROX_NFDUMP application."""
 # State module exports
-from .state import (
+from .app_state import (
     # Threading
     _shutdown_event,
     # Endpoint Locks

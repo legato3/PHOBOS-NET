@@ -1,0 +1,60 @@
+                                                </h3>
+
+                                                <!-- Stat Cards -->
+                                                <div
+                                                    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                                                    <!-- File Size -->
+                                                    <div
+                                                        style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div
+                                                            style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">
+                                                            File Size</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary); margin-bottom: 4px;"
+                                                            x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'">
+                                                        </div>
+                                                        <template x-if="db.size_history && db.size_history.length > 1">
+                                                            <canvas x-bind:id="'dbSparkline_' + db.name"
+                                                                style="width: 100%; height: 24px; display: block;"
+                                                                width="120" height="24"></canvas>
+                                                        </template>
+                                                    </div>
+
+                                                    <!-- Total Records -->
+                                                    <div
+                                                        style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div
+                                                            style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">
+                                                            Records</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary);"
+                                                            x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- WAL Status -->
+                                                    <div
+                                                        style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                                                        <div
+                                                            style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">
+                                                            WAL</div>
+                                                        <div style="font-size: 0.95em; color: var(--text-primary);">
+                                                            <template x-if="db.wal_exists">
+                                                                <span x-text="fmtBytes(db.wal_size)"></span>
+                                                            </template>
+                                                            <template
+                                                                x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'">
+                                                                <span
+                                                                    style="color: var(--text-secondary); opacity: 0.8;"
+                                                                    title="WAL mode enabled but no active WAL file (no pending transactions)">WAL
+                                                                    mode (idle)</span>
+                                                            </template>
+                                                            <template
+                                                                x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')">
+                                                                <span
+                                                                    style="color: var(--text-secondary); opacity: 0.7;"
+                                                                    title="WAL mode not enabled">Not enabled</span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Last Write -->
+                                                    <div

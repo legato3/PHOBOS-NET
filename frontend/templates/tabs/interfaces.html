@@ -1,0 +1,78 @@
+                                        placeholder="Search IP address..." class="search-box"
+                                        style="flex: 1; min-width: 200px; max-width: 300px;"
+                                        aria-label="Search by IP address">
+                                    <input type="text" x-model="recentBlocksFilter.port" placeholder="Filter by port..."
+                                        class="search-box" style="min-width: 120px; max-width: 150px;"
+                                        aria-label="Filter by port">
+                                    <select x-model="recentBlocksFilter.protocol" class="filter-select"
+                                        style="min-width: 120px;" aria-label="Filter by protocol">
+                                        <option value="all">All Protocols</option>
+                                        <option value="TCP">TCP</option>
+                                        <option value="UDP">UDP</option>
+                                        <option value="ICMP">ICMP</option>
+                                    </select>
+                                    <label
+                                        style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; white-space: nowrap;">
+                                        <input type="checkbox" x-model="recentBlocksFilter.threatOnly"
+                                            style="cursor: pointer;">
+                                        <span style="color: var(--text-secondary); font-size: var(--text-sm);">Threats
+                                            Only</span>
+                                    </label>
+                                    <button
+                                        @click="recentBlocksFilter = { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false }"
+                                        class="btn btn--secondary" style="white-space: nowrap;"
+                                        :disabled="recentBlocksFilter.action === 'all' && !recentBlocksFilter.searchIP && !recentBlocksFilter.port && recentBlocksFilter.protocol === 'all' && !recentBlocksFilter.threatOnly">
+                                        Clear Filters
+                                    </button>
+                                </div>
+
+                                <div class="log-table-wrapper">
+                                    <table class="table-fixed table-compact thead-sticky"
+                                        x-show="recentBlocks.blocks.length > 0">
+                                        <thead>
+                                            <tr>
+                                                <th class="w-16">Time</th>
+                                                <th class="w-13">Dir / IF</th>
+                                                <th class="w-22">Source</th>
+                                                <th class="w-4"></th>
+                                                <th style="width: 25%;">Destination</th>
+                                                <th style="width: 10%;">Protocol</th>
+                                                <th style="width: 10%;">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template
+                                                x-for="block in filteredRecentBlocks.slice(0, recentBlocksView || filteredRecentBlocks.length)"
+                                                :key="block.id || (block.src_ip + block.timestamp + block.dst_port)">
+                                                <tr @click="openEventDetails(block, 'firewall')"
+                                                    :class="{ 'log-row-threat': block.is_threat, 'log-row-pass': block.action === 'pass' }"
+                                                    style="cursor: pointer;">
+                                                    <td style="font-size: 0.85em; color: var(--text-muted);">
+                                                        <div style="font-family: monospace;"
+                                                            x-text="(block.timestamp || '').replace('T', ' ').split('.')[0] || block.timestamp">
+                                                        </div>
+                                                        <div class="log-sub" x-text="timeAgo(block.timestamp_ts)">
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="log-direction"
+                                                            :class="block.direction === 'in' ? 'text-green' : 'text-cyan'">
+                                                            <span
+                                                                x-text="(block.direction || 'in').toUpperCase()"></span>
+                                                            <span class="log-sub" x-text="block.interface || '-'"
+                                                                style="display:block;"></span>
+                                                        </div>
+                                                    </td>
+                                                    <td @click.stop="openEventDetails(block, 'firewall')"
+                                                        style="cursor: pointer;" title="Click to view event details">
+                                                        <div class="truncate"><strong class="text-green"
+                                                                x-text="block.src_ip || '--'"></strong>
+                                                        </div>
+                                                        <div class="log-sub"
+                                                            x-text="block.src_port ? 'Port ' + block.src_port : ''">
+                                                        </div>
+                                                    </td>
+                                                    <td style="text-align: center; color: var(--text-muted);">
+                                                        →
+                                                    </td>
+                                                    <td @click.stop="openEventDetails(block, 'firewall')"

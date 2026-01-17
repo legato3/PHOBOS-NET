@@ -13,14 +13,14 @@ import socket as socket_module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import shutdown event and log buffer from state module
-from app.core.state import _shutdown_event, add_app_log
+from app.core.app_state import _shutdown_event, add_app_log
 
 # Import thread functions
-from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread
+from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
 
-# Import syslog functions from app/services/syslog
+# Import syslog functions from app.services.shared.syslog
 try:
-    from app.services.syslog import start_syslog_thread, _flush_syslog_buffer
+    from app.services.shared.syslog import start_syslog_thread, _flush_syslog_buffer
 except ImportError as e:
     print(f"Warning: Could not import syslog functions: {e}")
     start_syslog_thread = None

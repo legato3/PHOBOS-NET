@@ -1,0 +1,852 @@
+                                        </div>
+                                        <div class="endpoint-grid-body">
+                                            <template x-for="(item, index) in filteredDestinations" :key="index">
+                                                <div @click="openIPModal(item.key)"
+                                                    class="network-endpoint-row grid-row" :data-row-rank="index"
+                                                    :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
+                                                    :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell">
+                                                            <!-- Primary: IP Address -->
+                                                            <div class="endpoint-primary-line">
+                                                                <strong x-text="item.key" class="endpoint-ip"></strong>
+                                                                <button class="icon-btn-small endpoint-filter-btn"
+                                                                    @click.stop="applyFilter(item.key)"
+                                                                    title="Filter / Details"
+                                                                    :aria-label="'View details for ' + item.key">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14"
+                                                                        height="14" viewBox="0 0 24 24" fill="none"
+                                                                        stroke="currentColor" stroke-width="2"
+                                                                        stroke-linecap="round" stroke-linejoin="round">
+                                                                        <circle cx="11" cy="11" r="8"></circle>
+                                                                        <line x1="21" y1="21" x2="16.65" y2="16.65">
+                                                                        </line>
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                            <!-- Secondary: Metadata with inline sparkline -->
+                                                            <div class="endpoint-meta-line">
+                                                                <span x-text="item.region"></span>
+                                                                <span
+                                                                    x-show="item.hostname && item.hostname !== item.key"
+                                                                    x-text="' • ' + item.hostname"></span>
+                                                                <span class="endpoint-meta-sparkline">
+                                                                    <canvas class="spark spark-subtle" width="80"
+                                                                        height="14" :data-ip="item.key"
+                                                                        data-kind="dest"></canvas>
+                                                                </span>
+                                                            </div>
+                                                            <!-- Supporting: Badges -->
+                                                            <div class="endpoint-badges">
+                                                                <span class="badge threat"
+                                                                    x-show="item.threat">THREAT</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="grid-td w-50">
+                                                        <div class="endpoint-cell endpoint-value-cell">
+                                                            <div class="endpoint-value"
+                                                                :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
+                                                                x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
+                                                            </div>
+                                                            <div class="endpoint-flows"
+                                                                x-text="(item.flows || 0) + ' flows'">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Protocol Hierarchy -->
+                                <template x-if="isVisible('protocolHierarchy')">
+                                    {% call widget_card('protocolHierarchy', 'Protocol Hierarchy', '🧬',
+                                    show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 300px; position: relative;">
+                                        <canvas id="protocolHierarchyChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-3">
+                                        <span class="badge"
+                                            style="background: rgba(0, 243, 255, 0.1); color: var(--neon-cyan); font-size: 0.7rem;">Inner:
+                                            Layer 4</span>
+                                        <span class="mx-2">•</span>
+                                        <span class="badge"
+                                            style="background: rgba(188, 19, 254, 0.1); color: var(--neon-purple); font-size: 0.7rem;">Outer:
+                                            Layer 7</span>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Traffic Distribution -->
+                                <template x-if="isVisible('trafficScatter')">
+                                    {% call widget_card('trafficScatter', 'Host Traffic Matrix', '💠',
+                                    show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 300px; position: relative;">
+                                        <canvas id="trafficScatterChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-3">
+                                        <span style="color: var(--neon-cyan)">↓ Download</span> (Log) vs
+                                        <span style="color: var(--neon-purple)">↑ Upload</span> (Log)
+                                    </div>
+                                    {% endcall %}
+                                </template>
+                                <!-- Top Ports -->
+                                <template x-if="isVisible('ports')">
+                                    {% set ports_actions %}
+                                    <div class="status-pills">
+                                        <span class="status-pill running">Running</span>
+                                    </div>
+                                    {% endset %}
+                                    {% call widget_card('ports', 'Top Ports', '🔌', extra_actions=ports_actions) %}
+                                    <table class="table-fixed table-compact">
+                                        <thead>
+                                            <tr>
+                                                <th class="w-70">Port</th>
+                                                <th class="w-30">Traffic</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(item, index) in (ports.ports || []).slice(0, 5)"
+                                                :key="index">
+                                                <tr :data-percentage="ports.ports.length > 0 && ports.ports[0]?.bytes ? Math.round((item.bytes / ports.ports[0].bytes) * 100) : 0"
+                                                    :style="'--row-percentage: ' + (ports.ports.length > 0 && ports.ports[0]?.bytes ? Math.round((item.bytes / ports.ports[0].bytes) * 100) : 0)">
+                                                    <td style="overflow: hidden;">
+                                                        <strong class="text-cyan" x-text="item.key"></strong>
+                                                        <div class="truncate text-9 text-muted" x-text="item.service"
+                                                            :title="item.service"></div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="text-green"
+                                                            x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                                        </div>
+                                                        <span class="badge suspicious"
+                                                            x-show="item.suspicious">SUSPICIOUS</span>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Top ASNs -->
+                                <template x-if="isVisible('asns')">
+                                    {% set asns_actions %}
+                                    <div class="status-pills">
+                                        <span class="status-pill running">Live</span>
+                                    </div>
+                                    {% endset %}
+                                    {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions) %}
+                                    <div class="widget-body-inner">
+                                        <template x-for="asn in asns.asns" :key="asn.asn">
+                                            <div class="asn-row">
+                                                <div class="asn-name" x-text="asn.asn" :title="asn.asn"
+                                                    style="color: var(--text-primary); font-weight: 500;"></div>
+                                                <div class="asn-bar-container">
+                                                    <div class="asn-bar"
+                                                        :style="'width:' + (asn.bytes / (asns.maxBytes||1) * 100) + '%'">
+                                                    </div>
+                                                </div>
+                                                <div class="asn-val" x-text="asn.bytes_fmt"
+                                                    style="color: var(--text-primary); font-weight: 500;"></div>
+                                            </div>
+                                        </template>
+                                        <div x-show="!asns.loading && (!asns.asns || asns.asns.length === 0)"
+                                            class="empty-state">No ASN data available</div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Top Countries -->
+                                <template x-if="isVisible('countries')">
+                                    {% set country_actions %}
+                                    <div class="status-pills">
+                                        <span class="status-pill running">Live</span>
+                                    </div>
+                                    {% endset %}
+                                    {% set country_footer %}
+                                    <button class="btn-view-all" @click="openExpandedTable('countries')">View
+                                        All</button>
+                                    {% endset %}
+                                    {% call widget_card('countries', 'Top Countries', '🌍',
+                                    extra_actions=country_actions,
+                                    footer_content=country_footer) %}
+                                    <div class="widget-body-inner">
+                                        <div class="chart-wrapper-small chart-expandable"
+                                            @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')"
+                                            title="Click to expand">
+                                            <canvas id="countriesChart"></canvas>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Top Talkers - MOVED TO FIREWALL TAB -->
+
+                                <!-- Top Services -->
+                                <template x-if="isVisible('services')">
+                                    {% set svc_actions %}
+                                    <div class="status-pills">
+                                        <span class="status-pill running">Live</span>
+                                    </div>
+                                    {% endset %}
+                                    {% set svc_footer %}
+                                    <button class="btn-view-all" @click="openExpandedTable('services')">View
+                                        All</button>
+                                    {% endset %}
+                                    {% call widget_card('services', 'Top Services', '🌐', extra_actions=svc_actions,
+                                    footer_content=svc_footer) %}
+                                    <div class="widget-body-inner">
+                                        <template x-for="svc in services.services" :key="svc.service">
+                                            <div class="service-row">
+                                                <div class="service-name" x-text="svc.service" :title="svc.service">
+                                                </div>
+                                                <div class="service-bar-container">
+                                                    <div class="service-bar" :style="'width:' + svc.pct + '%'">
+                                                    </div>
+                                                </div>
+                                                <div class="service-val" x-text="svc.bytes_fmt"></div>
+                                            </div>
+                                        </template>
+                                        <div x-show="!services.loading && (!services.services || services.services.length === 0)"
+                                            class="empty-state">No data</div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Traffic by Hour -->
+                                <template x-if="isVisible('hourlyTraffic')">
+                                    {% call widget_card('hourlyTraffic', 'Traffic by Hour', '⏰', show_spinner=True) %}
+                                    <div class="hourly-summary">
+                                        <div class="hourly-stat">
+                                            <span class="hourly-stat-value text-green"
+                                                x-text="hourlyTraffic.peak_hour + ':00'"></span>
+                                            <span class="hourly-stat-label">Peak Hour</span>
+                                        </div>
+                                        <div class="hourly-stat">
+                                            <span class="hourly-stat-value text-cyan"
+                                                x-text="hourlyTraffic.peak_bytes_fmt"></span>
+                                            <span class="hourly-stat-label">Peak Traffic</span>
+                                        </div>
+                                        <div class="hourly-stat">
+                                            <span class="hourly-stat-value"
+                                                x-text="hourlyTraffic.total_bytes_fmt"></span>
+                                            <span class="hourly-stat-label">24h Total</span>
+                                        </div>
+                                    </div>
+                                    <div class="chart-wrapper-small chart-expandable"
+                                        @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (24h)')"
+                                        title="Click to expand">
+                                        <canvas id="hourlyChart"></canvas>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- TCP Flags -->
+                                <template x-if="isVisible('flags')">
+                                    {% call widget_card('flags', 'TCP Flags', '🏳️', show_spinner=True) %}
+                                    <div class="chart-wrapper-small chart-expandable"
+                                        @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')"
+                                        title="Click to expand">
+                                        <canvas id="flagsChart"></canvas>
+                                    </div>
+                                    <!-- Custom legend with flag names and colors -->
+                                    <div class="flags-custom-legend"
+                                        style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; padding: 0 10px;">
+                                        <template x-for="(flag, idx) in flags.flags" :key="flag.flag">
+                                            <div class="flags-legend-item"
+                                                style="display: flex; align-items: center; gap: 6px;">
+                                                <span class="flags-legend-color"
+                                                    :style="'width: 12px; height: 12px; border-radius: 2px; background: ' + getFlagColor(idx) + ';'"></span>
+                                                <span style="color: var(--text-1); font-size: 0.85em;"
+                                                    x-text="flag.flag"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div
+                                        style="margin-top:10px; font-size:0.75em; color:var(--text-muted); line-height:1.4;">
+                                        <strong>Flags:</strong>
+                                        <span title="Acknowledge">AP=ACK+PSH</span> ·
+                                        <span title="Acknowledge">A=ACK</span> ·
+                                        <span title="ACK+PSH+SYN+FIN">APSF=ACK+PSH+SYN+FIN</span> ·
+                                        <span title="Reset">R=RST</span> ·
+                                        <span title="No flags">None</span>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Long Flows - MOVED TO FIREWALL TAB -->
+
+                                <!-- Packet Size Distribution -->
+                                <template x-if="isVisible('packetSizes')">
+                                    {% call widget_card('packetSizes', 'Packet Sizes', '📦', show_spinner=True) %}
+                                    <div class="chart-wrapper-small chart-expandable"
+                                        @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')"
+                                        title="Click to expand">
+                                        <canvas id="pktSizeChart"></canvas>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Protocols -->
+                                <template x-if="isVisible('protocols')">
+                                    {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True) %}
+                                    <div class="chart-wrapper-small chart-expandable"
+                                        style="margin-bottom: 12px; height: 160px;"
+                                        x-show="protoMix && protoMix.labels && protoMix.labels.length > 0"
+                                        @click="openFullscreenChart('protoMixChart', 'Protocol Distribution')"
+                                        title="Click to expand">
+                                        <canvas id="protoMixChart"></canvas>
+                                    </div>
+                                    <table class="table-fixed table-compact"
+                                        x-show="protocols.protocols && protocols.protocols.length > 0">
+                                        <thead>
+                                            <tr>
+                                                <th>Protocol</th>
+                                                <th>Stats</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(item, index) in protocols.protocols" :key="index">
+                                                <tr>
+                                                    <td>
+                                                        <strong class="text-cyan" x-text="item.proto_name"></strong>
+                                                    </td>
+                                                    <td>
+                                                        <div class="text-green"
+                                                            x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                                        </div>
+                                                        <div class="text-8 text-muted"
+                                                            x-text="Number(item.flows).toLocaleString() + ' flows'">
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                    <div x-show="!protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)"
+                                        class="empty-state">No protocol data available</div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Traffic Insights (Unified InsightPanel) -->
+                                <template x-if="isVisible('insights')">
+                                    {% call insight_panel('traffic', 'Traffic Insights', '💡', 'global_time_range') %}
+                                    <!-- Expanded View Content - Top 5 Talkers -->
+                                    <template x-if="sources.sources && sources.sources.length > 0">
+                                        <div style="margin-bottom: 16px;">
+                                            <div
+                                                style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
+                                                Top Talkers</div>
+                                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                <template x-for="(src, idx) in sources.sources.slice(0, 5)"
+                                                    :key="src.key">
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                        <span>
+                                                            <span class="clickable-ip"
+                                                                @click.stop="openIPModal(src.key)"
+                                                                style="color: var(--neon-cyan); cursor: pointer;"
+                                                                x-text="src.key"></span>
+                                                            <span
+                                                                style="color: var(--text-secondary); margin-left: 6px;"
+                                                                x-text="'(' + (src.bytes && summary.total_bytes ? ((src.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                        </span>
+                                                        <span style="color: var(--text-primary); font-weight: 500;"
+                                                            x-text="src.bytes_fmt || fmtBytes(src.bytes || 0)"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Top 5 Ports -->
+                                    <template x-if="ports.ports && ports.ports.length > 0">
+                                        <div style="margin-bottom: 16px;">
+                                            <div
+                                                style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
+                                                Top Ports</div>
+                                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                <template x-for="(port, idx) in ports.ports.slice(0, 5)"
+                                                    :key="port.key">
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                        <span>
+                                                            <span style="color: var(--text-primary);"
+                                                                x-text="'Port ' + port.key"></span>
+                                                            <span
+                                                                style="color: var(--text-secondary); margin-left: 6px;"
+                                                                x-text="port.service ? '(' + port.service + ')' : ''"></span>
+                                                            <span
+                                                                style="color: var(--text-secondary); margin-left: 6px;"
+                                                                x-text="'(' + (port.bytes && summary.total_bytes ? ((port.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                        </span>
+                                                        <span style="color: var(--text-primary); font-weight: 500;"
+                                                            x-text="port.bytes_fmt || fmtBytes(port.bytes || 0)"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Protocol Distribution -->
+                                    <template x-if="protocols.protocols && protocols.protocols.length > 0">
+                                        <div>
+                                            <div
+                                                style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
+                                                Protocol Distribution</div>
+                                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                <template x-for="(proto, idx) in protocols.protocols.slice(0, 5)"
+                                                    :key="proto.key">
+                                                    <div
+                                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
+                                                        <span>
+                                                            <span style="color: var(--text-primary);"
+                                                                x-text="proto.proto_name || proto.key"></span>
+                                                            <span
+                                                                style="color: var(--text-secondary); margin-left: 6px;"
+                                                                x-text="'(' + (proto.bytes && summary.total_bytes ? ((proto.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
+                                                        </span>
+                                                        <span style="color: var(--text-primary); font-weight: 500;"
+                                                            x-text="proto.bytes_fmt || fmtBytes(proto.bytes || 0)"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Flow Statistics -->
+                                <template x-if="isVisible('flowStats')">
+                                    {% call widget_card('flowStats', 'Flow Statistics', '📊', show_spinner=True) %}
+                                    <div class="flow-stats-grid">
+                                        <div class="flow-stat-item">
+                                            <span class="flow-stat-value text-cyan"
+                                                x-text="(flowStats.total_flows || 0).toLocaleString()"></span>
+                                            <span class="flow-stat-label">Total Flows</span>
+                                        </div>
+                                        <div class="flow-stat-item">
+                                            <span class="flow-stat-value text-green"
+                                                x-text="flowStats.avg_duration_fmt || '0s'"></span>
+                                            <span class="flow-stat-label">Avg Duration</span>
+                                        </div>
+                                        <div class="flow-stat-item">
+                                            <span class="flow-stat-value text-cyan"
+                                                x-text="flowStats.avg_bytes_fmt || '0 B'"></span>
+                                            <span class="flow-stat-label">Avg Size</span>
+                                        </div>
+                                        <div class="flow-stat-item">
+                                            <span class="flow-stat-value text-yellow"
+                                                x-text="(flowStats.bytes_per_packet || 0) + ' B'"></span>
+                                            <span class="flow-stat-label">Bytes/Pkt</span>
+                                        </div>
+                                    </div>
+                                    <div class="duration-dist" x-show="flowStats.duration_dist">
+                                        <div class="duration-dist-label">Duration Distribution:</div>
+                                        <div class="duration-dist-bars">
+                                            <div class="dist-bar-group">
+                                                <div class="dist-bar short"
+                                                    :style="'width:' + (flowStats.duration_dist?.short / (flowStats.total_flows || 1) * 100) + '%'">
+                                                </div>
+                                                <span class="dist-label">&lt;1s</span>
+                                            </div>
+                                            <div class="dist-bar-group">
+                                                <div class="dist-bar medium"
+                                                    :style="'width:' + (flowStats.duration_dist?.medium / (flowStats.total_flows || 1) * 100) + '%'">
+                                                </div>
+                                                <span class="dist-label">1s-1m</span>
+                                            </div>
+                                            <div class="dist-bar-group">
+                                                <div class="dist-bar long"
+                                                    :style="'width:' + (flowStats.duration_dist?.long / (flowStats.total_flows || 1) * 100) + '%'">
+                                                </div>
+                                                <span class="dist-label">&gt;1m</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+
+
+
+
+
+                            </div>
+                        </section>
+
+                    </div>
+
+                    <!-- ============================================
+                 HOSTS TAB
+                 ============================================ -->
+                    <div x-show="activeTab === 'hosts'"
+                        :style="activeTab === 'hosts' ? 'display:block' : 'display:none'" id="hosts-tab" class="fade-in"
+                        role="tabpanel" aria-labelledby="hosts-tab-btn" tabindex="0">
+
+                        <!-- Hosts Top Stats -->
+                        <section id="section-hosts-stats" class="mb-6">
+                            <div class="grid grid-auto-fit gap-4">
+                                <!-- Total Hosts -->
+                                <div class="card stat-box">
+                                    <div class="value"
+                                        x-text="hosts.loading ? '...' : (hosts.stats.total_hosts || 0).toLocaleString()">
+                                        ...</div>
+                                    <div class="label">Total Hosts (24h)</div>
+                                </div>
+                                <!-- Active Hosts -->
+                                <div class="card stat-box">
+                                    <div class="value"
+                                        x-text="hosts.loading ? '...' : (hosts.stats.active_hosts || 0).toLocaleString()">
+                                        ...</div>
+                                    <div class="label">Active Hosts (1h)</div>
+                                </div>
+                                <!-- New Hosts -->
+                                <div class="card stat-box">
+                                    <div class="value" x-text="hosts.loading ? '...' : hosts.stats.new_hosts">...</div>
+                                    <div class="label">New Hosts (24h)</div>
+                                </div>
+                                <!-- Anomalies -->
+                                <div class="card stat-box">
+                                    <div class="value" :class="{'text-red': hosts.stats.anomalies > 0}"
+                                        x-text="hosts.loading ? '...' : (hosts.stats.anomalies || 0).toLocaleString()">
+                                        ...</div>
+                                    <div class="label">Hosts with Anomalies</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Hosts Table -->
+                        <section id="section-hosts-list" class="scroll-section">
+                            {% call widget_card('hosts', 'Network Hosts', '🖥️', card_class='wide-card',
+                            show_spinner=True, extra_actions='
+                            <div class="flex gap-2">
+                                <button class="btn btn-sm"
+                                    :class="hosts.viewMode === \'observed\' ? \'btn-primary\' : \'btn-ghost\'"
+                                    @click="switchHostsView(\'observed\')">Observed</button>
+                                <button class="btn btn-sm"
+                                    :class="hosts.viewMode === \'discovered\' ? \'btn-primary\' : \'btn-ghost\'"
+                                    @click="switchHostsView(\'discovered\')">Discovered</button>
+                            </div>
+                            ') %}
+
+                            <!-- Discovery Controls -->
+                            <div x-show="hosts.viewMode === 'discovered'"
+                                class="mb-4 p-4 border rounded border-gray-700 bg-gray-900 bg-opacity-50">
+                                <div class="flex items-end gap-4">
+                                    <div class="form-control w-full max-w-xs">
+                                        <label class="label" for="discovery-target-subnet">
+                                            <span class="label-text">Target Subnet</span>
+                                        </label>
+                                        <select id="discovery-target-subnet"
+                                            class="select select-bordered select-sm w-full"
+                                            x-model="hosts.discovery.target" aria-label="Target Subnet">
+                                            <option value="" disabled selected>Select subnet</option>
+                                            <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
+                                                <option :value="net.cidr" x-text="net.interface + ' - ' + net.cidr">
+                                                </option>
+                                            </template>
+                                            <option value="custom">Custom...</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-control w-full max-w-xs"
+                                        x-show="hosts.discovery.target === 'custom'">
+                                        <label class="label">
+                                            <span class="label-text">Custom CIDR</span>
+                                        </label>
+                                        <input type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
+                                            class="input input-bordered input-sm w-full" />
+                                    </div>
+
+                                    <button class="btn btn-sm btn-primary" @click="runDiscoveryScan()"
+                                        :disabled="hosts.discovery.loading || !hosts.discovery.target">
+                                        <span x-show="hosts.discovery.loading"
+                                            class="loading loading-spinner text-primary"></span>
+                                        <span x-show="!hosts.discovery.loading">Scan Network</span>
+                                    </button>
+                                </div>
+                                <div x-show="hosts.discovery.error" class="text-error text-sm mt-2"
+                                    x-text="hosts.discovery.error"></div>
+                                <div x-show="hosts.discovery.results" class="text-success text-sm mt-2">
+                                    Last scan: <span
+                                        x-text="new Date(hosts.discovery.results?.scanned_at).toLocaleTimeString()"></span>
+                                    - Found <span x-text="hosts.discovery.results?.count"></span> hosts
+                                </div>
+                            </div>
+
+                            <!-- Observed Hosts Table -->
+                            <div x-show="hosts.viewMode === 'observed'">
+                                <div x-show="!hosts.loading && (!hosts.list || hosts.list.length === 0)"
+                                    class="empty-state">
+                                    <div style="font-size: 32px; margin-bottom: var(--space-2);">🔍</div>
+                                    <p>No hosts observed in the selected time range.</p>
+                                </div>
+
+                                <div class="table-container" x-show="hosts.list && hosts.list.length > 0">
+                                    <table class="table-fixed table-compact thead-sticky">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 25%">Host</th>
+                                                <th style="width: 10%">Type</th>
+                                                <th style="width: 15%">First Seen</th>
+                                                <th style="width: 15%">Last Seen</th>
+                                                <th style="width: 15%">Volume</th>
+                                                <th style="width: 10%">Flows</th>
+                                                <th style="width: 10%">Flags</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="host in hosts.list" :key="host.ip">
+                                                <tr @click="openHostDetail(host.ip)" style="cursor: pointer;">
+                                                    <td>
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="font-mono text-cyan" x-text="host.ip"></div>
+                                                            <!-- Subtle new host indicator -->
+                                                            <template x-if="host.is_new">
+                                                                <span class="host-new-indicator"
+                                                                    title="New host (first seen within 24h)">🆕</span>
+                                                            </template>
+                                                        </div>
+                                                        <!-- Optional hostname if available in future -->
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge"
+                                                            :class="isInternalIP(host.ip) ? 'cat-lateral-movement' : 'cat-new-country'"
+                                                            x-text="isInternalIP(host.ip) ? 'INTERNAL' : 'EXTERNAL'">
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-sm text-muted"
+                                                        x-text="formatFlowTimestamp(host.first_seen)">
+                                                    </td>
+                                                    <td class="text-sm text-muted"
+                                                        x-text="formatFlowTimestamp(host.last_seen)"></td>
+                                                    <td>
+                                                        <div x-text="fmtBytes(host.total_bytes)"></div>
+                                                        <div class="text-xs text-muted"
+                                                            x-text="'RX: ' + fmtBytes(host.rx_bytes) + ' | TX: ' + fmtBytes(host.tx_bytes)">
+                                                        </div>
+                                                    </td>
+                                                    <td x-text="(host.rx_flows + host.tx_flows).toLocaleString()"></td>
+                                                    <td>
+                                                        <!-- Flags -->
+                                                        <div class="flex gap-1">
+                                                            <template
+                                                                x-if="isInternalIP(host.ip) && host.tx_bytes > host.rx_bytes * 10">
+                                                                <span title="High Upload (Internal)">📤</span>
+                                                            </template>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Discovered Hosts Table -->
+                            <div x-show="hosts.viewMode === 'discovered'">
+                                <div x-show="!hosts.discovery.results || !hosts.discovery.results.hosts || hosts.discovery.results.hosts.length === 0"
+                                    class="empty-state">
+                                    <div style="font-size: 32px; margin-bottom: var(--space-2);">🎯</div>
+                                    <p>Scan a subnet to discover active hosts.</p>
+                                </div>
+
+                                <div class="table-container"
+                                    x-show="hosts.discovery.results && hosts.discovery.results.hosts && hosts.discovery.results.hosts.length > 0">
+                                    <table class="table-fixed table-compact thead-sticky">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 20%">IP Address</th>
+                                                <th style="width: 20%">MAC Address</th>
+                                                <th style="width: 30%">Vendor</th>
+                                                <th style="width: 15%">Status</th>
+                                                <th style="width: 15%">Last Seen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="host in hosts.discovery.results?.hosts" :key="host.ip">
+                                                <tr class="hover:bg-gray-800 cursor-pointer"
+                                                    @click="openHostDetail(host.ip, { mac: host.mac, vendor: host.vendor, hostname: host.hostname })">
+                                                    <td class="font-mono text-cyan" x-text="host.ip"></td>
+                                                    <td class="font-mono text-xs" x-text="host.mac"></td>
+                                                    <td class="text-xs text-muted" x-text="host.vendor"></td>
+                                                    <td>
+                                                        <span class="badge badge-success" x-text="host.status"></span>
+                                                    </td>
+                                                    <td class="text-xs text-muted"
+                                                        x-text="new Date(host.last_seen).toLocaleTimeString()"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endcall %}
+                        </section>
+
+                    </div>
+                    <!-- ============================================
+             FIREWALL TAB - Investigation & Incident Response
+             ============================================ -->
+                    <div x-show="activeTab === 'firewall'"
+                        :style="activeTab === 'firewall' ? 'display:block' : 'display:none'" id="firewall-tab"
+                        role="tabpanel" aria-labelledby="firewall-tab-btn" tabindex="0">
+
+                        <!-- Firewall Stats Overview (4 stat boxes) -->
+                        <div class="grid mb-6 grid-auto-fit">
+                            <div class="card stat-box">
+                                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                    <span
+                                        x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
+                                    <template
+                                        x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
+                                        <span
+                                            :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                            x-text="firewallStatsOverview.trends.blocked_events.indicator"
+                                            :title="'Since last hour: ' + (firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                    </template>
+                                </div>
+                                <div class="label">Blocked Events (24h)</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value"
+                                    x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.unique_blocked_sources || 0).toLocaleString()">
+                                    ...</div>
+                                <div class="label">Unique Blocked Sources</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value"
+                                    x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.new_blocked_ips || 0).toLocaleString()">
+                                    ...</div>
+                                <div class="label">New Blocked IPs</div>
+                            </div>
+                            <div class="card stat-box">
+                                <div class="value" style="font-size: 0.9em;"
+                                    x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.top_block_reason || 'N/A')">
+                                    ...</div>
+                                <div class="label">Top Block Reason</div>
+                                <div x-show="!firewallStatsOverview.loading && firewallStatsOverview.top_block_count > 0"
+                                    style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);"
+                                    x-text="'(' + (firewallStatsOverview.top_block_count || 0).toLocaleString() + ' times)'">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- IP Investigation - Compact Top Menu -->
+                        <div class="card"
+                            style="margin-bottom: var(--space-4); padding: var(--space-2) var(--space-3); background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15);">
+                            <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+                                <span
+                                    style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap;">🔍
+                                    IP Investigation:</span>
+                                <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()"
+                                    aria-label="IP address to investigate" placeholder="IP, hostname, or domain..."
+                                    class="search-box"
+                                    style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-1) var(--space-2);">
+                                <button @click="investigateIP()" class="btn btn--primary"
+                                    :disabled="!ipInvestigation.searchIP.trim() || ipInvestigation.loading"
+                                    style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); white-space: nowrap;">
+                                    <span x-show="!ipInvestigation.loading">Investigate</span>
+                                    <span x-show="ipInvestigation.loading">Loading...</span>
+                                </button>
+                                <div class="spinner" x-show="ipInvestigation.loading"
+                                    style="width: 14px; height: 14px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========================================
+     FIREWALL LOGS (Moved from Security)
+     ======================================== -->
+                        <section id="section-firewall-forensics" class="scroll-section">
+                            <!-- Firewall Logs Widget -->
+                            <!-- Firewall Logs Widget -->
+                            {% set fw_actions %}
+                            <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
+                                <button class="icon-btn-small"
+                                    @click="recentBlocksAutoRefresh = !recentBlocksAutoRefresh; toggleRecentBlocksAutoRefresh()"
+                                    title="Toggle auto-refresh"
+                                    :title="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
+                                    :aria-label="recentBlocksAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
+                                    :style="recentBlocksAutoRefresh ? 'color: var(--signal-crit);' : 'color: var(--text-muted);'">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" x-show="recentBlocksAutoRefresh">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" x-show="!recentBlocksAutoRefresh">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="10" y1="8" x2="10" y2="16"></line>
+                                        <line x1="14" y1="8" x2="14" y2="16"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% endset %}
+                            {% call widget_card('recentBlocks', 'Firewall Logs', '🔥', card_class='wide-card',
+                            extra_actions=fw_actions, show_spinner=True) %}
+                            <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="empty-state">
+                                <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">✅</div>
+                                <p
+                                    style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                                    No firewall logs yet</p>
+                                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">The firewall has not
+                                    blocked any recent traffic.</p>
+                            </div>
+                            <div x-show="recentBlocks.blocks.length > 0">
+                                <div class="log-toolbar">
+                                    <div class="log-chips">
+                                        <span class="log-chip"><strong
+                                                x-text="(recentBlocks.stats?.total || recentBlocks.blocks.length).toLocaleString()"></strong>
+                                            Logs</span>
+                                        <span class="log-chip log-chip-red"><strong
+                                                x-text="((recentBlocks.stats?.actions?.block || 0) + (recentBlocks.stats?.actions?.reject || 0)).toLocaleString()"></strong>
+                                            Block/Reject</span>
+                                        <span class="log-chip log-chip-green"><strong
+                                                x-text="(recentBlocks.stats?.actions?.pass || 0).toLocaleString()"></strong>
+                                            Pass</span>
+                                        <span class="log-chip log-chip-pink"><strong
+                                                x-text="(recentBlocks.stats?.threats || 0).toLocaleString()"></strong>
+                                            Threat</span>
+                                        <span class="log-chip log-chip-slate"><strong
+                                                x-text="(recentBlocks.stats?.unique_src || 0).toLocaleString()"></strong>
+                                            Src</span>
+                                        <span class="log-chip log-chip-slate"><strong
+                                                x-text="(recentBlocks.stats?.unique_dst || 0).toLocaleString()"></strong>
+                                            Dst</span>
+                                    </div>
+                                    <div class="log-controls">
+                                        <span class="log-count"
+                                            x-text="'Showing ' + Math.min(recentBlocksView || filteredRecentBlocks.length, filteredRecentBlocks.length).toLocaleString() + ' / ' + (filteredRecentBlocks.length || 0).toLocaleString() + ' (of ' + (recentBlocks.blocks.length || 0).toLocaleString() + ' total)'"></span>
+                                        <span class="log-update-time" x-show="recentBlocks.lastUpdate"
+                                            :title="recentBlocks.lastUpdate"
+                                            x-text="'Updated ' + timeAgo(new Date(recentBlocks.lastUpdate).getTime() / 1000)"></span>
+                                        <div class="log-range">
+                                            <button :class="{ 'active': recentBlocksView === 50 }"
+                                                @click="setRecentBlocksView(50)">50</button>
+                                            <button :class="{ 'active': recentBlocksView === 200 }"
+                                                @click="setRecentBlocksView(200)">200</button>
+                                            <button :class="{ 'active': recentBlocksView === 1000 }"
+                                                @click="setRecentBlocksView(1000)">1000</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Enhanced Filters -->
+                                <div class="log-filters"
+                                    style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.05);">
+                                    <select x-model="recentBlocksFilter.action" class="filter-select"
+                                        style="min-width: 120px;" aria-label="Filter by action">
+                                        <option value="all">All Actions</option>
+                                        <option value="block">Block</option>
+                                        <option value="reject">Reject</option>
+                                        <option value="pass">Pass</option>
+                                    </select>
+                                    <input type="text" x-model="recentBlocksFilter.searchIP"

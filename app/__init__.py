@@ -9,7 +9,7 @@ from flask_compress import Compress
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__, 
-                static_folder='../frontend/static',
+                static_folder='../frontend/src',
                 template_folder='../frontend/templates')
     
     # Configure compression
@@ -27,7 +27,7 @@ def create_app():
     
     # Start SNMP thread early to ensure rate calculations work
     # (rates require at least two polls to calculate deltas)
-    from app.services.snmp import start_snmp_thread
+    from app.services.shared.snmp import start_snmp_thread
     start_snmp_thread()
     
     # Setup middleware
@@ -39,9 +39,9 @@ def create_app():
     @app.after_request
     def track_request_performance(response):
         """OBSERVABILITY: Track request duration and flag slow requests."""
-        from app.services.metrics import track_performance, track_slow_request
+        from app.services.shared.metrics import track_performance, track_slow_request
         from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
-        from app.utils.observability import _logger
+        from app.services.shared.observability import _logger
         
         if hasattr(g, 'request_start_time'):
             duration = time.time() - g.request_start_time

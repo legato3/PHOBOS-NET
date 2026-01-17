@@ -14,10 +14,10 @@ def post_worker_init(worker):
     # Start background threads (happens once per worker)
     # With 1 worker, this runs once and threads are shared
     try:
-        from app.core.threads import start_threat_thread, start_trends_thread, start_agg_thread, start_db_size_sampler_thread
+        from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread, start_db_size_sampler_thread
         # Import syslog thread from new service module
         try:
-            from app.services.syslog import start_syslog_thread
+            from app.services.shared.syslog import start_syslog_thread
         except ImportError:
             start_syslog_thread = None
         

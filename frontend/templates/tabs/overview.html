@@ -1,0 +1,149 @@
+                    <div x-show="activeTab === 'overview'"
+                        :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab"
+                        role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
+
+                        <!-- Summary Stats & Bandwidth - Horizontal Layout -->
+                        <section id="section-summary" class="scroll-section mb-8">
+
+                            <!-- Top Row: Summary Stats (Compact Horizontal) -->
+                            <div class="summary-stats-grid">
+                                <!-- Mobile: Priority Stats (Above Fold) -->
+                                <div class="stat-box mobile-priority-stat mobile-health-card" :class="{ 
+                                        'status-ok': overallHealth.state === 'healthy',
+                                        'status-warning': overallHealth.state === 'degraded',
+                                        'status-error': overallHealth.state === 'unhealthy'
+                                    }" :title="overallHealth.explanation" @click="overallHealthModalOpen = true"
+                                    style="cursor: pointer;">
+                                    <div class="value" :class="{
+                                            'text-green': overallHealth.state === 'healthy',
+                                            'text-yellow': overallHealth.state === 'degraded',
+                                            'text-red': overallHealth.state === 'unhealthy'
+                                        }" style="font-size: 1.3em; font-weight: 500; text-transform: capitalize;"
+                                        x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
+                                        ...</div>
+                                    <div class="label mobile-secondary-label">Overall Health</div>
+                                    <!-- Always show inline explanation (even when healthy) -->
+                                    <template x-if="overallHealth.shortExplanation">
+                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
+                                            x-text="overallHealth.shortExplanation"></div>
+                                    </template>
+                                    <!-- Mobile-only system metrics integrated into health card -->
+                                    <div class="mobile-health-metrics" style="display:none;">
+                                        <span class="badge"
+                                            :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span
+                                                x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
+                                        <span class="badge"
+                                            :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span
+                                                x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
+                                        <span class="badge">Flows: <span
+                                                x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
+                                    </div>
+                                </div>
+                                <div class="stat-box mobile-priority-stat"
+                                    :class="{ 'status-warning': alertHistory.total > 0, 'mobile-zero-state': alertHistory.total === 0 }"
+                                    @click="navigateToActiveAlerts()" style="cursor: pointer;"
+                                    title="Click to view active alerts">
+                                    <div class="value" :class="{ 'mobile-zero-value': alertHistory.total === 0 }"
+                                        x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
+                                        ...</div>
+                                    <div class="label">Active Alerts</div>
+                                    <div
+                                        style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
+                                        Live</div>
+                                </div>
+
+                                <!-- Mobile: Priority Stats (Above Fold) -->
+                                <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()"
+                                    style="cursor: pointer;" title="Click to view active flows">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span
+                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
+                                        <template
+                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
+                                            <span>
+                                                <span
+                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.active_flows.indicator"></span>
+                                                <span class="mobile-trend-text"
+                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div class="label">Active Flows</div>
+                                    <div
+                                        style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
+                                        Live</div>
+                                </div>
+                                <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
+                                    style="cursor: pointer;" title="Click to view external connections">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span
+                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
+                                        <template
+                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
+                                            <span>
+                                                <span
+                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.external_connections.indicator"></span>
+                                                <span class="mobile-trend-text"
+                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div class="label">External Connections</div>
+                                </div>
+                                <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()"
+                                    style="cursor: pointer;" title="Click to view firewall logs">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span
+                                            x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
+                                        <template
+                                            x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
+                                            <span>
+                                                <span
+                                                    :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                                    x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
+                                                <span class="mobile-trend-text"
+                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div class="label">Blocked Events (24h)</div>
+                                </div>
+                                <div class="stat-box mobile-secondary-stat"
+                                    :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
+                                    @click="navigateToAnomalies()" style="cursor: pointer;"
+                                    title="Click to view network anomalies">
+                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                                        <span
+                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
+                                        <template
+                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
+                                            <span>
+                                                <span
+                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.anomalies.indicator"></span>
+                                                <span class="mobile-trend-text"
+                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div class="label">Anomalies (24h)</div>
+
+                                </div>
+                            </div>
+
+                            <!-- Main Chart: Bandwidth -->
+                            <template x-if="isVisible('bandwidth')">
+                                {% set bw_actions %}
+                                <div class="status-pills">
+                                    <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                                        x-text="'Based on selected time range'"></span>
+                                </div>
+                                {% endset %}
+                                {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
+                                extra_actions=bw_actions) %}
