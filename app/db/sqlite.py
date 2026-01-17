@@ -242,41 +242,68 @@ def update_host_memory(hosts_dict):
     _trends_db_init()  # Ensure table exists
     
     now = time.time()
+    all_ips = list(hosts_dict.keys())
+
+    # Pre-process hosts_dict to extract parsed timestamps
+    parsed_hosts = {}
+    for ip, host_data in hosts_dict.items():
+        first_seen_iso = host_data.get('first_seen')
+        if not first_seen_iso:
+            continue
+        try:
+            # Parse nfdump format: "2023-01-01 12:00:00.123" or "2023-01-01 12:00:00"
+            timestamp_str = first_seen_iso.split('.')[0] if '.' in first_seen_iso else first_seen_iso
+            dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
+            first_seen_ts = dt.timestamp()
+            parsed_hosts[ip] = (first_seen_ts, first_seen_iso)
+        except (ValueError, AttributeError):
+            continue
+
+    if not parsed_hosts:
+        return
+
+    to_insert = []
+    to_update = []
+
     with _trends_db_lock:
         conn = _trends_db_connect()
         try:
-            for ip, host_data in hosts_dict.items():
-                first_seen_iso = host_data.get('first_seen')
-                if not first_seen_iso:
+            # Batch fetch existing IPs to minimize SELECTs
+            existing_data = {}
+            batch_size = 500
+            for i in range(0, len(all_ips), batch_size):
+                batch = all_ips[i:i+batch_size]
+                if not batch:
                     continue
-                
-                # Convert ISO timestamp to Unix timestamp for storage
-                try:
-                    # Parse nfdump format: "2023-01-01 12:00:00.123" or "2023-01-01 12:00:00"
-                    timestamp_str = first_seen_iso.split('.')[0] if '.' in first_seen_iso else first_seen_iso
-                    dt = datetime.strptime(timestamp_str.strip(), '%Y-%m-%d %H:%M:%S')
-                    first_seen_ts = dt.timestamp()
-                except (ValueError, AttributeError):
-                    continue
-                
-                # Only insert if this IP doesn't exist, or if new first_seen is earlier
-                cur = conn.execute("SELECT first_seen_ts FROM host_memory WHERE ip = ?", (ip,))
-                row = cur.fetchone()
-                
-                if row is None:
-                    # New host - insert
-                    conn.execute(
-                        "INSERT INTO host_memory (ip, first_seen_ts, first_seen_iso, updated_at) VALUES (?, ?, ?, ?)",
-                        (ip, first_seen_ts, first_seen_iso, now)
-                    )
+                placeholders = ','.join('?' * len(batch))
+                cur = conn.execute(
+                    f"SELECT ip, first_seen_ts FROM host_memory WHERE ip IN ({placeholders})",
+                    batch
+                )
+                for row in cur.fetchall():
+                    existing_data[row[0]] = row[1]
+
+            # Determine inserts and updates
+            for ip, (first_seen_ts, first_seen_iso) in parsed_hosts.items():
+                if ip not in existing_data:
+                    to_insert.append((ip, first_seen_ts, first_seen_iso, now))
                 else:
-                    # Existing host - update only if new first_seen is earlier
-                    existing_ts = row[0]
+                    existing_ts = existing_data[ip]
                     if first_seen_ts < existing_ts:
-                        conn.execute(
-                            "UPDATE host_memory SET first_seen_ts = ?, first_seen_iso = ?, updated_at = ? WHERE ip = ?",
-                            (first_seen_ts, first_seen_iso, now, ip)
-                        )
+                        to_update.append((first_seen_ts, first_seen_iso, now, ip))
+
+            # Execute batch writes
+            if to_insert:
+                conn.executemany(
+                    "INSERT INTO host_memory (ip, first_seen_ts, first_seen_iso, updated_at) VALUES (?, ?, ?, ?)",
+                    to_insert
+                )
+
+            if to_update:
+                conn.executemany(
+                    "UPDATE host_memory SET first_seen_ts = ?, first_seen_iso = ?, updated_at = ? WHERE ip = ?",
+                    to_update
+                )
             
             conn.commit()
         finally:
@@ -330,16 +357,21 @@ def get_hosts_memory(ip_list):
     with _trends_db_lock:
         conn = _trends_db_connect()
         try:
-            placeholders = ','.join('?' * len(ip_list))
-            cur = conn.execute(
-                f"SELECT ip, first_seen_ts, first_seen_iso FROM host_memory WHERE ip IN ({placeholders})",
-                ip_list
-            )
-            for row in cur.fetchall():
-                result[row[0]] = {
-                    'first_seen_ts': row[1],
-                    'first_seen_iso': row[2]
-                }
+            batch_size = 500
+            for i in range(0, len(ip_list), batch_size):
+                batch = ip_list[i:i+batch_size]
+                if not batch:
+                    continue
+                placeholders = ','.join('?' * len(batch))
+                cur = conn.execute(
+                    f"SELECT ip, first_seen_ts, first_seen_iso FROM host_memory WHERE ip IN ({placeholders})",
+                    batch
+                )
+                for row in cur.fetchall():
+                    result[row[0]] = {
+                        'first_seen_ts': row[1],
+                        'first_seen_iso': row[2]
+                    }
         finally:
             conn.close()
     
