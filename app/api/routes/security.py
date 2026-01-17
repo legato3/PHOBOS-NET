@@ -38,7 +38,7 @@ from app.core.app_state import (
     _shutdown_event,
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
-    _lock_flows, _lock_countries, _lock_worldmap, _lock_compromised,
+    _lock_flows, _lock_countries, _lock_worldmap,
     _lock_proto_hierarchy, _lock_noise,
     _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
@@ -47,7 +47,7 @@ from app.core.app_state import (
     _stats_flags_cache, _stats_asns_cache, _stats_durations_cache,
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
-    _stats_proto_mix_cache, _stats_net_health_cache, _stats_compromised_cache,
+    _stats_proto_mix_cache, _stats_net_health_cache,
     _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
     _server_health_cache,
     _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
@@ -2997,155 +2997,6 @@ def api_top_threat_ips():
         'ips': threat_ips[:10],
         'total': len(threat_ips)
     })
-
-
-@bp.route('/api/security/compromised_hosts')
-@throttle(5, 10)
-def api_compromised_hosts():
-    """Identify internal hosts communicating with known threats."""
-    range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-
-    with _lock_compromised:
-        if _stats_compromised_cache["data"] and _stats_compromised_cache.get("key") == range_key and _stats_compromised_cache.get("win") == win:
-            return jsonify(_stats_compromised_cache["data"])
-
-    tf = get_time_range(range_key)
-    threat_set = load_threatlist()
-    watchlist = load_watchlist()
-    # Combine sets safely (ensure both are sets)
-    full_threat_set = set(threat_set) | set(watchlist)
-
-    if not full_threat_set:
-        data = {"hosts": [], "count": 0}
-        with _lock_compromised:
-            _stats_compromised_cache["data"] = data
-            _stats_compromised_cache["ts"] = now
-            _stats_compromised_cache["key"] = range_key
-            _stats_compromised_cache["win"] = win
-        return jsonify(data)
-
-    # Run nfdump to get top flows (src, dst, bytes, flows, port)
-    # Using 2000 flows to get a reasonable sample
-    output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,dstport", "-n", "2000"], tf)
-
-    compromised = {}  # Map internal_ip -> info
-
-    try:
-        lines = output.strip().split("\n")
-        # Header parsing logic similar to other endpoints
-        start_idx = 0
-        sa_idx, da_idx, dp_idx, ibyt_idx, fl_idx = 3, 4, 6, 8, 9
-
-        if lines:
-            line0 = lines[0].lower()
-            if 'ts' in line0 or 'date' in line0 or 'ibyt' in line0:
-                header = [c.strip() for c in line0.split(',')]
-                try:
-                    sa_idx = header.index('sa') if 'sa' in header else header.index('srcaddr')
-                    da_idx = header.index('da') if 'da' in header else header.index('dstaddr')
-                    dp_idx = header.index('dp') if 'dp' in header else header.index('dstport')
-                    ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('bytes')
-                    fl_idx = header.index('fl') if 'fl' in header else header.index('flows')
-                    start_idx = 1
-                except:
-                    pass
-
-        for line in lines[start_idx:]:
-            if not line or line.startswith('ts,') or line.startswith('Date,'): continue
-            parts = line.split(',')
-            if len(parts) > max(sa_idx, da_idx, dp_idx, ibyt_idx):
-                try:
-                    src = parts[sa_idx].strip()
-                    dst = parts[da_idx].strip()
-                    port = int(parts[dp_idx].strip())
-                    bytes_val = int(parts[ibyt_idx].strip())
-                    flows_val = int(parts[fl_idx].strip()) if len(parts) > fl_idx else 1
-
-                    src_int = is_internal(src)
-                    dst_int = is_internal(dst)
-
-                    # Logic: Internal <-> Threat
-                    internal_ip = None
-                    threat_ip = None
-                    direction = None
-
-                    if src_int and dst in full_threat_set:
-                        internal_ip = src
-                        threat_ip = dst
-                        direction = 'outbound'
-                    elif dst_int and src in full_threat_set:
-                        internal_ip = dst
-                        threat_ip = src
-                        direction = 'inbound'
-
-                    if internal_ip:
-                        if internal_ip not in compromised:
-                            compromised[internal_ip] = {
-                                "ip": internal_ip,
-                                "hostname": resolve_ip(internal_ip),
-                                "threat_peers": set(),
-                                "bytes": 0,
-                                "flows": 0,
-                                "top_threat": threat_ip,
-                                "max_bytes": 0,
-                                "direction": direction # Dominant direction
-                            }
-
-                        entry = compromised[internal_ip]
-                        entry["threat_peers"].add(threat_ip)
-                        entry["bytes"] += bytes_val
-                        entry["flows"] += flows_val
-
-                        # Update top threat if this flow is larger
-                        if bytes_val > entry["max_bytes"]:
-                            entry["max_bytes"] = bytes_val
-                            entry["top_threat"] = threat_ip
-                            entry["direction"] = direction
-                except Exception:
-                    pass
-    except Exception as e:
-        print(f"Error processing compromised hosts: {e}")
-
-    # Format results
-    results = []
-    for ip, data in compromised.items():
-        threat_count = len(data["threat_peers"])
-        info = get_threat_info(data["top_threat"])
-        geo = lookup_geo(data["top_threat"]) or {}
-
-        results.append({
-            "ip": ip,
-            "hostname": data["hostname"],
-            "role": "Inbound from Threat" if data["direction"] == "inbound" else "Outbound to Threat",
-            "direction": data["direction"],
-            "threat_ip": data["top_threat"],
-            "threat_count": threat_count,
-            "bytes": data["bytes"],
-            "bytes_fmt": fmt_bytes(data["bytes"]),
-            "flows": data["flows"],
-            "threat_category": info.get("category", "UNKNOWN"),
-            "threat_country": geo.get("country_code", "--"),
-            "risk_score": min(100, threat_count * 10 + (data["bytes"] / 1000000)) # Simple score
-        })
-
-    # Sort by risk score descending
-    results.sort(key=lambda x: x["risk_score"], reverse=True)
-
-    data = {
-        "hosts": results[:20],
-        "count": len(results)
-    }
-
-    with _lock_compromised:
-        _stats_compromised_cache["data"] = data
-        _stats_compromised_cache["ts"] = now
-        _stats_compromised_cache["key"] = range_key
-        _stats_compromised_cache["win"] = win
-
-    return jsonify(data)
-
 
 
 @bp.route('/api/security/risk_index')

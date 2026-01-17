@@ -271,7 +271,6 @@ export const Store = () => ({
     selectedEventType: null, // 'flow', 'firewall', 'threat'
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
-    compromisedHosts: { hosts: [], count: 0, loading: true },
     // Predictive risk data (48h forecast) - replaces riskIndex
     predictiveRisk: {
         score: 25,
@@ -1714,8 +1713,7 @@ export const Store = () => ({
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
-                this.fetchCompromisedHosts();
-                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
+                                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchRecentBlocks();
@@ -1826,9 +1824,6 @@ export const Store = () => ({
                 this.fetchThreatsByCountry(),
                 this.fetchThreatVelocity(),
                 this.fetchTopThreatIPs(),
-                this.fetchCompromisedHosts(),
-                // Removed: this.fetchRiskIndex(), // Replaced with predictiveRisk in securityObservability
-                // Removed: this.fetchAttackTimeline(), // Replaced by Threat Activity Timeline
                 this.fetchMitreHeatmap(),
                 this.fetchProtocolAnomalies(),
                 this.fetchRecentBlocks(),
@@ -2795,20 +2790,6 @@ export const Store = () => ({
         } catch (e) { console.error('Top threat IPs fetch error:', e); }
         finally { this.topThreatIPs.loading = false; }
     },
-
-    async fetchCompromisedHosts() {
-        this.compromisedHosts.loading = true;
-        try {
-            const res = await fetch(`/api/security/compromised_hosts?range=${this.timeRange}`);
-            if (res.ok) {
-                const d = await res.json();
-                this.compromisedHosts = { ...d, loading: false };
-            }
-        } catch (e) { console.error('Compromised hosts fetch error:', e); }
-        finally { this.compromisedHosts.loading = false; }
-    },
-
-    // Removed: async fetchRiskIndex() - Replaced with predictiveRisk in securityObservability
 
     async fetchWatchlist() {
         this.watchlist.loading = true;
@@ -5903,8 +5884,7 @@ export const Store = () => ({
                 this.fetchThreatsByCountry();
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
-                this.fetchCompromisedHosts();
-                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
+                                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchFeedHealth();

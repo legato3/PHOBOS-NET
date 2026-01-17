@@ -29,7 +29,6 @@ export const DashboardWidgets = {
         threatsByCountry: true,
         threatVelocity: true,
         topThreatIPs: true,
-        compromisedHosts: true,
         flows: true,
         worldmap: true,
         recentBlocks: true,
@@ -87,8 +86,6 @@ export const DashboardWidgets = {
         threatsByCountry: 'Threats by Country',
         threatVelocity: 'Threat Velocity',
         topThreatIPs: 'Top Threat IPs',
-        compromisedHosts: 'At-Risk Internal Hosts',
-        // Removed: riskIndex: 'Network Risk Index', // Replaced with predictiveRisk in securityObservability
         flows: 'Active Flows',
         talkers: 'Top Talkers',
         services: 'Top Services',

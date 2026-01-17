@@ -472,56 +472,6 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- At-Risk Internal Hosts Widget -->
-                                <template x-if="isVisible('compromisedHosts')">
-                                    {% call widget_card('compromisedHosts', 'At-Risk Internal Hosts', '☢️',
-                                    show_spinner=True) %}
-                                    <div class="compromised-list">
-                                        <template x-for="(host, idx) in compromisedHosts.hosts" :key="host.ip">
-                                            <div class="compromised-item"
-                                                :class="'risk-' + (host.risk_score > 50 ? 'high' : 'medium')"
-                                                @click="openEventDetails({ ip: host.threat_ip, threat_type: host.threat_category || 'Threat', country: host.country, threat_feed: host.threat_feed }, 'threat')"
-                                                style="cursor: pointer;">
-                                                <div class="compromised-main">
-                                                    <div class="compromised-host">
-                                                        <strong class="text-cyan clickable-ip"
-                                                            @click="openIPModal(host.ip)" x-text="host.ip"></strong>
-                                                        <div class="text-xs text-muted" x-show="host.hostname"
-                                                            x-text="host.hostname"></div>
-                                                    </div>
-                                                    <div class="compromised-role">
-                                                        <span class="badge"
-                                                            :class="host.role && host.role.includes('Outbound') ? 'badge-warn' : 'badge-danger'"
-                                                            x-text="host.role"></span>
-                                                        <div class="text-xs text-muted" x-text="host.direction"></div>
-                                                    </div>
-                                                </div>
-                                                <div class="compromised-details">
-                                                    <div class="compromised-peer">
-                                                        <span class="text-red clickable-ip"
-                                                            @click="openIPModal(host.threat_ip)"
-                                                            x-text="host.threat_ip"></span>
-                                                        <span class="text-xs text-muted"
-                                                            x-text="'(' + (host.threat_category || 'Unknown') + ')'"></span>
-                                                    </div>
-                                                    <div class="compromised-stats">
-                                                        <span class="text-green" x-text="host.bytes_fmt"></span>
-                                                        <span class="text-xs text-muted"
-                                                            x-text="host.flows + ' flows'"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </template>
-                                        <template x-if="!compromisedHosts.hosts || compromisedHosts.hosts.length === 0">
-                                            <div class="empty-state-compact">
-                                                <span class="empty-icon">✅</span>
-                                                <span>No compromised internal hosts detected</span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-
                                 <!-- Top Threat IPs Widget -->
                                 <template x-if="isVisible('topThreatIPs')">
                                     {% call widget_card('topThreatIPs', 'Top Threat IPs', '🎯', show_spinner=True)
