@@ -579,6 +579,7 @@ body {
     min-width: 0;
     width: auto;
     padding: 0;
+    padding-top: var(--header-height);
     margin-left: 240px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -615,7 +616,6 @@ body.sidebar-collapsed .main-content {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-4);
-    margin-top: var(--header-height);
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
@@ -636,13 +636,14 @@ body.sidebar-collapsed .main-content {
     position: fixed;
     top: 0;
     right: 0;
-    left: 240px;
+    left: 0;
+    margin-left: 240px;
     z-index: 1001;
-    transition: left var(--transition-base), border-color var(--transition-fast);
+    transition: margin-left var(--transition-base), border-color var(--transition-fast);
 }
 
 body.sidebar-collapsed .header {
-    left: 64px;
+    margin-left: 64px;
 }
 
 .header-left,
