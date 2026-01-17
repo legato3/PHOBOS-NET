@@ -369,7 +369,6 @@ body {
     background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-soft);
     box-shadow: var(--shadow-soft);
     overflow: hidden;
     box-sizing: border-box;
