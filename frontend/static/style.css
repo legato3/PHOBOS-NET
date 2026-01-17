@@ -340,8 +340,8 @@ body {
 /* CYBERPUNK UI: Sidebar - Signal navigation panel */
 .sidebar {
     grid-area: sidebar-header / sidebar-header / sidebar-nav / sidebar-nav;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: var(--header-height) 1fr;
     background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
