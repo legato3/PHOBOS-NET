@@ -23,8 +23,10 @@ _threat_status = {'last_attempt': 0, 'last_ok': 0, 'size': 0, 'status': 'unknown
 _threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
 _threat_timeline = {}  # Maps IP -> {first_seen, last_seen, hit_count}
 _feed_status = {}  # Per-feed health tracking
-_watchlist_cache = {"data": set(), "mtime": 0}
-_threat_cache = {"data": set(), "mtime": 0}  # Cache for threat list file
+_watchlist_cache = {"data": set(), "mtime": 0, "last_check": 0}
+_threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat list file
+
+FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
 
 # Detection state
 _alert_history = deque(maxlen=200)  # Increased for 24h history
@@ -206,9 +208,21 @@ def get_recent_alert_ips(seconds):
 def load_watchlist():
     """Load custom watchlist IPs"""
     global _watchlist_cache
+    now = time.monotonic()
+
+    # PERFORMANCE: Check file mtime only periodically to reduce syscalls
+    if now - _watchlist_cache.get("last_check", 0) < FILE_CHECK_INTERVAL:
+        return _watchlist_cache["data"]
+
+    _watchlist_cache["last_check"] = now
+
     try:
         if not os.path.exists(WATCHLIST_PATH):
-            return set()
+            # Clear cache if file is missing to prevent serving stale data
+            _watchlist_cache["data"] = set()
+            _watchlist_cache["mtime"] = 0
+            return _watchlist_cache["data"]
+
         mtime = os.path.getmtime(WATCHLIST_PATH)
         if mtime != _watchlist_cache["mtime"]:
             with open(WATCHLIST_PATH, "r") as f:
@@ -748,12 +762,22 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
 
 def load_threatlist():
     """Load threat list from file with caching."""
+    now = time.monotonic()
+
+    # PERFORMANCE: Check file mtime only periodically to reduce syscalls
+    if now - _threat_cache.get("last_check", 0) < FILE_CHECK_INTERVAL:
+        return _threat_cache["data"]
+
+    _threat_cache["last_check"] = now
+
     try:
         mtime = os.path.getmtime(THREATLIST_PATH)
     except FileNotFoundError:
+        # Clear cache if file is missing to prevent serving stale data
         _threat_cache["data"] = set()
         _threat_cache["mtime"] = 0
-        return set()
+        return _threat_cache["data"]
+
     if mtime != _threat_cache["mtime"]:
         try:
             with open(THREATLIST_PATH, "r") as f:

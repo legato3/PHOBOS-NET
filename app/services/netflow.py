@@ -11,6 +11,7 @@ from app.utils.helpers import get_time_range
 _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 _mock_lock = threading.Lock()
 import app.core.state as state
+from app.core.state import add_app_log
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
 _metric_nfdump_calls = 0
@@ -161,11 +162,15 @@ def run_nfdump(args, tf=None):
                     result = r.stdout if r.stdout else ""
                 else:
                     # Subprocess ran but failed (non-zero exit code)
+                    error_msg = r.stderr.strip() if r.stderr else "Unknown error"
+                    add_app_log(f"nfdump failed (code {r.returncode}): {error_msg}", 'WARN')
                     result = None
             except subprocess.TimeoutExpired:
                 timeout = True
+                add_app_log(f"nfdump timed out after {DEFAULT_TIMEOUT}s: {' '.join(cmd)}", 'WARN')
                 result = None
-            except Exception:
+            except Exception as e:
+                add_app_log(f"nfdump execution error: {e}", 'ERROR')
                 result = None
         else:
             result = None

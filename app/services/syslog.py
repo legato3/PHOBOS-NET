@@ -15,7 +15,8 @@ from app.core.state import (
     _syslog_thread_started,
     _syslog_stats, _syslog_stats_lock,
     _syslog_buffer, _syslog_buffer_lock, _syslog_buffer_size,
-    _alert_history, _alert_history_lock
+    _alert_history, _alert_history_lock,
+    add_app_log
 )
 
 # Import helpers
@@ -76,12 +77,18 @@ def _syslog_receiver_loop():
     
     try:
         sock.bind((SYSLOG_BIND, SYSLOG_PORT))
-        print(f"Syslog receiver started on {SYSLOG_BIND}:{SYSLOG_PORT}")
+        msg = f"Syslog receiver started on {SYSLOG_BIND}:{SYSLOG_PORT}"
+        print(msg)
+        add_app_log(msg, 'INFO')
     except PermissionError:
-        print(f"ERROR: Cannot bind to port {SYSLOG_PORT} - need root or CAP_NET_BIND_SERVICE")
+        msg = f"ERROR: Cannot bind to port {SYSLOG_PORT} - need root or CAP_NET_BIND_SERVICE"
+        print(msg)
+        add_app_log(msg, 'ERROR')
         return
     except Exception as e:
-        print(f"ERROR: Syslog bind failed: {e}")
+        msg = f"ERROR: Syslog bind failed: {e}"
+        print(msg)
+        add_app_log(msg, 'ERROR')
         return
     
     # Set socket timeout so we can check shutdown event
