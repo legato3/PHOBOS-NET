@@ -653,13 +653,47 @@ def api_stats_worldmap():
             dest_countries[iso]["bytes"] += b
             dest_countries[iso]["flows"] += 1
 
-    # Get threat data if available
+    # Get threat data from threat timeline (populated by firewall blocks and netflow detections)
     threats = []
     threat_countries = {}
+    now = time.time()
+    cutoff = now - 86400  # 24 hours
     try:
-        threat_hits = threats_module._threat_hits if hasattr(threats_module, '_threat_hits') else []
-        for hit in list(threat_hits)[:50]:
-            ip = hit.get('ip') or hit.get('src_ip')
+        for ip, timeline in threats_module._threat_timeline.items():
+            if timeline.get('last_seen', 0) < cutoff:
+                continue
+            geo = lookup_geo(ip) or {}
+            lat = geo.get('lat')
+            lng = geo.get('lng')
+            iso = geo.get('country_iso') or '??'
+            country = geo.get('country') or 'Unknown'
+            info = threats_module.get_threat_info(ip)
+            if lat and lng:
+                threats.append({
+                    "ip": ip,
+                    "lat": lat,
+                    "lng": lng,
+                    "feed": info.get('feed', 'unknown'),
+                    "category": info.get('category', 'UNKNOWN'),
+                    "hits": timeline.get('hit_count', 1),
+                    "country": country,
+                    "iso": iso
+                })
+            if iso != '??':
+                if iso not in threat_countries:
+                    threat_countries[iso] = {"name": country, "iso": iso, "count": 0}
+                threat_countries[iso]["count"] += timeline.get('hit_count', 1)
+    except Exception as e:
+        print(f"Worldmap threat data error: {e}")
+
+    # Get blocked IPs from firewall database
+    blocked = []
+    blocked_countries = {}
+    try:
+        from app.db.sqlite import get_top_blocked_sources
+        blocked_sources = get_top_blocked_sources(limit=50)
+        for item in blocked_sources:
+            ip = item.get('src_ip')
             if not ip:
                 continue
             geo = lookup_geo(ip) or {}
@@ -668,39 +702,41 @@ def api_stats_worldmap():
             iso = geo.get('country_iso') or '??'
             country = geo.get('country') or 'Unknown'
             if lat and lng:
-                threats.append({
+                blocked.append({
                     "ip": ip,
                     "lat": lat,
                     "lng": lng,
-                    "feed": hit.get('feed', 'unknown'),
+                    "count": item.get('count', 1),
                     "country": country,
                     "iso": iso
                 })
             if iso != '??':
-                if iso not in threat_countries:
-                    threat_countries[iso] = {"name": country, "iso": iso, "count": 0}
-                threat_countries[iso]["count"] += 1
-    except Exception:
-        pass
+                if iso not in blocked_countries:
+                    blocked_countries[iso] = {"name": country, "iso": iso, "count": 0}
+                blocked_countries[iso]["count"] += item.get('count', 1)
+    except Exception as e:
+        print(f"Worldmap blocked data error: {e}")
 
     # Sort country lists by bytes/count
     source_countries_list = sorted(source_countries.values(), key=lambda x: x['bytes'], reverse=True)
     dest_countries_list = sorted(dest_countries.values(), key=lambda x: x['bytes'], reverse=True)
     threat_countries_list = sorted(threat_countries.values(), key=lambda x: x['count'], reverse=True)
+    blocked_countries_list = sorted(blocked_countries.values(), key=lambda x: x['count'], reverse=True)
 
     return jsonify({
         "sources": sources,
         "destinations": destinations,
         "threats": threats,
-        "blocked": [],  # Placeholder for firewall blocked IPs
+        "blocked": blocked,
         "source_countries": source_countries_list,
         "dest_countries": dest_countries_list,
         "threat_countries": threat_countries_list,
-        "blocked_countries": [],
+        "blocked_countries": blocked_countries_list,
         "summary": {
             "total_sources": len(sources),
             "total_destinations": len(destinations),
             "total_threats": len(threats),
+            "total_blocked": len(blocked),
             "source_country_count": len(source_countries),
             "dest_country_count": len(dest_countries)
         }

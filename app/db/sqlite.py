@@ -175,6 +175,28 @@ def _get_firewall_block_stats(hours=1):
         return {'blocks': 0, 'unique_ips': 0, 'threats_blocked': 0, 'blocks_per_hour': 0}
 
 
+def get_top_blocked_sources(hours=24, limit=50):
+    """Get top blocked source IPs by count."""
+    try:
+        cutoff = time.time() - (hours * 3600)
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                cur = conn.execute("""
+                    SELECT src_ip, COUNT(*) as count
+                    FROM fw_logs
+                    WHERE timestamp > ? AND action IN ('block', 'reject')
+                    GROUP BY src_ip
+                    ORDER BY count DESC
+                    LIMIT ?
+                """, (cutoff, limit))
+                return [{'src_ip': row[0], 'count': row[1]} for row in cur.fetchall()]
+            finally:
+                conn.close()
+    except Exception:
+        return []
+
+
 def _cleanup_old_fw_logs():
     """Remove firewall logs older than retention period."""
     cutoff = time.time() - (FIREWALL_RETENTION_DAYS * 86400)
