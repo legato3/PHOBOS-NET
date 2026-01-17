@@ -454,33 +454,30 @@
                             </div>
 
                             <!-- Main Chart: Bandwidth -->
-                            <div class="primary-column w-full">
-                                <template x-if="isVisible('bandwidth')">
-                                    {% set bw_actions %}
-                                    <div class="status-pills">
-                                        <span class="status-pill"
-                                            style="font-size: 0.85em; color: var(--text-secondary);"
-                                            x-text="'Based on selected time range'"></span>
+                            <template x-if="isVisible('bandwidth')">
+                                {% set bw_actions %}
+                                <div class="status-pills">
+                                    <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                                        x-text="'Based on selected time range'"></span>
+                                </div>
+                                {% endset %}
+                                {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
+                                extra_actions=bw_actions) %}
+                                <!-- Mobile Toggle for Bandwidth Chart -->
+                                <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
+                                    <button class="world-map-toggle" style="margin-bottom: 12px;"
+                                        x-show="window.innerWidth <= 768" @click="collapsed = !collapsed">
+                                        <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
+                                    </button>
+                                    <div class="chart-wrapper chart-expandable"
+                                        x-show="!collapsed || window.innerWidth > 768"
+                                        @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                                        title="Click to expand">
+                                        <canvas id="bwChart"></canvas>
                                     </div>
-                                    {% endset %}
-                                    {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
-                                    extra_actions=bw_actions) %}
-                                    <!-- Mobile Toggle for Bandwidth Chart -->
-                                    <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
-                                        <button class="world-map-toggle" style="margin-bottom: 12px;"
-                                            x-show="window.innerWidth <= 768" @click="collapsed = !collapsed">
-                                            <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
-                                        </button>
-                                        <div class="chart-wrapper chart-expandable"
-                                            x-show="!collapsed || window.innerWidth > 768"
-                                            @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
-                                            title="Click to expand">
-                                            <canvas id="bwChart"></canvas>
-                                        </div>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-                            </div>
+                                </div>
+                                {% endcall %}
+                            </template>
 
                         </section>
 
