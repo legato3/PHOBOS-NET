@@ -84,7 +84,17 @@ export const Store = () => ({
             timeRange: '24h',
             loading: false,
             error: null,
-            data: null
+            data: {
+                summary: {
+                    target_ip: 'N/A',
+                    total_events: 0,
+                    total_bytes: 0,
+                    suspicious_events: 0,
+                    time_range: '24h',
+                    query_time: new Date().toISOString()
+                },
+                timeline: []
+            }
         },
         session: {
             srcIp: '',
@@ -92,7 +102,18 @@ export const Store = () => ({
             timeRange: '1h',
             loading: false,
             error: null,
-            data: null
+            data: {
+                summary: {
+                    src_ip: 'N/A',
+                    dst_ip: 'N/A',
+                    session_duration_seconds: 0,
+                    total_flows: 0,
+                    total_bytes: 0,
+                    time_range: '1h',
+                    query_time: new Date().toISOString()
+                },
+                flows: []
+            }
         },
         evidence: {
             incidentType: 'general',
@@ -101,7 +122,22 @@ export const Store = () => ({
             preserveData: true,
             loading: false,
             error: null,
-            report: null
+            report: {
+                incident_metadata: {
+                    incident_type: 'N/A',
+                    collection_timestamp: new Date().toISOString(),
+                    target_ips: [],
+                    severity: 'unknown'
+                },
+                chain_of_custody: {
+                    collector: 'PHOBOS-NET',
+                    collection_method: 'automated',
+                    integrity_check: 'pending',
+                    preservation_status: 'active'
+                },
+                evidence_items: [],
+                recommendations: []
+            }
         }
     },
 
@@ -139,6 +175,10 @@ export const Store = () => ({
     hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
     flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
     protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
+    protocolHierarchy: { data: null, loading: true },
+    trafficScatter: { data: null, loading: true },
+    noiseMetrics: { score: 0, level: 'Low', total_flows: 0, noise_flows: 0, breakdown: {}, loading: true },
+    newDevices: { list: [], count: 0, loading: true },
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
@@ -230,7 +270,14 @@ export const Store = () => ({
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
     compromisedHosts: { hosts: [], count: 0, loading: true },
-    riskIndex: { score: 0, max_score: 100, level: 'LOW', color: 'green', factors: [], loading: true },
+    // Predictive risk data (48h forecast) - replaces riskIndex
+    predictiveRisk: {
+        score: 25,
+        level: 'Moderate',
+        trend: 'up', // 'up', 'down', 'stable'
+        confidence: 0.78,
+        factors: ['Threat velocity +15%', 'Anomaly acceleration detected', 'Coverage gaps increasing']
+    },
 
     // New Security Widgets
     attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
@@ -246,6 +293,7 @@ export const Store = () => ({
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.1.0', version_display: 'v1.1' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
+    mobileMoreModalOpen: false, // Modal for expanded mobile navigation
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, traffic_correlation: null, loading: true, error: null },
     firewallSNMPRefreshTimer: null,
     _firewallSNMPFetching: false,
@@ -298,9 +346,9 @@ export const Store = () => ({
             securityObservability: 'Security Observability',
             alertHistory: 'Alert History',
             threatsByCountry: 'Threats by Country',
-            threatVelocity: 'Threat Velocity',
+            threatVelocity: 'Threat Trend (1h)',
             topThreatIPs: 'Top Threat IPs',
-            riskIndex: 'Network Risk Index',
+            predictiveRisk: 'Predictive Risk (48h)',
             conversations: 'Active Flows',
             alertCorrelation: 'Alert Correlation & Attack Chains',
             threatActivityTimeline: 'Threat Activity Timeline',
@@ -311,7 +359,7 @@ export const Store = () => ({
 
             netHealth: 'Network Health',
             insights: 'Traffic Insights',
-            mitreHeatmap: 'MITRE ATT&CK Coverage',
+            mitreHeatmap: 'Detected Techniques',
             protocolAnomalies: 'Protocol Anomalies',
             attackTimeline: 'Attack Timeline',
             recentBlocks: 'Firewall Logs'
@@ -831,6 +879,154 @@ export const Store = () => ({
     // Helper to get CSS variable value - Using DashboardUtils module
     getCssVar(name) {
         return DashboardUtils.getCssVar(name);
+    },
+
+    // Helper to get color for security state
+    getStateColor(state) {
+        const stateColors = {
+            'STABLE': this.getCssVar('--signal-ok') || '#00ff88',
+            'ELEVATED': this.getCssVar('--signal-warn') || '#ffb400',
+            'DEGRADED': '#cc8400',
+            'UNDER PRESSURE': this.getCssVar('--signal-crit') || '#ff1744',
+            'UNKNOWN': this.getCssVar('--text-muted') || '#888'
+        };
+        return stateColors[state] || stateColors['UNKNOWN'];
+    },
+
+    // Helper to get color for predictive risk score
+    getPredictiveRiskColor(score) {
+        if (score < 30) return this.getCssVar('--signal-ok') || '#00ff88';
+        if (score < 50) return this.getCssVar('--signal-warn') || '#ffb400';
+        if (score < 70) return '#cc8400';
+        return this.getCssVar('--signal-crit') || '#ff1744';
+    },
+
+    // Predictive risk data (48h forecast)
+    predictiveRisk: {
+        score: 25,
+        level: 'MODERATE',
+        trend: 'up',
+        confidence: 'medium',
+        factors: ['elevated_threat_velocity', 'feed_gaps']
+    },
+
+    // UI state for details toggle
+    showObservabilityDetails: false,
+
+    // Tools state
+    tools: {
+        dns: { query: '', type: 'A', loading: false, result: null, error: null },
+        port: { host: '', ports: '', loading: false, result: null, error: null },
+        ping: { host: '', mode: 'ping', loading: false, result: null, error: null },
+        reputation: { ip: '', loading: false, result: null, error: null },
+        whois: { query: '', loading: false, result: null, error: null }
+    },
+
+    // DNS Lookup
+    async runDnsLookup() {
+        this.tools.dns.loading = true;
+        this.tools.dns.error = null;
+        this.tools.dns.result = null;
+        try {
+            const response = await fetch(`/api/tools/dns?query=${encodeURIComponent(this.tools.dns.query)}&type=${this.tools.dns.type}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.dns.error = data.error;
+            } else {
+                this.tools.dns.result = data.result || JSON.stringify(data, null, 2);
+            }
+        } catch (e) {
+            this.tools.dns.error = 'Failed to perform DNS lookup: ' + e.message;
+        }
+        this.tools.dns.loading = false;
+    },
+
+    // Port Check
+    async runPortCheck() {
+        this.tools.port.loading = true;
+        this.tools.port.error = null;
+        this.tools.port.result = null;
+        try {
+            const response = await fetch(`/api/tools/port-check?host=${encodeURIComponent(this.tools.port.host)}&ports=${encodeURIComponent(this.tools.port.ports)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.port.error = data.error;
+            } else {
+                this.tools.port.result = data.results || [];
+            }
+        } catch (e) {
+            this.tools.port.error = 'Failed to check ports: ' + e.message;
+        }
+        this.tools.port.loading = false;
+    },
+
+    // Ping / Traceroute
+    async runPing() {
+        this.tools.ping.loading = true;
+        this.tools.ping.error = null;
+        this.tools.ping.result = null;
+        try {
+            const response = await fetch(`/api/tools/ping?host=${encodeURIComponent(this.tools.ping.host)}&mode=${this.tools.ping.mode}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.ping.error = data.error;
+            } else {
+                this.tools.ping.result = data.result || '';
+            }
+        } catch (e) {
+            this.tools.ping.error = 'Failed to run ' + this.tools.ping.mode + ': ' + e.message;
+        }
+        this.tools.ping.loading = false;
+    },
+
+    // IP Reputation Check
+    async runReputationCheck() {
+        this.tools.reputation.loading = true;
+        this.tools.reputation.error = null;
+        this.tools.reputation.result = null;
+        try {
+            const response = await fetch(`/api/tools/reputation?ip=${encodeURIComponent(this.tools.reputation.ip)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.reputation.error = data.error;
+            } else {
+                this.tools.reputation.result = data;
+            }
+        } catch (e) {
+            this.tools.reputation.error = 'Failed to check reputation: ' + e.message;
+        }
+        this.tools.reputation.loading = false;
+    },
+
+    // Whois / ASN Lookup
+    async runWhoisLookup() {
+        this.tools.whois.loading = true;
+        this.tools.whois.error = null;
+        this.tools.whois.result = null;
+        try {
+            const response = await fetch(`/api/tools/whois?query=${encodeURIComponent(this.tools.whois.query)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.whois.error = data.error;
+            } else {
+                this.tools.whois.result = data;
+            }
+        } catch (e) {
+            this.tools.whois.error = 'Failed to perform lookup: ' + e.message;
+        }
+        this.tools.whois.loading = false;
+    },
+
+    // Export alerts as JSON
+    exportAlerts() {
+        const alerts = this.alerts.alerts || [];
+        const blob = new Blob([JSON.stringify(alerts, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alerts-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     },
 
     getFlagColor(index) {
@@ -1483,11 +1679,26 @@ export const Store = () => ({
                 if (this.isVisible('packetSizes')) this.fetchPacketSizes();
                 if (this.isVisible('protocols')) this.fetchProtocols();
                 if (this.isVisible('flowStats')) this.fetchFlowStats();
+                if (this.isVisible('protocolHierarchy')) {
+                    this.fetchProtocolHierarchy();
+                }
 
                 // Network Health is now always visible as a stat box
                 this.fetchNetHealth();
                 this.lastFetch.network = now;
             }
+            
+            // Always render charts when section is visible
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    if (this.protocolHierarchy.data) {
+                        this.renderProtocolHierarchyChart();
+                    }
+                    if (this.hosts.list && this.hosts.list.length > 0) {
+                        this.renderTrafficScatter();
+                    }
+                }, 100);
+            });
         }
         if (sectionId === 'section-security') {
             if (now - this.lastFetch.security > this.heavyTTL) {
@@ -1497,7 +1708,7 @@ export const Store = () => ({
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
                 this.fetchCompromisedHosts();
-                this.fetchRiskIndex();
+                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchRecentBlocks();
@@ -1560,8 +1771,15 @@ export const Store = () => ({
         this.fetchPorts();
 
         // Fetch Overview Widgets (New)
-
         if (this.isVisible('talkers')) this.fetchTalkers();
+        if (this.isVisible('noiseMetrics')) this.fetchNoiseMetrics();
+        if (this.isVisible('newDevices')) this.fetchNewDevices();
+        
+        // Also fetch protocol hierarchy if visible
+        if (this.isVisible('protocolHierarchy')) {
+            this.fetchProtocolHierarchy();
+        }
+
         // Network Health is now always visible as a stat box
         this.fetchNetHealth();
 
@@ -1589,7 +1807,8 @@ export const Store = () => ({
                 this.fetchTalkers(),
                 this.fetchServices(),
                 this.fetchHourlyTraffic(),
-                this.fetchHosts()
+                this.fetchHosts(),
+                this.fetchProtocolHierarchy()
             ]);
             this.lastFetch.network = now;
         }
@@ -1603,7 +1822,7 @@ export const Store = () => ({
                 this.fetchThreatVelocity(),
                 this.fetchTopThreatIPs(),
                 this.fetchCompromisedHosts(),
-                this.fetchRiskIndex(),
+                // Removed: this.fetchRiskIndex(), // Replaced with predictiveRisk in securityObservability
                 this.fetchAttackTimeline(),
                 this.fetchMitreHeatmap(),
                 this.fetchProtocolAnomalies(),
@@ -1958,11 +2177,83 @@ export const Store = () => ({
                     list,
                     loading: false
                 };
+                this.$nextTick(() => this.renderTrafficScatter());
             }
         } catch (e) {
             console.error('Failed to fetch hosts:', e);
             this.hosts.loading = false;
         }
+    },
+
+    renderTrafficScatter() {
+        const ctx = document.getElementById('trafficScatterChart');
+        if (!ctx || !this.hosts.list || this.hosts.list.length === 0) {
+            this.trafficScatter.loading = false;
+            return;
+        }
+
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderTrafficScatter(), 100);
+            return;
+        }
+
+        const dataPoints = this.hosts.list.slice(0, 50).map(h => ({
+            x: h.rx_bytes,
+            y: h.tx_bytes,
+            ip: h.ip,
+            hostname: h.hostname
+        }));
+
+        if (_chartInstances['trafficScatter']) {
+            _chartInstances['trafficScatter'].destroy();
+        }
+
+        _chartInstances['trafficScatter'] = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Hosts',
+                    data: dataPoints,
+                    backgroundColor: this.getCssVar('--neon-cyan') || '#00f3ff',
+                    borderColor: 'rgba(0, 243, 255, 0.5)',
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        position: 'bottom',
+                        title: { display: true, text: 'Download Bytes', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#666', callback: (v) => this.fmtBytes(v) }
+                    },
+                    y: {
+                        type: 'logarithmic',
+                        title: { display: true, text: 'Upload Bytes', color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#666', callback: (v) => this.fmtBytes(v) }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pt = ctx.raw;
+                                return `${pt.ip}: ↓${this.fmtBytes(pt.x)} ↑${this.fmtBytes(pt.y)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Set loading to false after successful chart creation
+        this.trafficScatter.loading = false;
     },
 
     switchHostsView(mode) {
@@ -2491,17 +2782,7 @@ export const Store = () => ({
         finally { this.compromisedHosts.loading = false; }
     },
 
-    async fetchRiskIndex() {
-        this.riskIndex.loading = true;
-        try {
-            const res = await fetch('/api/security/risk_index');
-            if (res.ok) {
-                const d = await res.json();
-                this.riskIndex = { ...d, loading: false };
-            }
-        } catch (e) { console.error('Risk index fetch error:', e); }
-        finally { this.riskIndex.loading = false; }
-    },
+    // Removed: async fetchRiskIndex() - Replaced with predictiveRisk in securityObservability
 
     async fetchWatchlist() {
         this.watchlist.loading = true;
@@ -3501,6 +3782,138 @@ export const Store = () => ({
                 });
             }
         } catch (e) { console.error(e); } finally { this.protoMix.loading = false; }
+    },
+
+    async fetchProtocolHierarchy() {
+        this.protocolHierarchy.loading = true;
+        try {
+            const res = await fetch(`/api/stats/protocol_hierarchy?range=${this.timeRange}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.protocolHierarchy = { data: data, loading: false };
+                this.$nextTick(() => {
+                    setTimeout(() => this.renderProtocolHierarchyChart(), 100);
+                });
+            }
+        } catch (e) { 
+            console.error('fetchProtocolHierarchy error:', e); 
+        } finally { 
+            this.protocolHierarchy.loading = false; 
+        }
+    },
+
+    renderProtocolHierarchyChart() {
+        const ctx = document.getElementById('protocolHierarchyChart');
+        if (!ctx || !this.protocolHierarchy.data) return;
+
+        if (typeof Chart === 'undefined') {
+            setTimeout(() => this.renderProtocolHierarchyChart(), 100);
+            return;
+        }
+
+        // Prepare data for double doughnut
+        // Inner ring: L4 Protocols
+        // Outer ring: L7 Services
+        const hierarchy = this.protocolHierarchy.data;
+        const l4Labels = [];
+        const l4Data = [];
+        const l4Colors = ['#00f3ff', '#bc13fe', '#00ff88', '#ffff00'];
+        const l4Backgrounds = [];
+
+        const l7Labels = [];
+        const l7Data = [];
+        const l7Backgrounds = [];
+
+        if (hierarchy.children) {
+            hierarchy.children.forEach((l4, i) => {
+                l4Labels.push(l4.name);
+                l4Data.push(l4.total_bytes);
+                const color = l4Colors[i % l4Colors.length];
+                l4Backgrounds.push(color);
+
+                if (l4.children) {
+                    l4.children.forEach(l7 => {
+                        l7Labels.push(l7.name);
+                        l7Data.push(l7.value);
+                        // Make L7 color a transparent version of L4 color
+                        l7Backgrounds.push(color.replace('1)', '0.6)').replace(')', ', 0.6)')); // Approximate transparency hack or use chroma.js if available
+                        // Actually just use same color but let segments verify
+                        l7Backgrounds.push(color);
+                    });
+                }
+            });
+        }
+
+        // Destroy existing
+        if (_chartInstances['protocolHierarchy']) {
+            _chartInstances['protocolHierarchy'].destroy();
+        }
+
+        _chartInstances['protocolHierarchy'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: l7Labels, // Tooltip shows L7 labels primarily
+                datasets: [
+                    {
+                        label: 'Service',
+                        data: l7Data,
+                        backgroundColor: l7Backgrounds,
+                        weight: 2
+                    },
+                    {
+                        label: 'Protocol',
+                        data: l4Data,
+                        backgroundColor: l4Backgrounds,
+                        weight: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const val = this.fmtBytes(context.raw);
+                                return `${context.chart.data.labels[context.dataIndex] || ''}: ${val}`;
+                            }
+                        }
+                    }
+                },
+                cutout: '30%'
+            }
+        });
+    },
+
+    async fetchNoiseMetrics() {
+        this.noiseMetrics.loading = true;
+        try {
+            const res = await fetch(`/api/stats/noise?range=${this.timeRange}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.noiseMetrics = { ...data, loading: false };
+            }
+        } catch (e) { console.error(e); } finally { this.noiseMetrics.loading = false; }
+    },
+
+    async fetchNewDevices() {
+        this.newDevices.loading = true;
+        try {
+            // Re-use api_hosts_list but filter client-side for "new"
+            const res = await fetch(`/api/hosts/list?range=48h&limit=500`);
+            if (res.ok) {
+                const data = await res.json();
+                // Filter for is_new = true
+                const newHosts = data.filter(h => h.is_new);
+                this.newDevices = {
+                    list: newHosts.slice(0, 10), // Top 10
+                    count: newHosts.length,
+                    loading: false
+                };
+            }
+        } catch (e) { console.error(e); } finally { this.newDevices.loading = false; }
     },
 
     // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range
@@ -5475,7 +5888,7 @@ export const Store = () => ({
                 this.fetchThreatVelocity();
                 this.fetchTopThreatIPs();
                 this.fetchCompromisedHosts();
-                this.fetchRiskIndex();
+                // Removed: this.fetchRiskIndex(); // Replaced with predictiveRisk in securityObservability
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchFeedHealth();

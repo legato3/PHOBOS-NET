@@ -3352,6 +3352,30 @@
         padding: var(--space-2) 0;
         margin-bottom: var(--space-2);
     }
+
+    /* Make priority stats full width for better visibility */
+    .summary-stats-grid > .stat-box:nth-child(1), /* Overall Health */
+    .summary-stats-grid > .stat-box:nth-child(2)  /* Active Alerts */
+    {
+        grid-column: 1 / -1;
+    }
+
+    /* Mobile health metrics pills */
+    .mobile-health-metrics {
+        display: flex !important;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+
+    .mobile-health-metrics .badge {
+        font-size: 11px;
+        background: rgba(255,255,255,0.08);
+        padding: 3px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+        color: var(--text-secondary);
+    }
     
     /* All stat boxes visible - 2-column grid naturally shows 2 cards per row */
     /* First row (above fold): Overall Health + Active Alerts */
@@ -3573,6 +3597,41 @@
     .network-grid {
         grid-template-columns: 1fr !important;
         gap: var(--space-4);
+    }
+
+    /* ============================================
+       DATA TABLES & INTERACTION
+       ============================================ */
+
+    /* Limit rows in Top Sources/Destinations tables on mobile to prevent scrolling traps */
+    .endpoint-grid-body .network-endpoint-row:nth-child(n+6) {
+        display: none !important;
+    }
+
+    /* Increase touch target size for rows */
+    .network-endpoint-row {
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+
+    /* Ensure action button has space and larger hit area */
+    .endpoint-primary-line {
+        gap: 16px;
+    }
+
+    .endpoint-filter-btn {
+        padding: 12px !important;
+        margin: -8px -8px -8px 0 !important;
+    }
+
+    /* Prevent scroll traps by ensuring right margin/padding */
+    .widget-body-inner {
+        padding-right: 24px !important;
+    }
+
+    /* Show trend percentages explicitly on mobile */
+    .mobile-trend-text {
+        display: inline-block !important;
     }
     
     /* ============================================

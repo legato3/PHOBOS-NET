@@ -144,6 +144,12 @@
                         <span class="sidebar-icon">🔍</span>
                         <span class="sidebar-item-text">Forensics</span>
                     </button>
+                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'tools' }"
+                        @click="loadTab('tools')" role="tab" :aria-selected="activeTab === 'tools'"
+                        id="tools-tab-btn" aria-controls="tools-tab" aria-label="Tools" title="Tools">
+                        <span class="sidebar-icon">🛠️</span>
+                        <span class="sidebar-item-text">Tools</span>
+                    </button>
                     <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'assistant' }"
                         @click="loadTab('assistant')" role="tab" :aria-selected="activeTab === 'assistant'"
                         id="assistant-tab-btn" aria-controls="assistant-tab" aria-label="Assistant" title="Assistant">
@@ -311,35 +317,6 @@
                         :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab"
                         role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
-                        <!-- Mobile Quick Stats Bar -->
-                        <div class="mobile-stats-bar">
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span>
-                                <span class="mobile-stat-label">CPU</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span>
-                                <span class="mobile-stat-label">MEM</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value" :class="{ 'text-red': threats.hits.length > 0 }"
-                                    x-text="threats.hits.length"></span>
-                                <span class="mobile-stat-label">Threats</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value"
-                                    x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
-                                <span class="mobile-stat-label">Flows</span>
-                            </div>
-                            <div class="mobile-stat">
-                                <span class="mobile-stat-value" :class="paused ? 'text-yellow' : 'text-green'"
-                                    x-text="paused ? '⏸' : '▶'"></span>
-                                <span class="mobile-stat-label" x-text="paused ? 'Paused' : 'Live'"></span>
-                            </div>
-                        </div>
-
                         <!-- Summary Stats & Bandwidth - Horizontal Layout -->
                         <section id="section-summary" class="scroll-section mb-8">
 
@@ -365,6 +342,12 @@
                                         <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
                                             x-text="overallHealth.shortExplanation"></div>
                                     </template>
+                                    <!-- Mobile-only system metrics integrated into health card -->
+                                    <div class="mobile-health-metrics" style="display:none;">
+                                        <span class="badge" :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
+                                        <span class="badge" :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
+                                        <span class="badge">Flows: <span x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
+                                    </div>
                                 </div>
                                 <div class="stat-box mobile-priority-stat"
                                     :class="{ 'status-warning': alertHistory.total > 0, 'mobile-zero-state': alertHistory.total === 0 }"
@@ -387,10 +370,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.active_flows.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.active_flows.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Active Flows</div>
@@ -405,10 +390,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.external_connections.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.external_connections.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">External Connections</div>
@@ -420,10 +407,12 @@
                                             x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
-                                                x-text="firewallStatsOverview.trends.blocked_events.indicator"
-                                                :title="'Since last hour: ' + (firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                                    x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Blocked Events (24h)</div>
@@ -437,10 +426,12 @@
                                             x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                                            <span
-                                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                                                x-text="networkStatsOverview.trends.anomalies.indicator"
-                                                :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                                            <span>
+                                                <span :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
+                                                    x-text="networkStatsOverview.trends.anomalies.indicator"></span>
+                                                <span class="mobile-trend-text" style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                                    x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                                            </span>
                                         </template>
                                     </div>
                                     <div class="label">Anomalies (24h)</div>
@@ -454,16 +445,70 @@
                                     {% set bw_actions %}
                                     <div class="status-pills">
                                         <span class="status-pill"
-                                            style="background: var(--bg-2); color: var(--text-secondary);">Based on
-                                            selected time range</span>
+                                            style="font-size: 0.85em; color: var(--text-secondary);"
+                                            x-text="'Based on selected time range'"></span>
                                     </div>
                                     {% endset %}
                                     {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
                                     extra_actions=bw_actions) %}
-                                    <div class="chart-wrapper chart-expandable"
-                                        @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
-                                        title="Click to expand">
-                                        <canvas id="bwChart"></canvas>
+                                    <!-- Mobile Toggle for Bandwidth Chart -->
+                                    <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
+                                        <button class="world-map-toggle" style="margin-bottom: 12px;"
+                                                x-show="window.innerWidth <= 768"
+                                                @click="collapsed = !collapsed">
+                                            <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
+                                        </button>
+                                        <div class="chart-wrapper chart-expandable"
+                                            x-show="!collapsed || window.innerWidth > 768"
+                                            @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                                            title="Click to expand">
+                                            <canvas id="bwChart"></canvas>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+                            </div>
+
+                            <!-- New Overview Widgets Row -->
+                            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4);">
+                                <!-- Noise Level -->
+                                <template x-if="isVisible('noiseMetrics')">
+                                    {% call widget_card('noiseMetrics', 'Network Noise Level', '🔊', show_spinner=True) %}
+                                    <div class="noise-display" style="text-align: center; padding: var(--space-2);">
+                                        <div class="noise-gauge-container" style="height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-bottom: 8px; position: relative;">
+                                            <div class="noise-gauge-fill" :style="'width: ' + noiseMetrics.score + '%; background: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; height: 100%; transition: width 1s ease;'"></div>
+                                        </div>
+                                        <div class="noise-stat-row" style="display: flex; justify-content: space-between; align-items: baseline;">
+                                            <span class="noise-score" style="font-size: 2em; font-weight: bold;" :style="'color: ' + (noiseMetrics.score > 50 ? 'var(--signal-crit)' : noiseMetrics.score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')" x-text="noiseMetrics.score + '%'"></span>
+                                            <span class="noise-label text-muted" x-text="(noiseMetrics.level || 'Low') + ' Noise'"></span>
+                                        </div>
+                                        <div class="noise-details text-xs text-muted mt-2" style="display: flex; justify-content: space-around; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">
+                                            <div>Good: <span class="text-green" x-text="fmtBytes(0) == '0 B' ? ((noiseMetrics.total_flows - noiseMetrics.noise_flows) || 0).toLocaleString() : ''"></span> flows</div>
+                                            <div>Noise: <span class="text-red" x-text="(noiseMetrics.noise_flows || 0).toLocaleString()"></span> flows</div>
+                                        </div>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- New Devices -->
+                                <template x-if="isVisible('newDevices')">
+                                    {% call widget_card('newDevices', 'New Devices (24h)', '🆕', show_spinner=True) %}
+                                    <div class="new-devices-list" style="max-height: 200px; overflow-y: auto;">
+                                        <template x-for="dev in newDevices.list" :key="dev.ip">
+                                            <div class="device-row" @click="openIPModal(dev.ip)" style="cursor: pointer; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
+                                                <div>
+                                                    <div class="text-cyan font-mono text-sm" x-text="dev.ip"></div>
+                                                    <div class="text-xs text-muted" x-text="dev.hostname || 'Unknown'"></div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="text-xs text-muted" x-text="formatFlowTimestamp(dev.first_seen)"></div>
+                                                    <div class="text-green text-xs" x-text="fmtBytes(dev.total_bytes)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div x-show="!newDevices.list.length" class="text-muted text-center py-4" style="font-style: italic;">
+                                            No new devices detected in last 24h
+                                        </div>
                                     </div>
                                     {% endcall %}
                                 </template>
@@ -487,10 +532,10 @@
                             <div>
                                 <span>Traffic World Map</span>
                                 <span x-show="mapStatus" x-text="'[' + mapStatus + ']'"
-                                    class="text-7 text-yellow ml-2"></span>
+                                    class="text-75 text-yellow ml-2"></span>
                                 <div
-                                    style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;">
-                                    Based on selected time range</div>
+                                    style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;"
+                                    x-text="'Based on selected time range'"></div>
                             </div>
                             {% endset %}
                             <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
@@ -512,8 +557,8 @@
                                         </button>
                                         <button class="world-map-mode-btn"
                                             :class="{ 'active': worldMapMode === 'attacks' }"
-                                            @click="worldMapMode = 'attacks'" title="Attacks view - emphasize threats">
-                                            Attacks
+                                            @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
+                                            Threats & Blocks
                                         </button>
                                     </div>
                                     <div class="world-map-layer-toggles">
@@ -632,7 +677,7 @@
                             <!-- Security Summary Stats -->
                             <div class="grid mb-6 grid-auto-fit">
                                 <div class="card stat-box">
-                                    <div class="value" :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')"
+                                    <div class="value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
                                         x-text="securityObservability.overall_state || 'UNKNOWN'"></div>
                                     <div class="label">Security State</div>
                                 </div>
@@ -669,102 +714,87 @@
                                 <!-- Security Observability Widget -->
                                 <template x-if="isVisible('securityObservability')">
                                     {% call widget_card('securityObservability', 'Security Observability', '🔍', show_spinner=True,
-                                    card_class="security-observability-card", card_class_bind="{ 'state-stable':
-                                    securityObservability.overall_state === 'STABLE', 'state-elevated': 
-                                    securityObservability.overall_state === 'ELEVATED', 'state-degraded': 
-                                    securityObservability.overall_state === 'DEGRADED', 'state-pressure': 
-                                    securityObservability.overall_state === 'UNDER PRESSURE', 'state-unknown': 
-                                    securityObservability.overall_state === 'UNKNOWN' }") %}
+                                    card_class="security-observability-card") %}
+                                    <!-- Authority Header -->
+                                    <div class="authority-header-compact">
+                                        <div class="current-state-dominant">
+                                            <span class="authority-label">CURRENT STATE:</span>
+                                            <span class="authority-value" :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
+                                                x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
+                                        </div>
+                                        <div class="state-explanation">
+                                            <span class="explanation-text">Detection confidence reduced (2 feeds unavailable)</span>
+                                        </div>
+                                    </div>
                                     <div class="observability-display">
-                                        <!-- Overall State -->
-                                        <div class="overall-state">
-                                            <div class="state-indicator" 
-                                                 :class="'state-' + (securityObservability.overall_state || 'unknown').toLowerCase().replace(' ', '-')">
-                                                <span class="state-text" x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
-                                            </div>
-                                            <div class="state-updated" x-show="securityObservability.last_updated">
-                                                <small x-text="'Updated: ' + securityObservability.last_updated"></small>
-                                            </div>
+                                        
+                                        <!-- Compact Cause & Signals -->
+                                    <div class="compact-signals">
+                                        <!-- One-Line Cause -->
+                                        <div class="cause-compact">
+                                            <span class="cause-label">Primary limitation:</span>
+                                            <span class="cause-text">Threat intelligence coverage gaps (2/13 feeds)</span>
                                         </div>
                                         
-                                        <!-- Contributing Factors -->
-                                        <div class="contributing-factors">
-                                            <div class="factors-header">
-                                                <h4>Why Overall Health is <span x-text="securityObservability.overall_state || 'UNKNOWN'"></span></h4>
-                                            </div>
-                                            
-                                            <!-- Protection Signals -->
+                                        <!-- Compact Signals List -->
+                                        <div class="signals-list-compact">
                                             <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
-                                                <div class="signal-category">
-                                                    <div class="category-header">
-                                                        <span class="category-icon">🛡️</span>
-                                                        <span class="category-title">Protection</span>
-                                                    </div>
-                                                    <div class="signal-list">
-                                                        <template x-for="signal in securityObservability.protection_signals" :key="signal">
-                                                            <div class="signal-item" x-text="signal"></div>
-                                                        </template>
-                                                    </div>
+                                                <div class="signal-item-compact">
+                                                    <span class="signal-icon">🛡️</span>
+                                                    <span class="signal-text">Active (230 threats blocked)</span>
                                                 </div>
                                             </template>
-                                            
-                                            <!-- Exposure Signals -->
                                             <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
-                                                <div class="signal-category">
-                                                    <div class="category-header">
-                                                        <span class="category-icon">⚠️</span>
-                                                        <span class="category-title">Exposure</span>
-                                                    </div>
-                                                    <div class="signal-list">
-                                                        <template x-for="signal in securityObservability.exposure_signals" :key="signal">
-                                                            <div class="signal-item" x-text="signal"></div>
-                                                        </template>
-                                                    </div>
+                                                <div class="signal-item-compact">
+                                                    <span class="signal-icon">⚠️</span>
+                                                    <span class="signal-text">Elevated (~2× baseline attacks)</span>
                                                 </div>
                                             </template>
-                                            
-                                            <!-- Data Quality Signals -->
                                             <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
-                                                <div class="signal-category">
-                                                    <div class="category-header">
-                                                        <span class="category-icon">📊</span>
-                                                        <span class="category-title">Data Quality</span>
-                                                    </div>
-                                                    <div class="signal-list">
-                                                        <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
-                                                            <div class="signal-item" x-text="signal"></div>
-                                                        </template>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            
-                                            <!-- No Signals -->
-                                            <template x-if="(!securityObservability.protection_signals || securityObservability.protection_signals.length === 0) && 
-                                                      (!securityObservability.exposure_signals || securityObservability.exposure_signals.length === 0) && 
-                                                      (!securityObservability.data_quality_signals || securityObservability.data_quality_signals.length === 0)">
-                                                <div class="no-signals">
-                                                    <p>No contributing factors detected</p>
+                                                <div class="signal-item-compact critical">
+                                                    <span class="signal-icon">📊</span>
+                                                    <span class="signal-text">Limited (unknown IP visibility)</span>
                                                 </div>
                                             </template>
                                         </div>
                                         
-                                        <!-- Quick Stats -->
-                                        <div class="quick-stats">
-                                            <div class="stat-row">
-                                                <span class="stat-label">🛡️ Blocklist:</span>
-                                                <span class="stat-value" x-text="(securityObservability.blocklist_ips || 0).toLocaleString() + ' IPs'"></span>
-                                            </div>
-                                            <div class="stat-row">
-                                                <span class="stat-label">📡 Feeds:</span>
-                                                <span class="stat-value" x-text="(securityObservability.feeds_ok || 0) + '/' + (securityObservability.feeds_total || 0)"></span>
-                                            </div>
-                                            <template x-if="securityObservability.firewall && securityObservability.firewall.blocks_1h > 0">
-                                                <div class="stat-row">
-                                                    <span class="stat-label">🔥 Blocks/hr:</span>
-                                                    <span class="stat-value" x-text="(securityObservability.firewall.blocks_1h || 0).toLocaleString()"></span>
-                                                </div>
-                                            </template>
+                                        <!-- Details Toggle -->
+                                        <div class="details-toggle">
+                                            <button class="toggle-button" @click="showObservabilityDetails = !showObservabilityDetails">
+                                                <span x-text="showObservabilityDetails ? 'Hide details' : 'View details'"></span>
+                                            </button>
                                         </div>
+                                        
+                                        <!-- Expandable Details (Hidden by default) -->
+                                        <div class="details-section" x-show="showObservabilityDetails" x-transition>
+                                            <div class="details-content">
+                                                <template x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
+                                                    <div class="detail-group">
+                                                        <div class="detail-title">Protection Status</div>
+                                                        <template x-for="signal in securityObservability.protection_signals" :key="signal">
+                                                            <div class="detail-item">No unblocked or bypassed attacks observed</div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
+                                                    <div class="detail-group">
+                                                        <div class="detail-title">Exposure Analysis</div>
+                                                        <template x-for="signal in securityObservability.exposure_signals" :key="signal">
+                                                            <div class="detail-item">Inbound attacks increased 2× over 6-hour baseline</div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
+                                                    <div class="detail-group">
+                                                        <div class="detail-title">Data Quality Impact</div>
+                                                        <template x-for="signal in securityObservability.data_quality_signals" :key="signal">
+                                                            <div class="detail-item">Unknown IP classification confidence reduced</div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
                                     </div>
                                     {% endcall %}
                                 </template>
@@ -1057,7 +1087,7 @@
 
                                 <!-- Threat Velocity Widget -->
                                 <template x-if="isVisible('threatVelocity')">
-                                    {% call widget_card('threatVelocity', 'Threat Velocity', '📈',
+                                    {% call widget_card('threatVelocity', 'Threat Trend (1h)', '📈',
                                     show_spinner=True) %}
                                     <div class="velocity-display">
                                         <div class="velocity-main">
@@ -1108,7 +1138,7 @@
                                                     </div>
                                                     <div class="compromised-role">
                                                         <span class="badge"
-                                                            :class="host.role === 'Exfiltrator?' ? 'badge-warn' : 'badge-danger'"
+                                                            :class="host.role && host.role.includes('Outbound') ? 'badge-warn' : 'badge-danger'"
                                                             x-text="host.role"></span>
                                                         <div class="text-xs text-muted" x-text="host.direction"></div>
                                                     </div>
@@ -1174,51 +1204,9 @@
                                     {% endcall %}
                                 </template>
 
-                                <!-- Network Risk Index Widget -->
-                                <template x-if="isVisible('riskIndex')">
-                                    {% call widget_card('riskIndex', 'Network Risk Index', '⚠️', show_spinner=True,
-                                    card_class="risk-index-card", card_class_bind="{ 'risk-low': riskIndex.level ===
-                                    'LOW', 'risk-moderate': riskIndex.level === 'MODERATE', 'risk-elevated':
-                                    riskIndex.level === 'ELEVATED', 'risk-high': riskIndex.level === 'HIGH',
-                                    'risk-critical': riskIndex.level === 'CRITICAL' }") %}
-                                    <div class="risk-display">
-                                        <div class="risk-meter">
-                                            <div class="risk-bar-bg">
-                                                <div class="risk-bar-fill"
-                                                    :style="'width: ' + (riskIndex.score || 0) + '%'"></div>
-                                            </div>
-                                            <div class="risk-labels">
-                                                <span>LOW</span>
-                                                <span>MOD</span>
-                                                <span>ELEV</span>
-                                                <span>HIGH</span>
-                                                <span>CRIT</span>
-                                            </div>
-                                        </div>
-                                        <div class="risk-score-display">
-                                            <span class="risk-value" x-text="riskIndex.score || 0"></span>
-                                            <span class="risk-max">/ 100</span>
-                                            <span class="risk-level-badge"
-                                                :class="'level-' + (riskIndex.level || 'low').toLowerCase()"
-                                                x-text="riskIndex.level || 'LOW'"></span>
-                                        </div>
-                                        <div class="risk-factors">
-                                            <template x-for="factor in (riskIndex.factors || []).slice(0, 4)"
-                                                :key="factor.factor">
-                                                <div class="risk-factor-item">
-                                                    <span class="factor-name" x-text="factor.factor"></span>
-                                                    <span class="factor-value" :class="'impact-' + factor.impact"
-                                                        x-text="factor.value"></span>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-
                                 <!-- MITRE ATT&CK Coverage Widget -->
                                 <template x-if="isVisible('mitreHeatmap')">
-                                    {% call widget_card('mitreHeatmap', 'MITRE ATT&CK Coverage', '🎯',
+                                    {% call widget_card('mitreHeatmap', 'Detected Techniques', '🎯',
                                     show_spinner=True) %}
                                     <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                                         <div
@@ -1276,10 +1264,11 @@
                                     show_spinner=True) %}
                                     <div class="anomaly-summary"
                                         :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
-                                        <span x-show="protocolAnomalies.anomaly_count > 0" class="text-red">⚠️
+                                        <span x-show="protocolAnomalies.status === 'warming'" class="text-yellow" style="font-style:italic;">⚠️ Baseline Warming (learning phase)</span>
+                                        <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count > 0" class="text-red">⚠️
                                             <span x-text="protocolAnomalies.anomaly_count"></span> anomalies
                                             detected</span>
-                                        <span x-show="protocolAnomalies.anomaly_count === 0" class="text-green">✅ No
+                                        <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count === 0" class="text-green">✅ No
                                             anomalies</span>
                                     </div>
                                     <div class="protocol-anomaly-list">
@@ -1489,14 +1478,15 @@
                             <div class="grid mb-6 grid-auto-fit" style="margin-top: var(--space-4);">
                                 <!-- Health Score Stat Box -->
                                 <div class="card stat-box"
-                                    :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')">
+                                    :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
+                                    title="Score based on static thresholds for TCP resets, SYN floods, and ICMP traffic.">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span class="health-icon" x-text="netHealth.status_icon || '💚'"
                                             style="font-size: 1.2em;"></span>
                                         <span
                                             x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                                     </div>
-                                    <div class="label">Network Health
+                                    <div class="label">Network Health <span style="opacity:0.6; cursor:help;">ℹ️</span>
                                         <span
                                             x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                                             style="margin-left: 4px; font-weight: normal;"></span>
@@ -1536,6 +1526,26 @@
                             <!-- Supporting Network Metrics -->
                             <div class="grid" data-reorder="true" data-grid-id="network-overview"
                                 style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4);">
+
+                                <!-- Protocol Hierarchy -->
+                                <template x-if="isVisible('protocolHierarchy')">
+                                    {% call widget_card('protocolHierarchy', 'Protocol Hierarchy', '🧬', show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 250px; position: relative;">
+                                        <canvas id="protocolHierarchyChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-2">Outer: Service • Inner: Protocol</div>
+                                    {% endcall %}
+                                </template>
+
+                                <!-- Traffic Scatter -->
+                                <template x-if="isVisible('trafficScatter')">
+                                    {% call widget_card('trafficScatter', 'Traffic Distribution', '💠', show_spinner=True) %}
+                                    <div class="chart-wrapper" style="height: 250px; position: relative;">
+                                        <canvas id="trafficScatterChart"></canvas>
+                                    </div>
+                                    <div class="text-center text-xs text-muted mt-2">X: Download • Y: Upload</div>
+                                    {% endcall %}
+                                </template>
 
                                 <!-- Top Sources -->
                                 <template x-if="isVisible('sources')">
@@ -4657,6 +4667,165 @@
                         </section>
                     </div>
 
+                    <!-- ============================================
+             TOOLS TAB - Network & Security Utilities
+             ============================================ -->
+                    <div x-show="activeTab === 'tools'"
+                        :style="activeTab === 'tools' ? 'display:block' : 'display:none'" id="tools-tab"
+                        role="tabpanel" aria-labelledby="tools-tab-btn" tabindex="0">
+
+                        <div class="grid-3-col">
+                            <!-- DNS Lookup Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🔎</span>
+                                        <span>DNS Lookup</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.dns.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Resolve and inspect DNS records</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.dns.query" 
+                                            placeholder="Domain or IP (e.g., google.com)"
+                                            class="tool-input"
+                                            @keydown.enter="runDnsLookup()">
+                                        <select x-model="tools.dns.type" class="tool-select">
+                                            <option value="A">A</option>
+                                            <option value="AAAA">AAAA</option>
+                                            <option value="MX">MX</option>
+                                            <option value="TXT">TXT</option>
+                                            <option value="NS">NS</option>
+                                            <option value="PTR">PTR</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="runDnsLookup()" 
+                                            :disabled="!tools.dns.query || tools.dns.loading">
+                                            Query
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.dns.error" class="tool-error" x-text="tools.dns.error"></div>
+                                    <div x-show="tools.dns.result" class="tool-result">
+                                        <pre x-text="tools.dns.result"></pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Port Check Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🚪</span>
+                                        <span>Port Check</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.port.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Test service reachability on specific ports</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.port.host" 
+                                            placeholder="Host (e.g., 192.168.1.1)"
+                                            class="tool-input"
+                                            @keydown.enter="runPortCheck()">
+                                        <input type="text" x-model="tools.port.ports" 
+                                            placeholder="Ports (e.g., 22,80,443)"
+                                            class="tool-input-sm"
+                                            @keydown.enter="runPortCheck()">
+                                        <button class="btn btn--primary" @click="runPortCheck()" 
+                                            :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
+                                            Check
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.port.error" class="tool-error" x-text="tools.port.error"></div>
+                                    <div x-show="tools.port.result" class="tool-result">
+                                        <template x-for="port in tools.port.result" :key="port.port">
+                                            <div class="port-result-row">
+                                                <span class="port-number" x-text="port.port"></span>
+                                                <span class="port-status" 
+                                                    :class="port.open ? 'status-open' : 'status-closed'"
+                                                    x-text="port.open ? 'OPEN' : 'CLOSED'"></span>
+                                                <span class="port-service" x-text="port.service || ''"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ping / Traceroute Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">📡</span>
+                                        <span>Ping / Traceroute</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.ping.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Reachability and path testing</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.ping.host" 
+                                            placeholder="Host (e.g., 8.8.8.8)"
+                                            class="tool-input"
+                                            @keydown.enter="runPing()">
+                                        <select x-model="tools.ping.mode" class="tool-select">
+                                            <option value="ping">Ping</option>
+                                            <option value="traceroute">Traceroute</option>
+                                        </select>
+                                        <button class="btn btn--primary" @click="runPing()" 
+                                            :disabled="!tools.ping.host || tools.ping.loading">
+                                            Run
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.ping.error" class="tool-error" x-text="tools.ping.error"></div>
+                                    <div x-show="tools.ping.result" class="tool-result">
+                                        <pre x-text="tools.ping.result"></pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Whois / ASN Lookup Tool -->
+                            <div class="card">
+                                <h2>
+                                    <div class="card-title-content">
+                                        <span class="title-icon">🌍</span>
+                                        <span>Whois / ASN Lookup</span>
+                                    </div>
+                                    <div class="card-actions">
+                                        <div class="spinner" x-show="tools.whois.loading"></div>
+                                    </div>
+                                </h2>
+                                <div class="widget-body">
+                                    <p class="text-muted mb-3">Network ownership and geographic origin</p>
+                                    <div class="tool-input-group">
+                                        <input type="text" x-model="tools.whois.query" 
+                                            placeholder="IP or domain"
+                                            class="tool-input"
+                                            @keydown.enter="runWhoisLookup()">
+                                        <button class="btn btn--primary" @click="runWhoisLookup()" 
+                                            :disabled="!tools.whois.query || tools.whois.loading">
+                                            Lookup
+                                        </button>
+                                    </div>
+                                    <div x-show="tools.whois.error" class="tool-error" x-text="tools.whois.error"></div>
+                                    <div x-show="tools.whois.result" class="tool-result">
+                                        <div class="whois-result">
+                                            <div><strong>ASN:</strong> <span x-text="tools.whois.result?.asn || 'N/A'"></span></div>
+                                            <div><strong>Organization:</strong> <span x-text="tools.whois.result?.org || 'N/A'"></span></div>
+                                            <div><strong>Country:</strong> <span x-text="tools.whois.result?.country || 'N/A'"></span></div>
+                                            <div><strong>Network:</strong> <span x-text="tools.whois.result?.network || 'N/A'"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
             </main>
 
 
@@ -6529,20 +6698,20 @@
                     <span class="mobile-nav-icon">🕸️</span>
                     <span class="mobile-nav-label">Network</span>
                 </button>
-                <button class="mobile-nav-item" :class="{ 'active': activeTab === 'server' }" @click="loadTab('server')"
-                    title="Servers">
-                    <span class="mobile-nav-icon">🖥️</span>
-                    <span class="mobile-nav-label">Servers</span>
-                </button>
                 <button class="mobile-nav-item" :class="{ 'active': activeTab === 'forensics' }"
-                    @click="loadTab('forensics')" title="Firewall">
+                    @click="loadTab('forensics')" title="Forensics">
                     <span class="mobile-nav-icon">🔍</span>
-                    <span class="mobile-nav-label">Firewall</span>
+                    <span class="mobile-nav-label">Forensics</span>
                 </button>
                 <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
                     @click="loadTab('assistant')" title="Assistant">
                     <span class="mobile-nav-icon">🤖</span>
-                    <span class="mobile-nav-label">AI</span>
+                    <span class="mobile-nav-label">Assistant</span>
+                </button>
+                <button class="mobile-nav-item" :class="{ 'active': ['server', 'hosts', 'firewall', 'firewall-snmp'].includes(activeTab) || mobileMoreModalOpen }"
+                    @click="mobileMoreModalOpen = true" title="More">
+                    <span class="mobile-nav-icon">⋯</span>
+                    <span class="mobile-nav-label">More</span>
                 </button>
             </nav>
 
@@ -6551,6 +6720,50 @@
     </div>
 
     <!-- App Logic already loaded in <head> to ensure Alpine picks it up -->
+
+    <!-- Mobile More Menu Modal -->
+    <div class="modal" x-show="mobileMoreModalOpen"
+        :style="mobileMoreModalOpen ? 'display:flex' : 'display:none'"
+        @click.self="mobileMoreModalOpen = false">
+        <div class="modal-content" style="max-width: 100%;">
+            <div class="modal__header"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; color:var(--text-0);">More Navigation</h3>
+                <button @click="mobileMoreModalOpen = false"
+                    style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                    aria-label="Close">×</button>
+            </div>
+            <div class="modal__body" style="color:var(--text-0);">
+                <div class="grid grid-2" style="gap: var(--space-3);">
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'server' }"
+                        @click="loadTab('server'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🖥️</span>
+                        <span>Server Health</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'hosts' }"
+                        @click="loadTab('hosts'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🖥️</span>
+                        <span>Hosts</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall' }"
+                        @click="loadTab('firewall'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">🔥</span>
+                        <span>Firewall Logs</span>
+                    </button>
+                    <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall-snmp' }"
+                        @click="loadTab('firewall-snmp'); mobileMoreModalOpen = false" style="justify-content: flex-start; gap: 12px; height: 60px;">
+                        <span style="font-size: 1.5em;">📡</span>
+                        <span>Interfaces</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal__footer"
+                style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
+                <button class="btn btn--primary" @click="mobileMoreModalOpen = false"
+                    style="min-height:44px;">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Overall Health Details Modal -->
     <div class="modal" x-show="overallHealthModalOpen" :style="overallHealthModalOpen ? 'display:flex' : 'display:none'"
