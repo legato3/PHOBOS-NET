@@ -246,6 +246,7 @@ export const Store = () => ({
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.1.0', version_display: 'v1.1' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
+    mobileMoreModalOpen: false, // Modal for expanded mobile navigation
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: true, traffic_correlation: null, loading: true, error: null },
     firewallSNMPRefreshTimer: null,
     _firewallSNMPFetching: false,
