@@ -3293,6 +3293,30 @@ def api_remove_watchlist():
     return jsonify({'success': success, 'ip': ip})
 
 
+@bp.route('/api/security/block', methods=['POST'])
+def api_security_block():
+    """Block IP via security webhook (stub - not yet implemented).
+
+    This endpoint is a placeholder for future integration with firewall
+    or security automation systems. Currently returns a message indicating
+    the feature is not configured.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    ip = data.get('ip', '').strip()
+    action = data.get('action', 'block')
+
+    if not ip:
+        return jsonify({'error': 'IP required'}), 400
+
+    # Stub: Return informational response
+    # In future, this could integrate with pfSense API, iptables, etc.
+    return jsonify({
+        'success': False,
+        'message': 'Security webhook not configured. To enable IP blocking, configure a webhook endpoint.',
+        'ip': ip,
+        'action': action
+    })
+
 
 @bp.route("/api/alerts_history")
 def api_alerts_history():

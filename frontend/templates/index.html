@@ -79,38 +79,24 @@
     </div>
 
     <div class="container" x-show="initDone" x-transition.opacity.duration.500ms>
-        <!-- Mobile filters removed - integrated into header -->
-
-
         <!-- Layout with Sidebar -->
         <div class="layout-wrapper">
-            <!-- Left Sidebar Menu -->
+            {% include "layouts/sidebar.html" %}
+            {% include "layouts/header.html" %}
+            <main class="main-content" id="main-content" tabindex="-1">
+                <div class="content-scroll-area">
+                    {% include "tabs/overview.html" %}
+                    {% include "tabs/security.html" %}
+                    {% include "tabs/network.html" %}
+                    {% include "tabs/hosts.html" %}
+                    {% include "tabs/firewall.html" %}
+                    {% include "tabs/server.html" %}
+                    {% include "tabs/firewall-snmp.html" %}
+                    {% include "tabs/assistant.html" %}
+                    {% include "tabs/forensics.html" %}
+                    {% include "tabs/tools.html" %}
 
-    <div class="layout-wrapper">
-        {% include "layouts/sidebar.html" %}
-        {% include "layouts/header.html" %}
-        <main class="main-content" id="main-content" tabindex="-1">
-            <div class="content-scroll-area">
-                {% include "tabs/overview.html" %}
-                {% include "tabs/security.html" %}
-                {% include "tabs/network.html" %}
-                {% include "tabs/hosts.html" %}
-                {% include "tabs/firewall.html" %}
-                {% include "tabs/server.html" %}
-                {% include "tabs/firewall-snmp.html" %}
-                {% include "tabs/assistant.html" %}
-                {% include "tabs/forensics.html" %}
-                {% include "tabs/tools.html" %}
-            </div>
-        </main>
-    </div>
-
-</div>
-
-            </main>
-
-
-            <!-- Expanded Table Modal -->
+                    <!-- Expanded Table Modal -->
             <div class="modal" x-show="expandedModalOpen" :style="expandedModalOpen ? 'display:flex' : 'display:none'"
                 @click.self="expandedModalOpen = false">
                 <div class="modal-content" style="max-width: 1000px; height: 90vh;">
@@ -2217,6 +2203,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- End container -->
 </body>
 
 </html>

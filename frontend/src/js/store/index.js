@@ -2740,7 +2740,12 @@ export const Store = () => ({
                 body: JSON.stringify({ ip, action: 'block' })
             });
             if (res.ok) {
-                this.showToast(`Sent block request for ${ip}`, 'success');
+                const data = await res.json();
+                if (data.success) {
+                    this.showToast(`Sent block request for ${ip}`, 'success');
+                } else {
+                    this.showToast(data.message || 'Block request not processed', 'warning');
+                }
             } else {
                 this.showToast('Block request failed', 'error');
             }
