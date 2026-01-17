@@ -2742,7 +2742,7 @@ def api_mitre_heatmap():
     for tech_id, data in techniques.items():
         info = mitre_info.get(tech_id, {'tactic': 'Unknown', 'name': tech_id})
         heatmap.append({
-            'technique': tech_id,
+            'id': tech_id,
             'tactic': info['tactic'],
             'name': info['name'],
             'count': data['count'],
