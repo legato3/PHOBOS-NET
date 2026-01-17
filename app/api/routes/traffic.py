@@ -717,9 +717,15 @@ def api_stats_worldmap():
     except Exception as e:
         print(f"Worldmap blocked data error: {e}")
 
-    # Sort country lists by bytes/count
+    # Sort country lists by bytes/count and add formatted values
     source_countries_list = sorted(source_countries.values(), key=lambda x: x['bytes'], reverse=True)
+    for c in source_countries_list:
+        c['bytes_fmt'] = fmt_bytes(c['bytes'])
+
     dest_countries_list = sorted(dest_countries.values(), key=lambda x: x['bytes'], reverse=True)
+    for c in dest_countries_list:
+        c['bytes_fmt'] = fmt_bytes(c['bytes'])
+
     threat_countries_list = sorted(threat_countries.values(), key=lambda x: x['count'], reverse=True)
     blocked_countries_list = sorted(blocked_countries.values(), key=lambda x: x['count'], reverse=True)
 
