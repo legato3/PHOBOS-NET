@@ -324,17 +324,12 @@ body {
 
 /* Layout Wrapper with Sidebar */
 .layout-wrapper {
-    display: flex;
-    /* Avoid double-offset with fixed sidebar + main margin */
-    gap: 0;
-    max-width: 100%;
+    display: block;
+    width: 100%;
     margin: 0;
-    transition: gap 0.3s ease;
 }
 
-body.sidebar-collapsed .layout-wrapper {
-    gap: 0;
-}
+
 
 /* CYBERPUNK UI: Sidebar - Signal navigation panel */
 .sidebar {
