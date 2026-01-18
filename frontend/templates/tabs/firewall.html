@@ -251,7 +251,7 @@
         </div>
         {% endcall %}
 
-        <!-- Firewall Syslogs (Port 515) Widget -->
+        <!-- OPNsense Syslog (Port 515) Widget -->
         {% set fw515_actions %}
         <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
             <button class="icon-btn-small"
@@ -274,30 +274,30 @@
             </button>
         </div>
         {% endset %}
-        {% call widget_card('firewallSyslog', 'Firewall Logs (Port 515)', '📡', card_class='wide-card',
+        {% call widget_card('syslog515', 'Firewall Application Logs', '📡', card_class='wide-card',
         extra_actions=fw515_actions, show_spinner=True) %}
 
         <!-- Empty State -->
-        <div x-show="firewallSyslog.blocks.length === 0 && !firewallSyslog.loading" class="empty-state">
-            <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📡</div>
-            <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                No firewall syslog events yet</p>
-            <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
+        <div x-show="syslog515.logs.length === 0 && !syslog515.loading"
+             style="text-align: center; padding: 48px 16px; color: var(--text-muted);">
+            <div style="font-size: 48px; margin-bottom: var(--space-3); opacity: 0.5;">📡</div>
+            <p style="font-size: var(--text-base); margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold); color: var(--text-secondary);">
+                No application logs yet</p>
+            <p style="font-size: var(--text-sm); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
                 Configure OPNsense to send syslog to port 515. Events will appear here once received.</p>
         </div>
 
         <!-- Content when logs exist -->
-        <div x-show="firewallSyslog.blocks.length > 0">
+        <div x-show="syslog515.logs.length > 0">
             <!-- Summary Stats -->
             <div class="log-toolbar">
                 <div class="log-chips">
-                    <span class="log-chip"><strong x-text="(firewallSyslog.stats?.total || 0).toLocaleString()"></strong> Total</span>
-                    <span class="log-chip log-chip-cyan"><strong x-text="(firewallSyslog.stats?.generic_count || 0).toLocaleString()"></strong> Syslog</span>
-                    <span class="log-chip log-chip-slate" x-show="firewallSyslog.stats?.filterlog_count > 0">
-                        <strong x-text="(firewallSyslog.stats?.filterlog_count || 0).toLocaleString()"></strong> Filterlog
+                    <span class="log-chip"><strong x-text="(syslog515.stats?.total || 0).toLocaleString()"></strong> Total</span>
+                    <span class="log-chip log-chip-cyan" x-show="syslog515.receiver?.received > 0">
+                        <strong x-text="(syslog515.receiver?.received || 0).toLocaleString()"></strong> Received
                     </span>
                     <!-- Program breakdown chips -->
-                    <template x-for="(count, program) in (firewallSyslog.stats?.programs || {})" :key="program">
+                    <template x-for="(count, program) in (syslog515.stats?.programs || {})" :key="program">
                         <span class="log-chip log-chip-purple" style="font-size: 0.85em;">
                             <strong x-text="count"></strong>
                             <span x-text="program"></span>
@@ -306,13 +306,13 @@
                 </div>
                 <div class="log-controls">
                     <span class="log-count"
-                        x-text="'Showing ' + Math.min(firewallSyslogView || 50, firewallSyslog.blocks.length).toLocaleString() + ' / ' + (firewallSyslog.blocks.length || 0).toLocaleString()"></span>
-                    <span class="log-update-time" x-show="firewallSyslog.lastUpdate" :title="firewallSyslog.lastUpdate"
-                        x-text="'Updated ' + timeAgo(new Date(firewallSyslog.lastUpdate).getTime() / 1000)"></span>
+                        x-text="'Showing ' + Math.min(syslog515View || 100, filteredSyslog515.length).toLocaleString() + ' / ' + (filteredSyslog515.length || 0).toLocaleString()"></span>
+                    <span class="log-update-time" x-show="syslog515.lastUpdate" :title="syslog515.lastUpdate"
+                        x-text="'Updated ' + timeAgo(new Date(syslog515.lastUpdate).getTime() / 1000)"></span>
                     <div class="log-range">
-                        <button :class="{ 'active': firewallSyslogView === 50 }" @click="firewallSyslogView = 50">50</button>
-                        <button :class="{ 'active': firewallSyslogView === 200 }" @click="firewallSyslogView = 200">200</button>
-                        <button :class="{ 'active': firewallSyslogView === 500 }" @click="firewallSyslogView = 500">500</button>
+                        <button :class="{ 'active': syslog515View === 50 }" @click="syslog515View = 50">50</button>
+                        <button :class="{ 'active': syslog515View === 100 }" @click="syslog515View = 100">100</button>
+                        <button :class="{ 'active': syslog515View === 500 }" @click="syslog515View = 500">500</button>
                     </div>
                 </div>
             </div>
@@ -320,19 +320,19 @@
             <!-- Filter Bar -->
             <div class="log-filters"
                 style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.05);">
-                <input type="text" x-model="firewallSyslogFilter.searchText" placeholder="Search logs..."
+                <input type="text" x-model="syslog515Filter.search" placeholder="Search logs..."
                     class="search-box" style="flex: 1; min-width: 250px; max-width: 400px;"
                     aria-label="Search logs">
-                <select x-model="firewallSyslogFilter.program" class="filter-select" style="min-width: 140px;"
+                <select x-model="syslog515Filter.program" class="filter-select" style="min-width: 140px;"
                     aria-label="Filter by program">
                     <option value="all">All Programs</option>
-                    <template x-for="(count, program) in (firewallSyslog.stats?.programs || {})" :key="program">
+                    <template x-for="(count, program) in (syslog515.stats?.programs || {})" :key="program">
                         <option :value="program" x-text="program + ' (' + count + ')'"></option>
                     </template>
                 </select>
-                <button @click="firewallSyslogFilter = { searchText: '', program: 'all' }"
+                <button @click="syslog515Filter = { search: '', program: 'all' }"
                     class="btn btn--secondary" style="white-space: nowrap;"
-                    :disabled="!firewallSyslogFilter.searchText && firewallSyslogFilter.program === 'all'">
+                    :disabled="!syslog515Filter.search && syslog515Filter.program === 'all'">
                     Clear Filters
                 </button>
             </div>
@@ -348,18 +348,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="log in firewallSyslog.blocks
-                            .filter(l => {
-                                if (firewallSyslogFilter.program !== 'all' && l.program !== firewallSyslogFilter.program) return false;
-                                if (firewallSyslogFilter.searchText) {
-                                    const search = firewallSyslogFilter.searchText.toLowerCase();
-                                    return (l.reason || '').toLowerCase().includes(search) ||
-                                           (l.program || '').toLowerCase().includes(search);
-                                }
-                                return true;
-                            })
-                            .slice(0, firewallSyslogView || 50)"
-                            :key="log.timestamp_ts + (log.reason || '').substring(0, 20)">
+                        <template x-for="log in filteredSyslog515.slice(0, syslog515View || 100)"
+                            :key="log.timestamp_ts + (log.message || '').substring(0, 20)">
                             <tr style="vertical-align: top;">
                                 <td style="font-size: 0.85em; color: var(--text-muted); white-space: nowrap;">
                                     <div style="font-family: monospace;"
@@ -369,10 +359,10 @@
                                 <td>
                                     <span class="badge"
                                         style="background: rgba(138, 43, 226, 0.2); color: #b388ff; font-size: 0.85em;"
-                                        x-text="log.program || log.action || 'unknown'"></span>
+                                        x-text="log.program || 'unknown'"></span>
                                 </td>
                                 <td style="font-size: 0.9em; color: var(--text-secondary); word-break: break-word;">
-                                    <span x-text="log.reason || '(no message)'"></span>
+                                    <span x-text="log.message || '(no message)'"></span>
                                 </td>
                             </tr>
                         </template>

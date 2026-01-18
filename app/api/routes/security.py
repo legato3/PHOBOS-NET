@@ -1008,124 +1008,35 @@ def api_firewall_logs_recent():
 @bp.route("/api/firewall/syslog/recent")
 @throttle(5, 10)
 def api_firewall_syslog_recent():
-    """Get most recent firewall syslog entries from port 515 pipeline (in-memory store)."""
-    limit = min(int(request.args.get('limit', 1000)), 1000)
-    action_filter = request.args.get('action')  # 'block', 'pass', or None for all
-    since_ts = request.args.get('since')  # Optional: only return logs newer than this timestamp
-    now = time.time()
-    cutoff_1h = now - 3600
+    """Get recent syslog entries from port 515 (OPNsense general syslog)."""
+    limit = min(int(request.args.get('limit', 500)), 1000)
+    program_filter = request.args.get('program')  # Filter by program name
 
     try:
-        # Import firewall store for port 515 syslog data
-        from app.services.firewall.store import firewall_store
+        from app.services.syslog.syslog_store import syslog_store
         from app.services.syslog.firewall_listener import get_firewall_syslog_stats
-        from datetime import datetime
-        
-        # Parse since timestamp if provided
-        since_dt = None
-        if since_ts:
-            try:
-                since_float = float(since_ts)
-                since_dt = datetime.fromtimestamp(since_float)
-            except (ValueError, TypeError):
-                pass  # Ignore invalid since parameter
-        
-        # Get events from in-memory store
-        events = firewall_store.get_events(limit=limit, since=since_dt)
-        
-        # Apply action filter if specified
-        if action_filter:
-            events = [e for e in events if e.get('action') == action_filter]
-        
-        # Calculate stats
-        logs = []
-        action_counts = {"block": 0, "reject": 0, "pass": 0}
-        program_counts = {}  # Track program names for generic syslog
-        unique_src = set()
-        unique_dst = set()
-        threat_count = 0
-        blocks_last_hour = 0
-        passes_last_hour = 0
-        filterlog_count = 0
-        generic_count = 0
-        latest_ts = None
 
-        for event in events:
-            ts = event.get('timestamp_ts')
-            action = event.get('action')
-            src_ip = event.get('src_ip')
-            dst_ip = event.get('dst_ip')
-            is_threat = event.get('is_threat', False)
+        # Get events from syslog store
+        events = syslog_store.get_events(limit=limit)
 
-            # Determine if this is a filterlog event (has IPs) or generic syslog
-            is_filterlog = bool(src_ip and dst_ip)
+        # Apply program filter if specified
+        if program_filter:
+            events = [e for e in events if e.get('program') == program_filter]
 
-            # Stats
-            if is_filterlog:
-                filterlog_count += 1
-                if action in action_counts:
-                    action_counts[action] += 1
-                if ts and action in ('block', 'reject') and ts >= cutoff_1h:
-                    blocks_last_hour += 1
-                if ts and action == 'pass' and ts >= cutoff_1h:
-                    passes_last_hour += 1
-            else:
-                generic_count += 1
-                # Track program counts for generic syslog
-                if action:
-                    program_counts[action] = program_counts.get(action, 0) + 1
+        # Get stats
+        stats = syslog_store.get_stats()
 
-            if is_threat:
-                threat_count += 1
-            if src_ip:
-                unique_src.add(src_ip)
-            if dst_ip:
-                unique_dst.add(dst_ip)
-            if ts and (latest_ts is None or ts > latest_ts):
-                latest_ts = ts
-
-            # Format event for frontend
-            logs.append({
-                "timestamp": event.get('timestamp'),
-                "timestamp_ts": event.get('timestamp_ts'),
-                "action": action,
-                "direction": event.get('direction'),
-                "interface": event.get('interface'),
-                "src_ip": src_ip,
-                "src_port": event.get('src_port'),
-                "dst_ip": dst_ip,
-                "dst_port": event.get('dst_port'),
-                "proto": event.get('proto'),  # Use proto from firewall event
-                "reason": event.get('reason'),  # Message content for generic syslog
-                "is_filterlog": is_filterlog,  # True for filterlog, False for generic syslog
-                "program": action if not is_filterlog else None,  # Program name for generic syslog
-                "country_iso": None,  # Not available from firewall store
-                "flag": "",  # No country info from firewall store
-                "is_threat": is_threat,
-                "service": PORTS.get(event.get('dst_port'), "") if event.get('dst_port') else ""
-            })
-
-        stats = {
-            "total": len(logs),
-            "filterlog_count": filterlog_count,
-            "generic_count": generic_count,
-            "actions": action_counts,
-            "programs": program_counts,  # Program name counts for generic syslog
-            "threats": threat_count,
-            "unique_src": len(unique_src),
-            "unique_dst": len(unique_dst),
-            "blocks_last_hour": blocks_last_hour,
-            "passes_last_hour": passes_last_hour,
-            "latest_ts": latest_ts
-        }
-
-        # Get syslog receiver stats
+        # Get receiver stats
         receiver_stats = get_firewall_syslog_stats() or {}
-        
-        return jsonify({"logs": logs, "stats": stats, "receiver_stats": receiver_stats})
-        
+
+        return jsonify({
+            "logs": events,
+            "stats": stats,
+            "receiver_stats": receiver_stats
+        })
+
     except Exception as e:
-        print(f"Error in firewall syslog API: {e}")
+        print(f"Error in syslog API: {e}")
         return jsonify({"error": str(e), "logs": [], "stats": {}, "receiver_stats": {}}), 500
 
 

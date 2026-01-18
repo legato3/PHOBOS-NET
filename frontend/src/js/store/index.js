@@ -291,10 +291,10 @@ export const Store = () => ({
     recentBlocksAutoRefresh: true,
     recentBlocksRefreshTimer: null,
 
-    // Firewall Syslog (Port 515) widget state
-    firewallSyslog: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, generic_count: 0, filterlog_count: 0, programs: {} }, lastUpdate: null },
-    firewallSyslogView: 50,
-    firewallSyslogFilter: { searchText: '', program: 'all' },
+    // OPNsense Syslog (Port 515) widget state
+    syslog515: { logs: [], loading: false, stats: { total: 0, programs: {} }, receiver: {}, lastUpdate: null },
+    syslog515View: 100,
+    syslog515Filter: { search: '', program: 'all' },
     firewallSyslogAutoRefresh: true,
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
@@ -2846,41 +2846,40 @@ export const Store = () => ({
         return filtered;
     },
 
-    get filteredFirewallSyslog() {
-        let filtered = this.firewallSyslog.blocks || [];
-        if (this.firewallSyslogFilter.program !== 'all') {
-            filtered = filtered.filter(b => b.program === this.firewallSyslogFilter.program);
+    get filteredSyslog515() {
+        let filtered = this.syslog515.logs || [];
+        if (this.syslog515Filter.program !== 'all') {
+            filtered = filtered.filter(l => l.program === this.syslog515Filter.program);
         }
-        if (this.firewallSyslogFilter.searchText) {
-            const search = this.firewallSyslogFilter.searchText.toLowerCase();
-            filtered = filtered.filter(b =>
-                (b.reason && b.reason.toLowerCase().includes(search)) ||
-                (b.program && b.program.toLowerCase().includes(search))
+        if (this.syslog515Filter.search) {
+            const search = this.syslog515Filter.search.toLowerCase();
+            filtered = filtered.filter(l =>
+                (l.message && l.message.toLowerCase().includes(search)) ||
+                (l.program && l.program.toLowerCase().includes(search))
             );
         }
         return filtered;
     },
-    async fetchFirewallSyslog() {
-        this.firewallSyslog.loading = true;
+    async fetchSyslog515() {
         try {
-            const res = await fetch('/api/firewall/syslog/recent?limit=1000');
+            const res = await fetch('/api/firewall/syslog/recent?limit=500');
             if (res.ok) {
                 const d = await res.json();
-                const logs = d.logs || [];
-                const stats = d.stats || {};
-                this.firewallSyslog = {
-                    blocks: logs,
-                    stats,
-                    total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0,
+                this.syslog515 = {
+                    logs: d.logs || [],
+                    stats: d.stats || { total: 0, programs: {} },
+                    receiver: d.receiver_stats || {},
                     loading: false,
                     lastUpdate: new Date().toISOString()
                 };
-                const targetView = this.firewallSyslogView || 50;
-                this.firewallSyslogView = Math.min(targetView, logs.length || targetView, 1000);
             }
-        } catch (e) { console.error('Firewall syslog fetch error:', e); }
-        finally { this.firewallSyslog.loading = false; }
+        } catch (e) {
+            console.error('Syslog 515 fetch error:', e);
+            this.syslog515.loading = false;
+        }
     },
+    // Keep old function name for compatibility
+    async fetchFirewallSyslog() { return this.fetchSyslog515(); },
 
     async blockThreatIP(ip) {
         if (!confirm(`Block ${ip} via security webhook?`)) return;
@@ -5861,38 +5860,30 @@ export const Store = () => ({
 
     async fetchFirewallSyslogIncremental() {
         // Incremental update: only fetch if we're on the firewall tab and widget is visible
-        if (this.activeTab !== 'firewall' || this.isMinimized('firewallSyslog')) {
+        if (this.activeTab !== 'firewall' || this.isMinimized('syslog515')) {
             return;
         }
 
         // Prevent concurrent requests
-        if (this._firewallSyslogFetching) return;
-        this._firewallSyslogFetching = true;
+        if (this._syslog515Fetching) return;
+        this._syslog515Fetching = true;
 
-        // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
-        // This ensures we always have the latest data
+        // Use regular fetch for now
         try {
-            const res = await fetch('/api/firewall/syslog/recent?limit=1000');
+            const res = await fetch('/api/firewall/syslog/recent?limit=500');
 
             if (res.ok) {
                 const d = await res.json();
-                const newLogs = d.logs || [];
-                const stats = d.stats || this.computeRecentBlockStats(newLogs);
-
-                this.firewallSyslog = {
-                    blocks: newLogs,
-                    stats,
-                    total_1h: stats?.blocks_last_hour || stats?.actions?.block || newLogs.length || 0,
+                this.syslog515 = {
+                    logs: d.logs || [],
+                    stats: d.stats || { total: 0, programs: {} },
+                    receiver: d.receiver_stats || {},
                     loading: false,
                     lastUpdate: new Date().toISOString()
                 };
-
-                // Update view count if needed
-                const targetView = this.firewallSyslogView || 50;
-                this.firewallSyslogView = Math.min(targetView, newLogs.length || targetView, 1000);
             } else if (res.status === 429) {
                 // Rate limited - back off by stopping auto-refresh temporarily
-                console.warn('Rate limited on firewall syslog, pausing auto-refresh');
+                console.warn('Rate limited on syslog 515, pausing auto-refresh');
                 this.firewallSyslogAutoRefresh = false;
                 if (this.firewallSyslogRefreshTimer) {
                     clearInterval(this.firewallSyslogRefreshTimer);
@@ -5900,9 +5891,9 @@ export const Store = () => ({
                 }
             }
         } catch (e) {
-            console.error('Incremental firewall syslog fetch error:', e);
+            console.error('Incremental syslog 515 fetch error:', e);
         } finally {
-            this._firewallSyslogFetching = false;
+            this._syslog515Fetching = false;
         }
     },
 

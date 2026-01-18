@@ -45,7 +45,8 @@ No test suite or linting configured.
 ```
 nfcapd (NetFlow files) → nfdump CLI (CSV) → parse_csv() → cache → API → Frontend
 SNMP polling → snmp.py → cache → API → Frontend
-Syslog UDP → syslog.py → firewall.db → API → Frontend
+Syslog UDP 514 → syslog.py → firewall.db → API → Frontend (filterlog/block events)
+Syslog UDP 515 → firewall_listener.py → syslog_store (memory) → API → Frontend (application logs)
 Threat feeds HTTP → threats.py → memory → API → Frontend
 ```
 
@@ -99,12 +100,16 @@ Started in main.py or gunicorn post_worker_init:
 - TrendsThread (30s)
 - AggregationThread (60s)
 - SNMPThread (2s)
-- SyslogThread (UDP listener)
+- SyslogThread (UDP 514 filterlog listener)
+- FirewallSyslogThread (UDP 515 application log listener)
 - DbSizeSamplerThread (60s)
 
 ### Databases
 - `netflow-trends.sqlite` — traffic rollups, host memory
-- `firewall.db` — syslog block logs
+- `firewall.db` — syslog filterlog (port 514) block/pass events
+
+### In-Memory Stores
+- `syslog_store` — ring buffer for port 515 application logs (max 5000 events)
 
 ## Non-Negotiable Rules
 
@@ -129,10 +134,14 @@ From `.cursor/skills/SKILL.md`:
 | `app/services/netflow/netflow.py` | nfdump wrapper, CSV parsing, traffic direction |
 | `app/services/security/threats.py` | Threat feeds, anomaly detection, MITRE mappings |
 | `app/services/shared/snmp.py` | SNMP polling (CPU, memory, interfaces), availability flags |
+| `app/services/syslog/syslog.py` | Port 514 filterlog listener, parses OPNsense block/pass events |
+| `app/services/syslog/firewall_listener.py` | Port 515 application log listener, generic syslog parsing |
+| `app/services/syslog/syslog_store.py` | In-memory ring buffer for port 515 events (SyslogStore class) |
 | `app/api/routes/traffic.py` | Traffic API endpoints (~2900 lines) |
 | `app/api/routes/security.py` | Security API endpoints (~3500 lines) |
 | `frontend/src/js/store/index.js` | Alpine.js reactive store, all fetch functions |
 | `frontend/templates/tabs/overview.html` | Overview tab with stat boxes |
+| `frontend/templates/tabs/firewall.html` | Firewall tab with filterlog and application logs widgets |
 | `frontend/templates/tabs/security.html` | Security widgets (Coverage, Alerts, MITRE, etc.) |
 | `frontend/templates/macros/widgets.html` | Reusable widget_card macro |
 | `frontend/src/css/style.css` | Main stylesheet (~9000 lines) |
@@ -143,7 +152,9 @@ From `.cursor/skills/SKILL.md`:
 Key vars (see `app/config.py` for full list):
 - `SNMP_HOST`, `SNMP_COMMUNITY` — Firewall SNMP target
 - `DNS_SERVER` — DNS resolver
-- `FIREWALL_IP`, `SYSLOG_PORT` — Syslog source
+- `FIREWALL_IP` — Allowed syslog source IP (security filter)
+- `SYSLOG_PORT` — Port 514 filterlog listener
+- `FIREWALL_SYSLOG_PORT`, `FIREWALL_SYSLOG_BIND` — Port 515 application log listener
 - `MMDB_CITY`, `MMDB_ASN` — MaxMind GeoIP database paths
 - `TRENDS_DB_PATH`, `FIREWALL_DB_PATH` — SQLite paths
 - `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY` — Optional threat intel
@@ -152,7 +163,8 @@ Key vars (see `app/config.py` for full list):
 
 - 3434 → 8080: Web dashboard
 - 2055/udp: NetFlow (nfcapd)
-- 514/udp: Syslog receiver
+- 514/udp: Syslog filterlog (OPNsense block/pass events, parsed to firewall.db)
+- 515/udp: Syslog application logs (OPNsense services like configd, openvpn, etc.)
 
 ## Deployment
 

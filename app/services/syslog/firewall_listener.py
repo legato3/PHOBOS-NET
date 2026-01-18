@@ -1,157 +1,171 @@
 """
-Isolated Firewall Syslog Listener (non-filterlog events).
+OPNsense Syslog Listener (Port 515).
 
-This listener is SEPARATE from the existing filterlog syslog listener (port 514).
-It receives firewall events on a dedicated port (default 515/UDP) and routes them
-ONLY to the firewall parser and in-memory store.
+Receives generic syslog messages from OPNsense on a dedicated port.
+Stores events in syslog_store (separate from filterlog on port 514).
 
 SCOPE:
-- UDP syslog reception on dedicated port
-- Firewall event parsing via FirewallParser
-- In-memory storage via firewall_store
-- Dedicated ingestion metrics
+- UDP syslog reception on port 515
+- Parse program name and message from syslog
+- In-memory storage via syslog_store
+- Ingestion metrics
 
 DOES NOT:
-- Process filterlog events (those go to port 514)
+- Parse filterlog (that's port 514)
 - Write to SQLite
 - Trigger alerts
-- Perform correlation or heuristics
 """
 import threading
 import socket as socket_module
 import time
+import re
+from datetime import datetime
 
-# Configuration
 from app.config import FIREWALL_SYSLOG_PORT, FIREWALL_SYSLOG_BIND, FIREWALL_IP
-
-# State management
 from app.core.app_state import _shutdown_event, add_app_log
+from app.services.syslog.syslog_store import syslog_store, SyslogEvent
 
-# Firewall pipeline components
-from app.services.firewall.parser import FirewallParser
-from app.services.firewall.store import firewall_store
-
-# Dedicated ingestion counter for this listener
-_firewall_syslog_stats = {
+# Ingestion counter
+_syslog_515_stats = {
     "received": 0,
     "parsed": 0,
     "errors": 0,
     "last_log": None
 }
-_firewall_syslog_stats_lock = threading.Lock()
+_syslog_515_stats_lock = threading.Lock()
 
 # Thread started flag
 _firewall_syslog_thread_started = False
 
+# Regex patterns for parsing syslog
+# RFC5424 timestamp: 2026-01-18T19:15:00+01:00
+RFC5424_TS = re.compile(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)')
+# Program name with optional PID: configd[1234]: or openvpn:
+PROGRAM_PATTERN = re.compile(r'\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$')
+# Hostname pattern (after timestamp)
+HOSTNAME_PATTERN = re.compile(r'^\s*\S+\s+\S+\s+(\S+)\s+')
+
 
 def start_firewall_syslog_thread():
-    """Start the isolated firewall syslog listener thread."""
+    """Start the syslog listener thread for port 515."""
     global _firewall_syslog_thread_started
-    
+
     if _firewall_syslog_thread_started:
         return
     _firewall_syslog_thread_started = True
-    
-    t = threading.Thread(target=_firewall_syslog_receiver_loop, daemon=True)
+
+    t = threading.Thread(target=_syslog_receiver_loop, daemon=True)
     t.start()
 
 
-def _firewall_syslog_receiver_loop():
-    """UDP syslog receiver loop for firewall (non-filterlog) events."""
+def _parse_syslog(raw: str) -> SyslogEvent:
+    """
+    Parse a raw syslog line into a SyslogEvent.
+    Extracts timestamp, program name, and message.
+    """
+    timestamp = datetime.now()
+    program = "unknown"
+    message = raw.strip()
+    hostname = None
+
+    # Try to extract RFC5424 timestamp
+    ts_match = RFC5424_TS.search(raw)
+    if ts_match:
+        try:
+            ts_str = ts_match.group(1)
+            if ts_str.endswith('Z'):
+                ts_str = ts_str[:-1] + '+00:00'
+            timestamp = datetime.fromisoformat(ts_str)
+        except (ValueError, IndexError):
+            pass
+
+    # Try to extract hostname
+    host_match = HOSTNAME_PATTERN.match(raw)
+    if host_match:
+        hostname = host_match.group(1)
+
+    # Try to extract program name and message
+    prog_match = PROGRAM_PATTERN.search(raw)
+    if prog_match:
+        program = prog_match.group(1)
+        message = prog_match.group(2).strip()
+
+    return SyslogEvent(
+        timestamp=timestamp,
+        program=program,
+        message=message[:1000],  # Limit message length
+        hostname=hostname
+    )
+
+
+def _syslog_receiver_loop():
+    """UDP syslog receiver loop for port 515."""
     sock = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_DGRAM)
     sock.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
-    
+
     try:
         sock.bind((FIREWALL_SYSLOG_BIND, FIREWALL_SYSLOG_PORT))
-        msg = f"[FIREWALL SYSLOG] Listener started on {FIREWALL_SYSLOG_BIND}:{FIREWALL_SYSLOG_PORT}"
+        msg = f"[SYSLOG 515] Listener started on {FIREWALL_SYSLOG_BIND}:{FIREWALL_SYSLOG_PORT}"
         print(msg)
         add_app_log(msg, 'INFO')
     except PermissionError:
-        msg = f"[FIREWALL SYSLOG] ERROR: Cannot bind to port {FIREWALL_SYSLOG_PORT} - need root or CAP_NET_BIND_SERVICE"
+        msg = f"[SYSLOG 515] ERROR: Cannot bind to port {FIREWALL_SYSLOG_PORT}"
         print(msg)
         add_app_log(msg, 'ERROR')
         return
     except Exception as e:
-        msg = f"[FIREWALL SYSLOG] ERROR: Bind failed: {e}"
+        msg = f"[SYSLOG 515] ERROR: Bind failed: {e}"
         print(msg)
         add_app_log(msg, 'ERROR')
         return
-    
-    # Set socket timeout so we can check shutdown event
+
     sock.settimeout(1.0)
-    
-    # Instantiate parser once for reuse
-    fw_parser = FirewallParser()
-    
+
     while not _shutdown_event.is_set():
         try:
-            data, addr = sock.recvfrom(4096)
-            
-            # Security: Only accept from firewall IP (unless configured for any)
+            data, addr = sock.recvfrom(8192)
+
+            # Security: Only accept from configured IP
             if addr[0] != FIREWALL_IP and FIREWALL_IP != "0.0.0.0":
                 continue
-            
-            # Track received
-            with _firewall_syslog_stats_lock:
-                _firewall_syslog_stats["received"] += 1
-            
-            line = data.decode('utf-8', errors='ignore')
-            
-            # [FIREWALL SYSLOG] Debug: Message received
-            print(f"[FIREWALL SYSLOG] Message received from {addr[0]}")
-            
-            # Parse using firewall parser ONLY
-            # No conditional guessing - route ALL messages to firewall parser
+
+            with _syslog_515_stats_lock:
+                _syslog_515_stats["received"] += 1
+
+            raw = data.decode('utf-8', errors='ignore')
+
             try:
-                fw_event = fw_parser.parse(line)
-                
-                if fw_event:
-                    # Store in firewall in-memory store ONLY
-                    firewall_store.add_event(fw_event)
-                    
-                    with _firewall_syslog_stats_lock:
-                        _firewall_syslog_stats["parsed"] += 1
-                        _firewall_syslog_stats["last_log"] = time.time()
-                    
-                    # Track ingestion rate for Filterlog (515)
-                    from app.services.shared.ingestion_metrics import ingestion_tracker
-                    ingestion_tracker.track_firewall(1)
-                    
-                    # [FIREWALL SYSLOG] Debug: Parse success
-                    print(f"[FIREWALL SYSLOG] Parse success: {fw_event.action} {fw_event.src_ip}->{fw_event.dst_ip}")
-                else:
-                    # Parser returned None (failed to parse)
-                    with _firewall_syslog_stats_lock:
-                        _firewall_syslog_stats["errors"] += 1
-                    
-                    # [FIREWALL SYSLOG] Debug: Parse failure
-                    print(f"[FIREWALL SYSLOG] Parse failure: Could not parse message")
-                    
+                event = _parse_syslog(raw)
+                syslog_store.add_event(event)
+
+                with _syslog_515_stats_lock:
+                    _syslog_515_stats["parsed"] += 1
+                    _syslog_515_stats["last_log"] = time.time()
+
+                # Track ingestion rate
+                from app.services.shared.ingestion_metrics import ingestion_tracker
+                ingestion_tracker.track_firewall(1)
+
+                print(f"[SYSLOG 515] {event.program}: {event.message[:80]}...")
+
             except Exception as e:
-                # Parsing exception - log and drop safely
-                with _firewall_syslog_stats_lock:
-                    _firewall_syslog_stats["errors"] += 1
-                
-                # [FIREWALL SYSLOG] Debug: Parse failure with exception
-                print(f"[FIREWALL SYSLOG] Parse failure: {e}")
-                
+                with _syslog_515_stats_lock:
+                    _syslog_515_stats["errors"] += 1
+                print(f"[SYSLOG 515] Parse error: {e}")
+
         except socket_module.timeout:
-            continue  # Normal timeout, check shutdown and continue
+            continue
         except Exception as e:
-            # Unexpected error - log but keep listener running
-            print(f"[FIREWALL SYSLOG] Receiver error: {e}")
+            print(f"[SYSLOG 515] Receiver error: {e}")
             continue
 
 
 def get_firewall_syslog_stats():
-    """
-    Get ingestion statistics for the firewall syslog listener.
-    Independent from filterlog stats.
-    """
-    with _firewall_syslog_stats_lock:
+    """Get ingestion statistics for port 515 listener."""
+    with _syslog_515_stats_lock:
         return {
-            "received": _firewall_syslog_stats["received"],
-            "parsed": _firewall_syslog_stats["parsed"],
-            "errors": _firewall_syslog_stats["errors"],
-            "last_log": _firewall_syslog_stats["last_log"]
+            "received": _syslog_515_stats["received"],
+            "parsed": _syslog_515_stats["parsed"],
+            "errors": _syslog_515_stats["errors"],
+            "last_log": _syslog_515_stats["last_log"]
         }
