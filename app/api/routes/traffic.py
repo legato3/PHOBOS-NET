@@ -2589,8 +2589,9 @@ def api_firewall_snmp_status():
                 # Calculate utilization if speed is known
                 vpn_util = None
                 if vpn_speed and vpn_speed > 0 and vpn_rx_mbps is not None and vpn_tx_mbps is not None:
-                    total_mbps = vpn_rx_mbps + vpn_tx_mbps
-                    vpn_util = round((total_mbps / vpn_speed) * 100, 1)
+                    # For Full Duplex links, utilization is max(rx, tx) / speed
+                    max_mbps = max(vpn_rx_mbps, vpn_tx_mbps)
+                    vpn_util = round((max_mbps / vpn_speed) * 100, 1)
                 elif vpn_rx_mbps is not None and vpn_tx_mbps is not None:
                     # If speed is 0/unknown, use a placeholder or None
                     vpn_util = None
