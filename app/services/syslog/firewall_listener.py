@@ -113,6 +113,10 @@ def _firewall_syslog_receiver_loop():
                         _firewall_syslog_stats["parsed"] += 1
                         _firewall_syslog_stats["last_log"] = time.time()
                     
+                    # Track ingestion rate for Filterlog (515)
+                    from app.services.shared.ingestion_metrics import ingestion_tracker
+                    ingestion_tracker.track_firewall(1)
+                    
                     # [FIREWALL SYSLOG] Debug: Parse success
                     print(f"[FIREWALL SYSLOG] Parse success: {fw_event.action} {fw_event.src_ip}->{fw_event.dst_ip}")
                 else:
