@@ -550,3 +550,72 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         _common_data_cache[cache_key] = {"data": result, "ts": now}
         
     return result[:limit]
+
+
+def get_raw_flows(tf, limit=2000):
+    """Fetch and parse raw flows for detection (sa, da, sp, dp, proto)."""
+    try:
+        # Request raw flows with specific fields if possible, or standard CSV
+        # nfdump -o csv provides fixed columns.
+        raw_flows_output = run_nfdump(["-o", "csv", "-n", str(limit)], tf)
+        flow_data = []
+
+        if raw_flows_output:
+            lines = raw_flows_output.strip().split("\n")
+            if len(lines) > 1:
+                # Find header line
+                header_idx = -1
+                for i, line in enumerate(lines):
+                    if 'ts,' in line.lower() or 'sa,' in line.lower():
+                        header_idx = i
+                        break
+
+                if header_idx != -1:
+                    header = lines[header_idx].lower().split(',')
+                    try:
+                        sa_idx = -1
+                        if 'sa' in header: sa_idx = header.index('sa')
+                        elif 'srcaddr' in header: sa_idx = header.index('srcaddr')
+
+                        da_idx = -1
+                        if 'da' in header: da_idx = header.index('da')
+                        elif 'dstaddr' in header: da_idx = header.index('dstaddr')
+
+                        sp_idx = -1
+                        if 'sp' in header: sp_idx = header.index('sp')
+                        elif 'srcport' in header: sp_idx = header.index('srcport')
+
+                        dp_idx = -1
+                        if 'dp' in header: dp_idx = header.index('dp')
+                        elif 'dstport' in header: dp_idx = header.index('dstport')
+
+                        pr_idx = -1
+                        if 'pr' in header: pr_idx = header.index('pr')
+                        elif 'proto' in header: pr_idx = header.index('proto')
+
+                        ibyt_idx = -1
+                        if 'ibyt' in header: ibyt_idx = header.index('ibyt')
+                        elif 'bytes' in header: ibyt_idx = header.index('bytes')
+                        elif 'byt' in header: ibyt_idx = header.index('byt')
+
+                        if sa_idx != -1 and da_idx != -1:
+                            for line in lines[header_idx+1:]:
+                                if not line or 'sys:' in line or 'summary' in line: continue
+                                parts = line.split(',')
+                                if len(parts) <= max(sa_idx, da_idx): continue
+
+                                flow_data.append({
+                                    "src_ip": parts[sa_idx],
+                                    "dst_ip": parts[da_idx],
+                                    "src_port": parts[sp_idx] if sp_idx != -1 and len(parts) > sp_idx else "0",
+                                    "dst_port": parts[dp_idx] if dp_idx != -1 and len(parts) > dp_idx else "0",
+                                    "proto": parts[pr_idx] if pr_idx != -1 and len(parts) > pr_idx else "0",
+                                    "bytes": int(float(parts[ibyt_idx])) if ibyt_idx != -1 and len(parts) > ibyt_idx else 0,
+                                    "flows": 1
+                                })
+                    except Exception as e:
+                        print(f"Flow parsing error: {e}")
+        return flow_data
+    except Exception as e:
+        print(f"Error fetching raw flows: {e}")
+        return []

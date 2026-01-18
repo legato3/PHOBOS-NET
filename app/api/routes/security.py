@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
 # Import from service modules (already extracted)
-from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction
+from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction, get_raw_flows
 from app.services.security.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
@@ -1021,7 +1021,11 @@ def api_alerts():
     # This ensures all detection types are persisted to alert history
     try:
         protocols_data = get_common_nfdump_data("protos", range_key)[:20]
-        all_detection_alerts = run_all_detections(ports, sources, dests, protocols_data)
+
+        # Fetch raw flow data for advanced detections
+        flow_data = get_raw_flows(tf, limit=2000)
+
+        all_detection_alerts = run_all_detections(ports, sources, dests, protocols_data, flow_data=flow_data)
         # Alerts from run_all_detections are already added to history by that function
     except Exception as e:
         # Don't fail the endpoint if additional detections fail
@@ -2829,8 +2833,12 @@ def api_run_detection():
         destinations_data = get_common_nfdump_data("destinations", range_key)[:50]
         protocols_data = get_common_nfdump_data("protos", range_key)[:20]
 
+        # Fetch raw flow data for advanced detections
+        tf = get_time_range(range_key)
+        flow_data = get_raw_flows(tf, limit=2000)
+
         # Run all detections
-        new_alerts = run_all_detections(ports_data, sources_data, destinations_data, protocols_data)
+        new_alerts = run_all_detections(ports_data, sources_data, destinations_data, protocols_data, flow_data=flow_data)
 
         return jsonify({
             'status': 'ok',
