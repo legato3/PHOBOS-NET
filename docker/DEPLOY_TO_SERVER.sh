@@ -30,10 +30,10 @@ ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/docker"
 
 # Copy docker files
 echo "📦 Copying Docker files..."
-scp -i "$SSH_KEY" ./docker-compose.yml $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" ./Dockerfile $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" ./docker-entrypoint.sh $USER@$SERVER:$REMOTE_DIR/docker/
-scp -i "$SSH_KEY" ./.dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
+scp -i "$SSH_KEY" docker-compose.yml $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" Dockerfile $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" docker-entrypoint.sh $USER@$SERVER:$REMOTE_DIR/docker/
+scp -i "$SSH_KEY" .dockerignore $USER@$SERVER:$REMOTE_DIR/docker/ 2>/dev/null || true
 
 # Copy application files (new modular structure)
 echo "📦 Copying application files..."

@@ -1008,113 +1008,105 @@ def api_firewall_logs_recent():
 @bp.route("/api/firewall/syslog/recent")
 @throttle(5, 10)
 def api_firewall_syslog_recent():
-    """Get most recent firewall syslog entries (up to 1000)."""
+    """Get most recent firewall syslog entries from port 515 pipeline (in-memory store)."""
     limit = min(int(request.args.get('limit', 1000)), 1000)
     action_filter = request.args.get('action')  # 'block', 'pass', or None for all
     since_ts = request.args.get('since')  # Optional: only return logs newer than this timestamp
     now = time.time()
     cutoff_1h = now - 3600
 
-    with _firewall_db_lock:
-        conn = _firewall_db_connect()
-        try:
-            # Build query with optional filters for syslog data
-            where_clauses = []
-            params = []
+    try:
+        # Import firewall store for port 515 syslog data
+        from app.services.firewall.store import firewall_store
+        from app.services.syslog.firewall_listener import get_firewall_syslog_stats
+        from datetime import datetime
+        
+        # Parse since timestamp if provided
+        since_dt = None
+        if since_ts:
+            try:
+                since_float = float(since_ts)
+                since_dt = datetime.fromtimestamp(since_float)
+            except (ValueError, TypeError):
+                pass  # Ignore invalid since parameter
+        
+        # Get events from in-memory store
+        events = firewall_store.get_events(limit=limit, since=since_dt)
+        
+        # Apply action filter if specified
+        if action_filter:
+            events = [e for e in events if e.get('action') == action_filter]
+        
+        # Calculate stats
+        logs = []
+        action_counts = {"block": 0, "reject": 0, "pass": 0}
+        unique_src = set()
+        unique_dst = set()
+        threat_count = 0
+        blocks_last_hour = 0
+        passes_last_hour = 0
+        latest_ts = None
 
-            if since_ts:
-                try:
-                    since_float = float(since_ts)
-                    where_clauses.append("timestamp > ?")
-                    params.append(since_float)
-                except (ValueError, TypeError):
-                    pass  # Ignore invalid since parameter
+        for event in events:
+            ts = event.get('timestamp_ts')
+            action = event.get('action')
+            src_ip = event.get('src_ip')
+            dst_ip = event.get('dst_ip')
+            is_threat = event.get('is_threat', False)
 
-            if action_filter:
-                where_clauses.append("action = ?")
-                params.append(action_filter)
+            # Stats
+            if action in action_counts:
+                action_counts[action] += 1
+            if is_threat:
+                threat_count += 1
+            if ts and action in ('block', 'reject') and ts >= cutoff_1h:
+                blocks_last_hour += 1
+            if ts and action == 'pass' and ts >= cutoff_1h:
+                passes_last_hour += 1
+            if src_ip:
+                unique_src.add(src_ip)
+            if dst_ip:
+                unique_dst.add(dst_ip)
+            if ts and (latest_ts is None or ts > latest_ts):
+                latest_ts = ts
 
-            where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
-            params.append(limit)
+            # Format event for frontend
+            logs.append({
+                "timestamp": event.get('timestamp'),
+                "timestamp_ts": ts,
+                "action": action,
+                "direction": event.get('direction'),
+                "interface": event.get('interface'),
+                "src_ip": src_ip,
+                "src_port": event.get('src_port'),
+                "dst_ip": dst_ip,
+                "dst_port": event.get('dst_port'),
+                "proto": event.get('proto'),
+                "country_iso": event.get('country_iso'),
+                "flag": flag_from_iso(event.get('country_iso')) if event.get('country_iso') else "",
+                "is_threat": is_threat,
+                "service": PORTS.get(event.get('dst_port'), "") if event.get('dst_port') else ""
+            })
 
-            cur = conn.execute(f"""
-                SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port,
-                       dst_ip, dst_port, proto, country_iso, is_threat
-                FROM fw_logs WHERE {where_sql} ORDER BY timestamp DESC LIMIT ?
-            """, params)
+        stats = {
+            "total": len(logs),
+            "actions": action_counts,
+            "threats": threat_count,
+            "unique_src": len(unique_src),
+            "unique_dst": len(unique_dst),
+            "blocks_last_hour": blocks_last_hour,
+            "passes_last_hour": passes_last_hour,
+            "latest_ts": latest_ts
+        }
 
-            logs = []
-            action_counts = {"block": 0, "reject": 0, "pass": 0}
-            unique_src = set()
-            unique_dst = set()
-            threat_count = 0
-            blocks_last_hour = 0
-            passes_last_hour = 0
-            latest_ts = None
-
-            for row in cur.fetchall():
-                ts = row[0]
-                ts_iso = row[1]
-                action = row[2]
-                direction = row[3]
-                iface = row[4]
-                src_ip = row[5]
-                src_port = row[6]
-                dst_ip = row[7]
-                dst_port = row[8]
-                proto = row[9]
-                country_iso = row[10]
-                is_threat = bool(row[11])
-
-                # Stats
-                if action in action_counts:
-                    action_counts[action] += 1
-                if is_threat:
-                    threat_count += 1
-                if ts and action in ('block', 'reject') and ts >= cutoff_1h:
-                    blocks_last_hour += 1
-                if ts and action == 'pass' and ts >= cutoff_1h:
-                    passes_last_hour += 1
-                if src_ip:
-                    unique_src.add(src_ip)
-                if dst_ip:
-                    unique_dst.add(dst_ip)
-                if ts and (latest_ts is None or ts > latest_ts):
-                    latest_ts = ts
-
-                logs.append({
-                    "timestamp": ts_iso,
-                    "timestamp_ts": ts,
-                    "action": action,
-                    "direction": direction,
-                    "interface": iface,
-                    "src_ip": src_ip,
-                    "src_port": src_port,
-                    "dst_ip": dst_ip,
-                    "dst_port": dst_port,
-                    "proto": proto,
-                    "country_iso": country_iso,
-                    "flag": flag_from_iso(country_iso) if country_iso else "",
-                    "is_threat": is_threat,
-                    "service": PORTS.get(dst_port, "") if dst_port else ""
-                })
-        finally:
-            conn.close()
-
-    stats = {
-        "total": len(logs),
-        "actions": action_counts,
-        "threats": threat_count,
-        "unique_src": len(unique_src),
-        "unique_dst": len(unique_dst),
-        "blocks_last_hour": blocks_last_hour,
-        "passes_last_hour": passes_last_hour,
-        "latest_ts": latest_ts
-    }
-
-    with _syslog_stats_lock:
-        receiver_stats = dict(_syslog_stats)
-    return jsonify({"logs": logs, "stats": stats, "receiver_stats": receiver_stats})
+        # Get syslog receiver stats
+        receiver_stats = get_firewall_syslog_stats() or {}
+        
+        return jsonify({"logs": logs, "stats": stats, "receiver_stats": receiver_stats})
+        
+    except Exception as e:
+        print(f"Error in firewall syslog API: {e}")
+        return jsonify({"error": str(e), "logs": [], "stats": {}, "receiver_stats": {}}), 500
 
 
 

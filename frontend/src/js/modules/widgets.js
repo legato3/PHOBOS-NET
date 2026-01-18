@@ -65,7 +65,7 @@ export const DashboardWidgets = {
     friendlyLabels: {
         summary: 'Summary Stats',
         bandwidth: 'Bandwidth & Flow Rate',
-        firewall: 'Firewall Health',
+        firewallSyslog: 'OPNsense Syslogs (Port 515)',
         analytics: 'Analytics Row',
         topstats: 'Top Stats Row',
         flags: 'TCP Flags',
