@@ -514,7 +514,7 @@
                                                 'badge-error': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active
                                             }" x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         {% endset %}
-                        <div x-show="serverHealth.firewall_syslog && !serverHealth.firewall_syslog.error">
+                        <div x-show="serverHealth.firewall_syslog">
                             {% call widget_card('server_firewall_syslog', 'Firewall logs (515)', '📡',
                             extra_actions=firewall_syslog_badge) %}
                             <div class="server-stat-value"
@@ -774,7 +774,7 @@
                     </div>
 
                     <!-- Firewall Syslog Activity (Port 515) -->
-                    <div x-show="serverHealth && serverHealth.firewall_syslog && !serverHealth.firewall_syslog.error"
+                    <div x-show="serverHealth && serverHealth.firewall_syslog"
                         style="display: flex; flex-direction: column; gap: 8px;">
                         <div
                             style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
