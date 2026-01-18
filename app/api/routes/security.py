@@ -460,7 +460,7 @@ def api_stats_net_health():
 def api_firewall_logs_stats():
     """Get firewall log statistics."""
     range_key = request.args.get('range', '1h')
-    range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
     cutoff = time.time() - range_seconds
 
     with _firewall_db_lock:
@@ -2163,7 +2163,7 @@ def api_ollama_models():
 def api_threats():
     """Get threat detections with category, geo info, and firewall block status"""
     range_key = request.args.get('range', '1h')
-    range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
     cutoff = time.time() - range_seconds
 
     threat_set = load_threatlist()
@@ -2240,6 +2240,9 @@ def api_malicious_ports():
     """Get top malicious ports - combining threat traffic + firewall blocks"""
     range_key = request.args.get('range', '1h')
 
+    # Map range to seconds for firewall query
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+
     # Suspicious ports to highlight
     SUSPICIOUS_PORTS = {
         22: 'SSH',
@@ -2271,7 +2274,7 @@ def api_malicious_ports():
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
 
-            range_seconds = {'15m': 900, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+            # Using range_seconds calculated above
             cutoff = int(time.time()) - range_seconds
 
             # Get blocked ports with counts
@@ -2587,7 +2590,7 @@ def api_export_threats():
 def api_attack_timeline():
     """Get attack timeline data for visualization with configurable time range."""
     range_key = request.args.get('range', '24h')
-    range_seconds = {'1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 86400)
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 86400)
     now = time.time()
     cutoff = now - range_seconds
 
