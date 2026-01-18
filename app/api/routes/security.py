@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, jsonify, request, Response, stream
 import time
 import os
 import json
+import hashlib
 import socket
 import socket as socket_module  # For socket.timeout in syslog receiver
 import threading
@@ -2078,7 +2079,7 @@ def api_forensics_evidence():
                     'description': f'Network flow records for {target_ip}',
                     'record_count': flow_count,
                     'time_range': time_range,
-                    'data_hash': str(hash(output))[:16] if output else None,
+                    'data_hash': hashlib.sha256(output.encode('utf-8')).hexdigest() if output else None,
                     'collection_method': 'nfdump',
                     'preserved': preserve_data
                 })

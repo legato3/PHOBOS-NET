@@ -85,7 +85,7 @@ export const DashboardWidgets = {
         securityObservability: 'Security Observability',
         alertHistory: 'Alert History',
         threatsByCountry: 'Threats by Country',
-        threatVelocity: 'Threat Velocity',
+        threatVelocity: 'Threat Trend',
         topThreatIPs: 'Top Threat IPs',
         flows: 'Active Flows',
         talkers: 'Top Talkers',
