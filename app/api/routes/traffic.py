@@ -761,9 +761,9 @@ def api_stats_talkers():
             return jsonify(_stats_talkers_cache["data"])
 
     tf = get_time_range(range_key)
-    # Sort by bytes (already sorted by nfdump, but we limits)
-    # nfdump -O bytes -n 100 returns top 100 flows sorted by bytes
-    output = run_nfdump(["-O", "bytes", "-n", "50"], None)
+    # Sort by bytes (already sorted by nfdump, but we limit)
+    # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
+    output = run_nfdump(["-O", "bytes", "-n", "50"], tf)
 
     flows = []
     # NFDump CSV indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
@@ -1194,6 +1194,7 @@ def api_stats_hourly():
         peak_bytes = hourly_bytes[peak_hour]
 
         # Create labels (0:00, 1:00, etc)
+        # Note: Hours are in local time (matching nfdump output)
         labels = [f"{h}:00" for h in range(24)]
         bytes_data = [hourly_bytes[h] for h in range(24)]
         flows_data = [hourly_flows[h] for h in range(24)]
@@ -1207,7 +1208,8 @@ def api_stats_hourly():
             "peak_bytes": peak_bytes,
             "peak_bytes_fmt": fmt_bytes(peak_bytes),
             "total_bytes": sum(bytes_data),
-            "total_bytes_fmt": fmt_bytes(sum(bytes_data))
+            "total_bytes_fmt": fmt_bytes(sum(bytes_data)),
+            "timezone": "local"  # Clarify that hours are in server local time
         }
     except:
         data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B"}

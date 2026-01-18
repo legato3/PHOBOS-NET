@@ -453,11 +453,10 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         if not ip: continue
         
         if ip not in hosts:
-            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
+            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
             
         hosts[ip]["tx_bytes"] += row.get("bytes", 0)
         hosts[ip]["tx_flows"] += row.get("flows", 0)
-        hosts[ip]["flows"] += row.get("flows", 0)
         
         # Merge times
         if row.get("ts") and (not hosts[ip]["first_seen"] or row.get("ts") < hosts[ip]["first_seen"]):
@@ -471,11 +470,10 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         if not ip: continue
         
         if ip not in hosts:
-            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
+            hosts[ip] = {"ip": ip, "tx_bytes": 0, "rx_bytes": 0, "tx_flows": 0, "rx_flows": 0, "first_seen": row.get("ts"), "last_seen": row.get("te")}
             
         hosts[ip]["rx_bytes"] += row.get("bytes", 0)
         hosts[ip]["rx_flows"] += row.get("flows", 0)
-        hosts[ip]["flows"] += row.get("flows", 0)
         
         # Merge times
         if row.get("ts") and (not hosts[ip]["first_seen"] or row.get("ts") < hosts[ip]["first_seen"]):
@@ -512,6 +510,12 @@ def get_merged_host_stats(range_key="24h", limit=1000):
             
         data["type"] = "Internal" if is_internal else "External"
         data["total_bytes"] = data["tx_bytes"] + data["rx_bytes"]
+        
+        # Compute flows metric:
+        # - 'flows': Approximate unique flows (max of TX/RX, since same flows appear in both)
+        # - 'flow_contributions': Total TX + RX (for debugging/transparency, may double-count)
+        data["flows"] = max(data.get("tx_flows", 0), data.get("rx_flows", 0))
+        data["flow_contributions"] = data.get("tx_flows", 0) + data.get("rx_flows", 0)
         
         # Use persisted first_seen from memory if available, otherwise use flow-based first_seen
         memory = memory_data.get(ip)

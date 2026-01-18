@@ -30,7 +30,7 @@ _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat
 FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
 
 # Detection state
-_alert_history = deque(maxlen=200)  # Increased for 24h history
+_alert_history = deque(maxlen=1000)  # Match app_state.py for 24h+ history retention
 _alert_history_lock = threading.Lock()
 _alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
@@ -543,9 +543,30 @@ def detect_dns_anomaly(flow_data):
 
 
 def detect_new_external(sources_data, destinations_data):
-    """Detect first-time connections to new countries/ASNs."""
+    """Detect first-time connections to new countries/ASNs.
+    
+    The _seen_external set is periodically cleaned (every 24h) to:
+    1. Prevent memory growth from accumulating forever
+    2. Re-enable alerts for countries/ASNs not seen recently
+    """
     global _seen_external
     alerts = []
+    
+    # Initialize tracking metadata if not present
+    if 'last_cleanup' not in _seen_external:
+        _seen_external['last_cleanup'] = time.time()
+    
+    # Periodic cleanup: reset every 24 hours to re-enable new-external detection
+    now_ts = time.time()
+    if now_ts - _seen_external['last_cleanup'] > 86400:  # 24 hours
+        # Preserve some recent entries to avoid immediate flood after cleanup
+        # Keep only a subset of most "recent" entries (we don't track recency, so just cap size)
+        if len(_seen_external['countries']) > 50:
+            # Keep arbitrary 20 countries (can't track recency, so just trim)
+            _seen_external['countries'] = set(list(_seen_external['countries'])[:20])
+        if len(_seen_external['asns']) > 200:
+            _seen_external['asns'] = set(list(_seen_external['asns'])[:50])
+        _seen_external['last_cleanup'] = now_ts
     
     all_ips = set()
     for item in sources_data:
@@ -553,8 +574,6 @@ def detect_new_external(sources_data, destinations_data):
     for item in (destinations_data or []):
         all_ips.add(item.get('key'))
     
-    # PERFORMANCE: Compute timestamp once for all alerts instead of per-alert
-    now_ts = time.time()
     for ip in all_ips:
         if not ip or is_internal(ip):
             continue

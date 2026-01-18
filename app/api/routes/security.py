@@ -399,6 +399,17 @@ def api_stats_net_health():
             # SNMP failure shouldn't break the whole health check
             pass
 
+        # Recalculate status based on final health_score (after SNMP penalties)
+        if health_score >= 80:
+            status = "healthy"
+            status_icon = "💚"
+        elif health_score >= 60:
+            status = "fair"
+            status_icon = "💛"
+        else:
+            status = "poor"
+            status_icon = "❤️"
+
         data = {
             "indicators": indicators,
             "health_score": health_score,

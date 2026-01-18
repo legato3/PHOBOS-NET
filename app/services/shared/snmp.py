@@ -237,22 +237,25 @@ def get_snmp_data():
                     # Preserve previous value if current is None
                     new_prev_sample[key] = state._snmp_prev_sample[key]
             
-            # Store other counters
+            # Store other counters - preserve previous value if current is None
+            # This prevents false rate spikes when SNMP has partial failures
             new_prev_sample.update({
-                # Persist counter snapshots for rate calc next tick
-                "tcp_active_opens": result.get("tcp_active_opens", 0),
-                "tcp_estab_resets": result.get("tcp_estab_resets", 0),
-                "tcp_fails": result.get("tcp_fails", 0),
-                "tcp_retrans": result.get("tcp_retrans", 0),
-                "ip_in_discards": result.get("ip_in_discards", 0),
-                "ip_in_hdr_errors": result.get("ip_in_hdr_errors", 0),
-                "ip_in_addr_errors": result.get("ip_in_addr_errors", 0),
-                "ip_forw_datagrams": result.get("ip_forw_datagrams", 0),
-                "ip_in_delivers": result.get("ip_in_delivers", 0),
-                "ip_out_requests": result.get("ip_out_requests", 0),
-                "icmp_in_errors": result.get("icmp_in_errors", 0),
-                "udp_in": result.get("udp_in", 0),
-                "udp_out": result.get("udp_out", 0),
+                # TCP counters with None preservation
+                "tcp_active_opens": result.get("tcp_active_opens") if result.get("tcp_active_opens") is not None else state._snmp_prev_sample.get("tcp_active_opens"),
+                "tcp_estab_resets": result.get("tcp_estab_resets") if result.get("tcp_estab_resets") is not None else state._snmp_prev_sample.get("tcp_estab_resets"),
+                "tcp_fails": result.get("tcp_fails") if result.get("tcp_fails") is not None else state._snmp_prev_sample.get("tcp_fails"),
+                "tcp_retrans": result.get("tcp_retrans") if result.get("tcp_retrans") is not None else state._snmp_prev_sample.get("tcp_retrans"),
+                # IP counters with None preservation
+                "ip_in_discards": result.get("ip_in_discards") if result.get("ip_in_discards") is not None else state._snmp_prev_sample.get("ip_in_discards"),
+                "ip_in_hdr_errors": result.get("ip_in_hdr_errors") if result.get("ip_in_hdr_errors") is not None else state._snmp_prev_sample.get("ip_in_hdr_errors"),
+                "ip_in_addr_errors": result.get("ip_in_addr_errors") if result.get("ip_in_addr_errors") is not None else state._snmp_prev_sample.get("ip_in_addr_errors"),
+                "ip_forw_datagrams": result.get("ip_forw_datagrams") if result.get("ip_forw_datagrams") is not None else state._snmp_prev_sample.get("ip_forw_datagrams"),
+                "ip_in_delivers": result.get("ip_in_delivers") if result.get("ip_in_delivers") is not None else state._snmp_prev_sample.get("ip_in_delivers"),
+                "ip_out_requests": result.get("ip_out_requests") if result.get("ip_out_requests") is not None else state._snmp_prev_sample.get("ip_out_requests"),
+                # ICMP/UDP counters with None preservation
+                "icmp_in_errors": result.get("icmp_in_errors") if result.get("icmp_in_errors") is not None else state._snmp_prev_sample.get("icmp_in_errors"),
+                "udp_in": result.get("udp_in") if result.get("udp_in") is not None else state._snmp_prev_sample.get("udp_in"),
+                "udp_out": result.get("udp_out") if result.get("udp_out") is not None else state._snmp_prev_sample.get("udp_out"),
                 # Store error/discard counters for rate calculation (preserve None)
                 "wan_in_err": result.get("wan_in_err") if result.get("wan_in_err") is not None else state._snmp_prev_sample.get("wan_in_err"),
                 "wan_out_err": result.get("wan_out_err") if result.get("wan_out_err") is not None else state._snmp_prev_sample.get("wan_out_err"),

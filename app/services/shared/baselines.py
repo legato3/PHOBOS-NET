@@ -139,8 +139,8 @@ def get_baseline_summary():
 def get_previous_hour_value(metric_name):
     """Get the value from approximately 1 hour ago (if available in baseline window).
     
-    Since baselines update every 5 minutes, we look for a value from ~12 samples ago
-    (12 * 5 min = 60 min). If not available, returns the oldest value in the window.
+    The number of samples to look back is dynamically calculated based on 
+    BASELINE_UPDATE_INTERVAL (default 5 minutes = 300s).
     
     Args:
         metric_name: One of 'active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate'
@@ -158,12 +158,16 @@ def get_previous_hour_value(metric_name):
     if len(values) < 2:
         return (None, False)
     
-    # Try to get value from ~1 hour ago (12 samples at 5-min intervals)
+    # Calculate samples needed for 1 hour based on update interval
+    # Default: 3600s / 300s = 12 samples per hour
+    samples_per_hour = max(1, 3600 // BASELINE_UPDATE_INTERVAL)
+    
+    # Try to get value from ~1 hour ago
     # If window is smaller, use the second-to-last value (most recent previous value)
     # This allows trends to show even with minimal data
-    if len(values) >= 12:
+    if len(values) >= samples_per_hour:
         # Full hour of data available
-        return (values[-12], False)
+        return (values[-samples_per_hour], False)
     elif len(values) >= 2:
         # Use second-to-last value (previous sample)
         return (values[-2], True)  # Mark as approximate since it's not exactly 1 hour

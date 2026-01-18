@@ -9,7 +9,6 @@ import time
 import os
 import json
 import socket
-import socket as socket_module  # For socket.timeout in syslog receiver
 import threading
 import subprocess
 import requests
@@ -133,7 +132,8 @@ def api_stats_summary():
             return jsonify(_stats_summary_cache["data"])
 
     # Reuse common data cache instead of running separate nfdump query
-    # Using top 100 sources (from cache) is more accurate than top 20 for totals
+    # Note: These totals are derived from top 100 sources (not complete dataset)
+    # This provides a representative sample while avoiding expensive full aggregation
     sources = get_common_nfdump_data("sources", range_key)
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
@@ -144,7 +144,8 @@ def api_stats_summary():
             "flows": tot_f,
             "packets": tot_p,
             "bytes_fmt": fmt_bytes(tot_b),
-            "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0
+            "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0,
+            "source": "top_100_sources"  # Clarify data source for transparency
         },
         "notify": load_notify_cfg(),
         "threat_status": threats_module._threat_status
@@ -261,10 +262,15 @@ def metrics():
 @bp.route('/health')
 def health_check():
     """Health check endpoint for monitoring."""
+    # Syslog is considered active if:
+    # 1. Messages have been received, OR
+    # 2. The receiver thread is running (listening but no traffic yet)
+    syslog_active = _syslog_stats.get('received', 0) > 0 or state._syslog_thread_started
+    
     checks = {
         'database': False,
         'disk_space': check_disk_space('/var/cache/nfdump'),
-        'syslog_active': _syslog_stats.get('received', 0) > 0,
+        'syslog_active': syslog_active,
         'nfdump_available': state._has_nfdump,
         'memory_usage_mb': 0
     }
@@ -630,7 +636,7 @@ def api_server_health():
 
         # Get hostname
         try:
-            data['system']['hostname'] = socket_module.gethostname()
+            data['system']['hostname'] = socket.gethostname()
         except Exception:
             try:
                 with open('/etc/hostname', 'r') as f:
@@ -760,7 +766,7 @@ def api_performance_metrics():
             'avg_ms': round(avg_subprocess_time * 1000, 2),
             'max_ms': round(max(subprocess_times) * 1000, 2) if subprocess_times else 0,
             'p95_ms': round(sorted(subprocess_times)[int(len(subprocess_times) * 0.95)] * 1000, 2) if len(subprocess_times) > 1 else (round(subprocess_times[0] * 1000, 2) if subprocess_times else 0),
-            'success_rate_percent': round(metrics.get('subprocess_success', 0) / metrics['subprocess_calls'] * 100, 2)
+            'success_rate_percent': round(metrics.get('subprocess_success', 0) / metrics['subprocess_calls'] * 100, 2) if metrics.get('subprocess_calls', 0) > 0 else 0
         }
     
     # OBSERVABILITY: Service function metrics

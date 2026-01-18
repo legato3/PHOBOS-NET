@@ -81,16 +81,23 @@ def calculate_security_observability():
         exposure_signals.append(f"{recent_critical} critical alerts in last hour")
     
     # Determine overall state based on signals
+    # Priority: UNDER PRESSURE > DEGRADED > ELEVATED > STABLE > QUIET
     if recent_critical > 0 or threat_count > 5:
         overall_state = "UNDER PRESSURE"
     elif threat_count > 0 or fw_stats.get('blocks_per_hour', 0) > 100:
         overall_state = "DEGRADED"
-    elif feeds_ok < feeds_total or fw_stats.get('blocks', 0) == 0:
+    elif feeds_ok < feeds_total:
+        # Feed issues but no active threats
         overall_state = "ELEVATED"
-    elif threats_blocked > 0 and fw_stats.get('blocks', 0) > 0:
+    elif fw_stats.get('blocks', 0) > 0 or threats_blocked > 0:
+        # Firewall is active and blocking (threats or other traffic)
+        overall_state = "STABLE"
+    elif total_ips >= 10000:
+        # Good coverage, no blocks means quiet network
         overall_state = "STABLE"
     else:
-        overall_state = "UNKNOWN"
+        # Insufficient data to determine state (no firewall activity, limited coverage)
+        overall_state = "QUIET"
     
     # Build contributing factors
     if protection_signals:
