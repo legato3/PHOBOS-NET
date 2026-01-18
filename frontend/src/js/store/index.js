@@ -782,10 +782,17 @@ export const Store = () => ({
                 // Manage firewall logs auto-refresh based on active tab
                 if (val === 'forensics') {
                     this.startRecentBlocksAutoRefresh();
+                } else if (val === 'firewall') {
+                    this.startRecentBlocksAutoRefresh();
+                    this.startFirewallSyslogAutoRefresh();
                 } else {
                     if (this.recentBlocksRefreshTimer) {
                         clearInterval(this.recentBlocksRefreshTimer);
                         this.recentBlocksRefreshTimer = null;
+                    }
+                    if (this.firewallSyslogRefreshTimer) {
+                        clearInterval(this.firewallSyslogRefreshTimer);
+                        this.firewallSyslogRefreshTimer = null;
                     }
                 }
                 // Manage server health auto-refresh
@@ -5833,6 +5840,86 @@ export const Store = () => ({
         }
     },
 
+    startFirewallSyslogAutoRefresh() {
+        // Clear existing timer if any
+        if (this.firewallSyslogRefreshTimer) {
+            clearInterval(this.firewallSyslogRefreshTimer);
+            this.firewallSyslogRefreshTimer = null;
+        }
+
+        // Only start if auto-refresh is enabled
+        if (!this.firewallSyslogAutoRefresh) return;
+
+        // Initial fetch
+        this.fetchFirewallSyslog();
+
+        // Set up interval: refresh every 3 seconds for real-time feel
+        const refreshInterval = 3000;
+        this.firewallSyslogRefreshTimer = setInterval(() => {
+            if (this.firewallSyslogAutoRefresh && this.activeTab === 'firewall') {
+                this.fetchFirewallSyslogIncremental();
+            }
+        }, refreshInterval);
+    },
+
+    toggleFirewallSyslogAutoRefresh() {
+        if (this.firewallSyslogAutoRefresh) {
+            this.startFirewallSyslogAutoRefresh();
+        } else {
+            if (this.firewallSyslogRefreshTimer) {
+                clearInterval(this.firewallSyslogRefreshTimer);
+                this.firewallSyslogRefreshTimer = null;
+            }
+        }
+    },
+
+    async fetchFirewallSyslogIncremental() {
+        // Incremental update: only fetch if we're on the firewall tab and widget is visible
+        if (this.activeTab !== 'firewall' || this.isMinimized('firewallSyslog')) {
+            return;
+        }
+
+        // Prevent concurrent requests
+        if (this._firewallSyslogFetching) return;
+        this._firewallSyslogFetching = true;
+
+        // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
+        // This ensures we always have the latest data
+        try {
+            const res = await fetch('/api/firewall/syslog/recent?limit=1000');
+
+            if (res.ok) {
+                const d = await res.json();
+                const newLogs = d.logs || [];
+                const stats = d.stats || this.computeRecentBlockStats(newLogs);
+
+                this.firewallSyslog = {
+                    blocks: newLogs,
+                    stats,
+                    total_1h: stats?.blocks_last_hour || stats?.actions?.block || newLogs.length || 0,
+                    loading: false,
+                    lastUpdate: new Date().toISOString()
+                };
+
+                // Update view count if needed
+                const targetView = this.firewallSyslogView || 50;
+                this.firewallSyslogView = Math.min(targetView, newLogs.length || targetView, 1000);
+            } else if (res.status === 429) {
+                // Rate limited - back off by stopping auto-refresh temporarily
+                console.warn('Rate limited on firewall syslog, pausing auto-refresh');
+                this.firewallSyslogAutoRefresh = false;
+                if (this.firewallSyslogRefreshTimer) {
+                    clearInterval(this.firewallSyslogRefreshTimer);
+                    this.firewallSyslogRefreshTimer = null;
+                }
+            }
+        } catch (e) {
+            console.error('Incremental firewall syslog fetch error:', e);
+        } finally {
+            this._firewallSyslogFetching = false;
+        }
+    },
+
     timeAgo(ts) {
         return DashboardUtils.timeAgo(ts);
     },
@@ -6116,6 +6203,14 @@ export const Store = () => ({
             this.fetchAlertCorrelation();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
+        } else if (tab === 'firewall') {
+            this.fetchFirewallStatsOverview();
+            this.fetchRecentBlocks();
+            this.fetchFirewallSyslog();
+            this.fetchAlertCorrelation();
+            // Start auto-refresh for firewall logs
+            this.startRecentBlocksAutoRefresh();
+            this.startFirewallSyslogAutoRefresh();
         } else if (tab === 'assistant') {
             // Load available models when assistant tab is opened
             this.fetchOllamaModels();
