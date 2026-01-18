@@ -51,7 +51,7 @@ else:
 # Syslog configuration
 SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
 SYSLOG_BIND = os.getenv("SYSLOG_BIND", "0.0.0.0")
-FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")
+FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.199")
 FIREWALL_RETENTION_DAYS = 7
 SYSLOG_BUFFER_SIZE = 100
 
