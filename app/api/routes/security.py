@@ -195,7 +195,8 @@ def api_stats_net_health():
                     if flags == 'S' or flags == '.S': syn_only += 1
                     if proto == '1' or proto.upper() == 'ICMP': icmp_count += 1
                     if b < 100: small_flows += 1
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
         if total_flows > 0:
             rst_pct = rst_count / total_flows * 100
@@ -3448,7 +3449,7 @@ def api_stats_blocklist_rate():
             ts_idx = header.index('ts')
             sa_idx = header.index('sa')
             da_idx = header.index('da')
-        except:
+        except (ValueError, IndexError):
             ts_idx, sa_idx, da_idx = 0, 3, 4
 
         for line in lines[1:]:
@@ -3475,10 +3476,11 @@ def api_stats_blocklist_rate():
                                 b_idx = int((ts_val - start_ts) // bucket_size)
                                 if b_idx in buckets:
                                     buckets[b_idx] += 1
-                        except:
+                        except (ValueError, IndexError, KeyError):
                             # Fallback if parsing fails: ignore time distribution
                             pass
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
         # Generate series
         series = []

@@ -23,6 +23,7 @@ _threat_status = {'last_attempt': 0, 'last_ok': 0, 'size': 0, 'status': 'unknown
 _threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
 _threat_timeline = {}  # Maps IP -> {first_seen, last_seen, hit_count}
 _feed_status = {}  # Per-feed health tracking
+_feed_data_lock = threading.Lock()  # Protects _threat_ip_to_feed and _feed_status
 _watchlist_cache = {"data": set(), "mtime": 0, "last_check": 0}
 _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat list file
 
@@ -57,7 +58,7 @@ def parse_feed_line(line):
 
 
 def fetch_threat_feed():
-    global _threat_status, _threat_ip_to_feed, _feed_status
+    global _threat_status, _threat_ip_to_feed, _feed_status, _feed_data_lock
     try:
         _threat_status['last_attempt'] = time.time()
         
@@ -131,10 +132,12 @@ def fetch_threat_feed():
                     'last_attempt': time.time(), 'last_ok': _feed_status.get(name, {}).get('last_ok', 0)
                 }
                 errors.append(f'{name}: {str(e)[:30]}')
-        
-        _feed_status = new_feed_status
-        _threat_ip_to_feed = ip_to_feed
-        
+
+        # Update global state atomically
+        with _feed_data_lock:
+            _feed_status = new_feed_status
+            _threat_ip_to_feed = ip_to_feed
+
         if not all_ips:
             _threat_status['status'] = 'empty'
             _threat_status['size'] = 0
@@ -197,11 +200,13 @@ def get_recent_alert_ips(seconds):
     threshold = time.time() - seconds
     ips = set()
     with _alert_history_lock:
-        for alert in _alert_history:
-            if alert.get('ts', 0) >= threshold:
-                ip = alert.get('ip') or alert.get('src_ip')
-                if ip:
-                    ips.add(ip)
+        # Convert deque to list to avoid iteration issues during concurrent modifications
+        alerts_snapshot = list(_alert_history)
+    for alert in alerts_snapshot:
+        if alert.get('ts', 0) >= threshold:
+            ip = alert.get('ip') or alert.get('src_ip')
+            if ip:
+                ips.add(ip)
     return ips
 
 
@@ -869,13 +874,16 @@ def _should_escalate_anomaly(alert):
     now_ts = time.time()
     
     with _anomaly_tracker_lock:
-        # Clean old entries
-        _anomaly_tracker = {
-            k: [ts for ts in v if now_ts - ts < _ANOMALY_TRACKER_TTL]
-            for k, v in _anomaly_tracker.items()
-            if any(now_ts - ts < _ANOMALY_TRACKER_TTL for ts in v)
-        }
-        
+        # Clean old entries in-place (avoid replacing global reference)
+        stale_keys = [
+            k for k, v in _anomaly_tracker.items()
+            if not any(now_ts - ts < _ANOMALY_TRACKER_TTL for ts in v)
+        ]
+        for k in stale_keys:
+            del _anomaly_tracker[k]
+        for k in _anomaly_tracker:
+            _anomaly_tracker[k] = [ts for ts in _anomaly_tracker[k] if now_ts - ts < _ANOMALY_TRACKER_TTL]
+
         # Track this anomaly
         if fingerprint not in _anomaly_tracker:
             _anomaly_tracker[fingerprint] = []

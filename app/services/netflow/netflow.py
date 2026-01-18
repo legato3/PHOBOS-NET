@@ -15,7 +15,6 @@ import app.core.app_state as state
 from app.core.app_state import add_app_log
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
-_metric_nfdump_calls = 0
 
 
 def mock_nfdump(args):
@@ -125,11 +124,10 @@ def mock_nfdump(args):
 
 def run_nfdump(args, tf=None):
     """Run nfdump command and return CSV output.
-    
+
     OBSERVABILITY: Instrumented to track execution time, success/failure, and timeouts.
     """
-    global _metric_nfdump_calls
-    _metric_nfdump_calls += 1
+    state._metric_nfdump_calls += 1
     
     # OBSERVABILITY: Track subprocess execution with timing
     from app.services.shared.observability import instrument_subprocess
@@ -371,7 +369,6 @@ def get_traffic_direction(ip, tf):
 def get_common_nfdump_data(query_type, range_key):
     """Shared data fetcher for common queries (sources, ports, dests, protos)."""
     now = time.time()
-    cache_key = f"{query_type}:{range_key}"
     win = int(now // 60)
     cache_key = f"{query_type}:{range_key}:{win}"
     

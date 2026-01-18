@@ -385,7 +385,8 @@ def api_stats_durations():
                         "duration": float(parts[td_idx]),
                         "bytes": int(parts[ibyt_idx]) if len(parts) > ibyt_idx else 0
                     })
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
         # Sort by duration
         sorted_flows = sorted(rows, key=lambda x: x['duration'], reverse=True)[:10]
@@ -501,7 +502,8 @@ def api_stats_packet_sizes():
                         elif avg < 1024: dist["Medium (512-1023B)"] += 1
                         elif avg <= 1514: dist["Large (1024-1513B)"] += 1
                         else: dist["Jumbo (>1513B)"] += 1
-                except: pass
+                except (ValueError, IndexError, KeyError, ZeroDivisionError):
+                    pass
 
         data = {
             "labels": list(dist.keys()),
@@ -1003,7 +1005,7 @@ def api_noise_metrics():
                     pr_idx = header.index('pr') if 'pr' in header else header.index('proto')
                     ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('bytes')
                     start_idx = 1
-                except:
+                except (ValueError, IndexError):
                     pass
 
         for line in lines[start_idx:]:
@@ -1017,9 +1019,10 @@ def api_noise_metrics():
 
                     if flags == 'S' or flags == '.S': syn_only += 1
                     if b < 64: small_flows += 1 # Strict tiny flows
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
-    except:
+    except Exception:
         pass
 
     # 2. Blocked Flows (Definitely Noise)
@@ -1183,7 +1186,8 @@ def api_stats_hourly():
                     b = int(parts[ibyt_idx])
                     hourly_bytes[hour] += b
                     hourly_flows[hour] += 1
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
         # Find peak hour
         peak_hour = max(hourly_bytes, key=hourly_bytes.get)
@@ -1267,7 +1271,8 @@ def api_stats_flow_stats():
                     durations.append(float(parts[td_idx]))
                     bytes_list.append(int(parts[ibyt_idx]))
                     packets_list.append(int(parts[ipkt_idx]))
-                except: pass
+                except (ValueError, IndexError, KeyError):
+                    pass
 
         total_flows = len(durations)
         total_bytes = sum(bytes_list)
