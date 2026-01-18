@@ -229,6 +229,16 @@ def parse_csv(output, expected_key=None):
                 })
         except Exception:
             continue
+    
+    # --- INGESTION METRICS ---
+    try:
+        if len(results) > 0:
+            from app.services.shared.ingestion_metrics import ingestion_tracker
+            ingestion_tracker.track_netflow(len(results))
+    except Exception:
+        pass
+    # -------------------------
+    
     return results
 
 

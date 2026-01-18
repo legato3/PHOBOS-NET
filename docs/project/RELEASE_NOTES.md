@@ -46,6 +46,7 @@ Result: Better readability and clearer information hierarchy.
 
 - **Shared Stability Logic**: `applyStabilityFilter()` function used across all insight types
 - **Generic Computation**: `computeInsights(panelType)` configurable for different data sources
+- **Ingestion Observability**: Live ingestion rates (EPS) for Syslog, Firewall, and NetFlow exposed via API and Server tab
 - **Legacy Compatibility**: Backward-compatible `trafficInsights` getter
 - **Ready for Extension**: Firewall and Host Insights can be easily added using the same system
 

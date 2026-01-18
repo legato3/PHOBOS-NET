@@ -104,11 +104,36 @@ def _syslog_receiver_loop():
             
             with _syslog_stats_lock:
                 _syslog_stats["received"] += 1
+            
+            # --- INGESTION METRICS ---
+            from app.services.shared.ingestion_metrics import ingestion_tracker
+            ingestion_tracker.track_syslog(1)
+            # -------------------------
+
             line = data.decode('utf-8', errors='ignore')
             
             # Only process filterlog messages
             if 'filterlog' not in line:
                 continue
+
+            # --- FIREWALL PARSER & STORAGE ---
+            try:
+                from app.services.firewall.parser import FirewallParser
+                from app.services.firewall.store import firewall_store
+                
+                # Parse
+                fw_parser = FirewallParser()
+                fw_event = fw_parser.parse(line)
+                
+                # Store (Safe Storage)
+                if fw_event:
+                    firewall_store.add_event(fw_event)
+                    # Track ingestion rate
+                    ingestion_tracker.track_firewall(1)
+            except Exception as e:
+                # Log error but don't crash syslog thread
+                print(f"[FIREWALL STORE ERROR] {e}")
+            # ---------------------------------
             
             parsed = _parse_filterlog(line)
             if parsed:

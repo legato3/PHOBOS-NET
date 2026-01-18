@@ -308,6 +308,22 @@ def health_check():
 
 
 
+@bp.route('/api/server/ingestion')
+def api_server_ingestion():
+    """
+    Get current event ingestion rates (EPS).
+    Scope: Informational only. No health checks.
+    """
+    from app.services.shared.ingestion_metrics import ingestion_tracker
+    rates = ingestion_tracker.get_rates()
+    
+    return jsonify({
+        "window_seconds": ingestion_tracker.window_seconds,
+        "rates": rates,
+        "timestamp": datetime.now().isoformat()
+    })
+
+
 @bp.route('/api/server/health')
 @throttle(10, 5)  # Allow 10 requests per 5 seconds (2 req/sec) for 1-2 sec refresh
 def api_server_health():

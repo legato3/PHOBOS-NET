@@ -184,6 +184,7 @@ export const Store = () => ({
 
     netHealth: { indicators: [], health_score: 100, status: 'healthy', status_icon: '💚', loading: true, firewall_active: false, blocks_1h: 0 },
     serverHealth: { cpu: {}, memory: {}, disk: {}, syslog: {}, netflow: {}, database: {}, loading: true },
+    ingestionRates: null,
     databaseStats: { databases: [], loading: true, error: null },
     serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
 
@@ -1866,7 +1867,8 @@ export const Store = () => ({
             this.fetchNetworkStatsOverview(),
             this.fetchFirewallStatsOverview(),
             this.fetchAlertHistory(),
-            this.fetchBaselineSignals()
+            this.fetchBaselineSignals(),
+            this.fetchIngestionRates()
         ]);
 
         // Then fetch key charts in parallel, resilient to failure
@@ -4075,6 +4077,18 @@ export const Store = () => ({
             const res = await fetch(`/api/stats/net_health?range=${this.timeRange}`);
             if (res.ok) this.netHealth = { ...(await res.json()) };
         } catch (e) { console.error(e); } finally { this.netHealth.loading = false; }
+    },
+
+    async fetchIngestionRates() {
+        try {
+            const response = await fetch('/api/server/ingestion');
+            if (!response.ok) return;
+            const data = await response.json();
+            this.ingestionRates = data.rates;
+        } catch (e) {
+            console.error("Failed to fetch ingestion rates:", e);
+            this.ingestionRates = null;
+        }
     },
 
     async fetchServerHealth() {
