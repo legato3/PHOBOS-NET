@@ -61,34 +61,57 @@ def start_firewall_syslog_thread():
 def _parse_syslog(raw: str) -> SyslogEvent:
     """
     Parse a raw syslog line into a SyslogEvent.
-    Extracts timestamp, program name, and message.
+    Supports both RFC 3164 and RFC 5424 formats.
     """
     timestamp = datetime.now()
     program = "unknown"
     message = raw.strip()
     hostname = None
 
-    # Try to extract RFC5424 timestamp
-    ts_match = RFC5424_TS.search(raw)
-    if ts_match:
+    # RFC 5424 format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
+    # Example: <38>1 2026-01-18T19:36:05+01:00 CHRIS-OPN.phobos-cc.be configd.py 31911 - [meta sequenceId="257"] message
+    rfc5424_match = re.match(r'<\d+>(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)', raw)
+    if rfc5424_match:
+        # RFC 5424 format detected
+        version, ts_str, hostname, app_name, procid, msgid, rest = rfc5424_match.groups()
+        
+        # Parse timestamp
         try:
-            ts_str = ts_match.group(1)
             if ts_str.endswith('Z'):
                 ts_str = ts_str[:-1] + '+00:00'
             timestamp = datetime.fromisoformat(ts_str)
         except (ValueError, IndexError):
             pass
+        
+        # Extract program name
+        if app_name and app_name != '-':
+            program = app_name
+        
+        # Extract message (everything after structured data or msgid)
+        message = rest.strip()
+    else:
+        # Fall back to RFC 3164 parsing
+        # Try to extract RFC5424 timestamp
+        ts_match = RFC5424_TS.search(raw)
+        if ts_match:
+            try:
+                ts_str = ts_match.group(1)
+                if ts_str.endswith('Z'):
+                    ts_str = ts_str[:-1] + '+00:00'
+                timestamp = datetime.fromisoformat(ts_str)
+            except (ValueError, IndexError):
+                pass
 
-    # Try to extract hostname
-    host_match = HOSTNAME_PATTERN.match(raw)
-    if host_match:
-        hostname = host_match.group(1)
+        # Try to extract hostname
+        host_match = HOSTNAME_PATTERN.match(raw)
+        if host_match:
+            hostname = host_match.group(1)
 
-    # Try to extract program name and message
-    prog_match = PROGRAM_PATTERN.search(raw)
-    if prog_match:
-        program = prog_match.group(1)
-        message = prog_match.group(2).strip()
+        # Try to extract program name and message
+        prog_match = PROGRAM_PATTERN.search(raw)
+        if prog_match:
+            program = prog_match.group(1)
+            message = prog_match.group(2).strip()
 
     return SyslogEvent(
         timestamp=timestamp,
