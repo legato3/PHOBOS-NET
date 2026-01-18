@@ -12,8 +12,8 @@ class IngestionTracker:
     def __init__(self, window_seconds=60):
         self.window_seconds = window_seconds
         # Stores (timestamp, count) tuples
-        self._syslog_history = deque()
-        self._firewall_history = deque()
+        self._syslog_history = deque()      # Port 514 filterlog
+        self._firewall_history = deque()    # Port 515 firewall syslog
         self._netflow_history = deque()
         self._lock = threading.Lock()
         

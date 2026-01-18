@@ -128,8 +128,8 @@ def _syslog_receiver_loop():
                 # Store (Safe Storage)
                 if fw_event:
                     firewall_store.add_event(fw_event)
-                    # Track ingestion rate
-                    ingestion_tracker.track_firewall(1)
+                    # Note: Port 514 ingestion tracked via track_syslog() above
+                    # track_firewall() is reserved for port 515 syslog
             except Exception as e:
                 # Log error but don't crash syslog thread
                 print(f"[FIREWALL STORE ERROR] {e}")
