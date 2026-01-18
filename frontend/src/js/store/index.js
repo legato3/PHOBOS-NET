@@ -5860,14 +5860,26 @@ export const Store = () => ({
         // Initialize ipDetails with timeline structure to prevent null reference errors
         this.ipDetails = { timeline: { labels: [], bytes: [], flows: [], loading: true } };
         try {
-            const res = await fetch(`/api/ip_detail/${ip}`);
+            // Add timeout to prevent hanging on slow/unresponsive endpoints
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+            const res = await fetch(`/api/ip_detail/${ip}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
             if (res.ok) {
                 const data = await res.json();
                 this.ipDetails = { ...data, timeline: this.ipDetails.timeline };
+            } else {
+                this.ipDetails = { error: `Server error: ${res.status}`, timeline: { labels: [], bytes: [], flows: [], loading: false } };
             }
         } catch (e) {
             console.error(e);
-            this.ipDetails = { error: 'Failed to load details', timeline: { labels: [], bytes: [], flows: [], loading: false } };
+            if (e.name === 'AbortError') {
+                this.ipDetails = { error: 'Request timed out - IP detail unavailable', timeline: { labels: [], bytes: [], flows: [], loading: false } };
+            } else {
+                this.ipDetails = { error: 'Failed to load details', timeline: { labels: [], bytes: [], flows: [], loading: false } };
+            }
         }
         this.ipLoading = false;
     },
