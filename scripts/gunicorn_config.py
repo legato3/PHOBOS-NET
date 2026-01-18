@@ -21,11 +21,20 @@ def post_worker_init(worker):
         except ImportError:
             start_syslog_thread = None
         
+        # Import firewall syslog listener (port 515)
+        try:
+            from app.services.syslog.firewall_listener import start_firewall_syslog_thread
+        except ImportError:
+            start_firewall_syslog_thread = None
+        
         start_threat_thread()
         start_trends_thread()
         start_agg_thread()
         start_db_size_sampler_thread()  # Background database size sampling (decoupled from API)
         if start_syslog_thread:
             start_syslog_thread()
+        if start_firewall_syslog_thread:
+            start_firewall_syslog_thread()
+            worker.log.info("Firewall syslog listener started on port 515")
     except Exception as e:
         worker.log.error(f"Error starting background threads: {e}")

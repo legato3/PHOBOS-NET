@@ -35,22 +35,6 @@ def create_app():
     from app.api.routes.firewall_decisions import bp as fw_decisions_bp
     app.register_blueprint(fw_decisions_bp)
     
-    # Start SNMP thread early to ensure rate calculations work
-    # (rates require at least two polls to calculate deltas)
-    from app.services.shared.snmp import start_snmp_thread
-    start_snmp_thread()
-    
-    # Start firewall syslog listener (port 515)
-    try:
-        from app.services.syslog.firewall_listener import start_firewall_syslog_thread
-        if start_firewall_syslog_thread:
-            start_firewall_syslog_thread()
-            print("Firewall syslog listener thread started (port 515)")
-    except ImportError as e:
-        print(f"Warning: Could not start firewall syslog listener: {e}")
-    except Exception as e:
-        print(f"Error: Failed to start firewall syslog listener: {e}")
-    
     # Setup middleware
     @app.before_request
     def track_request_start():
