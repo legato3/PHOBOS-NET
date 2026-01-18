@@ -276,14 +276,14 @@
             </button>
         </div>
         {% endset %}
-        {% call widget_card('firewallSyslog', 'OPNsense Syslogs (Port 515)', '📡', card_class='wide-card',
+        {% call widget_card('firewallSyslog', 'Firewall Logs (Port 515)', '📡', card_class='wide-card',
         extra_actions=fw515_actions, show_spinner=True) %}
         <div x-show="firewallSyslog.blocks.length === 0 && !firewallSyslog.loading" class="empty-state">
             <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">📡</div>
             <p
                 style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                No OPNsense syslog events yet</p>
-            <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No events received via OPNsense syslog port 515. Check firewall syslog configuration.</p>
+                No firewall syslog events yet</p>
+            <p style="font-size: var(--text-xs); color: var(--text-tertiary);">No events received via firewall syslog port 515. Check firewall syslog configuration.</p>
         </div>
         <div x-show="firewallSyslog.blocks.length > 0">
             <div class="log-toolbar">
