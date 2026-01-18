@@ -55,6 +55,10 @@ FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")
 FIREWALL_RETENTION_DAYS = 7
 SYSLOG_BUFFER_SIZE = 100
 
+# Firewall Syslog (non-filterlog) listener - separate stream
+FIREWALL_SYSLOG_PORT = int(os.getenv("FIREWALL_SYSLOG_PORT", "515"))
+FIREWALL_SYSLOG_BIND = os.getenv("FIREWALL_SYSLOG_BIND", "0.0.0.0")
+
 # DNS Configuration
 DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
 DNS_CACHE_MAX = 5000

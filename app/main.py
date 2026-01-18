@@ -26,6 +26,13 @@ except ImportError as e:
     start_syslog_thread = None
     _flush_syslog_buffer = None
 
+# Import firewall syslog listener (isolated, port 515)
+try:
+    from app.services.syslog.firewall_listener import start_firewall_syslog_thread
+except ImportError as e:
+    print(f"Warning: Could not import firewall syslog listener: {e}")
+    start_firewall_syslog_thread = None
+
 if __name__ == "__main__":
     from app import app
     
@@ -65,6 +72,11 @@ if __name__ == "__main__":
     if start_syslog_thread:
         start_syslog_thread()
         add_app_log("Syslog receiver thread started", 'INFO')
+    
+    # Start firewall syslog listener (isolated, port 515)
+    if start_firewall_syslog_thread:
+        start_firewall_syslog_thread()
+        add_app_log("Firewall syslog listener thread started (port 515)", 'INFO')
     
     def _find_open_port(h, start_port, max_tries=10):
         """Find an open port starting from start_port."""

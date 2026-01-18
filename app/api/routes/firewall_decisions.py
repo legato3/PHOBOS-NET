@@ -2,6 +2,12 @@ from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta
 from app.services.firewall.store import firewall_store
 
+# Import firewall syslog stats (isolated listener metrics)
+try:
+    from app.services.syslog.firewall_listener import get_firewall_syslog_stats
+except ImportError:
+    get_firewall_syslog_stats = None
+
 bp = Blueprint('firewall_decisions', __name__)
 
 @bp.route('/api/firewall/decisions', methods=['GET'])
@@ -51,10 +57,16 @@ def get_summary():
         
         stats = firewall_store.get_counts(since=since_dt)
         
+        # Include firewall syslog listener stats (isolated ingestion counter)
+        syslog_ingestion = None
+        if get_firewall_syslog_stats:
+            syslog_ingestion = get_firewall_syslog_stats()
+        
         return jsonify({
             "window_seconds": seconds,
             "timestamp": datetime.now().isoformat(),
-            "stats": stats
+            "stats": stats,
+            "syslog_ingestion": syslog_ingestion
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
