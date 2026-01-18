@@ -348,8 +348,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="log in filteredSyslog515.slice(0, syslog515View || 100)"
-                            :key="log.timestamp_ts + (log.message || '').substring(0, 20)">
+                        <template x-for="(log, index) in (syslog515.logs || []).slice(0, syslog515View || 100)"
+                            :key="index">
                             <tr style="vertical-align: top;">
                                 <td style="font-size: 0.85em; color: var(--text-muted); white-space: nowrap;">
                                     <div style="font-family: monospace;"
