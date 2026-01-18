@@ -2528,7 +2528,9 @@ def api_alert_history():
             'medium': sum(1 for a in recent if a.get('severity') == 'medium'),
             'low': sum(1 for a in recent if a.get('severity') == 'low'),
         },
-        'hourly': dict(hourly)
+        'hourly': dict(hourly),
+        # FIXED-SCOPE: This endpoint always returns 24h of alert history
+        'time_scope': '24h'
     })
 
 
@@ -2777,7 +2779,9 @@ def api_mitre_heatmap():
         'techniques': heatmap,
         'by_tactic': dict(by_tactic),
         'total_techniques': len(heatmap),
-        'total_detections': sum(t['count'] for t in heatmap)
+        'total_detections': sum(t['count'] for t in heatmap),
+        # FIXED-SCOPE: This endpoint always uses 24h of alert data
+        'time_scope': '24h'
     })
 
 
@@ -2933,7 +2937,9 @@ def api_threats_by_country():
         'countries': result[:20],
         'total_countries': len(result),
         'total_blocked': total_blocked,
-        'has_fw_data': total_blocked > 0
+        'has_fw_data': total_blocked > 0,
+        # FIXED-SCOPE: This endpoint always uses 24h of threat data
+        'time_scope': '24h'
     })
 
 

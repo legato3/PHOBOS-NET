@@ -2616,10 +2616,11 @@ export const Store = () => ({
         finally { this.alertHistory.loading = false; }
     },
 
+    // TIME-AWARE: Uses global timeRange for attack timeline data
     async fetchAttackTimeline() {
         this.attackTimeline.loading = true;
         try {
-            const res = await fetch('/api/security/attack-timeline');
+            const res = await fetch(`/api/security/attack-timeline?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 this.attackTimeline = { ...d, loading: false };
@@ -3705,10 +3706,11 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.services.loading = false; }
     },
 
+    // FIXED-SCOPE: Always 24h (by backend design) - ignoring global timeRange is intentional
     async fetchHourlyTraffic() {
         this.hourlyTraffic.loading = true;
         try {
-            const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
+            const res = await fetch('/api/stats/hourly');
             if (res.ok) {
                 const data = await res.json();
                 this.hourlyTraffic = { ...data };

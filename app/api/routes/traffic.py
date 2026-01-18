@@ -1917,6 +1917,12 @@ def api_network_stats_overview():
             "active_flows": active_flows_trend,
             "external_connections": external_connections_trend,
             "anomalies": anomalies_trend
+        },
+        # TIME SCOPE METADATA: Documents fixed time windows used for each metric
+        "time_scope": {
+            "active_flows": "1h",
+            "external_connections": "1h",
+            "anomalies_24h": "24h"
         }
     })
 
