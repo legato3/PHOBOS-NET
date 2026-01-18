@@ -71,6 +71,37 @@ def _trends_db_init():
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_db_size_history_db_path ON db_size_history(db_path, timestamp);")
+            
+            # Top sources table for traffic trends
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS top_sources (
+                    bucket_end INTEGER NOT NULL,
+                    ip TEXT NOT NULL,
+                    bytes INTEGER NOT NULL,
+                    flows INTEGER NOT NULL,
+                    PRIMARY KEY (bucket_end, ip)
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_top_sources_bucket_end ON top_sources(bucket_end);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_top_sources_ip ON top_sources(ip);")
+            
+            # Top destinations table for traffic trends
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS top_dests (
+                    bucket_end INTEGER NOT NULL,
+                    ip TEXT NOT NULL,
+                    bytes INTEGER NOT NULL,
+                    flows INTEGER NOT NULL,
+                    PRIMARY KEY (bucket_end, ip)
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_top_dests_bucket_end ON top_dests(bucket_end);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_top_dests_ip ON top_dests(ip);")
+            
             conn.commit()
             _trends_db_initialized = True
         finally:
