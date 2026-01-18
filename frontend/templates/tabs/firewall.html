@@ -278,7 +278,7 @@
         extra_actions=fw515_actions, show_spinner=True) %}
 
         <!-- Empty State -->
-        <div x-show="syslog515.logs.length === 0 && !syslog515.loading"
+        <div x-show="!syslog515.logs || syslog515.logs.length === 0 && !syslog515.loading"
              style="text-align: center; padding: 48px 16px; color: var(--text-muted);">
             <div style="font-size: 48px; margin-bottom: var(--space-3); opacity: 0.5;">📡</div>
             <p style="font-size: var(--text-base); margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold); color: var(--text-secondary);">
@@ -288,7 +288,7 @@
         </div>
 
         <!-- Content when logs exist -->
-        <div x-show="syslog515.logs.length > 0">
+        <div x-show="syslog515.logs && syslog515.logs.length > 0">
             <!-- Summary Stats -->
             <div class="log-toolbar">
                 <div class="log-chips">
