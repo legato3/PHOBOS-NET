@@ -92,12 +92,16 @@ Health states always include a short explanation, even when healthy.
 - Threat feed integration
 - Lightweight correlation
 - Firewall activity insights
+- Filterlog parsing (port 514)
+- Application log monitoring (port 515)
+- Real-time syslog event tracking
 
 ### Server & System
 - CPU, memory, disk metrics
 - NetFlow engine status
 - SNMP interface statistics
-- Syslog activity overview
+- Dual syslog receivers (ports 514 & 515)
+- Firewall application log viewer
 - SQLite database statistics
 
 ### Insights Engine

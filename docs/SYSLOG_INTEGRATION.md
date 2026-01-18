@@ -8,30 +8,35 @@ This document describes how to integrate OPNsense firewall logs into the NetFlow
 
 ```
 ┌─────────────────┐     UDP 514      ┌──────────────────┐
-│   OPNsense      │ ───────────────► │  LXC 122         │
-│   Firewall      │                  │  (Dashboard)     │
-│   192.168.0.1   │                  │  192.168.0.74    │
+│   OPNsense      │ ───────────────► │  Dashboard       │
+│   Firewall      │     (filterlog)  │  192.168.0.73    │
+│   192.168.0.1   │                  │                  │
+│                 │     UDP 515      │                  │
+│                 │ ───────────────► │                  │
+│                 │  (app logs)      │                  │
 └─────────────────┘                  └────────┬─────────┘
                                               │
                                               ▼
                                      ┌──────────────────┐
-                                     │  Python Syslog   │
-                                     │  Receiver        │
-                                     │  (UDP 514)       │
+                                     │  Dual Syslog     │
+                                     │  Receivers       │
+                                     │  Port 514 & 515  │
                                      └────────┬─────────┘
                                               │
-                                              ▼
-                                     ┌──────────────────┐
-                                     │  SQLite DB       │
-                                     │  firewall.db     │
-                                     │  (7-day retention)│
-                                     └────────┬─────────┘
-                                              │
-                                              ▼
-                                     ┌──────────────────┐
-                                     │  Dashboard API   │
-                                     │  /api/firewall/* │
-                                     └──────────────────┘
+                        ┌─────────────────────┴─────────────────────┐
+                        ▼                                           ▼
+               ┌──────────────────┐                       ┌──────────────────┐
+               │  SQLite DB       │                       │  In-Memory       │
+               │  firewall.db     │                       │  syslog_store    │
+               │  (7-day retention)│                       │  (5000 events)   │
+               └────────┬─────────┘                       └────────┬─────────┘
+                        │                                           │
+                        ▼                                           ▼
+               ┌──────────────────┐                       ┌──────────────────┐
+               │  Dashboard API   │                       │  Dashboard API   │
+               │  /api/firewall/* │                       │  /api/firewall/  │
+               │                  │                       │  syslog/recent   │
+               └──────────────────┘                       └──────────────────┘
 ```
 
 ## Storage Design
@@ -427,26 +432,188 @@ journalctl -u netflow-dashboard -f | grep -i syslog
 
 ---
 
-## Isolated Firewall Syslog Listener (UDP/515)
+## Port 515: Application Syslog Listener
 
-PHOBOS-NET now supports a second, isolated syslog listener for OPNsense Firewall (non-filterlog) events on UDP port **515**. This listener is completely separate from the filterlog listener (UDP/514) and routes all received events directly to the firewall parser and in-memory store.
+### Overview
 
-**Key Points:**
-- Listens on UDP/515 (configurable via `FIREWALL_SYSLOG_PORT` in environment or `app/config.py`)
-- Does NOT affect filterlog ingestion or alert logic
-- All events are parsed and stored in-memory only
-- Dedicated ingestion metrics exposed via `/api/firewall/summary`
-- Debug logs prefixed with `[FIREWALL SYSLOG]`
+PHOBOS-NET includes a dedicated syslog listener on UDP port **515** for OPNsense application logs (non-filterlog events). This listener is completely separate from the filterlog listener (UDP/514) and provides visibility into firewall system events.
 
-**Configuration:**
-On your OPNsense firewall, add a new syslog target:
-- Hostname: your server IP (e.g. `192.168.0.73`)
-- Port: `515`
-- Transport: `UDP`
-- Format: BSD or RFC5424
+### Architecture
 
-**Verification:**
-Send a test syslog message to UDP/515 and check logs for `[FIREWALL SYSLOG] Message received` and parse results. Use `/api/firewall/summary` to view ingestion metrics.
+**Port 514 (Filterlog):**
+- Receives firewall decision logs (block/pass/nat)
+- Parses filterlog format
+- Stores in SQLite (`firewall.db`)
+- 7-day retention
+- Powers firewall security widgets
+
+**Port 515 (Application Logs):**
+- Receives OPNsense application logs (configd, lighttpd, etc.)
+- Parses RFC 5424 syslog format
+- Stores in-memory (`syslog_store`, 5000 events)
+- Real-time display only
+- Powers "Firewall Application Logs" page
+
+### Implementation Details
+
+**Backend Components:**
+- `app/services/syslog/firewall_listener.py` - UDP listener and RFC 5424 parser
+- `app/services/syslog/syslog_store.py` - In-memory event storage
+- `scripts/gunicorn_config.py` - Listener startup in Gunicorn worker
+- `app/api/routes/security.py` - API endpoint `/api/firewall/syslog/recent`
+
+**Frontend Components:**
+- Server page widget: "Firewall logs (515)" status indicator
+- Dedicated page: "Firewall Application Logs" with full table view
+- Real-time updates every 3 seconds
+- Program filtering and text search
+
+### Configuration
+
+**OPNsense Setup:**
+1. Go to **System → Settings → Logging / Targets**
+2. Click **+ Add**
+3. Configure:
+   - **Enabled**: ✅
+   - **Transport**: UDP(4)
+   - **Applications**: firewall (firewall)
+   - **Levels**: info
+   - **Facilities**: locally used (0)
+   - **Hostname**: 192.168.0.73
+   - **Port**: 515
+   - **RFC5424**: ✅ (enabled)
+   - **Description**: PHOBOS Firewall Application Logs
+
+**Environment Variables:**
+```bash
+FIREWALL_SYSLOG_PORT=515        # Port to listen on
+FIREWALL_SYSLOG_BIND=0.0.0.0    # Bind address
+FIREWALL_IP=0.0.0.0             # Accept from any IP (or specific IP)
+```
+
+### API Endpoints
+
+**Get Recent Application Logs:**
+```
+GET /api/firewall/syslog/recent?limit=500&program=configd.py
+```
+
+Response:
+```json
+{
+  "logs": [
+    {
+      "timestamp": "2026-01-18T19:52:10+01:00",
+      "timestamp_ts": 1768762370.0,
+      "program": "configd.py",
+      "message": "[meta sequenceId=\"180\"] Script action terminated",
+      "hostname": "CHRIS-OPN.phobos-cc.be",
+      "facility": null,
+      "severity": null
+    }
+  ],
+  "stats": {
+    "total": 347,
+    "programs": {
+      "configd.py": 299,
+      "lighttpd": 34,
+      "hostwatch": 3,
+      "audit": 11
+    }
+  },
+  "receiver_stats": {
+    "received": 347,
+    "parsed": 347,
+    "errors": 0,
+    "last_log": 1768761864.814
+  }
+}
+```
+
+**Server Health (includes port 515 status):**
+```
+GET /api/server/health
+```
+
+Response includes:
+```json
+{
+  "firewall_syslog": {
+    "active": true,
+    "received": 347,
+    "parsed": 347,
+    "errors": 0,
+    "last_log": 1768761864.814
+  }
+}
+```
+
+### Features
+
+**Firewall Application Logs Page:**
+- Real-time table display with TIME, PROGRAM, MESSAGE columns
+- Program filter dropdown (e.g., filter by "configd.py")
+- Text search across programs and messages
+- View limits: 50, 100, 500 logs
+- Auto-refresh every 3 seconds
+- Stats chips showing program breakdown
+- "Clear Filters" button
+
+**Server Page Widget:**
+- "Firewall logs (515)" status indicator
+- Shows ACTIVE/INACTIVE status
+- Displays received/parsed/error counts
+- Compact and expanded views
+
+### Supported Programs
+
+Common OPNsense application logs received on port 515:
+- **configd.py** - Configuration daemon events
+- **lighttpd** - Web interface access logs
+- **hostwatch** - Network host tracking
+- **audit** - System audit events
+- **openvpn** - VPN connection events (if configured)
+- **unbound** - DNS resolver events (if configured)
+
+### Verification
+
+**Test the listener:**
+```bash
+# Send test message from any system
+echo "<38>1 2026-01-18T19:00:00+01:00 test-host configd.py 12345 - [meta sequenceId=\"1\"] test message" | nc -u 192.168.0.73 515
+
+# Check if received
+curl -s http://192.168.0.73:3434/api/firewall/syslog/recent?limit=1
+```
+
+**Monitor logs:**
+```bash
+# Check listener startup
+docker logs phobos-net 2>&1 | grep "SYSLOG 515"
+
+# Expected output:
+# [SYSLOG 515] Listener started on 0.0.0.0:515
+```
+
+### Technical Notes
+
+**Why In-Memory Storage?**
+- Application logs are high-volume and less critical than filterlog
+- Real-time visibility is the primary use case
+- 5000-event buffer provides sufficient recent history
+- No disk I/O overhead for high-frequency events
+
+**Why Separate Listener?**
+- Isolation: Port 515 failures don't affect filterlog (port 514)
+- Different parsing: RFC 5424 vs filterlog format
+- Different storage: In-memory vs SQLite
+- Different use cases: Real-time monitoring vs security analysis
+
+**Gunicorn Integration:**
+- Listener starts in `post_worker_init` hook
+- Ensures listener and API share same process/memory space
+- Single worker = single syslog_store instance
+- Prevents instance mismatch issues
 
 ---
 
