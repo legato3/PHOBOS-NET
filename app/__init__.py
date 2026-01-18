@@ -31,6 +31,10 @@ def create_app():
     from app.api.routes import bp as routes_bp
     app.register_blueprint(routes_bp)
     
+    # Register Firewall Decisions Blueprint (Read-Only Observability)
+    from app.api.routes.firewall_decisions import bp as fw_decisions_bp
+    app.register_blueprint(fw_decisions_bp)
+    
     # Start SNMP thread early to ensure rate calculations work
     # (rates require at least two polls to calculate deltas)
     from app.services.shared.snmp import start_snmp_thread
