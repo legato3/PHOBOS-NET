@@ -57,16 +57,78 @@ class FirewallEvent:
 class FirewallParser:
     """
     Dedicated parser for OPNsense firewall logs (RFC5424 / BSD filterlog).
+    Also handles generic syslog messages for non-filterlog OPNsense applications.
     Scope: Ingestion + Normalization ONLY.
     Does NOT: Correlate, Metricize, or Alert.
     """
 
+    # Pattern to extract program name from syslog (e.g., "configd[1234]:" or "openvpn:")
+    SYSLOG_PROGRAM_PATTERN = re.compile(r'(\w+)(?:\[\d+\])?:\s*(.*)$')
+
+    # RFC5424 timestamp pattern
+    RFC5424_TS_PATTERN = re.compile(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)')
+
     def parse(self, raw_log: str) -> Optional[FirewallEvent]:
         """
         Parses a raw syslog line into a FirewallEvent.
+        Handles both filterlog (packet filter) and generic syslog messages.
         """
-        if 'filterlog' not in raw_log:
+        if 'filterlog' in raw_log:
+            return self._parse_filterlog(raw_log)
+        else:
+            return self._parse_generic(raw_log)
+
+    def _parse_generic(self, raw_log: str) -> Optional[FirewallEvent]:
+        """
+        Parse generic OPNsense syslog messages (non-filterlog).
+        Extracts program name and message content.
+        """
+        try:
+            # Try to extract timestamp from RFC5424 format
+            timestamp = datetime.now()
+            ts_match = self.RFC5424_TS_PATTERN.search(raw_log)
+            if ts_match:
+                try:
+                    ts_str = ts_match.group(1)
+                    # Handle timezone offset
+                    if ts_str.endswith('Z'):
+                        ts_str = ts_str[:-1] + '+00:00'
+                    timestamp = datetime.fromisoformat(ts_str)
+                except (ValueError, IndexError):
+                    pass
+
+            # Extract program name and message
+            program = "syslog"
+            message = raw_log
+
+            # Try to find program name pattern
+            prog_match = self.SYSLOG_PROGRAM_PATTERN.search(raw_log)
+            if prog_match:
+                program = prog_match.group(1)
+                message = prog_match.group(2).strip()
+
+            # Create a generic event with program as action and message as reason
+            return FirewallEvent(
+                timestamp=timestamp,
+                action=program,  # Use program name as "action" for display
+                interface=None,
+                direction=None,
+                protocol=None,
+                src_ip=None,
+                src_port=None,
+                dst_ip=None,
+                dst_port=None,
+                rule_id=None,
+                rule_label=None,
+                reason=message[:500] if message else None  # Truncate long messages
+            )
+        except Exception:
             return None
+
+    def _parse_filterlog(self, raw_log: str) -> Optional[FirewallEvent]:
+        """
+        Parses filterlog (packet filter) syslog lines.
+        """
 
         try:
             # 1. basic syslog extraction (timestamp, message body)
