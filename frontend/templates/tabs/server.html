@@ -476,7 +476,7 @@
                                             }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         {% endset %}
                         <div x-show="serverHealth.syslog && !serverHealth.syslog.error">
-                            {% call widget_card('server_syslog', 'Syslog', '📝',
+                            {% call widget_card('server_syslog', 'Filterlog (syslog)', '📝',
                             extra_actions=syslog_badge) %}
                             <div class="server-stat-value"
                                 x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'">
