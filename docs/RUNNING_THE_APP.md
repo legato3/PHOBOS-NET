@@ -53,6 +53,7 @@ The application starts the following background threads (via `app/main.py`):
 - `start_trends_thread()` - Trends aggregation
 - `start_agg_thread()` - Data aggregation
 - `start_syslog_thread()` - Syslog receiver
+- `start_firewall_syslog_thread()` - Isolated firewall syslog listener (UDP/515)
 
 These are imported from `app/core/threads.py` and `app/services/syslog.py`.
 

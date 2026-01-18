@@ -22,28 +22,17 @@ This project intentionally prioritizes **clarity, trust, and signal** over alert
 
 PHOBOS-NET does **not** aim to be:
 
-- A SIEM
 - An IDS/IPS
 - A firewall management interface
 - A configuration or tuning tool
 - An AI/ML-driven anomaly engine
 - A production NOC platform
-
-There are intentionally:
-- No automated actions
-- No policy engines
-- No role-based access control
 - No alerting workflows
 
 ---
-
-## 🧠 Core Concepts
-
-### Stats
 Raw measurements such as:
 - Traffic volume
 - Flow counts
-- Host activity
 - CPU, memory, disk usage
 - Database size and growth
 

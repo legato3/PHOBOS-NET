@@ -368,3 +368,28 @@ See `docker/DOCKER.md` for complete list of environment variables.
 - Detailed Docker usage: `docker/DOCKER.md`
 - Docker quick reference: `docker/README.md`
 - LXC/Systemd deployment: `docs/DEPLOYMENT.md`
+
+---
+
+## Isolated Firewall Syslog Listener (UDP/515)
+
+PHOBOS-NET now supports a second, isolated syslog listener for OPNsense Firewall (non-filterlog) events on UDP port **515**. This listener is completely separate from the filterlog listener (UDP/514) and routes all received events directly to the firewall parser and in-memory store.
+
+**Key Points:**
+- Listens on UDP/515 (configurable via `FIREWALL_SYSLOG_PORT` in environment or `app/config.py`)
+- Does NOT affect filterlog ingestion or alert logic
+- All events are parsed and stored in-memory only
+- Dedicated ingestion metrics exposed via `/api/firewall/summary`
+- Debug logs prefixed with `[FIREWALL SYSLOG]`
+
+**Configuration:**
+On your OPNsense firewall, add a new syslog target:
+- Hostname: your server IP (e.g. `192.168.0.73`)
+- Port: `515`
+- Transport: `UDP`
+- Format: BSD or RFC5424
+
+**Verification:**
+Send a test syslog message to UDP/515 and check logs for `[FIREWALL SYSLOG] Message received` and parse results. Use `/api/firewall/summary` to view ingestion metrics.
+
+---
