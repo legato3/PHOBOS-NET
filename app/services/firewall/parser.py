@@ -63,7 +63,8 @@ class FirewallParser:
     """
 
     # Pattern to extract program name from syslog (e.g., "configd[1234]:" or "openvpn:")
-    SYSLOG_PROGRAM_PATTERN = re.compile(r'(\w+)(?:\[\d+\])?:\s*(.*)$')
+    # Matches program name that starts with a letter, followed by optional [pid], then colon
+    SYSLOG_PROGRAM_PATTERN = re.compile(r'\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$')
 
     # RFC5424 timestamp pattern
     RFC5424_TS_PATTERN = re.compile(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)')
