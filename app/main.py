@@ -74,18 +74,9 @@ if __name__ == "__main__":
         add_app_log("Syslog receiver thread started", 'INFO')
     
     # Start firewall syslog listener (isolated, port 515)
-    print(f"DEBUG: start_firewall_syslog_thread available: {start_firewall_syslog_thread is not None}")
     if start_firewall_syslog_thread:
-        try:
-            start_firewall_syslog_thread()
-            add_app_log("Firewall syslog listener thread started (port 515)", 'INFO')
-            print("DEBUG: Firewall syslog listener started successfully")
-        except Exception as e:
-            print(f"ERROR: Failed to start firewall syslog listener: {e}")
-            add_app_log(f"Failed to start firewall syslog listener: {e}", 'ERROR')
-    else:
-        print("ERROR: start_firewall_syslog_thread is None")
-        add_app_log("Firewall syslog listener function not available", 'ERROR')
+        start_firewall_syslog_thread()
+        add_app_log("Firewall syslog listener thread started (port 515)", 'INFO')
     
     def _find_open_port(h, start_port, max_tries=10):
         """Find an open port starting from start_port."""
