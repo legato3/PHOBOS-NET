@@ -9,117 +9,24 @@ from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX
 from app.services.shared.helpers import get_time_range
 
 # Global state for nfdump service
-_mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
-_mock_lock = threading.Lock()
+# NOTE: Mock data functionality disabled for production use
+# _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
+# _mock_lock = threading.Lock()
 import app.core.app_state as state
 from app.core.app_state import add_app_log
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
 
 
+# Mock nfdump function DISABLED for production
+# The system should show real data only, not fake sample data
+# If you need to test without nfdump, re-enable this function
+"""
 def mock_nfdump(args):
-    """Mock nfdump function for development/testing when nfdump is not available."""
-    global _mock_data_cache
-    
-    with _mock_lock:
-        cache_key = tuple(args)
-        if "output_cache" in _mock_data_cache and cache_key in _mock_data_cache["output_cache"]:
-            return _mock_data_cache["output_cache"][cache_key]
-        
-        rows = []
-        try:
-            mtime = os.path.getmtime(SAMPLE_DATA_PATH)
-            if mtime != _mock_data_cache["mtime"]:
-                new_rows = []
-                with open(SAMPLE_DATA_PATH, 'r') as f:
-                    lines = f.readlines()
-                    for line in lines:
-                        parts = line.strip().split(',')
-                        if len(parts) > 12:
-                            try:
-                                row = {
-                                    "ts": parts[0], "te": parts[1], "td": float(parts[2]),
-                                    "sa": parts[3], "da": parts[4], "sp": parts[5], "dp": parts[6],
-                                    "proto": parts[7], "flg": parts[8],
-                                    "pkts": int(parts[11]), "bytes": int(parts[12])
-                                }
-                                new_rows.append(row)
-                            except:
-                                pass
-                _mock_data_cache["rows"] = new_rows
-                _mock_data_cache["mtime"] = mtime
-                _mock_data_cache["output_cache"] = {}
-            rows = _mock_data_cache["rows"]
-        except Exception as e:
-            print(f"Mock error: {e}")
-            return ""
-    
-    # Check aggregation
-    agg_key = None
-    if "-s" in args:
-        idx = args.index("-s") + 1
-        stat = args[idx]
-        if "srcip" in stat:
-            agg_key = "sa"
-        elif "dstip" in stat:
-            agg_key = "da"
-        elif "dstport" in stat:
-            agg_key = "dp"
-        elif "proto" in stat:
-            agg_key = "proto"
-    
-    limit = 20
-    if "-n" in args:
-        idx = args.index("-n") + 1
-        try:
-            limit = int(args[idx])
-        except:
-            pass
-    
-    out = ""
-    
-    # If asking for raw flows with limit
-    if not agg_key and "-n" in args and "-s" not in args:
-        output_lines = ["ts,te,td,sa,da,sp,dp,proto,flg,fwd,stos,ipkt,ibyt"]
-        for r in rows[:limit]:
-            output_lines.append(f"{r['ts']},{r['te']},{r['td']},{r['sa']},{r['da']},{r['sp']},{r['dp']},{r['proto']},{r['flg']},0,0,{r['pkts']},{r['bytes']}")
-        out = "\n".join(output_lines) + "\n"
-        with _mock_lock:
-            if "output_cache" not in _mock_data_cache:
-                _mock_data_cache["output_cache"] = {}
-            _mock_data_cache["output_cache"][cache_key] = out
-        return out
-    
-    if agg_key:
-        counts = defaultdict(lambda: {"bytes": 0, "flows": 0, "packets": 0})
-        for r in rows:
-            k = r.get(agg_key, "other")
-            counts[k]["bytes"] += r["bytes"]
-            counts[k]["flows"] += 1
-            counts[k]["packets"] += r["pkts"]
-        
-        sorted_keys = sorted(counts.keys(), key=lambda k: counts[k]["bytes"], reverse=True)[:limit]
-        output_lines = ["ts,te,td,sa,da,sp,dp,proto,flg,flows,stos,ipkt,ibyt"]
-        col_map = {"sa": 3, "da": 4, "sp": 5, "dp": 6, "proto": 7}
-        target_idx = col_map.get(agg_key, 4)
-        
-        for k in sorted_keys:
-            d = counts[k]
-            row = ["0"] * 13
-            row[target_idx] = str(k)
-            row[9] = str(d['flows'])
-            row[11] = str(d['packets'])
-            row[12] = str(d['bytes'])
-            output_lines.append(",".join(row))
-        
-        out = "\n".join(output_lines) + "\n"
-        with _mock_lock:
-            if "output_cache" not in _mock_data_cache:
-                _mock_data_cache["output_cache"] = {}
-            _mock_data_cache["output_cache"][cache_key] = out
-        return out
-    
+    # Mock nfdump function for development/testing when nfdump is not available.
+    # DISABLED: This function provided fake data which could mask real issues.
     return ""
+"""
 
 
 def run_nfdump(args, tf=None):
@@ -174,11 +81,11 @@ def run_nfdump(args, tf=None):
         else:
             result = None
         
-        # Fallback to mock if nfdump failed or unavailable
-        if result is None:
-            result = mock_nfdump(args)
-            if result:
-                success = True
+        # NOTE: Mock fallback DISABLED for production - return empty data instead
+        # if result is None:
+        #     result = mock_nfdump(args)
+        #     if result:
+        #         success = True
         
         # Ensure we always return a string, never None
         return result if result is not None else ""
