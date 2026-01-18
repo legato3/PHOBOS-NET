@@ -1,152 +1,192 @@
-<div x-show="activeTab === 'tools'"
-                        :style="activeTab === 'tools' ? 'display:block' : 'display:none'" id="tools-tab" role="tabpanel"
-                        aria-labelledby="tools-tab-btn" tabindex="0">
+<div x-show="activeTab === 'tools'" :style="activeTab === 'tools' ? 'display:block' : 'display:none'" id="tools-tab"
+    role="tabpanel" aria-labelledby="tools-tab-btn" tabindex="0">
 
-                        <div class="grid-3-col">
-                            <!-- DNS Lookup Tool -->
-                            <div class="card">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">🔎</span>
-                                        <span>DNS Lookup</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <div class="spinner" x-show="tools.dns.loading"></div>
-                                    </div>
-                                </h2>
-                                <div class="widget-body">
-                                    <p class="text-muted mb-3">Resolve and inspect DNS records</p>
-                                    <div class="tool-input-group">
-                                        <input type="text" x-model="tools.dns.query"
-                                            placeholder="Domain or IP (e.g., google.com)" class="tool-input"
-                                            @keydown.enter="runDnsLookup()">
-                                        <select x-model="tools.dns.type" class="tool-select">
-                                            <option value="A">A</option>
-                                            <option value="AAAA">AAAA</option>
-                                            <option value="MX">MX</option>
-                                            <option value="TXT">TXT</option>
-                                            <option value="NS">NS</option>
-                                            <option value="PTR">PTR</option>
-                                        </select>
-                                        <button class="btn btn--primary" @click="runDnsLookup()"
-                                            :disabled="!tools.dns.query || tools.dns.loading">
-                                            Query
-                                        </button>
-                                    </div>
-                                    <div x-show="tools.dns.error" class="tool-error" x-text="tools.dns.error"></div>
-                                    <div x-show="tools.dns.result" class="tool-result">
-                                        <pre x-text="tools.dns.result"></pre>
-                                    </div>
-                                </div>
-                            </div>
+    <div class="grid-3-col">
+        <!-- DNS Lookup Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span class="title-icon">🔎</span>
+                    <span>DNS Lookup</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.dns.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Resolve and inspect DNS records</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.dns.query" placeholder="Domain or IP (e.g., google.com)"
+                        class="tool-input" @keydown.enter="runDnsLookup()">
+                    <select x-model="tools.dns.type" class="tool-select">
+                        <option value="A">A</option>
+                        <option value="AAAA">AAAA</option>
+                        <option value="MX">MX</option>
+                        <option value="TXT">TXT</option>
+                        <option value="NS">NS</option>
+                        <option value="PTR">PTR</option>
+                    </select>
+                    <button class="btn btn--primary" @click="runDnsLookup()"
+                        :disabled="!tools.dns.query || tools.dns.loading">
+                        Query
+                    </button>
+                </div>
+                <div x-show="tools.dns.error" class="tool-error" x-text="tools.dns.error"></div>
+                <div x-show="tools.dns.result" class="tool-result">
+                    <pre x-text="tools.dns.result"></pre>
+                </div>
+            </div>
+        </div>
 
-                            <!-- Port Check Tool -->
-                            <div class="card">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">🚪</span>
-                                        <span>Port Check</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <div class="spinner" x-show="tools.port.loading"></div>
-                                    </div>
-                                </h2>
-                                <div class="widget-body">
-                                    <p class="text-muted mb-3">Test service reachability on specific ports</p>
-                                    <div class="tool-input-group">
-                                        <input type="text" x-model="tools.port.host"
-                                            placeholder="Host (e.g., 192.168.1.1)" class="tool-input"
-                                            @keydown.enter="runPortCheck()">
-                                        <input type="text" x-model="tools.port.ports"
-                                            placeholder="Ports (e.g., 22,80,443)" class="tool-input-sm"
-                                            @keydown.enter="runPortCheck()">
-                                        <button class="btn btn--primary" @click="runPortCheck()"
-                                            :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
-                                            Check
-                                        </button>
-                                    </div>
-                                    <div x-show="tools.port.error" class="tool-error" x-text="tools.port.error"></div>
-                                    <div x-show="tools.port.result" class="tool-result">
-                                        <template x-for="port in tools.port.result" :key="port.port">
-                                            <div class="port-result-row">
-                                                <span class="port-number" x-text="port.port"></span>
-                                                <span class="port-status"
-                                                    :class="port.open ? 'status-open' : 'status-closed'"
-                                                    x-text="port.open ? 'OPEN' : 'CLOSED'"></span>
-                                                <span class="port-service" x-text="port.service || ''"></span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Ping / Traceroute Tool -->
-                            <div class="card">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">📡</span>
-                                        <span>Ping / Traceroute</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <div class="spinner" x-show="tools.ping.loading"></div>
-                                    </div>
-                                </h2>
-                                <div class="widget-body">
-                                    <p class="text-muted mb-3">Reachability and path testing</p>
-                                    <div class="tool-input-group">
-                                        <input type="text" x-model="tools.ping.host" placeholder="Host (e.g., 8.8.8.8)"
-                                            class="tool-input" @keydown.enter="runPing()">
-                                        <select x-model="tools.ping.mode" class="tool-select">
-                                            <option value="ping">Ping</option>
-                                            <option value="traceroute">Traceroute</option>
-                                        </select>
-                                        <button class="btn btn--primary" @click="runPing()"
-                                            :disabled="!tools.ping.host || tools.ping.loading">
-                                            Run
-                                        </button>
-                                    </div>
-                                    <div x-show="tools.ping.error" class="tool-error" x-text="tools.ping.error"></div>
-                                    <div x-show="tools.ping.result" class="tool-result">
-                                        <pre x-text="tools.ping.result"></pre>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Whois / ASN Lookup Tool -->
-                            <div class="card">
-                                <h2>
-                                    <div class="card-title-content">
-                                        <span class="title-icon">🌍</span>
-                                        <span>Whois / ASN Lookup</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <div class="spinner" x-show="tools.whois.loading"></div>
-                                    </div>
-                                </h2>
-                                <div class="widget-body">
-                                    <p class="text-muted mb-3">Network ownership and geographic origin</p>
-                                    <div class="tool-input-group">
-                                        <input type="text" x-model="tools.whois.query" placeholder="IP or domain"
-                                            class="tool-input" @keydown.enter="runWhoisLookup()">
-                                        <button class="btn btn--primary" @click="runWhoisLookup()"
-                                            :disabled="!tools.whois.query || tools.whois.loading">
-                                            Lookup
-                                        </button>
-                                    </div>
-                                    <div x-show="tools.whois.error" class="tool-error" x-text="tools.whois.error"></div>
-                                    <div x-show="tools.whois.result" class="tool-result">
-                                        <div class="whois-result">
-                                            <div><strong>ASN:</strong> <span
-                                                    x-text="tools.whois.result?.asn || 'N/A'"></span></div>
-                                            <div><strong>Organization:</strong> <span
-                                                    x-text="tools.whois.result?.org || 'N/A'"></span></div>
-                                            <div><strong>Country:</strong> <span
-                                                    x-text="tools.whois.result?.country || 'N/A'"></span></div>
-                                            <div><strong>Network:</strong> <span
-                                                    x-text="tools.whois.result?.network || 'N/A'"></span></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+        <!-- Port Check Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span class="title-icon">🚪</span>
+                    <span>Port Check</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.port.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Test service reachability on specific ports</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.port.host" placeholder="Host (e.g., 192.168.1.1)"
+                        class="tool-input" @keydown.enter="runPortCheck()">
+                    <input type="text" x-model="tools.port.ports" placeholder="Ports (e.g., 22,80,443)"
+                        class="tool-input-sm" @keydown.enter="runPortCheck()">
+                    <button class="btn btn--primary" @click="runPortCheck()"
+                        :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
+                        Check
+                    </button>
+                </div>
+                <div x-show="tools.port.error" class="tool-error" x-text="tools.port.error"></div>
+                <div x-show="tools.port.result" class="tool-result">
+                    <template x-for="port in tools.port.result" :key="port.port">
+                        <div class="port-result-row">
+                            <span class="port-number" x-text="port.port"></span>
+                            <span class="port-status" :class="port.open ? 'status-open' : 'status-closed'"
+                                x-text="port.open ? 'OPEN' : 'CLOSED'"></span>
+                            <span class="port-service" x-text="port.service || ''"></span>
                         </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ping / Traceroute Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span class="title-icon">📡</span>
+                    <span>Ping / Traceroute</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.ping.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Reachability and path testing</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.ping.host" placeholder="Host (e.g., 8.8.8.8)" class="tool-input"
+                        @keydown.enter="runPing()">
+                    <select x-model="tools.ping.mode" class="tool-select">
+                        <option value="ping">Ping</option>
+                        <option value="traceroute">Traceroute</option>
+                    </select>
+                    <button class="btn btn--primary" @click="runPing()"
+                        :disabled="!tools.ping.host || tools.ping.loading">
+                        Run
+                    </button>
+                </div>
+                <div x-show="tools.ping.error" class="tool-error" x-text="tools.ping.error"></div>
+                <div x-show="tools.ping.result" class="tool-result">
+                    <pre x-text="tools.ping.result"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Whois / ASN Lookup Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span class="title-icon">🌍</span>
+                    <span>Whois / ASN Lookup</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.whois.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Network ownership and geographic origin</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.whois.query" placeholder="IP or domain" class="tool-input"
+                        @keydown.enter="runWhoisLookup()">
+                    <button class="btn btn--primary" @click="runWhoisLookup()"
+                        :disabled="!tools.whois.query || tools.whois.loading">
+                        Lookup
+                    </button>
+                </div>
+                <div x-show="tools.whois.error" class="tool-error" x-text="tools.whois.error"></div>
+                <div x-show="tools.whois.result" class="tool-result">
+                    <div class="whois-result">
+                        <div><strong>ASN:</strong> <span x-text="tools.whois.result?.asn || 'N/A'"></span></div>
+                        <div><strong>Organization:</strong> <span x-text="tools.whois.result?.org || 'N/A'"></span>
+                        </div>
+                        <div><strong>Country:</strong> <span x-text="tools.whois.result?.country || 'N/A'"></span></div>
+                        <div><strong>Network:</strong> <span x-text="tools.whois.result?.network || 'N/A'"></span></div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shell Terminal - Full Width -->
+    <div class="card" style="margin-top: var(--space-4);">
+        <h2>
+            <div class="card-title-content">
+                <span class="title-icon">💻</span>
+                <span>Server Shell</span>
+            </div>
+            <div class="card-actions">
+                <div class="spinner" x-show="tools.shell && tools.shell.loading"></div>
+                <button class="btn btn--ghost btn--sm" @click="tools.shell.output = ''; tools.shell.history = []"
+                    title="Clear terminal">
+                    Clear
+                </button>
+            </div>
+        </h2>
+        <div class="widget-body">
+            <p class="text-muted mb-3">Execute commands on the server (network diagnostics)</p>
+
+            <!-- Terminal Output -->
+            <div class="terminal-output" x-ref="terminalOutput"
+                style="background: #1a1a2e; color: #00ff88; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; font-size: 13px; padding: 16px; border-radius: 8px; min-height: 300px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 12px;">
+                <template x-if="!tools.shell || !tools.shell.output">
+                    <span style="color: #666;">Welcome to PHOBOS-NET Server Shell
+                        Type commands and press Enter to execute.
+                        Examples: ls -la, df -h, netstat -tuln, nfdump -V
+
+                    </span>
+                </template>
+                <span x-text="tools.shell?.output || ''"></span>
+            </div>
+
+            <!-- Command Input -->
+            <div class="tool-input-group" style="gap: 8px;">
+                <span style="color: var(--accent-cyan); font-family: monospace; font-weight: bold;">$</span>
+                <input type="text" x-model="tools.shell.command" placeholder="Enter command..." class="tool-input"
+                    style="flex: 1; font-family: 'Fira Code', monospace; background: #1a1a2e; color: #00ff88; border-color: #333;"
+                    @keydown.enter="runShellCommand()" @keydown.up="shellHistoryUp()"
+                    @keydown.down="shellHistoryDown()">
+                <button class="btn btn--primary" @click="runShellCommand()"
+                    :disabled="!tools.shell?.command || tools.shell?.loading">
+                    Run
+                </button>
+            </div>
+            <div x-show="tools.shell?.error" class="tool-error" x-text="tools.shell?.error" style="margin-top: 8px;">
+            </div>
+        </div>
+    </div>
+</div>

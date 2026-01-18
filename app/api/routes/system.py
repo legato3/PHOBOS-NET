@@ -1127,3 +1127,71 @@ def api_tools_whois():
     query = request.args.get('query', '')
     result = whois_lookup(query)
     return jsonify(result)
+
+
+@bp.route('/api/tools/shell', methods=['POST'])
+def api_tools_shell():
+    """Execute shell command on the server.
+    
+    Security: Commands are executed with timeout and output limits.
+    This is intended for network diagnostics only.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    command = data.get('command', '').strip()
+    
+    if not command:
+        return jsonify({'error': 'No command provided', 'output': ''}), 400
+    
+    # Security: Limit command length
+    if len(command) > 500:
+        return jsonify({'error': 'Command too long (max 500 chars)', 'output': ''}), 400
+    
+    # Security: Block dangerous commands
+    blocked_patterns = [
+        'rm -rf', 'rm -r /', 'mkfs', 'dd if=', ':(){', 'chmod 777', 
+        'wget', 'curl -o', '> /dev/', 'shutdown', 'reboot', 'halt',
+        'passwd', 'useradd', 'userdel', 'visudo', 'sudo su', 
+        '> /etc/', '>> /etc/', 'mv /etc/', 'rm /etc/'
+    ]
+    command_lower = command.lower()
+    for pattern in blocked_patterns:
+        if pattern in command_lower:
+            return jsonify({'error': f'Blocked: dangerous command pattern detected', 'output': ''}), 403
+    
+    try:
+        # Execute with timeout and capture output
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,  # 30 second timeout
+            cwd='/tmp'   # Safe working directory
+        )
+        
+        output = result.stdout
+        if result.stderr:
+            output += '\n' + result.stderr if output else result.stderr
+        
+        # Limit output size
+        if len(output) > 50000:
+            output = output[:50000] + '\n\n... (output truncated at 50KB)'
+        
+        return jsonify({
+            'output': output or '(no output)',
+            'exit_code': result.returncode,
+            'error': None
+        })
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'output': '',
+            'exit_code': -1,
+            'error': 'Command timed out after 30 seconds'
+        })
+    except Exception as e:
+        return jsonify({
+            'output': '',
+            'exit_code': -1,
+            'error': str(e)
+        })
