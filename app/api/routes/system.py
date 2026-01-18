@@ -1159,14 +1159,23 @@ def api_tools_shell():
             return jsonify({'error': f'Blocked: dangerous command pattern detected', 'output': ''}), 403
     
     try:
+        # Prepare environment with expanded PATH
+        env = os.environ.copy()
+        env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:' + env.get('PATH', '')
+        
         # Execute with timeout and capture output
+        # Use executable='/bin/bash' if available to ensure standard shell behavior
+        shell_exec = '/bin/bash' if os.path.exists('/bin/bash') else '/bin/sh'
+        
         result = subprocess.run(
             command,
             shell=True,
+            executable=shell_exec,
             capture_output=True,
             text=True,
             timeout=30,  # 30 second timeout
-            cwd='/tmp'   # Safe working directory
+            cwd='/tmp',  # Safe working directory
+            env=env      # Expanded PATH
         )
         
         output = result.stdout
