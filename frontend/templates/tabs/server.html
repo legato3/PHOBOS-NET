@@ -685,12 +685,12 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
                             <div style="display: flex; justify-content: space-between;">
-                                <span>Syslog:</span>
+                                <span>Filterlog (syslog):</span>
                                 <span style="color: var(--text-primary); font-weight: 500;"
                                     x-text="ingestionRates && ingestionRates.syslog_eps !== undefined ? ingestionRates.syslog_eps + ' /s' : '—'"></span>
                             </div>
                             <div style="display: flex; justify-content: space-between;">
-                                <span>Firewall:</span>
+                                <span>Firewall Decisions:</span>
                                 <span style="color: var(--text-primary); font-weight: 500;"
                                     x-text="ingestionRates && ingestionRates.firewall_eps !== undefined ? ingestionRates.firewall_eps + ' /s' : '—'"></span>
                             </div>
@@ -708,7 +708,7 @@
                         <div
                             style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                             <span>📝</span>
-                            <span>Syslog</span>
+                            <span>Filterlog (syslog)</span>
                             <span class="server-stat-badge" :class="{
                                                     'badge-success': serverHealth.syslog && serverHealth.syslog.active,
                                                     'badge-error': serverHealth.syslog && !serverHealth.syslog.active
