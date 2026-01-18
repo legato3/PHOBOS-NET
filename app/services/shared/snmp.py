@@ -37,9 +37,13 @@ def get_snmp_data():
             state._snmp_backoff["max_delay"]
         )
         if now - state._snmp_backoff["last_failure"] < backoff_delay:
-            # Return cached data if available, otherwise empty
+            # Return cached data if available, otherwise indicate unavailable
             with state._snmp_cache_lock:
-                return state._snmp_cache.get("data") or {"error": "SNMP unreachable", "backoff": True}
+                cached = state._snmp_cache.get("data")
+                if cached:
+                    # Return stale cached data but mark it as such
+                    return {**cached, "stale": True, "available": True}
+                return {"error": "SNMP unreachable", "backoff": True, "available": False}
     
     try:
         result = {}
@@ -282,7 +286,10 @@ def get_snmp_data():
         
         # Reset backoff on success
         state._snmp_backoff["failures"] = 0
-        
+
+        # Mark data as available
+        result["available"] = True
+
         with state._snmp_cache_lock:
             state._snmp_cache["data"] = result
             state._snmp_cache["ts"] = now
@@ -315,9 +322,12 @@ def get_snmp_data():
             state._snmp_backoff["max_delay"]
         )
         print(f"SNMP Error: {e} (backoff: {backoff_delay}s, failures: {state._snmp_backoff['failures']})")
-        # Return cached data if available
+        # Return cached data if available, otherwise indicate unavailable
         with state._snmp_cache_lock:
-            return state._snmp_cache.get("data") or {"error": str(e), "backoff": True}
+            cached = state._snmp_cache.get("data")
+            if cached:
+                return {**cached, "stale": True, "available": True}
+            return {"error": str(e), "backoff": True, "available": False}
 
 
 def discover_interfaces():

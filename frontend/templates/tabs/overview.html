@@ -44,7 +44,7 @@
                                     @click="navigateToActiveAlerts()" style="cursor: pointer;"
                                     title="Click to view active alerts">
                                     <div class="value" :class="{ 'mobile-zero-value': alertHistory.total === 0 }"
-                                        x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
+                                        x-text="alertHistory.loading ? '...' : formatNumOrDash(alertHistory.total)">
                                         ...</div>
                                     <div class="label">Active Alerts</div>
                                     <div
@@ -57,7 +57,7 @@
                                     style="cursor: pointer;" title="Click to view active flows">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
-                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.active_flows || 0).toLocaleString()">...</span>
+                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.active_flows)">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
                                             <span>
@@ -79,7 +79,7 @@
                                     style="cursor: pointer;" title="Click to view external connections">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
-                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.external_connections || 0).toLocaleString()">...</span>
+                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.external_connections)">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
                                             <span>
@@ -98,7 +98,7 @@
                                     style="cursor: pointer;" title="Click to view firewall logs">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
-                                            x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">...</span>
+                                            x-text="firewallStatsOverview.loading ? '...' : formatNumOrDash(firewallStatsOverview.blocked_events_24h)">...</span>
                                         <template
                                             x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
                                             <span>
@@ -119,7 +119,7 @@
                                     title="Click to view network anomalies">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                                         <span
-                                            x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
+                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.anomalies_24h)">...</span>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
                                             <span>

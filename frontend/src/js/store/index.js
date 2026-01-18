@@ -917,6 +917,20 @@ export const Store = () => ({
         return 'limited';
     },
 
+    // Helper to format value or show '—' for unavailable data
+    // Distinguishes between: null/undefined (unavailable) vs 0 (true zero)
+    formatOrDash(value, formatter = null) {
+        if (value === null || value === undefined) return '—';
+        if (formatter) return formatter(value);
+        return value;
+    },
+
+    // Helper to format number or show '—' for unavailable
+    formatNumOrDash(value) {
+        if (value === null || value === undefined) return '—';
+        return Number(value).toLocaleString();
+    },
+
     // Helper to get color for predictive risk score
     getPredictiveRiskColor(score) {
         if (score < 30) return this.getCssVar('--signal-ok') || '#00ff88';
@@ -2647,11 +2661,12 @@ export const Store = () => ({
             if (res.ok) {
                 const d = await res.json();
                 this.firewallStatsOverview = {
-                    blocked_events_24h: d.blocked_events_24h || 0,
-                    unique_blocked_sources: d.unique_blocked_sources || 0,
-                    new_blocked_ips: d.new_blocked_ips || 0,
+                    // Preserve null vs 0 distinction for truthfulness
+                    blocked_events_24h: d.blocked_events_24h ?? null,
+                    unique_blocked_sources: d.unique_blocked_sources ?? null,
+                    new_blocked_ips: d.new_blocked_ips ?? null,
                     top_block_reason: d.top_block_reason || 'N/A',
-                    top_block_count: d.top_block_count || 0,
+                    top_block_count: d.top_block_count ?? null,
                     trends: d.trends || {},
                     loading: false
                 };
@@ -4016,9 +4031,10 @@ export const Store = () => ({
             if (res.ok) {
                 const d = await res.json();
                 this.networkStatsOverview = {
-                    active_flows: d.active_flows || 0,
-                    external_connections: d.external_connections || 0,
-                    anomalies_24h: d.anomalies_24h || 0,
+                    // Preserve null vs 0 distinction for truthfulness
+                    active_flows: d.active_flows ?? null,
+                    external_connections: d.external_connections ?? null,
+                    anomalies_24h: d.anomalies_24h ?? null,
                     trends: d.trends || {},
                     loading: false
                 };
