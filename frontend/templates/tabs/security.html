@@ -8,14 +8,15 @@
                             <!-- Security Summary Stats -->
                             <div class="grid mb-6 grid-auto-fit">
                                 <div class="card stat-box">
-                                    <div class="value"
-                                        :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
-                                        x-text="securityObservability.overall_state || 'UNKNOWN'"></div>
-                                    <div class="label">Security State</div>
+                                    <div class="value text-cyan"
+                                        x-text="(securityObservability.firewall?.threats_blocked || 0).toLocaleString()"></div>
+                                    <div class="label">Blocked (24h)</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="feedHealth.summary?.ok || 0"></div>
-                                    <div class="label">Feeds OK</div>
+                                    <div class="value">
+                                        <span x-text="feedHealth.summary?.ok || 0"></span><span class="text-muted">/</span><span x-text="feedHealth.summary?.total || 0"></span>
+                                    </div>
+                                    <div class="label">Feeds Active</div>
                                 </div>
                                 <div class="card stat-box">
                                     <div class="value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()">
@@ -23,7 +24,9 @@
                                     <div class="label">Blocklist IPs</div>
                                 </div>
                                 <div class="card stat-box">
-                                    <div class="value" x-text="alertHistory.total || 0"></div>
+                                    <div class="value"
+                                        :class="(alertHistory.total || 0) > 0 ? 'text-yellow' : ''"
+                                        x-text="alertHistory.total || 0"></div>
                                     <div class="label">Alerts 24h</div>
                                 </div>
                             </div>
@@ -43,112 +46,125 @@
                             <!-- Security Widgets Grid -->
                             <div class="security-grid">
 
-                                <!-- Security Observability Widget -->
+                                <!-- Security Coverage & Protection Widget -->
                                 <template x-if="isVisible('securityObservability')">
-                                    {% call widget_card('securityObservability', 'Security Observability', '🔍',
+                                    {% call widget_card('securityObservability', 'Security Coverage & Protection', '🛡️',
                                     show_spinner=True,
-                                    card_class="security-observability-card") %}
-                                    <!-- Authority Header -->
-                                    <div class="authority-header-compact">
-                                        <div class="current-state-dominant">
-                                            <span class="authority-label">CURRENT STATE:</span>
-                                            <span class="authority-value"
-                                                :style="'color: ' + getStateColor(securityObservability.overall_state || 'unknown')"
-                                                x-text="securityObservability.overall_state || 'UNKNOWN'"></span>
-                                        </div>
-                                        <div class="state-explanation">
-                                            <span class="explanation-text">Detection confidence reduced (2 feeds
-                                                unavailable)</span>
-                                        </div>
-                                    </div>
-                                    <div class="observability-display">
+                                    card_class="security-coverage-card") %}
 
-                                        <!-- Compact Cause & Signals -->
-                                        <div class="compact-signals">
-                                            <!-- One-Line Cause -->
-                                            <div class="cause-compact">
-                                                <span class="cause-label">Primary limitation:</span>
-                                                <span class="cause-text">Threat intelligence coverage gaps (2/13
-                                                    feeds)</span>
-                                            </div>
-
-                                            <!-- Compact Signals List -->
-                                            <div class="signals-list-compact">
-                                                <template
-                                                    x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
-                                                    <div class="signal-item-compact">
-                                                        <span class="signal-icon">🛡️</span>
-                                                        <span class="signal-text">Active (230 threats blocked)</span>
-                                                    </div>
-                                                </template>
-                                                <template
-                                                    x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
-                                                    <div class="signal-item-compact">
-                                                        <span class="signal-icon">⚠️</span>
-                                                        <span class="signal-text">Elevated (~2× baseline attacks)</span>
-                                                    </div>
-                                                </template>
-                                                <template
-                                                    x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
-                                                    <div class="signal-item-compact critical">
-                                                        <span class="signal-icon">📊</span>
-                                                        <span class="signal-text">Limited (unknown IP visibility)</span>
-                                                    </div>
-                                                </template>
-                                            </div>
-
-                                            <!-- Details Toggle -->
-                                            <div class="details-toggle">
-                                                <button class="toggle-button"
-                                                    @click="showObservabilityDetails = !showObservabilityDetails">
-                                                    <span
-                                                        x-text="showObservabilityDetails ? 'Hide details' : 'View details'"></span>
-                                                </button>
-                                            </div>
-
-                                            <!-- Expandable Details (Hidden by default) -->
-                                            <div class="details-section" x-show="showObservabilityDetails" x-transition>
-                                                <div class="details-content">
-                                                    <template
-                                                        x-if="securityObservability.protection_signals && securityObservability.protection_signals.length > 0">
-                                                        <div class="detail-group">
-                                                            <div class="detail-title">Protection Status</div>
-                                                            <template
-                                                                x-for="signal in securityObservability.protection_signals"
-                                                                :key="signal">
-                                                                <div class="detail-item">No unblocked or bypassed
-                                                                    attacks observed</div>
-                                                            </template>
-                                                        </div>
+                                    <!-- Protection Status Section -->
+                                    <div class="coverage-section protection-status">
+                                        <div class="coverage-row">
+                                            <div class="coverage-item">
+                                                <span class="coverage-icon"
+                                                    :class="(securityObservability.firewall?.blocks > 0 || securityObservability.firewall?.threats_blocked > 0) ? 'status-ok' : 'status-unknown'">
+                                                    <template x-if="securityObservability.firewall?.blocks > 0 || securityObservability.firewall?.threats_blocked > 0">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                                        </svg>
                                                     </template>
-                                                    <template
-                                                        x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
-                                                        <div class="detail-group">
-                                                            <div class="detail-title">Exposure Analysis</div>
-                                                            <template
-                                                                x-for="signal in securityObservability.exposure_signals"
-                                                                :key="signal">
-                                                                <div class="detail-item">Inbound attacks increased 2×
-                                                                    over 6-hour baseline</div>
-                                                            </template>
-                                                        </div>
+                                                    <template x-if="!(securityObservability.firewall?.blocks > 0 || securityObservability.firewall?.threats_blocked > 0)">
+                                                        <span>—</span>
                                                     </template>
-                                                    <template
-                                                        x-if="securityObservability.data_quality_signals && securityObservability.data_quality_signals.length > 0">
-                                                        <div class="detail-group">
-                                                            <div class="detail-title">Data Quality Impact</div>
-                                                            <template
-                                                                x-for="signal in securityObservability.data_quality_signals"
-                                                                :key="signal">
-                                                                <div class="detail-item">Unknown IP classification
-                                                                    confidence reduced</div>
-                                                            </template>
-                                                        </div>
-                                                    </template>
+                                                </span>
+                                                <div class="coverage-detail">
+                                                    <span class="coverage-label">Firewall</span>
+                                                    <span class="coverage-value"
+                                                        x-text="(securityObservability.firewall?.blocks > 0 || securityObservability.firewall?.threats_blocked > 0) ? 'Active' : 'Unknown'"></span>
+                                                </div>
+                                            </div>
+                                            <div class="coverage-item">
+                                                <span class="coverage-icon status-info">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                                    </svg>
+                                                </span>
+                                                <div class="coverage-detail">
+                                                    <span class="coverage-label">Threats Blocked (24h)</span>
+                                                    <span class="coverage-value" x-text="(securityObservability.firewall?.threats_blocked || 0).toLocaleString()"></span>
+                                                </div>
+                                            </div>
+                                            <div class="coverage-item">
+                                                <span class="coverage-icon"
+                                                    :class="(alertHistory.total || 0) > 0 ? 'status-warn' : 'status-ok'">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                                    </svg>
+                                                </span>
+                                                <div class="coverage-detail">
+                                                    <span class="coverage-label">Active Alerts</span>
+                                                    <span class="coverage-value" x-text="alertHistory.total || 0"></span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- Coverage Quality Section -->
+                                    <div class="coverage-section coverage-quality">
+                                        <div class="coverage-header">
+                                            <span class="coverage-section-title">Detection Coverage</span>
+                                        </div>
+                                        <div class="coverage-row">
+                                            <div class="coverage-item wide">
+                                                <span class="coverage-icon status-info">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                                    </svg>
+                                                </span>
+                                                <div class="coverage-detail">
+                                                    <span class="coverage-label">Threat Feeds</span>
+                                                    <span class="coverage-value">
+                                                        <span x-text="feedHealth.summary?.ok || 0"></span>
+                                                        <span class="coverage-separator">/</span>
+                                                        <span x-text="feedHealth.summary?.total || 0"></span>
+                                                        <span class="coverage-badge"
+                                                            :class="getCoverageClass(feedHealth.summary?.ok, feedHealth.summary?.total)"
+                                                            x-text="getCoverageLabel(feedHealth.summary?.ok, feedHealth.summary?.total)"></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="coverage-item wide">
+                                                <span class="coverage-icon status-info">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                                    </svg>
+                                                </span>
+                                                <div class="coverage-detail">
+                                                    <span class="coverage-label">Blocklist IPs</span>
+                                                    <span class="coverage-value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Coverage note (shown only when coverage is reduced) -->
+                                        <template x-if="feedHealth.summary?.ok < feedHealth.summary?.total">
+                                            <div class="coverage-note">
+                                                <span class="note-icon">ℹ️</span>
+                                                <span class="note-text">
+                                                    <span x-text="(feedHealth.summary?.total || 0) - (feedHealth.summary?.ok || 0)"></span>
+                                                    feed<span x-text="((feedHealth.summary?.total || 0) - (feedHealth.summary?.ok || 0)) === 1 ? '' : 's'"></span>
+                                                    unavailable — detection may be reduced
+                                                </span>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Activity Hints Section (shown only when relevant) -->
+                                    <template x-if="securityObservability.exposure_signals && securityObservability.exposure_signals.length > 0">
+                                        <div class="coverage-section activity-hints">
+                                            <div class="coverage-header">
+                                                <span class="coverage-section-title">Activity</span>
+                                            </div>
+                                            <div class="activity-row">
+                                                <span class="activity-icon">📊</span>
+                                                <span class="activity-text">Elevated attack rate vs. baseline</span>
+                                            </div>
+                                        </div>
+                                    </template>
+
                                     {% endcall %}
                                 </template>
 

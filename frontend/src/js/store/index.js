@@ -887,7 +887,7 @@ export const Store = () => ({
         return DashboardUtils.getCssVar(name);
     },
 
-    // Helper to get color for security state
+    // Helper to get color for security state (kept for backward compatibility)
     getStateColor(state) {
         const stateColors = {
             'STABLE': this.getCssVar('--signal-ok') || '#00ff88',
@@ -897,6 +897,24 @@ export const Store = () => ({
             'UNKNOWN': this.getCssVar('--text-muted') || '#888'
         };
         return stateColors[state] || stateColors['UNKNOWN'];
+    },
+
+    // Helper to get coverage quality label
+    getCoverageLabel(ok, total) {
+        if (!total || total === 0) return 'Unknown';
+        const ratio = ok / total;
+        if (ratio >= 0.9) return 'Excellent';
+        if (ratio >= 0.7) return 'Good';
+        return 'Limited';
+    },
+
+    // Helper to get coverage quality CSS class
+    getCoverageClass(ok, total) {
+        if (!total || total === 0) return '';
+        const ratio = ok / total;
+        if (ratio >= 0.9) return 'excellent';
+        if (ratio >= 0.7) return 'good';
+        return 'limited';
     },
 
     // Helper to get color for predictive risk score
