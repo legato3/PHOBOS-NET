@@ -558,11 +558,11 @@
                                                 style="font-size: var(--text-xs); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-1); color: var(--text-secondary);">
                                                 By Tactic:</div>
                                             <div style="display: flex; flex-wrap: wrap; gap: var(--space-1);">
-                                                <template x-for="(count, tactic) in (mitreHeatmap.by_tactic || {})"
+                                                <template x-for="(techniques, tactic) in (mitreHeatmap.by_tactic || {})"
                                                     :key="tactic">
                                                     <span class="badge"
                                                         style="background: rgba(0, 243, 255, 0.15); color: var(--neon-cyan); padding: 2px 6px; font-size: 10px;">
-                                                        <span x-text="tactic"></span>: <strong x-text="count"></strong>
+                                                        <span x-text="tactic"></span>: <strong x-text="techniques.reduce((sum, t) => sum + t.count, 0)"></strong>
                                                     </span>
                                                 </template>
                                             </div>
