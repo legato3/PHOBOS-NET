@@ -685,12 +685,12 @@
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
                             <div style="display: flex; justify-content: space-between;">
-                                <span>Filterlog (syslog):</span>
+                                <span>Filterlog (514):</span>
                                 <span style="color: var(--text-primary); font-weight: 500;"
                                     x-text="ingestionRates && ingestionRates.syslog_eps !== undefined ? ingestionRates.syslog_eps + ' /s' : '—'"></span>
                             </div>
                             <div style="display: flex; justify-content: space-between;">
-                                <span>Firewall logs (syslog):</span>
+                                <span>Filterlog (515):</span>
                                 <span style="color: var(--text-primary); font-weight: 500;"
                                     x-text="ingestionRates && ingestionRates.firewall_eps !== undefined ? ingestionRates.firewall_eps + ' /s' : '—'"></span>
                             </div>
