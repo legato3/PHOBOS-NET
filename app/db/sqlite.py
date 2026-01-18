@@ -4,6 +4,7 @@ import threading
 import time
 import os
 from datetime import datetime, timedelta
+from app.core.app_state import add_app_log
 from app.config import TRENDS_DB_PATH, FIREWALL_DB_PATH, FIREWALL_RETENTION_DAYS
 from app.services.netflow.netflow import run_nfdump, parse_csv
 
@@ -297,7 +298,11 @@ def update_host_memory(hosts_dict):
     if not hosts_dict:
         return
     
-    _trends_db_init()  # Ensure table exists
+    try:
+        _trends_db_init()  # Ensure table exists
+    except Exception as e:
+        add_app_log(f"DB Init failed in update_host_memory: {e}", "ERROR")
+        return
     
     now = time.time()
     all_ips = list(hosts_dict.keys())
@@ -377,7 +382,11 @@ def get_host_memory(ip):
     Returns:
         Dict with 'first_seen_ts' (Unix timestamp) and 'first_seen_iso' (ISO string), or None
     """
-    _trends_db_init()  # Ensure table exists
+    try:
+        _trends_db_init()  # Ensure table exists
+    except Exception as e:
+        add_app_log(f"DB Init failed in get_host_memory: {e}", "ERROR")
+        return None
     
     with _trends_db_lock:
         conn = _trends_db_connect()
@@ -409,7 +418,11 @@ def get_hosts_memory(ip_list):
     if not ip_list:
         return {}
     
-    _trends_db_init()  # Ensure table exists
+    try:
+        _trends_db_init()  # Ensure table exists
+    except Exception as e:
+        add_app_log(f"DB Init failed in get_hosts_memory: {e}", "ERROR")
+        return {}
     
     result = {}
     with _trends_db_lock:

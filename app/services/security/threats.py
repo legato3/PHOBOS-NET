@@ -6,6 +6,7 @@ import requests
 import threading
 from datetime import datetime, timezone
 from collections import defaultdict, deque
+from app.core.app_state import add_app_log
 from app.services.shared.observability import instrument_service
 from app.config import (
     WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
@@ -234,8 +235,8 @@ def load_watchlist():
                 lines = [l.strip() for l in f if l.strip() and not l.startswith('#')]
                 _watchlist_cache["data"] = set(lines)
                 _watchlist_cache["mtime"] = mtime
-    except Exception:
-        pass
+    except Exception as e:
+        add_app_log(f"Error loading watchlist: {e}", "ERROR")
     return _watchlist_cache["data"]
 
 
@@ -818,8 +819,8 @@ def load_threatlist():
                 lines = [l.strip() for l in f if l.strip() and not l.startswith('#')]
                 _threat_cache["data"] = set(lines)
                 _threat_cache["mtime"] = mtime
-        except Exception:
-            pass
+        except Exception as e:
+            add_app_log(f"Error loading threatlist: {e}", "ERROR")
     return _threat_cache["data"]
 
 
