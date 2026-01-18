@@ -529,6 +529,33 @@ def api_server_health():
     except Exception:
         data['syslog'] = {'error': 'Unable to read syslog stats'}
 
+    # Firewall Syslog Statistics (Port 515)
+    try:
+        from app.services.syslog.firewall_listener import get_firewall_syslog_stats
+        firewall_syslog_stats = get_firewall_syslog_stats()
+        
+        # Determine if firewall syslog is active
+        firewall_syslog_active = False
+        if firewall_syslog_stats:
+            last_log_ts = firewall_syslog_stats.get('last_log')
+            if last_log_ts:
+                # If we have logs, check if they're recent
+                firewall_syslog_active = (time.time() - last_log_ts) < 300
+            else:
+                # If no logs yet, consider active if thread is running
+                from app.services.syslog.firewall_listener import _firewall_syslog_thread_started
+                firewall_syslog_active = _firewall_syslog_thread_started
+
+        data['firewall_syslog'] = {
+            'received': firewall_syslog_stats.get('received', 0) if firewall_syslog_stats else 0,
+            'parsed': firewall_syslog_stats.get('parsed', 0) if firewall_syslog_stats else 0,
+            'errors': firewall_syslog_stats.get('errors', 0) if firewall_syslog_stats else 0,
+            'last_log': firewall_syslog_stats.get('last_log') if firewall_syslog_stats else None,
+            'active': firewall_syslog_active
+        }
+    except Exception:
+        data['firewall_syslog'] = {'error': 'Unable to read firewall syslog stats'}
+
     # NetFlow Statistics
     try:
         nfdump_dir = '/var/cache/nfdump'

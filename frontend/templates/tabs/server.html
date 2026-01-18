@@ -476,7 +476,7 @@
                                             }" x-text="serverHealth.syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         {% endset %}
                         <div x-show="serverHealth.syslog && !serverHealth.syslog.error">
-                            {% call widget_card('server_syslog', 'Filterlog (syslog)', '📝',
+                            {% call widget_card('server_syslog', 'Filter (514)', '📝',
                             extra_actions=syslog_badge) %}
                             <div class="server-stat-value"
                                 x-text="serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'">
@@ -502,6 +502,45 @@
                                     <span>Last Log:</span>
                                     <span
                                         x-text="serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
+                                </div>
+                            </div>
+                            {% endcall %}
+                        </div>
+
+                        <!-- Firewall Syslog Widget (Port 515) -->
+                        {% set firewall_syslog_badge %}
+                        <span class="server-stat-badge" :class="{
+                                                'badge-success': serverHealth.firewall_syslog && serverHealth.firewall_syslog.active,
+                                                'badge-error': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active
+                                            }" x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                        {% endset %}
+                        <div x-show="serverHealth.firewall_syslog && !serverHealth.firewall_syslog.error">
+                            {% call widget_card('server_firewall_syslog', 'Firewall logs (515)', '📡',
+                            extra_actions=firewall_syslog_badge) %}
+                            <div class="server-stat-value"
+                                x-text="serverHealth.firewall_syslog.received ? serverHealth.firewall_syslog.received.toLocaleString() : '0'">
+                            </div>
+                            <div class="server-stat-details">
+                                <div>
+                                    <span>Received:</span>
+                                    <span
+                                        x-text="serverHealth.firewall_syslog.received ? serverHealth.firewall_syslog.received.toLocaleString() : '0'"></span>
+                                </div>
+                                <div>
+                                    <span>Parsed:</span>
+                                    <span
+                                        x-text="serverHealth.firewall_syslog.parsed ? serverHealth.firewall_syslog.parsed.toLocaleString() : '0'"></span>
+                                </div>
+                                <div>
+                                    <span>Errors:</span>
+                                    <span
+                                        x-text="serverHealth.firewall_syslog.errors ? serverHealth.firewall_syslog.errors.toLocaleString() : '0'"
+                                        :class="serverHealth.firewall_syslog.errors > 0 ? 'text-red' : ''"></span>
+                                </div>
+                                <div x-show="serverHealth.firewall_syslog.last_log">
+                                    <span>Last Log:</span>
+                                    <span
+                                        x-text="serverHealth.firewall_syslog.last_log ? new Date(serverHealth.firewall_syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
                                 </div>
                             </div>
                             {% endcall %}
@@ -708,7 +747,7 @@
                         <div
                             style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                             <span>📝</span>
-                            <span>Filterlog (syslog)</span>
+                            <span>Filter (514)</span>
                             <span class="server-stat-badge" :class="{
                                                     'badge-success': serverHealth.syslog && serverHealth.syslog.active,
                                                     'badge-error': serverHealth.syslog && !serverHealth.syslog.active
@@ -722,16 +761,46 @@
                                     x-text="serverHealth.syslog && serverHealth.syslog.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
                             </div>
                             <div style="display: flex; justify-content: space-between;">
+                                <span>Parsed:</span>
+                                <span style="color: var(--text-primary); font-weight: 500;"
+                                    x-text="serverHealth.syslog && serverHealth.syslog.parsed ? serverHealth.syslog.parsed.toLocaleString() : '0'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
                                 <span>Errors:</span>
-                                <span :class="serverHealth.syslog && serverHealth.syslog.errors > 0 ? 'text-red' : ''"
-                                    style="font-weight: 500;"
+                                <span style="color: var(--text-primary); font-weight: 500;"
                                     x-text="serverHealth.syslog && serverHealth.syslog.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"></span>
                             </div>
-                            <div style="display: flex; justify-content: space-between;"
-                                x-show="serverHealth.syslog && serverHealth.syslog.last_log">
-                                <span>Last Event:</span>
-                                <span style="color: var(--text-primary); font-size: 0.85em;"
-                                    x-text="serverHealth.syslog && serverHealth.syslog.last_log ? new Date(serverHealth.syslog.last_log * 1000).toLocaleTimeString() : 'Never'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Firewall Syslog Activity (Port 515) -->
+                    <div x-show="serverHealth && serverHealth.firewall_syslog && !serverHealth.firewall_syslog.error"
+                        style="display: flex; flex-direction: column; gap: 8px;">
+                        <div
+                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                            <span>📡</span>
+                            <span>Firewall logs (515)</span>
+                            <span class="server-stat-badge" :class="{
+                                                    'badge-success': serverHealth.firewall_syslog && serverHealth.firewall_syslog.active,
+                                                    'badge-error': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active
+                                                }" style="font-size: 0.75em; padding: 2px 6px; margin-left: auto;"
+                                x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Received:</span>
+                                <span style="color: var(--text-primary); font-weight: 500;"
+                                    x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.received ? serverHealth.firewall_syslog.received.toLocaleString() : '0'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Parsed:</span>
+                                <span style="color: var(--text-primary); font-weight: 500;"
+                                    x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.parsed ? serverHealth.firewall_syslog.parsed.toLocaleString() : '0'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Errors:</span>
+                                <span style="color: var(--text-primary); font-weight: 500;"
+                                    x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.errors ? serverHealth.firewall_syslog.errors.toLocaleString() : '0'"></span>
                             </div>
                         </div>
                     </div>
