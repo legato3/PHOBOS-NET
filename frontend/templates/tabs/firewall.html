@@ -306,17 +306,7 @@
                 </div>
                 <div class="log-controls">
                     <span class="log-count"
-                        x-text="(() => {
-                            const filtered = (syslog515.logs || []).filter(l => {
-                                if (syslog515Filter.program !== 'all' && l.program !== syslog515Filter.program) return false;
-                                if (syslog515Filter.search) {
-                                    const search = syslog515Filter.search.toLowerCase();
-                                    return (l.message && l.message.toLowerCase().includes(search)) || (l.program && l.program.toLowerCase().includes(search));
-                                }
-                                return true;
-                            });
-                            return 'Showing ' + Math.min(syslog515View || 100, filtered.length).toLocaleString() + ' / ' + filtered.length.toLocaleString();
-                        })()"></span>
+                        x-text="'Showing ' + Math.min(syslog515View || 100, filteredSyslog515.length).toLocaleString() + ' / ' + (filteredSyslog515.length || 0).toLocaleString()"></span>
                     <span class="log-update-time" x-show="syslog515.lastUpdate" :title="syslog515.lastUpdate"
                         x-text="'Updated ' + timeAgo(new Date(syslog515.lastUpdate).getTime() / 1000)"></span>
                     <div class="log-range">
@@ -358,17 +348,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="(log, index) in (syslog515.logs || [])
-                            .filter(l => {
-                                if (syslog515Filter.program !== 'all' && l.program !== syslog515Filter.program) return false;
-                                if (syslog515Filter.search) {
-                                    const search = syslog515Filter.search.toLowerCase();
-                                    return (l.message && l.message.toLowerCase().includes(search)) ||
-                                           (l.program && l.program.toLowerCase().includes(search));
-                                }
-                                return true;
-                            })
-                            .slice(0, syslog515View || 100)"
+                        <template x-for="(log, index) in filteredSyslog515.slice(0, syslog515View || 100)"
                             :key="index">
                             <tr style="vertical-align: top;">
                                 <td style="font-size: 0.85em; color: var(--text-muted); white-space: nowrap;">
