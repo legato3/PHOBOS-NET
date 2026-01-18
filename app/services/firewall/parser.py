@@ -33,12 +33,14 @@ class FirewallEvent:
         self.reason = reason
 
     def to_dict(self) -> Dict[str, Any]:
+        import time
         return {
             "timestamp": self.timestamp.isoformat(),
+            "timestamp_ts": self.timestamp.timestamp(),
             "action": self.action,
             "interface": self.interface,
             "direction": self.direction,
-            "protocol": self.protocol,
+            "proto": self.protocol,  # Map to proto for frontend compatibility
             "src_ip": self.src_ip,
             "src_port": self.src_port,
             "dst_ip": self.dst_ip,

@@ -1073,7 +1073,7 @@ def api_firewall_syslog_recent():
             # Format event for frontend
             logs.append({
                 "timestamp": event.get('timestamp'),
-                "timestamp_ts": ts,
+                "timestamp_ts": event.get('timestamp_ts'),
                 "action": action,
                 "direction": event.get('direction'),
                 "interface": event.get('interface'),
@@ -1081,9 +1081,9 @@ def api_firewall_syslog_recent():
                 "src_port": event.get('src_port'),
                 "dst_ip": dst_ip,
                 "dst_port": event.get('dst_port'),
-                "proto": event.get('proto'),
-                "country_iso": event.get('country_iso'),
-                "flag": flag_from_iso(event.get('country_iso')) if event.get('country_iso') else "",
+                "proto": event.get('proto'),  # Use proto from firewall event
+                "country_iso": None,  # Not available from firewall store
+                "flag": "",  # No country info from firewall store
                 "is_threat": is_threat,
                 "service": PORTS.get(event.get('dst_port'), "") if event.get('dst_port') else ""
             })
