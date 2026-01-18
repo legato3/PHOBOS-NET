@@ -2,6 +2,48 @@
 
 > **Note**: The legacy `netflow-dashboard.py` entrypoint has been removed. Prefer `docker/DEPLOY_TO_SERVER.sh` to deploy the modular `app/` and `frontend/` structure.
 
+
+## Firewall Syslog Listener (UDP/515)
+
+### Overview
+PHOBOS-NET now supports an isolated syslog listener for OPNsense Firewall (non-filterlog) events on UDP port **515**. This listener is completely separate from the filterlog listener (UDP/514) and routes all received events directly to the firewall parser and in-memory store.
+
+**Key Points:**
+- Listens on UDP/515 (configurable via `FIREWALL_SYSLOG_PORT` in environment or `app/config.py`)
+- Does NOT affect filterlog ingestion or alert logic
+- All events are parsed and stored in-memory only
+- Dedicated ingestion metrics exposed via `/api/firewall/summary`
+- Debug logs prefixed with `[FIREWALL SYSLOG]`
+
+### Configuration
+On your OPNsense firewall, add a new syslog target:
+
+1. Go to **System → Settings → Logging / Targets**
+2. Add a new syslog target:
+   - **Hostname**: `192.168.0.73` (or your server IP)
+   - **Port**: `515`
+   - **Transport**: `UDP`
+   - **Format**: BSD or RFC5424 (as supported)
+3. Save and Apply
+
+### Verification
+After deployment, send a test syslog message to UDP/515:
+
+```bash
+echo "<134>1 2026-01-18T10:00:00+00:00 OPNsense firewall[12345]: 56,0,,1000,igc0,match,pass,in,4,0x0,,64,12345,0,DF,6,tcp,52,192.168.1.100,8.8.8.8,54321,443" | nc -u -w1 192.168.0.73 515
+```
+
+Check container logs for:
+- `[FIREWALL SYSLOG] Message received`
+- `[FIREWALL SYSLOG] Parse success` or `Parse failure`
+
+Check API for ingestion metrics:
+```bash
+curl http://localhost:3434/api/firewall/summary | python3 -m json.tool
+```
+Look for `syslog_ingestion` stats (received, parsed, errors).
+
+---
 ## Quick Deploy
 
 1. **Copy files to server:**

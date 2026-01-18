@@ -290,6 +290,13 @@ export const Store = () => ({
     recentBlocksFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
     recentBlocksAutoRefresh: true,
     recentBlocksRefreshTimer: null,
+
+    // Firewall Syslog (Port 515) widget state
+    firewallSyslog: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 }, lastUpdate: null },
+    firewallSyslogView: 50,
+    firewallSyslogFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
+    firewallSyslogAutoRefresh: true,
+    firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.1.0', version_display: 'v1.1' }, // Application metadata from backend
@@ -2804,18 +2811,12 @@ export const Store = () => ({
 
     get filteredRecentBlocks() {
         let filtered = this.recentBlocks.blocks || [];
-
-        // Apply action filter
         if (this.recentBlocksFilter.action !== 'all') {
             filtered = filtered.filter(b => b.action === this.recentBlocksFilter.action);
         }
-
-        // Apply threat filter
         if (this.recentBlocksFilter.threatOnly) {
             filtered = filtered.filter(b => b.is_threat);
         }
-
-        // Apply IP search filter
         if (this.recentBlocksFilter.searchIP) {
             const searchIP = this.recentBlocksFilter.searchIP.toLowerCase();
             filtered = filtered.filter(b =>
@@ -2823,8 +2824,6 @@ export const Store = () => ({
                 (b.dst_ip && b.dst_ip.includes(searchIP))
             );
         }
-
-        // Apply port filter
         if (this.recentBlocksFilter.port) {
             const port = this.recentBlocksFilter.port.toString();
             filtered = filtered.filter(b =>
@@ -2832,15 +2831,63 @@ export const Store = () => ({
                 (b.dst_port && b.dst_port.toString().includes(port))
             );
         }
-
-        // Apply protocol filter
         if (this.recentBlocksFilter.protocol !== 'all') {
             filtered = filtered.filter(b =>
                 (b.proto && b.proto.toUpperCase() === this.recentBlocksFilter.protocol.toUpperCase())
             );
         }
-
         return filtered;
+    },
+
+    get filteredFirewallSyslog() {
+        let filtered = this.firewallSyslog.blocks || [];
+        if (this.firewallSyslogFilter.action !== 'all') {
+            filtered = filtered.filter(b => b.action === this.firewallSyslogFilter.action);
+        }
+        if (this.firewallSyslogFilter.threatOnly) {
+            filtered = filtered.filter(b => b.is_threat);
+        }
+        if (this.firewallSyslogFilter.searchIP) {
+            const searchIP = this.firewallSyslogFilter.searchIP.toLowerCase();
+            filtered = filtered.filter(b =>
+                (b.src_ip && b.src_ip.includes(searchIP)) ||
+                (b.dst_ip && b.dst_ip.includes(searchIP))
+            );
+        }
+        if (this.firewallSyslogFilter.port) {
+            const port = this.firewallSyslogFilter.port.toString();
+            filtered = filtered.filter(b =>
+                (b.src_port && b.src_port.toString().includes(port)) ||
+                (b.dst_port && b.dst_port.toString().includes(port))
+            );
+        }
+        if (this.firewallSyslogFilter.protocol !== 'all') {
+            filtered = filtered.filter(b =>
+                (b.proto && b.proto.toUpperCase() === this.firewallSyslogFilter.protocol.toUpperCase())
+            );
+        }
+        return filtered;
+    },
+    async fetchFirewallSyslog() {
+        this.firewallSyslog.loading = true;
+        try {
+            const res = await fetch('/api/firewall/syslog/recent?limit=1000');
+            if (res.ok) {
+                const d = await res.json();
+                const logs = d.logs || [];
+                const stats = d.stats || {};
+                this.firewallSyslog = {
+                    blocks: logs,
+                    stats,
+                    total_1h: stats?.blocks_last_hour || stats?.actions?.block || logs.length || 0,
+                    loading: false,
+                    lastUpdate: new Date().toISOString()
+                };
+                const targetView = this.firewallSyslogView || 50;
+                this.firewallSyslogView = Math.min(targetView, logs.length || targetView, 1000);
+            }
+        } catch (e) { console.error('Firewall syslog fetch error:', e); }
+        finally { this.firewallSyslog.loading = false; }
     },
 
     async blockThreatIP(ip) {
