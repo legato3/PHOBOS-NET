@@ -143,13 +143,10 @@ def _syslog_receiver_loop():
         return
 
     sock.settimeout(1.0)
-    
-    print(f"[SYSLOG 515] Waiting for messages on {FIREWALL_SYSLOG_BIND}:{FIREWALL_SYSLOG_PORT}...")
 
     while not _shutdown_event.is_set():
         try:
             data, addr = sock.recvfrom(8192)
-            print(f"[SYSLOG 515] Packet received from {addr[0]}:{addr[1]}, length={len(data)}")
 
             # Security: Only accept from configured IP
             if addr[0] != FIREWALL_IP and FIREWALL_IP != "0.0.0.0":
