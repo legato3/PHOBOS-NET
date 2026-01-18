@@ -457,8 +457,6 @@ def api_stats_packet_sizes():
 
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
-    tf = get_time_range(range_key)
-    # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
 
     # Buckets
@@ -1026,8 +1024,9 @@ def api_noise_metrics():
         pass
 
     # 2. Blocked Flows (Definitely Noise)
-    fw_stats = _get_firewall_block_stats(hours=1) # Fixed to 1h for now or should scale?
-    # Ideally should match range_key duration.
+    # NOTE: blocked_count comes from syslog/firewall, total_flows from NetFlow.
+    # These may have different capture points (pre-firewall vs post-firewall).
+    # The noise calculation assumes NetFlow captures traffic before firewall blocks.
     hours_map = {'15m': 0.25, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
     h = hours_map.get(range_key, 1)
     fw_stats_ranged = _get_firewall_block_stats(hours=h)

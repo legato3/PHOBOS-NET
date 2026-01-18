@@ -45,15 +45,25 @@ def resolve_task(ip):
 
 
 def resolve_ip(ip):
-    """Resolve IP to hostname with caching."""
+    """Resolve IP to hostname with caching.
+    
+    Cache entries expire after 300 seconds (5 minutes).
+    Background resolution is triggered for new IPs or expired cache entries.
+    """
     now = time.time()
-    if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < 300:
+    cache_ttl = 300  # 5 minutes
+    
+    # Check if we have a valid cached result
+    if ip in _dns_cache and now - _dns_ttl.get(ip, 0) < cache_ttl:
         return _dns_cache[ip] or ip
     
-    # Trigger background resolution
-    if ip not in _dns_cache:
-        _dns_cache[ip] = None
-        _dns_ttl[ip] = now
+    # Trigger background resolution for new or expired entries
+    # Use _dns_ttl to track last resolution attempt to avoid duplicate submissions
+    last_attempt = _dns_ttl.get(ip, 0)
+    if now - last_attempt >= cache_ttl:
+        _dns_ttl[ip] = now  # Mark as attempting resolution
+        if ip not in _dns_cache:
+            _dns_cache[ip] = None  # Placeholder until resolved
         _dns_resolver_executor.submit(resolve_task, ip)
     
     return _dns_cache.get(ip) or ip

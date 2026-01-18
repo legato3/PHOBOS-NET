@@ -211,7 +211,11 @@ def _cleanup_old_fw_logs():
 
 
 def _get_bucket_end(dt=None):
-    """Get the end datetime for the current 5-minute bucket."""
+    """Get the end datetime for the current 5-minute bucket.
+    
+    Note: Uses naive datetime (local time) for consistency with nfdump output.
+    Bucket alignment is stable as long as system timezone doesn't change.
+    """
     dt = dt or datetime.now()
     # Align to nearest 5 minutes upper boundary
     remainder = dt.minute % 5

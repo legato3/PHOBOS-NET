@@ -26,6 +26,8 @@ def throttle(max_calls=20, time_window=10):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            global _metric_http_429  # Required for incrementing the counter
+            
             # Import metrics functions (avoid circular import)
             try:
                 from app.services.shared.metrics import track_performance, track_error

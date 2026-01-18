@@ -53,6 +53,7 @@ def _guess_country_from_ip(ip):
 
     This is approximate - real accuracy requires MaxMind database.
     Uses first octet ranges that are commonly allocated to specific regions.
+    Note: Order matters - more specific checks come first.
     """
     try:
         parts = ip.split('.')
@@ -62,10 +63,16 @@ def _guess_country_from_ip(ip):
         second = int(parts[1])
 
         # Common IP range allocations (approximate, covers major ranges)
-        # US ranges
+        # US ranges (distinct, check first)
         if first in [3, 4, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 38, 40, 44, 45, 47, 48, 50, 52, 54, 55, 56, 57, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 96, 97, 98, 99, 100, 104, 107, 108, 128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 140, 142, 143, 144, 146, 147, 148, 149, 152, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 172, 173, 174, 184, 198, 199, 204, 205, 206, 207, 208, 209, 216]:
             return 'US'
-        # EU ranges (DE, GB, FR, NL, etc.)
+        # Russia - check BEFORE EU since overlapping ranges, Russia requires second >= 200
+        if first in [5, 31, 37, 46, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 176, 178, 185, 188, 212, 213, 217] and second >= 200:
+            return 'RU'
+        # Canada - check before EU since some overlap
+        if first in [24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 99, 142, 192, 198, 199, 204, 205, 206, 207] and second >= 200:
+            return 'CA'
+        # EU ranges (DE, GB, FR, NL, etc.) - less specific, checked after Russia/Canada
         if first in [2, 5, 31, 37, 46, 51, 53, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 109, 141, 145, 151, 176, 178, 185, 188, 193, 194, 195, 212, 213]:
             # Approximate EU country by second octet
             if second < 50: return 'DE'
@@ -79,15 +86,9 @@ def _guess_country_from_ip(ip):
             if second < 128: return 'JP'
             if second < 192: return 'KR'
             return 'AU'
-        # Russia
-        if first in [5, 31, 37, 46, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 176, 178, 185, 188, 212, 213, 217] and second >= 200:
-            return 'RU'
         # Brazil, Latin America
         if first in [177, 179, 181, 186, 187, 189, 190, 191, 200, 201]:
             return 'BR'
-        # Canada
-        if first in [24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 99, 142, 192, 198, 199, 204, 205, 206, 207] and second >= 200:
-            return 'CA'
         # Default: pick based on hash for consistency
         seed = sum(int(p) for p in parts)
         countries = ['US', 'DE', 'GB', 'FR', 'JP', 'CN', 'BR', 'AU', 'CA', 'NL', 'IN', 'RU']
