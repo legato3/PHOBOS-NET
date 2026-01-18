@@ -315,7 +315,8 @@ def get_common_nfdump_data(query_type, range_key):
         _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
         if len(_common_data_cache) > COMMON_DATA_CACHE_MAX:
             drop_count = max(1, COMMON_DATA_CACHE_MAX // 5)
-            oldest = sorted(_common_data_cache.items(), key=lambda kv: kv[1]["ts"])[:drop_count]
+            # Ensure ts is always a float for comparison
+            oldest = sorted(_common_data_cache.items(), key=lambda kv: float(kv[1]["ts"]) if isinstance(kv[1]["ts"], (int, float)) else kv[1]["ts"].timestamp())[:drop_count]
             for k, _ in oldest:
                 _common_data_cache.pop(k, None)
     
@@ -334,8 +335,11 @@ def get_merged_host_stats(range_key="24h", limit=1000):
 
     with _common_data_lock:
         cached = _common_data_cache.get(cache_key)
-        if cached and (now - cached["ts"]) < cache_ttl:
-            return cached["data"]
+        if cached:
+            # Ensure ts is always a float for comparison
+            cached_ts = float(cached["ts"]) if isinstance(cached["ts"], (int, float)) else cached["ts"].timestamp()
+            if (now - cached_ts) < cache_ttl:
+                return cached["data"]
             
     tf = get_time_range(range_key)
     
