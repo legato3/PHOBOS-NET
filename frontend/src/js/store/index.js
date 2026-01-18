@@ -4167,6 +4167,7 @@ export const Store = () => ({
                 if (data.memory) this.serverHealth.memory = data.memory;
                 if (data.disk) this.serverHealth.disk = data.disk;
                 if (data.syslog) this.serverHealth.syslog = data.syslog;
+                if (data.firewall_syslog) this.serverHealth.firewall_syslog = data.firewall_syslog;
                 if (data.netflow) this.serverHealth.netflow = data.netflow;
                 if (data.database) this.serverHealth.database = data.database;
                 if (data.system) this.serverHealth.system = data.system;

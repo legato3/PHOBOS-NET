@@ -507,21 +507,13 @@
                             {% endcall %}
                         </div>
 
-                        <!-- Firewall Syslog Widget (Port 515) - TEST -->
+                        <!-- Firewall Syslog Widget (Port 515) -->
                         {% set firewall_syslog_badge %}
                         <span class="server-stat-badge" :class="{
                                                 'badge-success': serverHealth.firewall_syslog && serverHealth.firewall_syslog.active,
                                                 'badge-error': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active
                                             }" x-text="serverHealth.firewall_syslog && serverHealth.firewall_syslog.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         {% endset %}
-                        <div x-show="serverHealth.firewall_syslog" style="border: 2px solid red; margin: 10px; padding: 10px;">
-                            <h3 style="color: red;">DEBUG: Firewall logs (515) - TEST SECTION</h3>
-                            <div>Received: <span x-text="serverHealth.firewall_syslog.received || '0'"></span></div>
-                            <div>Parsed: <span x-text="serverHealth.firewall_syslog.parsed || '0'"></span></div>
-                            <div>Active: <span x-text="serverHealth.firewall_syslog.active ? 'YES' : 'NO'"></span></div>
-                        </div>
-
-                        <!-- Firewall Syslog Widget (Port 515) -->
                         <div x-show="serverHealth.firewall_syslog">
                             {% call widget_card('server_firewall_syslog', 'Firewall logs (515)', '📡',
                             extra_actions=firewall_syslog_badge) %}
