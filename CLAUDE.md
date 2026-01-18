@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PHOBOS-NET is a self-hosted network observability dashboard combining NetFlow, SNMP, and syslog. It prioritizes **clarity, truth, and calm UX** over alerts and automation. Read-only by design.
 
+### Design Philosophy
+- **Observational, not reactive** — Shows what's happening, never takes automated action
+- **Calm over alarmist** — No red unless action is required, no dramatic state banners
+- **Truth over completeness** — Show "—" or "Unknown" rather than guess or hide failures
+- **Data availability is explicit** — Backend tells frontend when data is unavailable vs zero
+
 ## Commands
 
 ### Development
@@ -53,8 +59,39 @@ Threat feeds HTTP → threats.py → memory → API → Frontend
 ### Frontend (Alpine.js + Jinja2)
 - **Templates**: `frontend/templates/` — index.html, tabs/*.html, macros/widgets.html
 - **JS modules**: `frontend/src/js/modules/` — api.js, charts.js, utils.js
-- **Store**: `frontend/src/js/store/index.js` — Alpine reactive state
+- **Store**: `frontend/src/js/store/index.js` — Alpine reactive state (~6000 lines)
+- **CSS**: `frontend/src/css/` — style.css, tokens.css, base.css, mobile.css
 - No build step; vanilla JS modules
+
+### Frontend Patterns
+
+**Widget Macro System** (`macros/widgets.html`):
+```jinja2
+{% call widget_card('widgetId', 'Title', '🔍', show_spinner=True, card_class="custom-class") %}
+  <!-- Widget content here -->
+{% endcall %}
+```
+
+**Alpine.js Store Helpers** (in `store/index.js`):
+- `formatOrDash(value)` — Returns "—" for null/undefined, value otherwise
+- `formatNumOrDash(value)` — Returns "—" for null/undefined, formatted number otherwise
+- `getCoverageLabel(ok, total)` — Returns "Excellent"/"Good"/"Limited"
+- `getStateColor(state)` — Maps state names to CSS colors
+
+**CSS Design Tokens** (`tokens.css`):
+- `--signal-ok: #00ff88` — Green (confirmed good)
+- `--signal-warn: #ffb400` — Yellow (degraded, not critical)
+- `--signal-crit: #ff1744` — Red (only for actual failures)
+- `--neon-cyan` — Default/neutral accent
+- `--text-muted`, `--text-secondary`, `--text-primary` — Text hierarchy
+
+### UI Design Rules (Calm UX)
+- **No "STATE" banners** — Avoid dramatic status labels like "UNDER PRESSURE"
+- **No glowing red text** — Red only for actual failures requiring action
+- **Yellow for degraded** — Missing feeds, reduced coverage = yellow, not red
+- **Blue/cyan for normal** — Default states use neutral colors
+- **Checkmarks over status text** — Prefer ✓ icons to verbose status strings
+- **Explanatory notes** — When something is degraded, explain why briefly
 
 ### Background Threads
 Started in main.py or gunicorn post_worker_init:
@@ -91,7 +128,14 @@ From `.cursor/skills/SKILL.md`:
 | `app/core/app_state.py` | Global caches, locks, baselines, metrics |
 | `app/services/netflow/netflow.py` | nfdump wrapper, CSV parsing, traffic direction |
 | `app/services/security/threats.py` | Threat feeds, anomaly detection, MITRE mappings |
-| `app/services/shared/snmp.py` | SNMP polling (CPU, memory, interfaces) |
+| `app/services/shared/snmp.py` | SNMP polling (CPU, memory, interfaces), availability flags |
+| `app/api/routes/traffic.py` | Traffic API endpoints (~2900 lines) |
+| `app/api/routes/security.py` | Security API endpoints (~3500 lines) |
+| `frontend/src/js/store/index.js` | Alpine.js reactive store, all fetch functions |
+| `frontend/templates/tabs/overview.html` | Overview tab with stat boxes |
+| `frontend/templates/tabs/security.html` | Security widgets (Coverage, Alerts, MITRE, etc.) |
+| `frontend/templates/macros/widgets.html` | Reusable widget_card macro |
+| `frontend/src/css/style.css` | Main stylesheet (~9000 lines) |
 | `docker/docker-compose.yml` | Container config, port mapping (3434:8080), volumes |
 
 ## Environment Variables
@@ -199,6 +243,43 @@ The "NEW hosts" feature relies on persisted first-seen timestamps:
 - **CSV parsing**: `parse_csv()` — expects header row, returns list of dicts
 - **Common queries**: `get_common_nfdump_data()` — cached sources/ports/dests/protos
 - **Time ranges**: `get_time_range()` in helpers.py — returns `-t` flag value
+
+## Truthfulness Patterns
+
+### Backend: Availability Flags
+SNMP and other services include explicit availability indicators:
+```python
+# Success
+result["available"] = True
+
+# Failure with stale cache
+return {**cached_data, "stale": True, "available": True}
+
+# Complete failure
+return {"error": "SNMP unreachable", "available": False}
+```
+
+### Frontend: Null vs Zero Distinction
+**CRITICAL**: Never use `|| 0` for numeric data — it hides unavailability:
+```javascript
+// BAD: null becomes 0, hiding data unavailability
+active_flows: d.active_flows || 0
+
+// GOOD: null stays null, frontend can show "—"
+active_flows: d.active_flows ?? null
+```
+
+In templates, use helper functions:
+```html
+<!-- Shows "—" when null, actual value when available -->
+x-text="formatNumOrDash(networkStatsOverview.active_flows)"
+```
+
+### UI Truthfulness Rules
+- **Unavailable data**: Show "—" or "Unknown", never "0"
+- **Zero data**: Show "0" only when confirmed zero from source
+- **Failed fetches**: Keep `loading: false` but set values to `null`
+- **Stale data**: Can show cached values but mark as stale if needed
 
 ## Known Technical Debt
 
