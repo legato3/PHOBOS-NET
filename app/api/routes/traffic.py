@@ -657,7 +657,11 @@ def api_stats_worldmap():
     threats = []
     threat_countries = {}
     now = time.time()
-    cutoff = now - 86400  # 24 hours
+
+    # Calculate cutoff based on selected range
+    range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+    cutoff = now - range_seconds
+
     try:
         for ip, timeline in threats_module._threat_timeline.items():
             if timeline.get('last_seen', 0) < cutoff:
@@ -1027,7 +1031,7 @@ def api_noise_metrics():
     # NOTE: blocked_count comes from syslog/firewall, total_flows from NetFlow.
     # These may have different capture points (pre-firewall vs post-firewall).
     # The noise calculation assumes NetFlow captures traffic before firewall blocks.
-    hours_map = {'15m': 0.25, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
+    hours_map = {'15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
     h = hours_map.get(range_key, 1)
     fw_stats_ranged = _get_firewall_block_stats(hours=h)
     blocked_count = fw_stats_ranged.get('blocks', 0)
@@ -1208,10 +1212,11 @@ def api_stats_hourly():
             "peak_bytes_fmt": fmt_bytes(peak_bytes),
             "total_bytes": sum(bytes_data),
             "total_bytes_fmt": fmt_bytes(sum(bytes_data)),
-            "timezone": "local"  # Clarify that hours are in server local time
+            "timezone": "local",  # Clarify that hours are in server local time
+            "time_scope": "24h"   # Fixed window explicit declaration
         }
     except:
-        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B"}
+        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": "24h"}
 
     with _cache_lock:
         _stats_hourly_cache["data"] = data
@@ -1546,7 +1551,9 @@ def api_firewall_stats_overview():
         "top_block_count": top_block_count,
         "trends": {
             "blocked_events": blocked_trend
-        }
+        },
+        # TIME SCOPE METADATA: Fixed 24h window
+        "time_scope": "24h"
     })
 
 

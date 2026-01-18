@@ -3029,8 +3029,7 @@ export const Store = () => ({
         }
     },
 
-    // FIXED-SCOPE: Active Alerts (realtime) - does not use global_time_range
-    // Note: API accepts range param but widget is marked as realtime for UI clarity
+    // TIME-AWARE: Active Alerts (uses global time range)
     async fetchAlerts() {
         this.alerts.loading = true;
         try {
@@ -3039,8 +3038,7 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
     },
 
-    // FIXED-SCOPE: Active Flows (realtime) - does not use global_time_range
-    // Note: API accepts range param but widget is marked as realtime for UI clarity
+    // TIME-AWARE: Active Flows (uses global time range)
     async fetchFlows() {
         this.flows.loading = true;
         try {
@@ -5445,7 +5443,8 @@ export const Store = () => ({
     async fetchThreatActivityTimeline() {
         this.threatActivityTimeline.loading = true;
         try {
-            const res = await fetch(`/api/security/attack-timeline?range=${this.threatActivityTimeline.timeRange || '24h'}`);
+            // Use global time range for consistency
+            const res = await fetch(`/api/security/attack-timeline?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 // Calculate peak hour
@@ -5649,7 +5648,7 @@ export const Store = () => ({
             this.showToast('Timeline data exported as CSV', 'success');
         } else if (format === 'json') {
             const jsonStr = JSON.stringify({
-                timeRange: this.threatActivityTimeline.timeRange,
+                timeRange: this.timeRange,
                 total_24h: this.threatActivityTimeline.total_24h,
                 peak_hour: this.threatActivityTimeline.peak_hour,
                 peak_count: this.threatActivityTimeline.peak_count,
