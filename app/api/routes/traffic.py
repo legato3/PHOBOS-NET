@@ -374,13 +374,20 @@ def api_stats_durations():
             parts = line.split(',')
             if len(parts) > max(sa_idx, da_idx, td_idx):
                 try:
+                    src_ip = parts[sa_idx]
+                    dst_ip = parts[da_idx]
+                    
+                    # Skip IPv6 addresses (contain ':') - only show IPv4
+                    if ':' in src_ip or ':' in dst_ip:
+                        continue
+                    
                     # Create unique key for deduplication
-                    flow_key = (parts[sa_idx], parts[da_idx], parts[pr_idx], parts[td_idx])
+                    flow_key = (src_ip, dst_ip, parts[pr_idx], parts[td_idx])
                     if flow_key in seen_flows: continue
                     seen_flows.add(flow_key)
 
                     rows.append({
-                        "src": parts[sa_idx], "dst": parts[da_idx],
+                        "src": src_ip, "dst": dst_ip,
                         "proto": parts[pr_idx],
                         "duration": float(parts[td_idx]),
                         "bytes": int(parts[ibyt_idx]) if len(parts) > ibyt_idx else 0
