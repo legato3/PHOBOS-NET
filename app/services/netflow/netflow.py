@@ -413,13 +413,13 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     """
     # PERFORMANCE: Cache result to avoid heavy nfdump 48h queries
     now = time.time()
-    win = int(now // 60)
-    # Use fixed cache key for traffic matrix (always request enough data)
-    cache_key = f"merged_host_stats:{range_key}:win"
-    
+    cache_key = f"merged_host_stats:{range_key}"
+    cache_ttl = 60  # seconds
+
     with _common_data_lock:
-        if cache_key in _common_data_cache:
-            return _common_data_cache[cache_key]["data"]
+        cached = _common_data_cache.get(cache_key)
+        if cached and (now - cached["ts"]) < cache_ttl:
+            return cached["data"]
             
     tf = get_time_range(range_key)
     
@@ -486,12 +486,13 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         if row.get("te") and (not hosts[ip]["last_seen"] or row.get("te") > hosts[ip]["last_seen"]):
              hosts[ip]["last_seen"] = row.get("te")
     
-    # Update host memory with first_seen timestamps (Async)
+    # Update host memory with first_seen timestamps
     from app.db.sqlite import update_host_memory, get_hosts_memory
-    
-    # Run update in background thread to avoid blocking
-    threading.Thread(target=update_host_memory, args=(hosts,), daemon=True).start()
-    
+
+    # Run update synchronously to ensure persisted data is available for enrichment
+    # This is critical for the "new hosts" baseline logic to work correctly
+    update_host_memory(hosts)
+
     # Get persisted first_seen timestamps from memory (batch query)
     ip_list = list(hosts.keys())
     memory_data = get_hosts_memory(ip_list) if ip_list else {}
