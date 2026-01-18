@@ -292,9 +292,9 @@ export const Store = () => ({
     recentBlocksRefreshTimer: null,
 
     // Firewall Syslog (Port 515) widget state
-    firewallSyslog: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, actions: {}, threats: 0, unique_src: 0, unique_dst: 0, blocks_last_hour: 0, passes_last_hour: 0 }, lastUpdate: null },
+    firewallSyslog: { blocks: [], total_1h: 0, loading: true, stats: { total: 0, generic_count: 0, filterlog_count: 0, programs: {} }, lastUpdate: null },
     firewallSyslogView: 50,
-    firewallSyslogFilter: { action: 'all', searchIP: '', port: '', protocol: 'all', threatOnly: false },
+    firewallSyslogFilter: { searchText: '', program: 'all' },
     firewallSyslogAutoRefresh: true,
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
@@ -2848,29 +2848,14 @@ export const Store = () => ({
 
     get filteredFirewallSyslog() {
         let filtered = this.firewallSyslog.blocks || [];
-        if (this.firewallSyslogFilter.action !== 'all') {
-            filtered = filtered.filter(b => b.action === this.firewallSyslogFilter.action);
+        if (this.firewallSyslogFilter.program !== 'all') {
+            filtered = filtered.filter(b => b.program === this.firewallSyslogFilter.program);
         }
-        if (this.firewallSyslogFilter.threatOnly) {
-            filtered = filtered.filter(b => b.is_threat);
-        }
-        if (this.firewallSyslogFilter.searchIP) {
-            const searchIP = this.firewallSyslogFilter.searchIP.toLowerCase();
+        if (this.firewallSyslogFilter.searchText) {
+            const search = this.firewallSyslogFilter.searchText.toLowerCase();
             filtered = filtered.filter(b =>
-                (b.src_ip && b.src_ip.includes(searchIP)) ||
-                (b.dst_ip && b.dst_ip.includes(searchIP))
-            );
-        }
-        if (this.firewallSyslogFilter.port) {
-            const port = this.firewallSyslogFilter.port.toString();
-            filtered = filtered.filter(b =>
-                (b.src_port && b.src_port.toString().includes(port)) ||
-                (b.dst_port && b.dst_port.toString().includes(port))
-            );
-        }
-        if (this.firewallSyslogFilter.protocol !== 'all') {
-            filtered = filtered.filter(b =>
-                (b.proto && b.proto.toUpperCase() === this.firewallSyslogFilter.protocol.toUpperCase())
+                (b.reason && b.reason.toLowerCase().includes(search)) ||
+                (b.program && b.program.toLowerCase().includes(search))
             );
         }
         return filtered;

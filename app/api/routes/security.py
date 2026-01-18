@@ -1040,11 +1040,14 @@ def api_firewall_syslog_recent():
         # Calculate stats
         logs = []
         action_counts = {"block": 0, "reject": 0, "pass": 0}
+        program_counts = {}  # Track program names for generic syslog
         unique_src = set()
         unique_dst = set()
         threat_count = 0
         blocks_last_hour = 0
         passes_last_hour = 0
+        filterlog_count = 0
+        generic_count = 0
         latest_ts = None
 
         for event in events:
@@ -1054,15 +1057,26 @@ def api_firewall_syslog_recent():
             dst_ip = event.get('dst_ip')
             is_threat = event.get('is_threat', False)
 
+            # Determine if this is a filterlog event (has IPs) or generic syslog
+            is_filterlog = bool(src_ip and dst_ip)
+
             # Stats
-            if action in action_counts:
-                action_counts[action] += 1
+            if is_filterlog:
+                filterlog_count += 1
+                if action in action_counts:
+                    action_counts[action] += 1
+                if ts and action in ('block', 'reject') and ts >= cutoff_1h:
+                    blocks_last_hour += 1
+                if ts and action == 'pass' and ts >= cutoff_1h:
+                    passes_last_hour += 1
+            else:
+                generic_count += 1
+                # Track program counts for generic syslog
+                if action:
+                    program_counts[action] = program_counts.get(action, 0) + 1
+
             if is_threat:
                 threat_count += 1
-            if ts and action in ('block', 'reject') and ts >= cutoff_1h:
-                blocks_last_hour += 1
-            if ts and action == 'pass' and ts >= cutoff_1h:
-                passes_last_hour += 1
             if src_ip:
                 unique_src.add(src_ip)
             if dst_ip:
@@ -1082,6 +1096,9 @@ def api_firewall_syslog_recent():
                 "dst_ip": dst_ip,
                 "dst_port": event.get('dst_port'),
                 "proto": event.get('proto'),  # Use proto from firewall event
+                "reason": event.get('reason'),  # Message content for generic syslog
+                "is_filterlog": is_filterlog,  # True for filterlog, False for generic syslog
+                "program": action if not is_filterlog else None,  # Program name for generic syslog
                 "country_iso": None,  # Not available from firewall store
                 "flag": "",  # No country info from firewall store
                 "is_threat": is_threat,
@@ -1090,7 +1107,10 @@ def api_firewall_syslog_recent():
 
         stats = {
             "total": len(logs),
+            "filterlog_count": filterlog_count,
+            "generic_count": generic_count,
             "actions": action_counts,
+            "programs": program_counts,  # Program name counts for generic syslog
             "threats": threat_count,
             "unique_src": len(unique_src),
             "unique_dst": len(unique_dst),

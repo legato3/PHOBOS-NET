@@ -3864,6 +3864,24 @@ body {
     color: var(--text-secondary);
 }
 
+.log-chip-cyan {
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+}
+
+.log-chip-cyan strong {
+    color: var(--text-1);
+}
+
+.log-chip-purple {
+    border-color: #b388ff;
+    color: #b388ff;
+}
+
+.log-chip-purple strong {
+    color: var(--text-1);
+}
+
 .log-controls {
     display: flex;
     align-items: center;
