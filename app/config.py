@@ -168,11 +168,13 @@ OFF_HOURS_THRESHOLD_MB = 100
 try:
     LONG_LOW_DURATION_THRESHOLD = float(os.getenv('LONG_LOW_DURATION_THRESHOLD', '300'))  # 5 minutes default
 except (ValueError, TypeError):
+    print("Warning: Invalid LONG_LOW_DURATION_THRESHOLD, using default 300.0")
     LONG_LOW_DURATION_THRESHOLD = 300.0
 
 try:
     LONG_LOW_BYTES_THRESHOLD = int(os.getenv('LONG_LOW_BYTES_THRESHOLD', '100000'))  # 100 KB default
 except (ValueError, TypeError):
+    print("Warning: Invalid LONG_LOW_BYTES_THRESHOLD, using default 100000")
     LONG_LOW_BYTES_THRESHOLD = 100000
 
 # Baseline tracking configuration

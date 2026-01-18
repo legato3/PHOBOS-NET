@@ -189,7 +189,8 @@ def parse_csv(output, expected_key=None):
         if bytes_idx == -1:
             bytes_idx = 12
         
-    except ValueError:
+    except ValueError as e:
+        add_app_log(f"CSV Header Parse Error: {e}", "ERROR")
         return results
     
     seen_keys = set()
@@ -228,6 +229,7 @@ def parse_csv(output, expected_key=None):
                     "te": te
                 })
         except Exception:
+            # Silent continue on individual row parse error is acceptable to skip bad rows
             continue
     
     # --- INGESTION METRICS ---
@@ -533,8 +535,8 @@ def get_raw_flows(tf, limit=2000):
                                     "flows": 1
                                 })
                     except Exception as e:
-                        print(f"Flow parsing error: {e}")
+                        add_app_log(f"Flow parsing error: {e}", "ERROR")
         return flow_data
     except Exception as e:
-        print(f"Error fetching raw flows: {e}")
+        add_app_log(f"Error fetching raw flows: {e}", "ERROR")
         return []
