@@ -2865,7 +2865,6 @@ export const Store = () => ({
             const res = await fetch('/api/firewall/syslog/recent?limit=500');
             if (res.ok) {
                 const d = await res.json();
-                console.log('[Syslog515] Fetched data:', { logsCount: d.logs?.length, stats: d.stats });
                 this.syslog515 = {
                     logs: d.logs || [],
                     stats: d.stats || { total: 0, programs: {} },
@@ -2873,7 +2872,6 @@ export const Store = () => ({
                     loading: false,
                     lastUpdate: new Date().toISOString()
                 };
-                console.log('[Syslog515] State updated:', { logsCount: this.syslog515.logs.length });
             }
         } catch (e) {
             console.error('Syslog 515 fetch error:', e);

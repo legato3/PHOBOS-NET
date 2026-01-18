@@ -160,11 +160,6 @@ def _syslog_receiver_loop():
             try:
                 event = _parse_syslog(raw)
                 syslog_store.add_event(event)
-                
-                # Debug: verify event was added
-                store_size = syslog_store.get_stats().get('total', 0)
-                if store_size % 50 == 0:  # Log every 50 events
-                    print(f"[SYSLOG 515] Store size: {store_size}, Program: {event.program}")
 
                 with _syslog_515_stats_lock:
                     _syslog_515_stats["parsed"] += 1
