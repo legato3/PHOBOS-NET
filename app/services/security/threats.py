@@ -304,17 +304,9 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
     # PERFORMANCE: Load watchlist once at start instead of per-IP check (reduces file I/O)
     watchlist = load_watchlist()
     
-    # Combine sources and destinations for IP checking
-    all_ips_data = list(sources_data)
-    if destinations_data:
-        # Add destination IPs, avoiding duplicates by key
-        seen_keys = {item['key'] for item in sources_data}
-        for item in destinations_data:
-            if item['key'] not in seen_keys:
-                all_ips_data.append(item)
-                seen_keys.add(item['key'])
+    LARGE_TRANSFER_THRESHOLD = 100 * 1024 * 1024  # 100MB
 
-    # Enhanced detection logic
+    # Enhanced detection logic for ports
     for item in ports_data:
         try:
             port = int(item["key"])
@@ -327,53 +319,71 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
         except Exception:
             pass
 
-    # Lower threshold for sample data triggering
-    for item in all_ips_data:
-        if item["bytes"] > 50*1024*1024: # 50MB
-            alert_key = f"large_{item['key']}"
-            if alert_key not in seen:
-                alerts.append({"type":"large_transfer","msg":f"📊 Large transfer from {item['key']}: {fmt_bytes(item['bytes'])}","severity":"medium","feed":"local"})
-                seen.add(alert_key)
+    # Process sources (Outbound/Upload) and destinations (Inbound/Download) separately
+    # properly identifying direction
 
-        # Threat Check
-        if item["key"] in threat_set:
-            alert_key = f"threat_{item['key']}"
-            if alert_key not in seen:
-                ip = item["key"]
-                info = get_threat_info(ip)
-                geo = lookup_geo(ip) or {}
-                alert = {
-                    "type": "threat_ip",
-                    "msg": f"🚨 {info.get('feed', feed_label)} match: {ip} ({fmt_bytes(item['bytes'])})",
-                    "severity": "critical",
-                    "feed": info.get('feed', feed_label),
-                    "ip": ip,
-                    "category": info.get('category', 'UNKNOWN'),
-                    "mitre": info.get('mitre_technique', ''),
-                    "country": geo.get('country_code', '--'),
-                    "bytes": item.get('bytes', 0),
-                    "ts": time.time()  # Keep per-alert timestamp for precise timing
-                }
-                alerts.append(alert)
-                seen.add(alert_key)
-                # Track timeline
-                update_threat_timeline(ip)
-                # Send to security webhook if configured
-                send_security_webhook(alert)
+    # Prepare datasets: list of (data, direction_label, is_source)
+    datasets = [
+        (sources_data, "from", True),
+        (destinations_data or [], "to", False)
+    ]
 
-        # PERFORMANCE: Use pre-loaded watchlist instead of calling load_watchlist() per IP
-        if item["key"] in watchlist:
-            alert_key = f"watchlist_{item['key']}"
-            if alert_key not in seen:
-                alerts.append({
-                    "type": "watchlist",
-                    "msg": f"👁️ Watchlist IP Activity: {item['key']}",
-                    "severity": "medium",
-                    "feed": "watchlist",
-                    "ip": item["key"],
-                    "ts": time.time()  # Keep per-alert timestamp for precise timing
-                })
-                seen.add(alert_key)
+    for data_list, dir_label, is_source in datasets:
+        for item in data_list:
+            ip = item.get("key")
+            if not ip: continue
+
+            # Large Transfer Check
+            if item["bytes"] > LARGE_TRANSFER_THRESHOLD:
+                alert_key = f"large_{ip}"
+                if alert_key not in seen:
+                    alerts.append({
+                        "type": "large_transfer",
+                        "msg": f"📊 Large transfer {dir_label} {ip}: {fmt_bytes(item['bytes'])}",
+                        "severity": "medium",
+                        "feed": "local",
+                        "direction": "outbound" if is_source else "inbound"
+                    })
+                    seen.add(alert_key)
+
+            # Threat Check
+            if ip in threat_set:
+                alert_key = f"threat_{ip}"
+                if alert_key not in seen:
+                    info = get_threat_info(ip)
+                    geo = lookup_geo(ip) or {}
+                    alert = {
+                        "type": "threat_ip",
+                        "msg": f"🚨 {info.get('feed', feed_label)} match: {ip} ({fmt_bytes(item['bytes'])})",
+                        "severity": "critical",
+                        "feed": info.get('feed', feed_label),
+                        "ip": ip,
+                        "category": info.get('category', 'UNKNOWN'),
+                        "mitre": info.get('mitre_technique', ''),
+                        "country": geo.get('country_code', '--'),
+                        "bytes": item.get('bytes', 0),
+                        "ts": time.time()
+                    }
+                    alerts.append(alert)
+                    seen.add(alert_key)
+                    # Track timeline
+                    update_threat_timeline(ip)
+                    # Send to security webhook if configured
+                    send_security_webhook(alert)
+
+            # Watchlist Check
+            if ip in watchlist:
+                alert_key = f"watchlist_{ip}"
+                if alert_key not in seen:
+                    alerts.append({
+                        "type": "watchlist",
+                        "msg": f"👁️ Watchlist IP Activity ({dir_label}): {ip}",
+                        "severity": "medium",
+                        "feed": "watchlist",
+                        "ip": ip,
+                        "ts": time.time()
+                    })
+                    seen.add(alert_key)
 
     # Escalate anomalies to alerts and persist with deduplication
     for alert in alerts:

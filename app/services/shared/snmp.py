@@ -170,7 +170,8 @@ def get_snmp_data():
                         if result.get(f"{prefix}_rx_mbps") is not None and result.get(f"{prefix}_tx_mbps") is not None:
                             spd = result.get(f"{prefix}_speed_mbps") or result.get(f"{prefix}_speed")
                             if spd and spd > 0:
-                                util = ((result[f"{prefix}_rx_mbps"] + result[f"{prefix}_tx_mbps"]) / (spd)) * 100.0
+                                # For Full Duplex links, utilization is max(rx, tx)
+                                util = (max(result[f"{prefix}_rx_mbps"], result[f"{prefix}_tx_mbps"]) / (spd)) * 100.0
                                 result[f"{prefix}_util_percent"] = round(util, 1)
                             else:
                                 result[f"{prefix}_util_percent"] = None
