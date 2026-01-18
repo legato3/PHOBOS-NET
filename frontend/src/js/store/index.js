@@ -272,14 +272,6 @@ export const Store = () => ({
     selectedEventType: null, // 'flow', 'firewall', 'threat'
     threatVelocity: { current: 0, trend: 0, total_24h: 0, peak: 0, loading: true },
     topThreatIPs: { ips: [], loading: true },
-    // Predictive risk data (48h forecast) - replaces riskIndex
-    predictiveRisk: {
-        score: 25,
-        level: 'Moderate',
-        trend: 'up', // 'up', 'down', 'stable'
-        confidence: 0.78,
-        factors: ['Threat velocity +15%', 'Anomaly acceleration detected', 'Coverage gaps increasing']
-    },
 
     // New Security Widgets
     attackTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, fw_blocks_24h: 0, has_fw_data: false, loading: true },
@@ -357,7 +349,6 @@ export const Store = () => ({
             threatsByCountry: 'Threats by Country',
             threatVelocity: 'Threat Trend (1h)',
             topThreatIPs: 'Top Threat IPs',
-            predictiveRisk: 'Predictive Risk (48h)',
             conversations: 'Active Flows',
             alertCorrelation: 'Alert Correlation & Attack Chains',
             threatActivityTimeline: 'Threat Activity Timeline',
@@ -944,23 +935,6 @@ export const Store = () => ({
     formatNumOrDash(value) {
         if (value === null || value === undefined) return '—';
         return Number(value).toLocaleString();
-    },
-
-    // Helper to get color for predictive risk score
-    getPredictiveRiskColor(score) {
-        if (score < 30) return this.getCssVar('--signal-ok') || '#00ff88';
-        if (score < 50) return this.getCssVar('--signal-warn') || '#ffb400';
-        if (score < 70) return '#cc8400';
-        return this.getCssVar('--signal-crit') || '#ff1744';
-    },
-
-    // Predictive risk data (48h forecast)
-    predictiveRisk: {
-        score: 25,
-        level: 'MODERATE',
-        trend: 'up',
-        confidence: 'medium',
-        factors: ['elevated_threat_velocity', 'feed_gaps']
     },
 
     // UI state for details toggle
