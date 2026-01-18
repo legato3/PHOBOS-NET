@@ -7,7 +7,8 @@ services:
     ports:
       - "3434:8080" # Web dashboard
       - "2055:2055/udp" # NetFlow collection (nfcapd)
-      - "514:514/udp" # Syslog receiver
+      - "514:514/udp" # Syslog receiver (filterlog)
+      - "515:515/udp" # Firewall syslog (non-filterlog events)
     environment:
       # Production settings
       - PYTHONUNBUFFERED=1
@@ -23,6 +24,9 @@ services:
       - FIREWALL_IP=0.0.0.0
       - SYSLOG_BIND=0.0.0.0
       - SYSLOG_PORT=514
+      # Firewall syslog (port 515) - non-filterlog events
+      - FIREWALL_SYSLOG_BIND=0.0.0.0
+      - FIREWALL_SYSLOG_PORT=515
 
       # Database paths (use volumes for persistence if needed)
       - FIREWALL_DB_PATH=/app/data/firewall.db
