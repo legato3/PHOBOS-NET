@@ -154,7 +154,7 @@ export const Store = () => ({
     sparkTTL: 120000, // 2 minutes
 
     // Data Stores
-    summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
+    summary: { totals: { bytes_fmt: '—', flows: null, avg_packet_size: null }, loading: true },
     sources: { sources: [], loading: true },
     destinations: { destinations: [], loading: true },
     ports: { ports: [], loading: true },
@@ -165,7 +165,7 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
-    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
+    networkStatsOverview: { active_flows: null, external_connections: null, anomalies_24h: null, trends: {}, loading: true },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -176,9 +176,9 @@ export const Store = () => ({
     feedHealth: { feeds: [], summary: { total: 0, ok: 0, error: 0, total_ips: 0 }, loading: true },
     talkers: { talkers: [], loading: true },
     services: { services: [], maxBytes: 1, loading: true },
-    hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '0 B', loading: true },
-    flowStats: { total_flows: 0, avg_duration_fmt: '0s', avg_bytes_fmt: '0 B', duration_dist: {}, loading: true },
-    protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '0 B', loading: true },
+    hourlyTraffic: { labels: [], bytes: [], flows: [], peak_hour: 0, peak_bytes_fmt: '—', loading: true },
+    flowStats: { total_flows: 0, avg_duration_fmt: '—', avg_bytes_fmt: '—', duration_dist: {}, loading: true },
+    protoMix: { labels: [], bytes: [], bytes_fmt: [], flows: [], percentages: [], colors: [], total_bytes: 0, total_bytes_fmt: '—', loading: true },
     protocolHierarchy: { data: null, loading: true },
     trafficScatter: { data: null, loading: true },
 

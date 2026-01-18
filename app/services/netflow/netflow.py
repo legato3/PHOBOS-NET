@@ -33,6 +33,9 @@ def run_nfdump(args, tf=None):
     """Run nfdump command and return CSV output.
 
     OBSERVABILITY: Instrumented to track execution time, success/failure, and timeouts.
+    Returns:
+        str: CSV output if successful
+        None: If execution failed (non-zero exit code or timeout)
     """
     state._metric_nfdump_calls += 1
     
@@ -43,6 +46,7 @@ def run_nfdump(args, tf=None):
     start_time = time.time()
     success = False
     timeout = False
+    result = None
     
     try:
         # PERFORMANCE: Check nfdump availability. Retry if previously failed.
@@ -81,14 +85,8 @@ def run_nfdump(args, tf=None):
         else:
             result = None
         
-        # NOTE: Mock fallback DISABLED for production - return empty data instead
-        # if result is None:
-        #     result = mock_nfdump(args)
-        #     if result:
-        #         success = True
-        
-        # Ensure we always return a string, never None
-        return result if result is not None else ""
+        # Ensure we return None on failure, string on success (even empty string)
+        return result
     finally:
         # OBSERVABILITY: Track subprocess metrics
         duration = time.time() - start_time
@@ -98,10 +96,13 @@ def run_nfdump(args, tf=None):
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
     results = []
-    # Defensive check: ensure output is a string (handle None case)
+    # Defensive check: ensure output is a string (handle None case which implies failure)
     if output is None:
-        return results
+        # Return None to signal upstream that data is invalid/failed, not just empty
+        return None
+
     if not output:
+        # Empty string means successful execution but no data (e.g. no traffic in time range)
         return results
         
     lines = output.strip().split("\n")
@@ -254,8 +255,15 @@ def get_traffic_direction(ip, tf):
     # Filter must be LAST arguments
     out = run_nfdump(["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
     in_data = run_nfdump(["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
+
+    # Check for failures (None)
+    if out_parsed is None or in_parsed is None:
+        # Return None to indicate failure/unavailable data
+        return None
+
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     result = {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
@@ -289,17 +297,34 @@ def get_common_nfdump_data(query_type, range_key):
     
     if query_type == "sources":
         data = parse_csv(run_nfdump(["-s", "srcip/bytes/flows/packets", "-n", "100"], tf), expected_key='sa')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        else:
+            # Preserve error state if parse_csv returned None
+            data = None
+
     elif query_type == "ports":
         data = parse_csv(run_nfdump(["-s", "dstport/bytes/flows", "-n", "100"], tf), expected_key='dp')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        else:
+            data = None
+
     elif query_type == "dests":
         data = parse_csv(run_nfdump(["-s", "dstip/bytes/flows/packets", "-n", "100"], tf), expected_key='da')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        else:
+            data = None
+
     elif query_type == "protos":
         data = parse_csv(run_nfdump(["-s", "proto/bytes/flows/packets", "-n", "20"], tf), expected_key='proto')
+        # data remains None if failed
     
     with _common_data_lock:
+        # Cache whatever we got, even if None (failure), to prevent hammering
+        # Or should we NOT cache failures?
+        # If we cache failure, UI shows error for 1 minute. This is acceptable.
         _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
         if len(_common_data_cache) > COMMON_DATA_CACHE_MAX:
             drop_count = max(1, COMMON_DATA_CACHE_MAX // 5)
@@ -307,6 +332,7 @@ def get_common_nfdump_data(query_type, range_key):
             for k, _ in oldest:
                 _common_data_cache.pop(k, None)
     
+    # Return data as-is (None if failed, List if success)
     return data
 
 
@@ -340,6 +366,10 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         src_rows = parse_csv(future_src.result(), expected_key='sa')
         dst_rows = parse_csv(future_dst.result(), expected_key='da')
     
+    # Handle failure (None) from parse_csv
+    if src_rows is None or dst_rows is None:
+        return None # Return None to signal error
+
     hosts = {}
     
     def parse_time(t_str):
@@ -467,6 +497,11 @@ def get_raw_flows(tf, limit=2000):
         # Request raw flows with specific fields if possible, or standard CSV
         # nfdump -o csv provides fixed columns.
         raw_flows_output = run_nfdump(["-o", "csv", "-n", str(limit)], tf)
+
+        # Handle failure (None)
+        if raw_flows_output is None:
+            return None # Return None to signal error
+
         flow_data = []
 
         if raw_flows_output:
@@ -527,4 +562,4 @@ def get_raw_flows(tf, limit=2000):
         return flow_data
     except Exception as e:
         print(f"Error fetching raw flows: {e}")
-        return []
+        return None

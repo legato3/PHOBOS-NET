@@ -139,9 +139,14 @@ def fetch_threat_feed():
             _threat_ip_to_feed = ip_to_feed
 
         if not all_ips:
-            _threat_status['status'] = 'empty'
+            # Distinguish between "no feeds configured" vs "all feeds failed" vs "feeds empty"
+            if errors:
+                _threat_status['status'] = 'partial_failure'
+                _threat_status['error'] = '; '.join(errors)
+            else:
+                _threat_status['status'] = 'empty'
+                _threat_status['error'] = None
             _threat_status['size'] = 0
-            _threat_status['error'] = '; '.join(errors) if errors else None
             return
         
         tmp_path = THREATLIST_PATH + '.tmp'
@@ -153,8 +158,13 @@ def fetch_threat_feed():
         _threat_status['size'] = len(all_ips)
         _threat_status['feeds_ok'] = sum(1 for f in new_feed_status.values() if f['status'] == 'ok')
         _threat_status['feeds_total'] = len(new_feed_status)
-        _threat_status['status'] = 'ok'
-        _threat_status['error'] = '; '.join(errors) if errors else None
+
+        if errors:
+            _threat_status['status'] = 'partial_warning'
+            _threat_status['error'] = '; '.join(errors)
+        else:
+            _threat_status['status'] = 'ok'
+            _threat_status['error'] = None
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
@@ -298,6 +308,13 @@ def send_security_webhook(threat_data):
 
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
     alerts = []
+
+    # Check for missing data (None) indicating upstream failure
+    if ports_data is None or sources_data is None:
+        # Cannot run detection without data.
+        # Return None to signal failure to caller
+        return None
+
     seen = set()
     threat_set = threat_set - whitelist
     
@@ -397,6 +414,11 @@ def detect_port_scan(flow_data):
     """Detect port scanning - single IP hitting many ports."""
     global _port_scan_tracker
     alerts = []
+
+    # Check for missing data
+    if flow_data is None:
+        return None
+
     current_time = time.time()
     
     # Clean old entries
@@ -436,6 +458,9 @@ def detect_port_scan(flow_data):
 def detect_brute_force(flow_data):
     """Detect brute force attempts - many connections to auth ports."""
     alerts = []
+    if flow_data is None:
+        return None
+
     auth_attempts = defaultdict(lambda: {'count': 0, 'bytes': 0})
     
     for flow in flow_data:
@@ -473,7 +498,9 @@ def detect_brute_force(flow_data):
 def detect_data_exfiltration(sources_data, destinations_data):
     """Detect potential data exfiltration - large outbound from internal hosts."""
     alerts = []
-    
+    if sources_data is None:
+        return None
+
     # Build inbound/outbound map for internal hosts
     internal_traffic = defaultdict(lambda: {'in': 0, 'out': 0})
     
@@ -523,6 +550,9 @@ def detect_data_exfiltration(sources_data, destinations_data):
 def detect_dns_anomaly(flow_data):
     """Detect DNS tunneling indicators - excessive DNS queries."""
     alerts = []
+    if flow_data is None:
+        return None
+
     dns_queries = defaultdict(int)
     
     for flow in flow_data:
@@ -562,6 +592,9 @@ def detect_new_external(sources_data, destinations_data):
     global _seen_external
     alerts = []
     
+    if sources_data is None:
+        return None
+
     # Initialize tracking metadata if not present
     if 'last_cleanup' not in _seen_external:
         _seen_external['last_cleanup'] = time.time()
@@ -626,6 +659,9 @@ def detect_new_external(sources_data, destinations_data):
 def detect_lateral_movement(flow_data):
     """Detect internal-to-internal traffic spikes."""
     alerts = []
+    if flow_data is None:
+        return None
+
     internal_pairs = defaultdict(lambda: {'bytes': 0, 'flows': 0})
     
     for flow in flow_data:
@@ -669,6 +705,8 @@ def detect_protocol_anomaly(protocols_data):
     """Detect unusual protocol usage patterns."""
     global _protocol_baseline
     alerts = []
+    if protocols_data is None:
+        return None
     
     for proto in protocols_data:
         proto_name = proto.get('proto') or proto.get('key')
@@ -704,6 +742,9 @@ def detect_protocol_anomaly(protocols_data):
 def detect_off_hours_activity(sources_data):
     """Detect significant activity during off-hours."""
     alerts = []
+    if sources_data is None:
+        return None
+
     current_hour = datetime.now().hour
     
     # Check if outside business hours
@@ -744,45 +785,64 @@ def run_all_detections(ports_data, sources_data, destinations_data, protocols_da
     
     # Basic flow data (simplified if not provided)
     if flow_data is None:
-        flow_data = sources_data + (destinations_data or [])
+        if sources_data is not None:
+             flow_data = sources_data + (destinations_data or [])
+        else:
+             flow_data = None
     
+    # Check for underlying data failure
+    if flow_data is None or ports_data is None or sources_data is None or protocols_data is None:
+        # One or more data sources unavailable.
+        # Log this state so we know detection was skipped due to missing data.
+        print("Warning: Skipping detection due to missing/unavailable NetFlow data")
+        # Return None to signal failure
+        return None
+
     try:
-        all_alerts.extend(detect_port_scan(flow_data))
+        res = detect_port_scan(flow_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Port scan detection error: {e}")
     
     try:
-        all_alerts.extend(detect_brute_force(flow_data))
+        res = detect_brute_force(flow_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Brute force detection error: {e}")
     
     try:
-        all_alerts.extend(detect_data_exfiltration(sources_data, destinations_data))
+        res = detect_data_exfiltration(sources_data, destinations_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Data exfil detection error: {e}")
     
     try:
-        all_alerts.extend(detect_dns_anomaly(flow_data))
+        res = detect_dns_anomaly(flow_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"DNS anomaly detection error: {e}")
     
     try:
-        all_alerts.extend(detect_new_external(sources_data, destinations_data))
+        res = detect_new_external(sources_data, destinations_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"New external detection error: {e}")
     
     try:
-        all_alerts.extend(detect_lateral_movement(flow_data))
+        res = detect_lateral_movement(flow_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Lateral movement detection error: {e}")
     
     try:
-        all_alerts.extend(detect_protocol_anomaly(protocols_data))
+        res = detect_protocol_anomaly(protocols_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Protocol anomaly detection error: {e}")
     
     try:
-        all_alerts.extend(detect_off_hours_activity(sources_data))
+        res = detect_off_hours_activity(sources_data)
+        if res is not None: all_alerts.extend(res)
     except Exception as e:
         print(f"Off-hours detection error: {e}")
     

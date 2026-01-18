@@ -135,21 +135,41 @@ def api_stats_summary():
     # Note: These totals are derived from top 100 sources (not complete dataset)
     # This provides a representative sample while avoiding expensive full aggregation
     sources = get_common_nfdump_data("sources", range_key)
-    tot_b = sum(i["bytes"] for i in sources)
-    tot_f = sum(i["flows"] for i in sources)
-    tot_p = sum(i["packets"] for i in sources)
-    data = {
-        "totals": {
-            "bytes": tot_b,
-            "flows": tot_f,
-            "packets": tot_p,
-            "bytes_fmt": fmt_bytes(tot_b),
-            "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0,
-            "source": "top_100_sources"  # Clarify data source for transparency
-        },
-        "notify": load_notify_cfg(),
-        "threat_status": threats_module._threat_status
-    }
+
+    # Check for failure (None)
+    if sources is None:
+        data = {
+            "totals": {
+                "bytes": None,
+                "flows": None,
+                "packets": None,
+                "bytes_fmt": "Unavailable",
+                "avg_packet_size": None,
+                "source": "top_100_sources"
+            },
+            "status": "error",
+            "message": "Data unavailable",
+            "notify": load_notify_cfg(),
+            "threat_status": threats_module._threat_status
+        }
+    else:
+        tot_b = sum(i["bytes"] for i in sources)
+        tot_f = sum(i["flows"] for i in sources)
+        tot_p = sum(i["packets"] for i in sources)
+        data = {
+            "totals": {
+                "bytes": tot_b,
+                "flows": tot_f,
+                "packets": tot_p,
+                "bytes_fmt": fmt_bytes(tot_b),
+                "avg_packet_size": int(tot_b/tot_p) if tot_p > 0 else 0,
+                "source": "top_100_sources"  # Clarify data source for transparency
+            },
+            "status": "ok",
+            "notify": load_notify_cfg(),
+            "threat_status": threats_module._threat_status
+        }
+
     with _lock_summary:
         _stats_summary_cache["data"] = data
         _stats_summary_cache["ts"] = now

@@ -97,15 +97,6 @@ def api_stats_sources():
     except:
         limit = 10
 
-    # Cache key must include limit if we cache at this level.
-    # However, the current cache logic inside this function ignores 'limit' in the key check.
-    # To support variable limits correctly without rewriting the whole caching layer for this demo,
-    # we can bypass the function-level cache if limit > 10, or just use the common data cache (which has 100).
-    # Since get_common_nfdump_data returns 100, we can just slice from that.
-
-    # We will skip the function-level cache check if limit > 10 for now to ensure fresh data,
-    # OR we can update the cache key. Let's update the cache key.
-
     cache_key_local = f"{range_key}:{limit}"
     now = time.time()
     win = int(now // 60)
@@ -117,21 +108,26 @@ def api_stats_sources():
     # Use shared data (top 100)
     full_sources = get_common_nfdump_data("sources", range_key)
 
-    # Return top N
-    sources = full_sources[:limit]
+    # Check for failure
+    if full_sources is None:
+        data = {"sources": [], "status": "error", "message": "Data unavailable"}
+    else:
+        # Return top N
+        sources = full_sources[:limit]
 
-    # Enrich
-    for i in sources:
-        i["hostname"] = resolve_ip(i["key"])
-        i["internal"] = is_internal(i["key"])
-        i["bytes_fmt"] = fmt_bytes(i["bytes"])
-        geo = lookup_geo(i["key"])
-        if geo:
-            i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
-        i["region"] = get_region(i["key"], i.get("country_iso"))
-        i["threat"] = False
+        # Enrich
+        for i in sources:
+            i["hostname"] = resolve_ip(i["key"])
+            i["internal"] = is_internal(i["key"])
+            i["bytes_fmt"] = fmt_bytes(i["bytes"])
+            geo = lookup_geo(i["key"])
+            if geo:
+                i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+            i["region"] = get_region(i["key"], i.get("country_iso"))
+            i["threat"] = False
 
-    data = {"sources": sources}
+        data = {"sources": sources, "status": "ok"}
+
     with _lock_sources:
         _stats_sources_cache["data"] = data
         _stats_sources_cache["ts"] = now
@@ -159,19 +155,25 @@ def api_stats_destinations():
 
     # Use shared data (top 100)
     full_dests = get_common_nfdump_data("dests", range_key)
-    dests = full_dests[:limit]
 
-    for i in dests:
-        i["hostname"] = resolve_ip(i["key"])
-        i["internal"] = is_internal(i["key"])
-        i["bytes_fmt"] = fmt_bytes(i["bytes"])
-        geo = lookup_geo(i["key"])
-        if geo:
-            i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
-        i["region"] = get_region(i["key"], i.get("country_iso"))
-        i["threat"] = False
+    # Check for failure
+    if full_dests is None:
+        data = {"destinations": [], "status": "error", "message": "Data unavailable"}
+    else:
+        dests = full_dests[:limit]
 
-    data = {"destinations": dests}
+        for i in dests:
+            i["hostname"] = resolve_ip(i["key"])
+            i["internal"] = is_internal(i["key"])
+            i["bytes_fmt"] = fmt_bytes(i["bytes"])
+            geo = lookup_geo(i["key"])
+            if geo:
+                i.update({"country": geo.get("country"), "country_iso": geo.get("country_iso"), "flag": geo.get("flag"), "city": geo.get("city"), "asn": geo.get("asn"), "asn_org": geo.get("asn_org")})
+            i["region"] = get_region(i["key"], i.get("country_iso"))
+            i["threat"] = False
+
+        data = {"destinations": dests, "status": "ok"}
+
     with _lock_dests:
         _stats_dests_cache["data"] = data
         _stats_dests_cache["ts"] = now
@@ -199,19 +201,24 @@ def api_stats_ports():
 
     # Use shared data (top 100, sorted by bytes)
     full_ports = get_common_nfdump_data("ports", range_key)
-    ports = full_ports[:limit]
 
-    for i in ports:
-        i["bytes_fmt"] = fmt_bytes(i["bytes"])
-        try:
-            port = int(i["key"])
-            i["service"] = PORTS.get(port, "Unknown")
-            i["suspicious"] = port in SUSPICIOUS_PORTS
-        except Exception:
-            i["service"] = "Unknown"
-            i["suspicious"] = False
+    if full_ports is None:
+        data = {"ports": [], "status": "error", "message": "Data unavailable"}
+    else:
+        ports = full_ports[:limit]
 
-    data = {"ports": ports}
+        for i in ports:
+            i["bytes_fmt"] = fmt_bytes(i["bytes"])
+            try:
+                port = int(i["key"])
+                i["service"] = PORTS.get(port, "Unknown")
+                i["suspicious"] = port in SUSPICIOUS_PORTS
+            except Exception:
+                i["service"] = "Unknown"
+                i["suspicious"] = False
+
+        data = {"ports": ports, "status": "ok"}
+
     with _lock_ports:
         _stats_ports_cache["data"] = data
         _stats_ports_cache["ts"] = now
@@ -231,17 +238,22 @@ def api_stats_protocols():
             return jsonify(_stats_protocols_cache["data"])
 
     # Reuse common data cache (fetches 20, we use top 10)
-    protos_raw = get_common_nfdump_data("protos", range_key)[:10]
+    protos_raw = get_common_nfdump_data("protos", range_key)
 
-    for i in protos_raw:
-        i["bytes_fmt"] = fmt_bytes(i["bytes"])
-        try:
-            proto = int(i["key"]) if i["key"].isdigit() else 0
-            i["proto_name"] = PROTOS.get(proto, i["key"])
-        except Exception:
-            i["proto_name"] = i["key"]
+    if protos_raw is None:
+        data = {"protocols": [], "status": "error", "message": "Data unavailable"}
+    else:
+        protos_raw = protos_raw[:10]
+        for i in protos_raw:
+            i["bytes_fmt"] = fmt_bytes(i["bytes"])
+            try:
+                proto = int(i["key"]) if i["key"].isdigit() else 0
+                i["proto_name"] = PROTOS.get(proto, i["key"])
+            except Exception:
+                i["proto_name"] = i["key"]
 
-    data = {"protocols": protos_raw}
+        data = {"protocols": protos_raw, "status": "ok"}
+
     with _lock_protocols:
         _stats_protocols_cache["data"] = data
         _stats_protocols_cache["ts"] = now
@@ -268,10 +280,16 @@ def api_stats_flags():
     # Note: run_nfdump automatically adds -o csv
     output = run_nfdump(["-n", "1000"], tf)
 
+    if output is None:
+        return jsonify({"flags": [], "status": "error", "message": "Data unavailable"})
+
     try:
         rows = []
         lines = output.strip().split("\n")
         # Identify 'flg' column index
+        if not lines:
+            return jsonify({"flags": []})
+
         header = lines[0].split(',')
         try:
             flg_idx = header.index('flg')
@@ -293,7 +311,7 @@ def api_stats_flags():
             clean_counts[clean] += c
 
         top = [{"flag": k, "count": v} for k,v in clean_counts.most_common(5)]
-        data = {"flags": top}
+        data = {"flags": top, "status": "ok"}
         with _lock_flags:
             _stats_flags_cache["data"] = data
             _stats_flags_cache["ts"] = now
@@ -301,7 +319,7 @@ def api_stats_flags():
             _stats_flags_cache["win"] = win
         return jsonify(data)
     except Exception as e:
-        return jsonify({"flags": []})
+        return jsonify({"flags": [], "status": "error", "message": str(e)})
 
 
 @bp.route("/api/stats/asns")
@@ -318,17 +336,21 @@ def api_stats_asns():
     # Reuse common data cache (fetches 100 sources, better than 50 for aggregation)
     sources = get_common_nfdump_data("sources", range_key)
 
-    asn_counts = Counter()
+    if sources is None:
+        data = {"asns": [], "status": "error", "message": "Data unavailable"}
+    else:
+        asn_counts = Counter()
 
-    for i in sources:
-        geo = lookup_geo(i["key"])
-        org = geo.get('asn_org', 'Unknown') if geo else 'Unknown'
-        if org == 'Unknown' and is_internal(i["key"]):
-            org = "Internal Network"
-        asn_counts[org] += i["bytes"]
+        for i in sources:
+            geo = lookup_geo(i["key"])
+            org = geo.get('asn_org', 'Unknown') if geo else 'Unknown'
+            if org == 'Unknown' and is_internal(i["key"]):
+                org = "Internal Network"
+            asn_counts[org] += i["bytes"]
 
-    top = [{"asn": k, "bytes": v, "bytes_fmt": fmt_bytes(v)} for k,v in asn_counts.most_common(10)]
-    data = {"asns": top}
+        top = [{"asn": k, "bytes": v, "bytes_fmt": fmt_bytes(v)} for k,v in asn_counts.most_common(10)]
+        data = {"asns": top, "status": "ok"}
+
     with _lock_asns:
         _stats_asns_cache["data"] = data
         _stats_asns_cache["ts"] = now
@@ -352,9 +374,15 @@ def api_stats_durations():
 
     output = run_nfdump(["-n", "100"], tf) # Get recent flows
 
+    if output is None:
+        return jsonify({"durations": [], "stats": {}, "status": "error", "message": "Data unavailable"})
+
     try:
         rows = []
         lines = output.strip().split("\n")
+        if not lines:
+             return jsonify({"durations": []})
+
         header = lines[0].split(',')
         # Map indices
         try:
@@ -433,7 +461,8 @@ def api_stats_durations():
                 "total_bytes_fmt": fmt_bytes(total_bytes),
                 "max_duration": max_dur,
                 "max_duration_fmt": f"{max_dur:.1f}s" if max_dur < 60 else f"{max_dur/60:.1f}m"
-            }
+            },
+            "status": "ok"
         }
         with _lock_durations:
             _stats_durations_cache["data"] = data
@@ -442,7 +471,7 @@ def api_stats_durations():
             _stats_durations_cache["win"] = win
         return jsonify(data)
     except Exception as e:
-        return jsonify({"durations": []})
+        return jsonify({"durations": [], "status": "error", "message": str(e)})
 
 
 @bp.route("/api/stats/packet_sizes")
@@ -458,6 +487,9 @@ def api_stats_packet_sizes():
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"labels":[], "data":[], "status": "error", "message": "Data unavailable"})
 
     # Buckets
     dist = {
@@ -487,7 +519,7 @@ def api_stats_packet_sizes():
              start_idx = 0
 
         for line in lines[start_idx:]:
-            if not line or line.startswith('ts,'): continue
+            if not line or line.startswith('ts,') or line.startswith('Date,'): continue
             parts = line.split(',')
             if len(parts) > max(ibyt_idx, ipkt_idx):
                 try:
@@ -505,7 +537,8 @@ def api_stats_packet_sizes():
 
         data = {
             "labels": list(dist.keys()),
-            "data": list(dist.values())
+            "data": list(dist.values()),
+            "status": "ok"
         }
         with _cache_lock:
             _stats_pkts_cache["data"] = data
@@ -529,52 +562,66 @@ def api_stats_countries():
             return jsonify(_stats_countries_cache["data"])
 
     # Reuse shared data to avoid extra nfdump
-    sources = get_common_nfdump_data("sources", range_key)[:100]
-    dests = get_common_nfdump_data("dests", range_key)[:100]
+    sources = get_common_nfdump_data("sources", range_key)
+    dests = get_common_nfdump_data("dests", range_key)
 
-    country_bytes = {}
-    for item in sources + dests:
-        ip = item.get("key")
-        b = item.get("bytes", 0)
-        geo = lookup_geo(ip) or {}
-        iso = geo.get('country_iso') or '??'
-        name = geo.get('country') or 'Unknown'
-        if iso not in country_bytes:
-            country_bytes[iso] = {"name": name, "iso": iso, "bytes": 0, "flows": 0}
-        country_bytes[iso]["bytes"] += b
-        country_bytes[iso]["flows"] += 1
+    if sources is None or dests is None:
+        data = {
+            "labels": [], "bytes": [], "bytes_fmt": [], "map_data": [],
+            "total_bytes": 0, "total_bytes_fmt": "Unavailable",
+            "country_count": 0,
+            "status": "error", "message": "Data unavailable"
+        }
+    else:
+        # Slice after check
+        sources = sources[:100]
+        dests = dests[:100]
 
-    # Sort by bytes and get top entries
-    sorted_countries = sorted(country_bytes.values(), key=lambda x: x["bytes"], reverse=True)
-    top = sorted_countries[:15]
+        country_bytes = {}
+        for item in sources + dests:
+            ip = item.get("key")
+            b = item.get("bytes", 0)
+            geo = lookup_geo(ip) or {}
+            iso = geo.get('country_iso') or '??'
+            name = geo.get('country') or 'Unknown'
+            if iso not in country_bytes:
+                country_bytes[iso] = {"name": name, "iso": iso, "bytes": 0, "flows": 0}
+            country_bytes[iso]["bytes"] += b
+            country_bytes[iso]["flows"] += 1
 
-    # Format for chart (backwards compatible)
-    labels = [f"{c['name']} ({c['iso']})" if c['iso'] != '??' else 'Unknown' for c in top]
-    bytes_vals = [c['bytes'] for c in top]
+        # Sort by bytes and get top entries
+        sorted_countries = sorted(country_bytes.values(), key=lambda x: x["bytes"], reverse=True)
+        top = sorted_countries[:15]
 
-    # Enhanced data for world map
-    map_data = []
-    total_bytes = sum(c['bytes'] for c in sorted_countries)
-    for c in sorted_countries:
-        if c['iso'] != '??':
-            map_data.append({
-                "iso": c['iso'],
-                "name": c['name'],
-                "bytes": c['bytes'],
-                "bytes_fmt": fmt_bytes(c['bytes']),
-                "flows": c['flows'],
-                "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
-            })
+        # Format for chart (backwards compatible)
+        labels = [f"{c['name']} ({c['iso']})" if c['iso'] != '??' else 'Unknown' for c in top]
+        bytes_vals = [c['bytes'] for c in top]
 
-    data = {
-        "labels": labels,
-        "bytes": bytes_vals,
-        "bytes_fmt": [fmt_bytes(v) for v in bytes_vals],
-        "map_data": map_data,
-        "total_bytes": total_bytes,
-        "total_bytes_fmt": fmt_bytes(total_bytes),
-        "country_count": len([c for c in sorted_countries if c['iso'] != '??'])
-    }
+        # Enhanced data for world map
+        map_data = []
+        total_bytes = sum(c['bytes'] for c in sorted_countries)
+        for c in sorted_countries:
+            if c['iso'] != '??':
+                map_data.append({
+                    "iso": c['iso'],
+                    "name": c['name'],
+                    "bytes": c['bytes'],
+                    "bytes_fmt": fmt_bytes(c['bytes']),
+                    "flows": c['flows'],
+                    "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
+                })
+
+        data = {
+            "labels": labels,
+            "bytes": bytes_vals,
+            "bytes_fmt": [fmt_bytes(v) for v in bytes_vals],
+            "map_data": map_data,
+            "total_bytes": total_bytes,
+            "total_bytes_fmt": fmt_bytes(total_bytes),
+            "country_count": len([c for c in sorted_countries if c['iso'] != '??']),
+            "status": "ok"
+        }
+
     with _lock_countries:
         _stats_countries_cache["data"] = data
         _stats_countries_cache["ts"] = now
@@ -590,8 +637,18 @@ def api_stats_worldmap():
     range_key = request.args.get('range', '1h')
 
     # Get source and destination data
-    sources_raw = get_common_nfdump_data("sources", range_key)[:100]
-    dests_raw = get_common_nfdump_data("dests", range_key)[:100]
+    sources_raw = get_common_nfdump_data("sources", range_key)
+    dests_raw = get_common_nfdump_data("dests", range_key)
+
+    if sources_raw is None or dests_raw is None:
+        return jsonify({
+            "sources": [], "destinations": [], "threats": [], "blocked": [],
+            "source_countries": [], "dest_countries": [], "threat_countries": [], "blocked_countries": [],
+            "summary": {}, "status": "error", "message": "Data unavailable"
+        })
+
+    sources_raw = sources_raw[:100]
+    dests_raw = dests_raw[:100]
 
     # Build sources with geo data
     sources = []
@@ -745,7 +802,8 @@ def api_stats_worldmap():
             "total_blocked": len(blocked),
             "source_country_count": len(source_countries),
             "dest_country_count": len(dest_countries)
-        }
+        },
+        "status": "ok"
     })
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
@@ -762,6 +820,9 @@ def api_stats_talkers():
     # Sort by bytes (already sorted by nfdump, but we limit)
     # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
     output = run_nfdump(["-O", "bytes", "-n", "50"], tf)
+
+    if output is None:
+        return jsonify({"flows": [], "status": "error", "message": "Data unavailable"})
 
     flows = []
     # NFDump CSV indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
@@ -790,7 +851,7 @@ def api_stats_talkers():
                     pass
 
         for line in lines[start_idx:]:
-            if not line or line.startswith('ts,') or line.startswith('firstSeen,'): continue
+            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
             parts = line.split(',')
             if len(parts) > 8:
                 try:
@@ -852,11 +913,11 @@ def api_stats_talkers():
         pass
 
     with _cache_lock:
-        _stats_talkers_cache["data"] = {"flows": flows}
+        _stats_talkers_cache["data"] = {"flows": flows, "status": "ok"}
         _stats_talkers_cache["ts"] = now
         _stats_talkers_cache["key"] = range_key
         _stats_talkers_cache["win"] = win
-    return jsonify({"flows": flows})
+    return jsonify({"flows": flows, "status": "ok"})
 
 
 
@@ -876,6 +937,9 @@ def api_stats_protocol_hierarchy():
     # Aggregation: proto, dstport.
     # Use -A proto,dstport -O bytes
     output = run_nfdump(["-A", "proto,dstport", "-O", "bytes", "-n", "100"], tf)
+
+    if output is None:
+        return jsonify({"name": "Root", "children": [], "status": "error", "message": "Data unavailable"})
 
     hierarchy = {"name": "Root", "children": []}
 
@@ -984,6 +1048,9 @@ def api_noise_metrics():
     # We use a large limit to get a statistical sample for ratios
     output = run_nfdump(["-n", "2000"], tf)
 
+    if output is None:
+        return jsonify({"score": 0, "level": "Unknown", "status": "error", "message": "Data unavailable"})
+
     total_flows = 0
     syn_only = 0
     small_flows = 0
@@ -1072,7 +1139,8 @@ def api_noise_metrics():
             "scans": syn_only,
             "blocked": blocked_count,
             "tiny": small_flows
-        }
+        },
+        "status": "ok"
     }
 
     with _lock_noise:
@@ -1098,33 +1166,37 @@ def api_stats_services():
     # Reuse ports data
     ports_data = get_common_nfdump_data("ports", range_key)
 
-    # Aggregate by service name
-    service_bytes = Counter()
-    service_flows = Counter()
-    for item in ports_data:
-        port_str = item.get("key", "")
-        try:
-            port = int(port_str)
-            service = PORTS.get(port, f"Port {port}")
-        except:
-            service = port_str
-        service_bytes[service] += item.get("bytes", 0)
-        service_flows[service] += item.get("flows", 0)
+    if ports_data is None:
+        data = {"services": [], "maxBytes": 0, "status": "error", "message": "Data unavailable"}
+    else:
+        # Aggregate by service name
+        service_bytes = Counter()
+        service_flows = Counter()
+        for item in ports_data:
+            port_str = item.get("key", "")
+            try:
+                port = int(port_str)
+                service = PORTS.get(port, f"Port {port}")
+            except:
+                service = port_str
+            service_bytes[service] += item.get("bytes", 0)
+            service_flows[service] += item.get("flows", 0)
 
-    # Get top 10 by bytes
-    top = service_bytes.most_common(10)
-    services = []
-    max_bytes = top[0][1] if top else 1
-    for svc, b in top:
-        services.append({
-            "service": svc,
-            "bytes": b,
-            "bytes_fmt": fmt_bytes(b),
-            "flows": service_flows.get(svc, 0),
-            "pct": round(b / max_bytes * 100, 1)
-        })
+        # Get top 10 by bytes
+        top = service_bytes.most_common(10)
+        services = []
+        max_bytes = top[0][1] if top else 1
+        for svc, b in top:
+            services.append({
+                "service": svc,
+                "bytes": b,
+                "bytes_fmt": fmt_bytes(b),
+                "flows": service_flows.get(svc, 0),
+                "pct": round(b / max_bytes * 100, 1)
+            })
 
-    data = {"services": services, "maxBytes": max_bytes}
+        data = {"services": services, "maxBytes": max_bytes, "status": "ok"}
+
     with _cache_lock:
         _stats_services_cache["data"] = data
         _stats_services_cache["ts"] = now
@@ -1147,6 +1219,9 @@ def api_stats_hourly():
     # Always use 24h range for hourly stats
     tf = get_time_range("24h")
     output = run_nfdump(["-n", "5000"], tf)
+
+    if output is None:
+        return jsonify({"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "status": "error", "message": "Data unavailable"})
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -1208,10 +1283,11 @@ def api_stats_hourly():
             "peak_bytes_fmt": fmt_bytes(peak_bytes),
             "total_bytes": sum(bytes_data),
             "total_bytes_fmt": fmt_bytes(sum(bytes_data)),
-            "timezone": "local"  # Clarify that hours are in server local time
+            "timezone": "local",  # Clarify that hours are in server local time
+            "status": "ok"
         }
     except:
-        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B"}
+        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "Unavailable", "total_bytes": 0, "total_bytes_fmt": "Unavailable"}
 
     with _cache_lock:
         _stats_hourly_cache["data"] = data
@@ -1234,6 +1310,9 @@ def api_stats_flow_stats():
 
     tf = get_time_range(range_key)
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"total_flows": 0, "status": "error", "message": "Data unavailable"})
 
     try:
         durations = []
@@ -1303,10 +1382,11 @@ def api_stats_flow_stats():
                 "medium": medium_flows,
                 "long": long_flows
             },
-            "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
+            "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0,
+            "status": "ok"
         }
     except:
-        data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
+        data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "Unavailable", "avg_duration": 0, "avg_duration_fmt": "—"}
 
     with _cache_lock:
         _stats_flow_stats_cache["data"] = data
@@ -1342,7 +1422,8 @@ def api_stats_proto_mix():
                 "percentages": [],
                 "colors": [],
                 "total_bytes": 0,
-                "total_bytes_fmt": "0 B"
+                "total_bytes_fmt": "0 B",
+                "status": "error" if protos_data is None else "ok"
             })
 
         labels = []
@@ -1376,7 +1457,8 @@ def api_stats_proto_mix():
             "percentages": percentages,
             "colors": colors[:len(labels)],
             "total_bytes": total_bytes,
-            "total_bytes_fmt": fmt_bytes(total_bytes)
+            "total_bytes_fmt": fmt_bytes(total_bytes),
+            "status": "ok"
         }
 
         with _cache_lock:
@@ -1399,7 +1481,8 @@ def api_stats_proto_mix():
             "percentages": [],
             "colors": [],
             "total_bytes": 0,
-            "total_bytes_fmt": "0 B"
+            "total_bytes_fmt": "Unavailable",
+            "status": "error"
         })
 
 
@@ -1741,16 +1824,18 @@ def api_network_stats_overview():
     whitelist = load_list(THREAT_WHITELIST)
     threat_set = threat_set - whitelist
     
+    # Initialize values to None to indicate "Unavailable" if fetching fails
+    active_flows_count = None
+    external_connections_count = None
+
     # Get total flow count without limit - use -q (quiet) mode and count all flows
     # This gives us the true count independent of display limits
-    active_flows_count = 0
-    external_connections_count = 0
-    
-    # Get total count by running without -n limit, using -q for quiet output
-    # Count all flow lines (excluding header)
     try:
         full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
-        if full_output:
+
+        # Check for failure (None)
+        if full_output is not None:
+            active_flows_count = 0  # Initialize to 0 only if we have successful output
             lines = full_output.strip().split("\n")
             # Count non-header lines (actual flow records)
             for line in lines:
@@ -1761,152 +1846,160 @@ def api_network_stats_overview():
                         active_flows_count += 1
     except Exception as e:
         # Log error in production, but don't fail the endpoint
-        active_flows_count = 0
+        active_flows_count = None
     
     # Now get external connections count using a sample
     # We use a sample (500 flows) to determine the ratio of external connections
     # This is more efficient than processing all flows
-    if active_flows_count > 0:
+    if active_flows_count is not None and active_flows_count > 0:
         sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_1h)
-        sample_count = 0
-        sample_external = 0
         
+        if sample_output is not None:
+            sample_count = 0
+            sample_external = 0
+
+            try:
+                lines = sample_output.strip().split("\n")
+                start_idx = 0
+                sa_idx = 0
+                da_idx = 0
+
+                if lines:
+                    line0 = lines[0]
+                    if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
+                        header = line0.split(',')
+                        try:
+                            sa_key = 'sa' if 'sa' in header else 'srcAddr'
+                            if 'srcaddr' in header: sa_key = 'srcaddr'
+                            da_key = 'da' if 'da' in header else 'dstAddr'
+                            if 'dstaddr' in header: da_key = 'dstaddr'
+                            if sa_key in header: sa_idx = header.index(sa_key)
+                            if da_key in header: da_idx = header.index(da_key)
+                            start_idx = 1
+                        except:
+                            pass
+
+                for line in lines[start_idx:]:
+                    if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
+                    parts = line.split(',')
+                    if len(parts) > 7:
+                        try:
+                            # Safe access with bounds checking
+                            src = parts[sa_idx] if len(parts) > sa_idx and sa_idx < len(parts) else ""
+                            dst = parts[da_idx] if len(parts) > da_idx and da_idx < len(parts) else ""
+
+                            if src and dst:
+                                sample_count += 1
+
+                                # Check if external connection (not internal-to-internal)
+                                src_internal = is_internal(src)
+                                dst_internal = is_internal(dst)
+
+                                if not (src_internal and dst_internal):
+                                    sample_external += 1
+                        except:
+                            pass
+
+                # Estimate external connections based on sample ratio
+                if sample_count > 0:
+                    external_ratio = sample_external / sample_count
+                    external_connections_count = int(active_flows_count * external_ratio)
+                else:
+                    external_connections_count = 0
+            except:
+                external_connections_count = None
+    elif active_flows_count == 0:
+        external_connections_count = 0
+    else:
+        # active_flows_count is None
+        external_connections_count = None
+
+    # Count anomalies (detections) over 24h
+    # Fetch flows with detection criteria over 24h range
+    output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
+
+    anomalies_24h = 0
+    anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
+
+    if output_24h is not None:
         try:
-            lines = sample_output.strip().split("\n")
-            start_idx = 0
-            sa_idx = 0
-            da_idx = 0
+            lines_24h = output_24h.strip().split("\n")
+            start_idx_24h = 0
+            # Initialize index variables with safe defaults
+            sa_idx_24h = 0
+            da_idx_24h = 0
+            ibyt_idx_24h = 0
+            td_idx_24h = 0
             
-            if lines:
-                line0 = lines[0]
-                if 'ts' in line0 or 'Date' in line0 or 'ibyt' in line0 or 'firstSeen' in line0 or 'firstseen' in line0:
-                    header = line0.split(',')
+            if lines_24h:
+                line0_24h = lines_24h[0]
+                if 'ts' in line0_24h or 'Date' in line0_24h or 'ibyt' in line0_24h or 'firstSeen' in line0_24h or 'firstseen' in line0_24h:
+                    header_24h = line0_24h.split(',')
                     try:
-                        sa_key = 'sa' if 'sa' in header else 'srcAddr'
-                        if 'srcaddr' in header: sa_key = 'srcaddr'
-                        da_key = 'da' if 'da' in header else 'dstAddr'
-                        if 'dstaddr' in header: da_key = 'dstaddr'
-                        if sa_key in header: sa_idx = header.index(sa_key)
-                        if da_key in header: da_idx = header.index(da_key)
-                        start_idx = 1
+                        sa_key_24h = 'sa' if 'sa' in header_24h else 'srcAddr'
+                        if 'srcaddr' in header_24h: sa_key_24h = 'srcaddr'
+                        da_key_24h = 'da' if 'da' in header_24h else 'dstAddr'
+                        if 'dstaddr' in header_24h: da_key_24h = 'dstaddr'
+                        ibyt_key_24h = 'ibyt' if 'ibyt' in header_24h else 'bytes'
+                        if sa_key_24h in header_24h: sa_idx_24h = header_24h.index(sa_key_24h)
+                        if da_key_24h in header_24h: da_idx_24h = header_24h.index(da_key_24h)
+                        if ibyt_key_24h in header_24h: ibyt_idx_24h = header_24h.index(ibyt_key_24h)
+                        if 'td' in header_24h: td_idx_24h = header_24h.index('td')
+                        elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
+                        start_idx_24h = 1
                     except:
                         pass
             
-            for line in lines[start_idx:]:
+            for line in lines_24h[start_idx_24h:]:
                 if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
                 parts = line.split(',')
                 if len(parts) > 7:
                     try:
                         # Safe access with bounds checking
-                        src = parts[sa_idx] if len(parts) > sa_idx and sa_idx < len(parts) else ""
-                        dst = parts[da_idx] if len(parts) > da_idx and da_idx < len(parts) else ""
+                        duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h and td_idx_24h < len(parts) else 0.0
+                        src = parts[sa_idx_24h] if len(parts) > sa_idx_24h and sa_idx_24h < len(parts) else ""
+                        dst = parts[da_idx_24h] if len(parts) > da_idx_24h and da_idx_24h < len(parts) else ""
+                        b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h and ibyt_idx_24h < len(parts) else 0
                         
                         if src and dst:
-                            sample_count += 1
-                            
-                            # Check if external connection (not internal-to-internal)
+                            # Check if this flow matches detection criteria: long-lived, low-volume, external
                             src_internal = is_internal(src)
                             dst_internal = is_internal(dst)
+                            is_external = not (src_internal and dst_internal)
                             
-                            if not (src_internal and dst_internal):
-                                sample_external += 1
+                            if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
+                                anomalies_24h += 1
+                                # Create alert for this anomaly (only once per hour per src-dst pair to avoid flooding)
+                                anomaly_key = f"traffic_anomaly_{src}_{dst}"
+                                if anomaly_key not in anomaly_alerts_sent:
+                                    anomaly_alerts_sent.add(anomaly_key)
+                                    add_health_alert_to_history(
+                                        "traffic_anomaly",
+                                        f"⚠️ Traffic Anomaly: Long-lived low-volume flow {src} → {dst} ({fmt_bytes(b)}, {duration:.1f}s)",
+                                        severity="medium",
+                                        ip=src,
+                                        source=src,
+                                        destination=dst
+                                    )
                     except:
                         pass
-            
-            # Estimate external connections based on sample ratio
-            if sample_count > 0:
-                external_ratio = sample_external / sample_count
-                external_connections_count = int(active_flows_count * external_ratio)
-            else:
-                external_connections_count = 0
         except:
-            external_connections_count = 0
-    else:
-        external_connections_count = 0
-    
-    # Count anomalies (detections) over 24h
-    # Fetch flows with detection criteria over 24h range
-    output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
-    
-    anomalies_24h = 0
-    anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
-    
-    try:
-        lines_24h = output_24h.strip().split("\n")
-        start_idx_24h = 0
-        # Initialize index variables with safe defaults
-        sa_idx_24h = 0
-        da_idx_24h = 0
-        ibyt_idx_24h = 0
-        td_idx_24h = 0
-        
-        if lines_24h:
-            line0_24h = lines_24h[0]
-            if 'ts' in line0_24h or 'Date' in line0_24h or 'ibyt' in line0_24h or 'firstSeen' in line0_24h or 'firstseen' in line0_24h:
-                header_24h = line0_24h.split(',')
-                try:
-                    sa_key_24h = 'sa' if 'sa' in header_24h else 'srcAddr'
-                    if 'srcaddr' in header_24h: sa_key_24h = 'srcaddr'
-                    da_key_24h = 'da' if 'da' in header_24h else 'dstAddr'
-                    if 'dstaddr' in header_24h: da_key_24h = 'dstaddr'
-                    ibyt_key_24h = 'ibyt' if 'ibyt' in header_24h else 'bytes'
-                    if sa_key_24h in header_24h: sa_idx_24h = header_24h.index(sa_key_24h)
-                    if da_key_24h in header_24h: da_idx_24h = header_24h.index(da_key_24h)
-                    if ibyt_key_24h in header_24h: ibyt_idx_24h = header_24h.index(ibyt_key_24h)
-                    if 'td' in header_24h: td_idx_24h = header_24h.index('td')
-                    elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
-                    start_idx_24h = 1
-                except:
-                    pass
-        
-        for line in lines_24h[start_idx_24h:]:
-            if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
-            parts = line.split(',')
-            if len(parts) > 7:
-                try:
-                    # Safe access with bounds checking
-                    duration = float(parts[td_idx_24h]) if len(parts) > td_idx_24h and td_idx_24h < len(parts) else 0.0
-                    src = parts[sa_idx_24h] if len(parts) > sa_idx_24h and sa_idx_24h < len(parts) else ""
-                    dst = parts[da_idx_24h] if len(parts) > da_idx_24h and da_idx_24h < len(parts) else ""
-                    b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h and ibyt_idx_24h < len(parts) else 0
-                    
-                    if src and dst:
-                        # Check if this flow matches detection criteria: long-lived, low-volume, external
-                        src_internal = is_internal(src)
-                        dst_internal = is_internal(dst)
-                        is_external = not (src_internal and dst_internal)
-                        
-                        if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
-                            anomalies_24h += 1
-                            # Create alert for this anomaly (only once per hour per src-dst pair to avoid flooding)
-                            anomaly_key = f"traffic_anomaly_{src}_{dst}"
-                            if anomaly_key not in anomaly_alerts_sent:
-                                anomaly_alerts_sent.add(anomaly_key)
-                                add_health_alert_to_history(
-                                    "traffic_anomaly",
-                                    f"⚠️ Traffic Anomaly: Long-lived low-volume flow {src} → {dst} ({fmt_bytes(b)}, {duration:.1f}s)",
-                                    severity="medium",
-                                    ip=src,
-                                    source=src,
-                                    destination=dst
-                                )
-                except:
-                    pass
-    except:
-        pass
+            pass
     
     # Update baselines (incremental, respects update interval)
     from app.services.shared.baselines import update_baseline, calculate_trend
-    update_baseline('active_flows', active_flows_count)
-    update_baseline('external_connections', external_connections_count)
+    if active_flows_count is not None:
+        update_baseline('active_flows', active_flows_count)
+    if external_connections_count is not None:
+        update_baseline('external_connections', external_connections_count)
     
     # Calculate anomalies rate (anomalies per hour) and update baseline
     anomalies_rate = anomalies_24h / 24.0 if anomalies_24h > 0 else 0.0
     update_baseline('anomalies_rate', anomalies_rate)
     
     # Calculate trends (since last hour)
-    active_flows_trend = calculate_trend('active_flows', active_flows_count)
-    external_connections_trend = calculate_trend('external_connections', external_connections_count)
+    active_flows_trend = calculate_trend('active_flows', active_flows_count) if active_flows_count is not None else 0
+    external_connections_trend = calculate_trend('external_connections', external_connections_count) if external_connections_count is not None else 0
     anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
     
     return jsonify({
@@ -1960,6 +2053,9 @@ def api_flows():
     fetch_limit = str(max(100, limit))
     # Aggregate by 5-tuple to merge duplicate/fragmented flows
     output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", fetch_limit], tf)
+
+    if output is None:
+        return jsonify({"flows": [], "status": "error", "message": "Data unavailable"})
 
     convs = []
     # NFDump CSV indices defaults
@@ -2198,7 +2294,7 @@ def api_flows():
 
     except:
         pass  # Parsing error
-    data = {"flows":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
+    data = {"flows":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z"), "status": "ok"}
     with _lock_flows:
         _flows_cache["data"] = data
         _flows_cache["ts"] = now
@@ -2219,40 +2315,52 @@ def api_trends_source(ip):
     start_ts = int(start_dt.timestamp())
     end_ts = int(end_dt.timestamp())
 
-    with _trends_db_lock:
-        conn = _trends_db_connect()
-        try:
-            cur = conn.execute(
-                "SELECT bucket_end, bytes, flows FROM top_sources WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                (ip, start_ts, end_ts)
-            )
-            rows = cur.fetchall()
-
-            # Historical comparison: get same duration from previous period
-            comparison = None
-            if compare and rows:
-                prev_end_dt = start_dt
-                prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
-                prev_start_ts = int(prev_start_dt.timestamp())
-                prev_end_ts = int(prev_end_dt.timestamp())
-
-                prev_cur = conn.execute(
+    try:
+        with _trends_db_lock:
+            conn = _trends_db_connect()
+            try:
+                cur = conn.execute(
                     "SELECT bucket_end, bytes, flows FROM top_sources WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                    (ip, prev_start_ts, prev_end_ts)
+                    (ip, start_ts, end_ts)
                 )
-                prev_rows = prev_cur.fetchall()
-                if prev_rows:
-                    comparison = {
-                        "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
-                        "bytes": [r[1] for r in prev_rows],
-                        "flows": [r[2] for r in prev_rows]
-                    }
-        finally:
-            conn.close()
-    labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
-    bytes_arr = [r[1] for r in rows]
-    flows_arr = [r[2] for r in rows]
-    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr}
+                rows = cur.fetchall()
+
+                # Historical comparison: get same duration from previous period
+                comparison = None
+                if compare and rows:
+                    prev_end_dt = start_dt
+                    prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
+                    prev_start_ts = int(prev_start_dt.timestamp())
+                    prev_end_ts = int(prev_end_dt.timestamp())
+
+                    prev_cur = conn.execute(
+                        "SELECT bucket_end, bytes, flows FROM top_sources WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                        (ip, prev_start_ts, prev_end_ts)
+                    )
+                    prev_rows = prev_cur.fetchall()
+                    if prev_rows:
+                        comparison = {
+                            "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
+                            "bytes": [r[1] for r in prev_rows],
+                            "flows": [r[2] for r in prev_rows]
+                        }
+            finally:
+                conn.close()
+    except Exception as e:
+        print(f"Error in api_trends_source: {e}")
+        rows = []
+        comparison = None
+
+    if rows:
+        labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
+        bytes_arr = [r[1] for r in rows]
+        flows_arr = [r[2] for r in rows]
+    else:
+        labels = []
+        bytes_arr = []
+        flows_arr = []
+
+    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr, "status": "ok"}
     if comparison:
         result["comparison"] = comparison
     return jsonify(result)
@@ -2271,707 +2379,121 @@ def api_trends_dest(ip):
     start_ts = int(start_dt.timestamp())
     end_ts = int(end_dt.timestamp())
 
-    with _trends_db_lock:
-        conn = _trends_db_connect()
-        try:
-            cur = conn.execute(
-                "SELECT bucket_end, bytes, flows FROM top_dests WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                (ip, start_ts, end_ts)
-            )
-            rows = cur.fetchall()
-
-            # Historical comparison: get same duration from previous period
-            comparison = None
-            if compare and rows:
-                prev_end_dt = start_dt
-                prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
-                prev_start_ts = int(prev_start_dt.timestamp())
-                prev_end_ts = int(prev_end_dt.timestamp())
-
-                prev_cur = conn.execute(
+    try:
+        with _trends_db_lock:
+            conn = _trends_db_connect()
+            try:
+                cur = conn.execute(
                     "SELECT bucket_end, bytes, flows FROM top_dests WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                    (ip, prev_start_ts, prev_end_ts)
+                    (ip, start_ts, end_ts)
                 )
-                prev_rows = prev_cur.fetchall()
-                if prev_rows:
-                    comparison = {
-                        "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
-                        "bytes": [r[1] for r in prev_rows],
-                        "flows": [r[2] for r in prev_rows]
-                    }
-        finally:
-            conn.close()
-    labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
-    bytes_arr = [r[1] for r in rows]
-    flows_arr = [r[2] for r in rows]
-    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr}
+                rows = cur.fetchall()
+
+                # Historical comparison: get same duration from previous period
+                comparison = None
+                if compare and rows:
+                    prev_end_dt = start_dt
+                    prev_start_dt = prev_end_dt - timedelta(minutes=minutes)
+                    prev_start_ts = int(prev_start_dt.timestamp())
+                    prev_end_ts = int(prev_end_dt.timestamp())
+
+                    prev_cur = conn.execute(
+                        "SELECT bucket_end, bytes, flows FROM top_dests WHERE ip=? AND bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                        (ip, prev_start_ts, prev_end_ts)
+                    )
+                    prev_rows = prev_cur.fetchall()
+                    if prev_rows:
+                        comparison = {
+                            "labels": [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in prev_rows],
+                            "bytes": [r[1] for r in prev_rows],
+                            "flows": [r[2] for r in prev_rows]
+                        }
+            finally:
+                conn.close()
+    except Exception as e:
+        print(f"Error in api_trends_dest: {e}")
+        rows = []
+        comparison = None
+
+    if rows:
+        labels = [datetime.fromtimestamp(r[0]).strftime('%H:%M') for r in rows]
+        bytes_arr = [r[1] for r in rows]
+        flows_arr = [r[2] for r in rows]
+    else:
+        labels = []
+        bytes_arr = []
+        flows_arr = []
+
+    result = {"labels": labels, "bytes": bytes_arr, "flows": flows_arr, "status": "ok"}
     if comparison:
         result["comparison"] = comparison
     return jsonify(result)
 
 
-@bp.route("/api/export")
-def export_csv():
-    # Use Summary logic but return raw text
-    range_key = request.args.get('range', '1h')
-    tf = get_time_range(range_key)
-    sources = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","20"], tf), expected_key='sa')
-    csv = "IP,Bytes,Flows\n" + "\n".join([f"{s['key']},{s['bytes']},{s['flows']}" for s in sources])
-    return csv, 200, {'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=netflow_export.csv'}
-
-
-@bp.route("/api/export_json")
-def export_json():
-    return api_stats_summary()
-
-
 @bp.route('/api/firewall/snmp-status')
 @throttle(5, 10)
 def api_firewall_snmp_status():
-    """Get firewall SNMP operational health data."""
-    from app.services.shared.snmp import get_snmp_data, discover_interfaces
-    import time
-    import subprocess
-    from app.config import SNMP_HOST, SNMP_COMMUNITY
+    """Get current firewall SNMP status."""
+    from app.services.shared.snmp import get_snmp_data
     
-    snmp_data = get_snmp_data()
+    # Get SNMP data directly without any saturation/correlation logic
+    data = get_snmp_data()
     
-    # Store cache timestamp for staleness checks
-    import app.core.app_state as state
-    with state._snmp_cache_lock:
-        cache_ts = state._snmp_cache.get("ts", time.time())
-    snmp_data["_cache_ts"] = cache_ts
-    
-    # Check for errors FIRST - don't proceed if SNMP is unavailable
-    if "error" in snmp_data:
-        return jsonify({
-            "error": snmp_data.get("error", "SNMP unavailable"),
-            "backoff": snmp_data.get("backoff", False),
-            "data": None
-        }), 503 if snmp_data.get("backoff") else 200
-    
-    # Discover VPN interfaces (WireGuard and TailScale) - only if SNMP is working
-    vpn_interfaces = {}
-    try:
-        interface_mapping = discover_interfaces()
-        if interface_mapping:
-            if "wireguard" in interface_mapping:
-                vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
-            if "tailscale" in interface_mapping:
-                vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-    except Exception:
-        # Discovery failed - continue without VPN interfaces
-        pass
-    
-    # Extract interface data with proper status logic
-    interfaces = []
-    
-    # Helper function to determine interface status
-    def determine_interface_status(oper_status, admin_status, has_traffic, has_sessions, data_age_seconds):
-        """Determine interface status with proper logic to avoid false DOWN states."""
-        # If SNMP data is stale (>60s), mark as STALE
-        if data_age_seconds > 60:
-            return "stale"
-        
-        # Check admin status first - if admin down, show as ADMIN DOWN
-        if admin_status is not None and admin_status == 2:
-            return "admin_down"
-        
-        # If operStatus is explicitly available, use it
-        if oper_status is not None:
-            if oper_status == 1:
-                return "up"
-            elif oper_status == 2:
-                # Only show DOWN if there's no traffic AND no sessions
-                # If traffic exists, it's likely a false negative
-                if not has_traffic and not has_sessions:
-                    return "down"
-                else:
-                    return "unknown"  # Status says down but traffic exists - uncertain
-            else:
-                return "unknown"
-        
-        # If operStatus unknown, infer from traffic/sessions
-        if has_traffic or has_sessions:
-            return "up"  # Traffic/sessions indicate interface is up
-        else:
-            return "unknown"  # Can't determine without operStatus
-    
-    # Get data age for staleness check
-    data_age = time.time() - snmp_data.get("_cache_ts", time.time())
-    
-    # Check if we have active sessions (indicates firewall is operational)
-    has_sessions = snmp_data.get("tcp_conns", 0) > 0
-    
-    # WAN interface
-    wan_status_raw = snmp_data.get("if_wan_status")
-    wan_admin_status = snmp_data.get("if_wan_admin")
-    # Check for traffic: use rates if available, otherwise check raw counters
-    wan_has_traffic = False
-    if snmp_data.get("wan_rx_mbps") is not None and snmp_data.get("wan_rx_mbps", 0) > 0:
-        wan_has_traffic = True
-    elif snmp_data.get("wan_tx_mbps") is not None and snmp_data.get("wan_tx_mbps", 0) > 0:
-        wan_has_traffic = True
-    elif snmp_data.get("wan_in", 0) > 0 or snmp_data.get("wan_out", 0) > 0:
-        wan_has_traffic = True
-    wan_status = determine_interface_status(wan_status_raw, wan_admin_status, wan_has_traffic, has_sessions, data_age)
-    
-    interfaces.append({
-        "name": "WAN",
-        "status": wan_status,
-        "rx_mbps": snmp_data.get("wan_rx_mbps") if snmp_data.get("wan_rx_mbps") is not None else None,
-        "tx_mbps": snmp_data.get("wan_tx_mbps") if snmp_data.get("wan_tx_mbps") is not None else None,
-        "rx_errors": snmp_data.get("wan_in_err_s") if snmp_data.get("wan_in_err_s") is not None else None,
-        "tx_errors": snmp_data.get("wan_out_err_s") if snmp_data.get("wan_out_err_s") is not None else None,
-        "rx_drops": snmp_data.get("wan_in_disc_s") if snmp_data.get("wan_in_disc_s") is not None else None,
-        "tx_drops": snmp_data.get("wan_out_disc_s") if snmp_data.get("wan_out_disc_s") is not None else None,
-        "utilization": snmp_data.get("wan_util_percent") if snmp_data.get("wan_util_percent") is not None and snmp_data.get("wan_util_percent") >= 0 else None,
-        "speed_mbps": snmp_data.get("wan_speed_mbps") if snmp_data.get("wan_speed_mbps") is not None else snmp_data.get("wan_speed"),
-        "saturation_hint": None  # Will be set by saturation detection logic below
-    })
-    
-    # LAN interface
-    lan_status_raw = snmp_data.get("if_lan_status")
-    lan_admin_status = snmp_data.get("if_lan_admin")
-    # Check for traffic: use rates if available, otherwise check raw counters
-    lan_has_traffic = False
-    if snmp_data.get("lan_rx_mbps") is not None and snmp_data.get("lan_rx_mbps", 0) > 0:
-        lan_has_traffic = True
-    elif snmp_data.get("lan_tx_mbps") is not None and snmp_data.get("lan_tx_mbps", 0) > 0:
-        lan_has_traffic = True
-    elif snmp_data.get("lan_in", 0) > 0 or snmp_data.get("lan_out", 0) > 0:
-        lan_has_traffic = True
-    lan_status = determine_interface_status(lan_status_raw, lan_admin_status, lan_has_traffic, has_sessions, data_age)
-    
-    interfaces.append({
-        "name": "LAN",
-        "status": lan_status,
-        "rx_mbps": snmp_data.get("lan_rx_mbps") if snmp_data.get("lan_rx_mbps") is not None else None,
-        "tx_mbps": snmp_data.get("lan_tx_mbps") if snmp_data.get("lan_tx_mbps") is not None else None,
-        "rx_errors": snmp_data.get("lan_in_err_s") if snmp_data.get("lan_in_err_s") is not None else None,
-        "tx_errors": snmp_data.get("lan_out_err_s") if snmp_data.get("lan_out_err_s") is not None else None,
-        "rx_drops": snmp_data.get("lan_in_disc_s") if snmp_data.get("lan_in_disc_s") is not None else None,
-        "tx_drops": snmp_data.get("lan_out_disc_s") if snmp_data.get("lan_out_disc_s") is not None else None,
-        "utilization": snmp_data.get("lan_util_percent") if snmp_data.get("lan_util_percent") is not None and snmp_data.get("lan_util_percent") >= 0 else None,
-        "speed_mbps": snmp_data.get("lan_speed_mbps") if snmp_data.get("lan_speed_mbps") is not None else snmp_data.get("lan_speed"),
-        "saturation_hint": None  # Will be set by saturation detection logic below
-    })
-    
-    # Add VPN interfaces (WireGuard and TailScale)
-    for vpn_name, vpn_idx in vpn_interfaces.items():
-        try:
-            # Get VPN interface counters using SNMP
-            # Try 64-bit counters first (ifHCInOctets/ifHCOutOctets), fallback to 32-bit if not available
-            vpn_in_oid_hc = f".1.3.6.1.2.1.31.1.1.1.6.{vpn_idx}"  # ifHCInOctets (64-bit)
-            vpn_out_oid_hc = f".1.3.6.1.2.1.31.1.1.1.10.{vpn_idx}"  # ifHCOutOctets (64-bit)
-            vpn_in_oid_32 = f".1.3.6.1.2.1.2.2.1.10.{vpn_idx}"  # ifInOctets (32-bit fallback)
-            vpn_out_oid_32 = f".1.3.6.1.2.1.2.2.1.16.{vpn_idx}"  # ifOutOctets (32-bit fallback)
-            vpn_status_oid = f".1.3.6.1.2.1.2.2.1.8.{vpn_idx}"  # ifOperStatus
-            vpn_speed_oid = f".1.3.6.1.2.1.31.1.1.1.15.{vpn_idx}"  # ifHighSpeed
-            
-            # Error and Discard OIDs (32-bit)
-            vpn_in_err_oid = f".1.3.6.1.2.1.2.2.1.14.{vpn_idx}"
-            vpn_out_err_oid = f".1.3.6.1.2.1.2.2.1.20.{vpn_idx}"
-            vpn_in_disc_oid = f".1.3.6.1.2.1.2.2.1.13.{vpn_idx}"
-            vpn_out_disc_oid = f".1.3.6.1.2.1.2.2.1.19.{vpn_idx}"
-            
-            # Common OID string for errors/discards
-            err_oids = f"{vpn_in_err_oid} {vpn_out_err_oid} {vpn_in_disc_oid} {vpn_out_disc_oid}"
-            
-            # Try 64-bit counters first, fallback to 32-bit if not available
-            try:
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
-                values = output.strip().split("\n")
-                if len(values) < 8 or "No Such" in output:
-                    raise ValueError("64-bit counters not available")
-            except:
-                # Fallback to 32-bit counters
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
-                values = output.strip().split("\n")
-            
-            if len(values) >= 8:
-                # Parse values: strip quotes, handle Counter64: prefix, convert to int
-                def parse_counter(val):
-                    val = val.strip().strip('"')
-                    if "Counter64:" in val:
-                        val = val.split(":")[-1].strip()
-                    elif "Counter32:" in val:
-                        val = val.split(":")[-1].strip()
-                    return int(val) if val else 0
-                
-                vpn_in = parse_counter(values[0])
-                vpn_out = parse_counter(values[1])
-                vpn_status_raw = int(values[2].strip().strip('"'))
-                vpn_speed = int(values[3].strip().strip('"')) if values[3].strip().strip('"') else 0
-                
-                vpn_in_err = parse_counter(values[4])
-                vpn_out_err = parse_counter(values[5])
-                vpn_in_disc = parse_counter(values[6])
-                vpn_out_disc = parse_counter(values[7])
-                
-                # Calculate rates (similar to WAN/LAN)
-                # Import state at the top level to ensure it's accessible
-                import app.core.app_state as state
-                prev_in_key = f"{vpn_name}_in"
-                prev_out_key = f"{vpn_name}_out"
-                prev_ts_key = f"{vpn_name}_ts"
-                
-                # Keys for errors/discards
-                prev_in_err_key = f"{vpn_name}_in_err"
-                prev_out_err_key = f"{vpn_name}_out_err"
-                prev_in_disc_key = f"{vpn_name}_in_disc"
-                prev_out_disc_key = f"{vpn_name}_out_disc"
-                
-                # Get previous values BEFORE storing new ones
-                with state._snmp_prev_sample_lock:
-                    prev_in = state._snmp_prev_sample.get(prev_in_key)
-                    prev_out = state._snmp_prev_sample.get(prev_out_key)
-                    prev_ts = state._snmp_prev_sample.get(prev_ts_key, 0)
-                    
-                    # Error/Discard prev values
-                    prev_in_err = state._snmp_prev_sample.get(prev_in_err_key)
-                    prev_out_err = state._snmp_prev_sample.get(prev_out_err_key)
-                    prev_in_disc = state._snmp_prev_sample.get(prev_in_disc_key)
-                    prev_out_disc = state._snmp_prev_sample.get(prev_out_disc_key)
-
-                    now = time.time()
-                    from app.config import SNMP_POLL_INTERVAL
-                    # Use VPN-specific timestamp for accurate delta calculation
-                    dt = max(1.0, now - prev_ts) if prev_ts > 0 else SNMP_POLL_INTERVAL
-                    
-                    # Calculate RX/TX rates (similar to WAN/LAN logic in snmp.py)
-                    vpn_rx_mbps = None
-                    vpn_tx_mbps = None
-                    
-                    # Calculate Bandwidth rates
-                    if prev_in is not None and prev_out is not None and dt > 0:
-                        d_in = vpn_in - prev_in
-                        d_out = vpn_out - prev_out
-                        
-                        # Guard against wrap or reset
-                        if d_in < 0:
-                            vpn_rx_mbps = None
-                        else:
-                            vpn_rx_mbps = round((d_in * 8.0) / (dt * 1_000_000), 2)
-                        
-                        if d_out < 0:
-                            vpn_tx_mbps = None
-                        else:
-                            vpn_tx_mbps = round((d_out * 8.0) / (dt * 1_000_000), 2)
-                    
-                    # Calculate Error/Discard rates (/s)
-                    vpn_rx_err_s = 0.0
-                    vpn_tx_err_s = 0.0
-                    vpn_rx_disc_s = 0.0
-                    vpn_tx_disc_s = 0.0
-                    
-                    if dt > 0:
-                        if prev_in_err is not None:
-                            d = vpn_in_err - prev_in_err
-                            vpn_rx_err_s = round(d / dt, 1) if d >= 0 else 0.0
-                        if prev_out_err is not None:
-                            d = vpn_out_err - prev_out_err
-                            vpn_tx_err_s = round(d / dt, 1) if d >= 0 else 0.0
-                        if prev_in_disc is not None:
-                            d = vpn_in_disc - prev_in_disc
-                            vpn_rx_disc_s = round(d / dt, 1) if d >= 0 else 0.0
-                        if prev_out_disc is not None:
-                            d = vpn_out_disc - prev_out_disc
-                            vpn_tx_disc_s = round(d / dt, 1) if d >= 0 else 0.0
-                    
-                    # Always store current values AFTER calculating rates (for next poll)
-                    state._snmp_prev_sample[prev_in_key] = vpn_in
-                    state._snmp_prev_sample[prev_out_key] = vpn_out
-                    state._snmp_prev_sample[prev_ts_key] = now
-                    
-                    # Store Error/Discard current values
-                    state._snmp_prev_sample[prev_in_err_key] = vpn_in_err
-                    state._snmp_prev_sample[prev_out_err_key] = vpn_out_err
-                    state._snmp_prev_sample[prev_in_disc_key] = vpn_in_disc
-                    state._snmp_prev_sample[prev_out_disc_key] = vpn_out_disc
-                
-                # Calculate utilization if speed is known
-                vpn_util = None
-                if vpn_speed and vpn_speed > 0 and vpn_rx_mbps is not None and vpn_tx_mbps is not None:
-                    # For Full Duplex links, utilization is max(rx, tx) / speed
-                    max_mbps = max(vpn_rx_mbps, vpn_tx_mbps)
-                    vpn_util = round((max_mbps / vpn_speed) * 100, 1)
-                elif vpn_rx_mbps is not None and vpn_tx_mbps is not None:
-                    # If speed is 0/unknown, use a placeholder or None
-                    vpn_util = None
-                
-                # Determine status
-                vpn_has_traffic = (vpn_rx_mbps is not None and vpn_rx_mbps > 0) or (vpn_tx_mbps is not None and vpn_tx_mbps > 0)
-                vpn_status = determine_interface_status(vpn_status_raw, None, vpn_has_traffic, has_sessions, data_age)
-                
-                # Add VPN interface
-                interfaces.append({
-                    "name": vpn_name.upper(),
-                    "status": vpn_status,
-                    "rx_mbps": vpn_rx_mbps,
-                    "tx_mbps": vpn_tx_mbps,
-                    "rx_errors": vpn_rx_err_s,
-                    "tx_errors": vpn_tx_err_s,
-                    "rx_drops": vpn_rx_disc_s,
-                    "tx_drops": vpn_tx_disc_s,
-                    "utilization": vpn_util,
-                    "speed_mbps": vpn_speed,
-                    "saturation_hint": None
-                })
-        except Exception:
-            # VPN interface polling failed - add interface with error state
-            interfaces.append({
-                "name": vpn_name.upper(),
-                "status": "unknown",
-                "rx_mbps": None,
-                "tx_mbps": None,
-                "rx_errors": None,
-                "tx_errors": None,
-                "rx_drops": None,
-                "tx_drops": None,
-                "utilization": None,
-                "speed_mbps": None,
-                "saturation_hint": None
-            })
-            pass
-    
-    # Calculate aggregate throughput (handle None values)
-    total_throughput = sum([(i.get("rx_mbps") or 0) + (i.get("tx_mbps") or 0) for i in interfaces])
-    
-    # Correlate SNMP throughput with NetFlow traffic volume
-    # Use 1h window to match typical SNMP polling cadence
-    try:
-        from app.services.netflow.netflow import get_common_nfdump_data
-        from app.services.shared.helpers import get_time_range
-        
-        # Get NetFlow total bytes for last hour
-        range_key = "1h"
-        netflow_sources = get_common_nfdump_data("sources", range_key)
-        netflow_total_bytes = sum(i.get("bytes", 0) for i in netflow_sources) if netflow_sources else 0
-        
-        # Calculate SNMP total bytes for same window (1 hour)
-        # SNMP rates are in Mbps, convert to total bytes over 1 hour
-        snmp_total_bytes = (total_throughput * 1_000_000 / 8) * 3600  # Mbps -> bytes/sec -> bytes/hour
-        
-        # Calculate correlation status
-        # Allow 20% variance for accounting differences (headers, sampling, etc.)
-        if netflow_total_bytes == 0 and snmp_total_bytes == 0:
-            correlation_status = "aligned"
-            correlation_hint = None
-        elif netflow_total_bytes == 0:
-            correlation_status = "interface_heavy"
-            correlation_hint = "NetFlow shows no traffic"
-        elif snmp_total_bytes == 0:
-            correlation_status = "flow_heavy"
-            correlation_hint = "SNMP shows no traffic"
-        else:
-            ratio = netflow_total_bytes / snmp_total_bytes if snmp_total_bytes > 0 else 0
-            if 0.8 <= ratio <= 1.2:  # Within 20% variance
-                correlation_status = "aligned"
-                correlation_hint = None
-            elif ratio > 1.2:
-                correlation_status = "flow_heavy"
-                correlation_hint = f"NetFlow {((ratio - 1) * 100):.0f}% higher"
-            else:  # ratio < 0.8
-                correlation_status = "interface_heavy"
-                correlation_hint = f"SNMP {((1 - ratio) * 100):.0f}% higher"
-    except Exception as e:
-        # Fail gracefully - correlation is informational only
-        correlation_status = "unknown"
-        correlation_hint = None
-        netflow_total_bytes = None
-        snmp_total_bytes = None
-    
-    # Update interface utilization baselines and detect saturation risk
-    import app.core.app_state as state
-    import statistics
-    from collections import deque
-    
-    for iface in interfaces:
-        # Always initialize saturation_hint (even if None) so frontend can check for it
-        iface["saturation_hint"] = None
-        
-        if iface.get("utilization") is not None and iface.get("utilization") >= 0:
-            baseline_key = f"{iface['name'].lower()}_utilization"
-            with state._baselines_lock:
-                # Initialize baseline deque if it doesn't exist
-                if baseline_key not in state._baselines:
-                    state._baselines[baseline_key] = deque(maxlen=100)
-                    state._baselines_last_update[baseline_key] = time.time()
-                
-                # Add current utilization to baseline window
-                state._baselines[baseline_key].append(iface["utilization"])
-                state._baselines_last_update[baseline_key] = time.time()
-                
-                # Calculate saturation risk (sustained high utilization vs baseline)
-                baseline_window = list(state._baselines[baseline_key])
-                current_util = iface["utilization"]
-                
-                # Add utilization history for sparkline (last 30 samples, ~1-2 hours at typical polling)
-                # Limit to reasonable size for frontend rendering
-                if len(baseline_window) > 0:
-                    # Take last 30 samples for sparkline visualization
-                    iface["utilization_history"] = baseline_window[-30:] if len(baseline_window) >= 30 else baseline_window
-                else:
-                    iface["utilization_history"] = []
-                
-                if len(baseline_window) >= 10:  # Need at least 10 samples for meaningful baseline
-                    baseline_mean = statistics.mean(baseline_window)
-                    baseline_std = statistics.stdev(baseline_window) if len(baseline_window) > 1 else 0
-                    
-                    # Check for sustained high utilization
-                    # Risk if: current > 70% AND (current significantly above baseline OR consistently high)
-                    recent_samples = baseline_window[-5:] if len(baseline_window) >= 5 else baseline_window
-                    
-                    # More lenient conditions: either significantly above baseline OR consistently high
-                    is_significantly_above = current_util > baseline_mean + (1.5 * baseline_std) if baseline_std > 0 else False
-                    is_consistently_high = (
-                        current_util > 70 and  # Absolute threshold: >70% utilization
-                        all(s > 60 for s in recent_samples)  # Last 5 samples all > 60%
-                    )
-                    
-                    is_sustained_high = is_significantly_above or is_consistently_high
-                    
-                    if is_sustained_high:
-                        # Calculate risk level (subtle, non-alarming)
-                        deviation = current_util - baseline_mean
-                        if current_util > 85 or deviation > 25:
-                            iface["saturation_hint"] = "High utilization"
-                        elif current_util > 75 or deviation > 15:
-                            iface["saturation_hint"] = "Elevated utilization"
-                elif len(baseline_window) >= 5:
-                    # With fewer samples, use simpler threshold: show hint if utilization > 75%
-                    if current_util is not None and current_util > 75:
-                        iface["saturation_hint"] = "Elevated utilization"
-    
-    # Format response
-    response = {
-        "cpu_percent": snmp_data.get("cpu_percent", 0),
-        "memory_percent": snmp_data.get("mem_percent", 0),
-        "active_sessions": snmp_data.get("tcp_conns", 0),
-        "total_throughput_mbps": round(total_throughput, 2),
-        "uptime_formatted": snmp_data.get("sys_uptime_formatted", "Unknown"),
-        "uptime_seconds": snmp_data.get("sys_uptime", 0),
-        "interfaces": interfaces,
-        "last_poll": time.time(),
-        "poll_success": True,
-        "traffic_correlation": {
-            "status": correlation_status,
-            "hint": correlation_hint,
-            "snmp_bytes_1h": int(snmp_total_bytes) if snmp_total_bytes is not None else None,
-            "netflow_bytes_1h": int(netflow_total_bytes) if netflow_total_bytes is not None else None
-        }
+    # Prepare the structure expected by the frontend
+    response_data = {
+        "status": "unknown",
+        "cpu_percent": None,
+        "mem_percent": None,
+        "uptime": None,
+        "interfaces": []
     }
     
-    return jsonify(response)
-
-
-# ===== SNMP Integration =====
-
-# SNMP Configuration (override with env vars)
-SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
-SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "Phoboshomesnmp_3")
-
-# SNMP OIDs
-SNMP_OIDS = {
-    "cpu_load_1min": ".1.3.6.1.4.1.2021.10.1.3.1",
-    "cpu_load_5min": ".1.3.6.1.4.1.2021.10.1.3.2",
-    "mem_total": ".1.3.6.1.4.1.2021.4.5.0",        # Total RAM KB
-    "mem_avail": ".1.3.6.1.4.1.2021.4.6.0",        # Available RAM KB
-    "mem_buffer": ".1.3.6.1.4.1.2021.4.11.0",       # Buffer memory KB
-    "mem_cached": ".1.3.6.1.4.1.2021.4.15.0",       # Cached memory KB
-    # Swap
-    "swap_total": ".1.3.6.1.4.1.2021.4.3.0",       # Total swap KB
-    "swap_avail": ".1.3.6.1.4.1.2021.4.4.0",       # Available swap KB
-    "sys_uptime": ".1.3.6.1.2.1.1.3.0",            # Uptime timeticks
-    "tcp_conns": ".1.3.6.1.2.1.6.9.0",             # tcpCurrEstab
-    "tcp_active_opens": ".1.3.6.1.2.1.6.5.0",      # tcpActiveOpens
-    "tcp_estab_resets": ".1.3.6.1.2.1.6.8.0",      # tcpEstabResets
-    "proc_count": ".1.3.6.1.2.1.25.1.6.0",         # hrSystemProcesses
-    "if_wan_status": ".1.3.6.1.2.1.2.2.1.8.1",     # igc0 status
-    "if_lan_status": ".1.3.6.1.2.1.2.2.1.8.2",     # igc1 status
-    "tcp_fails": ".1.3.6.1.2.1.6.7.0",             # tcpAttemptFails
-    "tcp_retrans": ".1.3.6.1.2.1.6.12.0",          # tcpRetransSegs
-    # IP stack
-    "ip_in_discards": ".1.3.6.1.2.1.4.8.0",        # ipInDiscards
-    "ip_in_hdr_errors": ".1.3.6.1.2.1.4.4.0",      # ipInHdrErrors
-    "ip_in_addr_errors": ".1.3.6.1.2.1.4.5.0",     # ipInAddrErrors
-    "ip_forw_datagrams": ".1.3.6.1.2.1.4.6.0",     # ipForwDatagrams
-    "ip_in_delivers": ".1.3.6.1.2.1.4.9.0",        # ipInDelivers
-    "ip_out_requests": ".1.3.6.1.2.1.4.10.0",      # ipOutRequests
-    # ICMP
-    "icmp_in_errors": ".1.3.6.1.2.1.5.2.0",        # icmpInErrors
-    "wan_in": ".1.3.6.1.2.1.31.1.1.1.6.1",         # igc0 in
-    "wan_out": ".1.3.6.1.2.1.31.1.1.1.10.1",       # igc0 out
-    "lan_in": ".1.3.6.1.2.1.31.1.1.1.6.2",         # igc1 in
-    "lan_out": ".1.3.6.1.2.1.31.1.1.1.10.2",       # igc1 out
-    # Interface speeds (Mbps)
-    "wan_speed": ".1.3.6.1.2.1.31.1.1.1.15.1",     # ifHighSpeed WAN
-    "lan_speed": ".1.3.6.1.2.1.31.1.1.1.15.2",     # ifHighSpeed LAN
-    # Interface errors/discards (32-bit but fine for error counters)
-    "wan_in_err": ".1.3.6.1.2.1.2.2.1.14.1",
-    "wan_out_err": ".1.3.6.1.2.1.2.2.1.20.1",
-    "wan_in_disc": ".1.3.6.1.2.1.2.2.1.13.1",
-    "wan_out_disc": ".1.3.6.1.2.1.2.2.1.19.1",
-    "lan_in_err": ".1.3.6.1.2.1.2.2.1.14.2",
-    "lan_out_err": ".1.3.6.1.2.1.2.2.1.20.2",
-    "lan_in_disc": ".1.3.6.1.2.1.2.2.1.13.2",
-    "lan_out_disc": ".1.3.6.1.2.1.2.2.1.19.2",
-    "disk_read": ".1.3.6.1.4.1.2021.13.15.1.1.12.2", # nda0 read bytes
-    "disk_write": ".1.3.6.1.4.1.2021.13.15.1.1.13.2", # nda0 write bytes
-    "udp_in": ".1.3.6.1.2.1.7.1.0",                # udpInDatagrams
-    "udp_out": ".1.3.6.1.2.1.7.4.0",               # udpOutDatagrams
-}
-
-_snmp_cache = {"data": None, "ts": 0}
-_snmp_cache_lock = threading.Lock()
-_snmp_prev_sample = {"ts": 0, "wan_in": 0, "wan_out": 0, "lan_in": 0, "lan_out": 0}
-
-# Real-time SNMP polling controls
-SNMP_POLL_INTERVAL = float(os.getenv("SNMP_POLL_INTERVAL", "2"))  # seconds
-SNMP_CACHE_TTL = float(os.getenv("SNMP_CACHE_TTL", str(max(1.0, SNMP_POLL_INTERVAL))))
-_snmp_thread_started = False
-
-# SNMP exponential backoff state
-_snmp_backoff = {
-    "failures": 0,
-    "max_failures": 5,
-    "base_delay": 2,  # seconds
-    "max_delay": 60,  # max backoff delay
-    "last_failure": 0
-}
-
-
-
-@bp.route("/api/stats/firewall")
-@throttle(5, 10)
-def api_stats_firewall():
-    """Firewall health stats from SNMP + syslog block data"""
-    start_snmp_thread()
-    snmp_data = get_snmp_data()
-
-    # Add syslog block stats
-    fw_stats = _get_firewall_block_stats(hours=1)
-
-    # Merge syslog data into response
-    if snmp_data:
-        snmp_data['blocks_1h'] = fw_stats.get('blocks', 0)
-        snmp_data['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
-        snmp_data['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
-        snmp_data['threats_blocked'] = fw_stats.get('threats_blocked', 0)
-        with _syslog_stats_lock:
-            snmp_data['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
-            snmp_data['syslog_stats'] = dict(_syslog_stats)
-
-    return jsonify({"firewall": snmp_data})
-
-
-
-@bp.route("/api/stats/firewall/stream")
-def api_stats_firewall_stream():
-    """Server-Sent Events stream for near real-time firewall stats."""
-    start_snmp_thread()
-
-    def event_stream():
-        last_ts = 0
-        while not _shutdown_event.is_set():
-            with _snmp_cache_lock:
-                data = _snmp_cache.get("data")
-                ts = _snmp_cache.get("ts", 0)
-            if ts and ts != last_ts and data is not None:
-                # Merge syslog stats into SSE payload
-                merged = dict(data) if data else {}
-                fw_stats = _get_firewall_block_stats(hours=1)
-                merged['blocks_1h'] = fw_stats.get('blocks', 0)
-                merged['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
-                merged['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
-                merged['threats_blocked'] = fw_stats.get('threats_blocked', 0)
-                with _syslog_stats_lock:
-                    merged['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
-                    merged['syslog_stats'] = dict(_syslog_stats)
-                payload = json.dumps({"firewall": merged})
-                yield f"data: {payload}\n\n"
-                last_ts = ts
-            _shutdown_event.wait(timeout=max(0.2, SNMP_POLL_INTERVAL / 2.0))
-
-    return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
-
-
-@bp.route("/api/stats/batch", methods=['POST'])
-@throttle(10, 20)
-def api_stats_batch():
-    """Batch endpoint: accepts list of endpoint names, returns combined response."""
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        requests_list = data.get('requests', [])
-        range_key = request.args.get('range', '1h')
-
-        if not requests_list:
-            return jsonify({'error': 'No requests provided'}), 400
-
-        results = {}
-        errors = {}
-
-        # Map endpoint names to handler functions
-        handlers = {
-            'summary': api_stats_summary,
-            'sources': api_stats_sources,
-            'destinations': api_stats_destinations,
-            'ports': api_stats_ports,
-            'protocols': api_stats_protocols,
-            'bandwidth': api_bandwidth,
-            'threats': api_threats,
-            'alerts': api_alerts,
-            'firewall': api_stats_firewall,
-        }
-
-        # Process each request using test_request_context with proper query string
-        for req in requests_list:
-            endpoint_name = req.get('endpoint')
-            if not endpoint_name or endpoint_name not in handlers:
-                if endpoint_name:
-                    errors[endpoint_name] = 'Unknown endpoint'
-                continue
-
-            params = req.get('params', {})
-            if 'range' not in params:
-                params['range'] = range_key
-
-            # Build query string for test_request_context
-            from urllib.parse import urlencode
-            query_string = urlencode(params)
-
-            # Create test request context with query string
-            with current_app.test_request_context(query_string=query_string):
-                try:
-                    handler = handlers[endpoint_name]
-                    # Call handler and extract JSON from Response
-                    response = handler()
-                    if hasattr(response, 'get_json'):
-                        result = response.get_json()
-                    elif hasattr(response, 'json'):
-                        result = response.json
-                    else:
-                        result = None
-
-                    if result:
-                        results[endpoint_name] = result
-                except Exception as e:
-                    errors[endpoint_name] = str(e)
-
-        response_data = {'results': results}
-        if errors:
-            response_data['errors'] = errors
-
+    # If no data or error
+    if not data:
+        response_data["error"] = "SNMP data unavailable"
+        response_data["status"] = "error"
         return jsonify(response_data)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-
-# Performance metrics endpoint
-
+        
+    if "error" in data:
+        response_data.update({
+            "error": data["error"],
+            "status": "error"
+        })
+        return jsonify(response_data)
+        
+    # Populate fields from successful SNMP data
+    response_data["status"] = "ok"
+    response_data["cpu_percent"] = data.get("cpu_percent")
+    response_data["mem_percent"] = data.get("mem_percent")
+    response_data["uptime"] = data.get("uptime")
+    
+    # Reconstruct interfaces list as expected by frontend
+    # The frontend expects an array of interface objects with name, in_rate, out_rate, etc.
+    # get_snmp_data returns interface data in keys like 'wan_in_mbps', 'wan_out_mbps' or 'interfaces' dict
+    
+    if "interfaces" in data and isinstance(data["interfaces"], dict):
+        # If get_snmp_data already returns an interfaces dict, use it to build the list
+        for iface_name, iface_stats in data["interfaces"].items():
+            response_data["interfaces"].append({
+                "name": iface_name.upper(),
+                "in_rate": iface_stats.get("in_mbps", 0),
+                "out_rate": iface_stats.get("out_mbps", 0),
+                "in_rate_fmt": f"{iface_stats.get('in_mbps', 0):.1f} Mbps",
+                "out_rate_fmt": f"{iface_stats.get('out_mbps', 0):.1f} Mbps"
+            })
+    else:
+        # Fallback: Check for specific keys like 'wan_in_mbps', 'lan_in_mbps'
+        # This handles the case where get_snmp_data flattens common interfaces
+        for key in ["wan", "lan", "opt1", "opt2"]:
+            if f"{key}_in_mbps" in data:
+                in_rate = data.get(f"{key}_in_mbps", 0)
+                out_rate = data.get(f"{key}_out_mbps", 0)
+                response_data["interfaces"].append({
+                    "name": key.upper(),
+                    "in_rate": in_rate,
+                    "out_rate": out_rate,
+                    "in_rate_fmt": f"{in_rate:.1f} Mbps",
+                    "out_rate_fmt": f"{out_rate:.1f} Mbps"
+                })
+        
+    return jsonify(response_data)

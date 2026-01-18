@@ -72,7 +72,10 @@ def get_snmp_data():
                     continue
                 
                 if key.startswith("cpu_load"):
-                    result[key] = float(clean_val)
+                    try:
+                        result[key] = float(clean_val)
+                    except ValueError:
+                         result[key] = None
                 elif key.startswith("mem_") or key.startswith("swap_") or key in (
                     "tcp_conns", "tcp_active_opens", "tcp_estab_resets",
                     "proc_count",
@@ -95,47 +98,59 @@ def get_snmp_data():
                     try:
                         result[key] = int(clean_val)
                     except (ValueError, TypeError):
-                        # Don't default to 0 for interface counters - use None to indicate missing
-                        if key in interface_keys:
-                            result[key] = None
-                            print(f"SNMP Warning: {key} could not be parsed as integer: {clean_val}")
-                        else:
-                            result[key] = 0
+                        # Don't default to 0 - use None to indicate missing/invalid data
+                        result[key] = None
+                        print(f"SNMP Warning: {key} could not be parsed as integer: {clean_val}")
                 else:
                     result[key] = clean_val
         
         
-        if "mem_total" in result and "mem_avail" in result:
+        if "mem_total" in result and "mem_avail" in result and result["mem_total"] is not None and result["mem_avail"] is not None:
             # FreeBSD memory calculation: total - available - buffer - cached
             # Using OID .15 (memShared/Cached ~3GB) gives better accuracy
             # This should be close to OPNsense's Active+Wired memory calculation
             # Expected: ~60-65% vs OPNsense ~55-60%
             mem_buffer = result.get("mem_buffer", 0)
             mem_cached = result.get("mem_cached", 0)
+
+            if mem_buffer is None: mem_buffer = 0
+            if mem_cached is None: mem_cached = 0
+
             mem_used = result["mem_total"] - result["mem_avail"] - mem_buffer - mem_cached
             result["mem_used"] = mem_used
             try:
                 result["mem_percent"] = round((mem_used / result["mem_total"]) * 100, 1) if result["mem_total"] > 0 else 0
             except Exception:
-                result["mem_percent"] = 0
+                result["mem_percent"] = None
+        else:
+            result["mem_percent"] = None
 
         # Swap usage
-        if result.get("swap_total") not in (None, 0) and "swap_avail" in result:
+        if result.get("swap_total") not in (None, 0) and result.get("swap_avail") is not None:
             swap_used = max(result["swap_total"] - result["swap_avail"], 0)
             result["swap_used"] = swap_used
             try:
                 result["swap_percent"] = round((swap_used / result.get("swap_total", 1)) * 100, 1) if result.get("swap_total", 0) > 0 else 0
             except Exception:
-                result["swap_percent"] = 0
+                result["swap_percent"] = None
+        else:
+             result["swap_percent"] = None
         
-        if "cpu_load_1min" in result:
+        if "cpu_load_1min" in result and result["cpu_load_1min"] is not None:
             result["cpu_percent"] = min(round((result["cpu_load_1min"] / 4.0) * 100, 1), 100)
+        else:
+            result["cpu_percent"] = None
         
         # Interface speeds (Mbps)
-        if "wan_speed" in result:
+        if "wan_speed" in result and result["wan_speed"] is not None:
             result["wan_speed_mbps"] = int(result.get("wan_speed", 0))
-        if "lan_speed" in result:
+        else:
+            result["wan_speed_mbps"] = None
+
+        if "lan_speed" in result and result["lan_speed"] is not None:
             result["lan_speed_mbps"] = int(result.get("lan_speed", 0))
+        else:
+             result["lan_speed_mbps"] = None
 
         # Compute interface rates (Mbps) using 64-bit counters and previous sample
         prev_ts = state._snmp_prev_sample.get("ts", 0)
@@ -281,8 +296,10 @@ def get_snmp_data():
             state._snmp_prev_sample = new_prev_sample
 
         # Format uptime for readability
-        if "sys_uptime" in result:
+        if "sys_uptime" in result and result["sys_uptime"] is not None:
             result["sys_uptime_formatted"] = format_uptime(result["sys_uptime"])
+        else:
+             result["sys_uptime_formatted"] = "Unavailable"
         
         # Reset backoff on success
         state._snmp_backoff["failures"] = 0
@@ -298,11 +315,11 @@ def get_snmp_data():
         # Use existing _baselines in state to track deviation over time
         with state._baselines_lock:
             # CPU Load
-            if "cpu_percent" in result:
+            if "cpu_percent" in result and result["cpu_percent"] is not None:
                 state._baselines["cpu_load"].append(result["cpu_percent"])
             
             # Memory Usage
-            if "mem_percent" in result:
+            if "mem_percent" in result and result["mem_percent"] is not None:
                 state._baselines["mem_usage"].append(result["mem_percent"])
                 
             # Interface Utilization (WAN/LAN)
