@@ -125,8 +125,12 @@ def _syslog_receiver_loop():
         try:
             data, addr = sock.recvfrom(8192)
 
+            # Debug: Log all incoming messages
+            print(f"[SYSLOG 515] Received message from {addr[0]} (expecting {FIREWALL_IP})")
+
             # Security: Only accept from configured IP
             if addr[0] != FIREWALL_IP and FIREWALL_IP != "0.0.0.0":
+                print(f"[SYSLOG 515] REJECTED: IP {addr[0]} does not match configured FIREWALL_IP {FIREWALL_IP}")
                 continue
 
             with _syslog_515_stats_lock:
