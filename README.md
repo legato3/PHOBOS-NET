@@ -70,10 +70,6 @@ If data is unavailable, PHOBOS-NET shows **UNKNOWN / —** instead of inferring 
 Docker image:
 https://hub.docker.com/r/legato3/phobos-net
 
-```bash
-docker pull legato3/phobos-net:latest
-```
-
 PHOBOS-NET runs as a Docker container and listens for data from OPNsense.
 
 ```bash
