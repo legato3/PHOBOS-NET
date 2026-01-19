@@ -55,6 +55,9 @@ scp -i "$SSH_KEY" ../docker-data/GeoLite2-City.mmdb $USER@$SERVER:$REMOTE_DIR/do
 scp -i "$SSH_KEY" ../docker-data/GeoLite2-ASN.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 scp -i "$SSH_KEY" ../docker-data/GeoLite2-Country.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
+# Ensure nfdump directory exists before setting permissions
+ssh -i "$SSH_KEY" $USER@$SERVER "mkdir -p $REMOTE_DIR/docker-data/nfdump"
+
 # Fix permissions for non-root container user (UID 1000)
 echo "🔒 Setting permissions for non-root user..."
 ssh -i "$SSH_KEY" $USER@$SERVER "chown -R 1000:1000 $REMOTE_DIR/docker-data"

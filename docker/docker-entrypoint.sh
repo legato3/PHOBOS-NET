@@ -18,7 +18,7 @@ echo "Starting nfcapd NetFlow collector on port $NFCAPD_PORT..."
 # -e: enable auto-expire
 # -t: rotation interval (300 seconds = 5 minutes)
 # -P: PID file location
-nfcapd -w "$NFCAPD_DIR" -D -p "$NFCAPD_PORT" -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid
+nfcapd -w "$NFCAPD_DIR" -D -p "$NFCAPD_PORT" -y -B 8388608 -e -t 300 -P /tmp/nfcapd.pid
 
 # Wait a moment for nfcapd to start
 sleep 1
