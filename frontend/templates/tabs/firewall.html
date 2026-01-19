@@ -2,7 +2,7 @@
     id="firewall-tab" role="tabpanel" aria-labelledby="firewall-tab-btn" tabindex="0">
 
     <!-- Firewall Stats Overview (4 stat boxes) -->
-    <div class="grid mb-6 grid-auto-fit">
+    <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-8) !important;">
         <div class="card stat-box">
             <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                 <span
@@ -279,9 +279,10 @@
 
         <!-- Empty State -->
         <div x-show="!syslog515.logs || syslog515.logs.length === 0 && !syslog515.loading"
-             style="text-align: center; padding: 48px 16px; color: var(--text-muted);">
+            style="text-align: center; padding: 48px 16px; color: var(--text-muted);">
             <div style="font-size: 48px; margin-bottom: var(--space-3); opacity: 0.5;">📡</div>
-            <p style="font-size: var(--text-base); margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold); color: var(--text-secondary);">
+            <p
+                style="font-size: var(--text-base); margin-bottom: var(--space-2); font-weight: var(--font-weight-semibold); color: var(--text-secondary);">
                 No application logs yet</p>
             <p style="font-size: var(--text-sm); color: var(--text-tertiary); max-width: 400px; margin: 0 auto;">
                 Configure OPNsense to send syslog to port 515. Events will appear here once received.</p>
@@ -292,7 +293,8 @@
             <!-- Summary Stats -->
             <div class="log-toolbar">
                 <div class="log-chips">
-                    <span class="log-chip"><strong x-text="(syslog515.stats?.total || 0).toLocaleString()"></strong> Total</span>
+                    <span class="log-chip"><strong x-text="(syslog515.stats?.total || 0).toLocaleString()"></strong>
+                        Total</span>
                     <span class="log-chip log-chip-cyan" x-show="syslog515.receiver?.received > 0">
                         <strong x-text="(syslog515.receiver?.received || 0).toLocaleString()"></strong> Received
                     </span>
@@ -320,9 +322,8 @@
             <!-- Filter Bar -->
             <div class="log-filters"
                 style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.05);">
-                <input type="text" x-model="syslog515Filter.search" placeholder="Search logs..."
-                    class="search-box" style="flex: 1; min-width: 250px; max-width: 400px;"
-                    aria-label="Search logs">
+                <input type="text" x-model="syslog515Filter.search" placeholder="Search logs..." class="search-box"
+                    style="flex: 1; min-width: 250px; max-width: 400px;" aria-label="Search logs">
                 <select x-model="syslog515Filter.program" class="filter-select" style="min-width: 140px;"
                     aria-label="Filter by program">
                     <option value="all">All Programs</option>
@@ -330,8 +331,8 @@
                         <option :value="program" x-text="program + ' (' + count + ')'"></option>
                     </template>
                 </select>
-                <button @click="syslog515Filter = { search: '', program: 'all' }"
-                    class="btn btn--secondary" style="white-space: nowrap;"
+                <button @click="syslog515Filter = { search: '', program: 'all' }" class="btn btn--secondary"
+                    style="white-space: nowrap;"
                     :disabled="!syslog515Filter.search && syslog515Filter.program === 'all'">
                     Clear Filters
                 </button>
@@ -348,8 +349,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="(log, index) in filteredSyslog515.slice(0, syslog515View || 100)"
-                            :key="index">
+                        <template x-for="(log, index) in filteredSyslog515.slice(0, syslog515View || 100)" :key="index">
                             <tr style="vertical-align: top;">
                                 <td style="font-size: 0.85em; color: var(--text-muted); white-space: nowrap;">
                                     <div style="font-family: monospace;"

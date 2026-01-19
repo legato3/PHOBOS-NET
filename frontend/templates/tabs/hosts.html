@@ -1,208 +1,194 @@
-<div x-show="activeTab === 'hosts'"
-                        :style="activeTab === 'hosts' ? 'display:block' : 'display:none'" id="hosts-tab" class="fade-in"
-                        role="tabpanel" aria-labelledby="hosts-tab-btn" tabindex="0">
+<div x-show="activeTab === 'hosts'" :style="activeTab === 'hosts' ? 'display:block' : 'display:none'" id="hosts-tab"
+    class="fade-in" role="tabpanel" aria-labelledby="hosts-tab-btn" tabindex="0">
 
-                        <!-- Hosts Top Stats -->
-                        <section id="section-hosts-stats" class="mb-6">
-                            <div class="grid grid-auto-fit gap-4">
-                                <!-- Total Hosts -->
-                                <div class="card stat-box">
-                                    <div class="value"
-                                        x-text="hosts.loading ? '...' : (hosts.stats.total_hosts || 0).toLocaleString()">
-                                        ...</div>
-                                    <div class="label">Total Hosts (24h)</div>
-                                </div>
-                                <!-- Active Hosts -->
-                                <div class="card stat-box">
-                                    <div class="value"
-                                        x-text="hosts.loading ? '...' : (hosts.stats.active_hosts || 0).toLocaleString()">
-                                        ...</div>
-                                    <div class="label">Active Hosts (1h)</div>
-                                </div>
-                                <!-- New Hosts -->
-                                <div class="card stat-box">
-                                    <div class="value" x-text="hosts.loading ? '...' : hosts.stats.new_hosts">...</div>
-                                    <div class="label">New Hosts (24h)</div>
-                                </div>
-                                <!-- Anomalies -->
-                                <div class="card stat-box">
-                                    <div class="value" :class="{'text-red': hosts.stats.anomalies > 0}"
-                                        x-text="hosts.loading ? '...' : (hosts.stats.anomalies || 0).toLocaleString()">
-                                        ...</div>
-                                    <div class="label">Hosts with Anomalies</div>
-                                </div>
-                            </div>
-                        </section>
+    <!-- Hosts Top Stats -->
+    <section id="section-hosts-stats" class="mb-6">
+        <div class="grid grid-auto-fit gap-4" style="margin-bottom: var(--space-8) !important;">
+            <!-- Total Hosts -->
+            <div class="card stat-box">
+                <div class="value" x-text="hosts.loading ? '...' : (hosts.stats.total_hosts || 0).toLocaleString()">
+                    ...</div>
+                <div class="label">Total Hosts (24h)</div>
+            </div>
+            <!-- Active Hosts -->
+            <div class="card stat-box">
+                <div class="value" x-text="hosts.loading ? '...' : (hosts.stats.active_hosts || 0).toLocaleString()">
+                    ...</div>
+                <div class="label">Active Hosts (1h)</div>
+            </div>
+            <!-- New Hosts -->
+            <div class="card stat-box">
+                <div class="value" x-text="hosts.loading ? '...' : hosts.stats.new_hosts">...</div>
+                <div class="label">New Hosts (24h)</div>
+            </div>
+            <!-- Anomalies -->
+            <div class="card stat-box">
+                <div class="value" :class="{'text-red': hosts.stats.anomalies > 0}"
+                    x-text="hosts.loading ? '...' : (hosts.stats.anomalies || 0).toLocaleString()">
+                    ...</div>
+                <div class="label">Hosts with Anomalies</div>
+            </div>
+        </div>
+    </section>
 
-                        <!-- Hosts Table -->
-                        <section id="section-hosts-list" class="scroll-section">
-                            {% call widget_card('hosts', 'Network Hosts', '🖥️', card_class='wide-card',
-                            show_spinner=True, extra_actions='
-                            <div class="flex gap-2">
-                                <button class="btn btn-sm"
-                                    :class="hosts.viewMode === \'observed\' ? \'btn-primary\' : \'btn-ghost\'"
-                                    @click="switchHostsView(\'observed\')">Observed</button>
-                                <button class="btn btn-sm"
-                                    :class="hosts.viewMode === \'discovered\' ? \'btn-primary\' : \'btn-ghost\'"
-                                    @click="switchHostsView(\'discovered\')">Discovered</button>
-                            </div>
-                            ') %}
+    <!-- Hosts Table -->
+    <section id="section-hosts-list" class="scroll-section">
+        {% call widget_card('hosts', 'Network Hosts', '🖥️', card_class='wide-card',
+        show_spinner=True, extra_actions='
+        <div class="flex gap-2">
+            <button class="btn btn-sm" :class="hosts.viewMode === \'observed\' ? \'btn-primary\' : \'btn-ghost\'"
+                @click="switchHostsView(\'observed\')">Observed</button>
+            <button class="btn btn-sm" :class="hosts.viewMode === \'discovered\' ? \'btn-primary\' : \'btn-ghost\'"
+                @click="switchHostsView(\'discovered\')">Discovered</button>
+        </div>
+        ') %}
 
-                            <!-- Discovery Controls -->
-                            <div x-show="hosts.viewMode === 'discovered'"
-                                class="mb-4 p-4 border rounded border-gray-700 bg-gray-900 bg-opacity-50">
-                                <div class="flex items-end gap-4">
-                                    <div class="form-control w-full max-w-xs">
-                                        <label class="label" for="discovery-target-subnet">
-                                            <span class="label-text">Target Subnet</span>
-                                        </label>
-                                        <select id="discovery-target-subnet"
-                                            class="select select-bordered select-sm w-full"
-                                            x-model="hosts.discovery.target" aria-label="Target Subnet">
-                                            <option value="" disabled selected>Select subnet</option>
-                                            <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
-                                                <option :value="net.cidr" x-text="net.interface + ' - ' + net.cidr">
-                                                </option>
-                                            </template>
-                                            <option value="custom">Custom...</option>
-                                        </select>
+        <!-- Discovery Controls -->
+        <div x-show="hosts.viewMode === 'discovered'"
+            class="mb-4 p-4 border rounded border-gray-700 bg-gray-900 bg-opacity-50">
+            <div class="flex items-end gap-4">
+                <div class="form-control w-full max-w-xs">
+                    <label class="label" for="discovery-target-subnet">
+                        <span class="label-text">Target Subnet</span>
+                    </label>
+                    <select id="discovery-target-subnet" class="select select-bordered select-sm w-full"
+                        x-model="hosts.discovery.target" aria-label="Target Subnet">
+                        <option value="" disabled selected>Select subnet</option>
+                        <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
+                            <option :value="net.cidr" x-text="net.interface + ' - ' + net.cidr">
+                            </option>
+                        </template>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </div>
+                <div class="form-control w-full max-w-xs" x-show="hosts.discovery.target === 'custom'">
+                    <label class="label">
+                        <span class="label-text">Custom CIDR</span>
+                    </label>
+                    <input type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
+                        class="input input-bordered input-sm w-full" />
+                </div>
+
+                <button class="btn btn-sm btn-primary" @click="runDiscoveryScan()"
+                    :disabled="hosts.discovery.loading || !hosts.discovery.target">
+                    <span x-show="hosts.discovery.loading" class="loading loading-spinner text-primary"></span>
+                    <span x-show="!hosts.discovery.loading">Scan Network</span>
+                </button>
+            </div>
+            <div x-show="hosts.discovery.error" class="text-error text-sm mt-2" x-text="hosts.discovery.error"></div>
+            <div x-show="hosts.discovery.results" class="text-success text-sm mt-2">
+                Last scan: <span x-text="new Date(hosts.discovery.results?.scanned_at).toLocaleTimeString()"></span>
+                - Found <span x-text="hosts.discovery.results?.count"></span> hosts
+            </div>
+        </div>
+
+        <!-- Observed Hosts Table -->
+        <div x-show="hosts.viewMode === 'observed'">
+            <div x-show="!hosts.loading && (!hosts.list || hosts.list.length === 0)" class="empty-state">
+                <div style="font-size: 32px; margin-bottom: var(--space-2);">🔍</div>
+                <p>No hosts observed in the selected time range.</p>
+            </div>
+
+            <div class="table-container" x-show="hosts.list && hosts.list.length > 0">
+                <table class="table-fixed table-compact thead-sticky">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%">Host</th>
+                            <th style="width: 10%">Type</th>
+                            <th style="width: 15%">First Seen</th>
+                            <th style="width: 15%">Last Seen</th>
+                            <th style="width: 15%">Volume</th>
+                            <th style="width: 10%">Flows</th>
+                            <th style="width: 10%">Flags</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="host in hosts.list" :key="host.ip">
+                            <tr @click="openHostDetail(host.ip)" style="cursor: pointer;">
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="font-mono text-cyan" x-text="host.ip"></div>
+                                        <!-- Subtle new host indicator -->
+                                        <template x-if="host.is_new">
+                                            <span class="host-new-indicator"
+                                                title="New host (first seen within 24h)">🆕</span>
+                                        </template>
                                     </div>
-                                    <div class="form-control w-full max-w-xs"
-                                        x-show="hosts.discovery.target === 'custom'">
-                                        <label class="label">
-                                            <span class="label-text">Custom CIDR</span>
-                                        </label>
-                                        <input type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
-                                            class="input input-bordered input-sm w-full" />
+                                    <!-- Optional hostname if available in future -->
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                        :class="isInternalIP(host.ip) ? 'cat-lateral-movement' : 'cat-new-country'"
+                                        x-text="isInternalIP(host.ip) ? 'INTERNAL' : 'EXTERNAL'">
+                                    </span>
+                                </td>
+                                <td class="text-sm text-muted" x-text="formatFlowTimestamp(host.first_seen)">
+                                </td>
+                                <td class="text-sm text-muted" x-text="formatFlowTimestamp(host.last_seen)"></td>
+                                <td>
+                                    <div x-text="fmtBytes(host.total_bytes)"></div>
+                                    <div class="text-xs text-muted"
+                                        x-text="'RX: ' + fmtBytes(host.rx_bytes) + ' | TX: ' + fmtBytes(host.tx_bytes)">
                                     </div>
+                                </td>
+                                <td x-text="(host.rx_flows + host.tx_flows).toLocaleString()"></td>
+                                <td>
+                                    <!-- Flags -->
+                                    <div class="flex gap-1">
+                                        <template x-if="isInternalIP(host.ip) && host.tx_bytes > host.rx_bytes * 10">
+                                            <span title="High Upload (Internal)">📤</span>
+                                        </template>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-                                    <button class="btn btn-sm btn-primary" @click="runDiscoveryScan()"
-                                        :disabled="hosts.discovery.loading || !hosts.discovery.target">
-                                        <span x-show="hosts.discovery.loading"
-                                            class="loading loading-spinner text-primary"></span>
-                                        <span x-show="!hosts.discovery.loading">Scan Network</span>
-                                    </button>
-                                </div>
-                                <div x-show="hosts.discovery.error" class="text-error text-sm mt-2"
-                                    x-text="hosts.discovery.error"></div>
-                                <div x-show="hosts.discovery.results" class="text-success text-sm mt-2">
-                                    Last scan: <span
-                                        x-text="new Date(hosts.discovery.results?.scanned_at).toLocaleTimeString()"></span>
-                                    - Found <span x-text="hosts.discovery.results?.count"></span> hosts
-                                </div>
-                            </div>
+        <!-- Discovered Hosts Table -->
+        <div x-show="hosts.viewMode === 'discovered'">
+            <div x-show="!hosts.discovery.results || !hosts.discovery.results.hosts || hosts.discovery.results.hosts.length === 0"
+                class="empty-state">
+                <div style="font-size: 32px; margin-bottom: var(--space-2);">🎯</div>
+                <p>Scan a subnet to discover active hosts.</p>
+            </div>
 
-                            <!-- Observed Hosts Table -->
-                            <div x-show="hosts.viewMode === 'observed'">
-                                <div x-show="!hosts.loading && (!hosts.list || hosts.list.length === 0)"
-                                    class="empty-state">
-                                    <div style="font-size: 32px; margin-bottom: var(--space-2);">🔍</div>
-                                    <p>No hosts observed in the selected time range.</p>
-                                </div>
+            <div class="table-container"
+                x-show="hosts.discovery.results && hosts.discovery.results.hosts && hosts.discovery.results.hosts.length > 0">
+                <table class="table-fixed table-compact thead-sticky">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%">IP Address</th>
+                            <th style="width: 20%">MAC Address</th>
+                            <th style="width: 30%">Vendor</th>
+                            <th style="width: 15%">Status</th>
+                            <th style="width: 15%">Last Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="host in hosts.discovery.results?.hosts" :key="host.ip">
+                            <tr class="hover:bg-gray-800 cursor-pointer"
+                                @click="openHostDetail(host.ip, { mac: host.mac, vendor: host.vendor, hostname: host.hostname })">
+                                <td class="font-mono text-cyan" x-text="host.ip"></td>
+                                <td class="font-mono text-xs" x-text="host.mac"></td>
+                                <td class="text-xs text-muted" x-text="host.vendor"></td>
+                                <td>
+                                    <span class="badge badge-success" x-text="host.status"></span>
+                                </td>
+                                <td class="text-xs text-muted" x-text="new Date(host.last_seen).toLocaleTimeString()">
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endcall %}
+    </section>
 
-                                <div class="table-container" x-show="hosts.list && hosts.list.length > 0">
-                                    <table class="table-fixed table-compact thead-sticky">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 25%">Host</th>
-                                                <th style="width: 10%">Type</th>
-                                                <th style="width: 15%">First Seen</th>
-                                                <th style="width: 15%">Last Seen</th>
-                                                <th style="width: 15%">Volume</th>
-                                                <th style="width: 10%">Flows</th>
-                                                <th style="width: 10%">Flags</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <template x-for="host in hosts.list" :key="host.ip">
-                                                <tr @click="openHostDetail(host.ip)" style="cursor: pointer;">
-                                                    <td>
-                                                        <div class="flex items-center gap-2">
-                                                            <div class="font-mono text-cyan" x-text="host.ip"></div>
-                                                            <!-- Subtle new host indicator -->
-                                                            <template x-if="host.is_new">
-                                                                <span class="host-new-indicator"
-                                                                    title="New host (first seen within 24h)">🆕</span>
-                                                            </template>
-                                                        </div>
-                                                        <!-- Optional hostname if available in future -->
-                                                    </td>
-                                                    <td>
-                                                        <span class="badge"
-                                                            :class="isInternalIP(host.ip) ? 'cat-lateral-movement' : 'cat-new-country'"
-                                                            x-text="isInternalIP(host.ip) ? 'INTERNAL' : 'EXTERNAL'">
-                                                        </span>
-                                                    </td>
-                                                    <td class="text-sm text-muted"
-                                                        x-text="formatFlowTimestamp(host.first_seen)">
-                                                    </td>
-                                                    <td class="text-sm text-muted"
-                                                        x-text="formatFlowTimestamp(host.last_seen)"></td>
-                                                    <td>
-                                                        <div x-text="fmtBytes(host.total_bytes)"></div>
-                                                        <div class="text-xs text-muted"
-                                                            x-text="'RX: ' + fmtBytes(host.rx_bytes) + ' | TX: ' + fmtBytes(host.tx_bytes)">
-                                                        </div>
-                                                    </td>
-                                                    <td x-text="(host.rx_flows + host.tx_flows).toLocaleString()"></td>
-                                                    <td>
-                                                        <!-- Flags -->
-                                                        <div class="flex gap-1">
-                                                            <template
-                                                                x-if="isInternalIP(host.ip) && host.tx_bytes > host.rx_bytes * 10">
-                                                                <span title="High Upload (Internal)">📤</span>
-                                                            </template>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <!-- Discovered Hosts Table -->
-                            <div x-show="hosts.viewMode === 'discovered'">
-                                <div x-show="!hosts.discovery.results || !hosts.discovery.results.hosts || hosts.discovery.results.hosts.length === 0"
-                                    class="empty-state">
-                                    <div style="font-size: 32px; margin-bottom: var(--space-2);">🎯</div>
-                                    <p>Scan a subnet to discover active hosts.</p>
-                                </div>
-
-                                <div class="table-container"
-                                    x-show="hosts.discovery.results && hosts.discovery.results.hosts && hosts.discovery.results.hosts.length > 0">
-                                    <table class="table-fixed table-compact thead-sticky">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 20%">IP Address</th>
-                                                <th style="width: 20%">MAC Address</th>
-                                                <th style="width: 30%">Vendor</th>
-                                                <th style="width: 15%">Status</th>
-                                                <th style="width: 15%">Last Seen</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <template x-for="host in hosts.discovery.results?.hosts" :key="host.ip">
-                                                <tr class="hover:bg-gray-800 cursor-pointer"
-                                                    @click="openHostDetail(host.ip, { mac: host.mac, vendor: host.vendor, hostname: host.hostname })">
-                                                    <td class="font-mono text-cyan" x-text="host.ip"></td>
-                                                    <td class="font-mono text-xs" x-text="host.mac"></td>
-                                                    <td class="text-xs text-muted" x-text="host.vendor"></td>
-                                                    <td>
-                                                        <span class="badge badge-success" x-text="host.status"></span>
-                                                    </td>
-                                                    <td class="text-xs text-muted"
-                                                        x-text="new Date(host.last_seen).toLocaleTimeString()"></td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            {% endcall %}
-                        </section>
-
-                    </div>
-                    <!-- ============================================
+</div>
+<!-- ============================================
              FIREWALL TAB - Investigation & Incident Response
              ============================================ -->
