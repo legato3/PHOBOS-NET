@@ -1,28 +1,35 @@
- # Local SQLite databases
+# Runtime data
+docker-data/
+*.db
 *.sqlite
-# Sensitive files
+*.log
+
+# Environment / secrets
+.env
+.env.*
 netflow-smtp.json
 netflow-webhook.url
 netflow-notify.json
-threat-whitelist.txt
+
+# Threat feeds & inputs
+threat-*.txt
+threat-*.url
 
 # GeoIP databases
 *.mmdb
 
-# Logs
-*.log
-
-# Downloaded threat feeds
-threat-ips.txt
-threat-feed.url
+# Network captures
+*.pcap
+*.pcapng
+netflow-*.csv
+syslog-*.txt
 
 # Python
 __pycache__/
 *.py[cod]
 *.so
 
-# IDEs
+# IDEs / editors
 .vscode/
 .idea/
 *.swp
-*.db
