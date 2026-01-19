@@ -13,12 +13,6 @@
 ```bash
 # Copy the example template
 cp docker-compose.example.yml docker-compose.yml
-
-# Edit the file and update these values:
-# - TZ: Your timezone (e.g., America/New_York, Asia/Tokyo)
-# - SNMP_HOST: Your firewall IP address
-# - DNS_SERVER: Your DNS server IP
-# - FIREWALL_IP: Your firewall IP (for syslog filtering)
 ```
 
 **Option B: Use the development version**
