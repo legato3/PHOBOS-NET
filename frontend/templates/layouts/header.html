@@ -16,17 +16,75 @@
 
                 <div class="header-right">
                     <div class="header-controls mobile-hide-controls">
-                        <!-- Time Range -->
-                        <div class="header-control-group">
+                        <!-- Time Range with Presets -->
+                        <div class="header-control-group" style="position: relative;">
                             <span class="control-label">Time</span>
-                            <select x-model="timeRange" class="header-select" aria-label="Time Range">
-                                <option value="15m">15m</option>
-                                <option value="30m">30m</option>
-                                <option value="1h">1h</option>
-                                <option value="6h">6h</option>
-                                <option value="24h">24h</option>
-                                <option value="7d">7d</option>
-                            </select>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <select x-model="timeRange" class="header-select" aria-label="Time Range">
+                                    <option value="15m">15m</option>
+                                    <option value="30m">30m</option>
+                                    <option value="1h">1h</option>
+                                    <option value="6h">6h</option>
+                                    <option value="24h">24h</option>
+                                    <option value="7d">7d</option>
+                                </select>
+                                <button class="header-action-btn time-preset-btn"
+                                    @click="timePresetDropdownOpen = !timePresetDropdownOpen"
+                                    @click.away="timePresetDropdownOpen = false"
+                                    title="Time Presets"
+                                    aria-label="Time Presets"
+                                    style="padding: 4px 6px; min-width: auto;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- Preset Dropdown -->
+                            <div class="time-preset-dropdown"
+                                x-show="timePresetDropdownOpen"
+                                x-transition:enter="transition ease-out duration-100"
+                                x-transition:enter-start="opacity-0 transform scale-95"
+                                x-transition:enter-end="opacity-100 transform scale-100"
+                                x-transition:leave="transition ease-in duration-75"
+                                x-transition:leave-start="opacity-100 transform scale-100"
+                                x-transition:leave-end="opacity-0 transform scale-95"
+                                style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 220px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
+                                <div style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
+                                    <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Quick Presets</span>
+                                </div>
+                                <template x-for="preset in builtInPresets" :key="preset.id">
+                                    <button class="time-preset-item" @click="applyTimePreset(preset.id)"
+                                        style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                        <span x-text="preset.label" style="display: block;"></span>
+                                        <span x-text="preset.description" style="font-size: var(--text-xs); color: var(--text-tertiary);"></span>
+                                    </button>
+                                </template>
+                                <template x-if="savedTimePresets.length > 0">
+                                    <div>
+                                        <div style="padding: 8px 12px 4px; border-top: 1px solid var(--border-soft); margin-top: 4px;">
+                                            <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Saved Presets</span>
+                                        </div>
+                                        <template x-for="preset in savedTimePresets" :key="preset.id">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px;">
+                                                <button class="time-preset-item" @click="applyTimePreset(preset.id)"
+                                                    style="flex: 1; text-align: left; padding: 4px 0; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                                    <span x-text="preset.label"></span>
+                                                </button>
+                                                <button @click.stop="deleteTimePreset(preset.id)"
+                                                    style="background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 4px; font-size: 12px;"
+                                                    title="Delete preset">×</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
+                                    <button @click="saveCurrentAsPreset()"
+                                        style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
+                                        + Save current as preset
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <!-- Refresh Interval -->
                         <div class="header-control-group">
@@ -84,6 +142,53 @@
                                 </path>
                             </svg>
                         </button>
+                        <!-- Export Button with Dropdown -->
+                        <div style="position: relative;">
+                            <button class="header-action-btn" title="Export Data" aria-label="Export Data"
+                                @click="exportDropdownOpen = !exportDropdownOpen"
+                                @click.away="exportDropdownOpen = false">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                            </button>
+                            <div class="export-dropdown"
+                                x-show="exportDropdownOpen"
+                                x-transition:enter="transition ease-out duration-100"
+                                x-transition:enter-start="opacity-0 transform scale-95"
+                                x-transition:enter-end="opacity-100 transform scale-100"
+                                x-transition:leave="transition ease-in duration-75"
+                                x-transition:leave-start="opacity-100 transform scale-100"
+                                x-transition:leave-end="opacity-0 transform scale-95"
+                                style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 200px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
+                                <div style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
+                                    <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Export Data</span>
+                                </div>
+                                <button class="export-item" @click="exportDashboardData('csv'); exportDropdownOpen = false"
+                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                    <span style="color: var(--signal-ok);">CSV</span>
+                                    <span style="color: var(--text-tertiary);">Traffic summary</span>
+                                </button>
+                                <button class="export-item" @click="exportDashboardData('json'); exportDropdownOpen = false"
+                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                    <span style="color: var(--signal-info);">JSON</span>
+                                    <span style="color: var(--text-tertiary);">Full data export</span>
+                                </button>
+                                <button class="export-item" @click="exportAlerts('json'); exportDropdownOpen = false"
+                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                    <span style="color: var(--signal-warn);">Alerts</span>
+                                    <span style="color: var(--text-tertiary);">Security alerts</span>
+                                </button>
+                                <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
+                                    <button class="export-item" @click="generateReport(); exportDropdownOpen = false"
+                                        style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
+                                        <span>Generate Report</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <button class="header-action-btn" title="Alerts"
                             :aria-label="activeAlertsCount > 0 ? 'Alerts (' + activeAlertsCount + ' active)' : 'Alerts'"
                             @click="openAlerts()" style="position: relative;">

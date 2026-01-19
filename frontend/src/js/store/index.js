@@ -32,6 +32,20 @@ export const Store = () => ({
     firewallStreamActive: false,
     firewallES: null,
     timeRange: '1h',
+    timePresetDropdownOpen: false,
+
+    // Built-in time presets (relative to now)
+    builtInPresets: [
+        { id: 'business_yesterday', label: 'Business Hours Yesterday', description: '9am-6pm yesterday' },
+        { id: 'overnight', label: 'Overnight', description: '6pm yesterday - 9am today' },
+        { id: 'same_time_last_week', label: 'Same Time Last Week', description: 'Current window, 7 days ago' },
+        { id: 'last_weekend', label: 'Last Weekend', description: 'Fri 6pm - Mon 9am' },
+        { id: 'last_24h', label: 'Last 24 Hours', description: 'Full day comparison' },
+    ],
+
+    // User-saved custom presets from localStorage
+    savedTimePresets: JSON.parse(localStorage.getItem('savedTimePresets') || '[]'),
+
     refreshInterval: 30000,
     refreshTimer: null,
     paused: false,
@@ -382,6 +396,9 @@ export const Store = () => ({
         tcp_retrans_warn: 1.0, tcp_retrans_crit: 5.0
     },
     thresholdsModalOpen: false,
+
+    // Export dropdown
+    exportDropdownOpen: false,
 
     // Configuration Settings Modal
     configModalOpen: false,
@@ -1407,6 +1424,114 @@ export const Store = () => ({
         this.paused = !this.paused;
     },
 
+    // Time Preset Methods
+    applyTimePreset(presetId) {
+        const now = new Date();
+        let start, end;
+
+        switch (presetId) {
+            case 'business_yesterday': {
+                // 9am-6pm yesterday
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                start = new Date(yesterday.setHours(9, 0, 0, 0));
+                end = new Date(yesterday.setHours(18, 0, 0, 0));
+                break;
+            }
+            case 'overnight': {
+                // 6pm yesterday - 9am today
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                start = new Date(yesterday.setHours(18, 0, 0, 0));
+                const today = new Date(now);
+                end = new Date(today.setHours(9, 0, 0, 0));
+                break;
+            }
+            case 'same_time_last_week': {
+                // Current time window, 7 days ago
+                const msPerRange = this.getTimeRangeMs();
+                start = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000) - msPerRange);
+                end = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                break;
+            }
+            case 'last_weekend': {
+                // Most recent Fri 6pm - Mon 9am
+                const dayOfWeek = now.getDay();
+                const daysToLastFriday = (dayOfWeek + 2) % 7 + (dayOfWeek < 5 ? 7 : 0);
+                const lastFriday = new Date(now);
+                lastFriday.setDate(now.getDate() - daysToLastFriday);
+                start = new Date(lastFriday.setHours(18, 0, 0, 0));
+                const monday = new Date(start);
+                monday.setDate(monday.getDate() + 3);
+                end = new Date(monday.setHours(9, 0, 0, 0));
+                break;
+            }
+            case 'last_24h': {
+                // Full 24 hours ending now
+                start = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+                end = now;
+                break;
+            }
+            default: {
+                // Check for custom preset
+                const customPreset = this.savedTimePresets.find(p => p.id === presetId);
+                if (customPreset) {
+                    this.timeRange = customPreset.timeRange;
+                    this.timePresetDropdownOpen = false;
+                    this.dataRefresh();
+                    return;
+                }
+                return;
+            }
+        }
+
+        // For absolute time ranges, we'll use the closest standard range
+        // and let the API handle the actual filtering
+        const durationMs = end - start;
+        const durationHours = durationMs / (1000 * 60 * 60);
+
+        if (durationHours <= 0.5) this.timeRange = '30m';
+        else if (durationHours <= 1.5) this.timeRange = '1h';
+        else if (durationHours <= 8) this.timeRange = '6h';
+        else if (durationHours <= 36) this.timeRange = '24h';
+        else this.timeRange = '7d';
+
+        this.timePresetDropdownOpen = false;
+        this.dataRefresh();
+    },
+
+    getTimeRangeMs() {
+        const rangeMap = {
+            '15m': 15 * 60 * 1000,
+            '30m': 30 * 60 * 1000,
+            '1h': 60 * 60 * 1000,
+            '6h': 6 * 60 * 60 * 1000,
+            '24h': 24 * 60 * 60 * 1000,
+            '7d': 7 * 24 * 60 * 60 * 1000
+        };
+        return rangeMap[this.timeRange] || 60 * 60 * 1000;
+    },
+
+    saveCurrentAsPreset() {
+        const name = prompt('Enter a name for this preset:');
+        if (!name || !name.trim()) return;
+
+        const preset = {
+            id: 'custom_' + Date.now(),
+            label: name.trim(),
+            timeRange: this.timeRange,
+            description: `${this.timeRange} window`
+        };
+
+        this.savedTimePresets.push(preset);
+        localStorage.setItem('savedTimePresets', JSON.stringify(this.savedTimePresets));
+    },
+
+    deleteTimePreset(presetId) {
+        this.savedTimePresets = this.savedTimePresets.filter(p => p.id !== presetId);
+        localStorage.setItem('savedTimePresets', JSON.stringify(this.savedTimePresets));
+    },
+
     // Fullscreen Chart Methods
     openFullscreenChart(chartId, title) {
         const sourceChart = this.getChartInstance(chartId);
@@ -2220,12 +2345,197 @@ export const Store = () => ({
                     list,
                     loading: false
                 };
-                this.$nextTick(() => this.renderTrafficScatter());
+                this.$nextTick(() => {
+                    this.renderTrafficScatter();
+                    this.renderNetworkTopology();
+                });
             }
         } catch (e) {
             console.error('Failed to fetch hosts:', e);
             this.hosts.loading = false;
         }
+    },
+
+    // Network Topology Map
+    networkTopology: {
+        loading: false,
+        selectedNode: null
+    },
+
+    renderNetworkTopology() {
+        const canvas = document.getElementById('networkTopologyCanvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        // Set canvas size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const width = rect.width;
+        const height = rect.height;
+
+        // Clear canvas
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
+        ctx.fillRect(0, 0, width, height);
+
+        // Get hosts data
+        const hosts = this.hosts.list || [];
+        if (hosts.length === 0) {
+            ctx.fillStyle = '#666';
+            ctx.font = '14px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading network data...', width / 2, height / 2);
+            return;
+        }
+
+        // Separate internal and external hosts
+        const internal = hosts.filter(h => h.type === 'Internal').slice(0, 8);
+        const external = hosts.filter(h => h.type === 'External').slice(0, 8);
+
+        // Calculate max bytes for scaling
+        const maxBytes = Math.max(...hosts.map(h => h.total_bytes || 0), 1);
+
+        // Center node (Firewall/Router)
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Draw connections first (under nodes)
+        ctx.strokeStyle = 'rgba(0, 234, 255, 0.15)';
+        ctx.lineWidth = 1;
+
+        // Draw internal host connections
+        internal.forEach((host, i) => {
+            const angle = ((i / Math.max(internal.length, 1)) * Math.PI) - Math.PI / 2 - Math.PI / 4;
+            const radius = Math.min(width, height) * 0.35;
+            const x = centerX - radius + Math.cos(angle) * radius * 0.6;
+            const y = centerY + Math.sin(angle) * radius * 0.8;
+
+            // Line thickness based on traffic
+            const traffic = (host.total_bytes || 0) / maxBytes;
+            ctx.strokeStyle = `rgba(0, 255, 136, ${0.1 + traffic * 0.3})`;
+            ctx.lineWidth = 1 + traffic * 3;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+
+        // Draw external host connections
+        external.forEach((host, i) => {
+            const angle = ((i / Math.max(external.length, 1)) * Math.PI) - Math.PI / 2 + Math.PI / 4;
+            const radius = Math.min(width, height) * 0.35;
+            const x = centerX + radius - Math.cos(angle) * radius * 0.6;
+            const y = centerY + Math.sin(angle) * radius * 0.8;
+
+            // Line thickness based on traffic
+            const traffic = (host.total_bytes || 0) / maxBytes;
+            ctx.strokeStyle = `rgba(0, 234, 255, ${0.1 + traffic * 0.3})`;
+            ctx.lineWidth = 1 + traffic * 3;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+
+        // Draw center node (Firewall)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 234, 255, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = '#00eaff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#00eaff';
+        ctx.font = 'bold 11px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('FIREWALL', centerX, centerY);
+
+        // Draw internal hosts (left side)
+        ctx.font = '10px system-ui';
+        internal.forEach((host, i) => {
+            const angle = ((i / Math.max(internal.length, 1)) * Math.PI) - Math.PI / 2 - Math.PI / 4;
+            const radius = Math.min(width, height) * 0.35;
+            const x = centerX - radius + Math.cos(angle) * radius * 0.6;
+            const y = centerY + Math.sin(angle) * radius * 0.8;
+
+            // Node size based on traffic
+            const nodeSize = 8 + ((host.total_bytes || 0) / maxBytes) * 12;
+
+            ctx.beginPath();
+            ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
+            ctx.fillStyle = host.is_new ? 'rgba(255, 180, 0, 0.3)' : 'rgba(0, 255, 136, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = host.is_new ? '#ffb400' : '#00ff88';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#ccc';
+            ctx.textAlign = 'right';
+            const label = host.ip.length > 15 ? host.ip.substring(0, 12) + '...' : host.ip;
+            ctx.fillText(label, x - nodeSize - 4, y + 3);
+        });
+
+        // Draw external hosts (right side)
+        external.forEach((host, i) => {
+            const angle = ((i / Math.max(external.length, 1)) * Math.PI) - Math.PI / 2 + Math.PI / 4;
+            const radius = Math.min(width, height) * 0.35;
+            const x = centerX + radius - Math.cos(angle) * radius * 0.6;
+            const y = centerY + Math.sin(angle) * radius * 0.8;
+
+            // Node size based on traffic
+            const nodeSize = 8 + ((host.total_bytes || 0) / maxBytes) * 12;
+
+            ctx.beginPath();
+            ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 234, 255, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = '#00eaff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#ccc';
+            ctx.textAlign = 'left';
+            const label = host.ip.length > 15 ? host.ip.substring(0, 12) + '...' : host.ip;
+            ctx.fillText(label, x + nodeSize + 4, y + 3);
+        });
+
+        // Draw legend
+        ctx.font = '9px system-ui';
+        ctx.textAlign = 'left';
+
+        // Internal legend
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath();
+        ctx.arc(15, height - 30, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillText('Internal', 25, height - 27);
+
+        // External legend
+        ctx.fillStyle = '#00eaff';
+        ctx.beginPath();
+        ctx.arc(15, height - 15, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillText('External', 25, height - 12);
+
+        // New host legend
+        ctx.fillStyle = '#ffb400';
+        ctx.beginPath();
+        ctx.arc(80, height - 30, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillText('New (24h)', 90, height - 27);
     },
 
     renderTrafficScatter() {
@@ -5107,7 +5417,125 @@ export const Store = () => ({
     },
 
     exportAlerts(fmt) {
-        window.location.href = '/api/alerts_export?format=' + fmt;
+        // Export alerts data from current state
+        const alertsData = {
+            exported_at: new Date().toISOString(),
+            time_range: this.timeRange,
+            active_count: this.alertHistory?.active_count || 0,
+            total_count: this.alertHistory?.total || 0,
+            alerts: this.alertHistory?.alerts || []
+        };
+        const blob = new Blob([JSON.stringify(alertsData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alerts-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Alerts exported', 'success');
+    },
+
+    exportDashboardData(format) {
+        if (format === 'csv') {
+            this.exportCSV();
+            this.showToast('Traffic data exported as CSV', 'success');
+        } else if (format === 'json') {
+            this.exportJSON();
+            this.showToast('Dashboard data exported as JSON', 'success');
+        }
+    },
+
+    generateReport() {
+        // Generate a comprehensive HTML report
+        const report = this.buildReport();
+        const blob = new Blob([report], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `phobos-net-report-${new Date().toISOString().split('T')[0]}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Report generated', 'success');
+    },
+
+    buildReport() {
+        const now = new Date();
+        const stats = this.networkStatsOverview || {};
+        const firewall = this.firewallStatsOverview || {};
+        const alerts = this.alertHistory || {};
+        const health = this.baselineSignals || {};
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PHOBOS-NET Report - ${now.toLocaleDateString()}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #0a0a0f; color: #e0e0e0; }
+        h1 { color: #00eaff; border-bottom: 2px solid #00eaff; padding-bottom: 10px; }
+        h2 { color: #00ff88; margin-top: 30px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0; }
+        .stat-box { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; padding: 16px; }
+        .stat-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-value { font-size: 24px; font-weight: 600; color: #00eaff; margin-top: 4px; }
+        .status-ok { color: #00ff88; }
+        .status-warn { color: #ffb400; }
+        .status-crit { color: #ff1744; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #2d2d44; }
+        th { background: #1a1a2e; color: #00eaff; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #2d2d44; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>PHOBOS-NET Network Report</h1>
+    <p>Generated: ${now.toLocaleString()}<br>Time Range: ${this.timeRange}</p>
+
+    <h2>Network Overview</h2>
+    <div class="stat-grid">
+        <div class="stat-box">
+            <div class="stat-label">Active Flows</div>
+            <div class="stat-value">${(stats.active_flows || 0).toLocaleString()}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">External Connections</div>
+            <div class="stat-value">${(stats.external_connections || 0).toLocaleString()}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Blocked Events (24h)</div>
+            <div class="stat-value">${(firewall.blocked_events_24h || 0).toLocaleString()}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Network Anomalies (24h)</div>
+            <div class="stat-value">${(stats.anomalies_24h || 0).toLocaleString()}</div>
+        </div>
+    </div>
+
+    <h2>Security Status</h2>
+    <div class="stat-grid">
+        <div class="stat-box">
+            <div class="stat-label">Active Alerts</div>
+            <div class="stat-value ${(alerts.active_count || 0) > 0 ? 'status-warn' : 'status-ok'}">${alerts.active_count || 0}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">System Health</div>
+            <div class="stat-value ${health.state === 'healthy' ? 'status-ok' : health.state === 'degraded' ? 'status-warn' : 'status-crit'}">${(health.state || 'Unknown').toUpperCase()}</div>
+        </div>
+    </div>
+
+    <h2>System Information</h2>
+    <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Report Generated</td><td>${now.toISOString()}</td></tr>
+        <tr><td>Time Range</td><td>${this.timeRange}</td></tr>
+        <tr><td>Dashboard Version</td><td>PHOBOS-NET v1.1</td></tr>
+    </table>
+
+    <div class="footer">
+        <p>This report was automatically generated by PHOBOS-NET Network Observability Dashboard.</p>
+    </div>
+</body>
+</html>`;
     },
 
     // === FIREWALL INVESTIGATION FUNCTIONS ===
