@@ -74,18 +74,20 @@ https://hub.docker.com/r/legato3/phobos-net
 docker pull legato3/phobos-net:latest
 ```
 
-```yaml
-services:
-  phobos-net:
-    image: legato3/phobos-net:latest
-    ports:
-      - "3434:8080"
-      - "514:5514/udp"
-      - "515:5515/udp"
-      - "2055:2055/udp"
-    volumes:
-      - ./docker-data:/app/data
+PHOBOS-NET runs as a Docker container and listens for data from OPNsense.
+
+```bash
+docker pull legato3/phobos-net:latest
 ```
+
+PHOBOS-NET requires:
+- OPNsense Syslog (UDP 514 / 515)
+- NetFlow (UDP 2055)
+- SNMP (required)
+
+See:
+- docs/USER_GUIDE.md
+- docs/OPNSENSE_QUICK_START.md
 
 Access the UI:
 ```
