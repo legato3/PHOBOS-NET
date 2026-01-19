@@ -15,32 +15,53 @@ PHOBOS-NET is read-only and safe by design.
 
 ## 1. Running PHOBOS-NET
 
-Create the data folder:
-```bash
-mkdir phobos-net
-cd phobos-net
-mkdir docker-data
-```
-
 Create `docker-compose.yml`:
 
 ```yaml
-version: "3.9"
-
 services:
   phobos-net:
     image: legato3/phobos-net:latest
     container_name: phobos-net
     restart: unless-stopped
     ports:
-      - "3434:8080"       # Web dashboard
+      - "3434:8080"       # Web dashboard - access at http://localhost:3434
       - "514:5514/udp"    # Syslog filterlog (OPNsense block/pass events)
       - "515:5515/udp"    # Syslog application logs
-      - "2055:2055/udp"   # NetFlow collection
+      - "2055:2055/udp"   # NetFlow collection (nfcapd)
     environment:
-      - TZ=Europe/Amsterdam  # Set to your local timezone
+      # REQUIRED: Set your local timezone
+      - TZ=Europe/Amsterdam
+
+      # OPTIONAL: Threat intelligence API keys (leave commented if not needed)
+      # - VIRUSTOTAL_API_KEY=your_virustotal_api_key_here
+      # - ABUSEIPDB_API_KEY=your_abuseipdb_api_key_here
+
     volumes:
-      - ./docker-data:/app/data
+      # Data persistence - these directories will be created automatically
+      - ./docker-data:/app/data                    # Databases, watchlists, threat feeds
+      - ./docker-data/nfdump:/var/cache/nfdump    # NetFlow data files
+
+    # Log rotation to prevent disk fill-up
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits (adjust based on your network size)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M  # Use 1536M-2048M for networks with >100 active devices
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 ```
 
 Start:
