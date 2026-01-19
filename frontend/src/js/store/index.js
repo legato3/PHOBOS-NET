@@ -81,8 +81,7 @@ export const Store = () => ({
     // Server health auto-refresh
     serverHealthRefreshTimer: null,
 
-    // Edit Mode (Layout)
-    editMode: false,
+
 
     // Ollama chat state
     ollamaChat: {

@@ -1,223 +1,216 @@
-            <header class="header" role="banner">
-                <div class="header-left">
-                    <button class="header-action-btn sidebar-toggle-main" @click="toggleSidebarMobile()"
-                        aria-label="Toggle Sidebar">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+<header class="header" role="banner">
+    <div class="header-left">
+        <button class="header-action-btn sidebar-toggle-main" @click="toggleSidebarMobile()"
+            aria-label="Toggle Sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+        <h2 class="page-title" x-text="activeTab.charAt(0).toUpperCase() + activeTab.slice(1)">Dashboard
+        </h2>
+    </div>
+
+
+    <div class="header-right">
+        <div class="header-controls mobile-hide-controls">
+            <!-- Time Range with Presets -->
+            <div class="header-control-group" style="position: relative;">
+                <span class="control-label">Time</span>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <select x-model="timeRange" class="header-select" aria-label="Time Range">
+                        <option value="15m">15m</option>
+                        <option value="30m">30m</option>
+                        <option value="1h">1h</option>
+                        <option value="6h">6h</option>
+                        <option value="24h">24h</option>
+                        <option value="7d">7d</option>
+                    </select>
+                    <button class="header-action-btn time-preset-btn"
+                        @click="timePresetDropdownOpen = !timePresetDropdownOpen"
+                        @click.away="timePresetDropdownOpen = false" title="Time Presets" aria-label="Time Presets"
+                        style="padding: 4px 6px; min-width: auto;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
                     </button>
-                    <h2 class="page-title" x-text="activeTab.charAt(0).toUpperCase() + activeTab.slice(1)">Dashboard
-                    </h2>
                 </div>
-
-
-                <div class="header-right">
-                    <div class="header-controls mobile-hide-controls">
-                        <!-- Time Range with Presets -->
-                        <div class="header-control-group" style="position: relative;">
-                            <span class="control-label">Time</span>
-                            <div style="display: flex; gap: 4px; align-items: center;">
-                                <select x-model="timeRange" class="header-select" aria-label="Time Range">
-                                    <option value="15m">15m</option>
-                                    <option value="30m">30m</option>
-                                    <option value="1h">1h</option>
-                                    <option value="6h">6h</option>
-                                    <option value="24h">24h</option>
-                                    <option value="7d">7d</option>
-                                </select>
-                                <button class="header-action-btn time-preset-btn"
-                                    @click="timePresetDropdownOpen = !timePresetDropdownOpen"
-                                    @click.away="timePresetDropdownOpen = false"
-                                    title="Time Presets"
-                                    aria-label="Time Presets"
-                                    style="padding: 4px 6px; min-width: auto;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <polyline points="12 6 12 12 16 14"></polyline>
-                                    </svg>
-                                </button>
+                <!-- Preset Dropdown -->
+                <div class="time-preset-dropdown" x-show="timePresetDropdownOpen"
+                    x-transition:enter="transition ease-out duration-100"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-75"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 220px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
+                    <div
+                        style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
+                        <span
+                            style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Quick
+                            Presets</span>
+                    </div>
+                    <template x-for="preset in builtInPresets" :key="preset.id">
+                        <button class="time-preset-item" @click="applyTimePreset(preset.id)"
+                            style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                            <span x-text="preset.label" style="display: block;"></span>
+                            <span x-text="preset.description"
+                                style="font-size: var(--text-xs); color: var(--text-tertiary);"></span>
+                        </button>
+                    </template>
+                    <template x-if="savedTimePresets.length > 0">
+                        <div>
+                            <div
+                                style="padding: 8px 12px 4px; border-top: 1px solid var(--border-soft); margin-top: 4px;">
+                                <span
+                                    style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Saved
+                                    Presets</span>
                             </div>
-                            <!-- Preset Dropdown -->
-                            <div class="time-preset-dropdown"
-                                x-show="timePresetDropdownOpen"
-                                x-transition:enter="transition ease-out duration-100"
-                                x-transition:enter-start="opacity-0 transform scale-95"
-                                x-transition:enter-end="opacity-100 transform scale-100"
-                                x-transition:leave="transition ease-in duration-75"
-                                x-transition:leave-start="opacity-100 transform scale-100"
-                                x-transition:leave-end="opacity-0 transform scale-95"
-                                style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 220px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
-                                <div style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
-                                    <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Quick Presets</span>
-                                </div>
-                                <template x-for="preset in builtInPresets" :key="preset.id">
+                            <template x-for="preset in savedTimePresets" :key="preset.id">
+                                <div
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px;">
                                     <button class="time-preset-item" @click="applyTimePreset(preset.id)"
-                                        style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
-                                        <span x-text="preset.label" style="display: block;"></span>
-                                        <span x-text="preset.description" style="font-size: var(--text-xs); color: var(--text-tertiary);"></span>
+                                        style="flex: 1; text-align: left; padding: 4px 0; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                                        <span x-text="preset.label"></span>
                                     </button>
-                                </template>
-                                <template x-if="savedTimePresets.length > 0">
-                                    <div>
-                                        <div style="padding: 8px 12px 4px; border-top: 1px solid var(--border-soft); margin-top: 4px;">
-                                            <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Saved Presets</span>
-                                        </div>
-                                        <template x-for="preset in savedTimePresets" :key="preset.id">
-                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px;">
-                                                <button class="time-preset-item" @click="applyTimePreset(preset.id)"
-                                                    style="flex: 1; text-align: left; padding: 4px 0; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
-                                                    <span x-text="preset.label"></span>
-                                                </button>
-                                                <button @click.stop="deleteTimePreset(preset.id)"
-                                                    style="background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 4px; font-size: 12px;"
-                                                    title="Delete preset">×</button>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                                <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
-                                    <button @click="saveCurrentAsPreset()"
-                                        style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
-                                        + Save current as preset
-                                    </button>
+                                    <button @click.stop="deleteTimePreset(preset.id)"
+                                        style="background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; padding: 2px 4px; font-size: 12px;"
+                                        title="Delete preset">×</button>
                                 </div>
-                            </div>
+                            </template>
                         </div>
-                        <!-- Refresh Interval -->
-                        <div class="header-control-group">
-                            <span class="control-label">Refresh</span>
-                            <select x-model="refreshInterval" class="header-select" aria-label="Refresh Interval">
-                                <option value="10000">10s</option>
-                                <option value="30000">30s</option>
-                                <option value="60000">1m</option>
-                                <option value="300000">5m</option>
-                            </select>
-                        </div>
-                        <!-- Pause Button -->
-                        <button class="header-action-btn" :class="{ 'paused': paused }" @click="togglePause()"
-                            title="Pause auto-refresh" :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
-                            :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" x-show="!paused">
-                                <rect x="6" y="4" width="4" height="16"></rect>
-                                <rect x="14" y="4" width="4" height="16"></rect>
-                            </svg>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" x-show="paused">
-                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <!-- Mobile Controls Menu Button -->
-                    <button class="header-action-btn mobile-controls-btn" @click="mobileControlsModalOpen = true"
-                        title="Controls" aria-label="Open Controls Menu">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <circle cx="12" cy="12" r="1"></circle>
-                            <circle cx="19" cy="12" r="1"></circle>
-                            <circle cx="5" cy="12" r="1"></circle>
-                        </svg>
-                    </button>
-
-                    <div class="header-actions">
-                        <button class="header-action-btn" title="Wallboard / NOC View" aria-label="Wallboard / NOC View"
-                            @click="window.open('/wallboard', '_blank')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                                <line x1="8" y1="21" x2="16" y2="21"></line>
-                                <line x1="12" y1="17" x2="12" y2="21"></line>
-                            </svg>
-                        </button>
-                        <button class="header-action-btn" title="Refresh" aria-label="Refresh" @click="dataRefresh()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M23 4v6h-6"></path>
-                                <path d="M1 20v-6h6"></path>
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
-                                </path>
-                            </svg>
-                        </button>
-                        <!-- Export Button with Dropdown -->
-                        <div style="position: relative;">
-                            <button class="header-action-btn" title="Export Data" aria-label="Export Data"
-                                @click="exportDropdownOpen = !exportDropdownOpen"
-                                @click.away="exportDropdownOpen = false">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                            </button>
-                            <div class="export-dropdown"
-                                x-show="exportDropdownOpen"
-                                x-transition:enter="transition ease-out duration-100"
-                                x-transition:enter-start="opacity-0 transform scale-95"
-                                x-transition:enter-end="opacity-100 transform scale-100"
-                                x-transition:leave="transition ease-in duration-75"
-                                x-transition:leave-start="opacity-100 transform scale-100"
-                                x-transition:leave-end="opacity-0 transform scale-95"
-                                style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 200px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
-                                <div style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
-                                    <span style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Export Data</span>
-                                </div>
-                                <button class="export-item" @click="exportDashboardData('csv'); exportDropdownOpen = false"
-                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
-                                    <span style="color: var(--signal-ok);">CSV</span>
-                                    <span style="color: var(--text-tertiary);">Traffic summary</span>
-                                </button>
-                                <button class="export-item" @click="exportDashboardData('json'); exportDropdownOpen = false"
-                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
-                                    <span style="color: var(--signal-info);">JSON</span>
-                                    <span style="color: var(--text-tertiary);">Full data export</span>
-                                </button>
-                                <button class="export-item" @click="exportAlerts('json'); exportDropdownOpen = false"
-                                    style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
-                                    <span style="color: var(--signal-warn);">Alerts</span>
-                                    <span style="color: var(--text-tertiary);">Security alerts</span>
-                                </button>
-                                <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
-                                    <button class="export-item" @click="generateReport(); exportDropdownOpen = false"
-                                        style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
-                                        <span>Generate Report</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="header-action-btn" title="Alerts"
-                            :aria-label="activeAlertsCount > 0 ? 'Alerts (' + activeAlertsCount + ' active)' : 'Alerts'"
-                            @click="openAlerts()" style="position: relative;">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
-                            <span x-show="activeAlertsCount > 0"
-                                style="position: absolute; top: -4px; right: -4px; background: var(--accent-cyan, #00f3ff); color: var(--bg-primary, #0a0a0f); border-radius: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; padding: 0 4px;"
-                                x-text="activeAlertsCount > 99 ? '99+' : activeAlertsCount"></span>
-                        </button>
-                        <button class="header-action-btn" title="Edit Layout" @click="editMode = !editMode"
-                            :class="{ 'active': editMode }" :aria-label="editMode ? 'Finish Editing' : 'Edit Layout'">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </button>
-                        <button class="header-action-btn" title="Settings" aria-label="Settings" @click="openConfig()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path
-                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                                </path>
-                            </svg>
+                    </template>
+                    <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
+                        <button @click="saveCurrentAsPreset()"
+                            style="display: block; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
+                            + Save current as preset
                         </button>
                     </div>
                 </div>
-            </header>
+            </div>
+            <!-- Refresh Interval -->
+            <div class="header-control-group">
+                <span class="control-label">Refresh</span>
+                <select x-model="refreshInterval" class="header-select" aria-label="Refresh Interval">
+                    <option value="10000">10s</option>
+                    <option value="30000">30s</option>
+                    <option value="60000">1m</option>
+                    <option value="300000">5m</option>
+                </select>
+            </div>
+            <!-- Pause Button -->
+            <button class="header-action-btn" :class="{ 'paused': paused }" @click="togglePause()"
+                title="Pause auto-refresh" :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
+                :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    x-show="!paused">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    x-show="paused">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mobile Controls Menu Button -->
+        <button class="header-action-btn mobile-controls-btn" @click="mobileControlsModalOpen = true" title="Controls"
+            aria-label="Open Controls Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="19" cy="12" r="1"></circle>
+                <circle cx="5" cy="12" r="1"></circle>
+            </svg>
+        </button>
+
+        <div class="header-actions">
+            <button class="header-action-btn" title="Wallboard / NOC View" aria-label="Wallboard / NOC View"
+                @click="window.open('/wallboard', '_blank')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+            </button>
+            <button class="header-action-btn" title="Refresh" aria-label="Refresh" @click="dataRefresh()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6"></path>
+                    <path d="M1 20v-6h6"></path>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                    </path>
+                </svg>
+            </button>
+            <!-- Export Button with Dropdown -->
+            <div style="position: relative;">
+                <button class="header-action-btn" title="Export Data" aria-label="Export Data"
+                    @click="exportDropdownOpen = !exportDropdownOpen" @click.away="exportDropdownOpen = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </button>
+                <div class="export-dropdown" x-show="exportDropdownOpen"
+                    x-transition:enter="transition ease-out duration-100"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-75"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    style="position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 100; min-width: 200px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 0;">
+                    <div
+                        style="padding: 4px 12px 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px;">
+                        <span
+                            style="font-size: var(--text-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Export
+                            Data</span>
+                    </div>
+                    <button class="export-item" @click="exportDashboardData('csv'); exportDropdownOpen = false"
+                        style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                        <span style="color: var(--signal-ok);">CSV</span>
+                        <span style="color: var(--text-tertiary);">Traffic summary</span>
+                    </button>
+                    <button class="export-item" @click="exportDashboardData('json'); exportDropdownOpen = false"
+                        style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                        <span style="color: var(--signal-info);">JSON</span>
+                        <span style="color: var(--text-tertiary);">Full data export</span>
+                    </button>
+                    <button class="export-item" @click="exportAlerts('json'); exportDropdownOpen = false"
+                        style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--text-0); cursor: pointer; font-size: var(--text-sm);">
+                        <span style="color: var(--signal-warn);">Alerts</span>
+                        <span style="color: var(--text-tertiary);">Security alerts</span>
+                    </button>
+                    <div style="border-top: 1px solid var(--border-soft); margin-top: 4px; padding-top: 4px;">
+                        <button class="export-item" @click="generateReport(); exportDropdownOpen = false"
+                            style="display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 12px; background: transparent; border: none; color: var(--signal-primary); cursor: pointer; font-size: var(--text-sm);">
+                            <span>Generate Report</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <button class="header-action-btn" title="Alerts"
+                :aria-label="activeAlertsCount > 0 ? 'Alerts (' + activeAlertsCount + ' active)' : 'Alerts'"
+                @click="openAlerts()" style="position: relative;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span x-show="activeAlertsCount > 0"
+                    style="position: absolute; top: -4px; right: -4px; background: var(--accent-cyan, #00f3ff); color: var(--bg-primary, #0a0a0f); border-radius: 10px; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; padding: 0 4px;"
+                    x-text="activeAlertsCount > 99 ? '99+' : activeAlertsCount"></span>
+            </button>
+
+            <button class="header-action-btn" title="Settings" aria-label="Settings" @click="openConfig()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</header>
