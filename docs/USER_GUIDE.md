@@ -38,16 +38,9 @@ services:
       - "515:5515/udp"    # Syslog application logs
       - "2055:2055/udp"   # NetFlow collection
     environment:
-      - PYTHONUNBUFFERED=1
       - TZ=Europe/Amsterdam  # Set to your local timezone
     volumes:
       - ./docker-data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 ```
 
 Start:
