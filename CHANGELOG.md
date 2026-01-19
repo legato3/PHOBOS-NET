@@ -1,26 +1,47 @@
 # Changelog
 
-## v1.2
+All notable changes to PHOBOS-NET are documented in this file.
 
-- Project renamed to PHOBOS-NET
-- Fixed Traffic by Hour widget chronological ordering
-- Fixed alert dismissal reactivity with Alpine.js
-- Layout improvements for status bar positioning
-- Version bump and documentation updates
+This project follows a **calm, conservative release philosophy**:
+- No breaking changes without clear justification
+- No silent behavior changes
+- Truthfulness and observability take precedence over features
 
-## v1.1
+---
 
-- Introduced Insight Panels with baseline vs notable logic
-- Added explicit normal-state messaging
-- Improved mobile layouts across all pages
-- Stabilized SNMP interface metrics
-- Added Hosts page with observed host tracking
-- Added Server page operational visibility
-- Improved UX consistency and guardrails
+## [1.2.0] — 2026-01-19
 
-## v1.0
+### Added
+- Public open-source release
+- Docker Hub distribution (`legato3/phobos-net`)
+- OPNsense firewall visibility via normalized `filterlog` parsing
+- Dedicated firewall event ingestion pipeline (parser → store → API)
+- SNMP-based system and interface monitoring (required)
+- Clear separation between:
+  - System Health (operability)
+  - Alerts (actionable, persistent)
+  - Indicators (contextual signals)
+- Secondary syslog stream support (UDP 515)
 
-- Initial public version
-- NetFlow ingestion and visualization
-- Basic SNMP support
-- Traffic, Firewall, and Overview pages
+### Changed
+- Health scoring now reflects monitoring operability only
+- Alert escalation requires stricter persistence
+- UI explicitly distinguishes unavailable data (`—`) from zero values
+- Docker image hardened (non-root, OCI-compliant)
+
+### Documentation
+- GitHub README aligned with Docker Hub README
+- Added CONTRIBUTING.md, SECURITY.md, AGENTS.md
+- Added OPNsense Quick Start and full configuration guide
+- Added release checklist for maintainability
+
+---
+
+## [Unreleased]
+
+### Planned (Intentionally Modest)
+- Timeline-based correlation (non-escalating)
+- Historical context and trend visualizations
+- UI clarity and documentation refinements
+
+No automatic response or enforcement features are planned.
