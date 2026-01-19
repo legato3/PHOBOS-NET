@@ -165,3 +165,4 @@ def add_app_log(message, level='INFO'):
 
 # ==================== Thread Pool Executor ====================
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
+_rollup_executor = ThreadPoolExecutor(max_workers=8)
