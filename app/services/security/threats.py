@@ -4,6 +4,7 @@ import os
 import json
 import requests
 import threading
+import queue
 from datetime import datetime, timezone
 from collections import defaultdict, deque
 from app.core.app_state import add_app_log
@@ -29,6 +30,11 @@ _watchlist_cache = {"data": set(), "mtime": 0, "last_check": 0}
 _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat list file
 
 FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
+
+# Webhook queue for non-blocking security alerts
+_webhook_queue = queue.Queue()
+_webhook_thread = None
+_webhook_config_cache = {"data": None, "mtime": 0, "last_check": 0}
 
 # Detection state
 # ALERTS: Rare, actionable security events requiring human attention
@@ -291,30 +297,79 @@ def remove_from_watchlist(ip):
         return False
 
 
-def send_security_webhook(threat_data):
-    """Send threat data to configured security webhook (for auto-blocking)"""
+def load_security_webhook_config():
+    """Load security webhook config with caching."""
+    global _webhook_config_cache
+    now = time.monotonic()
+
+    # Check cache freshness
+    if now - _webhook_config_cache.get("last_check", 0) < FILE_CHECK_INTERVAL:
+        return _webhook_config_cache["data"]
+
+    _webhook_config_cache["last_check"] = now
+
     try:
         if not os.path.exists(SECURITY_WEBHOOK_PATH):
-            return False
-        with open(SECURITY_WEBHOOK_PATH, 'r') as f:
-            config = json.load(f)
-        
-        url = config.get('url')
-        if not url:
-            return False
-        
-        headers = config.get('headers', {'Content-Type': 'application/json'})
-        payload = {
-            'source': 'netflow-dashboard',
-            'timestamp': time.time(),
-            'threat': threat_data
-        }
-        
-        requests.post(url, json=payload, headers=headers, timeout=5)
-        return True
+            _webhook_config_cache["data"] = None
+            _webhook_config_cache["mtime"] = 0
+            return None
+
+        mtime = os.path.getmtime(SECURITY_WEBHOOK_PATH)
+        if mtime != _webhook_config_cache["mtime"] or _webhook_config_cache["data"] is None:
+            with open(SECURITY_WEBHOOK_PATH, 'r') as f:
+                _webhook_config_cache["data"] = json.load(f)
+            _webhook_config_cache["mtime"] = mtime
     except Exception as e:
-        print(f"Security webhook error: {e}")
-        return False
+        print(f"Error loading security webhook config: {e}")
+        # Keep old data on error if available
+
+    return _webhook_config_cache["data"]
+
+
+def _process_webhooks():
+    """Background worker to process security webhooks."""
+    session = requests.Session()
+    while True:
+        try:
+            alert = _webhook_queue.get()
+            if alert is None:
+                # Poison pill
+                _webhook_queue.task_done()
+                break
+
+            config = load_security_webhook_config()
+            if config:
+                url = config.get('url')
+                if url:
+                    headers = config.get('headers', {'Content-Type': 'application/json'})
+                    payload = {
+                        'source': 'netflow-dashboard',
+                        'timestamp': time.time(),
+                        'threat': alert
+                    }
+                    try:
+                        session.post(url, json=payload, headers=headers, timeout=5)
+                    except Exception as e:
+                        print(f"Security webhook error: {e}")
+
+            _webhook_queue.task_done()
+        except Exception as e:
+            print(f"Webhook worker error: {e}")
+
+
+def start_webhook_worker():
+    """Start the webhook worker thread if not running."""
+    global _webhook_thread
+    if _webhook_thread is None or not _webhook_thread.is_alive():
+        _webhook_thread = threading.Thread(target=_process_webhooks, daemon=True, name="SecurityWebhookWorker")
+        _webhook_thread.start()
+
+
+def send_security_webhook(threat_data):
+    """Enqueue threat data for security webhook (non-blocking)."""
+    start_webhook_worker()
+    _webhook_queue.put(threat_data)
+    return True
 
 
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
