@@ -526,6 +526,9 @@ export const Store = () => ({
     // Network Graph
     networkGraphOpen: false,
 
+    // Alerts Modal
+    alertHistoryOpen: false,
+
     // Conversation View (List/Sankey)
     sankeyChartInstance: null,
 
