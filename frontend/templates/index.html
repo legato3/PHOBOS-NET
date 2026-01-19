@@ -1173,28 +1173,28 @@
                                         style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">
                                         Threat Feed</div>
                                     <div style="font-size: var(--text-sm); color: var(--text-secondary);"
-                                        x-text="selectedEvent.threat_feed"></div>
+                                        x-text="selectedEvent?.threat_feed"></div>
                                 </div>
                                 <div x-show="selectedEvent?.country">
                                     <div
                                         style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">
                                         Country</div>
                                     <div style="font-size: var(--text-sm); color: var(--text-secondary);"
-                                        x-text="selectedEvent.country"></div>
+                                        x-text="selectedEvent?.country"></div>
                                 </div>
                                 <div x-show="selectedEvent?.hits !== undefined">
                                     <div
                                         style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">
                                         Occurrences</div>
                                     <div style="font-size: var(--text-sm); color: var(--text-primary); font-weight: 500;"
-                                        x-text="(selectedEvent.hits || 0).toLocaleString() + ' hits'"></div>
+                                        x-text="(selectedEvent?.hits || 0).toLocaleString() + ' hits'"></div>
                                 </div>
                                 <div x-show="selectedEvent?.category">
                                     <div
                                         style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">
                                         Category</div>
                                     <div style="font-size: var(--text-sm); color: var(--text-secondary);"
-                                        x-text="selectedEvent.category"></div>
+                                        x-text="selectedEvent?.category"></div>
                                 </div>
                             </div>
                         </div>

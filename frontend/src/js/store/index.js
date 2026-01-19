@@ -6440,10 +6440,11 @@ export const Store = () => ({
                 this.ipDetails = { error: `Server error: ${res.status}`, timeline: { labels: [], bytes: [], flows: [], loading: false } };
             }
         } catch (e) {
-            console.error(e);
             if (e.name === 'AbortError') {
+                console.warn(`IP detail fetch for ${ip} timed out`);
                 this.ipDetails = { error: 'Request timed out - IP detail unavailable', timeline: { labels: [], bytes: [], flows: [], loading: false } };
             } else {
+                console.error(e);
                 this.ipDetails = { error: 'Failed to load details', timeline: { labels: [], bytes: [], flows: [], loading: false } };
             }
         }
