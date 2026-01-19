@@ -295,7 +295,7 @@ export const Store = () => ({
     firewallSyslogAutoRefresh: true,
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
-    baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, loading: true },
+    baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v1.1.0', version_display: 'v1.1' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
@@ -4128,6 +4128,7 @@ export const Store = () => ({
                     signal_details: d.signal_details || [],
                     metrics: d.metrics || {},
                     baselines_available: d.baselines_available || {},
+                    baseline_stats: d.baseline_stats || {},  // Full stats for visualization
                     loading: false
                 };
             } else {

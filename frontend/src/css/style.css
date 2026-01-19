@@ -362,6 +362,7 @@ body.sidebar-collapsed .layout-wrapper {
     overflow: hidden;
     transition: width var(--transition-base), border-color var(--transition-fast);
     z-index: 999;
+    position: relative; /* Required for absolute positioned sidebar-footer */
 }
 
 .sidebar.collapsed {
@@ -615,9 +616,16 @@ body.sidebar-collapsed .layout-wrapper {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-4);
+    padding-bottom: var(--space-2); /* Reduced bottom padding */
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
+}
+
+/* Remove margin from last section in content to avoid bottom gap */
+.content-scroll-area > [x-show]:last-of-type > section:last-child,
+.content-scroll-area > [x-show]:last-of-type > div:last-child {
+    margin-bottom: 0;
 }
 
 /* CYBERPUNK UI: Header - Signal command bar (control surface) */
@@ -9164,6 +9172,24 @@ body.compact-mode {
     100% {
         transform: translateX(100%);
     }
+}
+
+/* Skeleton stat value - for stat boxes */
+.skeleton-stat-value {
+    display: inline-block;
+    height: 1.5em;
+    width: 3em;
+    background: linear-gradient(90deg,
+            rgba(0, 234, 255, 0.05) 0%,
+            rgba(0, 234, 255, 0.1) 50%,
+            rgba(0, 234, 255, 0.05) 100%);
+    border-radius: var(--radius-sm);
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+.skeleton-stat-value.wide {
+    width: 5em;
 }
 
 /* ============================================

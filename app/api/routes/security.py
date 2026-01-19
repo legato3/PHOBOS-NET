@@ -1273,6 +1273,21 @@ def api_health_baseline_signals():
         signals.append('anomalies_present')
         signal_details.append(f"{anomalies_24h} network anomal{'ies' if anomalies_24h > 1 else 'y'}")
     
+    # Get full baseline stats for visualization
+    baseline_stats = {}
+    for metric in ['active_flows', 'external_connections', 'firewall_blocks_rate', 'anomalies_rate']:
+        stats = get_baseline_stats(metric)
+        if stats:
+            baseline_stats[metric] = {
+                'mean': round(stats['mean'], 1),
+                'stddev': round(stats['stddev'], 1),
+                'min': round(stats['min'], 1),
+                'max': round(stats['max'], 1),
+                'count': stats['count'],
+                'normal_low': round(max(0, stats['mean'] - stats['stddev']), 1),
+                'normal_high': round(stats['mean'] + stats['stddev'], 1)
+            }
+
     return jsonify({
         "signals": signals,
         "signal_details": signal_details,
@@ -1287,7 +1302,8 @@ def api_health_baseline_signals():
             "external_connections": get_baseline_stats('external_connections') is not None,
             "firewall_blocks_rate": get_baseline_stats('firewall_blocks_rate') is not None,
             "anomalies_rate": get_baseline_stats('anomalies_rate') is not None,
-        }
+        },
+        "baseline_stats": baseline_stats
     })
 
 

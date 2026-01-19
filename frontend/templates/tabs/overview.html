@@ -43,9 +43,14 @@
                                     :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
                                     @click="navigateToActiveAlerts()" style="cursor: pointer;"
                                     title="Click to view active alerts">
-                                    <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }"
-                                        x-text="alertHistory.loading ? '...' : formatNumOrDash(activeAlertsCount)">
-                                        ...</div>
+                                    <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }">
+                                        <template x-if="alertHistory.loading">
+                                            <span class="skeleton-stat-value"></span>
+                                        </template>
+                                        <template x-if="!alertHistory.loading">
+                                            <span x-text="formatNumOrDash(activeAlertsCount)"></span>
+                                        </template>
+                                    </div>
                                     <div class="label">Active Alerts</div>
                                     <div
                                         style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
@@ -56,8 +61,12 @@
                                 <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()"
                                     style="cursor: pointer;" title="Click to view active flows">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <span
-                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.active_flows)">...</span>
+                                        <template x-if="networkStatsOverview.loading">
+                                            <span class="skeleton-stat-value wide"></span>
+                                        </template>
+                                        <template x-if="!networkStatsOverview.loading">
+                                            <span x-text="formatNumOrDash(networkStatsOverview.active_flows)"></span>
+                                        </template>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
                                             <span>
@@ -71,15 +80,23 @@
                                         </template>
                                     </div>
                                     <div class="label">Active Flows</div>
-                                    <div
-                                        style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
-                                        Live</div>
+                                    <template x-if="baselineSignals.baseline_stats?.active_flows">
+                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
+                                             x-text="'Baseline: ' + baselineSignals.baseline_stats.active_flows.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.active_flows.normal_high.toLocaleString()"></div>
+                                    </template>
+                                    <template x-if="!baselineSignals.baseline_stats?.active_flows">
+                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
+                                    </template>
                                 </div>
                                 <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
                                     style="cursor: pointer;" title="Click to view external connections">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <span
-                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.external_connections)">...</span>
+                                        <template x-if="networkStatsOverview.loading">
+                                            <span class="skeleton-stat-value wide"></span>
+                                        </template>
+                                        <template x-if="!networkStatsOverview.loading">
+                                            <span x-text="formatNumOrDash(networkStatsOverview.external_connections)"></span>
+                                        </template>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
                                             <span>
@@ -93,12 +110,20 @@
                                         </template>
                                     </div>
                                     <div class="label">External Connections</div>
+                                    <template x-if="baselineSignals.baseline_stats?.external_connections">
+                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
+                                             x-text="'Baseline: ' + baselineSignals.baseline_stats.external_connections.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.external_connections.normal_high.toLocaleString()"></div>
+                                    </template>
                                 </div>
                                 <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()"
                                     style="cursor: pointer;" title="Click to view firewall logs">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <span
-                                            x-text="firewallStatsOverview.loading ? '...' : formatNumOrDash(firewallStatsOverview.blocked_events_24h)">...</span>
+                                        <template x-if="firewallStatsOverview.loading">
+                                            <span class="skeleton-stat-value wide"></span>
+                                        </template>
+                                        <template x-if="!firewallStatsOverview.loading">
+                                            <span x-text="formatNumOrDash(firewallStatsOverview.blocked_events_24h)"></span>
+                                        </template>
                                         <template
                                             x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
                                             <span>
@@ -118,8 +143,12 @@
                                     @click="navigateToAnomalies()" style="cursor: pointer;"
                                     title="Click to view network anomalies">
                                     <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <span
-                                            x-text="networkStatsOverview.loading ? '...' : formatNumOrDash(networkStatsOverview.anomalies_24h)">...</span>
+                                        <template x-if="networkStatsOverview.loading">
+                                            <span class="skeleton-stat-value"></span>
+                                        </template>
+                                        <template x-if="!networkStatsOverview.loading">
+                                            <span x-text="formatNumOrDash(networkStatsOverview.anomalies_24h)"></span>
+                                        </template>
                                         <template
                                             x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
                                             <span>
@@ -135,6 +164,14 @@
                                     <div class="label">Anomalies (24h)</div>
 
                                 </div>
+                            </div>
+
+                            <!-- Data Freshness Indicator -->
+                            <div class="data-freshness-indicator"
+                                 style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: right; margin-top: var(--space-1); padding-right: var(--space-2);">
+                                <span :class="{ 'text-yellow': dataFreshness.class === 'stale', 'text-red': dataFreshness.class === 'error' }"
+                                      x-text="'Updated ' + dataFreshness.text"></span>
+                                <span x-show="paused" class="text-yellow" style="margin-left: var(--space-2);">⏸ Paused</span>
                             </div>
 
                             <!-- Main Chart: Bandwidth -->
