@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 # Add OCI image labels
 LABEL org.opencontainers.image.title="PHOBOS-NET"
 LABEL org.opencontainers.image.description="Self-hosted, read-only network observability and threat detection"
-LABEL org.opencontainers.image.source="https://github.com/phobos-net"
+LABEL org.opencontainers.image.source="https://github.com/legato3/PHOBOS-NET"
 
 # Copy requirements first for better caching
 COPY docker-data/requirements.txt .
