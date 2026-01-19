@@ -365,16 +365,11 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     hosts = {}
     
     def parse_time(t_str):
-        if not t_str: return 0
-        try:
-            # Handle "2023-01-01 12:00:00.123"
-            # Return naive string comparison or epoch if possible
-            # nfdump csv usually YYYY-MM-DD HH:MM:SS.msec
-            # Just keeping string is fine for UI, but for comparison min/max we might need logic.
-            # Lexical sort works for ISO-like dates nfdump uses.
-            return t_str
-        except:
-            return "0"
+        if not t_str: return "0"
+        # Handle "2023-01-01 12:00:00.123"
+        # nfdump csv usually YYYY-MM-DD HH:MM:SS.msec
+        # Lexical sort works for ISO-like dates nfdump uses.
+        return t_str
 
     # Process TX (Source) - Host is sending
     for row in src_rows:

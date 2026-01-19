@@ -10,7 +10,6 @@ import os
 import json
 import hashlib
 import socket
-import socket as socket_module  # For socket.timeout in syslog receiver
 import threading
 import subprocess
 import requests
@@ -368,7 +367,7 @@ def api_hosts_list():
     range_key = request.args.get('range', '24h')
     try:
         limit = int(request.args.get('limit', 100))
-    except:
+    except (ValueError, TypeError):
         limit = 100
         
     from app.services.netflow.netflow import get_merged_host_stats
@@ -411,7 +410,7 @@ def api_host_detail(ip):
         try:
             port_num = int(p.get("key", 0))
             p["service"] = PORTS.get(port_num, "Unknown")
-        except:
+        except (ValueError, TypeError):
             p["service"] = "Unknown"
 
     # Insight: "Dst Ports" in the UI should reflect "Services Accessed" (Outbound traffic from this node)
@@ -422,7 +421,7 @@ def api_host_detail(ip):
         try:
             port_num = int(p.get("key", 0))
             p["service"] = PORTS.get(port_num, "Unknown")
-        except:
+        except (ValueError, TypeError):
             p["service"] = "Unknown"
             
     # Region
@@ -495,7 +494,7 @@ def api_host_timeline(ip):
             # Round to hour
             hour_dt = dt.replace(minute=0, second=0, microsecond=0)
             return hour_dt
-        except:
+        except (ValueError, TypeError):
             return None
     
     # Process source flows (upload)
@@ -919,7 +918,7 @@ def api_health_baseline_signals():
                     parts = line.split(',')
                     if len(parts) > 7:
                         active_flows += 1
-    except:
+    except (ValueError, TypeError, IndexError, OSError):
         active_flows = 0
     
     # 2. External Connections (sample-based estimate)
@@ -946,7 +945,7 @@ def api_health_baseline_signals():
                             if sa_key in header: sa_idx = header.index(sa_key)
                             if da_key in header: da_idx = header.index(da_key)
                             start_idx = 1
-                        except:
+                        except ValueError:
                             pass
                 for line in lines[start_idx:]:
                     if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
@@ -961,12 +960,12 @@ def api_health_baseline_signals():
                                 dst_internal = is_internal(dst)
                                 if not (src_internal and dst_internal):
                                     sample_external += 1
-                        except:
+                        except (ValueError, TypeError, IndexError):
                             pass
                 if sample_count > 0:
                     external_ratio = sample_external / sample_count
                     external_connections = int(active_flows * external_ratio)
-        except:
+        except (ValueError, TypeError, IndexError, KeyError):
             pass
     
     # 3. Firewall Blocks (24h)
@@ -983,7 +982,7 @@ def api_health_baseline_signals():
                 blocked_events_24h = cur.fetchone()[0] or 0
             finally:
                 conn.close()
-    except:
+    except (sqlite3.Error, OSError):
         blocked_events_24h = 0
     
     # 4. Anomalies (24h)
@@ -1013,7 +1012,7 @@ def api_health_baseline_signals():
                         if 'td' in header_24h: td_idx_24h = header_24h.index('td')
                         elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
                         start_idx_24h = 1
-                    except:
+                    except ValueError:
                         pass
             for line in lines_24h[start_idx_24h:]:
                 if not line or line.startswith('ts,') or line.startswith('firstSeen,') or line.startswith('Date,'): continue
@@ -1030,9 +1029,9 @@ def api_health_baseline_signals():
                             is_external = not (src_internal and dst_internal)
                             if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
                                 anomalies_24h += 1
-                    except:
+                    except (ValueError, TypeError, IndexError):
                         pass
-    except:
+    except (ValueError, TypeError, IndexError, KeyError):
         anomalies_24h = 0
     
     # Check baselines for each metric
@@ -1582,7 +1581,7 @@ def api_forensics_timeline():
                     if dst_port_int in [22, 23, 3389, 5900]:
                         suspicious = True
                         suspicious_indicators.append('Remote access port')
-                except:
+                except (ValueError, TypeError):
                     pass
                 
                 # Check for unusual protocols
@@ -1622,7 +1621,7 @@ def api_forensics_timeline():
         if include_context:
             try:
                 threat_info = get_threat_info(target_ip)
-            except:
+            except Exception:
                 pass
 
         # Generate summary statistics
@@ -1794,7 +1793,7 @@ def api_forensics_session():
                 start_dt = datetime.strptime(first_timestamp, '%Y-%m-%d %H:%M:%S')
                 end_dt = datetime.strptime(last_timestamp, '%Y-%m-%d %H:%M:%S')
                 session_duration = (end_dt - start_dt).total_seconds()
-            except:
+            except (ValueError, TypeError):
                 session_duration = 0
 
         # Analyze session patterns
@@ -1906,7 +1905,7 @@ def api_forensics_evidence():
                         'collection_timestamp': collection_timestamp,
                         'preserved': True
                     })
-            except:
+            except Exception:
                 pass
 
             # DNS resolution evidence
@@ -1922,7 +1921,7 @@ def api_forensics_evidence():
                         'collection_timestamp': collection_timestamp,
                         'preserved': True
                     })
-            except:
+            except Exception:
                 pass
 
         # Generate chain of custody summary
@@ -2802,7 +2801,7 @@ def api_threats_by_country():
                 if row[0]:
                     blocked_by_country[row[0]] = {'blocks': row[1], 'unique_ips': row[2]}
             conn.close()
-    except:
+    except (sqlite3.Error, OSError):
         pass
 
     for ip, timeline in threats_module._threat_timeline.items():
@@ -3231,7 +3230,7 @@ def api_forensics_flow_search():
                         dst_country = dst_rec.get('country', {}).get('iso_code') if dst_rec else None
                         if (src_country == country.upper()) or (dst_country == country.upper()):
                             filtered_flows.append(flow)
-                    except:
+                    except (KeyError, TypeError, AttributeError):
                         pass
                 flows = filtered_flows
 
@@ -3456,7 +3455,7 @@ def api_stats_blocklist_rate():
                 if 0 <= b_idx < len(series):
                     series[b_idx]['blocked'] = series[b_idx].get('blocked', 0) + cnt
             conn.close()
-    except:
+    except (sqlite3.Error, OSError):
         pass
 
     return jsonify({

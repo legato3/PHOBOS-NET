@@ -1043,7 +1043,7 @@ def api_database_stats():
                         cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
                         count = cur.fetchone()[0]
                         total_records += count
-                    except:
+                    except sqlite3.Error:
                         pass  # Skip tables we can't read
                 
                 stats['total_records'] = total_records
@@ -1064,9 +1064,9 @@ def api_database_stats():
                                         if oldest_ts is None or ts_val < oldest_ts:
                                             oldest_ts = ts_val
                                     break
-                            except:
+                            except sqlite3.Error:
                                 continue  # Column doesn't exist in this table
-                    except:
+                    except sqlite3.Error:
                         pass  # Skip tables we can't query
                 
                 # Calculate age of oldest record

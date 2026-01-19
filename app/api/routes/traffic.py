@@ -9,7 +9,6 @@ import time
 import os
 import json
 import socket
-import socket as socket_module  # For socket.timeout in syslog receiver
 import threading
 import subprocess
 import requests
@@ -94,7 +93,7 @@ def api_stats_sources():
     range_key = request.args.get('range', '1h')
     try:
         limit = int(request.args.get('limit', 10))
-    except:
+    except (ValueError, TypeError):
         limit = 10
 
     # Cache key must include limit if we cache at this level.
@@ -147,7 +146,7 @@ def api_stats_destinations():
     range_key = request.args.get('range', '1h')
     try:
         limit = int(request.args.get('limit', 10))
-    except:
+    except (ValueError, TypeError):
         limit = 10
 
     cache_key_local = f"{range_key}:{limit}"
@@ -187,7 +186,7 @@ def api_stats_ports():
     range_key = request.args.get('range', '1h')
     try:
         limit = int(request.args.get('limit', 10))
-    except:
+    except (ValueError, TypeError):
         limit = 10
 
     cache_key_local = f"{range_key}:{limit}"
@@ -364,7 +363,7 @@ def api_stats_durations():
             pr_idx = header.index('proto')
             td_idx = header.index('td')
             ibyt_idx = header.index('ibyt')
-        except:
+        except ValueError:
             # Fallback indices
             sa_idx, da_idx, pr_idx, td_idx, ibyt_idx = 3, 4, 7, 2, 12
 
@@ -487,7 +486,7 @@ def api_stats_packet_sizes():
              try:
                  ibyt_idx = header.index('ibyt')
                  ipkt_idx = header.index('ipkt')
-             except:
+             except ValueError:
                  pass
              start_idx = 1
         else:
@@ -797,7 +796,7 @@ def api_stats_talkers():
                     if da_key in header: da_idx = header.index(da_key)
                     if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
                     start_idx = 1
-                except:
+                except ValueError:
                     pass
 
         for line in lines[start_idx:]:
@@ -823,7 +822,7 @@ def api_stats_talkers():
                         if '.' in ts_str: ts_str = ts_str.split('.')[0]
                         flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
                         age_sec = now - flow_time
-                    except:
+                    except (ValueError, TypeError):
                         age_sec = 0
 
                     # Enrich with Geo
@@ -934,7 +933,7 @@ def api_stats_protocol_hierarchy():
                     dp_idx = header.index('dp') if 'dp' in header else header.index('dstport')
                     ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('bytes')
                     start_idx = 1
-                except:
+                except ValueError:
                     pass
 
         for line in lines[start_idx:]:
@@ -956,7 +955,7 @@ def api_stats_protocol_hierarchy():
                     service_name = PORTS.get(port_val, str(port_val))
 
                     l4_groups[proto_name][service_name] += bytes_val
-                except:
+                except (ValueError, TypeError, IndexError):
                     pass
 
         # Build hierarchy list
@@ -1128,7 +1127,7 @@ def api_stats_services():
         try:
             port = int(port_str)
             service = PORTS.get(port, f"Port {port}")
-        except:
+        except (ValueError, TypeError):
             service = port_str
         service_bytes[service] += item.get("bytes", 0)
         service_flows[service] += item.get("flows", 0)
@@ -1186,7 +1185,7 @@ def api_stats_hourly():
             try:
                 ts_idx = header.index('ts')
                 ibyt_idx = header.index('ibyt')
-            except:
+            except ValueError:
                 pass
             start_idx = 1
         else:
@@ -1239,7 +1238,7 @@ def api_stats_hourly():
             "time_scope": "24h",  # Fixed window explicit declaration
             "current_hour": current_hour  # For frontend reference
         }
-    except:
+    except (ValueError, TypeError, IndexError, KeyError):
         data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": "24h"}
 
     with _cache_lock:
@@ -1290,7 +1289,7 @@ def api_stats_flow_stats():
                 elif 'packets' in header: ipkt_idx = header.index('packets')
 
                 start_idx = 1
-            except:
+            except ValueError:
                 pass
 
         for line in lines[start_idx:]:
@@ -1334,7 +1333,7 @@ def api_stats_flow_stats():
             },
             "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
         }
-    except:
+    except (ValueError, TypeError, IndexError, KeyError):
         data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
 
     with _cache_lock:
@@ -1827,7 +1826,7 @@ def api_network_stats_overview():
                         if sa_key in header: sa_idx = header.index(sa_key)
                         if da_key in header: da_idx = header.index(da_key)
                         start_idx = 1
-                    except:
+                    except ValueError:
                         pass
             
             for line in lines[start_idx:]:
@@ -1848,7 +1847,7 @@ def api_network_stats_overview():
                             
                             if not (src_internal and dst_internal):
                                 sample_external += 1
-                    except:
+                    except (ValueError, TypeError, IndexError):
                         pass
             
             # Estimate external connections based on sample ratio
@@ -1857,7 +1856,7 @@ def api_network_stats_overview():
                 external_connections_count = int(active_flows_count * external_ratio)
             else:
                 external_connections_count = 0
-        except:
+        except (ValueError, TypeError, IndexError, KeyError):
             external_connections_count = 0
     else:
         external_connections_count = 0
@@ -1894,7 +1893,7 @@ def api_network_stats_overview():
                     if 'td' in header_24h: td_idx_24h = header_24h.index('td')
                     elif 'duration' in header_24h: td_idx_24h = header_24h.index('duration')
                     start_idx_24h = 1
-                except:
+                except ValueError:
                     pass
         
         for line in lines_24h[start_idx_24h:]:
@@ -1928,9 +1927,9 @@ def api_network_stats_overview():
                                     source=src,
                                     destination=dst
                                 )
-                except:
+                except (ValueError, TypeError, IndexError):
                     pass
-    except:
+    except (ValueError, TypeError, IndexError, KeyError):
         pass
     
     # Update baselines (incremental, respects update interval)
@@ -1971,7 +1970,7 @@ def api_flows():
     range_key = request.args.get('range', '1h')
     try:
         limit = int(request.args.get('limit', 10))
-    except:
+    except (ValueError, TypeError):
         limit = 10
 
     cache_key_local = f"{range_key}:{limit}"
@@ -2044,7 +2043,7 @@ def api_flows():
                     if 'ipkt' in header: ipkt_idx = header.index('ipkt')
                     if 'packets' in header: ipkt_idx = header.index('packets')
                     start_idx = 1
-                except:
+                except ValueError:
                     pass
 
         for line in lines[start_idx:]:
@@ -2067,7 +2066,7 @@ def api_flows():
                         if '.' in ts_str: ts_str = ts_str.split('.')[0]
                         flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
                         age_sec = now - flow_time
-                    except:
+                    except (ValueError, TypeError):
                         age_sec = 0
 
                     if age_sec < 0: age_sec = 0
@@ -2240,11 +2239,11 @@ def api_flows():
                         # Phase 3: Flow history (last 30-60 min, aggregated by src/dst/port)
                         "history": flow_history  # Only included if there's recurring pattern (len > 1)
                     })
-                except:
+                except (ValueError, TypeError, IndexError, KeyError):
                     pass
 
 
-    except:
+    except (ValueError, TypeError, IndexError, KeyError):
         pass  # Parsing error
     data = {"flows":convs, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
     with _lock_flows:
@@ -2533,7 +2532,7 @@ def api_firewall_snmp_status():
                 values = output.strip().split("\n")
                 if len(values) < 8 or "No Such" in output:
                     raise ValueError("64-bit counters not available")
-            except:
+            except (ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
                 # Fallback to 32-bit counters
                 cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)

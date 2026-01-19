@@ -15,6 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import shutdown event and log buffer from state module
 from app.core.app_state import _shutdown_event, add_app_log
 
+# Import config
+from app.config import DEBUG_MODE
+
 # Import thread functions
 from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
 
@@ -114,8 +117,7 @@ if __name__ == "__main__":
     # Run Flask app
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
     requested_port = int(os.environ.get('FLASK_PORT', 8080))
-    DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-    
+
     port = _find_open_port(host, requested_port)
     if port != requested_port:
         port_msg = f"Requested port {requested_port} in use, selected {port} instead"
