@@ -15,17 +15,11 @@ services:
       # Production settings
       - PYTHONUNBUFFERED=1
       - TZ=Europe/Amsterdam # Set to your local timezone
-
-      # Optional integrations (uncomment to enable):
-      # - SNMP_HOST=192.168.0.1
-      # - SNMP_COMMUNITY=public
-      # - DNS_SERVER=192.168.0.1
-      # - FIREWALL_IP=192.168.0.1  # Restrict syslog to firewall IP only
       # - VIRUSTOTAL_API_KEY=your_key
       # - ABUSEIPDB_API_KEY=your_key
     volumes:
       - ./docker-data:/app/data
-      - ./docker-data/nfdump:/var/cache/nfdump  # NetFlow data persistence
+      - ./docker-data/nfdump:/var/cache/nfdump # NetFlow data persistence
     logging:
       driver: "json-file"
       options:
@@ -35,7 +29,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1024M  # Increase to 1536M-2048M for high-traffic networks
+          memory: 1024M # Increase to 1536M-2048M for high-traffic networks
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 30s
