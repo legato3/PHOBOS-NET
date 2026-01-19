@@ -1,4 +1,4 @@
-# PHOBOS-NET — Home User Quick Start
+# PHOBOS-NET — Quick Start Guide
 
 These instructions are intended for **home labs and personal networks**.
 PHOBOS-NET is read-only and safe by design.
