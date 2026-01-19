@@ -1,72 +1,181 @@
-# 🛡️ PHOBOS-NET
+# PHOBOS-NET
 
-PHOBOS-NET is a self-hosted, read-only **network observability platform** that combines **NetFlow**, **Syslog (OPNsense)**, and **SNMP** into a calm, truthful, and explainable interface.
+PHOBOS-NET is a self-hosted **network observability and security dashboard** built as a hobby project.  
+It combines **NetFlow**, **SNMP**, and lightweight analytics into a calm, explainable UI focused on *understanding* network behavior rather than reacting to it.
 
-It is designed for **situational awareness**, not automation.
-
-> No blocking.  
-> No enforcement.  
-> No alarmist dashboards.  
-> Just clear visibility into what your network is doing.
+This project intentionally prioritizes **clarity, trust, and signal** over alerts, automation, or configuration complexity.
 
 ---
 
-## ✨ Key Features
+## ✨ Key Characteristics
 
-### NetFlow Observation
-- Flow-level visibility via `nfdump`
-- Time-range aware queries (48h default)
-- No inference or deduplication
-
-### Firewall Visibility (OPNsense)
-- RFC-compliant `filterlog` parsing
-- Normalized firewall decisions
-- IPv4 and IPv6 support
-
-### SNMP Monitoring
-- CPU, memory, and interface metrics
-- Uses authoritative counters
-- Explicit availability states
+- Read-only, observational by design
+- No alert storms, no automation, no enforcement
+- Baseline-aware insights that explain *what stands out*
+- Explicit normal states (never silent or empty)
+- Desktop and mobile-friendly layouts
+- Designed to stay understandable as complexity grows
 
 ---
 
-## 🚀 Quick Start (Docker)
+## ❌ What PHOBOS-NET Is Not
 
-```bash
-docker pull legato3/phobos-net:latest
-```
+PHOBOS-NET does **not** aim to be:
 
-```yaml
-services:
-  phobos-net:
-    image: legato3/phobos-net:latest
-    ports:
-      - "3434:8080"
-      - "514:5514/udp"
-      - "515:5515/udp"
-      - "2055:2055/udp"
-    volumes:
-      - ./docker-data:/app/data
-```
+- A SIEM
+- An IDS/IPS
+- A firewall management interface
+- A configuration or tuning tool
+- An AI/ML-driven anomaly engine
+- A production NOC platform
 
-Access:
-```
-http://<host>:3434
-```
+There are intentionally:
+- No automated actions
+- No policy engines
+- No role-based access control
+- No alerting workflows
 
 ---
 
-## 🤝 Contributing
+## 🧠 Core Concepts
 
-Contributions are welcome, with an emphasis on:
-- correctness
-- calm UX
-- observability over automation
+### Stats
+Raw measurements such as:
+- Traffic volume
+- Flow counts
+- Host activity
+- CPU, memory, disk usage
+- Database size and growth
 
-See `CONTRIBUTING.md` for details.
+Stats answer:
+> “What is happening?”
+
+---
+
+### Insights
+Derived summaries that highlight patterns:
+- Top talkers
+- Dominant protocols
+- Sustained deviations
+- Explicit confirmations of stability
+
+Insights answer:
+> “What stands out right now?”
+
+Insights are:
+- Stable (no flapping)
+- Baseline-aware
+- Never empty
+- Clear about time context
+
+---
+
+### Health
+High-level status indicators for:
+- Network
+- System
+- Database
+
+Health answers:
+> “Should I be concerned?”
+
+Health states always include a short explanation, even when healthy.
+
+---
+
+## 📊 Features
+
+### Network & Traffic
+- NetFlow ingestion and aggregation
+- Active flows and top talkers
+- Protocol and port distribution
+- Traffic world map
+- Network health indicators
+
+### Hosts
+- Observed hosts based on traffic
+- First-seen / last-seen tracking
+- Per-host traffic and flow counts
+- Internal vs external classification
+
+### Firewall
+- Blocked event summaries
+- Threat feed integration
+- Lightweight correlation
+- Firewall activity insights
+
+### Server & System
+- CPU, memory, disk metrics
+- NetFlow engine status
+- SNMP interface statistics
+- Syslog activity overview
+- SQLite database statistics
+
+### Insights Engine
+- Reusable insight panels
+- Baseline vs notable insights
+- Expandable breakdowns
+- Consistent behavior across pages
+
+### Mobile Support
+- Mobile-first layouts
+- Predictable expand/collapse behavior
+- Reduced density without loss of meaning
+
+---
+
+## 🛠 Architecture (High-Level)
+
+- **Backend**
+  - Python
+  - NetFlow parsing (nfdump)
+  - SNMP polling
+  - SQLite for local storage
+
+- **Frontend**
+  - Custom UI components
+  - Stat boxes, insight panels, tables
+  - Focused on visual hierarchy and scanability
+
+- **Data Philosophy**
+  - Read-only
+  - Cached where appropriate
+  - No writes triggered by UI reads
+
+---
+
+## 🚦 Project Status
+
+- **Current version:** v1.1
+- **Stability:** Suitable for hobby and personal use
+- **Focus:** UX consistency, insight quality, polish
+- **Development style:** Iterative, exploratory, no fixed roadmap
+
+---
+
+## 🧭 Design Principles
+
+- Every page answers one primary question
+- Insight panels are never empty
+- Normal behavior is explicitly stated
+- Data is reorganized, not hidden
+- Consistency is preferred over cleverness
+- Calm UX is preferred over urgency
 
 ---
 
 ## 📄 License
 
-MIT License
+Provided as-is for personal and educational use.  
+No warranty, no guarantees.
+
+---
+
+## 💡 Why This Exists
+
+Many monitoring tools are powerful but noisy, complex, or opaque.
+
+PHOBOS-NET is an experiment in building a system that:
+- Explains itself
+- Encourages understanding
+- Stays calm under normal conditions
