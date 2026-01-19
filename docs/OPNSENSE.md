@@ -29,15 +29,25 @@ Missing streams will show as “—”, not as errors.
 Syslog provides packet-level firewall decisions via filterlog.
 
 Navigate to:
-System → Settings → Logging / targets
+System → Settings → Logging / Remote
 
 Add Syslog Target:
 - Transport: UDP
+- Applications: filter (filterlog)
+- Levels: info
+- Facilities: locally used (0)
 - Target: PHOBOS-NET host IP
 - Port: 514
-- Applications: filter (filterlog)
-- Format: BSD
+- Format: RFC5424
 
+Add Second Target:
+- Transport: UDP
+- Applications: all except filter (filterlog)
+- Levels: info
+- Facilities: all
+- Target: PHOBOS-NET host IP
+- Port: 515
+- Format: RFC5424
 ---
 
 ## 2. NetFlow Configuration (Required)
@@ -46,22 +56,27 @@ Navigate to:
 Reporting → NetFlow
 
 - Enable NetFlow
-- Export Host: PHOBOS-NET IP
+- Destination: PHOBOS-NET IP
 - Port: 2055
-- Interfaces: WAN
+- Interfaces: WAN, LAN
+- Version: v9
 - Active Timeout: 60s
 
 ---
 
-## 3. SNMP Configuration (Optional)
+## 3. SNMP Configuration (Required)
 
 Navigate to:
-Services → SNMP
+Services → Net-SNMP
 
-- Enable SNMP
-- Community: read-only
-- Version: v2c
-- Bind Interface: LAN
+- Enable SNMP Service
+  
+Fill in according to your preferences:
+
+- SNMP Community
+- SNMP Location
+- SNMP Contact
+- Listen IPs: OPNSense LAN IP
 
 ---
 
