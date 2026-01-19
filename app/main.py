@@ -35,16 +35,35 @@ except ImportError as e:
 
 if __name__ == "__main__":
     from app import app
-    
+    from app.services.shared.timeline import add_timeline_event
+
     startup_msg = "NetFlow Analytics Pro (Modernized)"
     print(startup_msg)
     add_app_log(startup_msg, 'INFO')
+
+    # Add system startup event to timeline
+    add_timeline_event(
+        source='system',
+        summary='PHOBOS-NET service started',
+        raw={'event': 'startup', 'message': startup_msg}
+    )
     
     # Graceful shutdown handler
     def shutdown_handler(signum=None, frame=None):
         shutdown_msg = "\n[Shutdown] Stopping background services..."
         print(shutdown_msg)
         add_app_log(shutdown_msg.strip(), 'INFO')
+
+        # Add system shutdown event to timeline (before shutdown_event is set)
+        try:
+            add_timeline_event(
+                source='system',
+                summary='PHOBOS-NET service stopping',
+                raw={'event': 'shutdown', 'message': shutdown_msg.strip()}
+            )
+        except Exception:
+            pass  # Don't fail shutdown if timeline event fails
+
         if _shutdown_event:
             _shutdown_event.set()
         if _flush_syslog_buffer:

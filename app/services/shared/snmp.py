@@ -16,6 +16,11 @@ from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL,
 # Import formatters
 from app.services.shared.formatters import format_uptime
 from app.services.shared.observability import instrument_service
+from app.services.shared.timeline import add_timeline_event
+
+# Track previous SNMP availability state for change detection
+_snmp_prev_available = None
+_snmp_prev_available_lock = threading.Lock()
 
 
 @instrument_service('get_snmp_data')
@@ -290,10 +295,23 @@ def get_snmp_data():
         # Mark data as available
         result["available"] = True
 
+        # Emit timeline event if SNMP availability changed
+        global _snmp_prev_available
+        with _snmp_prev_available_lock:
+            if _snmp_prev_available is False:
+                # SNMP recovered from unavailable state
+                add_timeline_event(
+                    source='snmp',
+                    summary=f'Firewall SNMP recovered (host: {SNMP_HOST})',
+                    raw={'host': SNMP_HOST, 'state': 'recovered'},
+                    timestamp=now
+                )
+            _snmp_prev_available = True
+
         with state._snmp_cache_lock:
             state._snmp_cache["data"] = result
             state._snmp_cache["ts"] = now
-        
+
         # Update Health Baselines (CPU/Mem/Interface Util)
         # Use existing _baselines in state to track deviation over time
         with state._baselines_lock:
@@ -322,6 +340,20 @@ def get_snmp_data():
             state._snmp_backoff["max_delay"]
         )
         print(f"SNMP Error: {e} (backoff: {backoff_delay}s, failures: {state._snmp_backoff['failures']})")
+
+        # Emit timeline event if SNMP availability changed to unavailable
+        global _snmp_prev_available
+        with _snmp_prev_available_lock:
+            if _snmp_prev_available is not False:
+                # First failure or transition to unavailable
+                add_timeline_event(
+                    source='snmp',
+                    summary=f'Firewall SNMP unreachable (host: {SNMP_HOST})',
+                    raw={'host': SNMP_HOST, 'state': 'unreachable', 'error': str(e)},
+                    timestamp=now
+                )
+            _snmp_prev_available = False
+
         # Return cached data if available, otherwise indicate unavailable
         with state._snmp_cache_lock:
             cached = state._snmp_cache.get("data")

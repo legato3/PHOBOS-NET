@@ -36,5 +36,16 @@ def post_worker_init(worker):
         if start_firewall_syslog_thread:
             start_firewall_syslog_thread()
             worker.log.info("Firewall syslog listener started on port 515")
+
+        # Add system startup event to timeline
+        try:
+            from app.services.shared.timeline import add_timeline_event
+            add_timeline_event(
+                source='system',
+                summary='PHOBOS-NET service started (gunicorn)',
+                raw={'event': 'startup', 'worker_pid': worker.pid}
+            )
+        except Exception:
+            pass  # Timeline event is non-critical
     except Exception as e:
         worker.log.error(f"Error starting background threads: {e}")

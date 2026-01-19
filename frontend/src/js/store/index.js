@@ -260,6 +260,10 @@ export const Store = () => ({
         last_updated: null
     },
     alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
+
+    // Unified Event Timeline (Recent Activity)
+    timeline: { events: [], count: 0, stats: {}, loading: true, viewLimit: 20, expandedEvents: new Set() },
+
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
     watchlist: { watchlist: [], count: 0, loading: true },
     watchlistInput: '',
@@ -1172,7 +1176,7 @@ export const Store = () => ({
     // Uses baseline-aware signals when available, falls back to static thresholds
     get overallHealth() {
         // Inputs: Active Alerts, Network Anomalies, Firewall Blocks, External Connections
-        const activeAlerts = this.alertHistory.total || 0;
+        const activeAlerts = this.activeAlertsCount || 0;
         const anomalies = this.networkStatsOverview.anomalies_24h || 0;
         const blockedEvents = this.firewallStatsOverview.blocked_events_24h || 0;
         const externalConnections = this.networkStatsOverview.external_connections || 0;
@@ -1851,6 +1855,7 @@ export const Store = () => ({
             this.fetchNetworkStatsOverview(),
             this.fetchFirewallStatsOverview(),
             this.fetchAlertHistory(),
+            this.fetchTimeline(),  // Unified Event Timeline (Recent Activity)
             this.fetchBaselineSignals(),
             this.fetchIngestionRates()
         ]);
@@ -2602,6 +2607,63 @@ export const Store = () => ({
         finally { this.alertHistory.loading = false; }
     },
 
+    // TIME-AWARE: Unified Event Timeline (Recent Activity)
+    // Returns state-changing events from all sources
+    async fetchTimeline() {
+        this.timeline.loading = true;
+        try {
+            // Calculate time range based on global timeRange selector
+            const rangeSeconds = {
+                '15m': 900,
+                '1h': 3600,
+                '4h': 14400,
+                '24h': 86400,
+                '7d': 604800
+            };
+            const seconds = rangeSeconds[this.timeRange] || 3600;
+            const since = Math.floor(Date.now() / 1000) - seconds;
+
+            const res = await fetch(`/api/timeline?limit=50&since=${since}`);
+            if (res.ok) {
+                const d = await res.json();
+                // Preserve expandedEvents set across refreshes
+                const prevExpanded = this.timeline.expandedEvents || new Set();
+                this.timeline = {
+                    ...d,
+                    loading: false,
+                    viewLimit: this.timeline.viewLimit || 20,
+                    expandedEvents: prevExpanded
+                };
+            }
+        } catch (e) { console.error('Timeline fetch error:', e); }
+        finally { this.timeline.loading = false; }
+    },
+
+    // Helper to toggle event expansion in timeline
+    toggleTimelineEvent(timestamp_ts) {
+        if (this.timeline.expandedEvents.has(timestamp_ts)) {
+            this.timeline.expandedEvents.delete(timestamp_ts);
+        } else {
+            this.timeline.expandedEvents.add(timestamp_ts);
+        }
+    },
+
+    // Check if a timeline event is expanded
+    isTimelineEventExpanded(timestamp_ts) {
+        return this.timeline.expandedEvents.has(timestamp_ts);
+    },
+
+    // Get icon for timeline event source
+    getTimelineSourceIcon(source) {
+        const icons = {
+            'filterlog': '🛡️',
+            'firewall': '🔧',
+            'snmp': '📡',
+            'system': '⚙️'
+        };
+        return icons[source] || '📌';
+    },
+
     // TIME-AWARE: Uses global timeRange for attack timeline data
     async fetchAttackTimeline() {
         this.attackTimeline.loading = true;
@@ -2788,11 +2850,22 @@ export const Store = () => ({
     },
 
     get activeAlertsCount() {
-        return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.has(this.alertKey(a))).length;
+        return (this.activeAlerts || []).reduce((sum, a) => sum + (a?.count || 1), 0);
     },
 
     get activeAlerts() {
         return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.has(this.alertKey(a)));
+    },
+
+    get activeAlertsBySeverity() {
+        const by = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+        (this.activeAlerts || []).forEach(a => {
+            const sev = (a?.severity || 'low').toLowerCase();
+            const c = a?.count || 1;
+            if (by[sev] === undefined) by[sev] = 0;
+            by[sev] += c;
+        });
+        return by;
     },
 
     alertKey(a) {

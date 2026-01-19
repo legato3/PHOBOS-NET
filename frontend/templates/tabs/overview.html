@@ -40,11 +40,11 @@
                                     </div>
                                 </div>
                                 <div class="stat-box mobile-priority-stat"
-                                    :class="{ 'status-warning': alertHistory.total > 0, 'mobile-zero-state': alertHistory.total === 0 }"
+                                    :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
                                     @click="navigateToActiveAlerts()" style="cursor: pointer;"
                                     title="Click to view active alerts">
-                                    <div class="value" :class="{ 'mobile-zero-value': alertHistory.total === 0 }"
-                                        x-text="alertHistory.loading ? '...' : formatNumOrDash(alertHistory.total)">
+                                    <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }"
+                                        x-text="alertHistory.loading ? '...' : formatNumOrDash(activeAlertsCount)">
                                         ...</div>
                                     <div class="label">Active Alerts</div>
                                     <div
@@ -313,6 +313,66 @@
                                 </div>
                                 {% endcall %}
                             </div>
+                        </section>
+
+                        <!-- Recent Activity Timeline Section -->
+                        <section id="section-timeline" class="scroll-section">
+                            {% set timeline_actions %}
+                            <div class="status-pills">
+                                <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                                    x-text="'Based on selected time range'"></span>
+                            </div>
+                            {% endset %}
+                            {% call widget_card('timeline', 'Recent Activity', '📋', min_height='200px',
+                            extra_actions=timeline_actions, show_spinner=True, card_class='wide-card') %}
+
+                            <!-- Timeline Content -->
+                            <div class="timeline-container">
+                                <!-- Empty State -->
+                                <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
+                                    <div class="timeline-empty-state">
+                                        <span style="color: var(--text-secondary); font-size: 0.9em;">No recent events</span>
+                                        <span style="color: var(--text-tertiary); font-size: 0.75em; margin-top: 4px;">Events will appear here as state changes occur</span>
+                                    </div>
+                                </template>
+
+                                <!-- Timeline Events List -->
+                                <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
+                                    <div class="timeline-events">
+                                        <template x-for="event in timeline.events.slice(0, timeline.viewLimit)" :key="event.timestamp_ts">
+                                            <div class="timeline-event"
+                                                 @click="toggleTimelineEvent(event.timestamp_ts)"
+                                                 :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
+                                                <div class="timeline-event-header">
+                                                    <span class="timeline-event-icon" x-text="getTimelineSourceIcon(event.source)"></span>
+                                                    <span class="timeline-event-time" x-text="new Date(event.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></span>
+                                                    <span class="timeline-event-source" x-text="event.source"></span>
+                                                    <span class="timeline-event-summary" x-text="event.summary"></span>
+                                                    <span class="timeline-event-expand" x-text="isTimelineEventExpanded(event.timestamp_ts) ? '▼' : '▶'"></span>
+                                                </div>
+                                                <!-- Expanded Raw Details -->
+                                                <template x-if="isTimelineEventExpanded(event.timestamp_ts) && event.raw">
+                                                    <div class="timeline-event-details">
+                                                        <pre x-text="JSON.stringify(event.raw, null, 2)"></pre>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- Show More Button -->
+                                        <template x-if="timeline.events.length > timeline.viewLimit">
+                                            <div class="timeline-show-more">
+                                                <button @click.stop="timeline.viewLimit = Math.min(timeline.viewLimit + 20, timeline.events.length)"
+                                                        class="btn-secondary btn-sm">
+                                                    Show More (<span x-text="timeline.events.length - timeline.viewLimit"></span> remaining)
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+
+                            {% endcall %}
                         </section>
                     </div>
 

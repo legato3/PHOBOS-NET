@@ -24,6 +24,7 @@ from app.db.sqlite import _firewall_db_connect, _firewall_db_init, _firewall_db_
 from app.services.shared.geoip import lookup_geo
 from app.services.shared.helpers import check_disk_space, is_internal
 from app.services.security.threats import load_threatlist
+from app.services.shared.timeline import add_timeline_event
 
 # Regex to parse OPNsense filterlog messages
 FILTERLOG_PATTERN = re.compile(
@@ -257,6 +258,35 @@ def _insert_fw_log(parsed: dict, raw_log: str):
             # Track threat IPs in timeline for Top Threat IPs widget
             if is_threat:
                 update_threat_timeline(src_ip)
+
+            # Add to unified timeline (state-changing event)
+            timeline_summary = f"Blocked {src_ip}"
+            if dst_port:
+                timeline_summary += f":{dst_port}"
+            if is_threat:
+                timeline_summary = f"Threat IP blocked: {src_ip}"
+                if country_name:
+                    timeline_summary += f" ({country_name})"
+            elif dst_port in HIGH_VALUE_PORTS:
+                port_names = {22: 'SSH', 23: 'Telnet', 445: 'SMB', 3389: 'RDP',
+                             5900: 'VNC', 1433: 'MSSQL', 3306: 'MySQL', 5432: 'PostgreSQL', 27017: 'MongoDB'}
+                service = port_names.get(dst_port, str(dst_port))
+                timeline_summary = f"{service} probe blocked from {src_ip}"
+
+            add_timeline_event(
+                source='filterlog',
+                summary=timeline_summary,
+                raw={
+                    'action': 'block',
+                    'src_ip': src_ip,
+                    'dst_port': dst_port,
+                    'proto': parsed.get('proto'),
+                    'interface': parsed.get('interface'),
+                    'is_threat': bool(is_threat),
+                    'country': country_name
+                },
+                timestamp=now
+            )
     
     # Add to buffer for batch insert
     log_tuple = (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],

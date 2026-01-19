@@ -24,8 +24,8 @@
                 <div class="label">Blocklist IPs</div>
             </div>
             <div class="card stat-box">
-                <div class="value" :class="(alertHistory.total || 0) > 0 ? 'text-yellow' : ''"
-                    x-text="alertHistory.total || 0"></div>
+                <div class="value" :class="(activeAlertsCount || 0) > 0 ? 'text-yellow' : ''"
+                    x-text="activeAlertsCount || 0"></div>
                 <div class="label">Alerts 24h</div>
             </div>
         </div>
@@ -88,7 +88,7 @@
                         </div>
                         <div class="coverage-item">
                             <span class="coverage-icon"
-                                :class="(alertHistory.total || 0) > 0 ? 'status-warn' : 'status-ok'">
+                                :class="(activeAlertsCount || 0) > 0 ? 'status-warn' : 'status-ok'">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2">
                                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -97,7 +97,7 @@
                             </span>
                             <div class="coverage-detail">
                                 <span class="coverage-label">Active Alerts</span>
-                                <span class="coverage-value" x-text="alertHistory.total || 0"></span>
+                                <span class="coverage-value" x-text="activeAlertsCount || 0"></span>
                             </div>
                         </div>
                     </div>
@@ -206,17 +206,17 @@
                     </select>
                 </div>
                 <div class="alert-summary">
-                    <span class="alert-badge critical" x-show="alertHistory.by_severity?.critical > 0">🔴 <span
-                            x-text="alertHistory.by_severity?.critical || 0"></span>
+                    <span class="alert-badge critical" x-show="activeAlertsBySeverity?.critical > 0">🔴 <span
+                            x-text="activeAlertsBySeverity?.critical || 0"></span>
                         critical</span>
-                    <span class="alert-badge high" x-show="alertHistory.by_severity?.high > 0">🟠
-                        <span x-text="alertHistory.by_severity?.high || 0"></span> high</span>
-                    <span class="alert-badge medium" x-show="alertHistory.by_severity?.medium > 0">🟡
-                        <span x-text="alertHistory.by_severity?.medium || 0"></span>
+                    <span class="alert-badge high" x-show="activeAlertsBySeverity?.high > 0">🟠
+                        <span x-text="activeAlertsBySeverity?.high || 0"></span> high</span>
+                    <span class="alert-badge medium" x-show="activeAlertsBySeverity?.medium > 0">🟡
+                        <span x-text="activeAlertsBySeverity?.medium || 0"></span>
                         medium</span>
-                    <span class="alert-badge low" x-show="alertHistory.by_severity?.low > 0">🟢
-                        <span x-text="alertHistory.by_severity?.low || 0"></span> low</span>
-                    <span class="text-muted">Total: <span x-text="alertHistory.total || 0"></span></span>
+                    <span class="alert-badge low" x-show="activeAlertsBySeverity?.low > 0">🟢
+                        <span x-text="activeAlertsBySeverity?.low || 0"></span> low</span>
+                    <span class="text-muted">Total: <span x-text="activeAlertsCount || 0"></span></span>
                 </div>
                 <div class="alert-list">
                     <template x-for="(a, idx) in filteredAlerts.slice(0, 10)" :key="idx">

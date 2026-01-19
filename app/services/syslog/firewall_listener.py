@@ -24,6 +24,7 @@ from datetime import datetime
 from app.config import FIREWALL_SYSLOG_PORT, FIREWALL_SYSLOG_BIND, FIREWALL_IP
 from app.core.app_state import _shutdown_event, add_app_log
 from app.services.syslog.syslog_store import syslog_store, SyslogEvent
+from app.services.shared.timeline import add_timeline_event
 
 # Ingestion counter
 _syslog_515_stats = {
@@ -121,6 +122,61 @@ def _parse_syslog(raw: str) -> SyslogEvent:
     )
 
 
+# Keywords indicating state-changing events worth tracking in timeline
+_STATE_CHANGE_KEYWORDS = [
+    ('start', 'Service started'),
+    ('stop', 'Service stopped'),
+    ('restart', 'Service restarted'),
+    ('reload', 'Configuration reloaded'),
+    ('rule', 'Rule change'),
+    ('config', 'Configuration change'),
+    ('error', 'Error'),
+    ('fail', 'Failure'),
+    ('timeout', 'Timeout'),
+    ('connect', 'Connection event'),
+    ('disconnect', 'Disconnection event'),
+    ('up', 'Interface up'),
+    ('down', 'Interface down'),
+    ('sync', 'Sync event'),
+]
+
+
+def _emit_timeline_event_if_significant(event: SyslogEvent) -> None:
+    """
+    Check if a syslog event represents a state change and emit to timeline.
+
+    Only emits events that indicate actual state changes:
+    - Service starts/stops/restarts
+    - Configuration reloads
+    - Errors and failures
+    - Connection/disconnection events
+    """
+    message_lower = event.message.lower()
+    program = event.program or 'unknown'
+
+    # Check for state-changing keywords
+    for keyword, description in _STATE_CHANGE_KEYWORDS:
+        if keyword in message_lower:
+            # Build summary
+            summary = f"{program}: {event.message[:80]}"
+            if len(event.message) > 80:
+                summary += "..."
+
+            add_timeline_event(
+                source='firewall',
+                summary=summary,
+                raw={
+                    'program': program,
+                    'message': event.message,
+                    'hostname': event.hostname,
+                    'facility': event.facility,
+                    'severity': event.severity
+                },
+                timestamp=event.timestamp.timestamp()
+            )
+            break  # Only emit one event per message
+
+
 def _syslog_receiver_loop():
     """UDP syslog receiver loop for port 515."""
     sock = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_DGRAM)
@@ -168,6 +224,9 @@ def _syslog_receiver_loop():
                 # Track ingestion rate
                 from app.services.shared.ingestion_metrics import ingestion_tracker
                 ingestion_tracker.track_firewall(1)
+
+                # Check for state-changing events to add to unified timeline
+                _emit_timeline_event_if_significant(event)
 
             except Exception as e:
                 with _syslog_515_stats_lock:
