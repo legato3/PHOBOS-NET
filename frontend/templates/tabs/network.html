@@ -712,7 +712,7 @@
                 show_spinner=True) %}
                 <div class="widget-body-inner">
                     <div class="talkers-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
-                        <template x-for="(flow, idx) in (talkers.flows || []).slice(0, 8)" :key="idx">
+                        <template x-for="(flow, idx) in (talkers.flows || []).slice(0, 5)" :key="idx">
                             <div class="talker-row"
                                 style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">
                                 <!-- Flow Info -->
