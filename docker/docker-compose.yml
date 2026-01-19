@@ -1,51 +1,23 @@
+version: "3.9"
+
 services:
   phobos-net:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: legato3/phobos-net:latest
     container_name: phobos-net
+    restart: unless-stopped
     ports:
-      - "3434:8080" # Web dashboard
-      - "2055:2055/udp" # NetFlow collection (nfcapd)
-      - "514:5514/udp" # Syslog receiver (maps host 514 to container 5514)
-      - "515:5515/udp" # Firewall syslog (maps host 515 to container 5515)
+      - "3434:8080"       # Web dashboard
+      - "514:5514/udp"    # Syslog filterlog (OPNsense block/pass events)
+      - "515:5515/udp"    # Syslog application logs
+      - "2055:2055/udp"   # NetFlow collection
     environment:
       # Production settings
       - PYTHONUNBUFFERED=1
-      - WORKDIR=/app
-      - TZ=Europe/Amsterdam  # Set timezone (adjust to your timezone)
-
-      # Persistence & Paths (Defaults set in Dockerfile/config.py, overridden here for clarity)
-      - NFCAPD_DIR=/var/cache/nfdump
-      - THREAT_FEEDS_PATH=/opt/phobos/config/threat-feeds.txt
-
-      # Syslog settings (Non-root container uses high ports internally)
-      - SYSLOG_BIND=0.0.0.0
-      - SYSLOG_PORT=5514
-      - FIREWALL_SYSLOG_BIND=0.0.0.0
-      - FIREWALL_SYSLOG_PORT=5515
-
-      # Firewall Source Control
-      - FIREWALL_IP=0.0.0.0 # Accepts logs from any source (Restrict to FW IP in prod)
-      # Optional Integrations
-      # - DNS_SERVER=<dns_ip>
-      # - SNMP_HOST=<snmp_host_ip>
-      # - SNMP_COMMUNITY=<snmp_community>
-      # - VIRUSTOTAL_API_KEY=<your_virustotal_api_key>
-      # - ABUSEIPDB_API_KEY=<your_abuseipdb_api_key>
-
+      - TZ=Europe/Amsterdam  # Set to your local timezone
     volumes:
-      # Persistent User Data (DBs, Threat Lists, Watchlists)
-      - ../docker-data:/app/data
-      # NetFlow Data Cache
-      - ../docker-data/nfdump:/var/cache/nfdump
-    restart: unless-stopped
-    # Resource limits matching production (optional, can be adjusted)
-    # Resource limits matching production (optional, can be adjusted)
-    mem_limit: 2g
-    memswap_limit: 3g
+      - ./docker-data:/app/data
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
