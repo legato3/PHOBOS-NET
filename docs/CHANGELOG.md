@@ -9,6 +9,13 @@ This project follows a **calm, conservative release philosophy**:
 
 ---
 
+## [1.2.4] — 2026-01-19
+
+### Changed
+- Version bump
+
+---
+
 ## [1.2.3] — 2026-01-19
 
 ### Added

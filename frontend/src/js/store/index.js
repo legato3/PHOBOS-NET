@@ -306,7 +306,7 @@ export const Store = () => ({
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
-    appMetadata: { name: 'PHOBOS-NET', version: 'v1.2.0', version_display: 'v1.2' }, // Application metadata from backend
+    appMetadata: { name: 'PHOBOS-NET', version: 'v1.2.4', version_display: 'v1.2.4' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
@@ -573,8 +573,8 @@ export const Store = () => ({
                 const data = await res.json();
                 this.appMetadata = {
                     name: data.name || 'PHOBOS-NET',
-                    version: data.version || 'v1.2.0',
-                    version_display: data.version_display || 'v1.2'
+                    version: data.version || 'v1.2.4',
+                    version_display: data.version_display || 'v1.2.4'
                 };
             }
         } catch (e) {
