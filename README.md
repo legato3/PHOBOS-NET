@@ -1,4 +1,4 @@
-# 🛡️ PHOBOS-NET
+# PHOBOS-NET
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/legato3/phobos-net-assets/main/images/dashboard-overview.png" width="100%" />
