@@ -333,6 +333,7 @@ export const Store = () => ({
     widgetVisibility: {},
     minimizedWidgets: new Set(JSON.parse(localStorage.getItem('minimizedWidgets') || '[]')),
     widgetManagerOpen: false,
+    editMode: false, // Widget drag-and-drop edit mode
 
     // Intersection Observer State
     visibleSections: new Set(),
