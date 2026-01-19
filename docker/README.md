@@ -9,10 +9,10 @@
 
 ### 2. Configuration
 
-**Option A: Use the home user template** (recommended for most users)
+**Option A: Use the example template** (recommended for most users)
 ```bash
-# Copy the home template
-cp docker-compose.home.yml docker-compose.yml
+# Copy the example template
+cp docker-compose.example.yml docker-compose.yml
 
 # Edit the file and update these values:
 # - TZ: Your timezone (e.g., America/New_York, Asia/Tokyo)
@@ -75,7 +75,7 @@ curl http://localhost:3434/health
 | File | Purpose | Best For |
 |------|---------|----------|
 | `docker-compose.yml` | Development version with build config | Developers building from source |
-| `docker-compose.home.yml` | Production-ready, pull-only template | Home users, simple deployments |
+| `docker-compose.example.yml` | Production-ready, pull-only template | Home users, simple deployments |
 
 ---
 
