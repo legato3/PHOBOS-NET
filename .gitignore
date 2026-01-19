@@ -36,3 +36,12 @@ __pycache__/
 
 _private_docs/
 _scripts/
+.agent/
+.claude/
+.cursor/
+.gemini/
+.Jules/
+.vscode/
+.venv/
+docker-data/
+venv/
