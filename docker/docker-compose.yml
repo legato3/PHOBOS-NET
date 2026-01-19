@@ -13,6 +13,7 @@ services:
       # Production settings
       - PYTHONUNBUFFERED=1
       - WORKDIR=/app
+      - TZ=Europe/Amsterdam  # Set timezone (adjust to your timezone)
 
       # Persistence & Paths (Defaults set in Dockerfile/config.py, overridden here for clarity)
       - NFCAPD_DIR=/var/cache/nfdump
