@@ -1,4 +1,4 @@
-# 🛡️ PHOBOS-NET
+# PHOBOS-NET
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/legato3/phobos-net-assets/main/images/dashboard-overview.png" width="100%" />
@@ -99,8 +99,7 @@ http://<host>:3434
 SNMP and Syslog are **not optional**.
 
 See:
-- [`docs/OPNSENSE_QUICK_START.md`](docs/OPNSENSE_QUICK_START.md)
-- [`docs/OPNSENSE.md`](docs/OPNSENSE.md)
+- [`docs/OPNSENSE_CONFIG.md`](docs/OPNSENSE_CONFIG.md)
 
 ---
 
