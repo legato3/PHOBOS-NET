@@ -9,6 +9,16 @@ It is designed for **situational awareness**, not automation.
 > No alarmist dashboards.  
 > Just clear visibility into what your network is doing.
 
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/legato3/phobos-net-assets/e31c5d599c3296f86bf7f15d14174e0cfaaf6894/images/dashboard-overview.png"
+    alt="PHOBOS-NET Dashboard Overview"
+    width="100%"
+  />
+  <br/>
+  <em>PHOBOS-NET v1.2 — Dashboard Overview</em>
+</p>
+
 ---
 
 ## ✨ Key Features
