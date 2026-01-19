@@ -38,7 +38,6 @@ services:
       - "515:5515/udp"    # Syslog application logs
       - "2055:2055/udp"   # NetFlow collection
     environment:
-      # Production settings
       - PYTHONUNBUFFERED=1
       - TZ=Europe/Amsterdam  # Set to your local timezone
     volumes:
