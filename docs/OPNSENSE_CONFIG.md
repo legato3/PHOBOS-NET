@@ -15,16 +15,16 @@ PHOBOS-NET can observe the following data streams from OPNsense:
 | Data Source | Purpose | Required |
 |------------|--------|----------|
 | Syslog (filterlog) | Firewall packet decisions (pass/block) | Yes |
-| Syslog (firewall/admin) | Firewall & system events | Optional |
+| Syslog (firewall/admin) | Firewall & system events | Yes |
 | NetFlow | Traffic flows & volume | Yes |
-| SNMP | Interface & system metrics | Optional |
+| SNMP | Interface & system metrics | Yes |
 
 Each stream is independent.
 Missing streams will show as “—”, not as errors.
 
 ---
 
-## 1. Syslog Configuration (Required)
+## 1. Syslog Configuration
 
 Syslog provides packet-level firewall decisions via filterlog.
 
@@ -50,7 +50,7 @@ Add Second Target:
 - Format: RFC5424
 ---
 
-## 2. NetFlow Configuration (Required)
+## 2. NetFlow Configuration
 
 Navigate to:
 Reporting → NetFlow
@@ -64,7 +64,7 @@ Reporting → NetFlow
 
 ---
 
-## 3. SNMP Configuration (Optional)
+## 3. SNMP Configuration
 
 Navigate to:
 Services → Net-SNMP
