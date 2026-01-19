@@ -12,6 +12,7 @@ from app.core.app_state import _shutdown_event
 
 # Import config
 from app.config import SNMP_HOST, SNMP_COMMUNITY, SNMP_OIDS, SNMP_POLL_INTERVAL, SNMP_CACHE_TTL
+from app.services.shared.config_helpers import load_config
 
 # Import formatters
 from app.services.shared.formatters import format_uptime
@@ -32,8 +33,13 @@ def get_snmp_data():
     global _snmp_prev_available
     now = time.time()
     
+    # Load config from database (allows runtime changes via settings UI)
+    config = load_config()
+    snmp_host = config.get('snmp_host', SNMP_HOST)
+    snmp_community = config.get('snmp_community', SNMP_COMMUNITY)
+    
     # If SNMP_HOST is not configured, return unavailable immediately
-    if not SNMP_HOST or not SNMP_HOST.strip():
+    if not snmp_host or not snmp_host.strip():
         return {"error": "SNMP not configured", "available": False}
     
     with state._snmp_cache_lock:
@@ -58,7 +64,7 @@ def get_snmp_data():
     try:
         result = {}
         oids = " ".join(SNMP_OIDS.values())
-        cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {oids}"
+        cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {oids}"
         
         output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
         values = output.strip().split("\n")
@@ -371,18 +377,23 @@ def discover_interfaces():
     Returns a dict mapping logical names to interface indexes:
     {'wan': 1, 'lan': 2, 'wireguard': 3, 'tailscale': 4} or None if discovery fails.
     """
+    # Load config from database
+    config = load_config()
+    snmp_host = config.get('snmp_host', SNMP_HOST)
+    snmp_community = config.get('snmp_community', SNMP_COMMUNITY)
+    
     # If SNMP_HOST is not configured, return None immediately
-    if not SNMP_HOST or not SNMP_HOST.strip():
+    if not snmp_host or not snmp_host.strip():
         return None
     
     try:
         # Walk interface descriptions
-        cmd = f"snmpwalk -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} .1.3.6.1.2.1.2.2.1.2"
+        cmd = f"snmpwalk -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.2.2.1.2"
         output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
         if_descr = output.strip().split("\n")
         
         # Walk interface operational status to filter only UP interfaces
-        cmd = f"snmpwalk -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} .1.3.6.1.2.1.2.2.1.8"
+        cmd = f"snmpwalk -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.2.2.1.8"
         output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
         if_status = output.strip().split("\n")
         
