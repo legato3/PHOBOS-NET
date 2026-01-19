@@ -64,7 +64,7 @@ Reporting → NetFlow
 
 ---
 
-## 3. SNMP Configuration (Required)
+## 3. SNMP Configuration (Optional)
 
 Navigate to:
 Services → Net-SNMP
