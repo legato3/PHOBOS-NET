@@ -4,6 +4,7 @@ import os
 import json
 import requests
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from collections import defaultdict, deque
 from app.core.app_state import add_app_log
@@ -78,6 +79,76 @@ def parse_feed_line(line):
     return url, category, name
 
 
+def _fetch_single_feed(entry, last_ok_map):
+    """Fetch and process a single threat feed URL.
+
+    Args:
+        entry: Tuple of (url, category, name)
+        last_ok_map: Dictionary mapping feed name to last_ok timestamp
+
+    Returns:
+        Dictionary containing feed name, category, status entry, ips list, ip map, and errors
+    """
+    url, category, name = entry
+    feed_start = time.time()
+    result = {
+        'name': name,
+        'category': category,
+        'status_entry': {},
+        'error_msg': None,
+        'ips': [],
+        'ip_map': {}
+    }
+
+    try:
+        r = requests.get(url, timeout=25)
+        latency_ms = int((time.time() - feed_start) * 1000)
+
+        if r.status_code != 200:
+            result['status_entry'] = {
+                'status': 'error', 'category': category, 'ips': 0,
+                'error': f'HTTP {r.status_code}', 'latency_ms': latency_ms,
+                'last_attempt': time.time(), 'last_ok': last_ok_map.get(name, 0)
+            }
+            result['error_msg'] = f'{name}: HTTP {r.status_code}'
+            return result
+
+        # Parse IPs from feed
+        feed_ips = []
+        ip_map = {}
+        for line in r.text.split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith(';'):
+                continue
+            # Handle CIDR notation in DROP lists
+            if '/' in line:
+                line = line.split('/')[0].strip()
+            # Handle space-separated formats (some feeds have "IP ; comment")
+            if ' ' in line:
+                line = line.split()[0].strip()
+            if line:
+                feed_ips.append(line)
+                ip_map[line] = {'category': category, 'feed': name}
+
+        result['ips'] = feed_ips
+        result['ip_map'] = ip_map
+        result['status_entry'] = {
+            'status': 'ok', 'category': category, 'ips': len(feed_ips),
+            'error': None, 'latency_ms': latency_ms,
+            'last_attempt': time.time(), 'last_ok': time.time()
+        }
+    except Exception as e:
+        latency_ms = int((time.time() - feed_start) * 1000)
+        result['status_entry'] = {
+            'status': 'error', 'category': category, 'ips': 0,
+            'error': str(e)[:50], 'latency_ms': latency_ms,
+            'last_attempt': time.time(), 'last_ok': last_ok_map.get(name, 0)
+        }
+        result['error_msg'] = f'{name}: {str(e)[:30]}'
+
+    return result
+
+
 def fetch_threat_feed():
     global _threat_status, _threat_ip_to_feed, _feed_status, _feed_data_lock
     try:
@@ -108,51 +179,25 @@ def fetch_threat_feed():
         errors = []
         new_feed_status = {}
         
-        for url, category, name in feed_entries:
-            feed_start = time.time()
-            try:
-                r = requests.get(url, timeout=25)
-                latency_ms = int((time.time() - feed_start) * 1000)
+        # Prepare last_ok map for concurrent access
+        last_ok_map = {name: val.get('last_ok', 0) for name, val in _feed_status.items()}
+
+        # Fetch feeds concurrently
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(_fetch_single_feed, entry, last_ok_map) for entry in feed_entries]
+
+            for future in as_completed(futures):
+                result = future.result()
                 
-                if r.status_code != 200:
-                    new_feed_status[name] = {
-                        'status': 'error', 'category': category, 'ips': 0,
-                        'error': f'HTTP {r.status_code}', 'latency_ms': latency_ms,
-                        'last_attempt': time.time(), 'last_ok': _feed_status.get(name, {}).get('last_ok', 0)
-                    }
-                    errors.append(f'{name}: HTTP {r.status_code}')
-                    continue
+                # Aggregate results
+                new_feed_status[result['name']] = result['status_entry']
                 
-                # Parse IPs from feed
-                feed_ips = []
-                for line in r.text.split('\n'):
-                    line = line.strip()
-                    if not line or line.startswith('#') or line.startswith(';'):
-                        continue
-                    # Handle CIDR notation in DROP lists
-                    if '/' in line:
-                        line = line.split('/')[0].strip()
-                    # Handle space-separated formats (some feeds have "IP ; comment")
-                    if ' ' in line:
-                        line = line.split()[0].strip()
-                    if line:
-                        feed_ips.append(line)
-                        ip_to_feed[line] = {'category': category, 'feed': name}
+                if result['error_msg']:
+                    errors.append(result['error_msg'])
                 
-                all_ips.update(feed_ips)
-                new_feed_status[name] = {
-                    'status': 'ok', 'category': category, 'ips': len(feed_ips),
-                    'error': None, 'latency_ms': latency_ms,
-                    'last_attempt': time.time(), 'last_ok': time.time()
-                }
-            except Exception as e:
-                latency_ms = int((time.time() - feed_start) * 1000)
-                new_feed_status[name] = {
-                    'status': 'error', 'category': category, 'ips': 0,
-                    'error': str(e)[:50], 'latency_ms': latency_ms,
-                    'last_attempt': time.time(), 'last_ok': _feed_status.get(name, {}).get('last_ok', 0)
-                }
-                errors.append(f'{name}: {str(e)[:30]}')
+                if result['ips']:
+                    all_ips.update(result['ips'])
+                    ip_to_feed.update(result['ip_map'])
 
         # Update global state atomically
         with _feed_data_lock:
