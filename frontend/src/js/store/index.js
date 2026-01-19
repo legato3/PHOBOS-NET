@@ -21,6 +21,7 @@ export const Store = () => ({
     get server_disk() { return { loading: this.serverHealth.loading }; },
     get server_netflow() { return { loading: this.serverHealth.loading }; },
     get server_syslog() { return { loading: this.serverHealth.loading }; },
+    get server_firewall_syslog() { return { loading: this.serverHealth.loading }; },
     get server_database() { return { loading: this.serverHealth.loading }; },
     get server_system() { return { loading: this.serverHealth.loading }; },
     get server_process() { return { loading: this.serverHealth.loading }; },
