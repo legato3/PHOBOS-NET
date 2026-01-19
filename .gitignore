@@ -33,3 +33,6 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+_private_docs/
+_scripts/
