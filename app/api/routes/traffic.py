@@ -2790,9 +2790,8 @@ def api_firewall_snmp_status():
 
 # ===== SNMP Integration =====
 
-# SNMP Configuration (override with env vars)
-SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
-SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "Phoboshomesnmp_3")
+# SNMP Configuration imported from centralized config
+# Use app.config.SNMP_HOST and app.config.SNMP_COMMUNITY instead of duplicating here
 
 # SNMP OIDs
 SNMP_OIDS = {

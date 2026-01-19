@@ -1245,8 +1245,8 @@ def api_ollama_chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Ollama API endpoint (default: 192.168.0.88:11434)
-        ollama_base = os.getenv('OLLAMA_URL', 'http://192.168.0.88:11434')
+        # Ollama API endpoint (default: localhost:11434)
+        ollama_base = os.getenv('OLLAMA_URL', 'http://localhost:11434')
         # Remove /api/chat if present (for backwards compatibility)
         ollama_base = ollama_base.replace('/api/chat', '')
         ollama_url = f"{ollama_base}/api/chat"
@@ -1414,8 +1414,8 @@ ANALYSIS REQUEST: {query}
 
 Provide a comprehensive analysis with specific, actionable recommendations."""
         
-        # Ollama API endpoint
-        ollama_base = os.getenv('OLLAMA_URL', 'http://192.168.0.88:11434')
+        # Ollama API endpoint (default: localhost:11434)
+        ollama_base = os.getenv('OLLAMA_URL', 'http://localhost:11434')
         ollama_base = ollama_base.replace('/api/chat', '')
         ollama_url = f"{ollama_base}/api/chat"
 
@@ -1983,8 +1983,8 @@ def api_forensics_evidence():
 def api_ollama_models():
     """Get list of available Ollama models."""
     try:
-        # Ollama API base URL (default: 192.168.0.88:11434)
-        ollama_base = os.getenv('OLLAMA_URL', 'http://192.168.0.88:11434')
+        # Ollama API base URL (default: localhost:11434)
+        ollama_base = os.getenv('OLLAMA_URL', 'http://localhost:11434')
         # Remove /api/chat if present (for backwards compatibility)
         ollama_base = ollama_base.replace('/api/chat', '')
         response = requests.get(f"{ollama_base}/api/tags", timeout=10)

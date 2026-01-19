@@ -32,6 +32,10 @@ def get_snmp_data():
     global _snmp_prev_available
     now = time.time()
     
+    # If SNMP_HOST is not configured, return unavailable immediately
+    if not SNMP_HOST or not SNMP_HOST.strip():
+        return {"error": "SNMP not configured", "available": False}
+    
     with state._snmp_cache_lock:
         if state._snmp_cache["data"] and now - state._snmp_cache["ts"] < SNMP_CACHE_TTL:
             return state._snmp_cache["data"]
@@ -367,6 +371,10 @@ def discover_interfaces():
     Returns a dict mapping logical names to interface indexes:
     {'wan': 1, 'lan': 2, 'wireguard': 3, 'tailscale': 4} or None if discovery fails.
     """
+    # If SNMP_HOST is not configured, return None immediately
+    if not SNMP_HOST or not SNMP_HOST.strip():
+        return None
+    
     try:
         # Walk interface descriptions
         cmd = f"snmpwalk -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} .1.3.6.1.2.1.2.2.1.2"

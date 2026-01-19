@@ -53,7 +53,7 @@ else:
 # Syslog configuration
 SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
 SYSLOG_BIND = os.getenv("SYSLOG_BIND", "0.0.0.0")
-FIREWALL_IP = os.getenv("FIREWALL_IP", "192.168.0.1")
+FIREWALL_IP = os.getenv("FIREWALL_IP", "0.0.0.0")  # 0.0.0.0 = accept from any source (restrict via env var in production)
 FIREWALL_RETENTION_DAYS = 7
 SYSLOG_BUFFER_SIZE = 100
 
@@ -62,12 +62,12 @@ FIREWALL_SYSLOG_PORT = int(os.getenv("FIREWALL_SYSLOG_PORT", "515"))
 FIREWALL_SYSLOG_BIND = os.getenv("FIREWALL_SYSLOG_BIND", "0.0.0.0")
 
 # DNS Configuration
-DNS_SERVER = os.getenv("DNS_SERVER", "192.168.0.6")
+DNS_SERVER = os.getenv("DNS_SERVER", "")  # Empty = DNS resolution disabled by default
 DNS_CACHE_MAX = 5000
 
 # SNMP Configuration
-SNMP_HOST = os.getenv("SNMP_HOST", "192.168.0.1")
-SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "Phoboshomesnmp_3")
+SNMP_HOST = os.getenv("SNMP_HOST", "")  # Empty = SNMP monitoring disabled by default
+SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "public")  # Standard read-only community string
 SNMP_POLL_INTERVAL = float(os.getenv("SNMP_POLL_INTERVAL", "2"))  # seconds
 SNMP_CACHE_TTL = float(os.getenv("SNMP_CACHE_TTL", str(max(1.0, SNMP_POLL_INTERVAL))))
 

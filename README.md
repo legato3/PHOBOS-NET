@@ -122,6 +122,20 @@ Access the UI:
 http://<host>:3434
 ```
 
+### Optional Configuration
+
+Copy `.env.example` to `.env` and customize:
+```bash
+cp .env.example .env
+```
+
+Configure optional services (DNS, SNMP, Threat Intelligence):
+- `DNS_SERVER` - Enable reverse DNS lookups
+- `SNMP_HOST` / `SNMP_COMMUNITY` - Enable SNMP monitoring
+- `VIRUSTOTAL_API_KEY` / `ABUSEIPDB_API_KEY` - Enable threat intelligence
+
+All services are disabled by default and optional.
+
 ---
 
 ## 🔐 Security & Runtime Model

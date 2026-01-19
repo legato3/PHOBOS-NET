@@ -27,11 +27,11 @@ services:
       # Firewall Source Control
       - FIREWALL_IP=0.0.0.0 # Accepts logs from any source (Restrict to FW IP in prod)
       # Optional Integrations
-      # - DNS_SERVER=192.168.0.6
-      # - SNMP_HOST=192.168.0.1
-      # - SNMP_COMMUNITY=Phoboshomesnmp_3
-      # - VIRUSTOTAL_API_KEY=
-      # - ABUSEIPDB_API_KEY=
+      # - DNS_SERVER=<dns_ip>
+      # - SNMP_HOST=<snmp_host_ip>
+      # - SNMP_COMMUNITY=<snmp_community>
+      # - VIRUSTOTAL_API_KEY=<your_virustotal_api_key>
+      # - ABUSEIPDB_API_KEY=<your_abuseipdb_api_key>
 
     volumes:
       # Persistent User Data (DBs, Threat Lists, Watchlists)

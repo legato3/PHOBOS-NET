@@ -81,15 +81,15 @@ def save_thresholds(cfg):
 def get_default_config():
     """Return default configuration values."""
     return {
-        'dns_server': '192.168.0.6',
-        'snmp_host': '192.168.0.1',
+        'dns_server': '',  # Empty = DNS resolution disabled by default
+        'snmp_host': '',   # Empty = SNMP monitoring disabled by default
         'snmp_community': 'public',
         'snmp_poll_interval': 2.0,
         'nfdump_dir': '/var/cache/nfdump',
         'geoip_city_path': '/root/GeoLite2-City.mmdb',
         'geoip_asn_path': '/root/GeoLite2-ASN.mmdb',
         'threat_feeds_path': '/root/threat-feeds.txt',
-        'internal_networks': '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12'
+        'internal_networks': '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12'  # Standard RFC1918 ranges
     }
 
 

@@ -7,9 +7,14 @@ from app.config import DNS_SERVER, DNS_CACHE_MAX
 
 # Global resolver instance
 _shared_resolver = dns.resolver.Resolver()
-_shared_resolver.nameservers = [DNS_SERVER]
-_shared_resolver.timeout = 2
-_shared_resolver.lifetime = 2
+# Only configure DNS if DNS_SERVER is provided
+if DNS_SERVER:
+    _shared_resolver.nameservers = [DNS_SERVER]
+    _shared_resolver.timeout = 2
+    _shared_resolver.lifetime = 2
+else:
+    # DNS disabled - resolver will not be used
+    _shared_resolver = None
 
 # DNS cache
 _dns_cache = {}
@@ -19,6 +24,9 @@ _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
 
 def resolve_hostname(ip):
     """Resolve IP to hostname using configured DNS_SERVER."""
+    # If DNS is disabled, return IP unchanged
+    if not DNS_SERVER or _shared_resolver is None:
+        return ip
     try:
         rev_name = dns.reversename.from_address(ip)
         answer = _shared_resolver.resolve(rev_name, 'PTR')
