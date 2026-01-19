@@ -30,10 +30,11 @@ ENV/
 .idea/
 *.code-workspace
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Docker (these are in docker/ subdirectory, not needed in image)
+docker/Dockerfile
+docker/docker-compose.yml
+docker/.dockerignore
+docker/*.md
 
 # Data files (will be created at runtime or mounted as volumes)
 *.db
