@@ -1,4 +1,4 @@
-"""Main entry point for PROX_NFDUMP application.
+"""Main entry point for PHOBOS-NET application.
 
 This module starts background threads and runs the Flask application.
 """

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Lightweight observability instrumentation has been added to the PROX_NFDUMP codebase to monitor performance and detect regressions without changing application behavior. All instrumentation is **passive**, **thread-safe**, and has **minimal overhead** (<1% typical).
+Lightweight observability instrumentation has been added to the PHOBOS-NET codebase to monitor performance and detect regressions without changing application behavior. All instrumentation is **passive**, **thread-safe**, and has **minimal overhead** (<1% typical).
 
 ## New Metrics Added
 

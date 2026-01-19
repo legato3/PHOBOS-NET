@@ -1,6 +1,6 @@
 # Performance Optimization Summary
 
-This document summarizes the performance optimizations applied to the PROX_NFDUMP repository without changing external behavior.
+This document summarizes the performance optimizations applied to the PHOBOS-NET repository without changing external behavior.
 
 ## Optimization Strategy
 

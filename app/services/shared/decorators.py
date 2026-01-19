@@ -1,4 +1,4 @@
-"""Decorators for PROX_NFDUMP application.
+"""Decorators for PHOBOS-NET application.
 
 This module contains decorators extracted from phobos_dashboard.py.
 """

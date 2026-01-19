@@ -1,5 +1,5 @@
 from . import bp
-"""Flask routes for PROX_NFDUMP application.
+"""Flask routes for PHOBOS-NET application.
 
 This module contains all API routes extracted from netflow-dashboard.py.
 Routes are organized in a single Flask Blueprint.

@@ -1,10 +1,10 @@
 # NetFlow Collection Setup (nfcapd/nfdump)
 
 ## Overview
-NetFlow data collection setup for PROX_NFDUMP dashboard in LXC container 122 on PHOBOS-PROX-2.
+NetFlow data collection setup for PHOBOS-NET dashboard in LXC container 122 on PHOBOS-PROX-2.
 
 ## System Information
-- **Container**: LXC 122 (PROX-NFDUMP)
+- **Container**: LXC 122 (PHOBOS-NET)
 - **Host**: PHOBOS-PROX-2  
 - **IP**: 192.168.0.74
 - **Data Dir**: `/var/cache/nfdump`

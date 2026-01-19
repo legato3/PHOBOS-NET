@@ -1,4 +1,4 @@
-"""Centralized state management for PROX_NFDUMP application.
+"""Centralized state management for PHOBOS-NET application.
 
 This module consolidates all global state variables, locks, and caches
 that were previously scattered across phobos_dashboard.py.

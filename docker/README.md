@@ -1,6 +1,6 @@
 # Docker Setup
 
-This directory contains all Docker-related files for running the NetFlow Dashboard in a containerized environment.
+This directory contains all Docker-related files for running PHOBOS-NET in a containerized environment.
 
 ## Files
 

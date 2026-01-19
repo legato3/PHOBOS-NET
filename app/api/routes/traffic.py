@@ -1,5 +1,5 @@
 from . import bp
-"""Flask routes for PROX_NFDUMP application.
+"""Flask routes for PHOBOS-NET application.
 
 This module contains all API routes extracted from netflow-dashboard.py.
 Routes are organized in a single Flask Blueprint.
@@ -1203,11 +1203,16 @@ def api_stats_hourly():
         peak_hour = max(hourly_bytes, key=hourly_bytes.get)
         peak_bytes = hourly_bytes[peak_hour]
 
-        # Create labels (0:00, 1:00, etc)
-        # Note: Hours are in local time (matching nfdump output)
-        labels = [f"{h}:00" for h in range(24)]
-        bytes_data = [hourly_bytes[h] for h in range(24)]
-        flows_data = [hourly_flows[h] for h in range(24)]
+        # Reorder chronologically: oldest hour (24h ago) on left, current hour on right
+        # This prevents showing "future" hours with data from yesterday
+        current_hour = datetime.now().hour
+        # Order: (current_hour+1) ... 23, 0 ... current_hour
+        # e.g., if current_hour is 9, order is: 10,11,12...23,0,1,2...8,9
+        chronological_hours = [(current_hour + 1 + i) % 24 for i in range(24)]
+
+        labels = [f"{h}:00" for h in chronological_hours]
+        bytes_data = [hourly_bytes[h] for h in chronological_hours]
+        flows_data = [hourly_flows[h] for h in chronological_hours]
 
         data = {
             "labels": labels,
@@ -1220,7 +1225,8 @@ def api_stats_hourly():
             "total_bytes": sum(bytes_data),
             "total_bytes_fmt": fmt_bytes(sum(bytes_data)),
             "timezone": "local",  # Clarify that hours are in server local time
-            "time_scope": "24h"   # Fixed window explicit declaration
+            "time_scope": "24h",  # Fixed window explicit declaration
+            "current_hour": current_hour  # For frontend reference
         }
     except:
         data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": "24h"}

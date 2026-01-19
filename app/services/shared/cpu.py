@@ -1,4 +1,4 @@
-"""CPU stats helpers for PROX_NFDUMP."""
+"""CPU stats helpers for PHOBOS-NET."""
 import time
 
 import app.core.app_state as state

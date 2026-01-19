@@ -1,4 +1,4 @@
-"""Thread management functions for PROX_NFDUMP application.
+"""Thread management functions for PHOBOS-NET application.
 
 This module contains functions to start background threads that perform
 periodic tasks like fetching threat feeds, aggregating data, and managing trends.

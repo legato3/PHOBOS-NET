@@ -1,4 +1,4 @@
-"""Performance metrics tracking service for PROX_NFDUMP application."""
+"""Performance metrics tracking service for PHOBOS-NET application."""
 import threading
 import time
 from collections import defaultdict

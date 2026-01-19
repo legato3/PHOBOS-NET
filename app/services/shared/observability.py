@@ -1,4 +1,4 @@
-"""Observability utilities for PROX_NFDUMP application.
+"""Observability utilities for PHOBOS-NET application.
 
 This module provides lightweight instrumentation for performance monitoring
 and guardrails without changing application behavior.

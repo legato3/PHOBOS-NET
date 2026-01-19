@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how to integrate OPNsense firewall logs into the NetFlow Dashboard via syslog, enabling real-time visibility into blocked connections, firewall rule hits, and security events.
+This document describes how to integrate OPNsense firewall logs into the PHOBOS-NET via syslog, enabling real-time visibility into blocked connections, firewall rule hits, and security events.
 
 ## Architecture
 
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS fw_stats_hourly (
    - **Port**: 514
    - **Facility**: Local0
    - **Level**: Informational
-   - **Description**: NetFlow Dashboard
+   - **Description**: PHOBOS-NET
 
 4. Click **Save** and **Apply**
 

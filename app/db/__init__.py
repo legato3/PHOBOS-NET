@@ -1,1 +1,1 @@
-"""Database package for PROX_NFDUMP application."""
+"""Database package for PHOBOS-NET application."""

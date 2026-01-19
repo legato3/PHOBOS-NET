@@ -1,6 +1,6 @@
 # Docker Deployment Instructions
 
-This document describes deploying the NetFlow Dashboard using Docker on PROX-DOCKER-2.
+This document describes deploying the PHOBOS-NET using Docker on PROX-DOCKER-2.
 
 > **Note**: The legacy `netflow-dashboard.py` entrypoint has been removed. Use `docker/DEPLOY_TO_SERVER.sh` (and `--rebuild` when needed) to deploy the modular `app/` and `frontend/` structure.
 
@@ -41,7 +41,7 @@ The "Traffic World Map" requires MaxMind GeoIP databases. Due to licensing, thes
 
 1. **Copy files to server:**
    ```bash
-   cd /path/to/PROX_NFDUMP
+   cd /path/to/PHOBOS-NET
    
    # Create directory structure on server
    ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 \
@@ -118,7 +118,7 @@ For updates to `netflow-dashboard.py` or other application files (no Dockerfile 
 
 ```bash
 # From local machine
-cd /path/to/PROX_NFDUMP
+cd /path/to/PHOBOS-NET
 
 # Commit and push changes (if not already done)
 git add -A
@@ -140,7 +140,7 @@ For changes to Dockerfile, requirements.txt, or other build-time dependencies:
 
 ```bash
 # From local machine
-cd /path/to/PROX_NFDUMP
+cd /path/to/PHOBOS-NET
 
 # Copy updated files (repeat relevant scp commands from initial deployment)
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/

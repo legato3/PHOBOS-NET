@@ -1,4 +1,4 @@
-"""Configuration module for PROX_NFDUMP application."""
+"""Configuration module for PHOBOS-NET application."""
 import os
 
 # Application Metadata (Single Source of Truth)

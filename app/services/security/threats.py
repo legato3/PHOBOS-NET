@@ -1,4 +1,4 @@
-"""Threat intelligence service for PROX_NFDUMP application."""
+"""Threat intelligence service for PHOBOS-NET application."""
 import time
 import os
 import json

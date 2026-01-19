@@ -13,7 +13,7 @@ The dashboard uses minified assets in production for optimal performance:
 To regenerate minified assets after making changes:
 
 ```bash
-cd /root/PROX_NFDUMP
+cd /root/PHOBOS-NET
 PYTHONPATH=/usr/local/lib/python3.*/site-packages python3 minify.py
 ```
 

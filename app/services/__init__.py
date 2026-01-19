@@ -1,1 +1,1 @@
-"""Services package for PROX_NFDUMP application."""
+"""Services package for PHOBOS-NET application."""

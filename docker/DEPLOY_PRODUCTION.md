@@ -48,7 +48,7 @@ Look for `syslog_ingestion` stats (received, parsed, errors).
 
 1. **Copy files to server:**
    ```bash
-   cd /Users/chris/Documents/GitHub/PROX_NFDUMP
+   cd /Users/chris/Documents/GitHub/PHOBOS-NET
    
    # Create directory on server
    ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "mkdir -p /root/netflow-dashboard/docker/{templates,static,scripts,sample_data}"
@@ -107,7 +107,7 @@ Use `docker cp` to inject files directly into the running container. This works 
 
 ```bash
 # From your local machine
-cd /path/to/PROX_NFDUMP
+cd /path/to/PHOBOS-NET
 
 # Commit and push changes (if not already done)
 git add -A

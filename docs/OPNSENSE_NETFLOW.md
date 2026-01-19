@@ -1,7 +1,7 @@
 # OPNsense NetFlow Configuration Guide
 
 ## Overview
-This guide documents the recommended NetFlow configuration for OPNsense firewall to export flow data to the PROX_NFDUMP dashboard.
+This guide documents the recommended NetFlow configuration for OPNsense firewall to export flow data to the PHOBOS-NET dashboard.
 
 ## Current Setup
 - **Firewall**: OPNsense at 192.168.0.1

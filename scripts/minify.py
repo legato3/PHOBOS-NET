@@ -56,7 +56,7 @@ def minify_js(input_path, output_path):
     print(f"  Minified: {minified_size:,} bytes ({savings:.1f}% smaller)")
 
 def main():
-    print("=== NetFlow Dashboard Minification ===\n")
+    print("=== PHOBOS-NET Minification ===\n")
     
     # Minify style.css
     css_input = os.path.join(STATIC_DIR, 'style.css')

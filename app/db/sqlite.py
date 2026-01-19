@@ -1,4 +1,4 @@
-"""SQLite database operations for PROX_NFDUMP application."""
+"""SQLite database operations for PHOBOS-NET application."""
 import sqlite3
 import threading
 import time

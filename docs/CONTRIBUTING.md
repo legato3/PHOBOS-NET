@@ -1,13 +1,13 @@
-# Contributing to PROX_NFDUMP
+# Contributing to PHOBOS-NET
 
-Thank you for your interest in contributing to PROX_NFDUMP!
+Thank you for your interest in contributing to PHOBOS-NET!
 
 ## Development Setup
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/legato3/PROX_NFDUMP.git
-cd PROX_NFDUMP
+git clone https://github.com/legato3/PHOBOS-NET.git
+cd PHOBOS-NET
 ```
 
 2. Install dependencies:

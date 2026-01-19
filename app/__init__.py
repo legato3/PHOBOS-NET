@@ -1,4 +1,4 @@
-"""Flask application factory for PROX_NFDUMP.
+"""Flask application factory for PHOBOS-NET.
 
 This module creates and configures the Flask application instance.
 """

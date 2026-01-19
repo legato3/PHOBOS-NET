@@ -1,4 +1,4 @@
-"""Utility functions for PROX_NFDUMP application."""
+"""Utility functions for PHOBOS-NET application."""
 from .helpers import (
     is_internal,
     get_region,

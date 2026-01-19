@@ -1,4 +1,4 @@
-"""Statistics service for PROX_NFDUMP application."""
+"""Statistics service for PHOBOS-NET application."""
 import time
 import threading
 from app.db.sqlite import _get_firewall_block_stats

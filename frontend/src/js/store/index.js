@@ -331,7 +331,7 @@ export const Store = () => ({
     // Settings / Status
     notify: { email: true, webhook: true, muted: false },
     threatStatus: { status: '', last_ok: 0 },
-    dismissedAlerts: new Set(JSON.parse(localStorage.getItem('dismissedAlerts') || '[]')),
+    dismissedAlerts: JSON.parse(localStorage.getItem('dismissedAlerts') || '[]'),
 
     // Widget Management
     widgetVisibility: {},
@@ -1169,9 +1169,10 @@ export const Store = () => ({
         return colors[index] || colors[0];
     },
 
-    get activeAlerts() {
+    get activeAlertsLegacy() {
+        // Legacy getter for this.alerts data source - may be used elsewhere
         if (!this.alerts.alerts) return [];
-        return this.alerts.alerts.filter(a => !this.dismissedAlerts.has(a.msg));
+        return this.alerts.alerts.filter(a => !this.dismissedAlerts.includes(this.alertKey(a)));
     },
 
     get groupedAlerts() {
@@ -3085,7 +3086,7 @@ export const Store = () => ({
 
     get filteredAlerts() {
         let alerts = this.alertHistory.alerts || [];
-        alerts = alerts.filter(a => !this.dismissedAlerts.has(this.alertKey(a)));
+        alerts = alerts.filter(a => !this.dismissedAlerts.includes(this.alertKey(a)));
         if (this.alertFilter.severity !== 'all') {
             alerts = alerts.filter(a => a.severity === this.alertFilter.severity);
         }
@@ -3096,25 +3097,17 @@ export const Store = () => ({
     },
 
     get activeAlertsCount() {
-        // Use API's active_count for true active alerts (not inflated by network signals)
-        // Falls back to counting non-dismissed alerts if API field not available
-        if (this.alertHistory.active_count !== undefined) {
-            return this.alertHistory.active_count;
-        }
+        // Count alerts that are active AND not dismissed by the user
+        // This ensures the counter reflects what the user actually sees
         return (this.activeAlerts || []).filter(a => a.active !== false).length;
     },
 
     get activeAlerts() {
-        return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.has(this.alertKey(a)));
+        return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.includes(this.alertKey(a)));
     },
 
     get activeAlertsBySeverity() {
-        // Use API's by_severity for active alerts (not inflated by network signals)
-        // Falls back to counting from alerts array if API field not available
-        if (this.alertHistory.by_severity) {
-            return this.alertHistory.by_severity;
-        }
-        // Fallback: count from active (non-dismissed, active=true) alerts
+        // Count from visible (non-dismissed, active) alerts to match what user sees
         const by = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
         (this.activeAlerts || []).filter(a => a.active !== false).forEach(a => {
             const sev = (a?.severity || 'low').toLowerCase();
@@ -3135,24 +3128,27 @@ export const Store = () => ({
 
     persistDismissedAlerts() {
         try {
-            localStorage.setItem('dismissedAlerts', JSON.stringify(Array.from(this.dismissedAlerts)));
+            localStorage.setItem('dismissedAlerts', JSON.stringify(this.dismissedAlerts));
         } catch (e) {
             console.error('Failed to persist dismissed alerts:', e);
         }
     },
 
     dismissAlert(a) {
-        const next = new Set(this.dismissedAlerts);
-        next.add(this.alertKey(a));
-        this.dismissedAlerts = next;
-        this.persistDismissedAlerts();
+        const key = this.alertKey(a);
+        if (!this.dismissedAlerts.includes(key)) {
+            this.dismissedAlerts = [...this.dismissedAlerts, key];
+            this.persistDismissedAlerts();
+        }
     },
 
     dismissAllAlerts() {
-        const next = new Set(this.dismissedAlerts);
-        (this.alertHistory.alerts || []).forEach(a => next.add(this.alertKey(a)));
-        this.dismissedAlerts = next;
-        this.persistDismissedAlerts();
+        const keys = (this.alertHistory.alerts || []).map(a => this.alertKey(a));
+        const newKeys = keys.filter(k => !this.dismissedAlerts.includes(k));
+        if (newKeys.length > 0) {
+            this.dismissedAlerts = [...this.dismissedAlerts, ...newKeys];
+            this.persistDismissedAlerts();
+        }
     },
 
     get filteredRecentBlocks() {

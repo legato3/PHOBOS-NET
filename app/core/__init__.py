@@ -1,4 +1,4 @@
-"""Core modules for PROX_NFDUMP application."""
+"""Core modules for PHOBOS-NET application."""
 # State module exports
 from .app_state import (
     # Threading

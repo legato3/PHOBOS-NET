@@ -1,6 +1,6 @@
 # Docker Test Environment
 
-This document describes how to run the NetFlow Dashboard in a Docker container for testing and development.
+This document describes how to run PHOBOS-NET in a Docker container for testing and development.
 
 ## Quick Start
 

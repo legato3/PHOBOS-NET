@@ -1,4 +1,4 @@
-"""SNMP service module for PROX_NFDUMP application.
+"""SNMP service module for PHOBOS-NET application.
 
 This module handles SNMP polling of OPNsense firewall for health metrics.
 """

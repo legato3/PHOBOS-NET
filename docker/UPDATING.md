@@ -12,7 +12,7 @@ For code, templates, or static file changes, use `docker cp` to inject files dir
 
 ```bash
 # 1. Commit and push changes
-cd /path/to/PROX_NFDUMP
+cd /path/to/PHOBOS-NET
 git add -A
 git commit -m "Your commit message"
 git push origin main
@@ -50,7 +50,7 @@ ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashbo
 First, commit and push your changes to Git:
 
 ```bash
-cd /path/to/PROX_NFDUMP
+cd /path/to/PHOBOS-NET
 git add -A
 git commit -m "Description of your changes"
 git push origin main
@@ -237,7 +237,7 @@ docker compose -f docker/docker-compose.yml restart
 For code, templates, or static files - injects directly into container:
 
 ```bash
-cd /path/to/PROX_NFDUMP && \
+cd /path/to/PHOBOS-NET && \
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/ && \
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && docker exec phobos-net chown root:root /app/netflow-dashboard.py && cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
 ```
@@ -247,7 +247,7 @@ ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-
 For Python code only:
 
 ```bash
-cd /path/to/PROX_NFDUMP && \
+cd /path/to/PHOBOS-NET && \
 scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/ && \
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
 ```
