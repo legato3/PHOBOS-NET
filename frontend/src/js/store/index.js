@@ -792,10 +792,7 @@ export const Store = () => ({
                 this.loadTab(val);
                 // Resize charts if needed when tab becomes visible
                 window.dispatchEvent(new Event('resize'));
-                // Render network topology when network tab becomes visible
-                if (val === 'network') {
-                    setTimeout(() => this.renderNetworkTopology(), 100);
-                }
+
                 // Manage firewall logs auto-refresh based on active tab
                 if (val === 'forensics') {
                     this.startRecentBlocksAutoRefresh();
@@ -2352,7 +2349,7 @@ export const Store = () => ({
                 };
                 this.$nextTick(() => {
                     this.renderTrafficScatter();
-                    this.renderNetworkTopology();
+
                 });
             }
         } catch (e) {
@@ -2361,180 +2358,7 @@ export const Store = () => ({
         }
     },
 
-    // Network Topology Map
-    networkTopology: {
-        loading: false,
-        selectedNode: null
-    },
 
-    renderNetworkTopology() {
-        const canvas = document.getElementById('networkTopologyCanvas');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        const dpr = window.devicePixelRatio || 1;
-
-        // Set canvas size
-        const rect = canvas.getBoundingClientRect();
-
-        // If canvas has no dimensions yet, retry after a short delay
-        if (rect.width < 10 || rect.height < 10) {
-            setTimeout(() => this.renderNetworkTopology(), 200);
-            return;
-        }
-
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-
-        const width = rect.width;
-        const height = rect.height;
-
-        // Clear canvas
-        ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
-        ctx.fillRect(0, 0, width, height);
-
-        // Get hosts data
-        const hosts = this.hosts.list || [];
-        if (hosts.length === 0) {
-            ctx.fillStyle = '#666';
-            ctx.font = '14px system-ui';
-            ctx.textAlign = 'center';
-            ctx.fillText('Loading network data...', width / 2, height / 2);
-            return;
-        }
-
-        // Separate internal and external hosts
-        const internal = hosts.filter(h => h.type === 'Internal').slice(0, 6);
-        const external = hosts.filter(h => h.type === 'External').slice(0, 6);
-
-        // Calculate max bytes for scaling
-        const maxBytes = Math.max(...hosts.map(h => h.total_bytes || 0), 1);
-
-        // Layout parameters
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const leftX = 120;  // Internal hosts column
-        const rightX = width - 120;  // External hosts column
-        const verticalSpacing = Math.min(30, (height - 80) / Math.max(internal.length, external.length, 1));
-        const startY = 40;
-
-        // Calculate node positions
-        const internalPositions = internal.map((host, i) => ({
-            x: leftX,
-            y: startY + i * verticalSpacing + verticalSpacing / 2,
-            host
-        }));
-
-        const externalPositions = external.map((host, i) => ({
-            x: rightX,
-            y: startY + i * verticalSpacing + verticalSpacing / 2,
-            host
-        }));
-
-        // Draw connections first (under nodes)
-        internalPositions.forEach(({ x, y, host }) => {
-            const traffic = (host.total_bytes || 0) / maxBytes;
-            ctx.strokeStyle = `rgba(0, 255, 136, ${0.15 + traffic * 0.25})`;
-            ctx.lineWidth = 1 + traffic * 2;
-            ctx.beginPath();
-            ctx.moveTo(centerX - 25, centerY);
-            ctx.lineTo(x + 8, y);
-            ctx.stroke();
-        });
-
-        externalPositions.forEach(({ x, y, host }) => {
-            const traffic = (host.total_bytes || 0) / maxBytes;
-            ctx.strokeStyle = `rgba(0, 234, 255, ${0.15 + traffic * 0.25})`;
-            ctx.lineWidth = 1 + traffic * 2;
-            ctx.beginPath();
-            ctx.moveTo(centerX + 25, centerY);
-            ctx.lineTo(x - 8, y);
-            ctx.stroke();
-        });
-
-        // Draw center node (Firewall)
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 25, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 234, 255, 0.15)';
-        ctx.fill();
-        ctx.strokeStyle = '#00eaff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.fillStyle = '#00eaff';
-        ctx.font = 'bold 10px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('FIREWALL', centerX, centerY);
-
-        // Draw internal hosts (left side)
-        ctx.font = '11px system-ui';
-        internalPositions.forEach(({ x, y, host }) => {
-            const nodeSize = 6 + ((host.total_bytes || 0) / maxBytes) * 6;
-
-            ctx.beginPath();
-            ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
-            ctx.fillStyle = host.is_new ? 'rgba(255, 180, 0, 0.3)' : 'rgba(0, 255, 136, 0.2)';
-            ctx.fill();
-            ctx.strokeStyle = host.is_new ? '#ffb400' : '#00ff88';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            // Label on the left
-            ctx.fillStyle = '#aaa';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(host.ip, x - nodeSize - 6, y);
-        });
-
-        // Draw external hosts (right side)
-        externalPositions.forEach(({ x, y, host }) => {
-            const nodeSize = 6 + ((host.total_bytes || 0) / maxBytes) * 6;
-
-            ctx.beginPath();
-            ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 234, 255, 0.2)';
-            ctx.fill();
-            ctx.strokeStyle = '#00eaff';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            // Label on the right
-            ctx.fillStyle = '#aaa';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(host.ip, x + nodeSize + 6, y);
-        });
-
-        // Draw legend
-        ctx.font = '9px system-ui';
-        ctx.textAlign = 'left';
-
-        // Internal legend
-        ctx.fillStyle = '#00ff88';
-        ctx.beginPath();
-        ctx.arc(15, height - 30, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#888';
-        ctx.fillText('Internal', 25, height - 27);
-
-        // External legend
-        ctx.fillStyle = '#00eaff';
-        ctx.beginPath();
-        ctx.arc(15, height - 15, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#888';
-        ctx.fillText('External', 25, height - 12);
-
-        // New host legend
-        ctx.fillStyle = '#ffb400';
-        ctx.beginPath();
-        ctx.arc(80, height - 30, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#888';
-        ctx.fillText('New (24h)', 90, height - 27);
-    },
 
     renderTrafficScatter() {
         const ctx = document.getElementById('trafficScatterChart');
