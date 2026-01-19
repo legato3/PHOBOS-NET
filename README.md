@@ -81,9 +81,11 @@ PHOBOS-NET requires:
 - NetFlow (UDP 2055)
 - SNMP (required)
 
+⚠️ On first launch, the dashboard may appear mostly empty until OPNsense
+starts sending NetFlow, Syslog, and SNMP data. This is expected behavior.
+
 See:
-- docs/USER_GUIDE.md
-- docs/OPNSENSE_QUICK_START.md
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 
 Access the UI:
 ```
