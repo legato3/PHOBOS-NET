@@ -158,14 +158,7 @@
             </div>
         </div>
 
-        <!-- Data Freshness Indicator -->
-        <div class="data-freshness-indicator"
-            style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: right; margin-top: var(--space-1); padding-right: var(--space-2);">
-            <span
-                :class="{ 'text-yellow': dataFreshness.class === 'stale', 'text-red': dataFreshness.class === 'error' }"
-                x-text="'Updated ' + dataFreshness.text"></span>
-            <span x-show="paused" class="text-yellow" style="margin-left: var(--space-2);">⏸ Paused</span>
-        </div>
+
 
         <!-- Main Chart: Bandwidth -->
         <div class="primary-column w-full">
