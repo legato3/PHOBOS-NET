@@ -2918,10 +2918,31 @@ def api_stats_firewall_stream():
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
 
+def process_batch_request(app, endpoint_name, handler, query_string):
+    """Helper to process a single batch request in a thread with app context."""
+    with app.test_request_context(query_string=query_string):
+        try:
+            # Call handler and extract JSON from Response
+            response = handler()
+            if hasattr(response, 'get_json'):
+                result = response.get_json()
+            elif hasattr(response, 'json'):
+                result = response.json
+            else:
+                result = None
+            return endpoint_name, result, None
+        except Exception as e:
+            return endpoint_name, None, str(e)
+
+
 @bp.route("/api/stats/batch", methods=['POST'])
 @throttle(10, 20)
 def api_stats_batch():
     """Batch endpoint: accepts list of endpoint names, returns combined response."""
+    # Import handlers locally to avoid circular dependencies
+    from app.api.routes.system import api_stats_summary
+    from app.api.routes.security import api_threats, api_alerts
+
     try:
         data = request.get_json(force=True, silent=True) or {}
         requests_list = data.get('requests', [])
@@ -2946,39 +2967,39 @@ def api_stats_batch():
             'firewall': api_stats_firewall,
         }
 
-        # Process each request using test_request_context with proper query string
-        for req in requests_list:
-            endpoint_name = req.get('endpoint')
-            if not endpoint_name or endpoint_name not in handlers:
-                if endpoint_name:
-                    errors[endpoint_name] = 'Unknown endpoint'
-                continue
+        # Process requests in parallel using ThreadPoolExecutor
+        # Get the real app object to pass to threads (current_app is a proxy)
+        app_obj = current_app._get_current_object()
 
-            params = req.get('params', {})
-            if 'range' not in params:
-                params['range'] = range_key
+        futures = []
+        # Ensure at least 1 worker (though check above ensures requests_list is not empty)
+        max_workers = max(min(len(requests_list), 10), 1)
 
-            # Build query string for test_request_context
-            from urllib.parse import urlencode
-            query_string = urlencode(params)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for req in requests_list:
+                endpoint_name = req.get('endpoint')
+                if not endpoint_name or endpoint_name not in handlers:
+                    if endpoint_name:
+                        errors[endpoint_name] = 'Unknown endpoint'
+                    continue
 
-            # Create test request context with query string
-            with current_app.test_request_context(query_string=query_string):
-                try:
-                    handler = handlers[endpoint_name]
-                    # Call handler and extract JSON from Response
-                    response = handler()
-                    if hasattr(response, 'get_json'):
-                        result = response.get_json()
-                    elif hasattr(response, 'json'):
-                        result = response.json
-                    else:
-                        result = None
+                params = req.get('params', {})
+                if 'range' not in params:
+                    params['range'] = range_key
 
-                    if result:
-                        results[endpoint_name] = result
-                except Exception as e:
-                    errors[endpoint_name] = str(e)
+                # Build query string for test_request_context
+                from urllib.parse import urlencode
+                query_string = urlencode(params)
+
+                handler = handlers[endpoint_name]
+                futures.append(executor.submit(process_batch_request, app_obj, endpoint_name, handler, query_string))
+
+            for future in futures:
+                endpoint_name, result, error = future.result()
+                if error:
+                    errors[endpoint_name] = error
+                elif result:
+                    results[endpoint_name] = result
 
         response_data = {'results': results}
         if errors:
