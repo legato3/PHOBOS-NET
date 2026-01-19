@@ -38,7 +38,7 @@ body {
 
 /* Hide mobile controls button on desktop by default */
 .mobile-controls-btn {
-  display: none;
+  display: none !important;
 }
 
 .header-left,
@@ -167,6 +167,7 @@ body {
 
 /* CYBERPUNK UI: Responsive - Mobile signal view */
 @media (max-width: 768px) {
+
   .grid-2,
   .grid-3,
   .grid-4 {
@@ -199,6 +200,7 @@ body {
 
 /* CYBERPUNK UI: Responsive - Small mobile */
 @media (max-width: 480px) {
+
   .panel,
   .card {
     padding: var(--space-2);
