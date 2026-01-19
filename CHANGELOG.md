@@ -9,7 +9,7 @@ This project follows a **calm, conservative release philosophy**:
 
 ---
 
-## [1.2.0] — 2026-01-19
+## [1.2.3] — 2026-01-19
 
 ### Added
 - Public open-source release
