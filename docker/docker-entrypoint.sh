@@ -23,6 +23,11 @@ nfcapd -w "$NFCAPD_DIR" -D -p "$NFCAPD_PORT" -y -B 8388608 -e -t 300 -P /tmp/nfc
 # Wait a moment for nfcapd to start
 sleep 1
 
+# Create log file
+touch /app/data/phobos-net.log
+# Tail log file to stdout in background so Docker follows it
+tail -F /app/data/phobos-net.log &
+
 # Start Gunicorn (production server)
 echo "Starting Gunicorn application server on port $WEB_PORT..."
 exec python3 -m gunicorn \
@@ -36,8 +41,8 @@ exec python3 -m gunicorn \
     --keep-alive 5 \
     --max-requests 2000 \
     --max-requests-jitter 100 \
-    --access-logfile - \
-    --error-logfile - \
+    --access-logfile /app/data/phobos-net.log \
+    --error-logfile /app/data/phobos-net.log \
     --log-level info \
     --name phobos-net \
     -c /app/gunicorn_config.py \

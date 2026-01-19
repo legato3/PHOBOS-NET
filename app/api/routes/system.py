@@ -851,26 +851,22 @@ def api_server_logs():
     lines = request.args.get('lines', 100, type=int)
     lines = min(max(lines, 10), 1000)  # Limit between 10 and 1000 lines
     
-    # First, try to get logs from in-memory buffer
-    with _app_log_buffer_lock:
-        if _app_log_buffer:
-            log_lines = list(_app_log_buffer)[-lines:]
-            log_lines.reverse()  # Newest first
-            return jsonify({
-                'logs': log_lines,
-                'count': len(log_lines),
-                'source': 'buffer',
-                'container': ''
-            })
-    
-    # Try docker logs (may not work from inside container)
+    # Priority 1: Log files (most reliable in our Docker setup now)
+    file_response = _get_logs_from_files(lines)
+    if file_response:
+        data = file_response.get_json()
+        if data.get('source') != 'none':
+            return file_response
+
+    # Priority 2: Docker logs (fallback if file access fails but docker socket is mounted)
     try:
         container_name = os.environ.get('CONTAINER_NAME', 'phobos-net')
+        # Check if docker command is available fast
         result = subprocess.run(
             ['docker', 'logs', '--tail', str(lines), container_name],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=2
         )
         
         if result.returncode == 0 and result.stdout.strip():
@@ -883,15 +879,33 @@ def api_server_logs():
                 'source': 'docker'
             })
     except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
-        pass  # Fall through to file reading
-    
-    # Try reading from log files
-    return _get_logs_from_files(lines)
+        pass
+
+    # Priority 3: In-memory buffer (startup logs or if other methods fail)
+    with _app_log_buffer_lock:
+        if _app_log_buffer:
+            log_lines = list(_app_log_buffer)[-lines:]
+            log_lines.reverse()
+            return jsonify({
+                'logs': log_lines,
+                'count': len(log_lines),
+                'source': 'buffer',
+                'container': ''
+            })
+
+    # No logs available
+    return jsonify({
+        'logs': ['No logs available. Application logs will appear here as they are generated.'],
+        'count': 1,
+        'source': 'none',
+        'message': 'No logs found. Logs will be captured as the application runs.'
+    })
 
 
 def _get_logs_from_files(lines):
     """Fallback: try to read from application log files."""
     log_files = [
+        '/app/data/phobos-net.log',
         '/var/log/app.log',
         '/app/app.log',
         '/tmp/app.log',
