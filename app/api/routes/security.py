@@ -2488,7 +2488,23 @@ def api_attack_timeline():
     cutoff = now - range_seconds
 
     with threats_module._alert_history_lock:
-        recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
+        recent = []
+        for a in threats_module._alert_history:
+            try:
+                ts = a.get('ts', 0)
+                # Handle ISO string timestamps if they exist
+                if isinstance(ts, str):
+                    try:
+                        # Convert ISO format to unix timestamp
+                        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                        ts = dt.timestamp()
+                    except (ValueError, TypeError):
+                        continue
+                
+                if ts > cutoff:
+                    recent.append(a)
+            except Exception:
+                continue
 
     # Determine bucket size based on range
     if range_key == '1h':

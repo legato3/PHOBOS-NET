@@ -5907,8 +5907,9 @@ export const Store = () => ({
     async fetchThreatActivityTimeline() {
         this.threatActivityTimeline.loading = true;
         try {
-            // Use global time range for consistency
-            const res = await fetch(`/api/security/attack-timeline?range=${this.timeRange}`);
+            // Use local time range if set, otherwise fallback to global
+            const range = this.threatActivityTimeline.timeRange || this.timeRange;
+            const res = await fetch(`/api/security/attack-timeline?range=${range}`);
             if (res.ok) {
                 const d = await res.json();
                 // Calculate peak hour

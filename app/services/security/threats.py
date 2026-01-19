@@ -869,7 +869,7 @@ def record_history(alerts):
     """Record alerts in history queue."""
     if not alerts:
         return
-    ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    ts = time.time()
     for a in alerts:
         entry = {"ts": ts, "msg": a.get('msg'), "severity": a.get('severity', 'info')}
         _alert_history.appendleft(entry)
