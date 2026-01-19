@@ -39,7 +39,7 @@ from app.core.app_state import (
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
     _lock_flows, _lock_countries, _lock_worldmap,
-    _lock_proto_hierarchy, _lock_noise,
+    _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
     _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
@@ -51,7 +51,7 @@ from app.core.app_state import (
     _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
     _server_health_cache,
     _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
-    _flows_cache, _common_data_cache,
+    _flows_cache, _common_data_cache, _service_cache,
     _request_times,
     _metric_nfdump_calls, _metric_stats_cache_hits, _metric_bw_cache_hits,
     _metric_conv_cache_hits, _metric_flow_cache_hits, _metric_http_429,
@@ -62,7 +62,7 @@ from app.core.app_state import (
     _syslog_buffer_size,
     _snmp_cache, _snmp_cache_lock, _snmp_prev_sample, _snmp_backoff,
     _has_nfdump,
-    _dns_resolver_executor,
+    _dns_resolver_executor, _rollup_executor,
     _flow_history, _flow_history_lock, _flow_history_ttl,
     _app_log_buffer, _app_log_buffer_lock, add_app_log,
 )
@@ -832,9 +832,20 @@ def api_stats_talkers():
 
                     # Resolve Service Name
                     try:
-                        svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
-                    except:
-                        svc = dst_port
+                        port_num = int(dst_port)
+                        proto = 'tcp' if '6' in proto_val else 'udp'
+                        service_key = (port_num, proto)
+
+                        with _lock_service_cache:
+                            svc = _service_cache.get(service_key)
+                            if svc is None:
+                                try:
+                                    svc = socket.getservbyport(port_num, proto)
+                                except OSError:
+                                    svc = str(port_num) # Fallback
+                                _service_cache[service_key] = svc
+                    except (ValueError, TypeError):
+                        svc = dst_port # If not a valid integer, use the original string
 
                     flows.append({
                         "ts": ts_str,
@@ -1570,6 +1581,14 @@ def api_firewall_stats_overview():
     })
 
 
+def _safe_ensure_rollup(bucket):
+    """Wrapper to ensure background rollup exceptions are logged."""
+    try:
+        _ensure_rollup_for_bucket(bucket)
+    except Exception as e:
+        add_app_log(f"Background rollup failure: {e}", 'WARN')
+
+
 @bp.route("/api/bandwidth")
 @throttle(10,20)
 def api_bandwidth():
@@ -1698,13 +1717,12 @@ def api_bandwidth():
                         conn.close()
             else:
                 # Normal behavior (or single bucket)
-                # Use a reasonable number of workers to avoid overloading the system
-                # 8 workers allows decent parallelism without excessive context switching
+                # Offload to background executor to avoid blocking the request
                 try:
-                    with ThreadPoolExecutor(max_workers=8) as executor:
-                        list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+                    for bucket in missing_buckets:
+                        _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
-                    add_app_log(f"Bandwidth computation partial failure: {e}", 'WARN')
+                    add_app_log(f"Bandwidth computation submission partial failure: {e}", 'WARN')
 
             # Re-fetch data after computation
             with _trends_db_lock:
@@ -2078,10 +2096,20 @@ def api_flows():
 
                     # Resolve Service Name
                     try:
-                        svc = socket.getservbyport(int(dst_port), 'tcp' if '6' in proto_val else 'udp')
-                    except:
-                        svc = dst_port
+                        port_num = int(dst_port)
+                        proto = 'tcp' if '6' in proto_val else 'udp'
+                        service_key = (port_num, proto)
 
+                        with _lock_service_cache:
+                            svc = _service_cache.get(service_key)
+                            if svc is None:
+                                try:
+                                    svc = socket.getservbyport(port_num, proto)
+                                except OSError:
+                                    svc = str(port_num) # Fallback
+                                _service_cache[service_key] = svc
+                    except (ValueError, TypeError):
+                        svc = dst_port # If not a valid integer, use the original string
                     # Track for heuristics (lightweight, per-request only) - do this first
                     port_counts[dst_port] += 1
                     connection_key = f"{src}:{dst}"
