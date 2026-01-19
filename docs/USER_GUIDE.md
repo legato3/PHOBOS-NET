@@ -33,12 +33,22 @@ services:
     container_name: phobos-net
     restart: unless-stopped
     ports:
-      - "3434:8080"
-      - "514:5514/udp"
-      - "515:5515/udp"
-      - "2055:2055/udp"
+      - "3434:8080"       # Web dashboard
+      - "514:5514/udp"    # Syslog filterlog (OPNsense block/pass events)
+      - "515:5515/udp"    # Syslog application logs
+      - "2055:2055/udp"   # NetFlow collection
+    environment:
+      # Production settings
+      - PYTHONUNBUFFERED=1
+      - TZ=Europe/Amsterdam  # Set to your local timezone
     volumes:
       - ./docker-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 ```
 
 Start:
