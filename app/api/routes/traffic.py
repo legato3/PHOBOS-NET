@@ -62,7 +62,7 @@ from app.core.app_state import (
     _syslog_buffer_size,
     _snmp_cache, _snmp_cache_lock, _snmp_prev_sample, _snmp_backoff,
     _has_nfdump,
-    _dns_resolver_executor,
+    _dns_resolver_executor, _rollup_executor,
     _flow_history, _flow_history_lock, _flow_history_ttl,
     _app_log_buffer, _app_log_buffer_lock, add_app_log,
 )
@@ -1570,6 +1570,14 @@ def api_firewall_stats_overview():
     })
 
 
+def _safe_ensure_rollup(bucket):
+    """Wrapper to ensure background rollup exceptions are logged."""
+    try:
+        _ensure_rollup_for_bucket(bucket)
+    except Exception as e:
+        add_app_log(f"Background rollup failure: {e}", 'WARN')
+
+
 @bp.route("/api/bandwidth")
 @throttle(10,20)
 def api_bandwidth():
@@ -1698,13 +1706,12 @@ def api_bandwidth():
                         conn.close()
             else:
                 # Normal behavior (or single bucket)
-                # Use a reasonable number of workers to avoid overloading the system
-                # 8 workers allows decent parallelism without excessive context switching
+                # Offload to background executor to avoid blocking the request
                 try:
-                    with ThreadPoolExecutor(max_workers=8) as executor:
-                        list(executor.map(_ensure_rollup_for_bucket, missing_buckets))
+                    for bucket in missing_buckets:
+                        _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
-                    add_app_log(f"Bandwidth computation partial failure: {e}", 'WARN')
+                    add_app_log(f"Bandwidth computation submission partial failure: {e}", 'WARN')
 
             # Re-fetch data after computation
             with _trends_db_lock:
