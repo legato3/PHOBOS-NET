@@ -2536,12 +2536,22 @@ def api_security_score():
 @bp.route('/api/security/alerts/history')
 @throttle(5, 10)
 def api_alert_history():
-    """Get alert history for past 24 hours"""
+    """Get alert history for past 24 hours.
+
+    SEMANTICS FIX:
+    - 'alerts': All alerts (active and resolved) for display
+    - 'total': Count of DISTINCT alert conditions (not sum of occurrence counts)
+    - 'active_count': Count of currently ACTIVE alerts only (this is the key metric)
+    - Alerts auto-resolve after 30 minutes of inactivity
+    """
     now = time.time()
     cutoff = now - 86400  # 24 hours
 
+    # Auto-resolve stale alerts before querying
+    threats_module.auto_resolve_stale_alerts()
+
     with threats_module._alert_history_lock:
-        recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
+        recent = [a.copy() for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
 
     # Sort by timestamp descending
     recent.sort(key=lambda x: x.get('ts', 0), reverse=True)
@@ -2552,26 +2562,63 @@ def api_alert_history():
         alert['time_ago'] = format_time_ago(ts)
         alert['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts))
 
-    # Group by hour for chart
+    # Group by hour for chart (count distinct alerts per hour, not occurrences)
     hourly = defaultdict(int)
     for alert in recent:
         hour = time.strftime('%H:00', time.localtime(alert.get('ts', 0)))
         hourly[hour] += 1
 
+    # Count ACTIVE alerts only (the key metric for dashboards)
+    active_alerts = [a for a in recent if a.get('active', True)]
+    active_count = len(active_alerts)
+
+    # By severity counts for ACTIVE alerts only
+    by_severity_active = {
+        'critical': sum(1 for a in active_alerts if a.get('severity') == 'critical'),
+        'high': sum(1 for a in active_alerts if a.get('severity') == 'high'),
+        'medium': sum(1 for a in active_alerts if a.get('severity') == 'medium'),
+        'low': sum(1 for a in active_alerts if a.get('severity') == 'low'),
+    }
+
     return jsonify({
         'alerts': recent[:100],
-        'total': len(recent),
-        'by_severity': {
-            'critical': sum(1 for a in recent if a.get('severity') == 'critical'),
-            'high': sum(1 for a in recent if a.get('severity') == 'high'),
-            'medium': sum(1 for a in recent if a.get('severity') == 'medium'),
-            'low': sum(1 for a in recent if a.get('severity') == 'low'),
-        },
+        'total': len(recent),  # Total distinct alerts in 24h (including resolved)
+        'active_count': active_count,  # KEY METRIC: Currently active alerts
+        'by_severity': by_severity_active,  # Severity breakdown of ACTIVE alerts only
         'hourly': dict(hourly),
-        # FIXED-SCOPE: This endpoint always returns 24h of alert history
         'time_scope': '24h'
     })
 
+
+
+@bp.route('/api/security/signals')
+@throttle(10, 5)
+def api_signals():
+    """Get network health signals (NOT alerts).
+
+    SEMANTICS:
+    - Signals are informational network health indicators
+    - They do NOT count toward active_alerts
+    - They do NOT affect overall health state
+    - Examples: TCP reset rates, SYN-only flow percentages, ICMP levels
+
+    Returns:
+        signals: List of recent signals
+        count: Number of signals
+    """
+    signals = threats_module.get_signal_history(max_age_seconds=3600)
+
+    # Format timestamps
+    for signal in signals:
+        ts = signal.get('ts', 0)
+        signal['time_ago'] = format_time_ago(ts)
+        signal['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts))
+
+    return jsonify({
+        'signals': signals,
+        'count': len(signals),
+        'time_scope': '1h'
+    })
 
 
 @bp.route('/api/security/threats/export')

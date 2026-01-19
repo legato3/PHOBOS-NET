@@ -211,11 +211,11 @@
             
             <!-- Active Alerts -->
             <div class="wallboard-stat"
-                :class="{ 'status-warning': alertHistory.total > 0 }">
+                :class="{ 'status-warning': alertHistory.active_count > 0 }">
                 <div class="wallboard-stat-label">Active Alerts</div>
                 <div class="wallboard-stat-value"
-                    :class="{ 'status-warning': alertHistory.total > 0 }"
-                    x-text="alertHistory.loading ? '...' : (alertHistory.total || 0).toLocaleString()">
+                    :class="{ 'status-warning': alertHistory.active_count > 0 }"
+                    x-text="alertHistory.loading ? '...' : (alertHistory.active_count || 0).toLocaleString()">
                     0
                 </div>
             </div>
@@ -263,7 +263,7 @@
     <script>
         function wallboardStore() {
             return {
-                alertHistory: { total: 0, loading: true },
+                alertHistory: { total: 0, active_count: 0, loading: true },
                 networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, loading: true },
                 firewallStatsOverview: { blocked_events_24h: 0, loading: true },
                 overallHealth: { state: 'healthy', shortExplanation: '' },
@@ -274,7 +274,11 @@
                         const res = await fetch('/api/security/alerts/history');
                         if (res.ok) {
                             const d = await res.json();
-                            this.alertHistory = { total: d.total || 0, loading: false };
+                            this.alertHistory = {
+                                total: d.total || 0,
+                                active_count: d.active_count || 0,
+                                loading: false
+                            };
                         }
                     } catch (e) {
                         this.alertHistory.loading = false;
@@ -314,68 +318,59 @@
                 },
                 
                 async fetchBaselineSignals() {
+                    // Health reflects SYSTEM OPERABILITY, not network noise
+                    // Healthy = all data sources responding
+                    // Degraded = partial data availability
+                    // Unhealthy = critical data source failure
                     try {
-                        const res = await fetch('/api/health/baseline-signals');
+                        const res = await fetch('/api/server/health');
                         if (res.ok) {
                             const d = await res.json();
-                            // Use baseline signals to determine health if available
-                            const activeAlerts = this.alertHistory.total || 0;
-                            const hasAlerts = activeAlerts > 0;
-                            const signalCount = (d.signals || []).filter(s => s !== 'anomalies_present').length;
-                            
-                            if (hasAlerts) {
-                                this.overallHealth = {
-                                    state: 'unhealthy',
-                                    shortExplanation: `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`
-                                };
-                            } else if (signalCount >= 2) {
-                                this.overallHealth = {
-                                    state: 'unhealthy',
-                                    shortExplanation: 'Multiple issues detected'
-                                };
-                            } else if (signalCount === 1) {
-                                this.overallHealth = {
-                                    state: 'degraded',
-                                    shortExplanation: d.signal_details[0] || 'Issue detected'
-                                };
-                            } else {
-                                this.overallHealth = {
-                                    state: 'healthy',
-                                    shortExplanation: ''
-                                };
+                            const issues = [];
+
+                            // Check NetFlow (primary data source)
+                            if (d.netflow?.status === 'stalled' || d.netflow?.stalled === true) {
+                                issues.push('NetFlow stalled');
                             }
+
+                            // Check syslog
+                            if (d.syslog?.status === 'error' || d.syslog?.active === false) {
+                                issues.push('Syslog inactive');
+                            }
+
+                            // Check database
+                            if (d.database?.status === 'error' || d.database?.available === false) {
+                                issues.push('Database error');
+                            }
+
+                            if (issues.length === 0) {
+                                this.overallHealth = { state: 'healthy', shortExplanation: 'full visibility' };
+                            } else if (issues.length >= 2 || issues.some(i => i.includes('NetFlow') || i.includes('Database'))) {
+                                this.overallHealth = { state: 'unhealthy', shortExplanation: issues[0] };
+                            } else {
+                                this.overallHealth = { state: 'degraded', shortExplanation: issues[0] };
+                            }
+                        } else {
+                            this.calculateSimpleHealth();
                         }
                     } catch (e) {
                         // Fallback to simple health calculation
                         this.calculateSimpleHealth();
                     }
                 },
-                
+
                 calculateSimpleHealth() {
-                    const activeAlerts = this.alertHistory.total || 0;
-                    const anomalies = this.networkStatsOverview.anomalies_24h || 0;
-                    const blockedEvents = this.firewallStatsOverview.blocked_events_24h || 0;
-                    
-                    if (activeAlerts > 0) {
-                        this.overallHealth = {
-                            state: 'unhealthy',
-                            shortExplanation: `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`
-                        };
-                    } else if (anomalies > 0 && blockedEvents > 1000) {
-                        this.overallHealth = {
-                            state: 'unhealthy',
-                            shortExplanation: 'Multiple issues detected'
-                        };
-                    } else if (anomalies > 0 || blockedEvents > 1000) {
-                        this.overallHealth = {
-                            state: 'degraded',
-                            shortExplanation: anomalies > 0 ? `${anomalies} anomalies` : 'Elevated blocks'
-                        };
+                    // Simple health check based on data availability
+                    // If we got here, API calls succeeded = healthy
+                    const hasFlows = this.networkStatsOverview.active_flows !== undefined;
+                    const hasFirewall = this.firewallStatsOverview.blocked_events_24h !== undefined;
+
+                    if (hasFlows && hasFirewall) {
+                        this.overallHealth = { state: 'healthy', shortExplanation: 'systems operational' };
+                    } else if (hasFlows || hasFirewall) {
+                        this.overallHealth = { state: 'degraded', shortExplanation: 'partial visibility' };
                     } else {
-                        this.overallHealth = {
-                            state: 'healthy',
-                            shortExplanation: 'traffic within baseline'
-                        };
+                        this.overallHealth = { state: 'unhealthy', shortExplanation: 'data unavailable' };
                     }
                 },
                 

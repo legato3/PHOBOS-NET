@@ -1170,154 +1170,93 @@ export const Store = () => ({
         return groups;
     },
 
-    // Overall Health: Deterministic, explainable health state
-    // Unhealthy (red) reserved for: Active alerts OR multiple critical signals
-    // Degraded (amber) for: High volume without alerts
-    // Uses baseline-aware signals when available, falls back to static thresholds
+    // Overall Health: Reflects SYSTEM OPERABILITY, not network noise
+    // Health is about "can we observe the network?" not "is traffic normal?"
+    // Unhealthy (red): Critical system failures (NetFlow stalled, SNMP unreachable, DB failure)
+    // Degraded (amber): Partial visibility (syslog down, stale data, missing feeds)
+    // Healthy (green): All data sources operational
+    // DOES NOT depend on: alert count, anomaly count, traffic volume, external IP churn
     get overallHealth() {
-        // Inputs: Active Alerts, Network Anomalies, Firewall Blocks, External Connections
-        const activeAlerts = this.activeAlertsCount || 0;
-        const anomalies = this.networkStatsOverview.anomalies_24h || 0;
-        const blockedEvents = this.firewallStatsOverview.blocked_events_24h || 0;
-        const externalConnections = this.networkStatsOverview.external_connections || 0;
-        const activeFlows = this.networkStatsOverview.active_flows || 0;
+        const issues = [];
+        const issueDetails = [];
 
-        // Use baseline-aware signals if available, otherwise use static thresholds
-        const baselineSignals = this.baselineSignals.signals || [];
-        const baselineDetails = this.baselineSignals.signal_details || [];
-        const baselinesAvailable = this.baselineSignals.baselines_available || {};
+        // System operability checks (what we CAN observe, not what we see)
 
-        const signals = [];
-        const signalDetails = [];
-
-        // Signal 1: Active Alerts (critical - always elevates to Unhealthy if present)
-        const hasAlerts = activeAlerts > 0;
-        if (hasAlerts) {
-            signals.push('alerts');
-            signalDetails.push(`${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`);
+        // 1. NetFlow operability - primary data source
+        const netflowStatus = this.serverHealth?.netflow;
+        const netflowStalled = netflowStatus?.status === 'stalled' ||
+                              netflowStatus?.stalled === true ||
+                              (netflowStatus?.files_available === 0 && !netflowStatus?.loading);
+        if (netflowStalled) {
+            issues.push('netflow_stalled');
+            issueDetails.push('NetFlow data stalled');
         }
 
-        // Use baseline-aware signals if available
-        if (baselineSignals.length > 0 && Object.values(baselinesAvailable).some(v => v === true)) {
-            // Add baseline-aware signals (excluding anomalies_present which we handle separately)
-            baselineSignals.forEach((signal, idx) => {
-                if (signal !== 'anomalies_present' && !signals.includes(signal)) {
-                    signals.push(signal);
-                    if (baselineDetails[idx]) {
-                        signalDetails.push(baselineDetails[idx]);
-                    }
-                }
-            });
-
-            // Handle anomalies separately (always include if present, even if not spiking)
-            const hasAnomalies = anomalies > 0;
-            if (hasAnomalies && !signals.includes('anomalies')) {
-                signals.push('anomalies');
-                signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
-            }
-        } else {
-            // Fallback to static thresholds when baselines not available
-            // Signal 2: Network Anomalies (sustained high volume)
-            const hasAnomalies = anomalies > 0;
-            if (hasAnomalies) {
-                signals.push('anomalies');
-                signalDetails.push(`${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'}`);
-            }
-
-            // Signal 3: Firewall Blocks spike (threshold: > 1000 in 24h indicates high activity)
-            const hasBlockSpike = blockedEvents > 1000;
-            if (hasBlockSpike) {
-                signals.push('blocks_spike');
-                signalDetails.push(`${blockedEvents.toLocaleString()} firewall blocks`);
-            }
-
-            // Signal 4: External Connections deviation (if > 50% of active flows are external, may indicate unusual pattern)
-            const externalRatio = activeFlows > 0 ? (externalConnections / activeFlows) : 0;
-            const hasExternalDeviation = externalRatio > 0.5 && externalConnections > 50;
-            if (hasExternalDeviation) {
-                signals.push('external_deviation');
-                signalDetails.push(`unusual external connections (${Math.round(externalRatio * 100)}%)`);
-            }
+        // 2. SNMP reachability - firewall metrics source
+        const snmpUnreachable = this.firewallSNMP?.poll_success === false;
+        if (snmpUnreachable) {
+            issues.push('snmp_unreachable');
+            issueDetails.push('SNMP unreachable');
         }
 
-        // Health state determination
-        // Unhealthy: Active alerts present OR multiple critical signals (2+ non-alert signals)
-        // Degraded: High volume without alerts (1 signal, or sustained high volume)
-        // Healthy: No signals
+        // 3. Syslog ingestion - firewall logs source
+        const syslogStatus = this.serverHealth?.syslog;
+        const syslogDown = syslogStatus?.status === 'error' ||
+                          syslogStatus?.active === false ||
+                          (this.firewall?.syslog_active === false && this.activeTab === 'firewall');
+        if (syslogDown) {
+            issues.push('syslog_down');
+            issueDetails.push('Syslog ingestion inactive');
+        }
+
+        // 4. Database availability - persistence layer
+        const dbStatus = this.serverHealth?.database;
+        const dbError = dbStatus?.status === 'error' || dbStatus?.available === false;
+        if (dbError) {
+            issues.push('db_error');
+            issueDetails.push('Database unavailable');
+        }
+
+        // 5. Data staleness - are we getting fresh data?
+        const dataFreshness = this.dataFreshness;
+        const dataStale = dataFreshness?.class === 'error' || dataFreshness?.class === 'stale';
+        if (dataStale && issues.length === 0) {
+            // Only report staleness if no other issues explain it
+            issues.push('data_stale');
+            issueDetails.push(`Data ${dataFreshness?.text || 'stale'}`);
+        }
+
+        // Health state determination based on system operability
         let state = 'healthy';
-        let explanation = 'All systems operating normally.';
-        let shortExplanation = '';
+        let explanation = 'All data sources operational.';
+        let shortExplanation = 'systems operational';
 
-        if (signals.length === 0) {
+        // Critical issues (multiple failures or primary data source down)
+        const criticalIssues = ['netflow_stalled', 'db_error'];
+        const hasCritical = issues.some(i => criticalIssues.includes(i));
+
+        if (issues.length === 0) {
             state = 'healthy';
-            explanation = 'All systems operating normally. Traffic within baseline.';
-            shortExplanation = 'traffic within baseline';
-        } else if (hasAlerts) {
-            // Active alerts present: Unhealthy (critical)
+            explanation = 'All data sources operational. Full network visibility.';
+            shortExplanation = 'full visibility';
+        } else if (hasCritical || issues.length >= 2) {
+            // Critical failure or multiple system issues
             state = 'unhealthy';
-            const otherSignals = signalDetails.filter(d => !d.includes('alert'));
-            if (otherSignals.length > 0) {
-                explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals.join(', ')}. Immediate investigation required.`;
-                shortExplanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} and ${otherSignals[0]}`;
-            } else {
-                explanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''} detected. Review security status immediately.`;
-                shortExplanation = `${activeAlerts} active alert${activeAlerts > 1 ? 's' : ''}`;
-            }
+            explanation = `System issues: ${issueDetails.slice(0, 2).join(', ')}. Reduced visibility.`;
+            shortExplanation = issueDetails[0];
         } else {
-            // Count baseline-aware signals (spikes) vs static signals (sustained activity)
-            const baselineDeviations = baselineSignals.filter(s => s !== 'anomalies_present' && s !== 'anomalies');
-            const hasBaselineSpikes = baselineDeviations.length >= 2;
-            const hasSingleBaselineSpike = baselineDeviations.length === 1;
-
-            if (hasBaselineSpikes) {
-                // Multiple baseline deviations without alerts: Unhealthy (multiple metrics spiking)
-                state = 'unhealthy';
-                const spikeDetails = baselineDetails.filter((d, idx) => baselineSignals[idx] && baselineDeviations.includes(baselineSignals[idx]));
-                explanation = `Multiple metrics spiking: ${spikeDetails.slice(0, 2).join(', ')}. Investigation recommended.`;
-                shortExplanation = `Multiple metrics spiking: ${spikeDetails[0]}`;
-            } else if (signals.length >= 2 && !hasBaselineSpikes) {
-                // Multiple static signals without baseline spikes: Degraded (sustained activity)
-                state = 'degraded';
-                explanation = `Elevated activity: ${signalDetails.slice(0, 2).join(', ')}. Monitor if sustained.`;
-                shortExplanation = signalDetails[0];
-            } else {
-                // Single signal or sustained activity without spikes: Degraded (stable but elevated)
-                state = 'degraded';
-                if (signals.includes('anomalies')) {
-                    // Check if anomalies are spiking vs baseline
-                    const anomaliesSpiking = baselineSignals.includes('anomalies_rate') || baselineSignals.includes('anomalies_present');
-                    if (anomaliesSpiking) {
-                        explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected, above baseline. Review network activity.`;
-                        shortExplanation = `${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'} above baseline`;
-                    } else {
-                        explanation = `${anomalies} network anomal${anomalies > 1 ? 'ies' : 'y'} detected, within normal range. Monitor activity.`;
-                        shortExplanation = `${anomalies} anomal${anomalies > 1 ? 'ies' : 'y'} (within baseline)`;
-                    }
-                } else if (hasSingleBaselineSpike) {
-                    // Single baseline spike: Degraded (not critical enough for Unhealthy)
-                    const spikeDetail = baselineDetails.find((d, idx) => baselineSignals[idx] && baselineDeviations.includes(baselineSignals[idx]));
-                    explanation = `${spikeDetail || signalDetails[0]}. Monitor activity.`;
-                    shortExplanation = spikeDetail || signalDetails[0];
-                } else if (signals.includes('blocks_spike')) {
-                    explanation = `Elevated firewall blocks (${blockedEvents.toLocaleString()} in 24h). Activity within baseline. Monitor if sustained.`;
-                    shortExplanation = `Elevated firewall blocks`;
-                } else if (signals.includes('external_deviation')) {
-                    explanation = `Unusual external connection pattern (${Math.round(externalRatio * 100)}% of flows). Monitor if sustained.`;
-                    shortExplanation = `Unusual external connections`;
-                } else if (signalDetails.length > 0) {
-                    // Sustained activity without baseline spikes: Degraded
-                    explanation = `${signalDetails[0]}. Activity within baseline. Monitor if sustained.`;
-                    shortExplanation = signalDetails[0];
-                }
-            }
+            // Single non-critical issue
+            state = 'degraded';
+            explanation = `${issueDetails[0]}. Partial visibility.`;
+            shortExplanation = issueDetails[0];
         }
 
         return {
             state: state, // 'healthy', 'degraded', 'unhealthy'
             explanation: explanation,
             shortExplanation: shortExplanation,
-            signals: signals,
-            signalsCount: signals.length
+            signals: issues, // Renamed but kept for compatibility
+            signalsCount: issues.length
         };
     },
 
@@ -2850,7 +2789,12 @@ export const Store = () => ({
     },
 
     get activeAlertsCount() {
-        return (this.activeAlerts || []).reduce((sum, a) => sum + (a?.count || 1), 0);
+        // Use API's active_count for true active alerts (not inflated by network signals)
+        // Falls back to counting non-dismissed alerts if API field not available
+        if (this.alertHistory.active_count !== undefined) {
+            return this.alertHistory.active_count;
+        }
+        return (this.activeAlerts || []).filter(a => a.active !== false).length;
     },
 
     get activeAlerts() {
@@ -2858,12 +2802,16 @@ export const Store = () => ({
     },
 
     get activeAlertsBySeverity() {
+        // Use API's by_severity for active alerts (not inflated by network signals)
+        // Falls back to counting from alerts array if API field not available
+        if (this.alertHistory.by_severity) {
+            return this.alertHistory.by_severity;
+        }
+        // Fallback: count from active (non-dismissed, active=true) alerts
         const by = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-        (this.activeAlerts || []).forEach(a => {
+        (this.activeAlerts || []).filter(a => a.active !== false).forEach(a => {
             const sev = (a?.severity || 'low').toLowerCase();
-            const c = a?.count || 1;
-            if (by[sev] === undefined) by[sev] = 0;
-            by[sev] += c;
+            if (by[sev] !== undefined) by[sev]++;
         });
         return by;
     },

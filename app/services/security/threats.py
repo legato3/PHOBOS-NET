@@ -31,8 +31,17 @@ _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat
 FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
 
 # Detection state
-_alert_history = deque(maxlen=1000)  # Match app_state.py for 24h+ history retention
+# ALERTS: Rare, actionable security events requiring human attention
+# Examples: threat IP contact, active port scan, brute force attempt, data exfiltration
+_alert_history = deque(maxlen=1000)  # Security alerts only (24h+ retention)
 _alert_history_lock = threading.Lock()
+
+# SIGNALS: High-volume, informational network health indicators (NOT alerts)
+# Examples: TCP reset rates, SYN-only flow percentages, ICMP traffic levels
+# These do NOT count toward active_alerts and do NOT affect health state
+_signal_history = deque(maxlen=500)  # Network health signals (informational only)
+_signal_history_lock = threading.Lock()
+
 _alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
@@ -935,21 +944,31 @@ def _should_escalate_anomaly(alert):
 
 
 def _upsert_alert_to_history(alert):
-    """Add or update alert in history with deduplication.
-    
+    """Add or update alert in history with deduplication and lifecycle management.
+
+    ALERTS are rare, actionable security events requiring human attention.
+    One alert per condition - repeated triggers update the same alert, not create new ones.
+
+    Lifecycle fields:
+    - created_at: When the alert was first created
+    - last_seen: When the condition was last observed
+    - active: True if alert is still active, False if resolved
+    - resolved_at: When the alert was auto-resolved (None if active)
+
     If a matching alert (by fingerprint) exists within the last 30 minutes:
     - Update last_seen timestamp
     - Increment count
+    - Re-activate if it was resolved
     - Do not create a new alert row
-    
+
     Otherwise, create a new alert with required fields.
-    
+
     Args:
-        alert: Alert dictionary with at least type, severity, msg, ts
+        alert: Alert dictionary with at least type, severity, msg
     """
     now_ts = time.time()
     fingerprint = _get_alert_fingerprint(alert)
-    
+
     # Ensure required fields
     if 'ts' not in alert:
         alert['ts'] = now_ts
@@ -957,7 +976,7 @@ def _upsert_alert_to_history(alert):
         alert['severity'] = 'medium'
     if 'type' not in alert:
         alert['type'] = 'unknown'
-    
+
     # Ensure context fields for UI
     if 'ip' not in alert:
         alert['ip'] = alert.get('source') or alert.get('src_ip') or ''
@@ -965,24 +984,29 @@ def _upsert_alert_to_history(alert):
         alert['source'] = alert['ip']
     if 'destination' not in alert and alert.get('dest_ip'):
         alert['destination'] = alert['dest_ip']
-    
+
     with _alert_history_lock:
         # Look for matching alert within last 30 minutes
         cutoff_ts = now_ts - 1800  # 30 minutes
         matching_alert = None
-        
+
         for existing_alert in _alert_history:
             if existing_alert.get('ts', 0) > cutoff_ts:
                 existing_fp = _get_alert_fingerprint(existing_alert)
                 if existing_fp == fingerprint:
                     matching_alert = existing_alert
                     break
-        
+
         if matching_alert:
-            # Update existing alert
+            # Update existing alert - one alert per condition
             matching_alert['last_seen'] = now_ts
             matching_alert['count'] = matching_alert.get('count', 1) + 1
-            # Preserve first_seen if not set
+            # Re-activate if it was resolved
+            matching_alert['active'] = True
+            matching_alert['resolved_at'] = None
+            # Preserve created_at/first_seen
+            if 'created_at' not in matching_alert:
+                matching_alert['created_at'] = matching_alert.get('first_seen', matching_alert.get('ts', now_ts))
             if 'first_seen' not in matching_alert:
                 matching_alert['first_seen'] = matching_alert.get('ts', now_ts)
             # Update message to reflect count (strip existing count suffix if present)
@@ -991,32 +1015,120 @@ def _upsert_alert_to_history(alert):
                 original_msg = original_msg.rsplit(' (x', 1)[0]
             matching_alert['msg'] = f"{original_msg} (x{matching_alert['count']})"
         else:
-            # Create new alert
+            # Create new alert with lifecycle fields
             alert['count'] = 1
+            alert['created_at'] = now_ts
             alert['first_seen'] = now_ts
             alert['last_seen'] = now_ts
+            alert['active'] = True
+            alert['resolved_at'] = None
             _alert_history.append(alert)
 
 
-def add_health_alert_to_history(alert_type, message, severity='medium', **kwargs):
-    """Add a health-related alert to history with proper structure and escalation.
-    
+def auto_resolve_stale_alerts(stale_threshold_seconds=1800):
+    """Auto-resolve alerts that haven't been seen for the threshold period.
+
+    Alerts auto-resolve when conditions clear (no new occurrences for 30 minutes).
+    This prevents alert accumulation and reflects current system state.
+
     Args:
-        alert_type: Type matching UI filter values (e.g., 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly')
-        message: Alert message
-        severity: 'critical', 'high', 'medium', 'low'
-        **kwargs: Additional fields (ip, source, destination, etc.)
+        stale_threshold_seconds: Time without activity before auto-resolve (default 30 min)
+
+    Returns:
+        Number of alerts resolved
     """
-    alert = {
-        "type": alert_type,
+    now_ts = time.time()
+    cutoff = now_ts - stale_threshold_seconds
+    resolved_count = 0
+
+    with _alert_history_lock:
+        for alert in _alert_history:
+            if alert.get('active', True) and alert.get('last_seen', 0) < cutoff:
+                alert['active'] = False
+                alert['resolved_at'] = now_ts
+                resolved_count += 1
+
+    return resolved_count
+
+
+def get_active_alerts_count():
+    """Get count of truly active alerts (not resolved, not signals).
+
+    Returns the number of DISTINCT active alert conditions, not the sum of
+    occurrence counts. This is the correct metric for "active alerts".
+
+    Returns:
+        Integer count of active alert conditions
+    """
+    # First, auto-resolve any stale alerts
+    auto_resolve_stale_alerts()
+
+    with _alert_history_lock:
+        # Count distinct active alerts, not their occurrence counts
+        return sum(1 for a in _alert_history if a.get('active', True))
+
+
+def add_health_signal(signal_type, message, level='info', **kwargs):
+    """Add a network health signal to the signal store (NOT the alert store).
+
+    IMPORTANT: Signals are informational indicators, NOT actionable alerts.
+    They do NOT count toward active_alerts and do NOT affect overall health state.
+
+    Args:
+        signal_type: Type (e.g., 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows')
+        message: Signal description
+        level: 'info', 'elevated', 'high' (NOT severity - these are not alerts)
+        **kwargs: Additional context fields
+    """
+    now_ts = time.time()
+    signal = {
+        "type": signal_type,
         "msg": message,
-        "severity": severity,
+        "level": level,  # 'info', 'elevated', 'high' - NOT severity
+        "ts": now_ts,
+        "is_signal": True,  # Explicit marker - this is NOT an alert
         **kwargs
     }
-    
-    # Treat as anomaly first, escalate if needed
-    if _should_escalate_anomaly(alert):
-        _upsert_alert_to_history(alert)
+
+    with _signal_history_lock:
+        # Deduplicate: update existing signal of same type within 5 minutes
+        cutoff = now_ts - 300
+        for existing in _signal_history:
+            if existing.get('type') == signal_type and existing.get('ts', 0) > cutoff:
+                existing['ts'] = now_ts
+                existing['msg'] = message
+                existing['level'] = level
+                existing['count'] = existing.get('count', 1) + 1
+                return
+        # New signal
+        signal['count'] = 1
+        _signal_history.append(signal)
+
+
+def get_signal_history(max_age_seconds=3600):
+    """Get recent network health signals (NOT alerts).
+
+    Returns:
+        List of signal dicts, newest first
+    """
+    cutoff = time.time() - max_age_seconds
+    with _signal_history_lock:
+        signals = [s for s in _signal_history if s.get('ts', 0) > cutoff]
+    return sorted(signals, key=lambda x: x.get('ts', 0), reverse=True)
+
+
+# DEPRECATED: Use add_health_signal() instead
+# This function is kept for backwards compatibility but now routes to signal store
+def add_health_alert_to_history(alert_type, message, severity='medium', **kwargs):
+    """DEPRECATED: Use add_health_signal() instead.
+
+    Health indicators are signals, not alerts. This function now routes to the
+    signal store to prevent alert inflation.
+    """
+    # Map old severity to new level
+    level_map = {'critical': 'high', 'high': 'high', 'medium': 'elevated', 'low': 'info'}
+    level = level_map.get(severity, 'info')
+    add_health_signal(alert_type, message, level=level, **kwargs)
 
 
 def _should_deliver(alert):
