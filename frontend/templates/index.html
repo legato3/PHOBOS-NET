@@ -1416,26 +1416,26 @@
                             <template x-if="ipDetails?.geo">
                                 <div style="margin-bottom: 12px;">
                                     <template
-                                        x-if="ipDetails.geo.country || ipDetails.geo.country_iso || ipDetails.geo.country_code">
+                                        x-if="ipDetails.geo?.country || ipDetails.geo?.country_iso || ipDetails.geo?.country_code">
                                         <p style="font-size: 0.9em; margin-bottom: 6px;">
                                             <strong style="color: var(--text-secondary);">Country:</strong>
                                             <span
-                                                x-text="ipDetails.geo.country || ipDetails.geo.country_iso || ipDetails.geo.country_code || 'N/A'"></span>
+                                                x-text="ipDetails.geo?.country || ipDetails.geo?.country_iso || ipDetails.geo?.country_code || 'N/A'"></span>
                                             <template
-                                                x-if="(ipDetails.geo.country_iso || ipDetails.geo.country_code) && (ipDetails.geo.country_iso || ipDetails.geo.country_code) !== ipDetails.geo.country">
+                                                x-if="(ipDetails.geo?.country_iso || ipDetails.geo?.country_code) && (ipDetails.geo?.country_iso || ipDetails.geo?.country_code) !== ipDetails.geo?.country">
                                                 <span style="color: var(--text-secondary); opacity: 0.7;">
                                                     (<span
-                                                        x-text="ipDetails.geo.country_iso || ipDetails.geo.country_code"></span>)</span>
+                                                        x-text="ipDetails.geo?.country_iso || ipDetails.geo?.country_code"></span>)</span>
                                             </template>
                                         </p>
                                     </template>
-                                    <template x-if="ipDetails.geo.asn">
+                                    <template x-if="ipDetails.geo?.asn">
                                         <p style="font-size: 0.9em; margin-bottom: 6px;">
                                             <strong style="color: var(--text-secondary);">ASN:</strong>
-                                            <span x-text="ipDetails.geo.asn"></span>
-                                            <template x-if="ipDetails.geo.asn_org">
+                                            <span x-text="ipDetails.geo?.asn"></span>
+                                            <template x-if="ipDetails.geo?.asn_org">
                                                 <span style="color: var(--text-secondary); opacity: 0.8;"> ·
-                                                    <span x-text="ipDetails.geo.asn_org"></span></span>
+                                                    <span x-text="ipDetails.geo?.asn_org"></span></span>
                                             </template>
                                         </p>
                                     </template>
