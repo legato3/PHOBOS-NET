@@ -1,418 +1,397 @@
-<div x-show="activeTab === 'overview'"
-                        :style="activeTab === 'overview' ? 'display:block' : 'display:none'" id="overview-tab"
-                        role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
+<div x-show="activeTab === 'overview'" :style="activeTab === 'overview' ? 'display:block' : 'display:none'"
+    id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
-                        <!-- Summary Stats & Bandwidth - Horizontal Layout -->
-                        <section id="section-summary" class="scroll-section mb-8">
+    <!-- Summary Stats & Bandwidth - Horizontal Layout -->
+    <section id="section-summary" class="scroll-section mb-8">
 
-                            <!-- Top Row: Summary Stats (Compact Horizontal) -->
-                            <div class="summary-stats-grid">
-                                <!-- Mobile: Priority Stats (Above Fold) -->
-                                <div class="stat-box mobile-priority-stat mobile-health-card" :class="{ 
+        <!-- Top Row: Summary Stats (Compact Horizontal) -->
+        <div class="summary-stats-grid" style="margin-bottom: var(--space-7);">
+            <!-- Mobile: Priority Stats (Above Fold) -->
+            <div class="stat-box mobile-priority-stat mobile-health-card" :class="{ 
                                         'status-ok': overallHealth.state === 'healthy',
                                         'status-warning': overallHealth.state === 'degraded',
                                         'status-error': overallHealth.state === 'unhealthy'
                                     }" :title="overallHealth.explanation" @click="overallHealthModalOpen = true"
-                                    style="cursor: pointer;">
-                                    <div class="value" :class="{
+                style="cursor: pointer;">
+                <div class="value" :class="{
                                             'text-green': overallHealth.state === 'healthy',
                                             'text-yellow': overallHealth.state === 'degraded',
                                             'text-red': overallHealth.state === 'unhealthy'
                                         }" style="font-size: 1.3em; font-weight: 500; text-transform: capitalize;"
-                                        x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
-                                        ...</div>
-                                    <div class="label mobile-secondary-label">Overall Health</div>
-                                    <!-- Always show inline explanation (even when healthy) -->
-                                    <template x-if="overallHealth.shortExplanation">
-                                        <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
-                                            x-text="overallHealth.shortExplanation"></div>
-                                    </template>
-                                    <!-- Mobile-only system metrics integrated into health card -->
-                                    <div class="mobile-health-metrics" style="display:none;">
-                                        <span class="badge"
-                                            :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span
-                                                x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
-                                        <span class="badge"
-                                            :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span
-                                                x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
-                                        <span class="badge">Flows: <span
-                                                x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
-                                    </div>
-                                </div>
-                                <div class="stat-box mobile-priority-stat"
-                                    :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
-                                    @click="navigateToActiveAlerts()" style="cursor: pointer;"
-                                    title="Click to view active alerts">
-                                    <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }">
-                                        <template x-if="alertHistory.loading">
-                                            <span class="skeleton-stat-value"></span>
-                                        </template>
-                                        <template x-if="!alertHistory.loading">
-                                            <span x-text="formatNumOrDash(activeAlertsCount)"></span>
-                                        </template>
-                                    </div>
-                                    <div class="label">Active Alerts</div>
-                                    <div
-                                        style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
-                                        Live</div>
-                                </div>
+                    x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
+                    ...</div>
+                <div class="label mobile-secondary-label">Overall Health</div>
+                <!-- Always show inline explanation (even when healthy) -->
+                <template x-if="overallHealth.shortExplanation">
+                    <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
+                        x-text="overallHealth.shortExplanation"></div>
+                </template>
+                <!-- Mobile-only system metrics integrated into health card -->
+                <div class="mobile-health-metrics" style="display:none;">
+                    <span class="badge" :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span
+                            x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
+                    <span class="badge" :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span
+                            x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
+                    <span class="badge">Flows: <span
+                            x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
+                </div>
+            </div>
+            <div class="stat-box mobile-priority-stat"
+                :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
+                @click="navigateToActiveAlerts()" style="cursor: pointer;" title="Click to view active alerts">
+                <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }">
+                    <template x-if="alertHistory.loading">
+                        <span class="skeleton-stat-value"></span>
+                    </template>
+                    <template x-if="!alertHistory.loading">
+                        <span x-text="formatNumOrDash(activeAlertsCount)"></span>
+                    </template>
+                </div>
+                <div class="label">Active Alerts</div>
+                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
+                    Live</div>
+            </div>
 
-                                <!-- Mobile: Priority Stats (Above Fold) -->
-                                <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()"
-                                    style="cursor: pointer;" title="Click to view active flows">
-                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <template x-if="networkStatsOverview.loading">
-                                            <span class="skeleton-stat-value wide"></span>
-                                        </template>
-                                        <template x-if="!networkStatsOverview.loading">
-                                            <span x-text="formatNumOrDash(networkStatsOverview.active_flows)"></span>
-                                        </template>
-                                        <template
-                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
-                                            <span>
-                                                <span
-                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
-                                                    x-text="networkStatsOverview.trends.active_flows.indicator"></span>
-                                                <span class="mobile-trend-text"
-                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                                    x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                    <div class="label">Active Flows</div>
-                                    <template x-if="baselineSignals.baseline_stats?.active_flows">
-                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
-                                             x-text="'Baseline: ' + baselineSignals.baseline_stats.active_flows.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.active_flows.normal_high.toLocaleString()"></div>
-                                    </template>
-                                    <template x-if="!baselineSignals.baseline_stats?.active_flows">
-                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
-                                    </template>
-                                </div>
-                                <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
-                                    style="cursor: pointer;" title="Click to view external connections">
-                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <template x-if="networkStatsOverview.loading">
-                                            <span class="skeleton-stat-value wide"></span>
-                                        </template>
-                                        <template x-if="!networkStatsOverview.loading">
-                                            <span x-text="formatNumOrDash(networkStatsOverview.external_connections)"></span>
-                                        </template>
-                                        <template
-                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
-                                            <span>
-                                                <span
-                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
-                                                    x-text="networkStatsOverview.trends.external_connections.indicator"></span>
-                                                <span class="mobile-trend-text"
-                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                                    x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                    <div class="label">External Connections</div>
-                                    <template x-if="baselineSignals.baseline_stats?.external_connections">
-                                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
-                                             x-text="'Baseline: ' + baselineSignals.baseline_stats.external_connections.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.external_connections.normal_high.toLocaleString()"></div>
-                                    </template>
-                                </div>
-                                <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()"
-                                    style="cursor: pointer;" title="Click to view firewall logs">
-                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <template x-if="firewallStatsOverview.loading">
-                                            <span class="skeleton-stat-value wide"></span>
-                                        </template>
-                                        <template x-if="!firewallStatsOverview.loading">
-                                            <span x-text="formatNumOrDash(firewallStatsOverview.blocked_events_24h)"></span>
-                                        </template>
-                                        <template
-                                            x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
-                                            <span>
-                                                <span
-                                                    :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
-                                                    x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
-                                                <span class="mobile-trend-text"
-                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                                    x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                    <div class="label">Blocked Events (24h)</div>
-                                </div>
-                                <div class="stat-box mobile-secondary-stat"
-                                    :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
-                                    @click="navigateToAnomalies()" style="cursor: pointer;"
-                                    title="Click to view network anomalies">
-                                    <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                                        <template x-if="networkStatsOverview.loading">
-                                            <span class="skeleton-stat-value"></span>
-                                        </template>
-                                        <template x-if="!networkStatsOverview.loading">
-                                            <span x-text="formatNumOrDash(networkStatsOverview.anomalies_24h)"></span>
-                                        </template>
-                                        <template
-                                            x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                                            <span>
-                                                <span
-                                                    :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                                                    x-text="networkStatsOverview.trends.anomalies.indicator"></span>
-                                                <span class="mobile-trend-text"
-                                                    style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                                    x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                    <div class="label">Anomalies (24h)</div>
-
-                                </div>
-                            </div>
-
-                            <!-- Data Freshness Indicator -->
-                            <div class="data-freshness-indicator"
-                                 style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: right; margin-top: var(--space-1); padding-right: var(--space-2);">
-                                <span :class="{ 'text-yellow': dataFreshness.class === 'stale', 'text-red': dataFreshness.class === 'error' }"
-                                      x-text="'Updated ' + dataFreshness.text"></span>
-                                <span x-show="paused" class="text-yellow" style="margin-left: var(--space-2);">⏸ Paused</span>
-                            </div>
-
-                            <!-- Main Chart: Bandwidth -->
-                            <div class="primary-column w-full">
-                                <template x-if="isVisible('bandwidth')">
-                                    {% set bw_actions %}
-                                    <div class="status-pills">
-                                        <span class="status-pill"
-                                            style="font-size: 0.85em; color: var(--text-secondary);"
-                                            x-text="'Based on selected time range'"></span>
-                                    </div>
-                                    {% endset %}
-                                    {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
-                                    extra_actions=bw_actions) %}
-                                    <!-- Mobile Toggle for Bandwidth Chart -->
-                                    <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
-                                        <button class="world-map-toggle" style="margin-bottom: 12px;"
-                                            x-show="window.innerWidth <= 768" @click="collapsed = !collapsed">
-                                            <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
-                                        </button>
-                                        <div class="chart-wrapper chart-expandable"
-                                            x-show="!collapsed || window.innerWidth > 768"
-                                            @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
-                                            title="Click to expand">
-                                            <canvas id="bwChart"></canvas>
-                                        </div>
-                                    </div>
-                                    {% endcall %}
-                                </template>
-                            </div>
-
-                        </section>
-
-
-                        <!-- World Map Section -->
-                        <section id="section-worldmap" class="scroll-section">
-                            <!-- Mobile Toggle (hidden on desktop) -->
-                            <button class="world-map-toggle" @click="worldMapMobileVisible = !worldMapMobileVisible"
-                                :class="{ 'active': worldMapMobileVisible }" style="display: none;"
-                                x-show="window.innerWidth <= 768">
-                                <span
-                                    x-text="worldMapMobileVisible ? '🗺️ Hide World Map' : '🗺️ Show World Map'"></span>
-                            </button>
-
-                            {% set wm_actions %}{% endset %}
-
-                            {% set wm_title %}
-                            <div>
-                                <span>Traffic World Map</span>
-                                <span x-show="mapStatus" x-text="'[' + mapStatus + ']'"
-                                    class="text-75 text-yellow ml-2"></span>
-                                <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;"
-                                    x-text="'Based on selected time range'"></div>
-                            </div>
-                            {% endset %}
-                            <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
-                                {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
-                                extra_actions=wm_actions) %}
-                                <!-- Map Controls -->
-                                <div class="world-map-controls">
-                                    <div class="world-map-mode-toggle">
-                                        <button class="world-map-mode-btn"
-                                            :class="{ 'active': worldMapMode === 'traffic' }"
-                                            @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
-                                            Traffic
-                                        </button>
-                                        <button class="world-map-mode-btn"
-                                            :class="{ 'active': worldMapMode === 'exposure' }"
-                                            @click="worldMapMode = 'exposure'"
-                                            title="Exposure view - emphasize destinations">
-                                            Exposure
-                                        </button>
-                                        <button class="world-map-mode-btn"
-                                            :class="{ 'active': worldMapMode === 'attacks' }"
-                                            @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
-                                            Threats & Blocks
-                                        </button>
-                                    </div>
-                                    <div class="world-map-layer-toggles">
-                                        <label class="world-map-layer-toggle"
-                                            :class="{ 'active': worldMapLayers.sources }" title="Toggle Sources layer">
-                                            <input type="checkbox" x-model="worldMapLayers.sources">
-                                            <span class="layer-dot layer-dot-cyan"></span>
-                                            <span class="layer-label">Sources</span>
-                                        </label>
-                                        <label class="world-map-layer-toggle"
-                                            :class="{ 'active': worldMapLayers.destinations }"
-                                            title="Toggle Destinations layer">
-                                            <input type="checkbox" x-model="worldMapLayers.destinations">
-                                            <span class="layer-dot layer-dot-purple"></span>
-                                            <span class="layer-label">Destinations</span>
-                                        </label>
-                                        <label class="world-map-layer-toggle"
-                                            :class="{ 'active': worldMapLayers.threats }" title="Toggle Threats layer">
-                                            <input type="checkbox" x-model="worldMapLayers.threats">
-                                            <span class="layer-dot layer-dot-red"></span>
-                                            <span class="layer-label">Threats</span>
-                                        </label>
-                                    </div>
-                                    <button class="world-map-reset-btn" @click="resetWorldMapView()"
-                                        title="Reset map view">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <path d="M12 6v6l4 2"></path>
-                                        </svg>
-                                        Reset
-                                    </button>
-                                </div>
-                                <div class="world-map-container">
-                                    <div id="world-map-svg" class="world-map-svg"></div>
-                                    <div x-show="worldMap.loading" class="spinner-overlay">
-                                        <div class="spinner"></div>
-                                    </div>
-                                    <div x-show="worldMap.error" class="error-overlay"
-                                        style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:red; display:flex; align-items:center; justify-content:center; z-index:10;"
-                                        x-text="worldMap.error"></div>
-                                </div>
-                                <!-- Country Stats (Interactive) -->
-                                <div class="world-map-countries compact-grid">
-                                    <div class="wm-country-col">
-                                        <h4>🔼 Sources</h4>
-                                        <template x-for="c in worldMap.source_countries?.slice(0, 5)"
-                                            :key="c.iso || c.name">
-                                            <div class="wm-country-row"
-                                                :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                                @click="selectCountryForMap(c.iso || c.name)"
-                                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-primary);' : ''"
-                                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
-                                                <span x-text="flagFromIso(c.iso || '??')"></span>
-                                                <span class="wm-c-name" x-text="c.name"></span>
-                                                <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                    <div class="wm-country-col">
-                                        <h4>🔽 Dests</h4>
-                                        <template x-for="c in worldMap.dest_countries?.slice(0, 5)"
-                                            :key="c.iso || c.name">
-                                            <div class="wm-country-row"
-                                                :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                                @click="selectCountryForMap(c.iso || c.name)"
-                                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-tertiary);' : ''"
-                                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
-                                                <span x-text="flagFromIso(c.iso || '??')"></span>
-                                                <span class="wm-c-name" x-text="c.name"></span>
-                                                <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                    <div class="wm-country-col">
-                                        <h4>⚠️ Threats</h4>
-                                        <template x-for="c in worldMap.threat_countries?.slice(0, 5)"
-                                            :key="c.iso || c.name">
-                                            <div class="wm-country-row"
-                                                :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                                @click="selectCountryForMap(c.iso || c.name)"
-                                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-crit);' : ''"
-                                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
-                                                <span x-text="flagFromIso(c.iso || '??')"></span>
-                                                <span class="wm-c-name" x-text="c.name"></span>
-                                                <span class="wm-c-val text-red"
-                                                    x-text="c.bytes_fmt || c.count || 'N/A'"></span>
-                                            </div>
-                                        </template>
-                                        <template
-                                            x-if="!worldMap.threat_countries || worldMap.threat_countries.length === 0">
-                                            <div class="wm-country-row">
-                                                <span class="wm-c-name" style="opacity: 0.6;">No threats</span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                                {% endcall %}
-                            </div>
-                        </section>
-
-                        <!-- Recent Activity Timeline Section -->
-                        <section id="section-timeline" class="scroll-section" style="margin-top: var(--space-4); margin-bottom: var(--space-6);">
-                            {% set timeline_actions %}
-                            <div class="status-pills">
-                                <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
-                                    x-text="'Based on selected time range'"></span>
-                            </div>
-                            {% endset %}
-                            {% call widget_card('timeline', 'Recent Activity', '📋', min_height='auto',
-                            extra_actions=timeline_actions, show_spinner=True, card_class='') %}
-
-                            <!-- Timeline Content -->
-                            <div class="timeline-container">
-                                <!-- Empty State -->
-                                <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
-                                    <div class="timeline-empty-state">
-                                        <span style="color: var(--text-secondary); font-size: 0.9em;">No recent events</span>
-                                        <span style="color: var(--text-tertiary); font-size: 0.75em; margin-top: 4px;">Events will appear here as state changes occur</span>
-                                    </div>
-                                </template>
-
-                                <!-- Timeline Events List -->
-                                <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
-                                    <div class="timeline-events">
-                                        <template x-for="event in timeline.events.slice(0, timeline.viewLimit)" :key="event.timestamp_ts">
-                                            <div class="timeline-event"
-                                                 @click="toggleTimelineEvent(event.timestamp_ts)"
-                                                 :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
-                                                <div class="timeline-event-header">
-                                                    <span class="timeline-event-icon" x-text="getTimelineSourceIcon(event.source)"></span>
-                                                    <span class="timeline-event-time" x-text="new Date(event.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></span>
-                                                    <span class="timeline-event-source" x-text="event.source"></span>
-                                                    <span class="timeline-event-summary" x-text="event.summary"></span>
-                                                    <span class="timeline-event-expand" x-text="isTimelineEventExpanded(event.timestamp_ts) ? '▼' : '▶'"></span>
-                                                </div>
-                                                <!-- Expanded Raw Details -->
-                                                <template x-if="isTimelineEventExpanded(event.timestamp_ts) && event.raw">
-                                                    <div class="timeline-event-details">
-                                                        <pre x-text="JSON.stringify(event.raw, null, 2)"></pre>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-
-                                        <!-- Show More Button -->
-                                        <template x-if="timeline.events.length > timeline.viewLimit">
-                                            <div class="timeline-show-more">
-                                                <button @click.stop="timeline.viewLimit = Math.min(timeline.viewLimit + 20, timeline.events.length)"
-                                                        class="btn-secondary btn-sm">
-                                                    Show More (<span x-text="timeline.events.length - timeline.viewLimit"></span> remaining)
-                                                </button>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-
-                            {% endcall %}
-                        </section>
+            <!-- Mobile: Priority Stats (Above Fold) -->
+            <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()" style="cursor: pointer;"
+                title="Click to view active flows">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <template x-if="networkStatsOverview.loading">
+                        <span class="skeleton-stat-value wide"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading">
+                        <span x-text="formatNumOrDash(networkStatsOverview.active_flows)"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
+                        <span>
+                            <span
+                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
+                                x-text="networkStatsOverview.trends.active_flows.indicator"></span>
+                            <span class="mobile-trend-text"
+                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
+                        </span>
+                    </template>
+                </div>
+                <div class="label">Active Flows</div>
+                <template x-if="baselineSignals.baseline_stats?.active_flows">
+                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
+                        x-text="'Baseline: ' + baselineSignals.baseline_stats.active_flows.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.active_flows.normal_high.toLocaleString()">
                     </div>
+                </template>
+                <template x-if="!baselineSignals.baseline_stats?.active_flows">
+                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
+                </template>
+            </div>
+            <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
+                style="cursor: pointer;" title="Click to view external connections">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <template x-if="networkStatsOverview.loading">
+                        <span class="skeleton-stat-value wide"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading">
+                        <span x-text="formatNumOrDash(networkStatsOverview.external_connections)"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
+                        <span>
+                            <span
+                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
+                                x-text="networkStatsOverview.trends.external_connections.indicator"></span>
+                            <span class="mobile-trend-text"
+                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
+                        </span>
+                    </template>
+                </div>
+                <div class="label">External Connections</div>
+                <template x-if="baselineSignals.baseline_stats?.external_connections">
+                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
+                        x-text="'Baseline: ' + baselineSignals.baseline_stats.external_connections.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.external_connections.normal_high.toLocaleString()">
+                    </div>
+                </template>
+            </div>
+            <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()" style="cursor: pointer;"
+                title="Click to view firewall logs">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <template x-if="firewallStatsOverview.loading">
+                        <span class="skeleton-stat-value wide"></span>
+                    </template>
+                    <template x-if="!firewallStatsOverview.loading">
+                        <span x-text="formatNumOrDash(firewallStatsOverview.blocked_events_24h)"></span>
+                    </template>
+                    <template x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
+                        <span>
+                            <span
+                                :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
+                                x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
+                            <span class="mobile-trend-text"
+                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
+                        </span>
+                    </template>
+                </div>
+                <div class="label">Blocked Events (24h)</div>
+            </div>
+            <div class="stat-box mobile-secondary-stat"
+                :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }" @click="navigateToAnomalies()"
+                style="cursor: pointer;" title="Click to view network anomalies">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <template x-if="networkStatsOverview.loading">
+                        <span class="skeleton-stat-value"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading">
+                        <span x-text="formatNumOrDash(networkStatsOverview.anomalies_24h)"></span>
+                    </template>
+                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
+                        <span>
+                            <span
+                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
+                                x-text="networkStatsOverview.trends.anomalies.indicator"></span>
+                            <span class="mobile-trend-text"
+                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
+                                x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                        </span>
+                    </template>
+                </div>
+                <div class="label">Anomalies (24h)</div>
 
-                    <!-- ============================================
+            </div>
+        </div>
+
+        <!-- Data Freshness Indicator -->
+        <div class="data-freshness-indicator"
+            style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: right; margin-top: var(--space-1); padding-right: var(--space-2);">
+            <span
+                :class="{ 'text-yellow': dataFreshness.class === 'stale', 'text-red': dataFreshness.class === 'error' }"
+                x-text="'Updated ' + dataFreshness.text"></span>
+            <span x-show="paused" class="text-yellow" style="margin-left: var(--space-2);">⏸ Paused</span>
+        </div>
+
+        <!-- Main Chart: Bandwidth -->
+        <div class="primary-column w-full">
+            <template x-if="isVisible('bandwidth')">
+                {% set bw_actions %}
+                <div class="status-pills">
+                    <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                        x-text="'Based on selected time range'"></span>
+                </div>
+                {% endset %}
+                {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
+                extra_actions=bw_actions) %}
+                <!-- Mobile Toggle for Bandwidth Chart -->
+                <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
+                    <button class="world-map-toggle" style="margin-bottom: 12px;" x-show="window.innerWidth <= 768"
+                        @click="collapsed = !collapsed">
+                        <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
+                    </button>
+                    <div class="chart-wrapper chart-expandable" x-show="!collapsed || window.innerWidth > 768"
+                        @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                        <canvas id="bwChart"></canvas>
+                    </div>
+                </div>
+                {% endcall %}
+            </template>
+        </div>
+
+    </section>
+
+
+    <!-- World Map Section -->
+    <section id="section-worldmap" class="scroll-section">
+        <!-- Mobile Toggle (hidden on desktop) -->
+        <button class="world-map-toggle" @click="worldMapMobileVisible = !worldMapMobileVisible"
+            :class="{ 'active': worldMapMobileVisible }" style="display: none;" x-show="window.innerWidth <= 768">
+            <span x-text="worldMapMobileVisible ? '🗺️ Hide World Map' : '🗺️ Show World Map'"></span>
+        </button>
+
+        {% set wm_actions %}{% endset %}
+
+        {% set wm_title %}
+        <div>
+            <span>Traffic World Map</span>
+            <span x-show="mapStatus" x-text="'[' + mapStatus + ']'" class="text-75 text-yellow ml-2"></span>
+            <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;"
+                x-text="'Based on selected time range'"></div>
+        </div>
+        {% endset %}
+        <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
+            {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
+            extra_actions=wm_actions) %}
+            <!-- Map Controls -->
+            <div class="world-map-controls">
+                <div class="world-map-mode-toggle">
+                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'traffic' }"
+                        @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
+                        Traffic
+                    </button>
+                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'exposure' }"
+                        @click="worldMapMode = 'exposure'" title="Exposure view - emphasize destinations">
+                        Exposure
+                    </button>
+                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'attacks' }"
+                        @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
+                        Threats & Blocks
+                    </button>
+                </div>
+                <div class="world-map-layer-toggles">
+                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
+                        title="Toggle Sources layer">
+                        <input type="checkbox" x-model="worldMapLayers.sources">
+                        <span class="layer-dot layer-dot-cyan"></span>
+                        <span class="layer-label">Sources</span>
+                    </label>
+                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.destinations }"
+                        title="Toggle Destinations layer">
+                        <input type="checkbox" x-model="worldMapLayers.destinations">
+                        <span class="layer-dot layer-dot-purple"></span>
+                        <span class="layer-label">Destinations</span>
+                    </label>
+                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
+                        title="Toggle Threats layer">
+                        <input type="checkbox" x-model="worldMapLayers.threats">
+                        <span class="layer-dot layer-dot-red"></span>
+                        <span class="layer-label">Threats</span>
+                    </label>
+                </div>
+                <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    Reset
+                </button>
+            </div>
+            <div class="world-map-container">
+                <div id="world-map-svg" class="world-map-svg"></div>
+                <div x-show="worldMap.loading" class="spinner-overlay">
+                    <div class="spinner"></div>
+                </div>
+                <div x-show="worldMap.error" class="error-overlay"
+                    style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:red; display:flex; align-items:center; justify-content:center; z-index:10;"
+                    x-text="worldMap.error"></div>
+            </div>
+            <!-- Country Stats (Interactive) -->
+            <div class="world-map-countries compact-grid">
+                <div class="wm-country-col">
+                    <h4>🔼 Sources</h4>
+                    <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
+                        <div class="wm-country-row"
+                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                            @click="selectCountryForMap(c.iso || c.name)"
+                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-primary);' : ''"
+                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                            <span x-text="flagFromIso(c.iso || '??')"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
+                        </div>
+                    </template>
+                </div>
+                <div class="wm-country-col">
+                    <h4>🔽 Dests</h4>
+                    <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
+                        <div class="wm-country-row"
+                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                            @click="selectCountryForMap(c.iso || c.name)"
+                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-tertiary);' : ''"
+                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                            <span x-text="flagFromIso(c.iso || '??')"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
+                        </div>
+                    </template>
+                </div>
+                <div class="wm-country-col">
+                    <h4>⚠️ Threats</h4>
+                    <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
+                        <div class="wm-country-row"
+                            :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
+                            @click="selectCountryForMap(c.iso || c.name)"
+                            style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
+                            :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-crit);' : ''"
+                            :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                            <span x-text="flagFromIso(c.iso || '??')"></span>
+                            <span class="wm-c-name" x-text="c.name"></span>
+                            <span class="wm-c-val text-red" x-text="c.bytes_fmt || c.count || 'N/A'"></span>
+                        </div>
+                    </template>
+                    <template x-if="!worldMap.threat_countries || worldMap.threat_countries.length === 0">
+                        <div class="wm-country-row">
+                            <span class="wm-c-name" style="opacity: 0.6;">No threats</span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            {% endcall %}
+        </div>
+    </section>
+
+    <!-- Recent Activity Timeline Section -->
+    <section id="section-timeline" class="scroll-section"
+        style="margin-top: var(--space-4); margin-bottom: var(--space-6);">
+        {% set timeline_actions %}
+        <div class="status-pills">
+            <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                x-text="'Based on selected time range'"></span>
+        </div>
+        {% endset %}
+        {% call widget_card('timeline', 'Recent Activity', '📋', min_height='auto',
+        extra_actions=timeline_actions, show_spinner=True, card_class='') %}
+
+        <!-- Timeline Content -->
+        <div class="timeline-container">
+            <!-- Empty State -->
+            <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
+                <div class="timeline-empty-state">
+                    <span style="color: var(--text-secondary); font-size: 0.9em;">No recent events</span>
+                    <span style="color: var(--text-tertiary); font-size: 0.75em; margin-top: 4px;">Events will appear
+                        here as state changes occur</span>
+                </div>
+            </template>
+
+            <!-- Timeline Events List -->
+            <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
+                <div class="timeline-events">
+                    <template x-for="event in timeline.events.slice(0, timeline.viewLimit)" :key="event.timestamp_ts">
+                        <div class="timeline-event" @click="toggleTimelineEvent(event.timestamp_ts)"
+                            :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
+                            <div class="timeline-event-header">
+                                <span class="timeline-event-icon" x-text="getTimelineSourceIcon(event.source)"></span>
+                                <span class="timeline-event-time"
+                                    x-text="new Date(event.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></span>
+                                <span class="timeline-event-source" x-text="event.source"></span>
+                                <span class="timeline-event-summary" x-text="event.summary"></span>
+                                <span class="timeline-event-expand"
+                                    x-text="isTimelineEventExpanded(event.timestamp_ts) ? '▼' : '▶'"></span>
+                            </div>
+                            <!-- Expanded Raw Details -->
+                            <template x-if="isTimelineEventExpanded(event.timestamp_ts) && event.raw">
+                                <div class="timeline-event-details">
+                                    <pre x-text="JSON.stringify(event.raw, null, 2)"></pre>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Show More Button -->
+                    <template x-if="timeline.events.length > timeline.viewLimit">
+                        <div class="timeline-show-more">
+                            <button
+                                @click.stop="timeline.viewLimit = Math.min(timeline.viewLimit + 20, timeline.events.length)"
+                                class="btn-secondary btn-sm">
+                                Show More (<span x-text="timeline.events.length - timeline.viewLimit"></span> remaining)
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        {% endcall %}
+    </section>
+</div>
+
+<!-- ============================================
              SECURITY TAB
              ============================================ -->
