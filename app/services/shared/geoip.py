@@ -47,6 +47,15 @@ _asn_db_checked_ts = 0
 # GeoIP cache
 _geo_cache = {}
 
+# Constants for country guessing
+_US_PREFIXES = {3, 4, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 38, 40, 44, 45, 47, 48, 50, 52, 54, 55, 56, 57, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 96, 97, 98, 99, 100, 104, 107, 108, 128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 140, 142, 143, 144, 146, 147, 148, 149, 152, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 172, 173, 174, 184, 198, 199, 204, 205, 206, 207, 208, 209, 216}
+_RU_PREFIXES = {5, 31, 37, 46, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 176, 178, 185, 188, 212, 213, 217}
+_CA_PREFIXES = {24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 99, 142, 192, 198, 199, 204, 205, 206, 207}
+_EU_PREFIXES = {2, 5, 31, 37, 46, 51, 53, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 109, 141, 145, 151, 176, 178, 185, 188, 193, 194, 195, 212, 213}
+_ASIA_PREFIXES = {1, 14, 27, 36, 39, 42, 43, 49, 58, 59, 60, 61, 101, 103, 106, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 175, 180, 182, 183, 202, 203, 210, 211, 218, 219, 220, 221, 222, 223}
+_BR_PREFIXES = {177, 179, 181, 186, 187, 189, 190, 191, 200, 201}
+_FALLBACK_COUNTRIES = ('US', 'DE', 'GB', 'FR', 'JP', 'CN', 'BR', 'AU', 'CA', 'NL', 'IN', 'RU')
+
 
 def _guess_country_from_ip(ip):
     """Guess country from IP using common allocation patterns (fallback when no MMDB).
@@ -64,16 +73,16 @@ def _guess_country_from_ip(ip):
 
         # Common IP range allocations (approximate, covers major ranges)
         # US ranges (distinct, check first)
-        if first in [3, 4, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 32, 33, 34, 35, 38, 40, 44, 45, 47, 48, 50, 52, 54, 55, 56, 57, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 96, 97, 98, 99, 100, 104, 107, 108, 128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 140, 142, 143, 144, 146, 147, 148, 149, 152, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 172, 173, 174, 184, 198, 199, 204, 205, 206, 207, 208, 209, 216]:
+        if first in _US_PREFIXES:
             return 'US'
         # Russia - check BEFORE EU since overlapping ranges, Russia requires second >= 200
-        if first in [5, 31, 37, 46, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 176, 178, 185, 188, 212, 213, 217] and second >= 200:
+        if first in _RU_PREFIXES and second >= 200:
             return 'RU'
         # Canada - check before EU since some overlap
-        if first in [24, 64, 65, 66, 67, 68, 69, 70, 71, 72, 99, 142, 192, 198, 199, 204, 205, 206, 207] and second >= 200:
+        if first in _CA_PREFIXES and second >= 200:
             return 'CA'
         # EU ranges (DE, GB, FR, NL, etc.) - less specific, checked after Russia/Canada
-        if first in [2, 5, 31, 37, 46, 51, 53, 62, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 109, 141, 145, 151, 176, 178, 185, 188, 193, 194, 195, 212, 213]:
+        if first in _EU_PREFIXES:
             # Approximate EU country by second octet
             if second < 50: return 'DE'
             if second < 100: return 'GB'
@@ -81,18 +90,17 @@ def _guess_country_from_ip(ip):
             if second < 200: return 'NL'
             return 'DE'
         # Asia Pacific
-        if first in [1, 14, 27, 36, 39, 42, 43, 49, 58, 59, 60, 61, 101, 103, 106, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 175, 180, 182, 183, 202, 203, 210, 211, 218, 219, 220, 221, 222, 223]:
+        if first in _ASIA_PREFIXES:
             if second < 64: return 'CN'
             if second < 128: return 'JP'
             if second < 192: return 'KR'
             return 'AU'
         # Brazil, Latin America
-        if first in [177, 179, 181, 186, 187, 189, 190, 191, 200, 201]:
+        if first in _BR_PREFIXES:
             return 'BR'
         # Default: pick based on hash for consistency
         seed = sum(int(p) for p in parts)
-        countries = ['US', 'DE', 'GB', 'FR', 'JP', 'CN', 'BR', 'AU', 'CA', 'NL', 'IN', 'RU']
-        return countries[seed % len(countries)]
+        return _FALLBACK_COUNTRIES[seed % len(_FALLBACK_COUNTRIES)]
     except Exception:
         return None
 
