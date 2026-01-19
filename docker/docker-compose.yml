@@ -18,8 +18,8 @@ services:
       # - VIRUSTOTAL_API_KEY=your_key
       # - ABUSEIPDB_API_KEY=your_key
     volumes:
-      - ./docker-data:/app/data
-      - ./docker-data/nfdump:/var/cache/nfdump # NetFlow data persistence
+      - ../docker-data:/app/data
+      - ../docker-data/nfdump:/var/cache/nfdump # NetFlow data persistence
     logging:
       driver: "json-file"
       options:

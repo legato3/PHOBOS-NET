@@ -1,0 +1,73 @@
+# Multiple threat feed URLs - one per line
+# Lines starting with # are comments and will be ignored
+# Format: URL or URL|CATEGORY|NAME (optional metadata)
+
+# ============================================
+# MALWARE & C2 SERVERS
+# ============================================
+
+# FeodoTracker - Banking Trojan C2 servers (Dridex, Emotet, TrickBot)
+https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt|C2|FeodoTracker
+
+# URLhaus - Malware distribution sites
+https://urlhaus.abuse.ch/downloads/text/|MALWARE|URLhaus
+
+# SSL Blacklist - Malicious SSL certificates
+https://sslbl.abuse.ch/blacklist/sslipblacklist.txt|C2|SSLBL
+
+# ============================================
+# ATTACK SOURCES & SCANNERS
+# ============================================
+
+# Blocklist.de - Aggregated attack sources (~23K IPs)
+https://lists.blocklist.de/lists/all.txt|SCANNER|Blocklist.de
+
+# CINS Score - Known bad actors (~15K IPs)
+https://cinsscore.com/list/ci-badguys.txt|BADACTOR|CINSscore
+
+# Emerging Threats - Compromised hosts
+https://rules.emergingthreats.net/blockrules/compromised-ips.txt|COMPROMISED|EmergingThreats
+
+# ============================================
+# SPAM & BOTNETS
+# ============================================
+
+# SpamHaus DROP - Don't Route Or Peer (Hijacked networks)
+https://www.spamhaus.org/drop/drop.txt|HIJACKED|SpamhausDROP
+
+# SpamHaus EDROP - Extended DROP list
+https://www.spamhaus.org/drop/edrop.txt|HIJACKED|SpamhausEDROP
+
+# ============================================
+# TOR & ANONYMIZERS (Optional - may have false positives)
+# ============================================
+
+# TOR Exit Nodes (uncomment if you want to flag TOR traffic)
+# https://check.torproject.org/torbulkexitlist|TOR|TorExitNodes
+
+# ============================================
+# THREAT INTELLIGENCE AGGREGATORS
+# ============================================
+
+# Greensnow Blocklist - Aggregated from multiple sources
+https://blocklist.greensnow.co/greensnow.txt|AGGREGATE|Greensnow
+
+# IPsum - Aggregated threat intelligence (Level 3+ = high confidence)
+https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt|AGGREGATE|IPsum
+
+# Binary Defense - Artillery threat intelligence
+https://www.binarydefense.com/banlist.txt|SCANNER|BinaryDefense
+
+# ============================================
+# ADDITIONAL SCANNER & ATTACK FEEDS
+# ============================================
+
+# DShield - SANS Internet Storm Center top attackers (top 20 /24 subnets)
+https://feeds.dshield.org/block.txt|SCANNER|DShield
+
+# ============================================
+# ADDITIONAL AGGREGATED FEEDS
+# ============================================
+
+# FireHOL Level 1 - Aggregated IP blocklist from multiple sources
+https://iplists.firehol.org/files/firehol_level1.netset|AGGREGATE|FireHOL1
