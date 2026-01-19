@@ -32,6 +32,6 @@ exec python3 -m gunicorn \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
-    --name netflow-dashboard \
+    --name phobos-net \
     -c /app/gunicorn_config.py \
     app:app

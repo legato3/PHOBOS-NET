@@ -32,7 +32,18 @@ FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
 
 # Detection state
 # ALERTS: Rare, actionable security events requiring human attention
-# Examples: threat IP contact, active port scan, brute force attempt, data exfiltration
+# DEFINITION:
+# - Explicitly created by alert logic
+# - Requires human action
+# - Represents a persistent condition
+# - Deduplicated by condition key
+#
+# An ALERT is NOT:
+# - A timeline event
+# - An anomaly
+# - A heuristic match
+# - A single firewall decision
+# - A flow count or volume spike
 _alert_history = deque(maxlen=1000)  # Security alerts only (24h+ retention)
 _alert_history_lock = threading.Lock()
 
@@ -930,12 +941,14 @@ def _should_escalate_anomaly(alert):
         
         occurrences = _anomaly_tracker[fingerprint]
         
-        # Escalate if ≥ 3 occurrences within 10 minutes
-        if len(occurrences) >= 3:
+        # STRICTER ESCALATION RULES
+        
+        # Escalate if ≥ 5 occurrences within 10 minutes (was 3)
+        if len(occurrences) >= 5:
             return True
         
-        # Escalate if persists across intervals (2+ occurrences with > 1 minute gap)
-        if len(occurrences) >= 2:
+        # Escalate if persists across intervals (3+ occurrences with > 1 minute gap) (was 2)
+        if len(occurrences) >= 3:
             time_gaps = [occurrences[i+1] - occurrences[i] for i in range(len(occurrences)-1)]
             if any(gap > 60 for gap in time_gaps):  # Persisted across polling intervals
                 return True

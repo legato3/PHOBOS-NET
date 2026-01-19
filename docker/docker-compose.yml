@@ -1,5 +1,5 @@
 services:
-  netflow-dashboard:
+  phobos-net:
     build:
       context: ..
       dockerfile: docker/Dockerfile

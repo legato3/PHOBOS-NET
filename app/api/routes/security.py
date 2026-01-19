@@ -92,7 +92,15 @@ from app.config import (
 @bp.route("/api/stats/net_health")
 @throttle(5, 10)
 def api_stats_net_health():
-    """Network health indicators based on traffic patterns."""
+    """System Health Check (Operability Focus).
+    
+    Health reflects system operability, NOT traffic volume or network noise.
+    
+    Logic:
+    - Healthy: All systems (NetFlow, Syslog, Firewall) operational and data valid
+    - Degraded: Partial visibility (e.g. Syslog offline) or ingestion stall
+    - Unavailable: Core visibility lost (nfdump failure)
+    """
     range_key = request.args.get('range', '1h')
     now = time.time()
     win = int(now // 60)
@@ -101,349 +109,123 @@ def api_stats_net_health():
             return jsonify(_stats_net_health_cache["data"])
 
     tf = get_time_range(range_key)
-    output = run_nfdump(["-n", "1000"], tf)
-
-    indicators = []
+    
+    # 1. System Availability Checks
     health_score = 100
-
-    try:
-        # Handle empty or None output - nfdump may be available but no data for time range
-        # Check for None first to avoid AttributeError on .strip()
-        if output is None or (isinstance(output, str) and not output.strip()):
-            # nfdump is available but no data - show appropriate message
-            nfdump_available = state._has_nfdump if state._has_nfdump is not None else True
-            if not nfdump_available:
-                raise ValueError("nfdump unavailable")
-            else:
-                # nfdump available but no data for this time range - return empty indicators
-                data = {
-                    "indicators": [],
-                    "health_score": 100,
-                    "status": "healthy",
-                    "status_icon": "💚",
-                    "total_flows": 0,
-                    "firewall_active": False,
-                    "blocks_1h": 0
-                }
-                with _cache_lock:
-                    _stats_net_health_cache["data"] = data
-                    _stats_net_health_cache["ts"] = now
-                    _stats_net_health_cache["key"] = range_key
-                    _stats_net_health_cache["win"] = win
-                return jsonify(data)
+    status_issues = []
+    
+    # Check nfdump availability
+    nfdump_available = state._has_nfdump if state._has_nfdump is not None else True
+    if not nfdump_available:
+        health_score = 0
+        status_issues.append("NetFlow engine unavailable")
+    
+    # Check Syslog status (Firewall visibility)
+    # Check both generic syslog (514) and firewall specific (515)
+    syslog_generic_active = _syslog_stats.get('received', 0) > 0 or state._syslog_thread_started
+    
+    from app.services.syslog.firewall_listener import get_firewall_syslog_stats
+    fw_stats_syslog = get_firewall_syslog_stats()
+    syslog_fw_active = (fw_stats_syslog and fw_stats_syslog.get('received', 0) > 0)
+    
+    # Check if we have RECENT logs (stalls)
+    last_log_ts = _syslog_stats.get('last_log') or (fw_stats_syslog.get('last_log') if fw_stats_syslog else None)
+    syslog_stalled = False
+    if last_log_ts and (now - last_log_ts > 3600): # No logs for 1 hour
+        syslog_stalled = True
+        status_issues.append("Syslog ingestion stalled > 1h")
+        health_score -= 20
+    
+    if not (syslog_generic_active or syslog_fw_active):
+        status_issues.append("Syslog receivers inactive")
+        health_score -= 10 # Not critical as NetFlow might still work
         
-        # Ensure output is a string before processing
-        if output is None:
-            output = ""
-        lines = output.strip().split("\n")
-        if len(lines) < 2:
-            # Check if nfdump is available - if yes, this is just no data, not an error
-            nfdump_available = state._has_nfdump if state._has_nfdump is not None else True
-            if nfdump_available:
-                # nfdump available but no data - return empty indicators
-                data = {
-                    "indicators": [],
-                    "health_score": 100,
-                    "status": "healthy",
-                    "status_icon": "💚",
-                    "total_flows": 0,
-                    "firewall_active": False,
-                    "blocks_1h": 0
-                }
-                with _cache_lock:
-                    _stats_net_health_cache["data"] = data
-                    _stats_net_health_cache["ts"] = now
-                    _stats_net_health_cache["key"] = range_key
-                    _stats_net_health_cache["win"] = win
-                return jsonify(data)
-            else:
-                raise ValueError("No flow data available")
-
-        # Dynamic column detection
-        header_line = lines[0].lower()
-        header = [c.strip() for c in header_line.split(',')]
-
+    # Check Database
+    with _firewall_db_lock:
         try:
-            # Try to find columns dynamically
-            flg_idx = header.index('flg') if 'flg' in header else header.index('flags') if 'flags' in header else -1
-            pr_idx = header.index('pr') if 'pr' in header else header.index('proto') if 'proto' in header else -1
-            ibyt_idx = header.index('ibyt') if 'ibyt' in header else header.index('byt') if 'byt' in header else header.index('bytes') if 'bytes' in header else -1
+            conn = _firewall_db_connect()
+            conn.close()
+        except Exception:
+            health_score -= 20
+            status_issues.append("Database connection failed")
 
-            if pr_idx == -1 or ibyt_idx == -1:
-                raise ValueError(f"Required columns not found. Header: {header}")
-        except Exception as e:
-            print(f"Column detection error: {e}")
-            # Use fallback indices
-            flg_idx, pr_idx, ibyt_idx = 10, 7, 12
-
-        total_flows = 0
-        rst_count = 0
-        syn_only = 0
-        icmp_count = 0
-        small_flows = 0
-
-        for line in lines[1:]:
-            if not line or line.startswith('ts,'): continue
-            parts = line.split(',')
-            total_flows += 1
-            if len(parts) > max(flg_idx, pr_idx, ibyt_idx):
-                try:
-                    flags = parts[flg_idx].upper()
-                    proto = parts[pr_idx]
-                    b = int(parts[ibyt_idx])
-
-                    if 'R' in flags: rst_count += 1
-                    if flags == 'S' or flags == '.S': syn_only += 1
-                    if proto == '1' or proto.upper() == 'ICMP': icmp_count += 1
-                    if b < 100: small_flows += 1
-                except (ValueError, IndexError, KeyError):
-                    pass
-
-        if total_flows > 0:
-            rst_pct = rst_count / total_flows * 100
-            syn_pct = syn_only / total_flows * 100
-            icmp_pct = icmp_count / total_flows * 100
-            small_pct = small_flows / total_flows * 100
-
-            # TCP Resets indicator
-            if rst_pct < 5:
-                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "good", "icon": "✅"})
-            elif rst_pct < 15:
-                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "warn", "icon": "⚠️"})
-                health_score -= 10
-                add_health_alert_to_history(
-                    "tcp_reset",
-                    f"⚠️ Elevated TCP Resets: {rst_pct:.1f}% of flows",
-                    severity="medium"
-                )
-            else:
-                indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "bad", "icon": "❌"})
-                health_score -= 25
-                add_health_alert_to_history(
-                    "tcp_reset",
-                    f"❌ High TCP Resets: {rst_pct:.1f}% of flows",
-                    severity="high"
-                )
-
-            # SYN-only (potential scans)
-            if syn_pct < 2:
-                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "good", "icon": "✅"})
-            elif syn_pct < 10:
-                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "warn", "icon": "⚠️"})
-                health_score -= 10
-                add_health_alert_to_history(
-                    "syn_scan",
-                    f"⚠️ Elevated SYN-Only Flows: {syn_pct:.1f}% (potential port scan)",
-                    severity="medium"
-                )
-            else:
-                indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "bad", "icon": "❌"})
-                health_score -= 20
-                add_health_alert_to_history(
-                    "syn_scan",
-                    f"❌ High SYN-Only Flows: {syn_pct:.1f}% (potential port scan)",
-                    severity="high"
-                )
-
-            # ICMP traffic
-            if icmp_pct < 5:
-                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "good", "icon": "✅"})
-            elif icmp_pct < 15:
-                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "warn", "icon": "⚠️"})
-                health_score -= 5
-                add_health_alert_to_history(
-                    "icmp_anomaly",
-                    f"⚠️ Elevated ICMP Traffic: {icmp_pct:.1f}% of flows",
-                    severity="low"
-                )
-            else:
-                indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "bad", "icon": "❌"})
-                health_score -= 15
-                add_health_alert_to_history(
-                    "icmp_anomaly",
-                    f"❌ High ICMP Traffic: {icmp_pct:.1f}% of flows",
-                    severity="medium"
-                )
-
-            # Small flows (potential anomaly)
-            if small_pct < 20:
-                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "good", "icon": "✅"})
-            elif small_pct < 40:
-                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "warn", "icon": "⚠️"})
-                health_score -= 5
-                add_health_alert_to_history(
-                    "tiny_flows",
-                    f"⚠️ Elevated Tiny Flows: {small_pct:.1f}% (<100 bytes)",
-                    severity="low"
-                )
-            else:
-                indicators.append({"name": "Tiny Flows", "value": f"{small_pct:.1f}%", "status": "bad", "icon": "❌"})
-                health_score -= 10
-                add_health_alert_to_history(
-                    "tiny_flows",
-                    f"❌ High Tiny Flows: {small_pct:.1f}% (<100 bytes)",
-                    severity="medium"
-                )
-
-        health_score = max(0, min(100, health_score))
-
-        if health_score >= 80:
-            status = "healthy"
-            status_icon = "💚"
-        elif health_score >= 60:
-            status = "fair"
-            status_icon = "💛"
-        else:
-            status = "poor"
-            status_icon = "❤️"
-
-        # Add firewall protection status from syslog
-        fw_stats = _get_firewall_block_stats()
-        blocks_1h = fw_stats.get('blocks_per_hour', 0)
-        syslog_active = fw_stats.get('blocks', 0) > 0 or fw_stats.get('unique_ips', 0) > 0
-
-        if blocks_1h > 0:
-            indicators.append({
-                "name": "Firewall Active",
-                "value": f"{int(blocks_1h)} blocks/hr",
-                "status": "good",
-                "icon": "🔥"
-            })
-            # Bonus points for active firewall protection
-            health_score = min(100, health_score + 5)
-        elif syslog_active:
-            indicators.append({
-                "name": "Firewall Active",
-                "value": "0 blocks",
-                "status": "good",
-                "icon": "✅"
-            })
-
-        # Add threat blocking info if available
-        if fw_stats.get('threats_blocked', 0) > 0:
-            indicators.append({
-                "name": "Threats Blocked",
-                "value": str(fw_stats['threats_blocked']),
-                "status": "good",
-                "icon": "🛡️"
-            })
-
-        # Incorporate SNMP metrics as supporting signals
-        # Rules: Reinforce degradation, sustained deviation, prefer CPU/Mem/Saturation
-        try:
-            from app.services.shared.snmp import get_snmp_data
-            import app.core.app_state as state
-            import statistics
+    # 2. Traffic Indicators (Informational Only - DOES NOT AFFECT HEALTH SCORE)
+    indicators = []
+    
+    # Run nfdump for traffic context
+    try:
+        output = run_nfdump(["-n", "1000"], tf)
+        if output and isinstance(output, str) and output.strip():
+            lines = output.strip().split("\n")
+            # Parse traffic stats for context only
+            total_flows = 0
+            rst_count = 0
+            syn_only = 0
+            icmp_count = 0
             
-            # Fetch latest SNMP data (uses cache/backoff internally)
-            snmp_data = get_snmp_data()
+            # Simple parsing (robust fallback)
+            for line in lines[1:]:
+                if not line or line.startswith('ts,'): continue
+                total_flows += 1
+                if 'R' in line: rst_count += 1
+                if 'S' in line and 'A' not in line: syn_only += 1  # Crude check
+                if 'ICMP' in line or ',1,' in line: icmp_count += 1
             
-            if snmp_data and "error" not in snmp_data:
-                snmp_penalties = 0
+            if total_flows > 0:
+                rst_pct = rst_count / total_flows * 100
+                syn_pct = syn_only / total_flows * 100
+                icmp_pct = icmp_count / total_flows * 100
                 
-                with state._baselines_lock:
-                    # Helper to check sustained deviation
-                    def check_deviation(metric_name, current_val, threshold_msg, penalty_val):
-                        baseline = state._baselines.get(metric_name)
-                        if baseline and len(baseline) > 5:
-                            avg = statistics.mean(baseline)
-                            # Logic: Must be high (absolute) AND deviating (relative)
-                            # CPU/Mem > 80% and > 1.2x baseline (sustained spike)
-                            if current_val > 80 and current_val > (avg * 1.1):
-                                indicators.append({
-                                    "name": f"High {threshold_msg}",
-                                    "value": f"{current_val}%",
-                                    "status": "warn",
-                                    "icon": "🔥"
-                                })
-                                return penalty_val
-                        return 0
-
-                    # Check CPU
-                    if "cpu_percent" in snmp_data:
-                         snmp_penalties += check_deviation("cpu_load", snmp_data["cpu_percent"], "CPU", 5)
-                    
-                    # Check Memory
-                    if "mem_percent" in snmp_data:
-                         snmp_penalties += check_deviation("mem_usage", snmp_data["mem_percent"], "Memory", 5)
-                         
-                    # Check Interface Saturation (WAN)
-                    if "wan_util_percent" in snmp_data and snmp_data["wan_util_percent"] is not None:
-                        val = snmp_data["wan_util_percent"]
-                        if val > 90:
-                             indicators.append({
-                                "name": "WAN Saturation",
-                                "value": f"{val}%",
-                                "status": "warn",
-                                "icon": "📶"
-                            })
-                             snmp_penalties += 5
+                # Add informational indicators
+                if rst_pct > 15:
+                    indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                    # Add signal, NOT alert
+                    threats_module.add_health_signal("tcp_reset", f"Elevated TCP Resets: {rst_pct:.1f}%", level="elevated")
+                elif rst_pct < 5:
+                    indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "good", "icon": "✅"})
                 
-                # Apply penalties with constraints
-                # "SNMP alone must NEVER cause Unhealthy" -> (Score < 60)
-                # If we are currently Healthy (>=80), max penalty shouldn't drop us below 60 (unhealthy)
-                # If we are Fair (60-80), max penalty shouldn't drop us below 60?
-                # The rule is strict: NEVER cause Unhealthy.
-                # So if (health_score - penalties) < 60 using ONLY snmp penalties, we cap it.
+                if syn_pct > 10:
+                    indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "warn", "icon": "⚠️"})
+                    threats_module.add_health_signal("syn_scan", f"Elevated SYN-Only Flows: {syn_pct:.1f}%", level="elevated")
                 
-                if snmp_penalties > 0:
-                    potential_score = health_score - snmp_penalties
-                    existing_status_is_unhealthy = health_score < 60
-                    
-                    # If we weren't unhealthy before, don't become unhealthy strictly due to SNMP
-                    if not existing_status_is_unhealthy and potential_score < 60:
-                        snmp_penalties = max(0, health_score - 60)
-                    
-                    health_score -= snmp_penalties
-                    
-        except Exception as e:
-            # SNMP failure shouldn't break the whole health check
-            pass
-
-        # Recalculate status based on final health_score (after SNMP penalties)
-        if health_score >= 80:
-            status = "healthy"
-            status_icon = "💚"
-        elif health_score >= 60:
-            status = "fair"
-            status_icon = "💛"
-        else:
-            status = "poor"
-            status_icon = "❤️"
-
-        data = {
-            "indicators": indicators,
-            "health_score": health_score,
-            "status": status,
-            "status_icon": status_icon,
-            "total_flows": total_flows,
-            "firewall_active": syslog_active,
-            "blocks_1h": int(blocks_1h)
-        }
+                if icmp_pct > 15:
+                    indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "warn", "icon": "⚠️"})
     except Exception as e:
-        error_msg = f"Error in net_health: {e}"
-        print(error_msg)
-        add_app_log(error_msg, 'ERROR')
-        import traceback
-        traceback.print_exc()
-        # Check if nfdump is actually available before showing nfdump error
-        nfdump_available = state._has_nfdump if state._has_nfdump is not None else True  # Assume available if not checked yet
-        # Only show nfdump-specific error if nfdump is confirmed unavailable
-        if not nfdump_available:
-            error_indicator = {"name": "Data Unavailable", "value": "Check nfdump", "status": "warn", "icon": "⚠️"}
-        else:
-            # nfdump is available, so error is likely parsing or data-related
-            error_indicator = {"name": "Data Error", "value": "Processing issue", "status": "warn", "icon": "⚠️"}
-        # Return degraded but informative status
-        data = {
-            "indicators": [error_indicator],
-            "health_score": 0,
-            "status": "degraded",
-            "status_icon": "⚠️",
-            "total_flows": 0,
-            "firewall_active": False,
-            "blocks_1h": 0
-        }
+        status_issues.append(f"Traffic analysis error: {str(e)[:30]}")
+        health_score -= 10
+
+    # 3. Determine Overall Status
+    health_score = max(0, min(100, health_score))
+    
+    if health_score >= 80:
+        status = "healthy"
+        status_text = "Healthy"
+        status_icon = "💚"
+    elif health_score >= 40:
+        status = "fair" # Maps to Degraded in logical model
+        status_text = "Degraded"
+        status_icon = "💛"
+    else:
+        status = "poor" # Maps to Unavailable
+        status_text = "Unavailable"
+        status_icon = "❤️"
+
+    if status_issues:
+        indicators.insert(0, {"name": "System Issues", "value": str(len(status_issues)), "status": "bad", "icon": "🔧"})
+        for issue in status_issues:
+            # Add specific issue as indicator
+            indicators.append({"name": "Status", "value": issue, "status": "bad", "icon": "⚠️"})
+
+    data = {
+        "indicators": indicators,
+        "health_score": health_score,
+        "status": status,
+        "status_text": status_text, # Explicit text for frontend
+        "status_icon": status_icon,
+        "total_flows": 0, # Legacy field
+        "firewall_active": syslog_fw_active or syslog_generic_active,
+        "blocks_1h": 0 # Legacy field
+    }
 
     with _cache_lock:
         _stats_net_health_cache["data"] = data
@@ -1057,30 +839,42 @@ def api_alerts():
     whitelist = load_list(THREAT_WHITELIST)
 
     # Run analysis (using shared data)
+    # Run analysis (using shared data)
     # Alerts logic uses top sources/dests/ports for comprehensive IP coverage
     sources = get_common_nfdump_data("sources", range_key)[:50]
     dests = get_common_nfdump_data("dests", range_key)[:50]
     ports = get_common_nfdump_data("ports", range_key)
 
-    alerts = detect_anomalies(ports, sources, threat_set, whitelist, destinations_data=dests)
-    send_notifications([a for a in alerts if a.get("severity") in ("critical","high")])
+    # 1. Detect anomalies and escalate to alerts
+    # This updates _alert_history directly (stateful)
+    raw_alerts = detect_anomalies(ports, sources, threat_set, whitelist, destinations_data=dests)
     
-    # Also run all detections to capture protocol anomalies, DNS anomalies, port scans, etc.
-    # This ensures all detection types are persisted to alert history
+    # 2. Run all other detections
     try:
         protocols_data = get_common_nfdump_data("protos", range_key)[:20]
-
-        # Fetch raw flow data for advanced detections
         flow_data = get_raw_flows(tf, limit=2000)
-
-        all_detection_alerts = run_all_detections(ports, sources, dests, protocols_data, flow_data=flow_data)
-        # Alerts from run_all_detections are already added to history by that function
+        run_all_detections(ports, sources, dests, protocols_data, flow_data=flow_data)
     except Exception as e:
-        # Don't fail the endpoint if additional detections fail
         print(f"Additional detection run failed: {e}")
 
+    # 3. Retrieve QUALIFIED, ACTIVE alerts from history
+    # This decouples the UI from raw detection output, ensuring we only show
+    # alerts that passed strict qualification rules.
+    from app.services.security.threats import _alert_history, get_active_alerts_count, auto_resolve_stale_alerts
+    
+    # Prune stale alerts first
+    auto_resolve_stale_alerts()
+    
+    active_alerts = []
+    with threats_module._alert_history_lock:
+        # Convert to list and sort
+        active_alerts = list([a for a in threats_module._alert_history if a.get('active', True)])
+        # Sort by timestamp, newest first
+        active_alerts.sort(key=lambda x: x.get('ts', 0), reverse=True)
+
     data = {
-        "alerts": alerts, # Not limited to 10
+        "alerts": active_alerts, 
+        "count": len(active_alerts),
         "feed_label": get_feed_label()
     }
     with _lock_alerts:
