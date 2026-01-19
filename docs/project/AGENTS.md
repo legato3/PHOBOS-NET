@@ -1,194 +1,231 @@
+# 🔒 PHOBOS-NET — Locked Architecture Contract
 
-# AGENTS.md — AI Agent Operating Guide for PHOBOS-NET
+This document defines the **non-negotiable semantic and architectural rules** of PHOBOS-NET.
 
-This document defines how AI coding agents must work inside the PHOBOS-NET codebase.
-It exists to prevent regressions, scope creep, and broken observability logic.
+All AI agents (Cursor, Claude, Jules, Gemini, etc.) **MUST follow this document strictly**.
 
-PHOBOS-NET is a single-node, Docker-based network observability dashboard.
-It prioritizes clarity, determinism, and explainability over automation magic.
-
----
-
-## 1. Project Philosophy (READ FIRST)
-
-PHOBOS-NET follows these rules:
-
-- Observability first, automation second
-- Anomalies ≠ Alerts
-- Data must persist before UI consumes it
-- Health is derived, never guessed
-- Docker paths are not runtime settings
-
-AI agents must NOT change behavior unless explicitly instructed.
-
-If unsure: ask, don’t assume.
+Violating these rules is considered a **breaking change**, even if the code appears to function.
 
 ---
 
-## 2. Core Architecture
+## 1. Core Semantic Separation (LOCKED)
 
-Backend:
-- Python 3 + Flask
-- Modular services under app/services
-- SQLite used for persistence (alerts, firewall logs, trends)
-- Heavy operations cached with TTL + locks
+PHOBOS-NET operates on **four strictly separated semantic layers**.
 
-Frontend:
-- Alpine.js (no build step)
-- Single-page dashboard
-- UI is reactive but dumb: backend owns logic
-
-Data Sources:
-- NetFlow via nfdump (CLI)
-- SNMP polling (firewall health)
-- Syslog (firewall blocks)
-- Threat intelligence feeds
-
-Deployment:
-- Docker container
-- Paths and binaries are environment concerns
-- UI must not expose filesystem internals
+These layers **MUST NEVER be merged, inferred, auto-derived, or implicitly coupled**.
 
 ---
 
-## 3. Data Lifecycle Rules
+### 1.1 Events (Timeline)
 
-### Flows
-Flows are raw NetFlow records.
-They must never be directly treated as alerts.
+Events are **raw, factual observations** sourced from:
 
-### Anomalies
-Anomalies are soft signals:
-- statistical deviations
-- suspicious patterns
-- heuristic matches
-
-They:
-- affect health score
-- increment counters
-- do NOT automatically appear in Alert History
-
-### Alerts
-Alerts are escalated anomalies.
+- NetFlow
+- Filterlog (packet decisions)
+- Firewall control logs
+- Syslog
+- SNMP state changes
+- PHOBOS-NET internal system events
 
 Rules:
-- Alerts must be persisted
-- Alerts must be deduplicated
-- Alerts must have timestamps
-- Alerts must appear in Alert History (24h)
+- Events are **high-volume and noisy by nature**
+- Events are **chronological and immutable**
+- Events are **informational only**
+- Events **MUST NEVER escalate automatically**
 
-Never create UI-only alerts.
+Events answer:
 
----
-
-## 4. Alert Escalation Rules
-
-An anomaly becomes an alert if ANY is true:
-- Severity is HIGH
-- Same anomaly repeats ≥ 3 times within 10 minutes
-- Anomaly persists across polling intervals
-- Watchlist IP involved
-
-Deduplication fingerprint:
-(type, source_ip, destination_ip, port)
-
-Deduplication window:
-- 30 minutes
-
-Existing alerts should update count and last_seen, not create new rows.
+> “What happened?”
 
 ---
 
-## 5. Time Range Semantics (CRITICAL)
+### 1.2 Signals / Indicators
 
-Time selectors (Live / 1h / 6h / 24h):
-- Must affect backend queries
-- Must not be cosmetic
-- Must propagate to:
-  - charts
-  - counters
-  - insights
-  - alert history
+Signals are **derived observations** such as anomalies or deviations.
 
-If a widget ignores time range, it is a bug.
+Rules:
+- Signals are **informational**
+- Signals provide **context, not urgency**
+- Signals **MUST NEVER create alerts**
+- Signals **MUST NEVER affect system health directly**
 
----
+Examples:
+- SYN-only traffic spikes
+- TCP reset bursts
+- ICMP floods
+- Baseline deviations
+- Elevated block/pass ratios
 
-## 6. SNMP Rules
+Signals answer:
 
-SNMP data:
-- Is authoritative for firewall health
-- Must be cached
-- Must fail gracefully
-- Must never block UI
-
-Interface metrics must come from expanded OIDs.
-Never fake interface data.
+> “This is notable.”
 
 ---
 
-## 7. Configuration UI Rules
+### 1.3 Alerts (STRICT)
 
-Settings UI:
-- Exposes runtime-safe values only
+Alerts are **rare, actionable, stateful objects**.
 
-Allowed:
-- DNS server
-- Internal networks
-- SNMP host/community/poll interval
-- Detection sensitivity
-- Default time range
+An Alert MUST:
+- Represent a **persistent condition**
+- Require **human action**
+- Be **explicitly created** by alert logic
+- Be **deduplicated** by condition
+- Have a **clear lifecycle**
 
-Forbidden:
-- Filesystem paths
-- Docker volume locations
-- Binary paths
+Every alert MUST include:
+- `first_seen`
+- `last_seen`
+- `active` (boolean)
+- `resolved_at` (nullable)
 
-Paths belong in env or docker-compose.
+Rules:
+- Multiple events update **ONE alert**
+- Alerts **MUST auto-resolve** when conditions clear
+- Alerts **MUST NEVER be created from**:
+  - events
+  - signals
+  - anomalies
+  - raw counters
+  - traffic volume
+  - firewall decision counts
 
----
+Alerts answer:
 
-## 8. Frontend Rules
-
-- Alpine.js state must remain reactive
-- No hardcoded magic numbers
-- Mobile layout must be first-class
-- Empty states must be informative, not blank
-
-Never hide missing data silently.
-
----
-
-## 9. Performance & Safety
-
-- nfdump calls are expensive → cache aggressively
-- SQLite writes must be controlled
-- Never introduce infinite loops (sparklines, timers)
-- Avoid N+1 backend calls
+> “Something requires action.”
 
 ---
 
-## 10. What AI Agents MUST NOT Do
+### 1.4 System Health (LOCKED DEFINITION)
 
-- Do not refactor large areas without instruction
-- Do not change detection thresholds silently
-- Do not invent new alert types
-- Do not “optimize” UI by hiding data
-- Do not remove persistence layers
+**System Health reflects observability integrity — NOT threat level.**
+
+Health MAY depend on:
+- NetFlow engine availability
+- Syslog ingestion status
+- SNMP reachability
+- Database connectivity
+- Sustained ingestion stalls
+- Parser failure rates
+
+Health MUST NOT depend on:
+- Alert count
+- Signal or anomaly count
+- Traffic volume
+- Firewall pass/block volume
+- External attack activity
+- Timeline size
+
+Allowed states ONLY:
+- `Healthy`
+- `Degraded` (partial visibility)
+- `Unavailable`
+
+Health answers:
+
+> “Can I trust what I’m seeing?”
 
 ---
 
-## 11. When in Doubt
+## 2. Timeline Authority Rule (ABSOLUTE)
 
-If behavior seems unclear:
-- Inspect data flow
-- Check persistence
-- Ask the human
+The Event Timeline is **non-authoritative**.
 
-PHOBOS-NET values correctness over cleverness.
+Rules:
+- Timeline events MUST NEVER:
+  - create alerts
+  - increment alert counters
+  - affect system health
+  - imply urgency
+- Timeline exists for:
+  - context
+  - explanation
+  - investigation
+- Absence of timeline events is **valid and calm**
 
 ---
 
-Last updated: v1.2
-Project: PHOBOS-NET  
-Maintained by: Human + AI collaboration
+## 3. Alert Count Discipline (LOCKED)
+
+- Alert count MUST remain **low under normal operation**
+- A noisy but healthy network SHOULD show:
+  - 0–few active alerts
+  - Healthy or Degraded system state
+- High alert counts indicate a **logic error**, not a feature
+
+If alert count grows unbounded → **architectural violation**
+
+---
+
+## 4. Security / Pressure Scores vs System Health (DO NOT MERGE)
+
+These concepts are intentionally separate:
+
+### System Health
+- Infrastructure reliability
+- Observability confidence
+- Data pipeline integrity
+
+### Security / Pressure / Activity Scores
+- Threat volume
+- Attack surface activity
+- Environmental pressure
+
+Rules:
+- Security pressure MUST NOT degrade system health
+- These values MUST NOT influence each other
+- They MUST NOT be combined in UI or logic
+- They MAY coexist, but remain independent
+
+---
+
+## 5. UI Truthfulness Contract
+
+The UI MUST:
+- Prefer “—” over guessing
+- Distinguish clearly between:
+  - unavailable vs zero
+  - noisy vs dangerous
+- Avoid alarmist language unless action is required
+
+Forbidden UI patterns:
+- “Unhealthy” due to traffic volume
+- Large red numbers without action
+- Alert inflation visuals
+- Severity implied by color alone
+
+Calm, truthful UX is a **core requirement**, not polish.
+
+---
+
+## 6. Change Discipline (ENFORCED)
+
+Before implementing any change, AI agents MUST ask:
+
+> “Which layer am I modifying: Events, Signals, Alerts, or Health?”
+
+If unclear → **STOP and ask for clarification**.
+
+After completing a requested phase:
+- STOP immediately
+- Summarize exactly what changed
+- Do NOT continue refactoring or adding features
+
+---
+
+## 7. Guiding Principle (FINAL)
+
+> **Observability systems must be calm, honest, and boring when things are fine.**  
+> Noise is data. Alerts are decisions.
+
+If a change violates this principle, it must not be implemented.
+
+---
+
+## 8. Architecture Version
+
+This document locks:
+
+**PHOBOS-NET Architecture v1.0**
+
+Any change to this file requires **explicit human approval**.
