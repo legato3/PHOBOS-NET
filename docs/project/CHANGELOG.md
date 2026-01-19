@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2
+
+- Project renamed to PHOBOS-NET
+- Fixed Traffic by Hour widget chronological ordering
+- Fixed alert dismissal reactivity with Alpine.js
+- Layout improvements for status bar positioning
+- Version bump and documentation updates
+
 ## v1.1
 
 - Introduced Insight Panels with baseline vs notable logic

@@ -328,7 +328,7 @@ body {
         "sidebar header"
         "sidebar main";
     width: 100vw;
-    height: 100vh;
+    height: calc(100vh - var(--status-bar-height));
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden;
@@ -615,17 +615,20 @@ body.sidebar-collapsed .layout-wrapper {
 .content-scroll-area {
     flex: 1;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: var(--space-4);
-    padding-bottom: var(--space-2); /* Reduced bottom padding */
     display: flex;
     flex-direction: column;
-    gap: var(--space-8);
+    gap: var(--space-6);
 }
 
-/* Remove margin from last section in content to avoid bottom gap */
-.content-scroll-area > [x-show]:last-of-type > section:last-child,
-.content-scroll-area > [x-show]:last-of-type > div:last-child {
-    margin-bottom: 0;
+/* Remove bottom gaps from last elements in content */
+.content-scroll-area .grid:last-child,
+.content-scroll-area section:last-child,
+.content-scroll-area section:last-child .grid,
+.content-scroll-area > div > section:last-child,
+.content-scroll-area > div > div:last-child {
+    margin-bottom: 0 !important;
 }
 
 /* CYBERPUNK UI: Header - Signal command bar (control surface) */
@@ -3603,10 +3606,7 @@ table[style*="table-layout:fixed"] td:first-child {
     box-shadow: var(--glow-critical);
 }
 
-/* Add padding to body for status bar */
-body {
-    padding-bottom: 56px !important;
-}
+/* Status bar space handled by layout-wrapper height calc */
 
 /* ============================================
    MOBILE BREAKPOINT IMPROVEMENTS

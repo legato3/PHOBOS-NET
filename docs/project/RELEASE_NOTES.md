@@ -4,6 +4,39 @@ This document provides detailed release notes for all versions of PHOBOS-NET, wi
 
 ---
 
+## v1.2 — Project Rebrand & Polish
+
+**Release Date:** January 2026
+**Status:** Production-ready
+**Focus:** Project identity, bug fixes, layout refinements
+
+This release completes the project rebrand to PHOBOS-NET and addresses several UI and functionality issues.
+
+⸻
+
+🔄 Project Rebrand
+
+- **Official name:** Project renamed from NetFlow Dashboard to PHOBOS-NET
+- **Documentation updated:** All references across 35+ files updated to reflect new identity
+- **Consistent branding:** Logo, footer, and version displays unified
+
+⸻
+
+🐛 Bug Fixes
+
+- **Traffic by Hour widget:** Fixed chronological ordering - oldest hour now on left, current hour on right (no more "future" data appearance)
+- **Alert dismissal:** Fixed Alpine.js reactivity issue by converting dismissed alerts from Set to Array
+- **Layout gap:** Improved status bar positioning to prevent bottom gap when scrolling
+
+⸻
+
+🎨 UI Improvements
+
+- **Status bar layout:** Properly accounts for fixed status bar in main content area
+- **Sidebar footer:** Adjusted positioning for clean alignment with status bar
+
+---
+
 ## v1.1 — Unified Insight System
 
 **Release Date:** January 2026  
@@ -228,5 +261,6 @@ These principles guide all design decisions and should be maintained in future r
 
 ## Version History
 
+- **v1.2** (January 2026) - Project rebrand to PHOBOS-NET and polish
 - **v1.1** (January 2026) - Unified Insight System and UI improvements
 - **v1.0** (January 2026) - Initial stable release

@@ -139,7 +139,7 @@ Health states always include a short explanation, even when healthy.
 
 ## 🚦 Project Status
 
-- **Current version:** v1.1
+- **Current version:** v1.2
 - **Stability:** Suitable for hobby and personal use
 - **Focus:** UX consistency, insight quality, polish
 - **Development style:** Iterative, exploratory, no fixed roadmap
