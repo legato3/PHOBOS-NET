@@ -316,15 +316,15 @@
                         </section>
 
                         <!-- Recent Activity Timeline Section -->
-                        <section id="section-timeline" class="scroll-section">
+                        <section id="section-timeline" class="scroll-section" style="margin-top: var(--space-4); margin-bottom: var(--space-6);">
                             {% set timeline_actions %}
                             <div class="status-pills">
                                 <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
                                     x-text="'Based on selected time range'"></span>
                             </div>
                             {% endset %}
-                            {% call widget_card('timeline', 'Recent Activity', '📋', min_height='200px',
-                            extra_actions=timeline_actions, show_spinner=True, card_class='wide-card') %}
+                            {% call widget_card('timeline', 'Recent Activity', '📋', min_height='auto',
+                            extra_actions=timeline_actions, show_spinner=True, card_class='') %}
 
                             <!-- Timeline Content -->
                             <div class="timeline-container">
