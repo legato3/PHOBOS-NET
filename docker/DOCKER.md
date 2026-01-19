@@ -40,7 +40,7 @@ From the project root directory:
 
 ```bash
 # Build the image
-docker build -f docker/Dockerfile -t netflow-dashboard .
+docker build -f docker/Dockerfile -t phobos-net .
 
 # Run the container
 docker run -d \
@@ -49,7 +49,7 @@ docker run -d \
   -p 2055:2055/udp \
   -p 514:514/udp \
   -v $(pwd)/docker-data:/app/data \
-  netflow-dashboard
+  phobos-net
 
 # View logs
 docker logs -f phobos-net
@@ -88,7 +88,7 @@ For development with live code reloading, modify `docker-compose.yml`:
 
 ```yaml
 services:
-  netflow-dashboard:
+  phobos-net:
     volumes:
       # Mount source code for live reload
       - ./app:/app/app
@@ -148,7 +148,7 @@ docker inspect phobos-net | grep -A 10 Health
 
 ```bash
 # Check logs
-docker-compose logs netflow-dashboard
+docker-compose logs phobos-net
 
 # Check if port is already in use
 lsof -i :3434
@@ -170,7 +170,7 @@ From the project root:
 ```bash
 # Stop and remove containers, volumes, and images
 docker-compose -f docker/docker-compose.yml down -v
-docker rmi phobos-net netflow-dashboard
+docker rmi phobos-net
 
 # Rebuild from scratch
 docker-compose -f docker/docker-compose.yml build --no-cache
@@ -182,7 +182,7 @@ Or from the `docker/` directory:
 ```bash
 cd docker
 docker-compose down -v
-docker rmi netflow-dashboard-test netflow-dashboard
+docker rmi phobos-net-test phobos-net
 docker-compose build --no-cache
 docker-compose up -d
 ```
@@ -230,6 +230,6 @@ This Docker setup matches production configuration. For production deployment:
 3. Configure resource limits (CPU, memory)
 4. Use environment-specific secrets management
 5. Set up proper networking and security policies
-6. Consider using the optimized systemd service instead (see `systemd/netflow-dashboard-optimized.service`)
+6. Consider using the optimized systemd service instead (see `systemd/phobos-net-optimized.service`)
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production deployment instructions.

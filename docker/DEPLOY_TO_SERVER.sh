@@ -10,7 +10,7 @@ set -e
 SERVER="192.168.0.73"
 USER="root"
 SSH_KEY="$HOME/.ssh/id_ed25519_192.168.0.73"
-REMOTE_DIR="/root/netflow-dashboard"
+REMOTE_DIR="/root/phobos-net"
 CONTAINER_NAME="phobos-net"
 
 # Check if rebuild is requested
@@ -22,7 +22,7 @@ else
     echo "⚡ Fast mode: Will use docker cp to inject files directly into container"
 fi
 
-echo "🚀 Deploying NetFlow Dashboard to $SERVER..."
+echo "🚀 Deploying PHOBOS-NET to $SERVER..."
 
 # Create remote directory
 echo "📁 Creating remote directory..."

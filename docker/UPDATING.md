@@ -2,7 +2,7 @@
 
 This guide explains how to update the Docker container when you have code changes.
 
-> **Important**: The legacy `netflow-dashboard.py` entrypoint has been removed. Use `docker/DEPLOY_TO_SERVER.sh` (optionally with `--rebuild`) to deploy the modular `app/` and `frontend/` directories. The manual `netflow-dashboard.py` copy commands below are legacy-only and should be considered deprecated.
+> **Important**: The legacy `phobos-net.py` entrypoint has been removed. Use `docker/DEPLOY_TO_SERVER.sh` (optionally with `--rebuild`) to deploy the modular `app/` and `frontend/` directories. The manual `phobos-net.py` copy commands below are legacy-only and should be considered deprecated.
 
 ## Quick Reference
 
@@ -18,13 +18,13 @@ git commit -m "Your commit message"
 git push origin main
 
 # 2. Copy files to server temp directory
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/tmp/
 # For templates/static files:
 # scp -i ~/.ssh/id_ed25519_192.168.0.73 templates/index.html root@192.168.0.73:/tmp/
 # scp -i ~/.ssh/id_ed25519_192.168.0.73 static/js/store.js root@192.168.0.73:/tmp/
 
 # 3. Inject files directly into container and restart
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && docker exec phobos-net chown root:root /app/netflow-dashboard.py && cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/phobos-net.py phobos-net:/app/phobos-net.py && docker exec phobos-net chown root:root /app/phobos-net.py && cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart"
 ```
 
 **Time**: ~5 seconds total (vs 15-20 seconds for rebuild)
@@ -35,13 +35,13 @@ If you prefer copying to the host filesystem first:
 
 ```bash
 # 1. Copy updated file to server
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/root/phobos-net/
 
 # 2. Restart container
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart"
 ```
 
-**Note**: This method works for `netflow-dashboard.py` because it's loaded at runtime. For templates/static files that are copied into the image during build, use the `docker cp` method above.
+**Note**: This method works for `phobos-net.py` because it's loaded at runtime. For templates/static files that are copied into the image during build, use the `docker cp` method above.
 
 ## Detailed Steps
 
@@ -66,7 +66,7 @@ Use `docker cp` to inject files directly into the running container. This is fas
 
 ```bash
 # Copy files to server temp directory
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/tmp/
 
 # For templates/static files:
 scp -i ~/.ssh/id_ed25519_192.168.0.73 templates/index.html root@192.168.0.73:/tmp/
@@ -75,12 +75,12 @@ scp -i ~/.ssh/id_ed25519_192.168.0.73 static/style.css root@192.168.0.73:/tmp/
 
 # Inject into container, set permissions, and restart
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "
-  docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && \
+  docker cp /tmp/phobos-net.py phobos-net:/app/phobos-net.py && \
   docker cp /tmp/index.html phobos-net:/app/templates/index.html && \
   docker cp /tmp/store.js phobos-net:/app/static/js/store.js && \
   docker cp /tmp/style.css phobos-net:/app/static/style.css && \
-  docker exec phobos-net chown root:root /app/netflow-dashboard.py /app/templates/index.html /app/static/js/store.js /app/static/style.css && \
-  cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart
+  docker exec phobos-net chown root:root /app/phobos-net.py /app/templates/index.html /app/static/js/store.js /app/static/style.css && \
+  cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart
 "
 ```
 
@@ -92,10 +92,10 @@ ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "
 
 #### Option B: Copy to Host Filesystem
 
-For `netflow-dashboard.py` only (since it's loaded at runtime):
+For `phobos-net.py` only (since it's loaded at runtime):
 
 ```bash
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/root/phobos-net/
 ```
 
 **Note**: Templates and static files copied into the image during build won't be updated this way. Use Option A for those.
@@ -103,7 +103,7 @@ scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/ro
 ### Step 3: Restart the Container
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart"
 ```
 
 The container will reload the updated files without rebuilding the image.
@@ -133,7 +133,7 @@ ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "curl -s http://localhos
 ### Restart Only (Recommended for Most Updates)
 
 Use restart when you change:
-- ✅ `netflow-dashboard.py` (application code)
+- ✅ `phobos-net.py` (application code)
 - ✅ Templates (`templates/index.html`)
 - ✅ Static files (`static/*.js`, `static/*.css`)
 - ✅ Environment variables in `docker-compose.yml`
@@ -156,14 +156,14 @@ Use rebuild when you change:
 
 ```bash
 # Copy updated files
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/
-scp -i ~/.ssh/id_ed25519_192.168.0.73 requirements.txt root@192.168.0.73:/root/netflow-dashboard/
-scp -i ~/.ssh/id_ed25519_192.168.0.73 docker/Dockerfile root@192.168.0.73:/root/netflow-dashboard/docker/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/root/phobos-net/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 requirements.txt root@192.168.0.73:/root/phobos-net/
+scp -i ~/.ssh/id_ed25519_192.168.0.73 docker/Dockerfile root@192.168.0.73:/root/phobos-net/docker/
 # ... copy other changed files
 
 # SSH and rebuild
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73
-cd /root/netflow-dashboard
+cd /root/phobos-net
 docker compose -f docker/docker-compose.yml down
 docker compose -f docker/docker-compose.yml build --no-cache
 docker compose -f docker/docker-compose.yml up -d
@@ -177,7 +177,7 @@ docker compose -f docker/docker-compose.yml up -d
 - ✅ NetFlow data (`nfdump/` directory) persists
 - ✅ All data in `docker-data/` persists
 
-Data is stored on the host at `/root/netflow-dashboard/docker-data/` and mounted into the container.
+Data is stored on the host at `/root/phobos-net/docker-data/` and mounted into the container.
 
 ## Troubleshooting
 
@@ -198,7 +198,7 @@ Common issues:
 
 1. **Verify file was copied**:
    ```bash
-   ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "ls -lh /root/netflow-dashboard/netflow-dashboard.py"
+   ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "ls -lh /root/phobos-net/phobos-net.py"
    ```
 
 2. **Check file modification time** matches your local file
@@ -220,11 +220,11 @@ If you need to rollback:
 ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73
 
 # Restore from Git (if you have git on server)
-cd /root/netflow-dashboard
-git checkout <previous-commit-hash> netflow-dashboard.py
+cd /root/phobos-net
+git checkout <previous-commit-hash> phobos-net.py
 
 # Or copy previous version from backup
-# cp /root/netflow-dashboard/netflow-dashboard.py.backup /root/netflow-dashboard/netflow-dashboard.py
+# cp /root/phobos-net/phobos-net.py.backup /root/phobos-net/phobos-net.py
 
 # Restart container
 docker compose -f docker/docker-compose.yml restart
@@ -238,8 +238,8 @@ For code, templates, or static files - injects directly into container:
 
 ```bash
 cd /path/to/PHOBOS-NET && \
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/tmp/ && \
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/netflow-dashboard.py phobos-net:/app/netflow-dashboard.py && docker exec phobos-net chown root:root /app/netflow-dashboard.py && cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/tmp/ && \
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "docker cp /tmp/phobos-net.py phobos-net:/app/phobos-net.py && docker exec phobos-net chown root:root /app/phobos-net.py && cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart"
 ```
 
 ### Alternative (Host Filesystem Method)
@@ -248,8 +248,8 @@ For Python code only:
 
 ```bash
 cd /path/to/PHOBOS-NET && \
-scp -i ~/.ssh/id_ed25519_192.168.0.73 netflow-dashboard.py root@192.168.0.73:/root/netflow-dashboard/ && \
-ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/netflow-dashboard && docker compose -f docker/docker-compose.yml restart"
+scp -i ~/.ssh/id_ed25519_192.168.0.73 phobos-net.py root@192.168.0.73:/root/phobos-net/ && \
+ssh -i ~/.ssh/id_ed25519_192.168.0.73 root@192.168.0.73 "cd /root/phobos-net && docker compose -f docker/docker-compose.yml restart"
 ```
 
 ## Summary
