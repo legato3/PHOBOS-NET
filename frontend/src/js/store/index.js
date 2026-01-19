@@ -4069,6 +4069,12 @@ export const Store = () => ({
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                // If not on network tab, abort retry loop - chart will update when tab loads
+                if (this.activeTab !== 'network') {
+                    this._hourlyChartRetries = 0;
+                    return;
+                }
+
                 // Container not visible yet, defer initialization (limit retries)
                 if (!this._hourlyChartRetries) this._hourlyChartRetries = 0;
                 if (this._hourlyChartRetries < 50) {
@@ -4839,6 +4845,12 @@ export const Store = () => ({
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                // If not on network tab, abort retry loop - chart will update when tab loads
+                if (this.activeTab !== 'network') {
+                    this._pktSizeRetries = 0;
+                    return;
+                }
+
                 // Container not visible yet, defer initialization (limit retries)
                 if (!this._pktSizeRetries) this._pktSizeRetries = 0;
                 if (this._pktSizeRetries < 50) {
@@ -4937,6 +4949,13 @@ export const Store = () => ({
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                // If not on network tab, abort retry loop - chart will update when tab loads
+                if (this.activeTab !== 'network') {
+                    this._countriesRetries = 0;
+                    this._countriesUpdating = false;
+                    return;
+                }
+
                 // Container not visible yet, defer initialization (limit retries)
                 if (!this._countriesRetries) this._countriesRetries = 0;
                 if (this._countriesRetries < 50) {
@@ -5034,6 +5053,13 @@ export const Store = () => ({
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                // If not on network tab, abort retry loop - chart will update when tab loads
+                if (this.activeTab !== 'network') {
+                    this._protoMixRetries = 0;
+                    this._protoMixUpdating = false;
+                    return;
+                }
+
                 // Container not visible yet, defer initialization (limit retries)
                 if (!this._protoMixRetries) this._protoMixRetries = 0;
                 if (this._protoMixRetries < 50) {

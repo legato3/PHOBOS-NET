@@ -3319,7 +3319,7 @@ def api_forensics_alert_correlation():
         for ip, chain_data in chains.items():
             if len(chain_data['alerts']) > 1:  # Only chains with multiple related alerts
                 formatted_alerts = []
-                for a in chain_data['alerts']:
+                for idx, a in enumerate(chain_data['alerts']):
                     ts_val = _parse_ts(a.get('timestamp', 0) or a.get('ts', 0))
                     if ts_val is None:
                         time_str = 'recent'
@@ -3328,7 +3328,7 @@ def api_forensics_alert_correlation():
                         time_str = datetime.fromtimestamp(ts_val).strftime('%H:%M:%S')
 
                     formatted_alerts.append({
-                        'id': f"{a.get('type', 'alert')}_{ts_val}",
+                        'id': f"{a.get('type', 'alert')}_{ts_val}_{idx}",
                         'type': a.get('type', 'unknown'),
                         'message': a.get('msg', 'Alert'),
                         'time': time_str
