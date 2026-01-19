@@ -35,6 +35,7 @@ _lock_countries = threading.Lock()
 _lock_worldmap = threading.Lock()
 _lock_proto_hierarchy = threading.Lock()
 _lock_noise = threading.Lock()
+_lock_service_cache = threading.Lock() # Lock for service name cache
 _cache_lock = threading.Lock()  # Generic small cache lock (e.g., packet sizes)
 _mock_lock = threading.Lock()  # Lock for mock data cache
 _throttle_lock = threading.Lock()  # Lock for rate limiting
@@ -70,6 +71,7 @@ _bandwidth_cache = {"data": None, "ts": 0}
 _bandwidth_history_cache = {}
 _flows_cache = {"data": None, "ts": 0}
 _common_data_cache = {}
+_service_cache = {}
 
 # ==================== Phase 3: Flow History (in-memory rolling) ====================
 # Rolling history: 30-60 minutes, aggregated by src/dst/port
