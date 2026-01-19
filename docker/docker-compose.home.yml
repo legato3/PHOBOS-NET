@@ -1,0 +1,50 @@
+services:
+  phobos-net:
+    image: legato3/phobos-net:latest
+    container_name: phobos-net
+    restart: unless-stopped
+    ports:
+      - "3434:8080"       # Web dashboard - access at http://localhost:3434
+      - "514:5514/udp"    # Syslog filterlog (OPNsense block/pass events)
+      - "515:5515/udp"    # Syslog application logs
+      - "2055:2055/udp"   # NetFlow collection (nfcapd)
+    environment:
+      # REQUIRED: Set your local timezone (find yours at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+      - TZ=Europe/Amsterdam
+
+      # RECOMMENDED: Configure these for full functionality
+      - SNMP_HOST=192.168.0.1         # Your firewall/router IP address
+      - SNMP_COMMUNITY=public          # SNMP community string (default: public)
+      - DNS_SERVER=192.168.0.1         # Your DNS server for reverse lookups
+      - FIREWALL_IP=192.168.0.1        # Restrict syslog to this IP only (your firewall)
+
+      # OPTIONAL: Threat intelligence API keys (leave commented if not needed)
+      # - VIRUSTOTAL_API_KEY=your_virustotal_api_key_here
+      # - ABUSEIPDB_API_KEY=your_abuseipdb_api_key_here
+
+    volumes:
+      # Data persistence - these directories will be created automatically
+      - ./docker-data:/app/data                    # Databases, watchlists, threat feeds
+      - ./docker-data/nfdump:/var/cache/nfdump    # NetFlow data files
+
+    # Log rotation to prevent disk fill-up
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits (adjust based on your network size)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M  # Use 1536M-2048M for networks with >100 active devices
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
