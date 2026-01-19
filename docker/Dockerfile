@@ -22,11 +22,14 @@ LABEL org.opencontainers.image.title="PHOBOS-NET"
 LABEL org.opencontainers.image.description="Self-hosted, read-only network observability and threat detection"
 LABEL org.opencontainers.image.source="https://github.com/legato3/PHOBOS-NET"
 
-# Copy requirements first for better caching
-COPY docker-data/requirements.txt .
-
-# Install Python dependencies (including gunicorn for production)
-RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
+# Install Python dependencies directly (requirements.txt removed)
+RUN pip install --no-cache-dir \
+    flask \
+    flask-compress \
+    requests \
+    maxminddb \
+    dnspython \
+    gunicorn>=21.2.0
 
 # Copy application files
 # Copy the entire app directory structure
@@ -42,7 +45,6 @@ COPY docker-data/GeoLite2-Country.mmdb /opt/phobos/geoip/GeoLite2-Country.mmdb
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY frontend/ ./frontend/
-#COPY sample_data/ ./sample_data/
 
 # Create a non-root user and group
 RUN groupadd -r phobos && useradd -r -g phobos -u 1000 phobos
