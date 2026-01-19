@@ -18,7 +18,7 @@
         <!-- Server Health Content - Reorganized into 4 Primary Widgets -->
         <template x-if="!serverHealth.loading && !serverHealth.error">
             <div class="grid"
-                style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: var(--space-8);">
+                style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: var(--space-7);">
 
                 <!-- 1. System Health (Composite) -->
                 <div x-data="{ expanded: false }" x-show="serverHealth.cpu || serverHealth.memory || serverHealth.disk">
