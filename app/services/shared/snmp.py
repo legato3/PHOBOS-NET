@@ -26,9 +26,10 @@ _snmp_prev_available_lock = threading.Lock()
 @instrument_service('get_snmp_data')
 def get_snmp_data():
     """Fetch SNMP data from OPNsense firewall with exponential backoff.
-    
+
     OBSERVABILITY: Instrumented to track execution time and call frequency.
     """
+    global _snmp_prev_available
     now = time.time()
     
     with state._snmp_cache_lock:
@@ -296,7 +297,6 @@ def get_snmp_data():
         result["available"] = True
 
         # Emit timeline event if SNMP availability changed
-        global _snmp_prev_available
         with _snmp_prev_available_lock:
             if _snmp_prev_available is False:
                 # SNMP recovered from unavailable state
@@ -342,7 +342,6 @@ def get_snmp_data():
         print(f"SNMP Error: {e} (backoff: {backoff_delay}s, failures: {state._snmp_backoff['failures']})")
 
         # Emit timeline event if SNMP availability changed to unavailable
-        global _snmp_prev_available
         with _snmp_prev_available_lock:
             if _snmp_prev_available is not False:
                 # First failure or transition to unavailable
