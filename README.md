@@ -1,181 +1,127 @@
-# PHOBOS-NET
+# 🛡️ PHOBOS-NET
 
-PHOBOS-NET is a self-hosted **network observability and security dashboard** built as a hobby project.  
-It combines **NetFlow**, **SNMP**, and lightweight analytics into a calm, explainable UI focused on *understanding* network behavior rather than reacting to it.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/legato3/phobos-net-assets/main/images/dashboard-overview.png" width="100%" />
+</p>
 
-This project intentionally prioritizes **clarity, trust, and signal** over alerts, automation, or configuration complexity.
+<p align="center">
+  <a href="https://hub.docker.com/r/legato3/phobos-net">
+    <img src="https://img.shields.io/docker/pulls/legato3/phobos-net?style=flat-square" alt="Docker Pulls"/>
+  </a>
+  <a href="https://hub.docker.com/r/legato3/phobos-net">
+    <img src="https://img.shields.io/docker/v/legato3/phobos-net?style=flat-square" alt="Docker Version"/>
+  </a>
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"/>
+  </a>
+</p>
 
----
+PHOBOS-NET is a **self-hosted, read-only network observability platform** designed for operators who value **truth, clarity, and calm UX** over automation and alert noise.
 
-## ✨ Key Characteristics
+It combines **NetFlow**, **OPNsense firewall logs**, and **SNMP** into a single, explainable view of network behavior.
 
-- Read-only, observational by design
-- No alert storms, no automation, no enforcement
-- Baseline-aware insights that explain *what stands out*
-- Explicit normal states (never silent or empty)
-- Desktop and mobile-friendly layouts
-- Designed to stay understandable as complexity grows
-
----
-
-## ❌ What PHOBOS-NET Is Not
-
-PHOBOS-NET does **not** aim to be:
-
-- A SIEM
-- An IDS/IPS
-- A firewall management interface
-- A configuration or tuning tool
-- An AI/ML-driven anomaly engine
-- A production NOC platform
-
-There are intentionally:
-- No automated actions
-- No policy engines
-- No role-based access control
-- No alerting workflows
+> No blocking.  
+> No enforcement.  
+> No guessing.  
+> Just accurate visibility.
 
 ---
 
-## 🧠 Core Concepts
+## Why PHOBOS-NET
 
-### Stats
-Raw measurements such as:
-- Traffic volume
-- Flow counts
-- Host activity
-- CPU, memory, disk usage
-- Database size and growth
+PHOBOS-NET is intentionally conservative by design:
 
-Stats answer:
-> “What is happening?”
+- **Observational, not reactive**
+- **Truth over completeness**
+- **Signals ≠ alerts**
+- **Health reflects operability, not attacks**
+
+If data is unavailable, PHOBOS-NET shows **UNKNOWN / —** instead of inferring values.
 
 ---
 
-### Insights
-Derived summaries that highlight patterns:
-- Top talkers
-- Dominant protocols
-- Sustained deviations
-- Explicit confirmations of stability
+## Core Capabilities
 
-Insights answer:
-> “What stands out right now?”
+### NetFlow Observation
+- Flow-level visibility via `nfdump`
+- Time-range aware queries (48h default)
+- No flow deduplication or inference
 
-Insights are:
-- Stable (no flapping)
-- Baseline-aware
-- Never empty
-- Clear about time context
+### Firewall Visibility (OPNsense)
+- RFC-compliant `filterlog` parsing
+- Normalized `pass / block / reject` events
+- IPv4 and IPv6 support
+- Separate syslog streams supported (UDP 514 / 515)
 
----
+### SNMP Monitoring (Required)
+- CPU, memory, and interface metrics
+- Authoritative counters (`ifTable` / `ifXTable`)
+- Explicit availability tracking
 
-### Health
-High-level status indicators for:
-- Network
-- System
-- Database
-
-Health answers:
-> “Should I be concerned?”
-
-Health states always include a short explanation, even when healthy.
+### Health, Alerts & Indicators
+- **System Health** reflects monitoring operability only
+- Alerts require strict escalation and persistence
+- Indicators provide context without triggering alarms
 
 ---
 
-## 📊 Features
+## Quick Start (Docker)
 
-### Network & Traffic
-- NetFlow ingestion and aggregation
-- Active flows and top talkers
-- Protocol and port distribution
-- Traffic world map
-- Network health indicators
+```bash
+docker pull legato3/phobos-net:latest
+```
 
-### Hosts
-- Observed hosts based on traffic
-- First-seen / last-seen tracking
-- Per-host traffic and flow counts
-- Internal vs external classification
+```yaml
+services:
+  phobos-net:
+    image: legato3/phobos-net:latest
+    ports:
+      - "3434:8080"
+      - "514:5514/udp"
+      - "515:5515/udp"
+      - "2055:2055/udp"
+    volumes:
+      - ./docker-data:/app/data
+```
 
-### Firewall
-- Blocked event summaries
-- Threat feed integration
-- Lightweight correlation
-- Firewall activity insights
-
-### Server & System
-- CPU, memory, disk metrics
-- NetFlow engine status
-- SNMP interface statistics
-- Syslog activity overview
-- SQLite database statistics
-
-### Insights Engine
-- Reusable insight panels
-- Baseline vs notable insights
-- Expandable breakdowns
-- Consistent behavior across pages
-
-### Mobile Support
-- Mobile-first layouts
-- Predictable expand/collapse behavior
-- Reduced density without loss of meaning
+Access the UI:
+```
+http://<host>:3434
+```
 
 ---
 
-## 🛠 Architecture (High-Level)
+## OPNsense Configuration
 
-- **Backend**
-  - Python
-  - NetFlow parsing (nfdump)
-  - SNMP polling
-  - SQLite for local storage
+SNMP and Syslog are **not optional**.
 
-- **Frontend**
-  - Custom UI components
-  - Stat boxes, insight panels, tables
-  - Focused on visual hierarchy and scanability
-
-- **Data Philosophy**
-  - Read-only
-  - Cached where appropriate
-  - No writes triggered by UI reads
+See:
+- [`docs/OPNSENSE_QUICK_START.md`](docs/OPNSENSE_QUICK_START.md)
+- [`docs/OPNSENSE.md`](docs/OPNSENSE.md)
 
 ---
 
-## 🚦 Project Status
+## Security Model
 
-- **Current version:** v1.1
-- **Stability:** Suitable for hobby and personal use
-- **Focus:** UX consistency, insight quality, polish
-- **Development style:** Iterative, exploratory, no fixed roadmap
-
----
-
-## 🧭 Design Principles
-
-- Every page answers one primary question
-- Insight panels are never empty
-- Normal behavior is explicitly stated
-- Data is reorganized, not hidden
-- Consistency is preferred over cleverness
-- Calm UX is preferred over urgency
+- Runs as non-root
+- No packet capture
+- No active response
+- No automation
+- Read-only by design
 
 ---
 
-## 📄 License
+## Contributing
 
-Provided as-is for personal and educational use.  
-No warranty, no guarantees.
+PHOBOS-NET welcomes contributors who value correctness and calm UX.
+
+Please read:
+- `CONTRIBUTING.md`
+- `SECURITY.md`
+- `AGENTS.md`
 
 ---
 
-## 💡 Why This Exists
+## License
 
-Many monitoring tools are powerful but noisy, complex, or opaque.
-
-PHOBOS-NET is an experiment in building a system that:
-- Explains itself
-- Encourages understanding
-- Stays calm under normal conditions
+MIT License
