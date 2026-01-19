@@ -165,7 +165,8 @@
                     </div>
 
                     <!-- Alerts Modal -->
-                    <div class="modal" x-show="alertHistoryOpen" :style="alertHistoryOpen ? 'display:flex' : 'display:none'"
+                    <div class="modal" x-show="alertHistoryOpen"
+                        :style="alertHistoryOpen ? 'display:flex' : 'display:none'"
                         @click.self="alertHistoryOpen = false">
                         <div class="modal-content" style="max-width: 900px; width: 90vw;">
                             <div class="modal__header"
@@ -176,7 +177,8 @@
                                     aria-label="Close alerts">×</button>
                             </div>
 
-                            <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
                                 <div class="text-muted" style="font-size: 0.9em;">
                                     <span x-text="activeAlertsCount.toLocaleString()"></span>
                                     <span x-text="activeAlertsCount === 1 ? ' active alert' : ' active alerts'"></span>
@@ -189,14 +191,16 @@
                             </div>
 
                             <div class="alert-filters" style="margin-bottom: 12px;">
-                                <select x-model="alertFilter.severity" class="filter-select" aria-label="Filter alerts by severity">
+                                <select x-model="alertFilter.severity" class="filter-select"
+                                    aria-label="Filter alerts by severity">
                                     <option value="all">All Severities</option>
                                     <option value="critical">🔴 Critical</option>
                                     <option value="high">🟠 High</option>
                                     <option value="medium">🟡 Medium</option>
                                     <option value="low">🟢 Low</option>
                                 </select>
-                                <select x-model="alertFilter.type" class="filter-select" aria-label="Filter alerts by type">
+                                <select x-model="alertFilter.type" class="filter-select"
+                                    aria-label="Filter alerts by type">
                                     <option value="all">All Types</option>
                                     <template x-for="t in alertTypes.filter(x => x !== 'all')" :key="t">
                                         <option :value="t" x-text="t"></option>
@@ -210,15 +214,18 @@
                                 <template x-for="(a, idx) in filteredAlerts.slice(0, 50)" :key="idx">
                                     <div class="alert-row" :class="'severity-row-' + a.severity" style="gap: 12px;">
                                         <div class="alert-time" x-text="a.time_ago"></div>
-                                        <div class="alert-info" style="display:flex; align-items:center; gap: 10px; min-width: 0;">
+                                        <div class="alert-info"
+                                            style="display:flex; align-items:center; gap: 10px; min-width: 0;">
                                             <span class="alert-type-badge"
                                                 :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()"
                                                 x-text="a.type || 'alert'"></span>
                                             <span class="alert-msg" :title="a.msg" x-text="a.msg"></span>
                                         </div>
                                         <div style="display:flex; align-items:center; gap: 10px;">
-                                            <div class="alert-severity" :class="'sev-' + a.severity" x-text="a.severity"></div>
-                                            <button class="btn btn--ghost btn--sm" @click="dismissAlert(a)">Dismiss</button>
+                                            <div class="alert-severity" :class="'sev-' + a.severity"
+                                                x-text="a.severity"></div>
+                                            <button class="btn btn--ghost btn--sm"
+                                                @click="dismissAlert(a)">Dismiss</button>
                                         </div>
                                     </div>
                                 </template>
@@ -1194,61 +1201,7 @@
                         </div>
                     </div>
 
-                    <!-- Watchlist Manager Modal -->
-                    <div class="modal" x-show="watchlistModalOpen"
-                        :style="watchlistModalOpen ? 'display:flex' : 'display:none'"
-                        @click.self="watchlistModalOpen = false">
-                        <div class="modal-content" style="max-width: 500px;">
-                            <div
-                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <h2 style="margin:0">👁️ IP Watchlist</h2>
-                                <button @click="watchlistModalOpen = false"
-                                    style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)"
-                                    aria-label="Close watchlist modal">×</button>
-                            </div>
-                            <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">Monitor specific
-                                IPs for
-                                any
-                                network activity. Matches will appear in threat detections.</p>
-                            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                                <input type="text" x-model="watchlistInput" aria-label="IP address to add to watchlist"
-                                    placeholder="Enter IP address (e.g., 192.168.1.100)"
-                                    style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-cyan); border-radius: 4px; color: #fff;">
-                                <button class="btn btn--primary" @click="addToWatchlist()" :disabled="!watchlistInput"
-                                    title="Add IP to watchlist">➕ Add</button>
-                            </div>
-                            <div style="max-height: 300px; overflow-y: auto;">
-                                <template x-if="watchlist.watchlist && watchlist.watchlist.length > 0">
-                                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                                        <template x-for="entry in watchlist.watchlist" :key="entry.ip">
-                                            <div
-                                                style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,243,255,0.05); border: 1px solid rgba(0,243,255,0.1); border-radius: 4px;">
-                                                <div>
-                                                    <span style="color: var(--neon-yellow);" x-text="entry.ip"></span>
-                                                    <span
-                                                        style="font-size: 0.8em; color: var(--text-muted); margin-left: 8px;"
-                                                        x-text="'added ' + entry.added_ago"></span>
-                                                </div>
-                                                <button class="btn btn--danger" @click="removeFromWatchlist(entry.ip)"
-                                                    title="Remove from watchlist"
-                                                    style="padding: 4px 8px; font-size: 0.85em;">🗑️</button>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                                <template x-if="!watchlist.watchlist || watchlist.watchlist.length === 0">
-                                    <div style="color: var(--text-muted); text-align: center; padding: 24px;">
-                                        No IPs in watchlist. Add IPs above to monitor them.
-                                    </div>
-                                </template>
-                            </div>
-                            <div
-                                style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,243,255,0.1); text-align: right;">
-                                <span style="color: var(--text-muted); font-size: 0.85em;"
-                                    x-text="(watchlist.count || 0) + ' IPs in watchlist'"></span>
-                            </div>
-                        </div>
-                    </div>
+
 
                     <!-- Flow Details Modal -->
                     <div class="modal" x-show="flowDetailsModalOpen"
@@ -1460,11 +1413,7 @@
                                     :disabled="!selectedFlow?.dst">
                                     Investigate Destination IP
                                 </button>
-                                <button class="btn btn--primary"
-                                    @click="addToWatchlist(selectedFlow?.src); closeFlowDetailsModal();"
-                                    :disabled="!selectedFlow?.src" title="Add source IP to watchlist">
-                                    Add Source to Watchlist
-                                </button>
+
                             </div>
                         </div>
                     </div>
@@ -1965,11 +1914,7 @@
                                             :disabled="!selectedEvent?.dst">
                                             Investigate Destination IP
                                         </button>
-                                        <button class="btn btn--primary"
-                                            @click="addToWatchlist(selectedEvent?.src); closeEventDetailsModal();"
-                                            :disabled="!selectedEvent?.src" title="Add source IP to watchlist">
-                                            Add Source to Watchlist
-                                        </button>
+
                                     </div>
                                 </template>
                                 <!-- Firewall Actions -->
@@ -1985,11 +1930,7 @@
                                             :disabled="!selectedEvent?.dst_ip">
                                             Investigate Destination IP
                                         </button>
-                                        <button class="btn btn--primary"
-                                            @click="addToWatchlist(selectedEvent?.src_ip); closeEventDetailsModal();"
-                                            :disabled="!selectedEvent?.src_ip" title="Add source IP to watchlist">
-                                            Add Source to Watchlist
-                                        </button>
+
                                     </div>
                                 </template>
                                 <!-- Threat Actions -->
@@ -2000,12 +1941,7 @@
                                             :disabled="!selectedEvent?.ip && !selectedEvent?.src_ip">
                                             Investigate IP
                                         </button>
-                                        <button class="btn btn--primary"
-                                            @click="addToWatchlist(selectedEvent?.ip || selectedEvent?.src_ip); closeEventDetailsModal();"
-                                            :disabled="!selectedEvent?.ip && !selectedEvent?.src_ip"
-                                            title="Add IP to watchlist">
-                                            Add to Watchlist
-                                        </button>
+
                                     </div>
                                 </template>
                             </div>

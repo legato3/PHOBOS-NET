@@ -279,10 +279,7 @@ export const Store = () => ({
     timeline: { events: [], count: 0, stats: {}, loading: true, viewLimit: 20, expandedEvents: new Set() },
 
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
-    watchlist: { watchlist: [], count: 0, loading: true },
-    watchlistInput: '',
-    alertHistoryOpen: false,
-    watchlistModalOpen: false,
+
     ipInvestigationModalOpen: false,
     flowDetailsModalOpen: false,
     selectedFlow: null,
@@ -326,7 +323,7 @@ export const Store = () => ({
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
-    alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'watchlist', 'off_hours', 'new_country', 'protocol_anomaly', 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly'],
+    alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'off_hours', 'new_country', 'protocol_anomaly', 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly'],
 
     // Settings / Status
     notify: { email: true, webhook: true, muted: false },
@@ -1207,8 +1204,8 @@ export const Store = () => ({
         // 1. NetFlow operability - primary data source
         const netflowStatus = this.serverHealth?.netflow;
         const netflowStalled = netflowStatus?.status === 'stalled' ||
-                              netflowStatus?.stalled === true ||
-                              (netflowStatus?.files_available === 0 && !netflowStatus?.loading);
+            netflowStatus?.stalled === true ||
+            (netflowStatus?.files_available === 0 && !netflowStatus?.loading);
         if (netflowStalled) {
             issues.push('netflow_stalled');
             issueDetails.push('NetFlow data stalled');
@@ -1224,8 +1221,8 @@ export const Store = () => ({
         // 3. Syslog ingestion - firewall logs source
         const syslogStatus = this.serverHealth?.syslog;
         const syslogDown = syslogStatus?.status === 'error' ||
-                          syslogStatus?.active === false ||
-                          (this.firewall?.syslog_active === false && this.activeTab === 'firewall');
+            syslogStatus?.active === false ||
+            (this.firewall?.syslog_active === false && this.activeTab === 'firewall');
         if (syslogDown) {
             issues.push('syslog_down');
             issueDetails.push('Syslog ingestion inactive');
@@ -1884,7 +1881,7 @@ export const Store = () => ({
                 this.fetchProtocolAnomalies();
                 this.fetchRecentBlocks();
                 this.fetchFeedHealth();
-                this.fetchWatchlist();
+
                 this.fetchMaliciousPorts();
                 this.fetchThreatActivityTimeline();
                 this.lastFetch.security = now;
@@ -1996,7 +1993,7 @@ export const Store = () => ({
                 this.fetchProtocolAnomalies(),
                 this.fetchRecentBlocks(),
                 this.fetchFeedHealth(),
-                this.fetchWatchlist(),
+
                 this.fetchMaliciousPorts()
             ]);
             this.lastFetch.security = now;
@@ -3276,46 +3273,7 @@ export const Store = () => ({
         finally { this.topThreatIPs.loading = false; }
     },
 
-    async fetchWatchlist() {
-        this.watchlist.loading = true;
-        try {
-            const res = await fetch('/api/security/watchlist');
-            if (res.ok) {
-                const d = await res.json();
-                this.watchlist = { ...d, loading: false };
-            }
-        } catch (e) { console.error('Watchlist fetch error:', e); }
-        finally { this.watchlist.loading = false; }
-    },
 
-    async addToWatchlist(ip) {
-        if (!ip) ip = this.watchlistInput.trim();
-        if (!ip) return;
-        try {
-            const res = await fetch('/api/security/watchlist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip })
-            });
-            if (res.ok) {
-                this.watchlistInput = '';
-                this.fetchWatchlist();
-            }
-        } catch (e) { console.error('Add to watchlist error:', e); }
-    },
-
-    async removeFromWatchlist(ip) {
-        try {
-            const res = await fetch('/api/security/watchlist', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip })
-            });
-            if (res.ok) {
-                this.fetchWatchlist();
-            }
-        } catch (e) { console.error('Remove from watchlist error:', e); }
-    },
 
     exportThreats(format) {
         window.open(`/api/security/threats/export?format=${format}`, '_blank');
@@ -6563,7 +6521,7 @@ export const Store = () => ({
                 this.fetchMitreHeatmap();
                 this.fetchProtocolAnomalies();
                 this.fetchFeedHealth();
-                this.fetchWatchlist();
+
                 this.fetchMaliciousPorts();
                 this.fetchThreatActivityTimeline();
                 this.lastFetch.security = now;

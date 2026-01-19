@@ -31,14 +31,7 @@
         </div>
 
         <!-- Security Actions -->
-        <div class="flex gap-2 mb-6 flex-wrap">
-            <button class="btn-sm" @click="watchlistModalOpen = true" aria-label="Manage watchlist">👁️
-                Watchlist</button>
-            <button class="btn-sm" @click="exportThreats('csv')" aria-label="Export threats as CSV">📥
-                Export</button>
-            <button class="btn-sm" @click="refreshFeed()" aria-label="Refresh threat feeds">🔄
-                Refresh</button>
-        </div>
+
 
         <!-- Security Widgets Grid -->
         <div class="security-grid">
@@ -202,7 +195,7 @@
                         <option value="suspicious_port">Suspicious Port</option>
                         <option value="large_transfer">Large Transfer</option>
                         <option value="off_hours">Off-Hours</option>
-                        <option value="watchlist">Watchlist</option>
+
                     </select>
                 </div>
                 <div class="alert-summary">
