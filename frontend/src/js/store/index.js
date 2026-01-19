@@ -1317,11 +1317,6 @@ export const Store = () => ({
         };
     },
 
-    dismissAlert(msg) {
-        this.dismissedAlerts.add(msg);
-        localStorage.setItem('dismissedAlerts', JSON.stringify([...this.dismissedAlerts]));
-    },
-
     startTimer() {
         if (this.refreshTimer) clearInterval(this.refreshTimer);
         this.refreshTimer = setInterval(() => {
@@ -2782,6 +2777,7 @@ export const Store = () => ({
 
     get filteredAlerts() {
         let alerts = this.alertHistory.alerts || [];
+        alerts = alerts.filter(a => !this.dismissedAlerts.has(this.alertKey(a)));
         if (this.alertFilter.severity !== 'all') {
             alerts = alerts.filter(a => a.severity === this.alertFilter.severity);
         }
@@ -2789,6 +2785,44 @@ export const Store = () => ({
             alerts = alerts.filter(a => a.type === this.alertFilter.type);
         }
         return alerts;
+    },
+
+    get activeAlertsCount() {
+        return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.has(this.alertKey(a))).length;
+    },
+
+    get activeAlerts() {
+        return (this.alertHistory.alerts || []).filter(a => !this.dismissedAlerts.has(this.alertKey(a)));
+    },
+
+    alertKey(a) {
+        const ts = a?.ts ?? a?.last_seen ?? a?.first_seen ?? '';
+        const type = a?.type ?? '';
+        const msg = a?.msg ?? '';
+        const ip = a?.ip ?? '';
+        return `${type}|${ip}|${ts}|${msg}`;
+    },
+
+    persistDismissedAlerts() {
+        try {
+            localStorage.setItem('dismissedAlerts', JSON.stringify(Array.from(this.dismissedAlerts)));
+        } catch (e) {
+            console.error('Failed to persist dismissed alerts:', e);
+        }
+    },
+
+    dismissAlert(a) {
+        const next = new Set(this.dismissedAlerts);
+        next.add(this.alertKey(a));
+        this.dismissedAlerts = next;
+        this.persistDismissedAlerts();
+    },
+
+    dismissAllAlerts() {
+        const next = new Set(this.dismissedAlerts);
+        (this.alertHistory.alerts || []).forEach(a => next.add(this.alertKey(a)));
+        this.dismissedAlerts = next;
+        this.persistDismissedAlerts();
     },
 
     get filteredRecentBlocks() {
@@ -5993,35 +6027,8 @@ export const Store = () => ({
     },
 
     openAlerts() {
-        // Navigate to Security tab and ensure alert history is loaded
-        this.loadTab('security');
-        // Ensure alert history is fetched if not already loaded
-        if (this.alertHistory.loading || !this.alertHistory.alerts || this.alertHistory.alerts.length === 0) {
-            this.fetchAlertHistory();
-        }
-        // Scroll to alert history section after a brief delay to allow tab to render
-        this.$nextTick(() => {
-            setTimeout(() => {
-                const alertSection = document.getElementById('section-security');
-                if (alertSection) {
-                    // Try to find alert history widget by searching for the title
-                    const headings = alertSection.querySelectorAll('h2');
-                    let alertWidget = null;
-                    for (const h2 of headings) {
-                        if (h2.textContent && h2.textContent.includes('Alert History')) {
-                            alertWidget = h2.closest('.card');
-                            break;
-                        }
-                    }
-                    if (alertWidget) {
-                        alertWidget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    } else {
-                        // Fallback: scroll to security section
-                        alertSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }
-            }, 300);
-        });
+        this.alertHistoryOpen = true;
+        this.fetchAlertHistory();
     },
 
     navigateToActiveFlows() {

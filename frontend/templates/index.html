@@ -164,6 +164,72 @@
                         </div>
                     </div>
 
+                    <!-- Alerts Modal -->
+                    <div class="modal" x-show="alertHistoryOpen" :style="alertHistoryOpen ? 'display:flex' : 'display:none'"
+                        @click.self="alertHistoryOpen = false">
+                        <div class="modal-content" style="max-width: 900px; width: 90vw;">
+                            <div class="modal__header"
+                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                <h2 style="margin:0">🔔 Current Alerts</h2>
+                                <button @click="alertHistoryOpen = false"
+                                    style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)"
+                                    aria-label="Close alerts">×</button>
+                            </div>
+
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <div class="text-muted" style="font-size: 0.9em;">
+                                    <span x-text="activeAlertsCount.toLocaleString()"></span>
+                                    <span x-text="activeAlertsCount === 1 ? ' active alert' : ' active alerts'"></span>
+                                </div>
+                                <div style="display:flex; gap: 8px; align-items:center;">
+                                    <button class="btn btn--ghost btn--sm" @click="fetchAlertHistory()">Refresh</button>
+                                    <button class="btn btn--danger btn--sm" @click="dismissAllAlerts()"
+                                        :disabled="activeAlertsCount === 0">Dismiss all</button>
+                                </div>
+                            </div>
+
+                            <div class="alert-filters" style="margin-bottom: 12px;">
+                                <select x-model="alertFilter.severity" class="filter-select" aria-label="Filter alerts by severity">
+                                    <option value="all">All Severities</option>
+                                    <option value="critical">🔴 Critical</option>
+                                    <option value="high">🟠 High</option>
+                                    <option value="medium">🟡 Medium</option>
+                                    <option value="low">🟢 Low</option>
+                                </select>
+                                <select x-model="alertFilter.type" class="filter-select" aria-label="Filter alerts by type">
+                                    <option value="all">All Types</option>
+                                    <template x-for="t in alertTypes.filter(x => x !== 'all')" :key="t">
+                                        <option :value="t" x-text="t"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div x-show="alertHistory.loading" class="spinner" style="margin: 20px auto;"></div>
+
+                            <div class="alert-list" x-show="!alertHistory.loading">
+                                <template x-for="(a, idx) in filteredAlerts.slice(0, 50)" :key="idx">
+                                    <div class="alert-row" :class="'severity-row-' + a.severity" style="gap: 12px;">
+                                        <div class="alert-time" x-text="a.time_ago"></div>
+                                        <div class="alert-info" style="display:flex; align-items:center; gap: 10px; min-width: 0;">
+                                            <span class="alert-type-badge"
+                                                :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()"
+                                                x-text="a.type || 'alert'"></span>
+                                            <span class="alert-msg" :title="a.msg" x-text="a.msg"></span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap: 10px;">
+                                            <div class="alert-severity" :class="'sev-' + a.severity" x-text="a.severity"></div>
+                                            <button class="btn btn--ghost btn--sm" @click="dismissAlert(a)">Dismiss</button>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template x-if="filteredAlerts.length === 0">
+                                    <div class="alert-empty" x-text="'✅ No active alerts'"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- IP Detail Modal -->
                     <div class="modal" x-show="modalOpen" :style="modalOpen ? 'display:flex' : 'display:none'"
                         @click.self="modalOpen = false">
