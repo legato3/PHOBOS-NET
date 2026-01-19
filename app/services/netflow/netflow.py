@@ -264,8 +264,14 @@ def get_traffic_direction(ip, tf):
     
     # Fetch data (two nfdump calls)
     # Filter must be LAST arguments
-    out = run_nfdump(["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
-    in_data = run_nfdump(["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+    # PERFORMANCE: Run queries in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_out = executor.submit(run_nfdump, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
+        future_in = executor.submit(run_nfdump, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+
+        out = future_out.result()
+        in_data = future_in.result()
+
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
     upload = out_parsed[0]["bytes"] if out_parsed else 0
