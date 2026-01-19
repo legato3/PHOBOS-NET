@@ -13,8 +13,9 @@ PHOBOS-NET is read-only and safe by design.
 
 ---
 
-## 1. Start PHOBOS-NET
+## 1. Running PHOBOS-NET
 
+Create the data folder:
 ```bash
 mkdir phobos-net
 cd phobos-net
