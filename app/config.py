@@ -21,19 +21,21 @@ OBS_ROUTE_SLOW_WARN_MS = float(os.getenv('OBS_ROUTE_SLOW_WARN_MS', '2000'))  # W
 OBS_SERVICE_SLOW_MS = float(os.getenv('OBS_SERVICE_SLOW_MS', '500'))  # Warn if service function > 500ms
 
 # Paths
-MMDB_CITY = os.environ.get("MMDB_CITY", "/app/data/GeoLite2-City.mmdb")
-MMDB_ASN = os.environ.get("MMDB_ASN", "/app/data/GeoLite2-ASN.mmdb")
-THREATLIST_PATH = "/root/threat-ips.txt"
-THREAT_FEED_URL_PATH = "/root/threat-feed.url"
-THREAT_WHITELIST = "/root/threat-whitelist.txt"
-WEBHOOK_PATH = "/root/netflow-webhook.url"
-SMTP_CFG_PATH = os.getenv("SMTP_CFG_PATH", "/root/netflow-smtp.json")
-NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/root/netflow-notify.json")
-THRESHOLDS_CFG_PATH = os.getenv("THRESHOLDS_CFG_PATH", "/root/netflow-thresholds.json")
-CONFIG_PATH = os.getenv("CONFIG_PATH", "/root/netflow-config.json")
+MMDB_CITY = os.environ.get("MMDB_CITY", "/opt/phobos/geoip/GeoLite2-City.mmdb")
+MMDB_ASN = os.environ.get("MMDB_ASN", "/opt/phobos/geoip/GeoLite2-ASN.mmdb")
+NFCAPD_DIR = os.environ.get("NFCAPD_DIR", "/var/cache/nfdump")
+THREATLIST_PATH = os.environ.get("THREATLIST_PATH", "/app/data/threat-ips.txt")
+THREAT_FEEDS_PATH = os.environ.get("THREAT_FEEDS_PATH", "/opt/phobos/config/threat-feeds.txt")
+THREAT_FEED_URL_PATH = os.environ.get("THREAT_FEED_URL_PATH", "/app/data/threat-feed.url")
+THREAT_WHITELIST = os.environ.get("THREAT_WHITELIST", "/app/data/threat-whitelist.txt")
+WEBHOOK_PATH = os.environ.get("WEBHOOK_PATH", "/app/data/netflow-webhook.url")
+SMTP_CFG_PATH = os.getenv("SMTP_CFG_PATH", "/app/data/netflow-smtp.json")
+NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/app/data/netflow-notify.json")
+THRESHOLDS_CFG_PATH = os.getenv("THRESHOLDS_CFG_PATH", "/app/data/netflow-thresholds.json")
+CONFIG_PATH = os.getenv("CONFIG_PATH", "/app/data/netflow-config.json")
 SAMPLE_DATA_PATH = "sample_data/nfdump_flows.csv"
-WATCHLIST_PATH = "/root/watchlist.txt"
-SECURITY_WEBHOOK_PATH = "/root/security-webhook.json"
+WATCHLIST_PATH = os.environ.get("WATCHLIST_PATH", "/app/data/watchlist.txt")
+SECURITY_WEBHOOK_PATH = os.environ.get("SECURITY_WEBHOOK_PATH", "/app/data/security-webhook.json")
 
 # Database paths
 TRENDS_DB_PATH = os.getenv("TRENDS_DB_PATH", "netflow-trends.sqlite")
@@ -41,7 +43,7 @@ _env_fw_db = os.getenv("FIREWALL_DB_PATH")
 if _env_fw_db and _env_fw_db.strip():
     FIREWALL_DB_PATH = _env_fw_db
 else:
-    _default_fw_db = "/root/firewall.db"
+    _default_fw_db = "/app/data/firewall.db"
     _fw_dir = os.path.dirname(_default_fw_db) or "/"
     if os.path.isdir(_fw_dir) and os.access(_fw_dir, os.W_OK):
         FIREWALL_DB_PATH = _default_fw_db

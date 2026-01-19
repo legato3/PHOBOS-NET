@@ -55,6 +55,10 @@ scp -i "$SSH_KEY" ../docker-data/GeoLite2-City.mmdb $USER@$SERVER:$REMOTE_DIR/do
 scp -i "$SSH_KEY" ../docker-data/GeoLite2-ASN.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 scp -i "$SSH_KEY" ../docker-data/GeoLite2-Country.mmdb $USER@$SERVER:$REMOTE_DIR/docker-data/ 2>/dev/null || true
 
+# Fix permissions for non-root container user (UID 1000)
+echo "🔒 Setting permissions for non-root user..."
+ssh -i "$SSH_KEY" $USER@$SERVER "chown -R 1000:1000 $REMOTE_DIR/docker-data"
+
 if [ "$REBUILD" = true ]; then
     # Full rebuild (needed for Dockerfile/requirements.txt changes)
     echo "🔨 Building and starting container (full rebuild)..."

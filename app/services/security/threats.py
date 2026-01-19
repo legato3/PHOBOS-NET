@@ -9,7 +9,7 @@ from collections import defaultdict, deque
 from app.core.app_state import add_app_log
 from app.services.shared.observability import instrument_service
 from app.config import (
-    WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
+    WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEEDS_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
     SECURITY_WEBHOOK_PATH, WEBHOOK_PATH, PORTS, SUSPICIOUS_PORTS, BRUTE_FORCE_PORTS,
     PORT_SCAN_THRESHOLD, PORT_SCAN_WINDOW, EXFIL_THRESHOLD_MB, EXFIL_RATIO_THRESHOLD,
     DNS_QUERY_THRESHOLD, BUSINESS_HOURS_START, BUSINESS_HOURS_END, OFF_HOURS_THRESHOLD_MB,
@@ -85,8 +85,8 @@ def fetch_threat_feed():
         
         # Support multiple feeds from threat-feeds.txt
         feed_entries = []
-        # Try /app first (Docker), then /root (production)
-        feeds_file = '/app/threat-feeds.txt' if os.path.exists('/app/threat-feeds.txt') else '/root/threat-feeds.txt'
+        # Use configured path
+        feeds_file = THREAT_FEEDS_PATH
         if os.path.exists(feeds_file):
             with open(feeds_file, 'r') as f:
                 for line in f:

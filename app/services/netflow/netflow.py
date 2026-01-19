@@ -5,7 +5,7 @@ import threading
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX
+from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX, NFCAPD_DIR
 from app.services.shared.helpers import get_time_range
 
 # Global state for nfdump service
@@ -56,7 +56,7 @@ def run_nfdump(args, tf=None):
         # Try running actual nfdump first
         if state._has_nfdump:
             try:
-                cmd = ["nfdump", "-R", "/var/cache/nfdump", "-o", "csv"]
+                cmd = ["nfdump", "-R", NFCAPD_DIR, "-o", "csv"]
                 if tf:
                     cmd.extend(["-t", tf])
                 cmd.extend(args)

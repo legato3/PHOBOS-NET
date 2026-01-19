@@ -79,7 +79,7 @@ from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _fire
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
     NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST,
-    LONG_LOW_DURATION_THRESHOLD, LONG_LOW_BYTES_THRESHOLD
+    LONG_LOW_DURATION_THRESHOLD, LONG_LOW_BYTES_THRESHOLD, NFCAPD_DIR
 )
 
 # Create Blueprint
@@ -269,7 +269,7 @@ def health_check():
     
     checks = {
         'database': False,
-        'disk_space': check_disk_space('/var/cache/nfdump'),
+        'disk_space': check_disk_space(NFCAPD_DIR),
         'syslog_active': syslog_active,
         'nfdump_available': state._has_nfdump,
         'memory_usage_mb': 0
@@ -490,12 +490,12 @@ def api_server_health():
         data['disk']['root'] = root_disk
 
         # NetFlow data directory
-        nfdump_disk = check_disk_space('/var/cache/nfdump')
+        nfdump_disk = check_disk_space(NFCAPD_DIR)
         data['disk']['nfdump'] = nfdump_disk
 
         # Count nfdump files
         try:
-            nfdump_dir = '/var/cache/nfdump'
+            nfdump_dir = NFCAPD_DIR
             if os.path.exists(nfdump_dir):
                 files = [f for f in os.listdir(nfdump_dir) if f.startswith('nfcapd.')]
                 data['disk']['nfdump_files'] = len(files)
@@ -558,7 +558,7 @@ def api_server_health():
 
     # NetFlow Statistics
     try:
-        nfdump_dir = '/var/cache/nfdump'
+        nfdump_dir = NFCAPD_DIR
         netflow_data = {
             'available': state._has_nfdump if state._has_nfdump is not None else False,
             'directory': nfdump_dir,

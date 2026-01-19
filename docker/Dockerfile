@@ -17,6 +17,11 @@ RUN apt-get update && apt-get install -y \
     whois \
     && rm -rf /var/lib/apt/lists/*
 
+# Add OCI image labels
+LABEL org.opencontainers.image.title="PHOBOS-NET"
+LABEL org.opencontainers.image.description="Self-hosted, read-only network observability and threat detection"
+LABEL org.opencontainers.image.source="https://github.com/phobos-net"
+
 # Copy requirements first for better caching
 COPY docker-data/requirements.txt .
 
@@ -26,26 +31,44 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn>=21.2.0
 # Copy application files
 # Copy the entire app directory structure
 COPY app/ ./app/
-COPY docker-data/threat-feeds.txt .
-COPY docker-data/GeoLite2-City.mmdb /root/GeoLite2-City.mmdb
-COPY docker-data/GeoLite2-ASN.mmdb /root/GeoLite2-ASN.mmdb
-COPY docker-data/GeoLite2-Country.mmdb /root/GeoLite2-Country.mmdb
+
+# Setup /opt/phobos directories for static config and geoip
+RUN mkdir -p /opt/phobos/config /opt/phobos/geoip
+
+COPY docker-data/threat-feeds.txt /opt/phobos/config/threat-feeds.txt
+COPY docker-data/GeoLite2-City.mmdb /opt/phobos/geoip/GeoLite2-City.mmdb
+COPY docker-data/GeoLite2-ASN.mmdb /opt/phobos/geoip/GeoLite2-ASN.mmdb
+COPY docker-data/GeoLite2-Country.mmdb /opt/phobos/geoip/GeoLite2-Country.mmdb
 COPY scripts/gunicorn_config.py ./gunicorn_config.py
 COPY docker/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY frontend/ ./frontend/
 #COPY sample_data/ ./sample_data/
 
+# Create a non-root user and group
+RUN groupadd -r phobos && useradd -r -g phobos -u 1000 phobos
+
+# Create directories and set permissions for non-root user
+RUN mkdir -p /var/cache/nfdump /root /var/run /app/data \
+    && chown -R phobos:phobos /app /opt/phobos /var/cache/nfdump /var/run /app/data
+
 # Make entrypoint script executable
 RUN chmod +x docker-entrypoint.sh
 
-# Create directories for data (if needed)
-RUN mkdir -p /var/cache/nfdump /root /var/run
+# Expose ports
+# 8080: Web Dashboard
+# 2055: NetFlow (nfcapd)
+# 5514: Syslog (internal)
+# 5515: Firewall Syslog (internal)
+EXPOSE 8080 2055 5514/udp 5515/udp
 
-# Expose port
-EXPOSE 8080
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    SYSLOG_PORT=5514 \
+    FIREWALL_SYSLOG_PORT=5515 \
+    PATH="/home/phobos/.local/bin:$PATH"
 
-# Set environment variables (can be overridden in docker-compose)
-ENV PYTHONUNBUFFERED=1
+# Switch to non-root user
+USER phobos
 
 # Use entrypoint script to start nfcapd and Gunicorn
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

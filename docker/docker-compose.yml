@@ -7,37 +7,36 @@ services:
     ports:
       - "3434:8080" # Web dashboard
       - "2055:2055/udp" # NetFlow collection (nfcapd)
-      - "514:514/udp" # Syslog receiver (filterlog)
-      - "515:515/udp" # Firewall syslog (non-filterlog events)
+      - "514:5514/udp" # Syslog receiver (maps host 514 to container 5514)
+      - "515:5515/udp" # Firewall syslog (maps host 515 to container 5515)
     environment:
       # Production settings
       - PYTHONUNBUFFERED=1
       - WORKDIR=/app
 
-      # Application settings (optional - defaults provided)
+      # Persistence & Paths (Defaults set in Dockerfile/config.py, overridden here for clarity)
+      - NFCAPD_DIR=/var/cache/nfdump
+      - THREAT_FEEDS_PATH=/opt/phobos/config/threat-feeds.txt
+
+      # Syslog settings (Non-root container uses high ports internally)
+      - SYSLOG_BIND=0.0.0.0
+      - SYSLOG_PORT=5514
+      - FIREWALL_SYSLOG_BIND=0.0.0.0
+      - FIREWALL_SYSLOG_PORT=5515
+
+      # Firewall Source Control
+      - FIREWALL_IP=0.0.0.0 # Accepts logs from any source (Restrict to FW IP in prod)
+      # Optional Integrations
       # - DNS_SERVER=192.168.0.6
       # - SNMP_HOST=192.168.0.1
       # - SNMP_COMMUNITY=Phoboshomesnmp_3
-
-      # Syslog settings
-      # FIREWALL_IP=0.0.0.0 accepts logs from any source (set to specific IP for production)
-      - FIREWALL_IP=0.0.0.0
-      - SYSLOG_BIND=0.0.0.0
-      - SYSLOG_PORT=514
-      # Firewall syslog (port 515) - non-filterlog events
-      - FIREWALL_SYSLOG_BIND=0.0.0.0
-      - FIREWALL_SYSLOG_PORT=515
-
-      # Database paths (use volumes for persistence if needed)
-      - FIREWALL_DB_PATH=/app/data/firewall.db
-      - TRENDS_DB_PATH=/app/data/netflow-trends.sqlite
-      # Optional API keys
       # - VIRUSTOTAL_API_KEY=
       # - ABUSEIPDB_API_KEY=
+
     volumes:
-      # Mount data directory for database persistence and GeoIP databases
+      # Persistent User Data (DBs, Threat Lists, Watchlists)
       - ../docker-data:/app/data
-      # Mount NetFlow data directory for persistence (nfcapd stores data here)
+      # NetFlow Data Cache
       - ../docker-data/nfdump:/var/cache/nfdump
     restart: unless-stopped
     # Resource limits matching production (optional, can be adjusted)

@@ -41,4 +41,5 @@ For fastest updates, use `docker cp` to inject files directly into the running c
 - **Local Development**: `docker compose -f docker/docker-compose.yml up -d`
 - **Dashboard URL**: http://localhost:3434
 - **Production Server**: PROX-DOCKER-2 (192.168.0.73:3434)
-- **Ports**: 3434 (HTTP), 514 (UDP Syslog), 2055 (UDP NetFlow)
+- **Ports**: 3434 (HTTP), 514 (UDP Syslog), 515 (UDP Firewall Syslog), 2055 (UDP NetFlow)
+- **Security**: container runs as non-root user `phobos` (uid 1000)

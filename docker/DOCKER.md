@@ -46,8 +46,10 @@ docker build -f docker/Dockerfile -t phobos-net .
 docker run -d \
   --name phobos-net \
   -p 3434:8080 \
+  -p 3434:8080 \
   -p 2055:2055/udp \
-  -p 514:514/udp \
+  -p 514:5514/udp \
+  -p 515:5515/udp \
   -v $(pwd)/docker-data:/app/data \
   phobos-net
 
@@ -63,6 +65,7 @@ docker rm phobos-net
 
 - **Sample Data**: The application automatically uses sample data from `sample_data/nfdump_flows.csv` when nfdump is not available or when no NetFlow files are present
 - **SQLite Databases**: Database files are stored in the `docker-data/` directory (created automatically)
+- **Non-Root User**: Runs as user `phobos` (uid 1000) for security
 - **Hot Reload**: For development, mount the code directory as a volume (see Development section)
 
 ## Environment Variables
@@ -76,10 +79,10 @@ environment:
   - DNS_SERVER=192.168.0.6
   - SNMP_HOST=192.168.0.1
   - SNMP_COMMUNITY=your_community
-  - FIREWALL_DB_PATH=/app/data/firewall.db
-  - TRENDS_DB_PATH=/app/data/netflow-trends.sqlite
   - VIRUSTOTAL_API_KEY=your_key
   - ABUSEIPDB_API_KEY=your_key
+  # Persistence (mapped to /opt/phobos internally)
+  - THREAT_FEEDS_PATH=/opt/phobos/config/threat-feeds.txt
 ```
 
 ## Development Mode
@@ -108,7 +111,7 @@ Database files and NetFlow data are stored in the `docker-data/` directory:
 docker-data/
 ├── firewall.db          # Firewall syslog database
 ├── netflow-trends.sqlite # NetFlow trends database
-├── GeoLite2-City.mmdb   # MaxMind GeoIP City DB (Required for Map)
+├── GeoLite2-City.mmdb   # MaxMind GeoIP City DB (Required for Map) (Copied to /opt/phobos at build, but can be mounted here to override if path configured)
 ├── GeoLite2-ASN.mmdb    # MaxMind GeoIP ASN DB (Required for Map)
 └── nfdump/              # NetFlow data files (nfcapd storage)
     ├── nfcapd.202601131800
@@ -156,11 +159,11 @@ lsof -i :3434
 
 ### Permission issues
 
-If you encounter permission issues with mounted volumes:
+If you encounter permission issues with mounted volumes (container runs as uid 1000):
 
 ```bash
 # Fix permissions (macOS/Linux)
-sudo chown -R $USER:$USER docker-data/
+sudo chown -R 1000:1000 docker-data/
 ```
 
 ### Reset everything
@@ -202,12 +205,15 @@ The Docker container runs multiple services:
    - 1 worker, 8 threads (gthread worker class)
    - Matches production configuration
 
-3. **Syslog Receiver** - UDP port 514
-   - Receives firewall syslog messages
-   - Started automatically by the Flask application
+3. **Syslog Receiver** - UDP port 5514 (mapped to 514)
+   - Receives firewall syslog messages (filterlog)
    - Stores data in SQLite database
 
-4. **SNMP Support** - python3-pysnmp4 installed
+4. **Firewall Syslog** - UDP port 5515 (mapped to 515)
+   - Receives general firewall logs / connection events
+   - Separate from filterlog traffic
+
+5. **SNMP Support** - python3-pysnmp4 installed
    - Available for SNMP polling (configured via environment variables)
    - Set `SNMP_HOST` and `SNMP_COMMUNITY` to enable
 
@@ -215,7 +221,8 @@ The Docker container runs multiple services:
 
 - **3434/tcp** - Web dashboard (HTTP) - mapped to container port 8080
 - **2055/udp** - NetFlow collection (nfcapd)
-- **514/udp** - Syslog receiver
+- **514/udp** - Syslog receiver (Mapped to internal 5514)
+- **515/udp** - Firewall Syslog (Mapped to internal 5515)
 
 To receive NetFlow data, configure your router/firewall to send NetFlow exports to the container's IP on port 2055.
 

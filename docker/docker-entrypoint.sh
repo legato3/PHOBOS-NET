@@ -1,8 +1,15 @@
 #!/bin/bash
 set -e
 
+# Configuration with defaults
+NFCAPD_PORT=${NFCAPD_PORT:-2055}
+NFCAPD_DIR=${NFCAPD_DIR:-/var/cache/nfdump}
+WEB_PORT=${WEB_PORT:-8080}
+WORKERS=${GUNICORN_WORKERS:-1}
+THREADS=${GUNICORN_THREADS:-8}
+
 # Start nfcapd in the background for NetFlow collection
-echo "Starting nfcapd NetFlow collector..."
+echo "Starting nfcapd NetFlow collector on port $NFCAPD_PORT..."
 # -w: working directory (output directory for flow files)
 # -D: daemonize (run in background)
 # -p: port to listen on
@@ -11,17 +18,17 @@ echo "Starting nfcapd NetFlow collector..."
 # -e: enable auto-expire
 # -t: rotation interval (300 seconds = 5 minutes)
 # -P: PID file location
-nfcapd -w /var/cache/nfdump -D -p 2055 -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid
+nfcapd -w "$NFCAPD_DIR" -D -p "$NFCAPD_PORT" -y -B 8388608 -e -t 300 -P /var/run/nfcapd.pid
 
 # Wait a moment for nfcapd to start
 sleep 1
 
 # Start Gunicorn (production server)
-echo "Starting Gunicorn application server..."
+echo "Starting Gunicorn application server on port $WEB_PORT..."
 exec python3 -m gunicorn \
-    --bind 0.0.0.0:8080 \
-    --workers 1 \
-    --threads 8 \
+    --bind "0.0.0.0:$WEB_PORT" \
+    --workers "$WORKERS" \
+    --threads "$THREADS" \
     --worker-class gthread \
     --worker-connections 1000 \
     --timeout 30 \
