@@ -792,6 +792,10 @@ export const Store = () => ({
                 this.loadTab(val);
                 // Resize charts if needed when tab becomes visible
                 window.dispatchEvent(new Event('resize'));
+                // Render network topology when network tab becomes visible
+                if (val === 'network') {
+                    setTimeout(() => this.renderNetworkTopology(), 100);
+                }
                 // Manage firewall logs auto-refresh based on active tab
                 if (val === 'forensics') {
                     this.startRecentBlocksAutoRefresh();
@@ -2371,6 +2375,13 @@ export const Store = () => ({
 
         // Set canvas size
         const rect = canvas.getBoundingClientRect();
+
+        // If canvas has no dimensions yet, retry after a short delay
+        if (rect.width < 10 || rect.height < 10) {
+            setTimeout(() => this.renderNetworkTopology(), 200);
+            return;
+        }
+
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
@@ -2393,81 +2404,73 @@ export const Store = () => ({
         }
 
         // Separate internal and external hosts
-        const internal = hosts.filter(h => h.type === 'Internal').slice(0, 8);
-        const external = hosts.filter(h => h.type === 'External').slice(0, 8);
+        const internal = hosts.filter(h => h.type === 'Internal').slice(0, 6);
+        const external = hosts.filter(h => h.type === 'External').slice(0, 6);
 
         // Calculate max bytes for scaling
         const maxBytes = Math.max(...hosts.map(h => h.total_bytes || 0), 1);
 
-        // Center node (Firewall/Router)
+        // Layout parameters
         const centerX = width / 2;
         const centerY = height / 2;
+        const leftX = 120;  // Internal hosts column
+        const rightX = width - 120;  // External hosts column
+        const verticalSpacing = Math.min(30, (height - 80) / Math.max(internal.length, external.length, 1));
+        const startY = 40;
+
+        // Calculate node positions
+        const internalPositions = internal.map((host, i) => ({
+            x: leftX,
+            y: startY + i * verticalSpacing + verticalSpacing / 2,
+            host
+        }));
+
+        const externalPositions = external.map((host, i) => ({
+            x: rightX,
+            y: startY + i * verticalSpacing + verticalSpacing / 2,
+            host
+        }));
 
         // Draw connections first (under nodes)
-        ctx.strokeStyle = 'rgba(0, 234, 255, 0.15)';
-        ctx.lineWidth = 1;
-
-        // Draw internal host connections
-        internal.forEach((host, i) => {
-            const angle = ((i / Math.max(internal.length, 1)) * Math.PI) - Math.PI / 2 - Math.PI / 4;
-            const radius = Math.min(width, height) * 0.35;
-            const x = centerX - radius + Math.cos(angle) * radius * 0.6;
-            const y = centerY + Math.sin(angle) * radius * 0.8;
-
-            // Line thickness based on traffic
+        internalPositions.forEach(({ x, y, host }) => {
             const traffic = (host.total_bytes || 0) / maxBytes;
-            ctx.strokeStyle = `rgba(0, 255, 136, ${0.1 + traffic * 0.3})`;
-            ctx.lineWidth = 1 + traffic * 3;
-
+            ctx.strokeStyle = `rgba(0, 255, 136, ${0.15 + traffic * 0.25})`;
+            ctx.lineWidth = 1 + traffic * 2;
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(x, y);
+            ctx.moveTo(centerX - 25, centerY);
+            ctx.lineTo(x + 8, y);
             ctx.stroke();
         });
 
-        // Draw external host connections
-        external.forEach((host, i) => {
-            const angle = ((i / Math.max(external.length, 1)) * Math.PI) - Math.PI / 2 + Math.PI / 4;
-            const radius = Math.min(width, height) * 0.35;
-            const x = centerX + radius - Math.cos(angle) * radius * 0.6;
-            const y = centerY + Math.sin(angle) * radius * 0.8;
-
-            // Line thickness based on traffic
+        externalPositions.forEach(({ x, y, host }) => {
             const traffic = (host.total_bytes || 0) / maxBytes;
-            ctx.strokeStyle = `rgba(0, 234, 255, ${0.1 + traffic * 0.3})`;
-            ctx.lineWidth = 1 + traffic * 3;
-
+            ctx.strokeStyle = `rgba(0, 234, 255, ${0.15 + traffic * 0.25})`;
+            ctx.lineWidth = 1 + traffic * 2;
             ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(x, y);
+            ctx.moveTo(centerX + 25, centerY);
+            ctx.lineTo(x - 8, y);
             ctx.stroke();
         });
 
         // Draw center node (Firewall)
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 234, 255, 0.2)';
+        ctx.arc(centerX, centerY, 25, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 234, 255, 0.15)';
         ctx.fill();
         ctx.strokeStyle = '#00eaff';
         ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.fillStyle = '#00eaff';
-        ctx.font = 'bold 11px system-ui';
+        ctx.font = 'bold 10px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('FIREWALL', centerX, centerY);
 
         // Draw internal hosts (left side)
-        ctx.font = '10px system-ui';
-        internal.forEach((host, i) => {
-            const angle = ((i / Math.max(internal.length, 1)) * Math.PI) - Math.PI / 2 - Math.PI / 4;
-            const radius = Math.min(width, height) * 0.35;
-            const x = centerX - radius + Math.cos(angle) * radius * 0.6;
-            const y = centerY + Math.sin(angle) * radius * 0.8;
-
-            // Node size based on traffic
-            const nodeSize = 8 + ((host.total_bytes || 0) / maxBytes) * 12;
+        ctx.font = '11px system-ui';
+        internalPositions.forEach(({ x, y, host }) => {
+            const nodeSize = 6 + ((host.total_bytes || 0) / maxBytes) * 6;
 
             ctx.beginPath();
             ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
@@ -2477,22 +2480,16 @@ export const Store = () => ({
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Label
-            ctx.fillStyle = '#ccc';
+            // Label on the left
+            ctx.fillStyle = '#aaa';
             ctx.textAlign = 'right';
-            const label = host.ip.length > 15 ? host.ip.substring(0, 12) + '...' : host.ip;
-            ctx.fillText(label, x - nodeSize - 4, y + 3);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(host.ip, x - nodeSize - 6, y);
         });
 
         // Draw external hosts (right side)
-        external.forEach((host, i) => {
-            const angle = ((i / Math.max(external.length, 1)) * Math.PI) - Math.PI / 2 + Math.PI / 4;
-            const radius = Math.min(width, height) * 0.35;
-            const x = centerX + radius - Math.cos(angle) * radius * 0.6;
-            const y = centerY + Math.sin(angle) * radius * 0.8;
-
-            // Node size based on traffic
-            const nodeSize = 8 + ((host.total_bytes || 0) / maxBytes) * 12;
+        externalPositions.forEach(({ x, y, host }) => {
+            const nodeSize = 6 + ((host.total_bytes || 0) / maxBytes) * 6;
 
             ctx.beginPath();
             ctx.arc(x, y, nodeSize, 0, Math.PI * 2);
@@ -2502,11 +2499,11 @@ export const Store = () => ({
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Label
-            ctx.fillStyle = '#ccc';
+            // Label on the right
+            ctx.fillStyle = '#aaa';
             ctx.textAlign = 'left';
-            const label = host.ip.length > 15 ? host.ip.substring(0, 12) + '...' : host.ip;
-            ctx.fillText(label, x + nodeSize + 4, y + 3);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(host.ip, x + nodeSize + 6, y);
         });
 
         // Draw legend
@@ -3127,11 +3124,13 @@ export const Store = () => ({
     },
 
     alertKey(a) {
-        const ts = a?.ts ?? a?.last_seen ?? a?.first_seen ?? '';
+        // Use stable identifiers - NOT timestamp which changes on updates
         const type = a?.type ?? '';
         const msg = a?.msg ?? '';
         const ip = a?.ip ?? '';
-        return `${type}|${ip}|${ts}|${msg}`;
+        // Use first_seen if available (stable), otherwise create hash from content
+        const stableId = a?.first_seen ?? a?.id ?? '';
+        return `${type}|${ip}|${msg}|${stableId}`;
     },
 
     persistDismissedAlerts() {

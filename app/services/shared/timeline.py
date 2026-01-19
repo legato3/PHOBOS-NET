@@ -29,8 +29,9 @@ class TimelineEvent:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
+        # Use UTC and append 'Z' to indicate UTC for frontend parsing
         return {
-            "timestamp": datetime.fromtimestamp(self.timestamp).isoformat(),
+            "timestamp": datetime.utcfromtimestamp(self.timestamp).isoformat() + 'Z',
             "timestamp_ts": self.timestamp,
             "source": self.source,
             "summary": self.summary,
