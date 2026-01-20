@@ -5,6 +5,35 @@
 
         <!-- Network Status Blocks -->
         <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-7) !important;">
+            <!-- Health Score Stat Box -->
+            <div class="card stat-box"
+                :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
+                title="Score based on static thresholds for TCP resets, SYN floods, and ICMP traffic.">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
+                    <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
+                </div>
+                <div class="label">Network Health <span style="opacity:0.6; cursor:help;">ℹ️</span>
+                    <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
+                        style="margin-left: 4px; font-weight: normal;"></span>
+                </div>
+            </div>
+            <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
+                    <span
+                        x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
+                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
+                        <span
+                            :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
+                            x-text="networkStatsOverview.trends.anomalies.indicator"
+                            :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
+                    </template>
+                </div>
+                <div class="label">Network Anomalies (24h)
+                    <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
+                        title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
+                </div>
+            </div>
             <div class="card stat-box">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <span
@@ -32,35 +61,6 @@
                     </template>
                 </div>
                 <div class="label">External Connections</div>
-            </div>
-            <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <span
-                        x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
-                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                        <span
-                            :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                            x-text="networkStatsOverview.trends.anomalies.indicator"
-                            :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
-                    </template>
-                </div>
-                <div class="label">Network Anomalies (24h)
-                    <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
-                        title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
-                </div>
-            </div>
-            <!-- Health Score Stat Box -->
-            <div class="card stat-box"
-                :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
-                title="Score based on static thresholds for TCP resets, SYN floods, and ICMP traffic.">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
-                    <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
-                </div>
-                <div class="label">Network Health <span style="opacity:0.6; cursor:help;">ℹ️</span>
-                    <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
-                        style="margin-left: 4px; font-weight: normal;"></span>
-                </div>
             </div>
             <!-- Health Indicator Stat Boxes -->
             <template x-for="ind in netHealth.indicators" :key="ind.name">
