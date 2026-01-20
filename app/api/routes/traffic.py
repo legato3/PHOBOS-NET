@@ -1720,7 +1720,8 @@ def api_bandwidth():
                         conn.close()
             else:
                 # Normal behavior (or single bucket)
-                # Offload to background executor to avoid blocking the request
+                # Offload to background executor (non-blocking) to prevent request timeout/latency
+                # Client will see gaps (zeros) initially, which is acceptable for performance.
                 try:
                     for bucket in missing_buckets:
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
