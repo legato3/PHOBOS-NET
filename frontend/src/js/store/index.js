@@ -6294,14 +6294,34 @@ export const Store = () => ({
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-            const res = await fetch(`/api/ip_detail/${ip}`, { signal: controller.signal });
+            // Fetch detail and timeline in parallel
+            const [detailRes, timelineRes] = await Promise.all([
+                fetch(`/api/ip_detail/${ip}`, { signal: controller.signal }),
+                fetch(`/api/hosts/${ip}/timeline?range=24h`, { signal: controller.signal })
+            ]);
             clearTimeout(timeoutId);
 
-            if (res.ok) {
-                const data = await res.json();
+            if (detailRes.ok) {
+                const data = await detailRes.json();
                 this.ipDetails = { ...data, timeline: this.ipDetails.timeline };
             } else {
-                this.ipDetails = { error: `Server error: ${res.status}`, timeline: { labels: [], bytes: [], flows: [], loading: false } };
+                this.ipDetails = { error: `Server error: ${detailRes.status}`, timeline: { labels: [], bytes: [], flows: [], loading: false } };
+            }
+
+            if (timelineRes.ok) {
+                const timelineData = await timelineRes.json();
+                this.ipDetails.timeline = {
+                    labels: timelineData.labels || [],
+                    bytes: timelineData.bytes || [],
+                    flows: timelineData.flows || [],
+                    loading: false
+                };
+                // Render timeline chart after DOM update
+                this.$nextTick(() => {
+                    this.renderHostTimelineChart();
+                });
+            } else {
+                this.ipDetails.timeline.loading = false;
             }
         } catch (e) {
             if (e.name === 'AbortError') {
