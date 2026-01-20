@@ -123,6 +123,12 @@ _agg_thread_started = False
 _syslog_thread_started = False
 _snmp_thread_started = False
 _db_size_sampler_thread_started = False
+_resource_sampler_thread_started = False
+
+# ==================== Resource History ====================
+# Rolling history: 60 samples (1 per minute = 1 hour of history)
+_resource_history = deque(maxlen=60)
+_resource_history_lock = threading.Lock()
 
 # ==================== Syslog State ====================
 _syslog_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
@@ -166,3 +172,294 @@ def add_app_log(message, level='INFO'):
 # ==================== Thread Pool Executor ====================
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
 _rollup_executor = ThreadPoolExecutor(max_workers=8)
+
+# ==================== Background Thread Health ====================
+# Track health of each background thread for monitoring
+_thread_health = {
+    'ThreatFeedThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 900,  # 15 minutes
+        'status': 'unknown'
+    },
+    'TrendsThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 30,
+        'status': 'unknown'
+    },
+    'AggregationThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 60,
+        'status': 'unknown'
+    },
+    'SNMPThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 2,
+        'status': 'unknown'
+    },
+    'SyslogThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 0,  # Event-driven
+        'status': 'unknown'
+    },
+    'FirewallSyslogThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 0,  # Event-driven
+        'status': 'unknown'
+    },
+    'ResourceSamplerThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 60,
+        'status': 'unknown'
+    },
+    'DbSizeSamplerThread': {
+        'last_success': None,
+        'last_error': None,
+        'last_error_msg': None,
+        'error_count': 0,
+        'execution_count': 0,
+        'execution_times_ms': deque(maxlen=20),
+        'expected_interval_sec': 60,
+        'status': 'unknown'
+    },
+}
+_thread_health_lock = threading.Lock()
+
+def update_thread_health(thread_name, success=True, execution_time_ms=None, error_msg=None):
+    """Update thread health metrics after execution."""
+    import time
+    with _thread_health_lock:
+        if thread_name not in _thread_health:
+            return
+        th = _thread_health[thread_name]
+        now = time.time()
+        th['execution_count'] += 1
+        if execution_time_ms is not None:
+            th['execution_times_ms'].append(execution_time_ms)
+        if success:
+            th['last_success'] = now
+            th['status'] = 'healthy'
+        else:
+            th['last_error'] = now
+            th['last_error_msg'] = error_msg
+            th['error_count'] += 1
+            th['status'] = 'errored'
+
+def get_thread_health_status():
+    """Get health status for all threads."""
+    import time
+    now = time.time()
+    result = {}
+    with _thread_health_lock:
+        for name, th in _thread_health.items():
+            status = th['status']
+            # Check if thread is lagging (hasn't run in 3x expected interval)
+            if th['last_success'] and th['expected_interval_sec'] > 0:
+                age = now - th['last_success']
+                if age > th['expected_interval_sec'] * 3:
+                    status = 'lagging'
+            # Calculate avg execution time
+            exec_times = list(th['execution_times_ms'])
+            avg_exec_ms = round(sum(exec_times) / len(exec_times), 1) if exec_times else None
+            result[name] = {
+                'status': status,
+                'last_success': th['last_success'],
+                'last_success_age_sec': round(now - th['last_success'], 1) if th['last_success'] else None,
+                'last_error': th['last_error'],
+                'last_error_msg': th['last_error_msg'],
+                'error_count': th['error_count'],
+                'execution_count': th['execution_count'],
+                'avg_execution_ms': avg_exec_ms,
+                'expected_interval_sec': th['expected_interval_sec']
+            }
+    return result
+
+# ==================== Network I/O Metrics ====================
+# Track network interface bandwidth rates
+_network_io_metrics = {
+    'timestamp': 0,
+    'prev_timestamp': 0,
+    'interfaces': {},  # interface_name -> {rx_bytes, tx_bytes, rx_packets, tx_packets, ...}
+    'prev_interfaces': {},  # Previous sample for rate calculation
+    'rates': {}  # Calculated rates: interface_name -> {rx_bytes_sec, tx_bytes_sec, ...}
+}
+_network_io_lock = threading.Lock()
+_network_io_sampler_started = False
+
+# ==================== Service Dependency Health ====================
+# Track health of external services
+_dependency_health = {
+    'nfcapd': {
+        'running': None,
+        'pid': None,
+        'port_listening': None,
+        'latest_file_age_sec': None,
+        'files_count': None,
+        'last_check': None
+    },
+    'dns': {
+        'available': None,
+        'last_query_time': None,
+        'success_count': 0,
+        'error_count': 0,
+        'response_times_ms': deque(maxlen=20),
+        'last_error': None
+    },
+    'snmp': {
+        'reachable': None,
+        'last_poll_time': None,
+        'success_count': 0,
+        'error_count': 0,
+        'response_times_ms': deque(maxlen=20),
+        'backoff_multiplier': 1.0
+    },
+    'threat_feeds': {
+        'last_fetch': None,
+        'fetch_success_count': 0,
+        'fetch_error_count': 0,
+        'records_count': 0,
+        'feeds_status': {}  # feed_name -> {ok, last_update, entries}
+    },
+    'syslog_514': {
+        'listening': None,
+        'last_packet_time': None,
+        'buffer_size': 0,
+        'buffer_max': 100
+    },
+    'syslog_515': {
+        'listening': None,
+        'last_packet_time': None,
+        'buffer_size': 0,
+        'buffer_max': 5000
+    }
+}
+_dependency_health_lock = threading.Lock()
+
+def update_dependency_health(service, **kwargs):
+    """Update dependency health metrics."""
+    with _dependency_health_lock:
+        if service in _dependency_health:
+            _dependency_health[service].update(kwargs)
+
+def get_dependency_health():
+    """Get current dependency health status."""
+    import time
+    now = time.time()
+    with _dependency_health_lock:
+        result = {}
+        for service, data in _dependency_health.items():
+            result[service] = dict(data)
+            # Convert deques to lists for JSON
+            if 'response_times_ms' in result[service]:
+                times = list(result[service]['response_times_ms'])
+                result[service]['response_times_ms'] = times
+                result[service]['avg_response_ms'] = round(sum(times) / len(times), 1) if times else None
+            # Calculate ages
+            for key in ['last_check', 'last_query_time', 'last_poll_time', 'last_fetch', 'last_packet_time']:
+                if key in result[service] and result[service][key]:
+                    result[service][f'{key}_age_sec'] = round(now - result[service][key], 1)
+    return result
+
+# ==================== HTTP/API Metrics ====================
+# Track HTTP request metrics
+_http_metrics = {
+    'status_codes': defaultdict(int),  # {200: 1523, 429: 45, 500: 2}
+    'methods': defaultdict(int),  # {GET: 2000, POST: 150}
+    'concurrent_requests': 0,
+    'peak_concurrent': 0,
+    'total_requests': 0,
+    'total_errors': 0,  # 4xx + 5xx
+    'endpoint_errors': defaultdict(int),  # endpoint -> error count
+    'request_start_times': {},  # request_id -> start_time (for concurrent tracking)
+}
+_http_metrics_lock = threading.Lock()
+
+def record_http_request_start(request_id):
+    """Record start of HTTP request."""
+    import time
+    with _http_metrics_lock:
+        _http_metrics['request_start_times'][request_id] = time.time()
+        _http_metrics['concurrent_requests'] += 1
+        if _http_metrics['concurrent_requests'] > _http_metrics['peak_concurrent']:
+            _http_metrics['peak_concurrent'] = _http_metrics['concurrent_requests']
+
+def record_http_request_end(request_id, status_code, method, endpoint):
+    """Record end of HTTP request."""
+    with _http_metrics_lock:
+        _http_metrics['total_requests'] += 1
+        _http_metrics['status_codes'][status_code] += 1
+        _http_metrics['methods'][method] += 1
+        if request_id in _http_metrics['request_start_times']:
+            del _http_metrics['request_start_times'][request_id]
+            _http_metrics['concurrent_requests'] = max(0, _http_metrics['concurrent_requests'] - 1)
+        if status_code >= 400:
+            _http_metrics['total_errors'] += 1
+            _http_metrics['endpoint_errors'][endpoint] += 1
+
+def get_http_metrics():
+    """Get HTTP metrics summary."""
+    with _http_metrics_lock:
+        return {
+            'status_codes': dict(_http_metrics['status_codes']),
+            'methods': dict(_http_metrics['methods']),
+            'concurrent_requests': _http_metrics['concurrent_requests'],
+            'peak_concurrent': _http_metrics['peak_concurrent'],
+            'total_requests': _http_metrics['total_requests'],
+            'total_errors': _http_metrics['total_errors'],
+            'error_rate_percent': round(_http_metrics['total_errors'] / _http_metrics['total_requests'] * 100, 2) if _http_metrics['total_requests'] > 0 else 0,
+            'endpoint_errors': dict(_http_metrics['endpoint_errors'])
+        }
+
+# ==================== Container Metrics ====================
+# Track Docker container-specific metrics (from cgroups)
+_container_metrics = {
+    'memory_usage_bytes': None,
+    'memory_limit_bytes': None,
+    'memory_usage_percent': None,
+    'cpu_usage_ns': None,
+    'cpu_throttled_periods': None,
+    'cpu_throttled_time_ns': None,
+    'oom_kill_count': None,
+    'is_containerized': None,
+    'last_update': None
+}
+_container_metrics_lock = threading.Lock()
+
+def get_container_metrics():
+    """Get container metrics if running in Docker."""
+    with _container_metrics_lock:
+        return dict(_container_metrics)

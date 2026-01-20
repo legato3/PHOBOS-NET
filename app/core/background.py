@@ -15,6 +15,8 @@ from app.core.app_state import (
     _common_data_lock,
     _common_data_cache,
     add_app_log,
+    update_thread_health,
+    update_dependency_health,
 )
 
 # Import config
@@ -35,7 +37,14 @@ def start_threat_thread():
     state._threat_thread_started = True
     def loop():
         while not _shutdown_event.is_set():
-            fetch_threat_feed()
+            start_time = time.time()
+            try:
+                fetch_threat_feed()
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('ThreatFeedThread', success=True, execution_time_ms=exec_time_ms)
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('ThreatFeedThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
             # Use wait instead of sleep for faster shutdown
             _shutdown_event.wait(timeout=CACHE_TTL_THREAT)
     t = threading.Thread(target=loop, daemon=True, name='ThreatFeedThread')
@@ -51,14 +60,18 @@ def start_trends_thread():
 
     def loop():
         while not _shutdown_event.is_set():
+            start_time = time.time()
             try:
                 # Work on the last completed bucket (avoid partial current)
                 now_dt = datetime.now()
                 current_end = _get_bucket_end(now_dt)
                 last_completed_end = current_end - timedelta(minutes=5)
                 _ensure_rollup_for_bucket(last_completed_end)
-            except Exception:
-                pass
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('TrendsThread', success=True, execution_time_ms=exec_time_ms)
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('TrendsThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
             _shutdown_event.wait(timeout=CACHE_TTL_SHORT)
 
     t = threading.Thread(target=loop, daemon=True, name='TrendsThread')
@@ -73,6 +86,7 @@ def start_agg_thread():
 
     def loop():
         while not _shutdown_event.is_set():
+            start_time = time.time()
             try:
                 range_key = '1h'
                 tf = get_time_range(range_key)
@@ -114,7 +128,11 @@ def start_agg_thread():
                     _common_data_cache[f"ports:{range_key}:{win}"] = {"data": ports, "ts": now_ts, "win": win}
                     _common_data_cache[f"dests:{range_key}:{win}"] = {"data": dests, "ts": now_ts, "win": win}
                     _common_data_cache[f"protos:{range_key}:{win}"] = {"data": protos, "ts": now_ts, "win": win}
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('AggregationThread', success=True, execution_time_ms=exec_time_ms)
             except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('AggregationThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
                 add_app_log(f"Agg thread error: {e}", 'ERROR')
 
             # Align next run to the minute boundary to prevent drift
@@ -123,13 +141,13 @@ def start_agg_thread():
             sleep_time = max(1, next_minute - now)
             _shutdown_event.wait(timeout=sleep_time)
 
-    t = threading.Thread(target=loop, daemon=True)
+    t = threading.Thread(target=loop, daemon=True, name='AggregationThread')
     t.start()
 
 
 def start_db_size_sampler_thread():
     """Start the database file size sampling thread.
-    
+
     Samples database file sizes at fixed intervals (60s) and stores them
     in a bounded buffer. This runs independently of API requests to avoid
     write operations during GET handlers.
@@ -137,12 +155,13 @@ def start_db_size_sampler_thread():
     if state._db_size_sampler_thread_started:
         return
     state._db_size_sampler_thread_started = True
-    
+
     def loop():
         while not _shutdown_event.is_set():
+            start_time = time.time()
             try:
                 import os
-                
+
                 # Sample Trends database
                 if TRENDS_DB_PATH and os.path.exists(TRENDS_DB_PATH):
                     try:
@@ -150,7 +169,7 @@ def start_db_size_sampler_thread():
                         update_db_size_history('Trends', TRENDS_DB_PATH, file_size)
                     except Exception:
                         pass  # Silently skip if sampling fails
-                
+
                 # Sample Firewall database
                 if FIREWALL_DB_PATH and os.path.exists(FIREWALL_DB_PATH):
                     try:
@@ -158,12 +177,470 @@ def start_db_size_sampler_thread():
                         update_db_size_history('Firewall', FIREWALL_DB_PATH, file_size)
                     except Exception:
                         pass  # Silently skip if sampling fails
-                        
-            except Exception:
-                pass  # Silently skip on any error
-            
+
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('DbSizeSamplerThread', success=True, execution_time_ms=exec_time_ms)
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('DbSizeSamplerThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
+
             # Fixed 60-second interval
             _shutdown_event.wait(timeout=60)
-    
+
     t = threading.Thread(target=loop, daemon=True, name='DbSizeSamplerThread')
+    t.start()
+
+
+def start_resource_sampler_thread():
+    """Start the resource sampling thread for CPU/Memory history.
+
+    Samples CPU and memory usage at fixed intervals (60s) and stores them
+    in a bounded deque for historical charting on the Server page.
+    """
+    if state._resource_sampler_thread_started:
+        return
+    state._resource_sampler_thread_started = True
+
+    def loop():
+        while not _shutdown_event.is_set():
+            start_time = time.time()
+            try:
+                sample = {
+                    'ts': time.time(),
+                    'cpu_percent': None,
+                    'mem_percent': None,
+                    'load_1min': None
+                }
+
+                # Get CPU percent from /proc/stat
+                try:
+                    from app.services.shared.cpu import calculate_cpu_percent_from_stat
+                    cpu_percent, _, _ = calculate_cpu_percent_from_stat()
+                    if cpu_percent is not None:
+                        sample['cpu_percent'] = round(cpu_percent, 1)
+                except Exception:
+                    pass
+
+                # Get memory percent from /proc/meminfo
+                try:
+                    meminfo = {}
+                    with open('/proc/meminfo', 'r') as f:
+                        for line in f:
+                            parts = line.split(':')
+                            if len(parts) == 2:
+                                key = parts[0].strip()
+                                val = parts[1].strip().split()[0]
+                                meminfo[key] = int(val)
+
+                    if 'MemTotal' in meminfo and 'MemAvailable' in meminfo:
+                        total_kb = meminfo['MemTotal']
+                        avail_kb = meminfo['MemAvailable']
+                        used_kb = total_kb - avail_kb
+                        sample['mem_percent'] = round((used_kb / total_kb) * 100, 1) if total_kb > 0 else 0
+                except Exception:
+                    pass
+
+                # Get load average
+                try:
+                    import os
+                    loadavg = os.getloadavg() if hasattr(os, 'getloadavg') else None
+                    if loadavg:
+                        sample['load_1min'] = round(loadavg[0], 2)
+                except Exception:
+                    pass
+
+                # Store sample
+                with state._resource_history_lock:
+                    state._resource_history.append(sample)
+
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('ResourceSamplerThread', success=True, execution_time_ms=exec_time_ms)
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health('ResourceSamplerThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
+
+            # Fixed 60-second interval
+            _shutdown_event.wait(timeout=60)
+
+    t = threading.Thread(target=loop, daemon=True, name='ResourceSamplerThread')
+    t.start()
+
+
+def start_network_io_sampler_thread():
+    """Start the network I/O sampling thread.
+
+    Samples network interface statistics at fixed intervals (5s) and calculates
+    bandwidth rates (bytes/sec, packets/sec) for monitoring.
+    """
+    if state._network_io_sampler_started:
+        return
+    state._network_io_sampler_started = True
+
+    def parse_proc_net_dev():
+        """Parse /proc/net/dev for interface statistics."""
+        interfaces = {}
+        try:
+            with open('/proc/net/dev', 'r') as f:
+                lines = f.readlines()[2:]  # Skip header lines
+                for line in lines:
+                    parts = line.split(':')
+                    if len(parts) == 2:
+                        iface = parts[0].strip()
+                        values = parts[1].split()
+                        if len(values) >= 16:
+                            interfaces[iface] = {
+                                'rx_bytes': int(values[0]),
+                                'rx_packets': int(values[1]),
+                                'rx_errors': int(values[2]),
+                                'rx_dropped': int(values[3]),
+                                'tx_bytes': int(values[8]),
+                                'tx_packets': int(values[9]),
+                                'tx_errors': int(values[10]),
+                                'tx_dropped': int(values[11]),
+                            }
+        except Exception:
+            pass
+        return interfaces
+
+    def loop():
+        while not _shutdown_event.is_set():
+            try:
+                now = time.time()
+                interfaces = parse_proc_net_dev()
+
+                with state._network_io_lock:
+                    prev_ts = state._network_io_metrics['timestamp']
+                    prev_ifaces = state._network_io_metrics['interfaces']
+
+                    # Calculate rates if we have previous data
+                    if prev_ts > 0 and prev_ifaces:
+                        interval = now - prev_ts
+                        if interval > 0:
+                            rates = {}
+                            for iface, data in interfaces.items():
+                                if iface in prev_ifaces:
+                                    prev = prev_ifaces[iface]
+                                    rates[iface] = {
+                                        'rx_bytes_sec': round((data['rx_bytes'] - prev['rx_bytes']) / interval, 1),
+                                        'tx_bytes_sec': round((data['tx_bytes'] - prev['tx_bytes']) / interval, 1),
+                                        'rx_packets_sec': round((data['rx_packets'] - prev['rx_packets']) / interval, 1),
+                                        'tx_packets_sec': round((data['tx_packets'] - prev['tx_packets']) / interval, 1),
+                                        'rx_errors': data['rx_errors'],
+                                        'tx_errors': data['tx_errors'],
+                                        'rx_dropped': data['rx_dropped'],
+                                        'tx_dropped': data['tx_dropped'],
+                                    }
+                            state._network_io_metrics['rates'] = rates
+
+                    # Store current sample
+                    state._network_io_metrics['prev_timestamp'] = prev_ts
+                    state._network_io_metrics['prev_interfaces'] = prev_ifaces
+                    state._network_io_metrics['timestamp'] = now
+                    state._network_io_metrics['interfaces'] = interfaces
+
+            except Exception:
+                pass
+
+            # 5-second interval for responsive bandwidth monitoring
+            _shutdown_event.wait(timeout=5)
+
+    t = threading.Thread(target=loop, daemon=True, name='NetworkIOSamplerThread')
+    t.start()
+
+
+def start_dependency_health_thread():
+    """Start the dependency health check thread.
+
+    Periodically checks health of external services using application-level
+    indicators (file activity, stats) rather than /proc which doesn't work
+    well in containers.
+    """
+    import os
+    import glob
+    from app.config import NFCAPD_DIR as NETFLOW_DIR
+
+    def check_nfcapd():
+        """Check if nfcapd is collecting data by checking file freshness."""
+        result = {
+            'running': False,
+            'latest_file_age_sec': None,
+            'files_count': 0,
+            'last_check': time.time()
+        }
+
+        try:
+            if NETFLOW_DIR and os.path.exists(NETFLOW_DIR):
+                files = glob.glob(os.path.join(NETFLOW_DIR, 'nfcapd.*'))
+                result['files_count'] = len(files)
+                if files:
+                    latest_file = max(files, key=os.path.getmtime)
+                    mtime = os.path.getmtime(latest_file)
+                    age = time.time() - mtime
+                    result['latest_file_age_sec'] = round(age, 1)
+                    # Consider running if file was written in last 5 minutes
+                    result['running'] = age < 300
+        except Exception:
+            pass
+
+        return result
+
+    def check_syslog_health():
+        """Check syslog listener health using application stats and thread flags."""
+        results = {
+            'syslog_514': {'listening': False, 'received': 0},
+            'syslog_515': {'listening': False, 'received': 0}
+        }
+
+        # Check port 514 (filterlog) - use syslog stats and thread flag
+        try:
+            received = 0
+            thread_started = False
+            with state._syslog_stats_lock:
+                received = state._syslog_stats.get('received', 0)
+            thread_started = getattr(state, '_syslog_thread_started', False)
+            results['syslog_514']['received'] = received
+            # Consider listening if thread started OR we've received data
+            results['syslog_514']['listening'] = thread_started or received > 0
+        except Exception as e:
+            add_app_log(f"Syslog 514 health check error: {e}", 'DEBUG')
+
+        # Check port 515 (firewall syslog)
+        try:
+            received = 0
+            thread_started = False
+            try:
+                from app.services.syslog.syslog_store import syslog_store
+                received = syslog_store.get_stats().get('total_received', 0)
+            except Exception:
+                pass
+            try:
+                # Import module and access attribute to get current value (not a copy)
+                import app.services.syslog.firewall_listener as fw_listener
+                thread_started = getattr(fw_listener, '_firewall_syslog_thread_started', False)
+            except Exception:
+                pass
+            results['syslog_515']['received'] = received
+            results['syslog_515']['listening'] = thread_started or received > 0
+        except Exception as e:
+            add_app_log(f"Syslog 515 health check error: {e}", 'DEBUG')
+
+        return results
+
+    def loop():
+        # Wait a bit for other threads to start
+        _shutdown_event.wait(timeout=5)
+
+        while not _shutdown_event.is_set():
+            try:
+                # Check nfcapd via file freshness
+                nfcapd_health = check_nfcapd()
+                update_dependency_health('nfcapd', **nfcapd_health)
+
+                # Check syslog listeners via application stats
+                syslog_health = check_syslog_health()
+                update_dependency_health('syslog_514', **syslog_health['syslog_514'])
+                update_dependency_health('syslog_515', **syslog_health['syslog_515'])
+
+            except Exception as e:
+                add_app_log(f"Dependency health check error: {e}", 'ERROR')
+
+            # Check every 10 seconds for more responsive updates
+            _shutdown_event.wait(timeout=10)
+
+    t = threading.Thread(target=loop, daemon=True, name='DependencyHealthThread')
+    t.start()
+
+
+def start_container_metrics_thread():
+    """Start the container metrics sampling thread.
+
+    Collects Docker container-specific metrics from cgroup filesystem.
+    Works with both cgroup v1 and v2.
+    """
+    import os
+
+    def is_containerized():
+        """Detect if running inside a container using multiple indicators."""
+        # Check for Docker/.dockerenv file (most reliable for Docker)
+        if os.path.exists('/.dockerenv'):
+            return True
+
+        # Check for container runtime files
+        if os.path.exists('/run/.containerenv'):  # Podman
+            return True
+
+        # Check cgroup for docker/lxc/k8s (cgroup v1 format)
+        try:
+            with open('/proc/1/cgroup', 'r') as f:
+                content = f.read().lower()
+                if 'docker' in content or 'lxc' in content or 'kubepods' in content or 'containerd' in content:
+                    return True
+        except Exception:
+            pass
+
+        # Check /proc/1/cpuset for container ID (works in both cgroup v1 and v2)
+        try:
+            with open('/proc/1/cpuset', 'r') as f:
+                content = f.read().strip()
+                # In Docker, this shows /docker/<container-id> or just /<container-id>
+                if content != '/' and len(content) > 1:
+                    return True
+        except Exception:
+            pass
+
+        # Check /proc/1/mountinfo for overlay filesystems (Docker uses overlayfs)
+        try:
+            with open('/proc/1/mountinfo', 'r') as f:
+                content = f.read().lower()
+                if 'overlay' in content or '/docker/' in content or 'containerd' in content:
+                    return True
+        except Exception:
+            pass
+
+        # Check if /proc/1/sched contains something other than init
+        try:
+            with open('/proc/1/sched', 'r') as f:
+                first_line = f.readline()
+                # In containers, PID 1 is usually not 'init' or 'systemd'
+                if not any(x in first_line.lower() for x in ['init', 'systemd']):
+                    return True
+        except Exception:
+            pass
+
+        # Check for cgroup v2 with memory limits (containerized environments typically have limits)
+        try:
+            mem_max_path = '/sys/fs/cgroup/memory.max'
+            if os.path.exists(mem_max_path):
+                with open(mem_max_path, 'r') as f:
+                    val = f.read().strip()
+                    # If there's a numeric limit (not 'max'), we're likely in a container
+                    if val != 'max':
+                        return True
+        except Exception:
+            pass
+
+        # Check cgroup v1 memory limit
+        try:
+            mem_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+            if os.path.exists(mem_limit_path):
+                with open(mem_limit_path, 'r') as f:
+                    limit = int(f.read().strip())
+                    # If limit is less than 100GB, likely containerized
+                    if limit < 100 * 1024 * 1024 * 1024:
+                        return True
+        except Exception:
+            pass
+
+        return False
+
+    def read_cgroup_v2():
+        """Read metrics from cgroup v2 (unified hierarchy)."""
+        metrics = {}
+        try:
+            # Memory
+            mem_current = '/sys/fs/cgroup/memory.current'
+            mem_max = '/sys/fs/cgroup/memory.max'
+            if os.path.exists(mem_current):
+                with open(mem_current, 'r') as f:
+                    metrics['memory_usage_bytes'] = int(f.read().strip())
+            if os.path.exists(mem_max):
+                with open(mem_max, 'r') as f:
+                    val = f.read().strip()
+                    if val != 'max':
+                        metrics['memory_limit_bytes'] = int(val)
+
+            # CPU throttling
+            cpu_stat = '/sys/fs/cgroup/cpu.stat'
+            if os.path.exists(cpu_stat):
+                with open(cpu_stat, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) == 2:
+                            if parts[0] == 'nr_throttled':
+                                metrics['cpu_throttled_periods'] = int(parts[1])
+                            elif parts[0] == 'throttled_usec':
+                                metrics['cpu_throttled_time_ns'] = int(parts[1]) * 1000
+        except Exception:
+            pass
+        return metrics
+
+    def read_cgroup_v1():
+        """Read metrics from cgroup v1."""
+        metrics = {}
+        try:
+            # Memory usage
+            mem_usage = '/sys/fs/cgroup/memory/memory.usage_in_bytes'
+            if os.path.exists(mem_usage):
+                with open(mem_usage, 'r') as f:
+                    metrics['memory_usage_bytes'] = int(f.read().strip())
+
+            # Memory limit
+            mem_limit = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+            if os.path.exists(mem_limit):
+                with open(mem_limit, 'r') as f:
+                    val = int(f.read().strip())
+                    # Check for "unlimited" (usually a very large number)
+                    if val < 9223372036854771712:
+                        metrics['memory_limit_bytes'] = val
+
+            # OOM kill count
+            mem_failcnt = '/sys/fs/cgroup/memory/memory.failcnt'
+            if os.path.exists(mem_failcnt):
+                with open(mem_failcnt, 'r') as f:
+                    metrics['oom_kill_count'] = int(f.read().strip())
+
+            # CPU throttling
+            cpu_stat = '/sys/fs/cgroup/cpu/cpu.stat'
+            if os.path.exists(cpu_stat):
+                with open(cpu_stat, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) == 2:
+                            if parts[0] == 'nr_throttled':
+                                metrics['cpu_throttled_periods'] = int(parts[1])
+                            elif parts[0] == 'throttled_time':
+                                metrics['cpu_throttled_time_ns'] = int(parts[1])
+        except Exception:
+            pass
+        return metrics
+
+    import os
+
+    def loop():
+        # Initial containerization check
+        containerized = is_containerized()
+
+        with state._container_metrics_lock:
+            state._container_metrics['is_containerized'] = containerized
+
+        if not containerized:
+            # Not in a container, no need to keep running
+            return
+
+        while not _shutdown_event.is_set():
+            try:
+                # Try cgroup v2 first, fall back to v1
+                metrics = read_cgroup_v2()
+                if not metrics:
+                    metrics = read_cgroup_v1()
+
+                # Calculate memory percentage
+                if metrics.get('memory_usage_bytes') and metrics.get('memory_limit_bytes'):
+                    metrics['memory_usage_percent'] = round(
+                        metrics['memory_usage_bytes'] / metrics['memory_limit_bytes'] * 100, 1
+                    )
+
+                metrics['last_update'] = time.time()
+                metrics['is_containerized'] = True
+
+                with state._container_metrics_lock:
+                    state._container_metrics.update(metrics)
+
+            except Exception:
+                pass
+
+            # Sample every 10 seconds
+            _shutdown_event.wait(timeout=10)
+
+    t = threading.Thread(target=loop, daemon=True, name='ContainerMetricsThread')
     t.start()

@@ -19,7 +19,12 @@ from app.core.app_state import _shutdown_event, add_app_log
 from app.config import DEBUG_MODE
 
 # Import thread functions
-from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
+from app.core.background import (
+    start_threat_thread, start_trends_thread, start_agg_thread,
+    start_db_size_sampler_thread, start_resource_sampler_thread,
+    start_network_io_sampler_thread, start_dependency_health_thread,
+    start_container_metrics_thread
+)
 
 # Import syslog functions from app.services.shared.syslog
 try:
@@ -103,7 +108,22 @@ if __name__ == "__main__":
     if start_syslog_thread:
         start_syslog_thread()
         add_app_log("Syslog receiver thread started", 'INFO')
-    
+    if start_db_size_sampler_thread:
+        start_db_size_sampler_thread()
+        add_app_log("Database size sampler thread started", 'INFO')
+    if start_resource_sampler_thread:
+        start_resource_sampler_thread()
+        add_app_log("Resource sampler thread started", 'INFO')
+    if start_network_io_sampler_thread:
+        start_network_io_sampler_thread()
+        add_app_log("Network I/O sampler thread started", 'INFO')
+    if start_dependency_health_thread:
+        start_dependency_health_thread()
+        add_app_log("Dependency health thread started", 'INFO')
+    if start_container_metrics_thread:
+        start_container_metrics_thread()
+        add_app_log("Container metrics thread started", 'INFO')
+
     # Start firewall syslog listener (isolated, port 515)
     if start_firewall_syslog_thread:
         start_firewall_syslog_thread()

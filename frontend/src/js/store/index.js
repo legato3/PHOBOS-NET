@@ -201,6 +201,16 @@ export const Store = () => ({
     ingestionRates: null,
     databaseStats: { databases: [], loading: true, error: null },
     serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
+    resourceHistory: { history: [], cpu_peak: null, mem_peak: null, loading: true, error: null },
+    monitoringSummary: {
+        thread_health: { ok: 0, total: 0, status: 'unknown', threads: {} },
+        dependencies: { nfcapd: {}, syslog_514: {}, syslog_515: {}, details: {} },
+        network_io: { rx_bytes_sec: 0, tx_bytes_sec: 0, rx_mbps: 0, tx_mbps: 0, interfaces: {} },
+        http: { status_codes: {}, methods: {}, total_requests: 0, error_rate_percent: 0 },
+        container: { is_containerized: null, memory_usage_percent: null },
+        loading: true,
+        error: null
+    },
 
     // Unified Insight System - reusable across Traffic, Firewall, Hosts
     insightPanels: {
@@ -4341,6 +4351,62 @@ export const Store = () => ({
         }
     },
 
+    async fetchResourceHistory() {
+        if (this._resourceHistoryFetching) return;
+        this._resourceHistoryFetching = true;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/system/resource-history?_=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.resourceHistory.history = data.history || [];
+                this.resourceHistory.cpu_peak = data.cpu_peak;
+                this.resourceHistory.mem_peak = data.mem_peak;
+                this.resourceHistory.loading = false;
+                this.resourceHistory.error = null;
+            } else {
+                this.resourceHistory.error = `Error: ${res.status}`;
+                this.resourceHistory.loading = false;
+            }
+        } catch (e) {
+            console.error('Resource history fetch error:', e);
+            this.resourceHistory.error = e.message;
+            this.resourceHistory.loading = false;
+        } finally {
+            this._resourceHistoryFetching = false;
+        }
+    },
+
+    async fetchMonitoringSummary() {
+        if (this._monitoringSummaryFetching) return;
+        this._monitoringSummaryFetching = true;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn(`/api/system/monitoring-summary?_=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.thread_health) this.monitoringSummary.thread_health = data.thread_health;
+                if (data.dependencies) this.monitoringSummary.dependencies = data.dependencies;
+                if (data.network_io) this.monitoringSummary.network_io = data.network_io;
+                if (data.http) this.monitoringSummary.http = data.http;
+                if (data.container) this.monitoringSummary.container = data.container;
+                this.monitoringSummary.loading = false;
+                this.monitoringSummary.error = null;
+            } else {
+                this.monitoringSummary.error = `Error: ${res.status}`;
+                this.monitoringSummary.loading = false;
+            }
+        } catch (e) {
+            console.error('Monitoring summary fetch error:', e);
+            this.monitoringSummary.error = e.message;
+            this.monitoringSummary.loading = false;
+        } finally {
+            this._monitoringSummaryFetching = false;
+        }
+    },
+
     startServerHealthAutoRefresh() {
         // Clear existing timer if any
         if (this.serverHealthRefreshTimer) {
@@ -4355,6 +4421,8 @@ export const Store = () => ({
         this.fetchServerHealth();
         this.fetchDatabaseStats();
         this.fetchServerLogs(100);
+        this.fetchResourceHistory();
+        this.fetchMonitoringSummary();
 
         // Set up 2-second interval refresh for real-time updates (independent of global refresh)
         this.serverHealthRefreshTimer = setInterval(() => {
@@ -4370,6 +4438,16 @@ export const Store = () => ({
                 if (!this._lastServerLogsFetch || (now - this._lastServerLogsFetch) > 10000) {
                     this.fetchServerLogs(this.serverLogs.lines || 100);
                     this._lastServerLogsFetch = now;
+                }
+                // Resource history refresh every 60 seconds (aligns with sampling interval)
+                if (!this._lastResourceHistoryFetch || (now - this._lastResourceHistoryFetch) > 60000) {
+                    this.fetchResourceHistory();
+                    this._lastResourceHistoryFetch = now;
+                }
+                // Monitoring summary refresh every 10 seconds
+                if (!this._lastMonitoringSummaryFetch || (now - this._lastMonitoringSummaryFetch) > 10000) {
+                    this.fetchMonitoringSummary();
+                    this._lastMonitoringSummaryFetch = now;
                 }
             } else {
                 // Clean up if tab changed or paused

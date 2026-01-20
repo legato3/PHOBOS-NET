@@ -38,35 +38,44 @@ def create_app():
     # Setup middleware
     @app.before_request
     def track_request_start():
-        """OBSERVABILITY: Track request start time for duration measurement."""
+        """OBSERVABILITY: Track request start time and concurrent requests."""
+        import uuid
+        from app.core.app_state import record_http_request_start
         g.request_start_time = time.time()
+        g.request_id = str(uuid.uuid4())[:8]
+        record_http_request_start(g.request_id)
     
     @app.after_request
     def track_request_performance(response):
-        """OBSERVABILITY: Track request duration and flag slow requests."""
+        """OBSERVABILITY: Track request duration, HTTP metrics, and flag slow requests."""
         from app.services.shared.metrics import track_performance, track_slow_request
         from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
         from app.services.shared.observability import _logger
-        
+        from app.core.app_state import record_http_request_end
+
         if hasattr(g, 'request_start_time'):
             duration = time.time() - g.request_start_time
             duration_ms = duration * 1000
-            
+
             # Track performance metrics
             endpoint = request.endpoint or 'unknown'
             is_cached = response.status_code == 304 or 'cache' in response.headers.get('Cache-Control', '').lower()
             track_performance(endpoint, duration, cached=is_cached)
-            
+
+            # Track HTTP metrics (status codes, methods, concurrent requests)
+            if hasattr(g, 'request_id'):
+                record_http_request_end(g.request_id, response.status_code, request.method, endpoint)
+
             # Guardrail: Track and warn on slow requests
             if duration_ms > OBS_ROUTE_SLOW_MS:
                 track_slow_request()
-                
+
                 if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
                     _logger.warning(
                         f"Slow request detected: {endpoint} took {duration_ms:.1f}ms "
                         f"(threshold: {OBS_ROUTE_SLOW_WARN_MS}ms) - {request.path}"
                     )
-        
+
         return response
     
     @app.after_request

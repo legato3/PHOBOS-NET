@@ -759,6 +759,234 @@ def api_server_health():
     return jsonify(data)
 
 
+@bp.route('/api/system/resource-history')
+@throttle(10, 5)
+def api_resource_history():
+    """Get resource history (CPU/Memory) for historical charts.
+
+    Returns samples from the last hour (60 samples at 1 per minute).
+    """
+    from app.core.app_state import _resource_history, _resource_history_lock
+
+    # Get snapshot of history
+    with _resource_history_lock:
+        history = list(_resource_history)
+
+    # Calculate statistics
+    current = {'cpu_percent': None, 'mem_percent': None, 'load_1min': None}
+    cpu_peak = None
+    mem_peak = None
+
+    if history:
+        current = history[-1] if history else current
+        cpu_values = [s['cpu_percent'] for s in history if s.get('cpu_percent') is not None]
+        mem_values = [s['mem_percent'] for s in history if s.get('mem_percent') is not None]
+
+        if cpu_values:
+            cpu_peak = max(cpu_values)
+        if mem_values:
+            mem_peak = max(mem_values)
+
+    return jsonify({
+        'history': history,
+        'sample_count': len(history),
+        'current': current,
+        'cpu_peak': cpu_peak,
+        'mem_peak': mem_peak,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@bp.route('/api/system/thread-health')
+@throttle(10, 5)
+def api_thread_health():
+    """Get health status of background threads.
+
+    Returns status, last success time, error counts for each thread.
+    """
+    from app.core.app_state import get_thread_health_status
+
+    thread_health = get_thread_health_status()
+
+    # Calculate overall status
+    statuses = [t['status'] for t in thread_health.values()]
+    if 'errored' in statuses:
+        overall = 'degraded'
+    elif 'lagging' in statuses:
+        overall = 'lagging'
+    elif all(s == 'healthy' for s in statuses):
+        overall = 'healthy'
+    else:
+        overall = 'unknown'
+
+    return jsonify({
+        'threads': thread_health,
+        'overall_status': overall,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@bp.route('/api/system/network-io')
+@throttle(10, 5)
+def api_network_io():
+    """Get network I/O rates and statistics.
+
+    Returns per-interface bandwidth rates (bytes/sec, packets/sec).
+    """
+    from app.core.app_state import _network_io_metrics, _network_io_lock
+
+    with _network_io_lock:
+        data = {
+            'timestamp': _network_io_metrics['timestamp'],
+            'rates': dict(_network_io_metrics.get('rates', {})),
+            'interfaces': dict(_network_io_metrics.get('interfaces', {}))
+        }
+
+    # Calculate aggregate bandwidth
+    total_rx_sec = sum(r.get('rx_bytes_sec', 0) for r in data['rates'].values())
+    total_tx_sec = sum(r.get('tx_bytes_sec', 0) for r in data['rates'].values())
+
+    data['aggregate'] = {
+        'rx_bytes_sec': round(total_rx_sec, 1),
+        'tx_bytes_sec': round(total_tx_sec, 1),
+        'rx_mbps': round(total_rx_sec * 8 / 1_000_000, 2),
+        'tx_mbps': round(total_tx_sec * 8 / 1_000_000, 2)
+    }
+
+    return jsonify(data)
+
+
+@bp.route('/api/system/dependency-health')
+@throttle(10, 5)
+def api_dependency_health():
+    """Get health status of external dependencies.
+
+    Returns status of nfcapd, DNS, SNMP, threat feeds, syslog listeners.
+    """
+    from app.core.app_state import get_dependency_health
+
+    dep_health = get_dependency_health()
+
+    # Calculate overall status
+    issues = []
+    if dep_health.get('nfcapd', {}).get('running') is False:
+        issues.append('nfcapd not running')
+    if dep_health.get('nfcapd', {}).get('latest_file_age_sec', 0) and dep_health['nfcapd']['latest_file_age_sec'] > 300:
+        issues.append('NetFlow data stale')
+    if dep_health.get('syslog_514', {}).get('listening') is False:
+        issues.append('Syslog 514 not listening')
+    if dep_health.get('syslog_515', {}).get('listening') is False:
+        issues.append('Syslog 515 not listening')
+
+    overall = 'healthy' if not issues else 'degraded'
+
+    return jsonify({
+        'dependencies': dep_health,
+        'overall_status': overall,
+        'issues': issues,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@bp.route('/api/system/http-metrics')
+@throttle(10, 5)
+def api_http_metrics():
+    """Get HTTP request metrics.
+
+    Returns status code distribution, request methods, error rates.
+    """
+    from app.core.app_state import get_http_metrics
+
+    metrics = get_http_metrics()
+    metrics['timestamp'] = datetime.now().isoformat()
+
+    return jsonify(metrics)
+
+
+@bp.route('/api/system/container-metrics')
+@throttle(10, 5)
+def api_container_metrics():
+    """Get Docker container metrics.
+
+    Returns memory usage/limits, CPU throttling, OOM kills (if containerized).
+    """
+    from app.core.app_state import get_container_metrics
+
+    metrics = get_container_metrics()
+
+    # Format bytes for readability
+    if metrics.get('memory_usage_bytes'):
+        metrics['memory_usage_mb'] = round(metrics['memory_usage_bytes'] / (1024 * 1024), 1)
+    if metrics.get('memory_limit_bytes'):
+        metrics['memory_limit_mb'] = round(metrics['memory_limit_bytes'] / (1024 * 1024), 1)
+
+    metrics['timestamp'] = datetime.now().isoformat()
+
+    return jsonify(metrics)
+
+
+@bp.route('/api/system/monitoring-summary')
+@throttle(10, 5)
+def api_monitoring_summary():
+    """Get combined monitoring summary for the Server page.
+
+    Returns thread health, dependencies, network I/O, HTTP metrics, container metrics.
+    """
+    from app.core.app_state import (
+        get_thread_health_status, get_dependency_health, get_http_metrics,
+        get_container_metrics, _network_io_metrics, _network_io_lock
+    )
+
+    # Thread health
+    thread_health = get_thread_health_status()
+    thread_statuses = [t['status'] for t in thread_health.values()]
+    threads_ok = sum(1 for s in thread_statuses if s == 'healthy')
+    threads_total = len(thread_statuses)
+
+    # Dependencies
+    dep_health = get_dependency_health()
+    nfcapd_ok = dep_health.get('nfcapd', {}).get('running', False)
+    syslog_514_ok = dep_health.get('syslog_514', {}).get('listening', False)
+    syslog_515_ok = dep_health.get('syslog_515', {}).get('listening', False)
+
+    # Network I/O
+    with _network_io_lock:
+        rates = dict(_network_io_metrics.get('rates', {}))
+    total_rx = sum(r.get('rx_bytes_sec', 0) for r in rates.values())
+    total_tx = sum(r.get('tx_bytes_sec', 0) for r in rates.values())
+
+    # HTTP metrics
+    http_metrics = get_http_metrics()
+
+    # Container metrics
+    container = get_container_metrics()
+
+    return jsonify({
+        'thread_health': {
+            'ok': threads_ok,
+            'total': threads_total,
+            'status': 'healthy' if threads_ok == threads_total else 'degraded',
+            'threads': thread_health
+        },
+        'dependencies': {
+            'nfcapd': {'running': nfcapd_ok, 'file_age_sec': dep_health.get('nfcapd', {}).get('latest_file_age_sec')},
+            'syslog_514': {'listening': syslog_514_ok},
+            'syslog_515': {'listening': syslog_515_ok},
+            'details': dep_health
+        },
+        'network_io': {
+            'rx_bytes_sec': round(total_rx, 1),
+            'tx_bytes_sec': round(total_tx, 1),
+            'rx_mbps': round(total_rx * 8 / 1_000_000, 2),
+            'tx_mbps': round(total_tx * 8 / 1_000_000, 2),
+            'interfaces': rates
+        },
+        'http': http_metrics,
+        'container': container,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
 @bp.route("/api/performance/metrics")
 @throttle(10, 60)
 def api_performance_metrics():

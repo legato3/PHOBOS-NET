@@ -14,7 +14,12 @@ def post_worker_init(worker):
     # Start background threads (happens once per worker)
     # With 1 worker, this runs once and threads are shared
     try:
-        from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread, start_db_size_sampler_thread
+        from app.core.background import (
+            start_threat_thread, start_trends_thread, start_agg_thread,
+            start_db_size_sampler_thread, start_resource_sampler_thread,
+            start_network_io_sampler_thread, start_dependency_health_thread,
+            start_container_metrics_thread
+        )
         # Import syslog thread from new service module
         try:
             from app.services.shared.syslog import start_syslog_thread
@@ -31,6 +36,10 @@ def post_worker_init(worker):
         start_trends_thread()
         start_agg_thread()
         start_db_size_sampler_thread()  # Background database size sampling (decoupled from API)
+        start_resource_sampler_thread()  # Background CPU/memory sampling for resource history
+        start_network_io_sampler_thread()  # Network I/O bandwidth monitoring
+        start_dependency_health_thread()  # External dependency health checks
+        start_container_metrics_thread()  # Docker container metrics (if containerized)
         if start_syslog_thread:
             start_syslog_thread()
         if start_firewall_syslog_thread:
