@@ -8,7 +8,18 @@
                 <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
         </button>
-        <h2 class="page-title" x-text="activeTab.charAt(0).toUpperCase() + activeTab.slice(1)">Dashboard
+        <h2 class="page-title" x-text="({
+            'overview': 'Dashboard',
+            'security': 'Security',
+            'network': 'Network',
+            'hosts': 'Hosts',
+            'firewall': 'Firewall',
+            'firewall-snmp': 'Gateway',
+            'server': 'Server',
+            'forensics': 'Forensics',
+            'tools': 'Tools',
+            'assistant': 'Assistant'
+        })[activeTab] || activeTab.charAt(0).toUpperCase() + activeTab.slice(1)">Dashboard
         </h2>
     </div>
 

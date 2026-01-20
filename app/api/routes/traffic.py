@@ -2821,7 +2821,15 @@ def api_firewall_snmp_status():
             "hint": correlation_hint,
             "snmp_bytes_1h": int(snmp_total_bytes) if snmp_total_bytes is not None else None,
             "netflow_bytes_1h": int(netflow_total_bytes) if netflow_total_bytes is not None else None
-        }
+        },
+        # Additional system metrics
+        "swap_percent": snmp_data.get("swap_percent"),
+        "process_count": snmp_data.get("proc_count"),
+        "tcp_retrans_s": snmp_data.get("tcp_retrans_s"),
+        "tcp_resets_s": snmp_data.get("tcp_estab_resets_s"),
+        "ip_forwarding_s": snmp_data.get("ip_forw_datagrams_s"),
+        "udp_in_s": snmp_data.get("udp_in_s"),
+        "udp_out_s": snmp_data.get("udp_out_s"),
     }
     
     return jsonify(response)

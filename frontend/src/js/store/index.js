@@ -4512,6 +4512,14 @@ export const Store = () => ({
                     this.firewallSNMP.last_poll = data.last_poll;
                     this.firewallSNMP.poll_success = data.poll_success;
                     this.firewallSNMP.traffic_correlation = data.traffic_correlation || null;
+                    // Additional system metrics
+                    this.firewallSNMP.swap_percent = data.swap_percent;
+                    this.firewallSNMP.process_count = data.process_count;
+                    this.firewallSNMP.tcp_retrans_s = data.tcp_retrans_s;
+                    this.firewallSNMP.tcp_resets_s = data.tcp_resets_s;
+                    this.firewallSNMP.ip_forwarding_s = data.ip_forwarding_s;
+                    this.firewallSNMP.udp_in_s = data.udp_in_s;
+                    this.firewallSNMP.udp_out_s = data.udp_out_s;
                     this.firewallSNMP.error = null;
                 }
             } else {

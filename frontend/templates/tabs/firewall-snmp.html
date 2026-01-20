@@ -30,59 +30,64 @@
         <!-- Content -->
         <template x-if="!firewallSNMP.loading && firewallSNMP.poll_success">
             <div>
-                <!-- Top Stat Boxes -->
-                <div class="stat-grid"
-                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
-                    <!-- CPU Usage -->
-                    <div class="stat-box">
-                        <div class="stat-label">CPU Usage</div>
-                        <div class="stat-value"
-                            :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
-                            x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : 'N/A'">
-                        </div>
-                        <div class="stat-desc" x-show="firewallSNMP.cpu_percent !== null">
-                            <span
-                                x-text="firewallSNMP.cpu_percent < 50 ? 'Normal' : firewallSNMP.cpu_percent < 80 ? 'Elevated' : 'High'"></span>
-                        </div>
+                <!-- System Stats -->
+                <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
+                    <div class="card stat-box">
+                        <div class="value" :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
+                            x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="label">CPU</div>
                     </div>
-
-                    <!-- Memory Usage -->
-                    <div class="stat-box">
-                        <div class="stat-label">Memory Usage</div>
-                        <div class="stat-value"
-                            :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
-                            x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : 'N/A'">
-                        </div>
-                        <div class="stat-desc" x-show="firewallSNMP.memory_percent !== null">
-                            <span
-                                x-text="firewallSNMP.memory_percent < 70 ? 'Normal' : firewallSNMP.memory_percent < 85 ? 'Elevated' : 'High'"></span>
-                        </div>
+                    <div class="card stat-box">
+                        <div class="value" :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
+                            x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="label">Memory</div>
                     </div>
-
-                    <!-- Active Firewall Sessions -->
-                    <div class="stat-box">
-                        <div class="stat-label">Active Firewall Sessions</div>
-                        <div class="stat-value"
-                            x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : 'N/A'">
-                        </div>
-                        <div class="stat-desc">TCP connections</div>
+                    <div class="card stat-box">
+                        <div class="value" :class="{ 'text-warn': firewallSNMP.swap_percent > 50, 'text-crit': firewallSNMP.swap_percent > 80 }"
+                            x-text="firewallSNMP.swap_percent != null ? firewallSNMP.swap_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="label">Swap</div>
                     </div>
-
-                    <!-- Interface Throughput -->
-                    <div class="stat-box">
-                        <div class="stat-label">Total Throughput</div>
-                        <div class="stat-value"
-                            x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) + ' Mbps' : 'N/A'">
-                        </div>
-                        <div class="stat-desc">Aggregate RX + TX</div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="firewallSNMP.process_count != null ? firewallSNMP.process_count.toLocaleString() : '—'"></div>
+                        <div class="label">Processes</div>
                     </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : '—'"></div>
+                        <div class="label">Sessions</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" style="font-size: 1.1em;" x-text="firewallSNMP.uptime_formatted || '—'"></div>
+                        <div class="label">Uptime</div>
+                    </div>
+                </div>
 
-                    <!-- Uptime -->
-                    <div class="stat-box">
-                        <div class="stat-label">Uptime</div>
-                        <div class="stat-value" style="font-size: var(--fs-sm);"
-                            x-text="firewallSNMP.uptime_formatted || 'N/A'"></div>
-                        <div class="stat-desc">System uptime</div>
+                <!-- Network Stats -->
+                <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
+                    <div class="card stat-box">
+                        <div class="value text-cyan" x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) : '—'"></div>
+                        <div class="label">Throughput Mbps</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="firewallSNMP.ip_forwarding_s != null ? firewallSNMP.ip_forwarding_s.toFixed(0) : '—'"></div>
+                        <div class="label">IP Fwd/s</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" :class="{ 'text-warn': firewallSNMP.tcp_retrans_s > 10, 'text-crit': firewallSNMP.tcp_retrans_s > 50 }"
+                            x-text="firewallSNMP.tcp_retrans_s != null ? firewallSNMP.tcp_retrans_s.toFixed(1) : '—'"></div>
+                        <div class="label">TCP Retrans/s</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" :class="{ 'text-warn': firewallSNMP.tcp_resets_s > 5, 'text-crit': firewallSNMP.tcp_resets_s > 20 }"
+                            x-text="firewallSNMP.tcp_resets_s != null ? firewallSNMP.tcp_resets_s.toFixed(1) : '—'"></div>
+                        <div class="label">TCP Resets/s</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="firewallSNMP.udp_in_s != null ? firewallSNMP.udp_in_s.toFixed(0) : '—'"></div>
+                        <div class="label">UDP In/s</div>
+                    </div>
+                    <div class="card stat-box">
+                        <div class="value" x-text="firewallSNMP.udp_out_s != null ? firewallSNMP.udp_out_s.toFixed(0) : '—'"></div>
+                        <div class="label">UDP Out/s</div>
                     </div>
                 </div>
 
