@@ -264,7 +264,7 @@ def get_traffic_direction(ip, tf):
     
     # Fetch data (two nfdump calls)
     # Filter must be LAST arguments
-    # PERFORMANCE: Run queries in parallel
+    # PERFORMANCE: Run queries in parallel to reduce latency
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_out = executor.submit(run_nfdump, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
         future_in = executor.submit(run_nfdump, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
