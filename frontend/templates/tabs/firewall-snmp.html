@@ -16,15 +16,20 @@
                 </div>
                 <p
                     style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                    SNMP Not Configured</p>
-                <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-bottom: var(--space-3);"
-                    x-text="firewallSNMP.error">
+                    SNMP Configuration Required</p>
+                <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-bottom: var(--space-3);">
+                    The Gateway page requires SNMP to be configured to monitor your firewall's gateway, interfaces, and system health.
                 </p>
-                <p style="font-size: var(--text-sm); color: var(--text-secondary);">
-                    Configure SNMP in <button @click="configModalOpen = true" class="btn btn--ghost"
-                        style="display: inline-flex; padding: 4px 12px; margin: 0 4px;">⚙️ Settings</button> to monitor
-                    firewall interfaces.
+                <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
+                    Please configure the following in Settings:
                 </p>
+                <ul style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-4); text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Host:</strong> Your firewall's IP address (e.g., 192.168.0.1)</li>
+                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Community:</strong> Community string (default: public)</li>
+                </ul>
+                <button @click="configModalOpen = true" class="btn btn--primary">
+                    ⚙️ Open Settings
+                </button>
             </div>
         </template>
         <!-- Content -->

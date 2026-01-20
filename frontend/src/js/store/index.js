@@ -397,6 +397,9 @@ export const Store = () => ({
     // Export dropdown
     exportDropdownOpen: false,
 
+    // Welcome Modal (first-time users)
+    welcomeModalOpen: false,
+
     // Configuration Settings Modal
     configModalOpen: false,
     configLoading: false,
@@ -742,12 +745,39 @@ export const Store = () => ({
         this.selectedHost = null;
     },
 
+    checkFirstTimeUser() {
+        // Check if user has seen the welcome modal before
+        const hasSeenWelcome = localStorage.getItem('phobos_welcome_seen');
+        if (!hasSeenWelcome) {
+            // Show welcome modal after a short delay to allow page to render
+            setTimeout(() => {
+                this.welcomeModalOpen = true;
+            }, 1000);
+        }
+    },
+
+    dismissWelcome() {
+        // Mark welcome as seen and close modal
+        localStorage.setItem('phobos_welcome_seen', 'true');
+        this.welcomeModalOpen = false;
+    },
+
+    openSettingsFromWelcome() {
+        // Close welcome modal and open settings
+        this.welcomeModalOpen = false;
+        localStorage.setItem('phobos_welcome_seen', 'true');
+        this.configModalOpen = true;
+    },
+
     init() {
         // Polyfill requestIdleCallback for better browser support
         const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 
         // Mark as initialized immediately for rendering
         this.initDone = true;
+
+        // Check if first-time user and show welcome modal
+        this.checkFirstTimeUser();
 
         // Fetch app metadata early (non-blocking)
         this.fetchAppMetadata();
