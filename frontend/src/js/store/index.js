@@ -500,6 +500,18 @@ export const Store = () => ({
             description: 'Disk read and write activity. High I/O may occur during logging, package updates, or if swap is being used.',
             fields: ['disk_read', 'disk_write'],
             tips: ['Consistent high I/O may indicate logging issues', 'Consider SSD if using HDD', 'Check for large log files']
+        },
+        networkHealth: {
+            title: '🏥 Network Health',
+            description: 'The Network Health Score is a real-time composite metric indicating the overall stability and security of your network. It drops when traffic anomalies, connection failures, or threat blocks are detected.',
+            fields: ['netHealth_health_score', 'netHealth_status'],
+            tips: ['A score below 70 indicates significant network issues', 'Check for high TCP reset rates or packet loss', 'Investigate any recent threat detections']
+        },
+        networkAnomalies: {
+            title: '⚠️ Network Anomalies',
+            description: 'This metric tracks behavioral deviations from normal network patterns over the last 24 hours. Anomalies include unusual traffic spikes, new protocol usage, or deviations in connection duration.',
+            fields: ['netAnom_count_24h', 'netAnom_trend'],
+            tips: ['Anomalies are not always threats, but warrant investigation', 'Correlate with "Active Flows" to see if traffic volume matches', 'Check "Traffic Insights" for unusual top talkers']
         }
     },
 
@@ -514,6 +526,27 @@ export const Store = () => ({
     },
 
     getFwValue(field) {
+        // Special handling for Network Health fields
+        if (field.startsWith('netHealth_')) {
+            const key = field.replace('netHealth_', '');
+            const val = this.netHealth[key];
+            if (key === 'health_score') return (val || 0) + '/100';
+            if (key === 'status') return val ? val.toUpperCase() : '--';
+            return val;
+        }
+
+        // Special handling for Network Anomalies fields
+        if (field.startsWith('netAnom_')) {
+            const key = field.replace('netAnom_', '');
+            if (key === 'count_24h') return (this.networkStatsOverview.anomalies_24h || 0).toLocaleString();
+            if (key === 'trend') {
+                const trend = this.networkStatsOverview.trends?.anomalies?.percent_change;
+                if (trend === undefined || trend === null) return '--';
+                return (trend > 0 ? '+' : '') + trend.toFixed(1) + '%';
+            }
+            return '--';
+        }
+
         const val = this.firewall[field];
         if (val === null || val === undefined) return '--';
         if (field.includes('percent')) return val + '%';

@@ -13,7 +13,7 @@
                     <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
-                <div class="label">Network Health <span style="opacity:0.6; cursor:help;">ℹ️</span>
+                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;" @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
                     <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                         style="margin-left: 4px; font-weight: normal;"></span>
                 </div>
@@ -30,8 +30,9 @@
                     </template>
                 </div>
                 <div class="label">Network Anomalies (24h)
-                    <span style="margin-left: var(--space-1); opacity: 0.6; cursor: help;"
-                        title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation.">ℹ️</span>
+                    <span style="margin-left: var(--space-1); opacity: 0.6; cursor: pointer;"
+                        title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation. (Click for details)"
+                        @click.stop="openFwDetail('networkAnomalies')">ℹ️</span>
                 </div>
             </div>
             <div class="card stat-box">
