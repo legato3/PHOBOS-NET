@@ -47,5 +47,12 @@ def post_worker_init(worker):
             )
         except Exception:
             pass  # Timeline event is non-critical
+
+        # Track telemetry startup
+        try:
+            from app.services.shared.telemetry import track_startup
+            track_startup(version="1.2.5")
+        except Exception:
+            pass  # Telemetry is non-critical
     except Exception as e:
         worker.log.error(f"Error starting background threads: {e}")
