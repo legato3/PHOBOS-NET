@@ -9,9 +9,9 @@ import requests
 from datetime import datetime
 from app.config import DEBUG_MODE
 
-# Telemetry configuration
-TELEMETRY_ENABLED = os.environ.get('TELEMETRY_ENABLED', 'false').lower() == 'true'
-TELEMETRY_ENDPOINT = os.environ.get('TELEMETRY_ENDPOINT', '')
+# Telemetry configuration (enabled by default, can be disabled with TELEMETRY_ENABLED=false)
+TELEMETRY_ENABLED = os.environ.get('TELEMETRY_ENABLED', 'true').lower() == 'true'
+TELEMETRY_ENDPOINT = os.environ.get('TELEMETRY_ENDPOINT', 'https://phobos-telemetry.onrender.com/api/telemetry')
 TELEMETRY_TIMEOUT = int(os.environ.get('TELEMETRY_TIMEOUT', '5'))
 
 # Generate anonymous instance ID (persistent across restarts)
