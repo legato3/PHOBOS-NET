@@ -838,10 +838,14 @@ def api_stats_talkers():
                         with _lock_service_cache:
                             svc = _service_cache.get(service_key)
                             if svc is None:
-                                try:
-                                    svc = socket.getservbyport(port_num, proto)
-                                except OSError:
-                                    svc = str(port_num) # Fallback
+                                # Optimization: Check static PORTS dict first to avoid syscall
+                                if port_num in PORTS:
+                                    svc = PORTS[port_num]
+                                else:
+                                    try:
+                                        svc = socket.getservbyport(port_num, proto)
+                                    except OSError:
+                                        svc = str(port_num) # Fallback
                                 _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
@@ -2102,10 +2106,14 @@ def api_flows():
                         with _lock_service_cache:
                             svc = _service_cache.get(service_key)
                             if svc is None:
-                                try:
-                                    svc = socket.getservbyport(port_num, proto)
-                                except OSError:
-                                    svc = str(port_num) # Fallback
+                                # Optimization: Check static PORTS dict first to avoid syscall
+                                if port_num in PORTS:
+                                    svc = PORTS[port_num]
+                                else:
+                                    try:
+                                        svc = socket.getservbyport(port_num, proto)
+                                    except OSError:
+                                        svc = str(port_num) # Fallback
                                 _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
