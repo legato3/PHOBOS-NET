@@ -39,6 +39,7 @@ except ImportError as e:
 if __name__ == "__main__":
     from app import app
     from app.services.shared.timeline import add_timeline_event
+    from app.services.shared.telemetry import track_startup
 
     startup_msg = "NetFlow Analytics Pro (Modernized)"
     print(startup_msg)
@@ -51,11 +52,19 @@ if __name__ == "__main__":
         raw={'event': 'startup', 'message': startup_msg}
     )
     
+    # Track telemetry startup
+    track_startup(version="1.0")
+    
     # Graceful shutdown handler
     def shutdown_handler(signum=None, frame=None):
+        from app.services.shared.telemetry import track_shutdown
+        
         shutdown_msg = "\n[Shutdown] Stopping background services..."
         print(shutdown_msg)
         add_app_log(shutdown_msg.strip(), 'INFO')
+
+        # Track telemetry shutdown
+        track_shutdown()
 
         # Add system shutdown event to timeline (before shutdown_event is set)
         try:

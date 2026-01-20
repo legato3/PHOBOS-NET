@@ -19,6 +19,10 @@ services:
       - TZ=Europe/Amsterdam # Set to your local timezone
       # - VIRUSTOTAL_API_KEY=your_key
       # - ABUSEIPDB_API_KEY=your_key
+      
+      # Telemetry settings (anonymous usage tracking)
+      - TELEMETRY_ENABLED=true
+      - TELEMETRY_ENDPOINT=https://phobos-telemetry.onrender.com/api/telemetry
     volumes:
       - ../docker-data:/app/data
       - ../docker-data/nfdump:/var/cache/nfdump # NetFlow data persistence
