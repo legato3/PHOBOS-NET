@@ -144,7 +144,7 @@ def api_stats_net_health():
         try:
             conn = _firewall_db_connect()
             conn.close()
-        except Exception:
+        except sqlite3.Error:
             health_score -= 20
             status_issues.append("Database connection failed")
 
@@ -289,8 +289,8 @@ def api_firewall_logs_stats():
                 "top_countries": top_countries
             }
             return jsonify(data)
-        except Exception as e:
-            print(f"Firewall stats error: {e}")
+        except (sqlite3.Error, ValueError, KeyError, TypeError) as e:
+            add_app_log(f"Firewall stats error: {e}", 'ERROR')
             return jsonify({"error": str(e)}), 500
 
 
@@ -817,8 +817,8 @@ def api_firewall_syslog_recent():
             "receiver_stats": receiver_stats
         })
 
-    except Exception as e:
-        print(f"Error in syslog API: {e}")
+    except (sqlite3.Error, ValueError, KeyError, TypeError) as e:
+        add_app_log(f"Error in syslog API: {e}", 'ERROR')
         return jsonify({"error": str(e), "logs": [], "stats": {}, "receiver_stats": {}}), 500
 
 
@@ -1097,19 +1097,19 @@ def api_ip_detail(ip):
         src_ports = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","10","-a",f"src ip {ip}"], tf), expected_key='dp')
         dst_ports = parse_csv(run_nfdump(["-s","srcport/bytes/flows","-n","10","-a",f"dst ip {ip}"], tf), expected_key='sp')
         protocols = parse_csv(run_nfdump(["-s","proto/bytes/packets","-n","5","-a",f"ip {ip}"], tf), expected_key='proto')
-    except Exception as e:
+    except (subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as e:
         # If nfdump fails, return partial data
         direction = {"upload": 0, "download": 0}
         src_ports = []
         dst_ports = []
         protocols = []
-        print(f"Warning: nfdump query failed for IP {ip}: {e}")
+        add_app_log(f"nfdump query failed for IP {ip}: {e}", 'WARN')
 
     # Enrich
     for p in protocols:
         try:
             proto = int(p["key"]); p["proto_name"] = PROTOS.get(proto, f"Proto-{p['key']}")
-        except Exception:
+        except (ValueError, TypeError):
             p["proto_name"] = p["key"]
 
     geo = lookup_geo(ip)
@@ -1174,8 +1174,8 @@ def api_ip_detail(ip):
                 r_geo = lookup_geo(r_ip['ip'])
                 r_ip['country'] = r_geo.get('country', 'Unknown') if r_geo else 'Unknown'
                 r_ip['country_code'] = r_geo.get('country_code', '') if r_geo else ''
-    except Exception as e:
-        print(f"Warning: Related IPs discovery failed for IP {ip}: {e}")
+    except (subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as e:
+        add_app_log(f"Related IPs discovery failed for IP {ip}: {e}", 'WARN')
 
     data = {
         "ip": ip,
@@ -1285,7 +1285,7 @@ def api_ollama_chat():
             "error": "Request to Ollama timed out"
         }), 504
     except Exception as e:
-        print(f"Ollama chat error: {e}")
+        add_app_log(f"Ollama chat error: {e}", 'ERROR')
         return jsonify({
             "error": "Internal server error",
             "details": str(e)[:200]
@@ -1977,7 +1977,7 @@ def api_ollama_models():
     except requests.exceptions.ConnectionError:
         return jsonify({"error": "Cannot connect to Ollama", "models": []}), 503
     except Exception as e:
-        print(f"Ollama models error: {e}")
+        add_app_log(f"Ollama models error: {e}", 'ERROR')
         return jsonify({"error": str(e), "models": []}), 500
 
 
@@ -2155,10 +2155,9 @@ def api_malicious_ports():
                                 port_data[port_num]['netflow_flows'] = int(port_item.get('flows', 0))
                         except (ValueError, KeyError):
                             continue
-                except Exception as e:
+                except (subprocess.TimeoutExpired, ValueError, KeyError) as e:
                     # Log but continue - syslog data is still valuable
-                    print(f"Warning: NetFlow query for port traffic failed: {e}")
-                    pass
+                    add_app_log(f"NetFlow query for port traffic failed: {e}", 'WARN')
 
         # Also try to get data from threat IPs (if threat list exists)
         threat_set = load_threatlist()
@@ -2221,13 +2220,12 @@ def api_malicious_ports():
                                                 port_data[port]['netflow_flows'] += flows_val
                                         except (ValueError, IndexError):
                                             pass
-                        except Exception as e:
+                        except (subprocess.TimeoutExpired, ValueError, KeyError):
                             # Continue with next IP if this one fails
                             continue
-    except Exception as e:
+    except (subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as e:
         # Log error but don't fail completely - return what we have from syslog
-        print(f"Warning: Failed to fetch threat port data: {e}")
-        pass
+        add_app_log(f"Failed to fetch threat port data: {e}", 'WARN')
 
     # Common port to service name mapping (fallback if socket.getservbyport fails)
     COMMON_PORTS = {
@@ -3218,7 +3216,7 @@ def api_forensics_flow_search():
         return jsonify({'flows': flows, 'count': len(flows)})
 
     except Exception as e:
-        print(f"Flow search error: {e}")
+        add_app_log(f"Flow search error: {e}", 'ERROR')
         import traceback
         traceback.print_exc()
         return jsonify({'flows': [], 'count': 0, 'error': str(e)})
@@ -3322,7 +3320,7 @@ def api_forensics_alert_correlation():
 
         return jsonify({'chains': result_chains, 'count': len(result_chains)})
     except Exception as e:
-        print(f"Error in alert correlation: {e}")
+        add_app_log(f"Error in alert correlation: {e}", 'ERROR')
         return jsonify({'chains': [], 'count': 0, 'error': str(e)}), 500
 
 

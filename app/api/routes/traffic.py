@@ -441,7 +441,7 @@ def api_stats_packet_sizes():
             _stats_pkts_cache["ts"] = now
             _stats_pkts_cache["key"] = range_key
         return jsonify(data)
-    except Exception:
+    except (ValueError, IndexError, KeyError, TypeError):
         return jsonify({"labels":[], "data":[]})
 
 
@@ -778,11 +778,11 @@ def api_stats_talkers():
                         "bytes_fmt": fmt_bytes(b),
                         "packets": pkts
                     })
-                except Exception:
+                except (ValueError, IndexError, KeyError, TypeError):
                     pass
 
-    except Exception as e:
-        print(f"Error parsing talkers: {e}")
+    except (ValueError, IndexError, KeyError, TypeError) as e:
+        add_app_log(f"Error parsing talkers: {e}", 'WARN')
         pass
 
     with _cache_lock:
@@ -954,7 +954,7 @@ def api_noise_metrics():
                 except (ValueError, IndexError, KeyError):
                     pass
 
-    except Exception:
+    except (ValueError, IndexError, KeyError, TypeError):
         pass
 
     # 2. Blocked Flows (Definitely Noise)
@@ -1659,7 +1659,8 @@ def api_bandwidth():
             _bandwidth_cache["ts"] = now_ts
             _bandwidth_cache["key"] = cache_key
         return jsonify(data)
-    except Exception:
+    except (ValueError, IndexError, KeyError, TypeError, sqlite3.Error) as e:
+        add_app_log(f"Bandwidth API error: {e}", 'ERROR')
         return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
 
 
@@ -2316,7 +2317,7 @@ def api_firewall_snmp_status():
                 vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
             if "tailscale" in interface_mapping:
                 vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-    except Exception:
+    except (KeyError, TypeError, AttributeError):
         # Discovery failed - continue without VPN interfaces
         pass
 
@@ -2371,7 +2372,7 @@ def api_firewall_snmp_status():
                     gateway_latency = float(match.group(1))
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                 gateway_latency = None  # Gateway unreachable
-    except Exception:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError):
         # IP/gateway discovery failed - continue without
         pass
 
@@ -2641,7 +2642,7 @@ def api_firewall_snmp_status():
                     "speed_mbps": vpn_speed,
                     "saturation_hint": None
                 })
-        except Exception:
+        except (KeyError, ValueError, TypeError, IndexError, ZeroDivisionError):
             # VPN interface polling failed - add interface with error state
             interfaces.append({
                 "name": vpn_name.upper(),
@@ -2657,7 +2658,6 @@ def api_firewall_snmp_status():
                 "speed_mbps": None,
                 "saturation_hint": None
             })
-            pass
     
     # Calculate aggregate throughput (handle None values)
     total_throughput = sum([(i.get("rx_mbps") or 0) + (i.get("tx_mbps") or 0) for i in interfaces])
