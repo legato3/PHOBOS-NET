@@ -74,7 +74,7 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
-from app.services.shared.decorators import throttle
+from app.services.shared.decorators import throttle, cached_endpoint
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
@@ -89,6 +89,7 @@ from app.config import (
 
 @bp.route("/api/stats/sources")
 @throttle(5, 10)
+@cached_endpoint(_stats_sources_cache, _lock_sources, key_params=['range', 'limit'])
 def api_stats_sources():
     range_key = request.args.get('range', '1h')
     try:
@@ -96,30 +97,9 @@ def api_stats_sources():
     except (ValueError, TypeError):
         limit = 10
 
-    # Cache key must include limit if we cache at this level.
-    # However, the current cache logic inside this function ignores 'limit' in the key check.
-    # To support variable limits correctly without rewriting the whole caching layer for this demo,
-    # we can bypass the function-level cache if limit > 10, or just use the common data cache (which has 100).
-    # Since get_common_nfdump_data returns 100, we can just slice from that.
-
-    # We will skip the function-level cache check if limit > 10 for now to ensure fresh data,
-    # OR we can update the cache key. Let's update the cache key.
-
-    cache_key_local = f"{range_key}:{limit}"
-    now = time.time()
-    win = int(now // 60)
-
-    with _lock_sources:
-        if _stats_sources_cache["data"] and _stats_sources_cache.get("key") == cache_key_local and _stats_sources_cache.get("win") == win:
-            return jsonify(_stats_sources_cache["data"])
-
-    # Use shared data (top 100)
     full_sources = get_common_nfdump_data("sources", range_key)
-
-    # Return top N
     sources = full_sources[:limit]
 
-    # Enrich
     for i in sources:
         i["hostname"] = resolve_ip(i["key"])
         i["internal"] = is_internal(i["key"])
@@ -130,18 +110,13 @@ def api_stats_sources():
         i["region"] = get_region(i["key"], i.get("country_iso"))
         i["threat"] = False
 
-    data = {"sources": sources}
-    with _lock_sources:
-        _stats_sources_cache["data"] = data
-        _stats_sources_cache["ts"] = now
-        _stats_sources_cache["key"] = cache_key_local
-        _stats_sources_cache["win"] = win
-    return jsonify(data)
+    return {"sources": sources}
 
 
 
 @bp.route("/api/stats/destinations")
 @throttle(5, 10)
+@cached_endpoint(_stats_dests_cache, _lock_dests, key_params=['range', 'limit'])
 def api_stats_destinations():
     range_key = request.args.get('range', '1h')
     try:
@@ -149,14 +124,6 @@ def api_stats_destinations():
     except (ValueError, TypeError):
         limit = 10
 
-    cache_key_local = f"{range_key}:{limit}"
-    now = time.time()
-    win = int(now // 60)
-    with _lock_dests:
-        if _stats_dests_cache["data"] and _stats_dests_cache.get("key") == cache_key_local and _stats_dests_cache.get("win") == win:
-            return jsonify(_stats_dests_cache["data"])
-
-    # Use shared data (top 100)
     full_dests = get_common_nfdump_data("dests", range_key)
     dests = full_dests[:limit]
 
@@ -170,18 +137,13 @@ def api_stats_destinations():
         i["region"] = get_region(i["key"], i.get("country_iso"))
         i["threat"] = False
 
-    data = {"destinations": dests}
-    with _lock_dests:
-        _stats_dests_cache["data"] = data
-        _stats_dests_cache["ts"] = now
-        _stats_dests_cache["key"] = cache_key_local
-        _stats_dests_cache["win"] = win
-    return jsonify(data)
+    return {"destinations": dests}
 
 
 
 @bp.route("/api/stats/ports")
 @throttle(5, 10)
+@cached_endpoint(_stats_ports_cache, _lock_ports, key_params=['range', 'limit'])
 def api_stats_ports():
     range_key = request.args.get('range', '1h')
     try:
@@ -189,14 +151,6 @@ def api_stats_ports():
     except (ValueError, TypeError):
         limit = 10
 
-    cache_key_local = f"{range_key}:{limit}"
-    now = time.time()
-    win = int(now // 60)
-    with _lock_ports:
-        if _stats_ports_cache["data"] and _stats_ports_cache.get("key") == cache_key_local and _stats_ports_cache.get("win") == win:
-            return jsonify(_stats_ports_cache["data"])
-
-    # Use shared data (top 100, sorted by bytes)
     full_ports = get_common_nfdump_data("ports", range_key)
     ports = full_ports[:limit]
 
@@ -206,30 +160,19 @@ def api_stats_ports():
             port = int(i["key"])
             i["service"] = PORTS.get(port, "Unknown")
             i["suspicious"] = port in SUSPICIOUS_PORTS
-        except Exception:
+        except (ValueError, TypeError):
             i["service"] = "Unknown"
             i["suspicious"] = False
 
-    data = {"ports": ports}
-    with _lock_ports:
-        _stats_ports_cache["data"] = data
-        _stats_ports_cache["ts"] = now
-        _stats_ports_cache["key"] = cache_key_local
-        _stats_ports_cache["win"] = win
-    return jsonify(data)
+    return {"ports": ports}
 
 
 @bp.route("/api/stats/protocols")
 @throttle(5, 10)
+@cached_endpoint(_stats_protocols_cache, _lock_protocols, key_params=['range'])
 def api_stats_protocols():
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_protocols:
-        if _stats_protocols_cache["data"] and _stats_protocols_cache["key"] == range_key and _stats_protocols_cache.get("win") == win:
-            return jsonify(_stats_protocols_cache["data"])
 
-    # Reuse common data cache (fetches 20, we use top 10)
     protos_raw = get_common_nfdump_data("protos", range_key)[:10]
 
     for i in protos_raw:
@@ -237,16 +180,10 @@ def api_stats_protocols():
         try:
             proto = int(i["key"]) if i["key"].isdigit() else 0
             i["proto_name"] = PROTOS.get(proto, i["key"])
-        except Exception:
+        except (ValueError, TypeError):
             i["proto_name"] = i["key"]
 
-    data = {"protocols": protos_raw}
-    with _lock_protocols:
-        _stats_protocols_cache["data"] = data
-        _stats_protocols_cache["ts"] = now
-        _stats_protocols_cache["key"] = range_key
-        _stats_protocols_cache["win"] = win
-    return jsonify(data)
+    return {"protocols": protos_raw}
 
 
 @bp.route("/api/stats/flags")
