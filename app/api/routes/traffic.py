@@ -1716,7 +1716,8 @@ def api_bandwidth():
                         conn.close()
             else:
                 # Normal behavior (or single bucket)
-                # Offload to background executor to avoid blocking the request
+                # Performance Optimization: Offload to background executor to avoid blocking the request.
+                # This ensures the API returns quickly even if historical buckets need to be computed.
                 try:
                     for bucket in missing_buckets:
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
