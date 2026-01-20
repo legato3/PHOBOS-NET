@@ -2415,7 +2415,62 @@ def api_firewall_snmp_status():
     except Exception:
         # Discovery failed - continue without VPN interfaces
         pass
-    
+
+    # Fetch interface IP addresses via SNMP
+    interface_ips = {}  # {interface_index: ip_address}
+    default_gateway = None
+    gateway_latency = None
+    try:
+        # Get IP addresses and their interface mappings
+        ip_addr_cmd = f"snmpwalk -v2c -c {snmp_community} -Oqn {snmp_host} .1.3.6.1.2.1.4.20.1.1 2>/dev/null"
+        ip_idx_cmd = f"snmpwalk -v2c -c {snmp_community} -Oqn {snmp_host} .1.3.6.1.2.1.4.20.1.2 2>/dev/null"
+
+        ip_addr_output = subprocess.check_output(ip_addr_cmd, shell=True, timeout=3, text=True)
+        ip_idx_output = subprocess.check_output(ip_idx_cmd, shell=True, timeout=3, text=True)
+
+        # Parse IP addresses: .1.3.6.1.2.1.4.20.1.1.x.x.x.x -> x.x.x.x
+        ip_addresses = {}
+        for line in ip_addr_output.strip().split('\n'):
+            if line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    ip = parts[1]
+                    if ip and ip != '127.0.0.1':
+                        ip_addresses[ip] = ip
+
+        # Parse interface indexes: .1.3.6.1.2.1.4.20.1.2.x.x.x.x -> index
+        for line in ip_idx_output.strip().split('\n'):
+            if line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    oid = parts[0]
+                    idx = int(parts[1])
+                    # Extract IP from OID suffix
+                    ip_suffix = oid.split('.1.3.6.1.2.1.4.20.1.2.')[-1]
+                    if ip_suffix in ip_addresses and ip_suffix != '127.0.0.1':
+                        interface_ips[idx] = ip_suffix
+
+        # Get default gateway (route for 0.0.0.0)
+        gw_cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.4.21.1.7.0.0.0.0 2>/dev/null"
+        gw_output = subprocess.check_output(gw_cmd, shell=True, timeout=3, text=True).strip()
+        if gw_output and gw_output != '0.0.0.0':
+            default_gateway = gw_output
+
+            # Ping gateway to measure latency
+            ping_cmd = f"ping -c 1 -W 1 {default_gateway} 2>/dev/null"
+            try:
+                ping_output = subprocess.check_output(ping_cmd, shell=True, timeout=2, text=True)
+                # Parse ping output for time=X.XXX ms
+                import re
+                match = re.search(r'time[=<](\d+\.?\d*)', ping_output)
+                if match:
+                    gateway_latency = float(match.group(1))
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                gateway_latency = None  # Gateway unreachable
+    except Exception:
+        # IP/gateway discovery failed - continue without
+        pass
+
     # Extract interface data with proper status logic
     interfaces = []
     
@@ -2476,6 +2531,7 @@ def api_firewall_snmp_status():
     interfaces.append({
         "name": "WAN",
         "status": wan_status,
+        "ip_address": interface_ips.get(1),  # WAN is typically interface index 1
         "rx_mbps": snmp_data.get("wan_rx_mbps") if snmp_data.get("wan_rx_mbps") is not None else None,
         "tx_mbps": snmp_data.get("wan_tx_mbps") if snmp_data.get("wan_tx_mbps") is not None else None,
         "rx_errors": snmp_data.get("wan_in_err_s") if snmp_data.get("wan_in_err_s") is not None else None,
@@ -2503,6 +2559,7 @@ def api_firewall_snmp_status():
     interfaces.append({
         "name": "LAN",
         "status": lan_status,
+        "ip_address": interface_ips.get(2),  # LAN is typically interface index 2
         "rx_mbps": snmp_data.get("lan_rx_mbps") if snmp_data.get("lan_rx_mbps") is not None else None,
         "tx_mbps": snmp_data.get("lan_tx_mbps") if snmp_data.get("lan_tx_mbps") is not None else None,
         "rx_errors": snmp_data.get("lan_in_err_s") if snmp_data.get("lan_in_err_s") is not None else None,
@@ -2669,6 +2726,7 @@ def api_firewall_snmp_status():
                 interfaces.append({
                     "name": vpn_name.upper(),
                     "status": vpn_status,
+                    "ip_address": interface_ips.get(vpn_idx),  # VPN IP from discovered index
                     "rx_mbps": vpn_rx_mbps,
                     "tx_mbps": vpn_tx_mbps,
                     "rx_errors": vpn_rx_err_s,
@@ -2684,6 +2742,7 @@ def api_firewall_snmp_status():
             interfaces.append({
                 "name": vpn_name.upper(),
                 "status": "unknown",
+                "ip_address": None,
                 "rx_mbps": None,
                 "tx_mbps": None,
                 "rx_errors": None,
@@ -2830,6 +2889,12 @@ def api_firewall_snmp_status():
         "ip_forwarding_s": snmp_data.get("ip_forw_datagrams_s"),
         "udp_in_s": snmp_data.get("udp_in_s"),
         "udp_out_s": snmp_data.get("udp_out_s"),
+        # Gateway monitoring
+        "gateway": {
+            "ip": default_gateway,
+            "latency_ms": gateway_latency,
+            "status": "up" if gateway_latency is not None else ("down" if default_gateway else "unknown")
+        }
     }
     
     return jsonify(response)

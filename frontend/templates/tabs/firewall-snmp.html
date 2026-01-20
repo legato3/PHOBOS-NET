@@ -106,6 +106,7 @@
                                     <thead>
                                         <tr>
                                             <th>Interface</th>
+                                            <th>IP Address</th>
                                             <th>Status</th>
                                             <th>RX Rate</th>
                                             <th>TX Rate</th>
@@ -119,8 +120,12 @@
                                             <tr>
                                                 <td><strong x-text="iface.name"></strong></td>
                                                 <td>
-                                                    <span class="badge" :class="{ 
-                                                                    'badge-success': iface.status === 'up', 
+                                                    <span x-show="iface.ip_address" class="text-mono" style="font-size: 0.9em;" x-text="iface.ip_address"></span>
+                                                    <span x-show="!iface.ip_address" class="text-muted">—</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge" :class="{
+                                                                    'badge-success': iface.status === 'up',
                                                                     'badge-error': iface.status === 'down',
                                                                     'badge-warning': iface.status === 'stale' || iface.status === 'unknown' || iface.status === 'admin_down'
                                                                 }"
@@ -241,6 +246,46 @@
                         </template>
                     </div>
                 </div>
+
+                <!-- Gateway Status -->
+                <template x-if="firewallSNMP.gateway && firewallSNMP.gateway.ip">
+                    <div class="card">
+                        <h2>
+                            <div class="card-title-content">
+                                <span class="title-icon">🌐</span>
+                                <span>Default Gateway</span>
+                            </div>
+                        </h2>
+                        <div class="widget-body">
+                            <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-secondary">Gateway IP:</span>
+                                    <span class="text-mono" x-text="firewallSNMP.gateway.ip"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-secondary">Status:</span>
+                                    <span class="badge"
+                                        :class="{
+                                            'badge-success': firewallSNMP.gateway.status === 'up',
+                                            'badge-error': firewallSNMP.gateway.status === 'down',
+                                            'badge-warning': firewallSNMP.gateway.status === 'unknown'
+                                        }"
+                                        x-text="firewallSNMP.gateway.status === 'up' ? 'REACHABLE' : firewallSNMP.gateway.status === 'down' ? 'UNREACHABLE' : 'UNKNOWN'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-secondary">Latency:</span>
+                                    <span :class="{
+                                        'text-ok': firewallSNMP.gateway.latency_ms !== null && firewallSNMP.gateway.latency_ms < 10,
+                                        'text-warn': firewallSNMP.gateway.latency_ms !== null && firewallSNMP.gateway.latency_ms >= 10 && firewallSNMP.gateway.latency_ms < 50,
+                                        'text-crit': firewallSNMP.gateway.latency_ms !== null && firewallSNMP.gateway.latency_ms >= 50,
+                                        'text-muted': firewallSNMP.gateway.latency_ms === null
+                                    }"
+                                        x-text="firewallSNMP.gateway.latency_ms !== null ? firewallSNMP.gateway.latency_ms.toFixed(1) + ' ms' : '—'"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
 
                 <!-- System Info Panel -->
                 <div class="card">

@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     traceroute \
     whois \
-    && rm -rf /var/lib/apt/lists/*
+    libcap2-bin \
+    && rm -rf /var/lib/apt/lists/* \
+    && setcap cap_net_raw+ep /bin/ping
 
 # Add OCI image labels
 LABEL org.opencontainers.image.title="PHOBOS-NET"

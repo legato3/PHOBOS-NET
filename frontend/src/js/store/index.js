@@ -310,7 +310,7 @@ export const Store = () => ({
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
-    firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: false, traffic_correlation: null, loading: true, error: null },
+    firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: false, traffic_correlation: null, swap_percent: null, process_count: null, tcp_retrans_s: null, tcp_resets_s: null, ip_forwarding_s: null, udp_in_s: null, udp_out_s: null, gateway: null, loading: true, error: null },
     firewallSNMPRefreshTimer: null,
     _firewallSNMPFetching: false,
 
@@ -4520,6 +4520,8 @@ export const Store = () => ({
                     this.firewallSNMP.ip_forwarding_s = data.ip_forwarding_s;
                     this.firewallSNMP.udp_in_s = data.udp_in_s;
                     this.firewallSNMP.udp_out_s = data.udp_out_s;
+                    // Gateway monitoring
+                    this.firewallSNMP.gateway = data.gateway || null;
                     this.firewallSNMP.error = null;
                 }
             } else {

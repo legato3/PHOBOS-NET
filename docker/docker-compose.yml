@@ -6,6 +6,8 @@ services:
     image: legato3/phobos-net:latest
     container_name: phobos-net
     restart: unless-stopped
+    cap_add:
+      - NET_RAW # Required for gateway ping monitoring
     ports:
       - "3434:8080" # Web dashboard
       - "514:5514/udp" # Syslog filterlog (OPNsense block/pass events)
