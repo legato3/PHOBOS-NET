@@ -2093,6 +2093,46 @@ tr:hover td {
     opacity: 0.5;
 }
 
+/* Status Pills - Compact status indicators */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.status-pill-ok {
+    background: rgba(0, 255, 136, 0.12);
+    color: var(--signal-ok);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.1);
+}
+
+.status-pill-active {
+    background: rgba(0, 234, 255, 0.12);
+    color: var(--signal-primary);
+    border: 1px solid rgba(0, 234, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 234, 255, 0.1);
+}
+
+.status-pill-warn {
+    background: rgba(255, 180, 0, 0.12);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 180, 0, 0.2);
+    box-shadow: 0 0 8px rgba(255, 180, 0, 0.1);
+}
+
+.status-pill-crit {
+    background: rgba(255, 23, 68, 0.12);
+    color: var(--signal-crit);
+    border: 1px solid rgba(255, 23, 68, 0.25);
+    box-shadow: 0 0 10px rgba(255, 23, 68, 0.15);
+}
+
 .grid-auto-fit {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }

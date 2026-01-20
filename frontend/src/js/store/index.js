@@ -4423,6 +4423,7 @@ export const Store = () => ({
         this.fetchServerLogs(100);
         this.fetchResourceHistory();
         this.fetchMonitoringSummary();
+        this.fetchIngestionRates();
 
         // Set up 2-second interval refresh for real-time updates (independent of global refresh)
         this.serverHealthRefreshTimer = setInterval(() => {
@@ -4448,6 +4449,11 @@ export const Store = () => ({
                 if (!this._lastMonitoringSummaryFetch || (now - this._lastMonitoringSummaryFetch) > 10000) {
                     this.fetchMonitoringSummary();
                     this._lastMonitoringSummaryFetch = now;
+                }
+                // Ingestion rates refresh every 5 seconds for near-real-time EPS
+                if (!this._lastIngestionRatesFetch || (now - this._lastIngestionRatesFetch) > 5000) {
+                    this.fetchIngestionRates();
+                    this._lastIngestionRatesFetch = now;
                 }
             } else {
                 // Clean up if tab changed or paused

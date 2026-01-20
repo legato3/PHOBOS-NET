@@ -445,16 +445,57 @@ def get_http_metrics():
         }
 
 # ==================== Container Metrics ====================
-# Track Docker container-specific metrics (from cgroups)
+# Track Docker container-specific metrics (from cgroups + Docker API)
 _container_metrics = {
+    # Memory metrics
     'memory_usage_bytes': None,
     'memory_limit_bytes': None,
     'memory_usage_percent': None,
+    'memory_cache_bytes': None,
+    'memory_rss_bytes': None,
+    
+    # CPU metrics
     'cpu_usage_ns': None,
+    'cpu_usage_percent': None,
     'cpu_throttled_periods': None,
     'cpu_throttled_time_ns': None,
+    
+    # OOM tracking
     'oom_kill_count': None,
+    
+    # Container identity
     'is_containerized': None,
+    'container_id': None,
+    'container_id_short': None,
+    'image_name': None,
+    'image_tag': None,
+    
+    # Container lifecycle
+    'container_uptime_seconds': None,
+    'container_uptime_formatted': None,
+    'container_created': None,
+    'container_started': None,
+    'restart_count': None,
+    
+    # Health check
+    'health_status': None,  # 'healthy', 'unhealthy', 'starting', None
+    'health_last_check': None,
+    'health_failing_streak': 0,
+    
+    # Block I/O
+    'blkio_read_bytes': None,
+    'blkio_write_bytes': None,
+    'blkio_read_ops': None,
+    'blkio_write_ops': None,
+    
+    # Process info
+    'pids_current': None,
+    'pids_limit': None,
+    
+    # File descriptors
+    'fd_current': None,
+    'fd_limit': None,
+    
     'last_update': None
 }
 _container_metrics_lock = threading.Lock()

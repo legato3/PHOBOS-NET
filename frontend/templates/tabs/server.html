@@ -10,7 +10,7 @@
 
         <!-- Error State -->
         <template x-if="serverHealth.error && !serverHealth.loading">
-            <div class="empty-state" style="color: var(--neon-red);">
+            <div class="empty-state" style="color: var(--signal-crit);">
                 <span x-text="serverHealth.error"></span>
             </div>
         </template>
@@ -18,656 +18,472 @@
         <!-- Server Health Content -->
         <template x-if="!serverHealth.error || serverHealth.timestamp">
             <div>
-                <!-- Row 1: Server Overview (Unified Card) -->
-                <div class="card" style="margin-bottom: 16px;">
-                    <h2>
-                        <div class="card-title-content">
-                            <span class="title-icon">🖥️</span>
-                            <span>Server Overview</span>
-                        </div>
-                        <div class="card-actions">
-                            <span class="server-stat-badge" :class="{
-                                'badge-success': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80 && (serverHealth.disk?.root?.percent_used || 0) < 80,
-                                'badge-warning': (serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 || (serverHealth.disk?.root?.percent_used || 0) >= 80,
-                                'badge-error': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 || (serverHealth.disk?.root?.percent_used || 0) >= 90
-                            }" x-text="(serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 || (serverHealth.disk?.root?.percent_used || 0) >= 90 ? 'CRITICAL' : ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 || (serverHealth.disk?.root?.percent_used || 0) >= 80 ? 'ELEVATED' : 'HEALTHY')"></span>
-                        </div>
-                    </h2>
-                    <div class="widget-body" style="padding: 16px 20px;">
-                        <!-- System Identity Row -->
-                        <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <div style="display: flex; gap: 8px; align-items: baseline;">
-                                <span style="color: var(--text-secondary); font-size: 0.85em;">Hostname:</span>
-                                <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.system?.hostname || '—'"></span>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: baseline;">
-                                <span style="color: var(--text-secondary); font-size: 0.85em;">Uptime:</span>
-                                <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.system?.uptime_formatted || '—'"></span>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: baseline;">
-                                <span style="color: var(--text-secondary); font-size: 0.85em;">OS:</span>
-                                <span style="color: var(--text-primary); font-size: 0.9em;" x-text="serverHealth.system?.os_info || '—'"></span>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: baseline;">
-                                <span style="color: var(--text-secondary); font-size: 0.85em;">Boot:</span>
-                                <span style="color: var(--text-primary); font-size: 0.9em;" x-text="serverHealth.system?.boot_time_formatted || '—'"></span>
-                            </div>
-                        </div>
+                <!-- ═══════════════════════════════════════════════════════════
+                     HOST STRIP - Compact horizontal system vitals bar
+                ═══════════════════════════════════════════════════════════ -->
+                <div class="card"
+                    style="padding: 14px 20px; margin-bottom: 20px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
+                    <span class="status-pill" :class="{
+                        'status-pill-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
+                        'status-pill-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
+                        'status-pill-crit': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
+                    }"
+                        x-text="(serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 ? 'CRITICAL' : ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 ? 'ELEVATED' : 'HEALTHY')"></span>
 
-                        <!-- Resource Gauges Row -->
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
-                            <!-- CPU Gauge -->
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">CPU</div>
-                                <div style="font-size: 2em; font-weight: 600; margin-bottom: 8px;" :class="{
-                                    'text-green': (serverHealth.cpu?.percent || 0) < 70,
-                                    'text-yellow': (serverHealth.cpu?.percent || 0) >= 70 && (serverHealth.cpu?.percent || 0) < 90,
-                                    'text-red': (serverHealth.cpu?.percent || 0) >= 90
-                                }" x-text="serverHealth.cpu?.percent !== undefined ? serverHealth.cpu.percent + '%' : '—'"></div>
-                                <div class="server-stat-progress" style="height: 8px; margin-bottom: 8px;">
-                                    <div class="server-stat-progress-bar" :class="{
-                                        'warning': (serverHealth.cpu?.percent || 0) >= 70 && (serverHealth.cpu?.percent || 0) < 90,
-                                        'error': (serverHealth.cpu?.percent || 0) >= 90
-                                    }" :style="'width: ' + (serverHealth.cpu?.percent || 0) + '%'"></div>
-                                </div>
-                                <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                    Load: <span x-text="serverHealth.cpu?.load_1min || '—'"></span> / <span x-text="serverHealth.cpu?.load_5min || '—'"></span> / <span x-text="serverHealth.cpu?.load_15min || '—'"></span>
-                                </div>
-                            </div>
-
-                            <!-- Memory Gauge -->
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">Memory</div>
-                                <div style="font-size: 2em; font-weight: 600; margin-bottom: 8px;" :class="{
-                                    'text-green': (serverHealth.memory?.percent || 0) < 80,
-                                    'text-yellow': (serverHealth.memory?.percent || 0) >= 80 && (serverHealth.memory?.percent || 0) < 90,
-                                    'text-red': (serverHealth.memory?.percent || 0) >= 90
-                                }" x-text="serverHealth.memory?.percent !== undefined ? serverHealth.memory.percent + '%' : '—'"></div>
-                                <div class="server-stat-progress" style="height: 8px; margin-bottom: 8px;">
-                                    <div class="server-stat-progress-bar" :class="{
-                                        'warning': (serverHealth.memory?.percent || 0) >= 80 && (serverHealth.memory?.percent || 0) < 90,
-                                        'error': (serverHealth.memory?.percent || 0) >= 90
-                                    }" :style="'width: ' + (serverHealth.memory?.percent || 0) + '%'"></div>
-                                </div>
-                                <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                    Used: <span x-text="serverHealth.memory?.used_gb ? serverHealth.memory.used_gb + ' GB' : '—'"></span> / <span x-text="serverHealth.memory?.total_gb ? serverHealth.memory.total_gb + ' GB' : '—'"></span>
-                                </div>
-                            </div>
-
-                            <!-- Disk Gauge -->
-                            <div style="text-align: center;">
-                                <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 8px;">Disk</div>
-                                <div style="font-size: 2em; font-weight: 600; margin-bottom: 8px;" :class="{
-                                    'text-green': (serverHealth.disk?.root?.percent_used || 0) < 80,
-                                    'text-yellow': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90,
-                                    'text-red': (serverHealth.disk?.root?.percent_used || 0) >= 90
-                                }" x-text="serverHealth.disk?.root?.percent_used !== undefined ? serverHealth.disk.root.percent_used + '%' : '—'"></div>
-                                <div class="server-stat-progress" style="height: 8px; margin-bottom: 8px;">
-                                    <div class="server-stat-progress-bar" :class="{
-                                        'warning': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90,
-                                        'error': (serverHealth.disk?.root?.percent_used || 0) >= 90
-                                    }" :style="'width: ' + (serverHealth.disk?.root?.percent_used || 0) + '%'"></div>
-                                </div>
-                                <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                    Used: <span x-text="serverHealth.disk?.root?.used_gb ? serverHealth.disk.root.used_gb + ' GB' : '—'"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">Host</span><span
+                            x-text="serverHealth.system?.hostname || '—'"></span></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">Uptime</span><span
+                            x-text="serverHealth.system?.uptime_formatted || '—'"></span></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">OS</span><span class="text-1 text-85"
+                            x-text="serverHealth.system?.os_info || '—'"></span></span>
+                    <span style="flex: 1; min-width: 20px;"></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">CPU</span><span
+                            :class="{'text-ok': (serverHealth.cpu?.percent || 0) < 70, 'text-warn': (serverHealth.cpu?.percent || 0) >= 70 && (serverHealth.cpu?.percent || 0) < 90, 'text-crit': (serverHealth.cpu?.percent || 0) >= 90}"
+                            x-text="(serverHealth.cpu?.percent ?? '—') + '%'"></span></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">Mem</span><span
+                            :class="{'text-ok': (serverHealth.memory?.percent || 0) < 80, 'text-warn': (serverHealth.memory?.percent || 0) >= 80 && (serverHealth.memory?.percent || 0) < 90, 'text-crit': (serverHealth.memory?.percent || 0) >= 90}"
+                            x-text="(serverHealth.memory?.percent ?? '—') + '%'"></span></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">Disk</span><span
+                            :class="{'text-ok': (serverHealth.disk?.root?.percent_used || 0) < 80, 'text-warn': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90, 'text-crit': (serverHealth.disk?.root?.percent_used || 0) >= 90}"
+                            x-text="(serverHealth.disk?.root?.percent_used ?? '—') + '%'"></span></span>
+                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
+                            class="text-muted text-8">Load</span><span class="text-1 text-85"
+                            x-text="(serverHealth.cpu?.load_1min || '—') + ' / ' + (serverHealth.cpu?.load_5min || '—') + ' / ' + (serverHealth.cpu?.load_15min || '—')"></span></span>
                 </div>
 
-                <!-- Row 2: Resource History Charts -->
-                <div class="card" style="margin-bottom: 16px;">
-                    <h2>
-                        <div class="card-title-content">
-                            <span class="title-icon">📊</span>
-                            <span>Resource History (1h)</span>
-                        </div>
-                        <div class="card-actions">
-                            <span style="font-size: 0.75em; color: var(--text-secondary);" x-text="resourceHistory.history?.length ? resourceHistory.history.length + ' samples' : 'Collecting...'"></span>
-                        </div>
-                    </h2>
-                    <div class="widget-body" style="padding: 16px 20px;">
-                        <div x-show="resourceHistory.loading && !resourceHistory.history?.length" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                            <span>Loading resource history...</span>
-                        </div>
-                        <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
-                                <!-- CPU History Chart -->
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                        <span style="font-size: 0.9em; color: var(--text-secondary);">CPU Usage</span>
-                                        <span style="font-size: 0.8em; color: var(--text-muted);">Peak: <span x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"></span></span>
-                                    </div>
-                                    <div style="height: 80px; background: rgba(0,0,0,0.2); border-radius: 4px; position: relative; overflow: hidden;">
-                                        <canvas x-ref="cpuHistoryChart" style="width: 100%; height: 100%;"></canvas>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                                        <span style="font-size: 0.75em; color: var(--text-muted);">1h ago</span>
-                                        <span style="font-size: 0.8em; color: var(--text-primary);">Current: <span x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"></span></span>
-                                        <span style="font-size: 0.75em; color: var(--text-muted);">Now</span>
-                                    </div>
-                                </div>
-
-                                <!-- Memory History Chart -->
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                        <span style="font-size: 0.9em; color: var(--text-secondary);">Memory Usage</span>
-                                        <span style="font-size: 0.8em; color: var(--text-muted);">Peak: <span x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"></span></span>
-                                    </div>
-                                    <div style="height: 80px; background: rgba(0,0,0,0.2); border-radius: 4px; position: relative; overflow: hidden;">
-                                        <canvas x-ref="memHistoryChart" style="width: 100%; height: 100%;"></canvas>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                                        <span style="font-size: 0.75em; color: var(--text-muted);">1h ago</span>
-                                        <span style="font-size: 0.8em; color: var(--text-primary);">Current: <span x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"></span></span>
-                                        <span style="font-size: 0.75em; color: var(--text-muted);">Now</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div x-show="resourceHistory.history?.length < 5" style="margin-top: 12px; padding: 8px 12px; background: rgba(255,180,0,0.1); border-radius: 4px; border-left: 3px solid var(--signal-warn);">
-                            <span style="font-size: 0.8em; color: var(--text-secondary);">Resource history is warming up. Full data available after ~5 minutes.</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 3: Data Pipeline Status -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
-                    <!-- NetFlow Card -->
+                <!-- ═══════════════════════════════════════════════════════════
+                     INGESTION PIPELINES - Primary focus area
+                ═══════════════════════════════════════════════════════════ -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                    <!-- NetFlow Pipeline -->
                     <div class="card">
-                        <h2 style="font-size: 0.9em; padding: 12px 16px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">📥</span>
-                                <span>NetFlow</span>
-                            </div>
-                            <div class="card-actions">
-                                <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.netflow?.available,
-                                    'badge-error': serverHealth.netflow && !serverHealth.netflow.available
-                                }" style="font-size: 0.7em;" x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
-                            </div>
+                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>NetFlow</span>
+                            <span class="status-pill"
+                                :class="{'status-pill-ok': serverHealth.netflow?.available, 'status-pill-crit': serverHealth.netflow && !serverHealth.netflow.available}"
+                                x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
                         </h2>
-                        <div class="widget-body" style="padding: 12px 16px;">
-                            <div style="font-size: 0.85em; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Files:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.netflow?.files_count !== undefined ? serverHealth.netflow.files_count.toLocaleString() : '—'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Rate:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="ingestionRates?.rates?.netflow_eps !== undefined ? ingestionRates.rates.netflow_eps + ' /s' : '—'"></span>
-                                </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Rate</span><span class="text-cyan"
+                                    x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps + ' /s' : '—'"></span>
                             </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Files</span><span
+                                    x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Flows</span><span
+                                    x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Errors</span><span
+                                    :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="serverHealth.netflow?.errors ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
+                                    x-text="serverHealth.netflow?.last_file ?? '—'"></span></div>
                         </div>
                     </div>
 
-                    <!-- Filterlog (514) Card -->
+                    <!-- Filterlog (UDP 514) -->
                     <div class="card">
-                        <h2 style="font-size: 0.9em; padding: 12px 16px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">📝</span>
-                                <span>Filterlog (514)</span>
-                            </div>
-                            <div class="card-actions">
-                                <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.syslog?.active,
-                                    'badge-error': serverHealth.syslog && !serverHealth.syslog.active
-                                }" style="font-size: 0.7em;" x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                            </div>
+                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Filterlog (UDP 514)</span>
+                            <span class="status-pill"
+                                :class="{'status-pill-active': serverHealth.syslog?.active, 'status-pill-crit': serverHealth.syslog && !serverHealth.syslog.active}"
+                                x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         </h2>
-                        <div class="widget-body" style="padding: 12px 16px;">
-                            <div style="font-size: 0.85em; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Received:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.syslog?.received ? serverHealth.syslog.received.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Parsed:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.syslog?.parsed ? serverHealth.syslog.parsed.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Errors:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.syslog?.errors ? serverHealth.syslog.errors.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Rate:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="ingestionRates?.rates?.syslog_eps !== undefined ? ingestionRates.rates.syslog_eps + ' /s' : '—'"></span>
-                                </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Rate</span><span class="text-cyan"
+                                    x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps + ' /s' : '—'"></span>
                             </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Received</span><span
+                                    x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Parsed</span><span
+                                    x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Errors</span><span
+                                    :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="serverHealth.syslog?.errors ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
+                                    x-text="serverHealth.syslog?.last_event ?? '—'"></span></div>
                         </div>
                     </div>
 
-                    <!-- Firewall (515) Card -->
+                    <!-- Firewall (UDP 515) -->
                     <div class="card">
-                        <h2 style="font-size: 0.9em; padding: 12px 16px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">📡</span>
-                                <span>Firewall (515)</span>
-                            </div>
-                            <div class="card-actions">
-                                <span class="server-stat-badge" :class="{
-                                    'badge-success': serverHealth.firewall_syslog?.active,
-                                    'badge-error': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active
-                                }" style="font-size: 0.7em;" x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                            </div>
+                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Firewall (UDP 515)</span>
+                            <span class="status-pill"
+                                :class="{'status-pill-active': serverHealth.firewall_syslog?.active, 'status-pill-crit': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active}"
+                                x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                         </h2>
-                        <div class="widget-body" style="padding: 12px 16px;">
-                            <div style="font-size: 0.85em; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Received:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.firewall_syslog?.received ? serverHealth.firewall_syslog.received.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Parsed:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.firewall_syslog?.parsed ? serverHealth.firewall_syslog.parsed.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Errors:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="serverHealth.firewall_syslog?.errors ? serverHealth.firewall_syslog.errors.toLocaleString() : '0'"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Rate:</span>
-                                    <span style="color: var(--text-primary); font-weight: 500;" x-text="ingestionRates?.rates?.firewall_eps !== undefined ? ingestionRates.rates.firewall_eps + ' /s' : '—'"></span>
-                                </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Rate</span><span class="text-cyan"
+                                    x-text="ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps + ' /s' : '—'"></span>
                             </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Received</span><span
+                                    x-text="serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Parsed</span><span
+                                    x-text="serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Errors</span><span
+                                    :class="(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="serverHealth.firewall_syslog?.errors ?? '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
+                                    x-text="serverHealth.firewall_syslog?.last_event ?? '—'"></span></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Row 4: Application Internals -->
-                <div class="card" style="margin-bottom: 16px;">
-                    <h2>
-                        <div class="card-title-content">
-                            <span class="title-icon">⚙️</span>
-                            <span>Application</span>
-                        </div>
-                        <div class="card-actions">
-                            <span class="server-stat-badge badge-success" style="font-size: 0.7em;">RUNNING</span>
-                        </div>
-                    </h2>
-                    <div class="widget-body" style="padding: 16px 20px;">
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;">
-                            <!-- Process Info -->
-                            <div>
-                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Process</div>
-                                <div style="font-size: 1em; color: var(--text-primary);" x-text="serverHealth.system?.process_name || 'python3'"></div>
-                            </div>
-                            <div>
-                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Memory</div>
-                                <div style="font-size: 1em; color: var(--text-primary);" x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></div>
-                            </div>
-                            <div>
-                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Threads</div>
-                                <div style="font-size: 1em; color: var(--text-primary);" x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></div>
-                            </div>
-                            <div>
-                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Cache Entries</div>
-                                <div style="font-size: 1em; color: var(--text-primary);" x-text="((serverHealth.cache?.dns_cache_size || 0) + (serverHealth.cache?.geo_cache_size || 0) + (serverHealth.cache?.common_cache_size || 0)).toLocaleString()"></div>
-                            </div>
-                        </div>
-
-                        <!-- Cache Breakdown -->
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 8px;">Cache Breakdown</div>
-                            <div style="display: flex; gap: 24px; flex-wrap: wrap; font-size: 0.85em;">
-                                <div>
-                                    <span style="color: var(--text-secondary);">DNS:</span>
-                                    <span style="color: var(--text-primary); margin-left: 6px;" x-text="serverHealth.cache?.dns_cache_size?.toLocaleString() || '0'"></span>
-                                    <span style="color: var(--text-muted);"> entries</span>
-                                </div>
-                                <div>
-                                    <span style="color: var(--text-secondary);">GeoIP:</span>
-                                    <span style="color: var(--text-primary); margin-left: 6px;" x-text="serverHealth.cache?.geo_cache_size?.toLocaleString() || '0'"></span>
-                                    <span style="color: var(--text-muted);"> entries</span>
-                                </div>
-                                <div>
-                                    <span style="color: var(--text-secondary);">Common:</span>
-                                    <span style="color: var(--text-primary); margin-left: 6px;" x-text="serverHealth.cache?.common_cache_size?.toLocaleString() || '0'"></span>
-                                    <span style="color: var(--text-muted);"> entries</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Row 5: Runtime Monitoring (2x2 grid) -->
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                <!-- ═══════════════════════════════════════════════════════════
+                     APPLICATION INTERNALS - Separate cards
+                ═══════════════════════════════════════════════════════════ -->
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
                     <!-- Services Card -->
                     <div class="card">
-                        <h2 style="font-size: 0.85em; padding: 8px 12px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">🔧</span>
-                                <span>Services</span>
+                        <h2>Services</h2>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-muted text-8">nfcapd</span>
+                                <span :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-ok' : 'text-crit'"
+                                    x-text="monitoringSummary.dependencies?.nfcapd?.running ? 'Running' : 'Stopped'"></span>
                             </div>
-                            <div class="card-actions">
-                                <span class="server-stat-badge" :class="{
-                                    'badge-success': monitoringSummary.dependencies?.nfcapd?.running && monitoringSummary.dependencies?.syslog_514?.listening && monitoringSummary.dependencies?.syslog_515?.listening,
-                                    'badge-warning': !(monitoringSummary.dependencies?.nfcapd?.running && monitoringSummary.dependencies?.syslog_514?.listening && monitoringSummary.dependencies?.syslog_515?.listening)
-                                }" style="font-size: 0.65em;" x-text="monitoringSummary.dependencies?.nfcapd?.running && monitoringSummary.dependencies?.syslog_514?.listening && monitoringSummary.dependencies?.syslog_515?.listening ? 'ALL OK' : 'DEGRADED'"></span>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-muted text-8">Syslog 514</span>
+                                <span
+                                    :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-cyan' : 'text-crit'"
+                                    x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
                             </div>
-                        </h2>
-                        <div class="widget-body" style="padding: 8px 12px;">
-                            <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">nfcapd</td>
-                                    <td style="padding: 3px 0; text-align: right;">
-                                        <span :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-green' : 'text-red'" x-text="monitoringSummary.dependencies?.nfcapd?.running ? '● Running' : '○ Stopped'"></span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Syslog 514</td>
-                                    <td style="padding: 3px 0; text-align: right;">
-                                        <span :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-green' : 'text-red'" x-text="monitoringSummary.dependencies?.syslog_514?.listening ? '● Listening' : '○ Down'"></span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Syslog 515</td>
-                                    <td style="padding: 3px 0; text-align: right;">
-                                        <span :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-green' : 'text-red'" x-text="monitoringSummary.dependencies?.syslog_515?.listening ? '● Listening' : '○ Down'"></span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Threads</td>
-                                    <td style="padding: 3px 0; text-align: right;">
-                                        <span :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-green' : 'text-yellow'" x-text="(monitoringSummary.thread_health?.ok || 0) + '/' + (monitoringSummary.thread_health?.total || 0) + ' healthy'"></span>
-                                    </td>
-                                </tr>
-                            </table>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-muted text-8">Syslog 515</span>
+                                <span
+                                    :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-cyan' : 'text-crit'"
+                                    x-text="monitoringSummary.dependencies?.syslog_515?.listening ? 'Listening' : 'Down'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span class="text-muted text-8">Threads</span>
+                                <span
+                                    :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
+                                    x-text="(monitoringSummary.thread_health?.ok || 0) + '/' + (monitoringSummary.thread_health?.total || 0)"></span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Network I/O Card -->
+                    <!-- Process & Cache Card -->
                     <div class="card">
-                        <h2 style="font-size: 0.85em; padding: 8px 12px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">📶</span>
-                                <span>Network I/O</span>
+                        <h2>Process / Cache</h2>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Process</span><span
+                                    x-text="serverHealth.system?.process_name || 'gunicorn'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Memory</span><span
+                                    x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
                             </div>
-                        </h2>
-                        <div class="widget-body" style="padding: 8px 12px;">
-                            <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">↓ Inbound</td>
-                                    <td style="padding: 3px 0; text-align: right; color: var(--neon-cyan); font-weight: 500;" x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">↑ Outbound</td>
-                                    <td style="padding: 3px 0; text-align: right; color: var(--signal-ok); font-weight: 500;" x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Errors</td>
-                                    <td style="padding: 3px 0; text-align: right;" :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-yellow' : 'text-muted'" x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Dropped</td>
-                                    <td style="padding: 3px 0; text-align: right;" :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-yellow' : 'text-muted'" x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></td>
-                                </tr>
-                            </table>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Threads</span><span
+                                    x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Total Cache</span><span
+                                    x-text="((serverHealth.cache?.dns_cache_size || 0) + (serverHealth.cache?.geo_cache_size || 0) + (serverHealth.cache?.common_cache_size || 0)).toLocaleString()"></span>
+                            </div>
+                            <div class="text-2 text-8" style="margin-top: 4px;">DNS: <span
+                                    x-text="serverHealth.cache?.dns_cache_size?.toLocaleString() || '0'"></span> · Geo:
+                                <span x-text="serverHealth.cache?.geo_cache_size?.toLocaleString() || '0'"></span> ·
+                                Common: <span
+                                    x-text="serverHealth.cache?.common_cache_size?.toLocaleString() || '0'"></span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- HTTP Metrics Card -->
                     <div class="card">
-                        <h2 style="font-size: 0.85em; padding: 8px 12px;">
-                            <div class="card-title-content">
-                                <span class="title-icon">🌐</span>
-                                <span>HTTP Metrics</span>
+                        <h2>HTTP Metrics</h2>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Total Requests</span><span
+                                    x-text="monitoringSummary.http?.total_requests?.toLocaleString() || '0'"></span>
                             </div>
-                            <div class="card-actions">
-                                <span class="server-stat-badge" :class="{
-                                    'badge-success': (monitoringSummary.http?.error_rate_percent || 0) < 1,
-                                    'badge-warning': (monitoringSummary.http?.error_rate_percent || 0) >= 1 && (monitoringSummary.http?.error_rate_percent || 0) < 5,
-                                    'badge-error': (monitoringSummary.http?.error_rate_percent || 0) >= 5
-                                }" style="font-size: 0.65em;" x-text="(monitoringSummary.http?.error_rate_percent || 0) + '% errors'"></span>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Active Now</span><span class="text-cyan"
+                                    x-text="monitoringSummary.http?.concurrent_requests || '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Peak Concurrent</span><span
+                                    x-text="monitoringSummary.http?.peak_concurrent || '0'"></span></div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">5xx Errors</span><span
+                                    :class="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0) > 0 ? 'text-crit' : 'text-muted'"
+                                    x-text="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0)"></span>
                             </div>
-                        </h2>
-                        <div class="widget-body" style="padding: 8px 12px;">
-                            <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Total Requests</td>
-                                    <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="monitoringSummary.http?.total_requests?.toLocaleString() || '0'"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Active Now</td>
-                                    <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="monitoringSummary.http?.concurrent_requests || '0'"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">Peak Concurrent</td>
-                                    <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="monitoringSummary.http?.peak_concurrent || '0'"></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 3px 0; color: var(--text-secondary);">5xx Errors</td>
-                                    <td style="padding: 3px 0; text-align: right;" :class="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0) > 0 ? 'text-red' : 'text-muted'" x-text="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0)"></td>
-                                </tr>
-                            </table>
+                            <div class="text-2 text-8" style="margin-top: 4px;">Error Rate: <span
+                                    :class="{'text-ok': (monitoringSummary.http?.error_rate_percent || 0) < 1, 'text-warn': (monitoringSummary.http?.error_rate_percent || 0) >= 1 && (monitoringSummary.http?.error_rate_percent || 0) < 5, 'text-crit': (monitoringSummary.http?.error_rate_percent || 0) >= 5}"
+                                    x-text="(monitoringSummary.http?.error_rate_percent || 0) + '%'"></span></div>
                         </div>
                     </div>
 
-                    <!-- Container/Runtime Card -->
+                    <!-- Network I/O Card -->
                     <div class="card">
-                        <h2 style="font-size: 0.85em; padding: 8px 12px;">
-                            <div class="card-title-content">
-                                <span class="title-icon" x-text="monitoringSummary.container?.is_containerized ? '🐳' : '🖥️'"></span>
-                                <span x-text="monitoringSummary.container?.is_containerized ? 'Container' : 'Runtime'"></span>
+                        <h2>Network I/O</h2>
+                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">↓ Inbound</span><span class="text-cyan"
+                                    x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
                             </div>
-                            <template x-if="monitoringSummary.container?.is_containerized">
-                                <div class="card-actions">
-                                    <span class="server-stat-badge" :class="{
-                                        'badge-success': (monitoringSummary.container?.memory_usage_percent || 0) < 80,
-                                        'badge-warning': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90,
-                                        'badge-error': (monitoringSummary.container?.memory_usage_percent || 0) >= 90
-                                    }" style="font-size: 0.65em;" x-text="(monitoringSummary.container?.memory_usage_percent || 0) + '% mem'"></span>
-                                </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">↑ Outbound</span><span class="text-ok"
+                                    x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Errors</span><span
+                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;"><span
+                                    class="text-muted text-8">Dropped</span><span
+                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Container / Runtime Card -->
+                    <div class="card">
+                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span
+                                x-text="monitoringSummary.container?.is_containerized ? 'Container' : 'Runtime'"></span>
+                            <template
+                                x-if="monitoringSummary.container?.is_containerized && monitoringSummary.container?.health_status">
+                                <span class="status-pill" style="font-size: 9px; padding: 2px 6px;"
+                                    :class="{'status-pill-ok': monitoringSummary.container?.health_status === 'healthy', 'status-pill-warn': monitoringSummary.container?.health_status === 'starting', 'status-pill-crit': monitoringSummary.container?.health_status === 'unhealthy'}"
+                                    x-text="monitoringSummary.container?.health_status?.toUpperCase()"></span>
                             </template>
                         </h2>
-                        <div class="widget-body" style="padding: 8px 12px;">
-                            <template x-if="monitoringSummary.container?.is_containerized">
-                                <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Memory Used</td>
-                                        <td style="padding: 3px 0; text-align: right;" :class="{
-                                            'text-green': (monitoringSummary.container?.memory_usage_percent || 0) < 80,
-                                            'text-yellow': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90,
-                                            'text-red': (monitoringSummary.container?.memory_usage_percent || 0) >= 90
-                                        }" x-text="monitoringSummary.container?.memory_usage_percent !== null ? monitoringSummary.container.memory_usage_percent + '%' : '—'"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Memory Limit</td>
-                                        <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="monitoringSummary.container?.memory_limit_mb ? monitoringSummary.container.memory_limit_mb + ' MB' : '—'"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">CPU Throttled</td>
-                                        <td style="padding: 3px 0; text-align: right;" :class="(monitoringSummary.container?.cpu_throttled_periods || 0) > 100 ? 'text-yellow' : 'text-muted'" x-text="monitoringSummary.container?.cpu_throttled_periods ?? '0'"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">OOM Kills</td>
-                                        <td style="padding: 3px 0; text-align: right;" :class="(monitoringSummary.container?.oom_kill_count || 0) > 0 ? 'text-red' : 'text-green'" x-text="monitoringSummary.container?.oom_kill_count ?? '0'"></td>
-                                    </tr>
-                                </table>
-                            </template>
-                            <template x-if="!monitoringSummary.container?.is_containerized">
-                                <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Mode</td>
-                                        <td style="padding: 3px 0; text-align: right; color: var(--text-primary);">Host Process</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Process Memory</td>
-                                        <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Threads</td>
-                                        <td style="padding: 3px 0; text-align: right; color: var(--text-primary);" x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 3px 0; color: var(--text-secondary);">Limits</td>
-                                        <td style="padding: 3px 0; text-align: right; color: var(--text-muted);">None (host)</td>
-                                    </tr>
-                                </table>
-                            </template>
-                        </div>
+                        <template x-if="monitoringSummary.container?.is_containerized">
+                            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Uptime</span><span
+                                        x-text="monitoringSummary.container?.container_uptime_formatted || '—'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Restarts</span><span
+                                        :class="(monitoringSummary.container?.restart_count || 0) > 0 ? 'text-warn' : 'text-muted'"
+                                        x-text="monitoringSummary.container?.restart_count ?? '0'"></span></div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Memory</span><span
+                                        :class="{'text-ok': (monitoringSummary.container?.memory_usage_percent || 0) < 80, 'text-warn': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90, 'text-crit': (monitoringSummary.container?.memory_usage_percent || 0) >= 90}"
+                                        x-text="(monitoringSummary.container?.memory_usage_percent ?? '—') + '% / ' + (monitoringSummary.container?.memory_limit_mb ? monitoringSummary.container.memory_limit_mb + ' MB' : '—')"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">PIDs / FDs</span><span
+                                        x-text="(monitoringSummary.container?.pids_current ?? '—') + ' / ' + (monitoringSummary.container?.fd_current ?? '—')"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">OOM / Throttle</span><span><span
+                                            :class="(monitoringSummary.container?.oom_kill_count || 0) > 0 ? 'text-crit' : 'text-muted'"
+                                            x-text="monitoringSummary.container?.oom_kill_count ?? '0'"></span> / <span
+                                            :class="(monitoringSummary.container?.cpu_throttled_periods || 0) > 100 ? 'text-warn' : 'text-muted'"
+                                            x-text="monitoringSummary.container?.cpu_throttled_periods ?? '0'"></span></span>
+                                </div>
+                                <div class="text-2 text-8" style="margin-top: 4px;"
+                                    x-show="monitoringSummary.container?.container_id_short">ID: <span
+                                        x-text="monitoringSummary.container?.container_id_short"></span></div>
+                            </div>
+                        </template>
+                        <template x-if="!monitoringSummary.container?.is_containerized">
+                            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Mode</span><span>Host Process</span></div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Memory</span><span
+                                        x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">Threads</span><span
+                                        x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;"><span
+                                        class="text-muted text-8">FDs</span><span class="text-muted"
+                                        x-text="(monitoringSummary.container?.fd_current ?? '—') + (monitoringSummary.container?.fd_limit ? ' / ' + monitoringSummary.container.fd_limit : '')"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
-                <!-- Row 6: Database (SQLite) Statistics -->
-                <div style="margin-bottom: 16px;">
-                    <h2 style="margin-bottom: 12px; font-size: 1em; color: var(--text-primary);">Database (SQLite)</h2>
-
-                    <!-- Loading State -->
-                    <template x-if="databaseStats.loading">
-                        <div class="empty-state">
-                            <span>Loading database statistics...</span>
-                        </div>
-                    </template>
-
-                    <!-- Error State -->
-                    <template x-if="databaseStats.error && !databaseStats.loading">
-                        <div class="empty-state" style="color: var(--neon-red);">
-                            <span x-text="databaseStats.error"></span>
-                        </div>
-                    </template>
-
-                    <!-- Database Stats Content -->
-                    <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
-                        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
-                            <template x-for="db in databaseStats.databases" :key="db.name">
-                                <div class="card">
-                                    <h3 style="margin-bottom: 12px; font-size: 0.95em; color: var(--text-primary); padding: 12px 16px 0 16px;">
-                                        <span x-text="db.name"></span> Database
-                                        <template x-if="db.error">
-                                            <span style="color: var(--neon-red); font-size: 0.85em; margin-left: 8px;">⚠️</span>
-                                        </template>
-                                    </h3>
-                                    <div class="widget-body" style="padding: 0 16px 16px 16px;">
-                                        <!-- Stat Cards -->
-                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px;">
-                                            <!-- File Size -->
-                                            <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">File Size</div>
-                                                <div style="font-size: 0.95em; color: var(--text-primary);" x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
-                                            </div>
-
-                                            <!-- Total Records -->
-                                            <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Records</div>
-                                                <div style="font-size: 0.95em; color: var(--text-primary);" x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'"></div>
-                                            </div>
-
-                                            <!-- WAL Status -->
-                                            <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">WAL</div>
-                                                <div style="font-size: 0.95em; color: var(--text-primary);">
-                                                    <template x-if="db.wal_exists">
-                                                        <span x-text="fmtBytes(db.wal_size)"></span>
-                                                    </template>
-                                                    <template x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'">
-                                                        <span style="color: var(--text-secondary); opacity: 0.8;">WAL mode (idle)</span>
-                                                    </template>
-                                                    <template x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')">
-                                                        <span style="color: var(--text-secondary); opacity: 0.7;">Not enabled</span>
-                                                    </template>
-                                                </div>
-                                            </div>
-
-                                            <!-- Last Write -->
-                                            <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 4px;">Last Write</div>
-                                                <div style="font-size: 0.85em; color: var(--text-primary);" x-text="db.last_write ? new Date(db.last_write).toLocaleString() : 'N/A'"></div>
-                                            </div>
+                <!-- ═══════════════════════════════════════════════════════════
+                     DATABASE STATISTICS
+                ═══════════════════════════════════════════════════════════ -->
+                <template x-if="databaseStats.loading">
+                    <div class="empty-state" style="padding: 20px;"><span>Loading database statistics...</span></div>
+                </template>
+                <template x-if="databaseStats.error && !databaseStats.loading">
+                    <div class="empty-state" style="color: var(--signal-crit); padding: 20px;"><span
+                            x-text="databaseStats.error"></span></div>
+                </template>
+                <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        <template x-for="db in databaseStats.databases" :key="db.name">
+                            <div class="card">
+                                <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span><span x-text="db.name"></span> Database</span>
+                                    <template x-if="db.error"><span class="status-pill status-pill-warn"
+                                            style="font-size: 9px;">ERROR</span></template>
+                                </h2>
+                                <div
+                                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding-top: 8px;">
+                                    <div>
+                                        <div class="text-2 text-8">Size</div>
+                                        <div x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-2 text-8">Records</div>
+                                        <div x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'">
                                         </div>
-
-                                        <!-- Retention Awareness -->
-                                        <template x-if="db.oldest_record_age">
-                                            <div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; border-left: 2px solid rgba(255,255,255,0.2);">
-                                                <div style="font-size: 0.8em; color: var(--text-secondary);">
-                                                    <span style="opacity: 0.8;">Oldest Record:</span>
-                                                    <span style="margin-left: 6px; color: var(--text-primary);" x-text="db.oldest_record_age"></span>
-                                                </div>
-                                            </div>
-                                        </template>
-
-                                        <!-- Config Details -->
-                                        <div style="padding: 10px; background: rgba(0,0,0,0.15); border-radius: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
-                                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 0.8em;">
-                                                <div>
-                                                    <span style="color: var(--text-secondary);">SQLite:</span>
-                                                    <span style="color: var(--text-primary); margin-left: 4px;" x-text="db.sqlite_version || 'N/A'"></span>
-                                                </div>
-                                                <div>
-                                                    <span style="color: var(--text-secondary);">Journal:</span>
-                                                    <span style="color: var(--text-primary); margin-left: 4px;" x-text="db.journal_mode || 'N/A'"></span>
-                                                </div>
-                                                <div>
-                                                    <span style="color: var(--text-secondary);">Sync:</span>
-                                                    <span style="color: var(--text-primary); margin-left: 4px;" x-text="db.synchronous || 'N/A'"></span>
-                                                </div>
-                                                <div>
-                                                    <span style="color: var(--text-secondary);">Page:</span>
-                                                    <span style="color: var(--text-primary); margin-left: 4px;" x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
-                                                </div>
-                                            </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-2 text-8">WAL</div>
+                                        <div><template x-if="db.wal_exists"><span
+                                                    x-text="fmtBytes(db.wal_size)"></span></template><template
+                                                x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'"><span
+                                                    class="text-muted">Idle</span></template><template
+                                                x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')"><span
+                                                    class="text-muted">—</span></template></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-2 text-8">Last Write</div>
+                                        <div class="text-1 text-85"
+                                            x-text="db.last_write ? new Date(db.last_write).toLocaleTimeString() : 'N/A'">
                                         </div>
                                     </div>
                                 </div>
-                            </template>
-                        </div>
-                    </template>
-                </div>
-
-                <!-- Row 6: Server Logs Widget -->
-                <div class="card">
-                    <h2>
-                        <div class="card-title-content">
-                            <span class="title-icon">📋</span>
-                            <span>Server Logs</span>
-                        </div>
-                        <div class="card-actions">
-                            <span class="server-stat-badge" :class="{
-                                'badge-success': serverLogs.source === 'buffer' || serverLogs.source === 'docker',
-                                'badge-warning': serverLogs.source === 'files',
-                                'badge-error': serverLogs.source === 'none'
-                            }" x-text="serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'buffer' ? 'BUFFER' : (serverLogs.source === 'files' ? 'FILES' : 'N/A'))"></span>
-                        </div>
-                    </h2>
-                    <div class="widget-body" style="min-height: 400px; max-height: 600px; display: flex; flex-direction: column;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span style="font-size: 0.85em; color: var(--text-secondary);">Lines:</span>
-                                <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)"
-                                    aria-label="Number of log lines to display" title="Number of log lines"
-                                    style="padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); font-size: 0.85em;">
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                    <option value="200">200</option>
-                                    <option value="500">500</option>
-                                </select>
-                                <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh server logs" title="Refresh logs"
-                                    style="padding: 4px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 0.85em;"
-                                    :disabled="serverLogs.loading">
-                                    <span x-text="serverLogs.loading ? 'Loading...' : 'Refresh'"></span>
-                                </button>
+                                <div class="text-2 text-8"
+                                    style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    <template x-if="db.oldest_record_age"><span>Oldest: <span
+                                                x-text="db.oldest_record_age"></span> · </span></template>
+                                    SQLite <span x-text="db.sqlite_version || 'N/A'"></span> · <span
+                                        x-text="db.journal_mode || 'N/A'"></span> · Page <span
+                                        x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
+                                </div>
                             </div>
-                            <span style="font-size: 0.85em; color: var(--text-secondary);" x-text="serverLogs.count + ' lines'"></span>
-                        </div>
-                        <div x-show="serverLogs.loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                            <span>Loading logs...</span>
-                        </div>
-                        <div x-show="!serverLogs.loading && serverLogs.logs.length > 0"
-                            style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.6;">
-                            <template x-for="(log, index) in serverLogs.logs" :key="index">
-                                <div style="margin-bottom: 2px; color: var(--text-secondary); word-break: break-all;" x-text="log"></div>
-                            </template>
-                        </div>
-                        <div x-show="!serverLogs.loading && serverLogs.logs.length === 0"
-                            style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                            <span>No logs available</span>
-                        </div>
-                        <div x-show="serverLogs.container"
-                            style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8em; color: var(--text-secondary);">
-                            <span>Container: </span><span x-text="serverLogs.container"></span>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- ═══════════════════════════════════════════════════════════
+                     RESOURCE HISTORY
+                ═══════════════════════════════════════════════════════════ -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Resource History (1h)</span>
+                        <span class="text-2 text-8"
+                            x-text="resourceHistory.history?.length ? resourceHistory.history.length + ' samples' : 'Collecting...'"></span>
+                    </h2>
+                    <div x-show="resourceHistory.loading && !resourceHistory.history?.length"
+                        style="text-align: center; padding: 16px; color: var(--text-2); font-size: 12px;">
+                        <span>Loading resource history...</span>
+                    </div>
+                    <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0"
+                        style="padding-top: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <span class="text-muted text-8">CPU</span>
+                                    <span class="text-2 text-8">Current: <span
+                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"></span>
+                                        · Peak: <span
+                                            x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"></span></span>
+                                </div>
+                                <div
+                                    style="height: 45px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
+                                    <canvas id="cpuHistoryChart" x-ref="cpuHistoryChart"
+                                        style="width: 100%; height: 100%;"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <span class="text-muted text-8">Memory</span>
+                                    <span class="text-2 text-8">Current: <span
+                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"></span>
+                                        · Peak: <span
+                                            x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"></span></span>
+                                </div>
+                                <div
+                                    style="height: 45px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
+                                    <canvas id="memHistoryChart" x-ref="memHistoryChart"
+                                        style="width: 100%; height: 100%;"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    <div x-show="resourceHistory.history?.length < 5"
+                        style="padding: 8px 12px; background: rgba(255,180,0,0.06); border-radius: var(--radius-sm); border-left: 2px solid var(--signal-warn); font-size: 11px; color: var(--text-2); margin-top: 10px;">
+                        Resource history warming up. Full data after ~5 minutes.
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════
+                     SERVER LOGS
+                ═══════════════════════════════════════════════════════════ -->
+                <div class="card">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Server Logs</span>
+                        <span class="status-pill"
+                            :class="{'status-pill-ok': serverLogs.source === 'buffer' || serverLogs.source === 'docker', 'status-pill-warn': serverLogs.source === 'files', 'status-pill-crit': serverLogs.source === 'none'}"
+                            x-text="serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'buffer' ? 'BUFFER' : (serverLogs.source === 'files' ? 'FILES' : 'N/A'))"></span>
+                    </h2>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span class="text-muted text-8">Lines:</span>
+                            <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)"
+                                aria-label="Number of log lines"
+                                style="padding: 4px 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,234,255,0.1); border-radius: var(--radius-sm); color: var(--text-0); font-size: 11px;">
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="500">500</option>
+                            </select>
+                            <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh logs"
+                                :disabled="serverLogs.loading"
+                                style="padding: 4px 12px; background: rgba(0,234,255,0.08); border: 1px solid rgba(0,234,255,0.15); border-radius: var(--radius-sm); color: var(--signal-primary); font-size: 11px; font-weight: 500; cursor: pointer;">
+                                <span x-text="serverLogs.loading ? '...' : 'Refresh'"></span>
+                            </button>
+                        </div>
+                        <span class="text-2 text-8" x-text="serverLogs.count + ' lines'"></span>
+                    </div>
+                    <div x-show="serverLogs.loading"
+                        style="text-align: center; padding: 30px; color: var(--text-2); font-size: 12px;"><span>Loading
+                            logs...</span></div>
+                    <div x-show="!serverLogs.loading && serverLogs.logs.length > 0"
+                        style="padding: 12px 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--text-1); max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); margin-top: 8px;">
+                        <template x-for="(log, index) in serverLogs.logs" :key="index">
+                            <div style="padding: 0 12px; margin-bottom: 2px; word-break: break-all;" x-text="log"></div>
+                        </template>
+                    </div>
+                    <div x-show="!serverLogs.loading && serverLogs.logs.length === 0"
+                        style="text-align: center; padding: 30px; color: var(--text-3); font-size: 12px;"><span>No logs
+                            available</span></div>
+                    <div x-show="serverLogs.container" class="text-2 text-8"
+                        style="padding-top: 8px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                        Container: <span x-text="serverLogs.container"></span></div>
                 </div>
             </div>
         </template>
@@ -676,117 +492,99 @@
 
 <!-- Resource History Chart Rendering -->
 <script>
-(function() {
-    // Simple sparkline rendering for resource history charts
-    function renderResourceHistoryCharts() {
-        const store = Alpine.store ? Alpine.store('dashboard') : null;
-        if (!store || !store.resourceHistory?.history?.length) return;
+    (function () {
+        function renderResourceHistoryCharts() {
+            const store = Alpine.store ? Alpine.store('dashboard') : null;
+            if (!store || !store.resourceHistory?.history?.length) return;
+            const history = store.resourceHistory.history;
 
-        const history = store.resourceHistory.history;
+            // Map data safely
+            const cpuData = history.map(s => s.cpu_percent);
+            const memData = history.map(s => s.mem_percent);
 
-        // CPU Chart
-        const cpuCanvas = document.querySelector('[x-ref="cpuHistoryChart"]');
-        if (cpuCanvas) {
-            const cpuValues = history.map(s => s.cpu_percent ?? null);
-            renderSparkline(cpuCanvas, cpuValues, '#00ff88');
+            const cpuCanvas = document.getElementById('cpuHistoryChart');
+            if (cpuCanvas) renderSparkline(cpuCanvas, cpuData, '#00ffaa'); // Bright Spring Green
+
+            const memCanvas = document.getElementById('memHistoryChart');
+            if (memCanvas) renderSparkline(memCanvas, memData, '#00ccff'); // Vivid Cyber Blue
         }
+        function renderSparkline(canvas, values, color) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.clientWidth || canvas.offsetWidth || 200;
+            const height = canvas.clientHeight || canvas.offsetHeight || 45;
 
-        // Memory Chart
-        const memCanvas = document.querySelector('[x-ref="memHistoryChart"]');
-        if (memCanvas) {
-            const memValues = history.map(s => s.mem_percent ?? null);
-            renderSparkline(memCanvas, memValues, '#00f3ff');
-        }
-    }
-
-    function renderSparkline(canvas, values, color) {
-        const ctx = canvas.getContext('2d');
-        const width = canvas.offsetWidth || 200;
-        const height = canvas.offsetHeight || 80;
-
-        // Set canvas resolution
-        canvas.width = width * 2;
-        canvas.height = height * 2;
-        ctx.scale(2, 2);
-
-        ctx.clearRect(0, 0, width, height);
-
-        // Filter valid values
-        const validValues = values.filter(v => v !== null && v !== undefined);
-        if (validValues.length < 2) return;
-
-        const max = Math.max(...validValues, 100);
-        const min = 0;
-        const range = max - min || 1;
-
-        // Draw filled area
-        ctx.beginPath();
-        ctx.moveTo(0, height);
-
-        let lastX = 0;
-        let lastY = height;
-        values.forEach((v, i) => {
-            const x = (i / (values.length - 1)) * width;
-            if (v !== null && v !== undefined) {
-                const y = height - ((v - min) / range) * (height - 10) - 5;
-                if (i === 0 || values[i - 1] === null) {
-                    ctx.lineTo(x, height);
-                }
-                ctx.lineTo(x, y);
-                lastX = x;
-                lastY = y;
+            // Reset backing store if dimensions changed
+            if (canvas.width !== width * 2 || canvas.height !== height * 2) {
+                canvas.width = width * 2;
+                canvas.height = height * 2;
+                ctx.scale(2, 2);
             }
-        });
 
-        ctx.lineTo(lastX, height);
-        ctx.closePath();
+            ctx.clearRect(0, 0, width, height);
 
-        // Gradient fill
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, color + '40');
-        gradient.addColorStop(1, color + '05');
-        ctx.fillStyle = gradient;
-        ctx.fill();
+            // Filter out nulls for range calculation
+            const validValues = values.filter(v => v !== null && v !== undefined);
+            if (validValues.length < 2) return;
 
-        // Draw line
-        ctx.beginPath();
-        let started = false;
-        values.forEach((v, i) => {
-            if (v !== null && v !== undefined) {
-                const x = (i / (values.length - 1)) * width;
-                const y = height - ((v - min) / range) * (height - 10) - 5;
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
+            // Use 100 as fixed floor for range to keep scale consistent for %
+            const max = Math.max(...validValues, 100);
+            const range = max || 1;
+
+            // Draw area fill
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            let lastX = 0;
+            values.forEach((v, i) => {
+                const x = (i / Math.max(1, values.length - 1)) * width;
+                if (v !== null && v !== undefined) {
+                    const y = height - (v / range) * (height - 6) - 3;
+                    if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
                     ctx.lineTo(x, y);
+                    lastX = x;
                 }
-            }
+            });
+            ctx.lineTo(lastX, height);
+            ctx.closePath();
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, color + '40'); // 25% opacity
+            gradient.addColorStop(1, color + '08'); // 3% opacity
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw stroke line
+            ctx.beginPath();
+            let started = false;
+            values.forEach((v, i) => {
+                if (v !== null && v !== undefined) {
+                    const x = (i / Math.max(1, values.length - 1)) * width;
+                    const y = height - (v / range) * (height - 6) - 3;
+                    if (!started) {
+                        ctx.moveTo(x, y);
+                        started = true;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            });
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.0;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+        document.addEventListener('alpine:init', () => {
+            // Initial render after a short delay
+            setTimeout(renderResourceHistoryCharts, 1500);
+            // Dynamic refresh loop
+            setInterval(() => {
+                if (document.querySelector('#server-tab')?.style.display !== 'none') {
+                    renderResourceHistoryCharts();
+                }
+            }, 3000);
         });
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-    }
-
-    // Re-render charts when data changes
-    document.addEventListener('alpine:init', () => {
-        // Watch for resource history changes
-        setInterval(() => {
-            if (document.querySelector('#server-tab')?.style.display !== 'none') {
-                renderResourceHistoryCharts();
-            }
-        }, 2000);
-    });
-
-    // Initial render on page load
-    if (document.readyState === 'complete') {
-        setTimeout(renderResourceHistoryCharts, 1000);
-    } else {
+        // Catch-all startup triggers
         window.addEventListener('load', () => setTimeout(renderResourceHistoryCharts, 1000));
-    }
-})();
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) renderResourceHistoryCharts(); });
+    })();
 </script>
-
-<!-- ============================================
-             FIREWALL SNMP STATUS TAB
-             ============================================ -->

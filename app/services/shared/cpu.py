@@ -30,8 +30,8 @@ def calculate_cpu_percent_from_stat():
         if not current_times or 'cpu' not in current_times:
             return None, None, None
 
-        # If we have previous data and it's recent (< 5 seconds old)
-        if state._cpu_stat_prev['times'] and 'cpu' in state._cpu_stat_prev['times'] and (now - state._cpu_stat_prev['ts']) < 5:
+        # If we have previous data and it's recent enough to calculate delta (sampler runs every 60s)
+        if state._cpu_stat_prev['times'] and 'cpu' in state._cpu_stat_prev['times'] and (now - state._cpu_stat_prev['ts']) < 70:
             prev = state._cpu_stat_prev['times']['cpu']
             curr = current_times['cpu']
 

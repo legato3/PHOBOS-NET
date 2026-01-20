@@ -455,9 +455,11 @@ def start_container_metrics_thread():
     """Start the container metrics sampling thread.
 
     Collects Docker container-specific metrics from cgroup filesystem.
-    Works with both cgroup v1 and v2.
+    Works with both cgroup v1 and v2. Also collects extended container info.
     """
     import os
+    import subprocess
+    import json
 
     def is_containerized():
         """Detect if running inside a container using multiple indicators."""
@@ -533,11 +535,96 @@ def start_container_metrics_thread():
 
         return False
 
+    def get_container_id():
+        """Get the container ID from cgroup or hostname."""
+        container_id = None
+        
+        # Try from /proc/self/cgroup
+        try:
+            with open('/proc/self/cgroup', 'r') as f:
+                for line in f:
+                    # Format: hierarchy-ID:controller-list:cgroup-path
+                    # Docker containers have paths like /docker/<container-id>
+                    parts = line.strip().split(':')
+                    if len(parts) >= 3:
+                        cgroup_path = parts[2]
+                        if '/docker/' in cgroup_path:
+                            container_id = cgroup_path.split('/docker/')[-1].split('/')[0]
+                            if len(container_id) >= 12:
+                                break
+                        elif '/containerd/' in cgroup_path:
+                            container_id = cgroup_path.split('/')[-1]
+                            if len(container_id) >= 12:
+                                break
+        except Exception:
+            pass
+        
+        # Fallback to hostname (Docker sets hostname to container ID by default)
+        if not container_id:
+            try:
+                import socket
+                hostname = socket.gethostname()
+                # Container IDs are 64 chars, but hostname is typically 12 chars
+                if len(hostname) == 12 and all(c in '0123456789abcdef' for c in hostname):
+                    container_id = hostname
+            except Exception:
+                pass
+        
+        return container_id
+
+    def get_docker_container_info(container_id):
+        """Get extended container info from Docker socket if available."""
+        info = {}
+        if not container_id:
+            return info
+        
+        # Try using docker CLI (faster and works without socket mounting)
+        try:
+            result = subprocess.run(
+                ['docker', 'inspect', container_id[:12], '--format', 
+                 '{{json .}}'],
+                capture_output=True, text=True, timeout=2
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                
+                # Container lifecycle
+                if 'Created' in data:
+                    info['container_created'] = data['Created']
+                if 'State' in data:
+                    state_data = data['State']
+                    if 'StartedAt' in state_data:
+                        info['container_started'] = state_data['StartedAt']
+                    if 'Health' in state_data:
+                        health = state_data['Health']
+                        info['health_status'] = health.get('Status')
+                        info['health_failing_streak'] = health.get('FailingStreak', 0)
+                
+                # Image info
+                if 'Config' in data and 'Image' in data['Config']:
+                    image = data['Config']['Image']
+                    if ':' in image:
+                        parts = image.rsplit(':', 1)
+                        info['image_name'] = parts[0]
+                        info['image_tag'] = parts[1]
+                    else:
+                        info['image_name'] = image
+                        info['image_tag'] = 'latest'
+                
+                # Restart count
+                if 'RestartCount' in data:
+                    info['restart_count'] = data['RestartCount']
+                
+        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
+            pass
+        
+        return info
+
     def read_cgroup_v2():
         """Read metrics from cgroup v2 (unified hierarchy)."""
         metrics = {}
         try:
-            # Memory
+            # Memory current usage
             mem_current = '/sys/fs/cgroup/memory.current'
             mem_max = '/sys/fs/cgroup/memory.max'
             if os.path.exists(mem_current):
@@ -549,17 +636,68 @@ def start_container_metrics_thread():
                     if val != 'max':
                         metrics['memory_limit_bytes'] = int(val)
 
-            # CPU throttling
+            # Memory breakdown (cache, RSS) from memory.stat
+            mem_stat = '/sys/fs/cgroup/memory.stat'
+            if os.path.exists(mem_stat):
+                with open(mem_stat, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) == 2:
+                            if parts[0] == 'file':  # File cache
+                                metrics['memory_cache_bytes'] = int(parts[1])
+                            elif parts[0] == 'anon':  # RSS (anonymous memory)
+                                metrics['memory_rss_bytes'] = int(parts[1])
+
+            # CPU stats
             cpu_stat = '/sys/fs/cgroup/cpu.stat'
             if os.path.exists(cpu_stat):
                 with open(cpu_stat, 'r') as f:
                     for line in f:
                         parts = line.strip().split()
                         if len(parts) == 2:
-                            if parts[0] == 'nr_throttled':
+                            if parts[0] == 'usage_usec':
+                                metrics['cpu_usage_ns'] = int(parts[1]) * 1000
+                            elif parts[0] == 'nr_throttled':
                                 metrics['cpu_throttled_periods'] = int(parts[1])
                             elif parts[0] == 'throttled_usec':
                                 metrics['cpu_throttled_time_ns'] = int(parts[1]) * 1000
+
+            # PIDs
+            pids_current = '/sys/fs/cgroup/pids.current'
+            pids_max = '/sys/fs/cgroup/pids.max'
+            if os.path.exists(pids_current):
+                with open(pids_current, 'r') as f:
+                    metrics['pids_current'] = int(f.read().strip())
+            if os.path.exists(pids_max):
+                with open(pids_max, 'r') as f:
+                    val = f.read().strip()
+                    if val != 'max':
+                        metrics['pids_limit'] = int(val)
+
+            # Block I/O from io.stat
+            io_stat = '/sys/fs/cgroup/io.stat'
+            if os.path.exists(io_stat):
+                with open(io_stat, 'r') as f:
+                    total_rbytes = 0
+                    total_wbytes = 0
+                    total_rios = 0
+                    total_wios = 0
+                    for line in f:
+                        parts = line.strip().split()
+                        for part in parts:
+                            if part.startswith('rbytes='):
+                                total_rbytes += int(part.split('=')[1])
+                            elif part.startswith('wbytes='):
+                                total_wbytes += int(part.split('=')[1])
+                            elif part.startswith('rios='):
+                                total_rios += int(part.split('=')[1])
+                            elif part.startswith('wios='):
+                                total_wios += int(part.split('=')[1])
+                    metrics['blkio_read_bytes'] = total_rbytes
+                    metrics['blkio_write_bytes'] = total_wbytes
+                    metrics['blkio_read_ops'] = total_rios
+                    metrics['blkio_write_ops'] = total_wios
+
         except Exception:
             pass
         return metrics
@@ -583,6 +721,18 @@ def start_container_metrics_thread():
                     if val < 9223372036854771712:
                         metrics['memory_limit_bytes'] = val
 
+            # Memory stats (cache, RSS)
+            mem_stat = '/sys/fs/cgroup/memory/memory.stat'
+            if os.path.exists(mem_stat):
+                with open(mem_stat, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) == 2:
+                            if parts[0] == 'cache':
+                                metrics['memory_cache_bytes'] = int(parts[1])
+                            elif parts[0] == 'rss':
+                                metrics['memory_rss_bytes'] = int(parts[1])
+
             # OOM kill count
             mem_failcnt = '/sys/fs/cgroup/memory/memory.failcnt'
             if os.path.exists(mem_failcnt):
@@ -600,25 +750,109 @@ def start_container_metrics_thread():
                                 metrics['cpu_throttled_periods'] = int(parts[1])
                             elif parts[0] == 'throttled_time':
                                 metrics['cpu_throttled_time_ns'] = int(parts[1])
+
+            # CPU usage
+            cpu_usage = '/sys/fs/cgroup/cpuacct/cpuacct.usage'
+            if os.path.exists(cpu_usage):
+                with open(cpu_usage, 'r') as f:
+                    metrics['cpu_usage_ns'] = int(f.read().strip())
+
+            # PIDs
+            pids_current = '/sys/fs/cgroup/pids/pids.current'
+            pids_max = '/sys/fs/cgroup/pids/pids.max'
+            if os.path.exists(pids_current):
+                with open(pids_current, 'r') as f:
+                    metrics['pids_current'] = int(f.read().strip())
+            if os.path.exists(pids_max):
+                with open(pids_max, 'r') as f:
+                    val = f.read().strip()
+                    if val != 'max':
+                        metrics['pids_limit'] = int(val)
+
+            # Block I/O
+            blkio_read = '/sys/fs/cgroup/blkio/blkio.throttle.io_service_bytes'
+            if os.path.exists(blkio_read):
+                with open(blkio_read, 'r') as f:
+                    total_read = 0
+                    total_write = 0
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 3:
+                            if parts[1] == 'Read':
+                                total_read += int(parts[2])
+                            elif parts[1] == 'Write':
+                                total_write += int(parts[2])
+                    metrics['blkio_read_bytes'] = total_read
+                    metrics['blkio_write_bytes'] = total_write
+
         except Exception:
             pass
         return metrics
 
-    import os
+    def get_process_metrics():
+        """Get process-level metrics (file descriptors, etc.)."""
+        metrics = {}
+        try:
+            pid = os.getpid()
+            
+            # File descriptor count
+            fd_path = f'/proc/{pid}/fd'
+            if os.path.exists(fd_path):
+                metrics['fd_current'] = len(os.listdir(fd_path))
+            
+            # File descriptor limit
+            limits_path = f'/proc/{pid}/limits'
+            if os.path.exists(limits_path):
+                with open(limits_path, 'r') as f:
+                    for line in f:
+                        if 'Max open files' in line:
+                            parts = line.split()
+                            # Format: Max open files            1024                 1048576              files
+                            for i, part in enumerate(parts):
+                                if part.isdigit():
+                                    metrics['fd_limit'] = int(parts[i + 1])  # Hard limit
+                                    break
+        except Exception:
+            pass
+        return metrics
+
+    def format_uptime(seconds):
+        """Format uptime in a human-readable way."""
+        if seconds is None:
+            return None
+        days = int(seconds // 86400)
+        hours = int((seconds % 86400) // 3600)
+        minutes = int((seconds % 3600) // 60)
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        elif hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
 
     def loop():
         # Initial containerization check
         containerized = is_containerized()
+        container_id = get_container_id() if containerized else None
 
         with state._container_metrics_lock:
             state._container_metrics['is_containerized'] = containerized
+            if container_id:
+                state._container_metrics['container_id'] = container_id
+                state._container_metrics['container_id_short'] = container_id[:12] if len(container_id) >= 12 else container_id
 
         if not containerized:
             # Not in a container, no need to keep running
             return
 
+        # Get initial Docker container info (less frequently)
+        docker_info_ts = 0
+        docker_info_interval = 60  # Refresh every 60 seconds
+
         while not _shutdown_event.is_set():
             try:
+                now = time.time()
+                
                 # Try cgroup v2 first, fall back to v1
                 metrics = read_cgroup_v2()
                 if not metrics:
@@ -630,8 +864,47 @@ def start_container_metrics_thread():
                         metrics['memory_usage_bytes'] / metrics['memory_limit_bytes'] * 100, 1
                     )
 
-                metrics['last_update'] = time.time()
+                # Add process-level metrics
+                proc_metrics = get_process_metrics()
+                metrics.update(proc_metrics)
+
+                # Refresh Docker info periodically
+                if now - docker_info_ts > docker_info_interval:
+                    docker_info = get_docker_container_info(container_id)
+                    if docker_info:
+                        metrics.update(docker_info)
+                        
+                        # Calculate container uptime from started time
+                        if 'container_started' in docker_info:
+                            try:
+                                started_str = docker_info['container_started']
+                                # Parse ISO format: 2024-01-20T10:30:00.123456789Z
+                                if '.' in started_str:
+                                    started_str = started_str.split('.')[0] + 'Z'
+                                from datetime import datetime
+                                started_dt = datetime.strptime(started_str.replace('Z', '+0000'), '%Y-%m-%dT%H:%M:%S%z')
+                                uptime_secs = (datetime.now(started_dt.tzinfo) - started_dt).total_seconds()
+                                metrics['container_uptime_seconds'] = int(uptime_secs)
+                                metrics['container_uptime_formatted'] = format_uptime(uptime_secs)
+                            except Exception:
+                                pass
+                    
+                    docker_info_ts = now
+
+                # Fallback for uptime if docker inspect didn't work
+                if not metrics.get('container_uptime_formatted'):
+                    try:
+                        with open('/proc/uptime', 'r') as f:
+                            uptime_secs = float(f.read().split()[0])
+                            metrics['container_uptime_seconds'] = int(uptime_secs)
+                            metrics['container_uptime_formatted'] = format_uptime(uptime_secs)
+                    except Exception:
+                        pass
+
+                metrics['last_update'] = now
                 metrics['is_containerized'] = True
+                metrics['container_id'] = container_id
+                metrics['container_id_short'] = container_id[:12] if container_id and len(container_id) >= 12 else container_id
 
                 with state._container_metrics_lock:
                     state._container_metrics.update(metrics)

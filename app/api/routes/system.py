@@ -524,6 +524,7 @@ def api_server_health():
                 'parsed': _syslog_stats.get('parsed', 0),
                 'errors': _syslog_stats.get('errors', 0),
                 'last_log': last_log_ts,
+                'last_event': datetime.fromtimestamp(last_log_ts).strftime('%H:%M:%S') if last_log_ts else None,
                 'active': syslog_active
             }
     except Exception:
@@ -546,11 +547,13 @@ def api_server_health():
                 from app.services.syslog.firewall_listener import _firewall_syslog_thread_started
                 firewall_syslog_active = _firewall_syslog_thread_started
 
+        fw_last_log = firewall_syslog_stats.get('last_log') if firewall_syslog_stats else None
         data['firewall_syslog'] = {
             'received': firewall_syslog_stats.get('received', 0) if firewall_syslog_stats else 0,
             'parsed': firewall_syslog_stats.get('parsed', 0) if firewall_syslog_stats else 0,
             'errors': firewall_syslog_stats.get('errors', 0) if firewall_syslog_stats else 0,
-            'last_log': firewall_syslog_stats.get('last_log') if firewall_syslog_stats else None,
+            'last_log': fw_last_log,
+            'last_event': datetime.fromtimestamp(fw_last_log).strftime('%H:%M:%S') if fw_last_log else None,
             'active': firewall_syslog_active
         }
     except Exception:
@@ -559,25 +562,94 @@ def api_server_health():
     # NetFlow Statistics
     try:
         nfdump_dir = NFCAPD_DIR
+        
+        # 1. Proactively verify nfdump availability to prevent false "OFFLINE" status
+        if state._has_nfdump is None:
+            try:
+                subprocess.run(['nfdump', '-V'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=1)
+                state._has_nfdump = True
+            except:
+                state._has_nfdump = False
+
+        # 2. Get flow count from recent caches with robust fallback logic
+        total_flows = 0
+        try:
+            # Check primary flow stats cache first
+            if hasattr(state, '_stats_flow_stats_cache') and state._stats_flow_stats_cache.get('data'):
+                total_flows = state._stats_flow_stats_cache['data'].get('total_flows', 0)
+            
+            # Fallback to aggregated protocols cache (updated regularly by AggregationThread)
+            if total_flows == 0:
+                prefix = "protos:1h:"
+                # Thread-safe access to common data cache
+                with state._common_data_lock:
+                    matches = [v for k, v in state._common_data_cache.items() if k.startswith(prefix)]
+                if matches:
+                    valid_matches = [m for m in matches if m.get('ts') is not None]
+                    if valid_matches:
+                        latest = sorted(valid_matches, key=lambda x: x['ts'])[-1]
+                        if latest and 'data' in latest:
+                            total_flows = sum(p.get('flows', 0) for p in latest['data'])
+        except Exception:
+            pass
+
+        # 3. Build netflow metadata with safe defaults
         netflow_data = {
-            'available': state._has_nfdump if state._has_nfdump is not None else False,
+            'available': bool(state._has_nfdump),
             'directory': nfdump_dir,
-            'disk_usage': data['disk'].get('nfdump', {}),
-            'files_count': data['disk'].get('nfdump_files', 0)
+            'disk_usage': data.get('disk', {}).get('nfdump', {}),
+            'files_count': data.get('disk', {}).get('nfdump_files', 0),
+            'total_flows': total_flows,
+            'errors': 0
         }
 
-        # Try to get nfdump version
+        # 4. Get nfdump version and verify availability again
         try:
             result = subprocess.run(['nfdump', '-V'], capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
-                version_line = result.stdout.split('\n')[0] if result.stdout else ''
-                netflow_data['version'] = version_line.strip()
+                state._has_nfdump = True
+                netflow_data['available'] = True
+                version_line = result.stdout.split('\n')[0].strip() if result.stdout else ''
+                if version_line:
+                    netflow_data['version'] = version_line
+            else:
+                state._has_nfdump = False
+                netflow_data['available'] = False
+        except Exception:
+            pass
+
+        # 5. Get last file timestamp
+        try:
+            if os.path.exists(nfdump_dir):
+                files = [f for f in os.listdir(nfdump_dir) if f.startswith('nfcapd.') and not f.endswith('.current')]
+                if files:
+                    files.sort(reverse=True)
+                    latest_file = files[0]
+                    if len(latest_file) > 7:
+                        ts_part = latest_file[7:]
+                        try:
+                            # Standard format: nfcapd.YYYYMMDDHHMM
+                            dt = datetime.strptime(ts_part, '%Y%m%d%H%M')
+                            netflow_data['last_file'] = dt.strftime('%H:%M:%S')
+                        except:
+                            netflow_data['last_file'] = ts_part
+                
+                # Update files count if we found any (more current than disk stats)
+                if files:
+                    netflow_data['files_count'] = max(netflow_data['files_count'], len(files))
         except Exception:
             pass
 
         data['netflow'] = netflow_data
-    except Exception:
-        data['netflow'] = {'error': 'Unable to read NetFlow stats'}
+    except Exception as e:
+        add_app_log(f"api_server_health netflow stats error: {e}", 'ERROR')
+        data['netflow'] = {
+            'available': False,
+            'error': str(e),
+            'files_count': 0,
+            'total_flows': 0,
+            'errors': 0
+        }
 
     # Database Statistics
     try:
@@ -908,7 +980,7 @@ def api_http_metrics():
 def api_container_metrics():
     """Get Docker container metrics.
 
-    Returns memory usage/limits, CPU throttling, OOM kills (if containerized).
+    Returns memory usage/limits, CPU throttling, OOM kills, PIDs, block I/O (if containerized).
     """
     from app.core.app_state import get_container_metrics
 
@@ -919,6 +991,16 @@ def api_container_metrics():
         metrics['memory_usage_mb'] = round(metrics['memory_usage_bytes'] / (1024 * 1024), 1)
     if metrics.get('memory_limit_bytes'):
         metrics['memory_limit_mb'] = round(metrics['memory_limit_bytes'] / (1024 * 1024), 1)
+    if metrics.get('memory_cache_bytes'):
+        metrics['memory_cache_mb'] = round(metrics['memory_cache_bytes'] / (1024 * 1024), 1)
+    if metrics.get('memory_rss_bytes'):
+        metrics['memory_rss_mb'] = round(metrics['memory_rss_bytes'] / (1024 * 1024), 1)
+    
+    # Format block I/O in MB
+    if metrics.get('blkio_read_bytes'):
+        metrics['blkio_read_mb'] = round(metrics['blkio_read_bytes'] / (1024 * 1024), 2)
+    if metrics.get('blkio_write_bytes'):
+        metrics['blkio_write_mb'] = round(metrics['blkio_write_bytes'] / (1024 * 1024), 2)
 
     metrics['timestamp'] = datetime.now().isoformat()
 
@@ -960,6 +1042,12 @@ def api_monitoring_summary():
 
     # Container metrics
     container = get_container_metrics()
+    
+    # Format bytes values for frontend
+    if container.get('memory_usage_bytes'):
+        container['memory_usage_mb'] = round(container['memory_usage_bytes'] / (1024 * 1024), 1)
+    if container.get('memory_limit_bytes'):
+        container['memory_limit_mb'] = round(container['memory_limit_bytes'] / (1024 * 1024), 1)
 
     return jsonify({
         'thread_health': {
@@ -1156,6 +1244,7 @@ def _get_logs_from_files(lines):
         # Sort by file and take last N lines
         all_lines = all_lines[-lines:]
         log_lines = [f"[{os.path.basename(f)}] {line}" for f, line in all_lines]
+        log_lines.reverse()  # Newest first
         return jsonify({
             'logs': log_lines,
             'count': len(log_lines),
