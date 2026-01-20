@@ -3050,7 +3050,10 @@ def process_batch_request(app, endpoint_name, handler, query_string):
 @bp.route("/api/stats/batch", methods=['POST'])
 @throttle(10, 20)
 def api_stats_batch():
-    """Batch endpoint: accepts list of endpoint names, returns combined response."""
+    """Batch endpoint: accepts list of endpoint names, returns combined response.
+
+    Requests are processed in parallel using ThreadPoolExecutor to reduce total latency.
+    """
     # Import handlers locally to avoid circular dependencies
     from app.api.routes.system import api_stats_summary
     from app.api.routes.security import api_threats, api_alerts
