@@ -2664,13 +2664,22 @@ def api_firewall_snmp_status():
     
     # Correlate SNMP throughput with NetFlow traffic volume
     # Use 1h window to match typical SNMP polling cadence
+    # CRITICAL: This block must fail gracefully to avoid blocking SNMP status if nfdump is slow/down
     try:
         from app.services.netflow.netflow import get_common_nfdump_data
-        from app.services.shared.helpers import get_time_range
         
         # Get NetFlow total bytes for last hour
         range_key = "1h"
-        netflow_sources = get_common_nfdump_data("sources", range_key)
+        
+        # Use a short timeout/fail-fast approach for this correlation check if possible,
+        # but since run_nfdump uses global timeout, we rely on the try/except here.
+        netflow_sources = None
+        try:
+            # We wrap this specific call to ensure it doesn't kill the whole request
+            netflow_sources = get_common_nfdump_data("sources", range_key)
+        except Exception:
+            netflow_sources = None
+            
         netflow_total_bytes = sum(i.get("bytes", 0) for i in netflow_sources) if netflow_sources else 0
         
         # Calculate SNMP total bytes for same window (1 hour)

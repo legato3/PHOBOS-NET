@@ -9,7 +9,7 @@ APP_VERSION_DISPLAY = "v1.2.5"  # Human-readable version for UI
 # Cache TTLs
 CACHE_TTL_SHORT = 30        # 30 seconds for fast-changing data
 CACHE_TTL_THREAT = 900      # 15 minutes for threat feeds
-DEFAULT_TIMEOUT = 25        # subprocess timeout
+DEFAULT_TIMEOUT = 10        # subprocess timeout
 MAX_RESULTS = 100           # default limit for API results
 DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
 

@@ -1,208 +1,262 @@
-# 🔒 PHOBOS-NET — Locked Architecture Contract
+# 🔒 PHOBOS-NET — Agent Development Guide
 
-This document defines the **non-negotiable semantic and architectural rules** of PHOBOS-NET.
+This document defines the **development workflow, build commands, and coding standards** for PHOBOS-NET, along with the **non-negotiable semantic and architectural rules**.
 
-All AI agents (Cursor, Claude, Jules, Gemini, etc.) **MUST follow this document strictly**.
-
-Violating these rules is considered a **breaking change**, even if the code appears to function.
+All AI agents **MUST follow this document strictly**. Violating these rules is considered a **breaking change**.
 
 ---
 
-## 1. Core Semantic Separation (LOCKED)
+## 1. Development Commands
 
-PHOBOS-NET operates on **four strictly separated semantic layers**.
+### Build & Deployment
+```bash
+# Build Docker image
+docker build -f docker/Dockerfile .. -t phobos-net:latest
 
-These layers **MUST NEVER be merged, inferred, auto-derived, or implicitly coupled**.
+# Run with docker-compose (from docker/ directory)
+docker-compose up -d
 
----
+# Development server (Python 3.12)
+python app/main.py
 
-### 1.1 Events (Timeline)
+# Production server (Gunicorn)
+gunicorn -c gunicorn_config.py app:app
+```
 
-Events are **raw, factual observations** sourced from:
+### Testing
+```bash
+# ⚠️ NO FORMAL TEST SUITE EXISTS
+# This is a known gap - tests should be added using pytest
 
-- NetFlow
-- Filterlog (packet decisions)
-- Firewall control logs
-- Syslog
-- SNMP state changes
-- PHOBOS-NET internal system events
+# Manual testing approaches:
+# - Check API endpoints: curl http://localhost:8080/health
+# - Verify NetFlow ingestion: check /api/netflow/flows
+# - Test syslog: send test events to ports 5514/5515
+# - Monitor system health: /api/system/health
+```
 
-Rules:
-- Events are **high-volume and noisy by nature**
-- Events are **chronological and immutable**
-- Events are **informational only**
-- Events **MUST NEVER escalate automatically**
+### Code Quality
+```bash
+# Python linting (if added)
+# flake8 app/ --max-line-length=100
+# black app/ --line-length=100
 
-Events answer:
-
-> “What happened?”
-
----
-
-### 1.2 Signals / Indicators
-
-Signals are **derived observations** such as anomalies or deviations.
-
-Rules:
-- Signals are **informational**
-- Signals provide **context, not urgency**
-- Signals **MUST NEVER create alerts**
-- Signals **MUST NEVER affect system health directly**
-
-Examples:
-- SYN-only traffic spikes
-- TCP reset bursts
-- ICMP floods
-- Baseline deviations
-- Elevated block/pass ratios
-
-Signals answer:
-
-> “This is notable.”
+# JavaScript linting (if added)  
+# eslint frontend/src/js/
+```
 
 ---
 
-### 1.3 Alerts (STRICT)
+## 2. Tech Stack & Dependencies
 
-Alerts are **rare, actionable, stateful objects**.
+### Backend (Python 3.12)
+- **Framework**: Flask
+- **WSGI Server**: Gunicorn 21.2.0+
+- **Key Libraries**: requests, maxminddb, dnspython, flask-compress
+- **Database**: SQLite (thread-safe operations)
+- **System Tools**: nfdump, python3-pysnmp4
 
-An Alert MUST:
-- Represent a **persistent condition**
-- Require **human action**
-- Be **explicitly created** by alert logic
-- Be **deduplicated** by condition
-- Have a **clear lifecycle**
+### Frontend
+- **Core**: Vanilla JavaScript (ES6+)
+- **Reactivity**: Alpine.js
+- **Charts**: Chart.js
+- **Maps**: Leaflet.js
+- **Build**: No bundler - direct file serving
 
-Every alert MUST include:
-- `first_seen`
-- `last_seen`
-- `active` (boolean)
-- `resolved_at` (nullable)
+### Deployment
+- **Container**: Docker (python:3.12-slim base)
+- **Ports**: 8080 (web), 2055 (NetFlow), 5514/5515 (syslog)
+- **User**: Non-root (phobos:1000)
 
-Rules:
+---
+
+## 3. Code Style Guidelines
+
+### Python Conventions
+```python
+# Imports: standard library → third-party → local
+import os
+import sys
+import threading
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import flask
+import requests
+
+from app.core.app_state import _shutdown_event
+from app.services.shared.timeline import add_timeline_event
+
+# Naming
+snake_case_function()        # Functions and variables
+PascalCaseClass              # Classes  
+UPPER_SNAKE_CASE_CONSTANT    # Constants
+
+# Docstrings: Google/NumPy style
+def process_netflow_data(data: Dict[str, Any]) -> Optional[List[str]]:
+    """Process NetFlow data and return flow summaries.
+    
+    Args:
+        data: Raw NetFlow data dictionary
+        
+    Returns:
+        List of processed flow summaries, or None if processing fails
+    """
+    pass
+
+# Error Handling: Comprehensive with graceful degradation
+try:
+    result = risky_operation()
+except SpecificError as e:
+    logger.warning(f"Expected error in operation: {e}")
+    return fallback_value()
+except Exception as e:
+    logger.error(f"Unexpected error: {e}")
+    return None
+```
+
+### JavaScript Conventions
+```javascript
+// Imports: ES6 modules with version cache busting
+import { Store } from './store/index.js?v=3.0.13';
+import * as Utils from './modules/utils.js?v=3.0.3';
+
+// Naming
+camelCaseFunction()         // Functions
+PascalCaseClass             // Classes  
+UPPER_SNAKE_CASE_CONSTANT  // Constants
+
+// Async/Await for API calls
+async function fetchMetrics() {
+    try {
+        const response = await API.fetchWithLatency('/api/metrics');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+        return null;
+    }
+}
+
+// JSDoc comments
+/**
+ * Process NetFlow data and return formatted results
+ * @param {Object} data - Raw NetFlow data
+ * @returns {Array|null} Processed flow summaries
+ */
+function processNetFlow(data) {
+    // Implementation
+}
+```
+
+### CSS Architecture
+```css
+/* Design tokens in tokens.css */
+:root {
+    --color-primary: #00ffff;
+    --color-bg-dark: #0a0a0a;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Component-based organization */
+.widget-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* Mobile-first responsive */
+@media (min-width: 768px) {
+    .widget-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+```
+
+---
+
+## 4. Core Semantic Separation (LOCKED)
+
+PHOBOS-NET operates on **four strictly separated semantic layers**. These layers **MUST NEVER be merged, inferred, auto-derived, or implicitly coupled**.
+
+### 4.1 Events (Timeline)
+Events are **raw, factual observations** from NetFlow, filterlog, firewall logs, syslog, SNMP, and system events.
+
+**Rules:**
+- High-volume and noisy by nature
+- Chronological and immutable  
+- Informational only
+- **MUST NEVER escalate automatically**
+
+**Events answer:** "What happened?"
+
+### 4.2 Signals / Indicators
+Signals are **derived observations** like anomalies or deviations (SYN spikes, TCP reset bursts, baseline deviations).
+
+**Rules:**
+- Informational only
+- Provide context, not urgency
+- **MUST NEVER create alerts**
+- **MUST NEVER affect system health directly**
+
+**Signals answer:** "This is notable."
+
+### 4.3 Alerts (STRICT)
+Alerts are **rare, actionable, stateful objects** requiring human action.
+
+**Every alert MUST include:**
+- `first_seen`, `last_seen`, `active` (boolean), `resolved_at` (nullable)
+
+**Rules:**
 - Multiple events update **ONE alert**
-- Alerts **MUST auto-resolve** when conditions clear
-- Alerts **MUST NEVER be created from**:
-  - events
-  - signals
-  - anomalies
-  - raw counters
-  - traffic volume
-  - firewall decision counts
+- **MUST auto-resolve** when conditions clear
+- **MUST NEVER be created from:** events, signals, anomalies, raw counters, traffic volume
 
-Alerts answer:
+**Alerts answer:** "Something requires action."
 
-> “Something requires action.”
-
----
-
-### 1.4 System Health (LOCKED DEFINITION)
-
+### 4.4 System Health (LOCKED)
 **System Health reflects observability integrity — NOT threat level.**
 
-Health MAY depend on:
-- NetFlow engine availability
-- Syslog ingestion status
-- SNMP reachability
-- Database connectivity
-- Sustained ingestion stalls
-- Parser failure rates
+**Health MAY depend on:** NetFlow engine availability, syslog ingestion, SNMP reachability, database connectivity, parser failure rates
 
-Health MUST NOT depend on:
-- Alert count
-- Signal or anomaly count
-- Traffic volume
-- Firewall pass/block volume
-- External attack activity
-- Timeline size
+**Health MUST NOT depend on:** Alert count, signal count, traffic volume, attack activity, timeline size
 
-Allowed states ONLY:
-- `Healthy`
-- `Degraded` (partial visibility)
-- `Unavailable`
+**Allowed states ONLY:** `Healthy`, `Degraded`, `Unavailable`
 
-Health answers:
-
-> “Can I trust what I’m seeing?”
+**Health answers:** "Can I trust what I'm seeing?"
 
 ---
 
-## 2. Timeline Authority Rule (ABSOLUTE)
+## 5. Timeline Authority Rule (ABSOLUTE)
 
 The Event Timeline is **non-authoritative**.
 
-Rules:
-- Timeline events MUST NEVER:
-  - create alerts
-  - increment alert counters
-  - affect system health
-  - imply urgency
-- Timeline exists for:
-  - context
-  - explanation
-  - investigation
+**Rules:**
+- Timeline events **MUST NEVER:** create alerts, increment alert counters, affect system health, imply urgency
+- Timeline exists for: context, explanation, investigation
 - Absence of timeline events is **valid and calm**
 
 ---
 
-## 3. Alert Count Discipline (LOCKED)
+## 6. UI Truthfulness Contract
 
-- Alert count MUST remain **low under normal operation**
-- A noisy but healthy network SHOULD show:
-  - 0–few active alerts
-  - Healthy or Degraded system state
-- High alert counts indicate a **logic error**, not a feature
-
-If alert count grows unbounded → **architectural violation**
-
----
-
-## 4. Security / Pressure Scores vs System Health (DO NOT MERGE)
-
-These concepts are intentionally separate:
-
-### System Health
-- Infrastructure reliability
-- Observability confidence
-- Data pipeline integrity
-
-### Security / Pressure / Activity Scores
-- Threat volume
-- Attack surface activity
-- Environmental pressure
-
-Rules:
-- Security pressure MUST NOT degrade system health
-- These values MUST NOT influence each other
-- They MUST NOT be combined in UI or logic
-- They MAY coexist, but remain independent
-
----
-
-## 5. UI Truthfulness Contract
-
-The UI MUST:
-- Prefer “—” over guessing
-- Distinguish clearly between:
-  - unavailable vs zero
-  - noisy vs dangerous
+The UI **MUST:**
+- Prefer "—" over guessing
+- Distinguish clearly between: unavailable vs zero, noisy vs dangerous
 - Avoid alarmist language unless action is required
 
-Forbidden UI patterns:
-- “Unhealthy” due to traffic volume
+**Forbidden UI patterns:**
+- "Unhealthy" due to traffic volume
 - Large red numbers without action
 - Alert inflation visuals
 - Severity implied by color alone
 
-Calm, truthful UX is a **core requirement**, not polish.
-
 ---
 
-## 6. Change Discipline (ENFORCED)
+## 7. Change Discipline (ENFORCED)
 
-Before implementing any change, AI agents MUST ask:
+Before implementing any change, AI agents **MUST ask:**
 
-> “Which layer am I modifying: Events, Signals, Alerts, or Health?”
+> "Which layer am I modifying: Events, Signals, Alerts, or Health?"
 
 If unclear → **STOP and ask for clarification**.
 
@@ -213,7 +267,35 @@ After completing a requested phase:
 
 ---
 
-## 7. Guiding Principle (FINAL)
+## 8. Security Best Practices
+
+- **Never log secrets** or API keys
+- **Non-root container** execution
+- **Thread-safe operations** with proper locking
+- **Input validation** for all external data
+- **Rate limiting** for API endpoints
+- **CORS headers** properly configured
+
+---
+
+## 9. File Organization Patterns
+
+```
+app/
+├── api/routes/          # Flask Blueprint API endpoints
+├── services/           # Business logic modules
+├── core/              # Application core functionality
+└── db/                # Database operations
+
+frontend/src/js/
+├── modules/           # Feature-specific modules
+├── store/            # State management
+└── app.js            # Application entry point
+```
+
+---
+
+## 10. Guiding Principle (FINAL)
 
 > **Observability systems must be calm, honest, and boring when things are fine.**  
 > Noise is data. Alerts are decisions.
@@ -222,10 +304,8 @@ If a change violates this principle, it must not be implemented.
 
 ---
 
-## 8. Architecture Version
+## 11. Architecture Version
 
-This document locks:
+**PHOBOS-NET Architecture v1.0** - Any change to semantic layers requires explicit human approval.
 
-**PHOBOS-NET Architecture v1.0**
-
-Any change to this file requires **explicit human approval**.
+**Development Guide v1.0** - Commands and coding conventions may be updated by contributors.
