@@ -143,12 +143,24 @@ def _firewall_db_init():
                     dst_port INTEGER,
                     proto TEXT,
                     rule_id TEXT,
+                    rule_label TEXT,
                     length INTEGER,
                     country_iso TEXT,
                     is_threat INTEGER DEFAULT 0,
                     raw_log TEXT
                 )
             """)
+            
+            # Migration: Ensure rule_label column exists for existing tables
+            try:
+                # Check if column exists
+                cursor = conn.execute("PRAGMA table_info(fw_logs)")
+                columns = [info[1] for info in cursor.fetchall()]
+                if 'rule_label' not in columns:
+                    add_app_log("Migrating database: Adding rule_label column to fw_logs", "INFO")
+                    conn.execute("ALTER TABLE fw_logs ADD COLUMN rule_label TEXT")
+            except Exception as e:
+                add_app_log(f"Database migration error (rule_label): {e}", "ERROR")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_timestamp ON fw_logs(timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_action ON fw_logs(action)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_src_ip ON fw_logs(src_ip)")

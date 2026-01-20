@@ -232,3 +232,18 @@ DEFAULT_THRESHOLDS = {
     "tcp_retrans_warn": 1.0,
     "tcp_retrans_crit": 5.0
 }
+
+# Firewall Rule Label Mappings (Tracker ID -> Human Readable Name)
+# Note: Most OPNsense/pfSense rule attributes (Tracker IDs) are unique generated hashes 
+# specific to your installation. You can find your specific IDs by:
+# 1. Hovering over the rule in your firewall's web interface (the "rid" or "tracker").
+# 2. Looking at the "label" tooltip in the Firewall Logs table in this app.
+# 3. Checking /tmp/rules.debug on your firewall console.
+RULE_LABELS = {
+    "0": "Default Deny",
+    "1000000103": "Block Bogon",
+    "1000000105": "Block Private",
+    # Add your custom rules here:
+    # "1589234891": "Allow LAN to WAN", 
+    # "fae55933...": "My Special Rule",
+}

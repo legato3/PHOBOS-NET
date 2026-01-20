@@ -177,6 +177,7 @@ def _parse_filterlog(line: str) -> dict:
     
     return {
         'rule_id': match.group('rule'),
+        'rule_label': match.group('tracker'),
         'interface': match.group('iface'),
         'action': match.group('action'),
         'direction': match.group('dir'),
@@ -291,7 +292,7 @@ def _insert_fw_log(parsed: dict, raw_log: str):
     # Add to buffer for batch insert
     log_tuple = (now, now_iso, parsed['action'], parsed['direction'], parsed['interface'],
                  parsed['src_ip'], parsed['src_port'], parsed['dst_ip'], parsed['dst_port'],
-                 parsed['proto'], parsed['rule_id'], parsed['length'], country_iso, is_threat, raw_log[:500])
+                 parsed['proto'], parsed['rule_id'], parsed['rule_label'], parsed['length'], country_iso, is_threat, raw_log[:500])
     
     flush_needed = False
     with _syslog_buffer_lock:
@@ -321,8 +322,8 @@ def _flush_syslog_buffer():
         try:
             conn.executemany("""
                 INSERT INTO fw_logs (timestamp, timestamp_iso, action, direction, interface,
-                    src_ip, src_port, dst_ip, dst_port, proto, rule_id, length, country_iso, is_threat, raw_log)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    src_ip, src_port, dst_ip, dst_port, proto, rule_id, rule_label, length, country_iso, is_threat, raw_log)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, logs_to_insert)
             conn.commit()
         except Exception as e:

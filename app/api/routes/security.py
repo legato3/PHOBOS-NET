@@ -707,11 +707,25 @@ def api_firewall_logs_recent():
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
             params.append(limit)
 
-            cur = conn.execute(f"""
+            query = f"""
                 SELECT timestamp, timestamp_iso, action, direction, interface, src_ip, src_port,
-                       dst_ip, dst_port, proto, country_iso, is_threat
+                       dst_ip, dst_port, proto, country_iso, is_threat, rule_label
                 FROM fw_logs WHERE {where_sql} ORDER BY timestamp DESC LIMIT ?
-            """, params)
+            """
+            
+            try:
+                cur = conn.execute(query, params)
+            except sqlite3.OperationalError as e:
+                # Self-healing: If column is missing (migration didn't run), add it now
+                if "no such column: rule_label" in str(e):
+                    add_app_log("Self-healing: Adding missing rule_label column to fw_logs", "WARN")
+                    conn.execute("ALTER TABLE fw_logs ADD COLUMN rule_label TEXT")
+                    conn.commit()
+                    # Retry query
+                    cur = conn.execute(query, params)
+                else:
+                    raise
+
 
             logs = []
             action_counts = {"block": 0, "reject": 0, "pass": 0}
@@ -735,6 +749,7 @@ def api_firewall_logs_recent():
                 proto = row[9]
                 country_iso = row[10]
                 is_threat = bool(row[11])
+                rule_label = row[12] if len(row) > 12 else None
 
                 # Stats
                 if action in action_counts:
@@ -752,6 +767,18 @@ def api_firewall_logs_recent():
                 if ts and (latest_ts is None or ts > latest_ts):
                     latest_ts = ts
 
+                rule_label = row[12] if len(row) > 12 else None
+                
+                # Apply human-readable mapping
+                from app.config import RULE_LABELS
+                rule_label_display = rule_label
+                if rule_label:
+                    if rule_label in RULE_LABELS:
+                        rule_label_display = RULE_LABELS[rule_label]
+                    elif len(rule_label) > 12:
+                        # Truncate long hashes if not mapped
+                        rule_label_display = f"{rule_label[:8]}..."
+
                 logs.append({
                     "timestamp": ts_iso,
                     "timestamp_ts": ts,
@@ -766,7 +793,9 @@ def api_firewall_logs_recent():
                     "country_iso": country_iso,
                     "flag": flag_from_iso(country_iso) if country_iso else "",
                     "is_threat": is_threat,
-                    "service": PORTS.get(dst_port, "") if dst_port else ""
+                    "service": PORTS.get(dst_port, "") if dst_port else "",
+                    "rule_label": rule_label_display,
+                    "rule_label_full": rule_label # Keep full label for tooltip
                 })
         finally:
             conn.close()

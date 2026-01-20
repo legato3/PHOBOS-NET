@@ -180,8 +180,9 @@
                             <th class="w-13">Dir / IF</th>
                             <th class="w-22">Source</th>
                             <th class="w-4"></th>
-                            <th style="width: 25%;">Destination</th>
-                            <th style="width: 10%;">Protocol</th>
+                            <th style="width: 20%;">Destination</th>
+                            <th style="width: 8%;">Proto</th>
+                            <th style="width: 10%;">Label</th>
                             <th style="width: 10%;">Action</th>
                         </tr>
                     </thead>
@@ -234,6 +235,17 @@
                                         x-text="(block.proto || 'TCP').toUpperCase()"></span>
                                     <div class="log-sub" x-show="block.direction"
                                         x-text="block.direction === 'in' ? 'Inbound' : 'Outbound'">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="truncate cursor-pointer hover:text-primary transition-colors duration-200"
+                                        style="max-width: 100px; font-family: monospace; font-size: 0.85em; color: var(--text-secondary);"
+                                        x-text="block.rule_label || '-'"
+                                        :title="(block.rule_label_full || block.rule_label || 'No label') + ' (Click to copy ID)'"
+                                        @click="if(block.rule_label_full) { 
+                                            navigator.clipboard.writeText(block.rule_label_full); 
+                                            $store.notifications.add('Copied Rule ID: ' + block.rule_label_full, 'info');
+                                         }">
                                     </div>
                                 </td>
                                 <td>
