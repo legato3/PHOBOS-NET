@@ -329,30 +329,57 @@ def load_security_webhook_config():
 def _process_webhooks():
     """Background worker to process security webhooks."""
     session = requests.Session()
+    BATCH_SIZE = 50
+
     while True:
         try:
-            alert = _webhook_queue.get()
-            if alert is None:
-                # Poison pill
+            batch = []
+            stop = False
+
+            # Block for first item
+            item = _webhook_queue.get()
+            if item is None:
                 _webhook_queue.task_done()
                 break
+            batch.append(item)
 
-            config = load_security_webhook_config()
-            if config:
-                url = config.get('url')
-                if url:
-                    headers = config.get('headers', {'Content-Type': 'application/json'})
-                    payload = {
-                        'source': 'netflow-dashboard',
-                        'timestamp': time.time(),
-                        'threat': alert
-                    }
-                    try:
-                        session.post(url, json=payload, headers=headers, timeout=5)
-                    except Exception as e:
-                        print(f"Security webhook error: {e}")
+            # Try to fill batch without blocking
+            try:
+                while len(batch) < BATCH_SIZE:
+                    item = _webhook_queue.get_nowait()
+                    if item is None:
+                        _webhook_queue.task_done()
+                        stop = True
+                        break
+                    batch.append(item)
+            except queue.Empty:
+                pass
 
-            _webhook_queue.task_done()
+            # Process batch
+            try:
+                if batch:
+                    config = load_security_webhook_config()
+                    if config:
+                        url = config.get('url')
+                        if url:
+                            headers = config.get('headers', {'Content-Type': 'application/json'})
+                            payload = {
+                                'source': 'netflow-dashboard',
+                                'timestamp': time.time(),
+                                'threats': batch,
+                                'count': len(batch)
+                            }
+                            try:
+                                session.post(url, json=payload, headers=headers, timeout=5)
+                            except Exception as e:
+                                print(f"Security webhook error: {e}")
+            finally:
+                # Mark tasks done
+                for _ in batch:
+                    _webhook_queue.task_done()
+
+            if stop:
+                break
         except Exception as e:
             print(f"Webhook worker error: {e}")
 
