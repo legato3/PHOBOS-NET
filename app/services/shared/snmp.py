@@ -312,8 +312,8 @@ def get_snmp_data():
                 # SNMP recovered from unavailable state
                 add_timeline_event(
                     source='snmp',
-                    summary=f'Firewall SNMP recovered (host: {SNMP_HOST})',
-                    raw={'host': SNMP_HOST, 'state': 'recovered'},
+                    summary=f'Firewall SNMP recovered (host: {snmp_host})',
+                    raw={'host': snmp_host, 'state': 'recovered'},
                     timestamp=now
                 )
             _snmp_prev_available = True
@@ -357,8 +357,8 @@ def get_snmp_data():
                 # First failure or transition to unavailable
                 add_timeline_event(
                     source='snmp',
-                    summary=f'Firewall SNMP unreachable (host: {SNMP_HOST})',
-                    raw={'host': SNMP_HOST, 'state': 'unreachable', 'error': str(e)},
+                    summary=f'Firewall SNMP unreachable (host: {snmp_host})',
+                    raw={'host': snmp_host, 'state': 'unreachable', 'error': str(e)},
                     timestamp=now
                 )
             _snmp_prev_available = False

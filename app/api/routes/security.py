@@ -2578,9 +2578,11 @@ def api_attack_timeline():
         pass
 
     # Build timeline buckets
+    # Align bucket boundaries to epoch (same as fw_buckets) so labels match
+    aligned_now = int(now / bucket_size) * bucket_size + bucket_size  # Next bucket boundary
     timeline = []
     for i in range(num_buckets):
-        bucket_start = now - ((num_buckets - 1 - i) * bucket_size)
+        bucket_start = aligned_now - ((num_buckets - i) * bucket_size)
         bucket_end = bucket_start + bucket_size
         bucket_label = time.strftime(bucket_label_format, time.localtime(bucket_start))
 

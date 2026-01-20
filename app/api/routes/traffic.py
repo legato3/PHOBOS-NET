@@ -2377,10 +2377,16 @@ def export_json():
 def api_firewall_snmp_status():
     """Get firewall SNMP operational health data."""
     from app.services.shared.snmp import get_snmp_data, discover_interfaces
+    from app.services.shared.config_helpers import load_config
     import time
     import subprocess
     from app.config import SNMP_HOST, SNMP_COMMUNITY
-    
+
+    # Load runtime config (supports settings UI changes)
+    config = load_config()
+    snmp_host = config.get('snmp_host', SNMP_HOST)
+    snmp_community = config.get('snmp_community', SNMP_COMMUNITY)
+
     snmp_data = get_snmp_data()
     
     # Store cache timestamp for staleness checks
@@ -2424,17 +2430,21 @@ def api_firewall_snmp_status():
         if admin_status is not None and admin_status == 2:
             return "admin_down"
         
+        # Traffic is authoritative - if data is flowing, interface is up
+        # This handles VPN interfaces that report oper_status=2 when idle but functional
+        if has_traffic:
+            return "up"
+
         # If operStatus is explicitly available, use it
         if oper_status is not None:
             if oper_status == 1:
                 return "up"
             elif oper_status == 2:
                 # Only show DOWN if there's no traffic AND no sessions
-                # If traffic exists, it's likely a false negative
-                if not has_traffic and not has_sessions:
+                if not has_sessions:
                     return "down"
                 else:
-                    return "unknown"  # Status says down but traffic exists - uncertain
+                    return "up"  # Sessions exist, interface is functional
             else:
                 return "unknown"
         
@@ -2527,14 +2537,14 @@ def api_firewall_snmp_status():
             
             # Try 64-bit counters first, fallback to 32-bit if not available
             try:
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
+                cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
                 if len(values) < 8 or "No Such" in output:
                     raise ValueError("64-bit counters not available")
             except (ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
                 # Fallback to 32-bit counters
-                cmd = f"snmpget -v2c -c {SNMP_COMMUNITY} -Oqv {SNMP_HOST} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
+                cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
                 output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
             
@@ -2650,8 +2660,10 @@ def api_firewall_snmp_status():
                     vpn_util = None
                 
                 # Determine status
+                # Check both rates AND raw counters - VPN interfaces may have traffic but no rate yet (first poll)
                 vpn_has_traffic = (vpn_rx_mbps is not None and vpn_rx_mbps > 0) or (vpn_tx_mbps is not None and vpn_tx_mbps > 0)
-                vpn_status = determine_interface_status(vpn_status_raw, None, vpn_has_traffic, has_sessions, data_age)
+                vpn_has_any_traffic = vpn_has_traffic or vpn_in > 0 or vpn_out > 0  # Raw counters indicate interface has been used
+                vpn_status = determine_interface_status(vpn_status_raw, None, vpn_has_any_traffic, has_sessions, data_age)
                 
                 # Add VPN interface
                 interfaces.append({
