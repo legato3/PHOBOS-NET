@@ -242,20 +242,12 @@ def api_stats_flags():
 
 @bp.route("/api/stats/asns")
 @throttle(5, 10)
+@cached_endpoint(_stats_asns_cache, _lock_asns, key_params=['range'])
 def api_stats_asns():
-    # New Feature: Top ASNs
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_asns:
-        if _stats_asns_cache["data"] and _stats_asns_cache["key"] == range_key and _stats_asns_cache.get("win") == win:
-            return jsonify(_stats_asns_cache["data"])
-
-    # Reuse common data cache (fetches 100 sources, better than 50 for aggregation)
     sources = get_common_nfdump_data("sources", range_key)
 
     asn_counts = Counter()
-
     for i in sources:
         geo = lookup_geo(i["key"])
         org = geo.get('asn_org', 'Unknown') if geo else 'Unknown'
@@ -263,14 +255,8 @@ def api_stats_asns():
             org = "Internal Network"
         asn_counts[org] += i["bytes"]
 
-    top = [{"asn": k, "bytes": v, "bytes_fmt": fmt_bytes(v)} for k,v in asn_counts.most_common(10)]
-    data = {"asns": top}
-    with _lock_asns:
-        _stats_asns_cache["data"] = data
-        _stats_asns_cache["ts"] = now
-        _stats_asns_cache["key"] = range_key
-        _stats_asns_cache["win"] = win
-    return jsonify(data)
+    top = [{"asn": k, "bytes": v, "bytes_fmt": fmt_bytes(v)} for k, v in asn_counts.most_common(10)]
+    return {"asns": top}
 
 
 @bp.route("/api/stats/durations")
@@ -462,16 +448,11 @@ def api_stats_packet_sizes():
 
 @bp.route("/api/stats/countries")
 @throttle(5, 10)
+@cached_endpoint(_stats_countries_cache, _lock_countries, key_params=['range'])
 def api_stats_countries():
-    """Top countries by bytes using top sources and destinations (cached per 60s window)."""
+    """Top countries by bytes using top sources and destinations."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_countries:
-        if _stats_countries_cache["data"] and _stats_countries_cache["key"] == range_key and _stats_countries_cache.get("win") == win:
-            return jsonify(_stats_countries_cache["data"])
 
-    # Reuse shared data to avoid extra nfdump
     sources = get_common_nfdump_data("sources", range_key)[:100]
     dests = get_common_nfdump_data("dests", range_key)[:100]
 
@@ -487,15 +468,12 @@ def api_stats_countries():
         country_bytes[iso]["bytes"] += b
         country_bytes[iso]["flows"] += 1
 
-    # Sort by bytes and get top entries
     sorted_countries = sorted(country_bytes.values(), key=lambda x: x["bytes"], reverse=True)
     top = sorted_countries[:15]
 
-    # Format for chart (backwards compatible)
     labels = [f"{c['name']} ({c['iso']})" if c['iso'] != '??' else 'Unknown' for c in top]
     bytes_vals = [c['bytes'] for c in top]
 
-    # Enhanced data for world map
     map_data = []
     total_bytes = sum(c['bytes'] for c in sorted_countries)
     for c in sorted_countries:
@@ -509,7 +487,7 @@ def api_stats_countries():
                 "pct": round((c['bytes'] / total_bytes * 100), 1) if total_bytes > 0 else 0
             })
 
-    data = {
+    return {
         "labels": labels,
         "bytes": bytes_vals,
         "bytes_fmt": [fmt_bytes(v) for v in bytes_vals],
@@ -518,12 +496,6 @@ def api_stats_countries():
         "total_bytes_fmt": fmt_bytes(total_bytes),
         "country_count": len([c for c in sorted_countries if c['iso'] != '??'])
     }
-    with _lock_countries:
-        _stats_countries_cache["data"] = data
-        _stats_countries_cache["ts"] = now
-        _stats_countries_cache["key"] = range_key
-        _stats_countries_cache["win"] = win
-    return jsonify(data)
 
 
 @bp.route("/api/stats/worldmap")
@@ -1048,19 +1020,12 @@ def api_noise_metrics():
 
 @bp.route("/api/stats/services")
 @throttle(5, 10)
+@cached_endpoint(_stats_services_cache, _cache_lock, key_params=['range'])
 def api_stats_services():
     """Top services by bytes (aggregated by service name)."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_services_cache["data"] and _stats_services_cache["key"] == range_key and _stats_services_cache.get("win") == win:
-            return jsonify(_stats_services_cache["data"])
-
-    # Reuse ports data
     ports_data = get_common_nfdump_data("ports", range_key)
 
-    # Aggregate by service name
     service_bytes = Counter()
     service_flows = Counter()
     for item in ports_data:
@@ -1073,7 +1038,6 @@ def api_stats_services():
         service_bytes[service] += item.get("bytes", 0)
         service_flows[service] += item.get("flows", 0)
 
-    # Get top 10 by bytes
     top = service_bytes.most_common(10)
     services = []
     max_bytes = top[0][1] if top else 1
@@ -1086,13 +1050,7 @@ def api_stats_services():
             "pct": round(b / max_bytes * 100, 1)
         })
 
-    data = {"services": services, "maxBytes": max_bytes}
-    with _cache_lock:
-        _stats_services_cache["data"] = data
-        _stats_services_cache["ts"] = now
-        _stats_services_cache["key"] = range_key
-        _stats_services_cache["win"] = win
-    return jsonify(data)
+    return {"services": services, "maxBytes": max_bytes}
 
 
 

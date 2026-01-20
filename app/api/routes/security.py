@@ -75,7 +75,7 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
-from app.services.shared.decorators import throttle
+from app.services.shared.decorators import throttle, cached_endpoint
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
@@ -825,63 +825,42 @@ def api_firewall_syslog_recent():
 
 @bp.route("/api/alerts")
 @throttle(5, 10)
+@cached_endpoint(_stats_alerts_cache, _lock_alerts, key_params=['range'])
 def api_alerts():
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_alerts:
-        if _stats_alerts_cache["data"] and _stats_alerts_cache["key"] == range_key and _stats_alerts_cache.get("win") == win:
-            return jsonify(_stats_alerts_cache["data"])
-
     tf = get_time_range(range_key)
     threat_set = load_threatlist()
     whitelist = load_list(THREAT_WHITELIST)
 
-    # Run analysis (using shared data)
-    # Run analysis (using shared data)
-    # Alerts logic uses top sources/dests/ports for comprehensive IP coverage
     sources = get_common_nfdump_data("sources", range_key)[:50]
     dests = get_common_nfdump_data("dests", range_key)[:50]
     ports = get_common_nfdump_data("ports", range_key)
 
-    # 1. Detect anomalies and escalate to alerts
-    # This updates _alert_history directly (stateful)
+    # 1. Detect anomalies and escalate to alerts (stateful)
     raw_alerts = detect_anomalies(ports, sources, threat_set, whitelist, destinations_data=dests)
-    
+
     # 2. Run all other detections
     try:
         protocols_data = get_common_nfdump_data("protos", range_key)[:20]
         flow_data = get_raw_flows(tf, limit=2000)
         run_all_detections(ports, sources, dests, protocols_data, flow_data=flow_data)
     except Exception as e:
-        print(f"Additional detection run failed: {e}")
+        add_app_log(f"Additional detection run failed: {e}", 'ERROR')
 
     # 3. Retrieve QUALIFIED, ACTIVE alerts from history
-    # This decouples the UI from raw detection output, ensuring we only show
-    # alerts that passed strict qualification rules.
-    from app.services.security.threats import _alert_history, get_active_alerts_count, auto_resolve_stale_alerts
-    
-    # Prune stale alerts first
+    from app.services.security.threats import auto_resolve_stale_alerts
     auto_resolve_stale_alerts()
-    
+
     active_alerts = []
     with threats_module._alert_history_lock:
-        # Convert to list and sort
         active_alerts = list([a for a in threats_module._alert_history if a.get('active', True)])
-        # Sort by timestamp, newest first
         active_alerts.sort(key=lambda x: x.get('ts', 0), reverse=True)
 
-    data = {
-        "alerts": active_alerts, 
+    return {
+        "alerts": active_alerts,
         "count": len(active_alerts),
         "feed_label": get_feed_label()
     }
-    with _lock_alerts:
-        _stats_alerts_cache["data"] = data
-        _stats_alerts_cache["ts"] = now
-        _stats_alerts_cache["key"] = range_key
-        _stats_alerts_cache["win"] = win
-    return jsonify(data)
 
 
 
