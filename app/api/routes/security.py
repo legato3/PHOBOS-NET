@@ -476,8 +476,8 @@ def api_host_timeline(ip):
     
     # Query flows where IP is source or destination
     # Get raw flows (not aggregated) so we can group by hour
-    src_flows = run_nfdump(["-n", "10000", "src", "ip", ip], tf)
-    dst_flows = run_nfdump(["-n", "10000", "dst", "ip", ip], tf)
+    src_flows = run_nfdump(["-n", "10000", f"src ip {ip}"], tf)
+    dst_flows = run_nfdump(["-n", "10000", f"dst ip {ip}"], tf)
     
     # Parse CSV flows
     src_rows = parse_csv(src_flows, expected_key=None)  # Raw flows, no aggregation
