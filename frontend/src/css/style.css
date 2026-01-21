@@ -9904,11 +9904,13 @@ body.compact-mode {
 }
 
 /* Active state should NOT do anything distinct from hover */
+/* Active state should NOT do anything distinct from hover */
+/* Use !important to override any browser default behavior or other conflicting styles */
 .status-card:active {
-    transform: translateY(-2px);
-    /* Maintain subtle hover lift */
-    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05);
-    /* Maintain subtle hover shadow */
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05) !important;
+    border-color: rgba(0, 234, 255, 0.35) !important;
+    background: rgba(0, 10, 16, 0.85) !important;
 }
 
 .status-card:hover {
