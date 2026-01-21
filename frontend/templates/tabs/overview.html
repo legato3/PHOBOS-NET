@@ -181,14 +181,17 @@
             <span x-text="worldMapMobileVisible ? '🗺️ Hide World Map' : '🗺️ Show World Map'"></span>
         </button>
 
-        {% set wm_actions %}{% endset %}
+        {% set wm_actions %}
+        <div class="status-pills">
+            <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
+                x-text="'Based on selected time range'"></span>
+        </div>
+        {% endset %}
 
         {% set wm_title %}
         <div>
             <span>Traffic World Map</span>
             <span x-show="mapStatus" x-text="'[' + mapStatus + ']'" class="text-75 text-yellow ml-2"></span>
-            <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;"
-                x-text="'Based on selected time range'"></div>
         </div>
         {% endset %}
         <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
