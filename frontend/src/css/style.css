@@ -9903,19 +9903,23 @@ body.compact-mode {
     user-select: none;
 }
 
-/* Active state override - locks appearance to hover state */
+/* Active state: force it to look exactly like hover so clicking does nothing visual */
 .status-card:active {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
-    border-color: rgba(0, 234, 255, 0.4) !important;
-    background: rgba(0, 10, 16, 0.85) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
+    border-color: rgba(0, 234, 255, 0.4);
 }
 
+/* Hover state: Lift and Glow */
+/* Use specificity to ensure it works */
 .status-card:hover {
-    border-color: rgba(0, 234, 255, 0.4) !important;
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
-    transform: translateY(-2px) !important;
-    z-index: 2;
+    transform: translateY(-2px);
+    /* Lift up */
+    border-color: rgba(0, 234, 255, 0.4);
+    /* Brighter border */
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
+    /* Glow */
+    z-index: 10;
 }
 
 /* ... existing .status-card styles ... */
