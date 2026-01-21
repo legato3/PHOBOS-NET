@@ -19,21 +19,20 @@ value_class_expr: string (optional alpine expression)
 <div class="status-card">
     <div class="status-card__header">
         <div class="status-card__title">{{ title }}</div>
-        <div class="status-card__meta-tabs">
+        <div class="status-card__meta">
+            {% for item in meta_items %}
+            {% if item.text is defined %}
+            <span class="status-card__meta-item" {% if item.x_show %}x-show="{{ item.x_show }}" {% endif %}>{{ item.text
+                }}</span>
+            {% else %}
+            <span class="status-card__meta-item">{{ item }}</span>
+            {% endif %}
+            {% endfor %}
+
             <div class="status-card__meta-tab status-card__meta-tab--status" :class="{{ state.class_expr }}">
                 <span class="status-card__meta-value" x-text="{{ state.text_expr }}"></span>
             </div>
         </div>
-    </div>
-    <div class="status-card__meta">
-        {% for item in meta_items %}
-        {% if item.text is defined %}
-        <span class="status-card__meta-item" {% if item.x_show %}x-show="{{ item.x_show }}" {% endif %}>{{ item.text
-            }}</span>
-        {% else %}
-        <span class="status-card__meta-item">{{ item }}</span>
-        {% endif %}
-        {% endfor %}
     </div>
     <div class="status-card__hero">
         <div class="status-card__hero-content">
