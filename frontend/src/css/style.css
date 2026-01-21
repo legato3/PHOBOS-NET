@@ -10096,9 +10096,12 @@ body.compact-mode {
     /* Vertical centering */
     justify-content: center;
     /* Horizontal centering */
-    padding: 12px 16px;
+    padding: 16px;
+    /* Increased per user request */
     flex-grow: 1;
     height: 100%;
+    min-height: 140px;
+    /* Added to increase hero dominance */
     position: relative;
     /* Context for absolute positioning if needed */
 }
@@ -10110,11 +10113,14 @@ body.compact-mode {
     display: flex;
     align-items: baseline;
     justify-content: center;
+    transform: translateY(-6px);
+    /* Optical centering */
 }
 
 /* Value is naturally centered in the wrapper */
 .status-card__hero-value {
-    font-size: 38px;
+    font-size: 42px;
+    /* Increased from 38px */
     font-family: var(--font-mono);
     font-weight: 300;
     color: var(--text-0);
@@ -10145,6 +10151,9 @@ body.compact-mode {
     grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid rgba(0, 234, 255, 0.08);
     background: rgba(0, 0, 0, 0.3);
+    min-height: 64px;
+    /* Fixed height constraint */
+    max-height: 72px;
 }
 
 .status-card__stat {
