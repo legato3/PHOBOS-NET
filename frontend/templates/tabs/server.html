@@ -1,3 +1,68 @@
+<script>
+    // Expose renderSparkline globally for use in x-init
+    window.renderSparkline = function (canvas, values, color) {
+        if (!canvas || !canvas.getContext) {
+            console.log('renderSparkline: Invalid canvas');
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width / 2;  // 200px logical width
+        const height = canvas.height / 2; // 45px logical height
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(2, 2);
+        ctx.clearRect(0, 0, width, height);
+
+        const validValues = values.filter(v => v !== null && v !== undefined);
+        if (validValues.length < 2) return;
+
+        const max = Math.max(...validValues, 100);
+        const range = max || 1;
+
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        let lastX = 0;
+        values.forEach((v, i) => {
+            const x = (i / Math.max(1, values.length - 1)) * width;
+            if (v !== null && v !== undefined) {
+                const y = height - (v / range) * (height - 6) - 3;
+                if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
+                ctx.lineTo(x, y);
+                lastX = x;
+            }
+        });
+        ctx.lineTo(lastX, height);
+        ctx.closePath();
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, color + '40');
+        gradient.addColorStop(1, color + '08');
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        ctx.beginPath();
+        let started = false;
+        values.forEach((v, i) => {
+            if (v !== null && v !== undefined) {
+                const x = (i / Math.max(1, values.length - 1)) * width;
+                const y = height - (v / range) * (height - 6) - 3;
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.0;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    };
+</script>
+
 <div x-show="activeTab === 'server'" :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
     role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
     <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
@@ -290,41 +355,25 @@
                             {% call panel_card(title='Network I/O', meta_items=[], tier='context') %}
                             <div style="display: flex; flex-direction: column; gap: 6px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span
-                                            style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-primary);">↓</span>
-                                        <span class="text-muted text-8">Inbound</span>
-                                    </div>
-                                    <span class="text-cyan"
+                                    <span class="text-muted text-8">Inbound</span>
+                                    <span
                                         x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span
-                                            style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-ok);">↑</span>
-                                        <span class="text-muted text-8">Outbound</span>
-                                    </div>
-                                    <span class="text-ok"
+                                    <span class="text-muted text-8">Outbound</span>
+                                    <span
                                         x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span
-                                            style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">⚠</span>
-                                        <span class="text-muted text-8">Errors</span>
-                                    </div>
+                                    <span class="text-muted text-8">Errors</span>
                                     <span
-                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : ''"
                                         x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span
-                                            style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">✖</span>
-                                        <span class="text-muted text-8">Dropped</span>
-                                    </div>
+                                    <span class="text-muted text-8">Dropped</span>
                                     <span
-                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : ''"
                                         x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
                                 </div>
                             </div>
@@ -590,80 +639,5 @@
 
 <!-- Resource History Chart Rendering -->
 <script>
-    // Expose renderSparkline globally for use in x-init
-    window.renderSparkline = function (canvas, values, color) {
-        if (!canvas || !canvas.getContext) {
-            console.log('renderSparkline: Invalid canvas');
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-
-        // Use the explicit canvas dimensions (400x90) scaled to display size
-        const width = canvas.width / 2;  // 200px logical width
-        const height = canvas.height / 2; // 45px logical height
-
-        // Set up scaling for retina displays
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(2, 2);
-        ctx.clearRect(0, 0, width, height);
-
-        // Filter out nulls for range calculation
-        const validValues = values.filter(v => v !== null && v !== undefined);
-        if (validValues.length < 2) {
-            console.log('renderSparkline: Not enough valid values');
-            return;
-        }
-
-        // Use 100 as fixed floor for range to keep scale consistent for %
-        const max = Math.max(...validValues, 100);
-        const range = max || 1;
-
-        // Draw area fill
-        ctx.beginPath();
-        ctx.moveTo(0, height);
-        let lastX = 0;
-        values.forEach((v, i) => {
-            const x = (i / Math.max(1, values.length - 1)) * width;
-            if (v !== null && v !== undefined) {
-                const y = height - (v / range) * (height - 6) - 3;
-                if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
-                ctx.lineTo(x, y);
-                lastX = x;
-            }
-        });
-        ctx.lineTo(lastX, height);
-        ctx.closePath();
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, color + '40'); // 25% opacity
-        gradient.addColorStop(1, color + '08'); // 3% opacity
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        // Draw stroke line
-        ctx.beginPath();
-        let started = false;
-        values.forEach((v, i) => {
-            if (v !== null && v !== undefined) {
-                const x = (i / Math.max(1, values.length - 1)) * width;
-                const y = height - (v / range) * (height - 6) - 3;
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-        });
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2.0;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        console.log('renderSparkline: Rendered', values.length, 'points in', color);
-    };
-
     console.log('Resource History: renderSparkline function exposed globally');
 </script>
