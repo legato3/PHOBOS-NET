@@ -390,6 +390,7 @@ body.sidebar-collapsed .layout-wrapper {
     color: #ffffff !important;
     border-left: 3px solid transparent;
     border-bottom: 2px solid var(--signal-primary);
+    border-radius: 0;
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.4);
 }
 
