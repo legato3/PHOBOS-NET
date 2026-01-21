@@ -75,6 +75,20 @@
                         </div>
                         <div class="status-card__meta">
                             <span class="status-card__meta-item">UDP 2055</span>
+                            <span class="status-card__meta-item" x-show="serverHealth.netflow?.last_file">
+                                <template x-if="((Date.now() - Date.parse(serverHealth.netflow.last_file))/1000) < 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--live"></span>
+                                        <span class="status-indicator-text status-indicator-text--live">LIVE</span>
+                                    </div>
+                                </template>
+                                <template x-if="((Date.now() - Date.parse(serverHealth.netflow.last_file))/1000) >= 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--stale"></span>
+                                        <span class="status-indicator-text status-indicator-text--stale">STALE</span>
+                                    </div>
+                                </template>
+                            </span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">
@@ -127,6 +141,20 @@
                         </div>
                         <div class="status-card__meta">
                             <span class="status-card__meta-item">UDP 514</span>
+                            <span class="status-card__meta-item" x-show="serverHealth.syslog?.last_event">
+                                <template x-if="((Date.now() - Date.parse(serverHealth.syslog.last_event))/1000) < 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--live"></span>
+                                        <span class="status-indicator-text status-indicator-text--live">LIVE</span>
+                                    </div>
+                                </template>
+                                <template x-if="((Date.now() - Date.parse(serverHealth.syslog.last_event))/1000) >= 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--stale"></span>
+                                        <span class="status-indicator-text status-indicator-text--stale">STALE</span>
+                                    </div>
+                                </template>
+                            </span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">
@@ -180,6 +208,22 @@
                         </div>
                         <div class="status-card__meta">
                             <span class="status-card__meta-item">UDP 515</span>
+                            <span class="status-card__meta-item" x-show="serverHealth.firewall_syslog?.last_event">
+                                <template
+                                    x-if="((Date.now() - Date.parse(serverHealth.firewall_syslog.last_event))/1000) < 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--live"></span>
+                                        <span class="status-indicator-text status-indicator-text--live">LIVE</span>
+                                    </div>
+                                </template>
+                                <template
+                                    x-if="((Date.now() - Date.parse(serverHealth.firewall_syslog.last_event))/1000) >= 60">
+                                    <div style="display:flex; align-items:center; gap:4px;">
+                                        <span class="status-indicator-dot status-indicator--stale"></span>
+                                        <span class="status-indicator-text status-indicator-text--stale">STALE</span>
+                                    </div>
+                                </template>
+                            </span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">

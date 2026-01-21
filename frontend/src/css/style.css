@@ -9989,18 +9989,54 @@ body.compact-mode {
     align-items: center;
     gap: 12px;
     padding: 0 12px;
-    margin-top: -4px;
+    margin-top: 0;
     margin-bottom: 4px;
-    min-height: 14px;
-    /* Fixed height for alignment */
+    min-height: 20px;
+    /* Increased for breathing room */
 }
 
 .status-card__meta-item {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--text-3);
+    color: var(--text-2);
+    /* Increased contrast from text-3 */
     line-height: 1;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Status Indicators */
+.status-indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator--live {
+    background-color: var(--signal-ok);
+    box-shadow: 0 0 5px rgba(0, 255, 170, 0.6);
+}
+
+.status-indicator--stale {
+    background-color: var(--signal-warn);
+    opacity: 0.7;
+}
+
+.status-indicator-text {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+
+.status-indicator-text--live {
+    color: var(--signal-ok);
+}
+
+.status-indicator-text--stale {
+    color: var(--signal-warn);
 }
 
 .status-card__meta-tabs {
@@ -10146,6 +10182,8 @@ body.compact-mode {
     /* Increased from 10px */
     color: var(--text-0);
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    /* Prevent jitter */
 }
 
 /* Reserved space for sub-value so grid doesn't jump */
