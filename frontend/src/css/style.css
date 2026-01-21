@@ -9902,6 +9902,15 @@ body.compact-mode {
     user-select: none;
 }
 
+/* Explicitly define active state to match hover exactly */
+/* This prevents any "click down" or state change effect */
+.status-card:active {
+    border-color: rgba(0, 234, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
+    transform: translateY(-4px);
+    z-index: 2;
+}
+
 .status-card:hover {
     border-color: rgba(0, 234, 255, 0.4);
     box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
@@ -10001,6 +10010,7 @@ body.compact-mode {
 }
 
 /* ... existing hero ... */
+/* Hero Section: Centered Value */
 .status-card__hero {
     display: flex;
     align-items: center;
@@ -10010,8 +10020,11 @@ body.compact-mode {
     padding: 12px 16px;
     flex-grow: 1;
     height: 100%;
+    position: relative;
+    /* Context for absolute positioning if needed */
 }
 
+/* Make the value the reference point for the unit */
 .status-card__hero-value {
     font-size: 38px;
     font-family: var(--font-mono);
@@ -10020,17 +10033,26 @@ body.compact-mode {
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
     letter-spacing: -0.02em;
     line-height: 1;
+    position: relative;
+    /* Anchor for the unit */
+    display: inline-block;
 }
 
+/* Absolute position the unit so it doesn't affect the centering of the value */
 .status-card__hero-unit {
     font-size: 12px;
     color: var(--text-3);
-    margin-left: 8px;
     font-family: var(--font-mono);
     font-weight: 500;
-    margin-top: 8px;
-    /* Push down slightly to align visually with large number baseline */
     line-height: 1;
+
+    /* Hang off the right side */
+    position: absolute;
+    left: 100%;
+    bottom: 4px;
+    /* Align with baseline roughly */
+    margin-left: 8px;
+    white-space: nowrap;
 }
 
 .status-card__hero-unit {
