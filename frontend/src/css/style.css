@@ -9897,24 +9897,27 @@ body.compact-mode {
     z-index: 1;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
+    transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+    /* Smoother, slower feel */
     cursor: default;
     user-select: none;
 }
 
-/* Explicitly define active state to match hover exactly */
-/* This prevents any "click down" or state change effect */
+/* Active state should NOT do anything distinct from hover */
 .status-card:active {
-    border-color: rgba(0, 234, 255, 0.4);
-    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
-    transform: translateY(-4px);
-    z-index: 2;
+    transform: translateY(-2px);
+    /* Maintain subtle hover lift */
+    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05);
+    /* Maintain subtle hover shadow */
 }
 
 .status-card:hover {
-    border-color: rgba(0, 234, 255, 0.4);
-    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
-    transform: translateY(-4px);
+    border-color: rgba(0, 234, 255, 0.35);
+    /* Slightly less bright border */
+    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05);
+    /* Very subtle shadow */
+    transform: translateY(-2px);
+    /* Subtle lift */
     z-index: 2;
 }
 
