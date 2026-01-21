@@ -9989,10 +9989,16 @@ body.compact-mode {
     align-items: center;
     gap: 12px;
     padding: 0 12px;
-    margin-top: 0;
-    margin-bottom: 4px;
+    margin: 0;
     min-height: 20px;
-    /* Increased for breathing room */
+    /* Absolute positioning to prevent layout shift */
+    position: absolute;
+    top: 40px;
+    /* Below header */
+    left: 0;
+    width: 100%;
+    pointer-events: none;
+    /* Let clicks pass through if needed */
 }
 
 .status-card__meta-item {
@@ -10104,8 +10110,6 @@ body.compact-mode {
     display: flex;
     align-items: baseline;
     justify-content: center;
-    gap: 4px;
-    /* Maintain spacing between value and unit */
 }
 
 /* Value is naturally centered in the wrapper */
@@ -10120,19 +10124,17 @@ body.compact-mode {
 }
 
 /* Unit hangs off the right side of the wrapper */
+/* Unit hangs off the right side of the wrapper */
 .status-card__hero-unit {
     font-size: 12px;
     color: var(--text-3);
     font-family: var(--font-mono);
     font-weight: 500;
     line-height: 1;
-    font-weight: 500;
-    line-height: 1;
-    position: static;
-    /* Let it flow naturally */
-    left: auto;
-    bottom: auto;
-    margin-left: 0;
+    position: absolute;
+    left: 100%;
+    bottom: 6px;
+    margin-left: 6px;
     white-space: nowrap;
 }
 
