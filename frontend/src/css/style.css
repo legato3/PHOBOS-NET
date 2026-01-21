@@ -9941,77 +9941,33 @@ body.compact-mode {
 }
 
 /* ============================================
-   TIER A: SIGNAL CARDS (Primary)
-   NetFlow, Filterlog, Firewall, HTTP Traffic
+   UNIFIED CARD STYLING
+   All cards now match the top 3 (NetFlow/Filterlog/Firewall)
    ============================================ */
-.status-card--signal {
+
+/* Remove tier visual differences - all cards get same treatment */
+.status-card--signal,
+.status-card--context,
+.status-card--background {
     --sc-bg: rgba(0, 12, 18, 0.9);
     --sc-border: rgba(0, 234, 255, 0.25);
     border-width: 1px;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 234, 255, 0.3);
 }
 
-.status-card--signal:hover {
+.status-card--signal:hover,
+.status-card--context:hover,
+.status-card--background:hover {
     box-shadow: 0 8px 32px rgba(0, 234, 255, 0.12), 0 0 2px rgba(0, 234, 255, 0.4) !important;
 }
 
-.status-card--signal .status-card__hero-value {
-    text-shadow: 0 0 12px rgba(0, 234, 255, 0.4);
-}
-
-/* ============================================
-   TIER B: CONTEXT CARDS (Secondary)
-   Services, Process/Cache, Network I/O, Container
-   ============================================ */
-.status-card--context {
-    --sc-bg: rgba(0, 8, 12, 0.8);
-    --sc-border: rgba(0, 234, 255, 0.18);
-    box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4);
-}
-
-.status-card--context:hover {
-    box-shadow: 0 6px 24px rgba(0, 234, 255, 0.08) !important;
-    border-color: rgba(0, 234, 255, 0.25) !important;
-}
-
-/* ============================================
-   TIER C: BACKGROUND CARDS (Database summaries)
-   Trends Database, Firewall Database
-   ============================================ */
-.status-card--background {
-    --sc-bg: rgba(0, 6, 10, 0.7);
-    --sc-border: rgba(0, 234, 255, 0.12);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-
-.status-card--background:hover {
-    box-shadow: 0 4px 16px rgba(0, 234, 255, 0.06) !important;
-    border-color: rgba(0, 234, 255, 0.18) !important;
-}
-
-/* Compact modifier for database cards */
+/* Compact modifier for database cards - ONLY affects height/padding */
 .status-card--compact {
-    min-height: 140px;
+    min-height: 120px;
 }
 
 .status-card--compact .panel-card__body {
-    padding: 10px 14px;
-}
-
-.status-card--compact .panel-card__body>div {
-    gap: 4px !important;
-}
-
-/* Ensure ALL cards have consistent header styling regardless of tier */
-.status-card__header {
-    background: rgba(0, 234, 255, 0.02);
-    border-bottom: 1px solid rgba(0, 234, 255, 0.08);
-}
-
-.status-card__title {
-    border-left: 3px solid var(--signal-ok);
-    color: var(--text-0);
-    font-weight: 700;
+    padding: 8px 12px;
 }
 
 
@@ -10289,7 +10245,7 @@ body.compact-mode {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 0;
+    padding: 8px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.02);
 }
 
@@ -10334,13 +10290,18 @@ body.compact-mode {
 }
 
 .service-section-label {
-    font-size: 9px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-3);
-    margin-top: 8px;
-    margin-bottom: 4px;
-    opacity: 0.6;
+    letter-spacing: 0.12em;
+    color: rgba(0, 234, 255, 0.7);
+    margin-top: 12px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.service-section-label:first-child {
+    margin-top: 0;
 }
 
 /* ============================================

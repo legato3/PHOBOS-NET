@@ -409,19 +409,21 @@
                             'badge_class_expr': "'status-warn'",
                             'badge_x_if': 'db.error'
                             }], tier='background', compact=true) %}
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                            <div
+                                style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 10px; font-size: 11px;">
                                 <div>
-                                    <div class="text-2 text-8">Size</div>
-                                    <div x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                    <div class="text-2 text-8" style="font-size: 9px;">Size</div>
+                                    <div style="font-size: 11px;"
+                                        x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
                                 </div>
                                 <div>
-                                    <div class="text-2 text-8">Records</div>
-                                    <div x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'">
-                                    </div>
+                                    <div class="text-2 text-8" style="font-size: 9px;">Records</div>
+                                    <div style="font-size: 11px;"
+                                        x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'"></div>
                                 </div>
                                 <div>
-                                    <div class="text-2 text-8">WAL</div>
-                                    <div><template x-if="db.wal_exists"><span
+                                    <div class="text-2 text-8" style="font-size: 9px;">WAL</div>
+                                    <div style="font-size: 11px;"><template x-if="db.wal_exists"><span
                                                 x-text="fmtBytes(db.wal_size)"></span></template><template
                                             x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'"><span
                                                 class="text-muted">Idle</span></template><template
@@ -429,17 +431,17 @@
                                                 class="text-muted">—</span></template></div>
                                 </div>
                                 <div>
-                                    <div class="text-2 text-8">Last Write</div>
-                                    <div class="text-1 text-85"
+                                    <div class="text-2 text-8" style="font-size: 9px;">Last Write</div>
+                                    <div class="text-1 text-85" style="font-size: 10px;"
                                         x-text="db.last_write ? new Date(db.last_write).toLocaleTimeString() : 'N/A'">
                                     </div>
                                 </div>
                             </div>
                             <div class="text-2 text-8"
-                                style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.04); font-size: 9px; line-height: 1.4;">
                                 <template x-if="db.oldest_record_age"><span>Oldest: <span
-                                            x-text="db.oldest_record_age"></span> · </span></template>
-                                SQLite <span x-text="db.sqlite_version || 'N/A'"></span> · <span
+                                            x-text="db.oldest_record_age"></span> · </span></template>SQLite <span
+                                    x-text="db.sqlite_version || 'N/A'"></span> · <span
                                     x-text="db.journal_mode || 'N/A'"></span> · Page <span
                                     x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
                             </div>
