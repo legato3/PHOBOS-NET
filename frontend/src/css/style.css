@@ -9881,6 +9881,7 @@ body.compact-mode {
    ============================================ */
 
 /* Ensure card captures mouse events */
+/* Ensure card captures mouse events */
 .status-card {
     background: rgba(0, 10, 16, 0.85);
     /* Deep dark background */
@@ -9892,34 +9893,36 @@ body.compact-mode {
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: hidden;
+    /* overflow: hidden; Removed to ensure shadows/transforms work freely */
     position: relative;
     z-index: 1;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
-    transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
-    /* Smoother, slower feel */
-    cursor: default;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    cursor: context-menu;
+    /* Subtle indication of mouse detection */
     user-select: none;
+    pointer-events: auto !important;
+    /* Force mouse interaction */
 }
 
-/* Active state: force it to look exactly like hover so clicking does nothing visual */
+/* Active state: LOCK to Hover State */
+/* Important: This ensures clicking does NOT change the visual state from hover */
 .status-card:active {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
-    border-color: rgba(0, 234, 255, 0.4);
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
+    border-color: rgba(0, 234, 255, 0.4) !important;
+    background: rgba(0, 10, 16, 0.9) !important;
 }
 
 /* Hover state: Lift and Glow */
-/* Use specificity to ensure it works */
 .status-card:hover {
-    transform: translateY(-2px);
-    /* Lift up */
-    border-color: rgba(0, 234, 255, 0.4);
-    /* Brighter border */
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
-    /* Glow */
-    z-index: 10;
+    transform: translateY(-2px) !important;
+    border-color: rgba(0, 234, 255, 0.4) !important;
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
+    z-index: 100 !important;
+    /* Ensure it stays on top */
+    background: rgba(0, 10, 16, 0.9);
 }
 
 /* ... existing .status-card styles ... */
