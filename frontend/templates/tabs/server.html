@@ -62,60 +62,90 @@
                 ═══════════════════════════════════════════════════════════ -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
                     <!-- NetFlow Pipeline -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>NetFlow</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-ok': serverHealth.netflow?.available, 'status-pill-crit': serverHealth.netflow && !serverHealth.netflow.available}"
-                                x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps + ' /s' : '—'"></span>
+                    <div class="status-card">
+                        <div class="status-card__header">
+                            <div class="status-card__title">NETFLOW</div>
+                            <div class="status-card__meta-tabs">
+                                <span class="status-card__meta-tab">UDP 2055</span>
+                                <span class="status-card__meta-tab"
+                                    x-text="serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() : '—'"></span>
+                                <span class="status-card__meta-tab status-card__meta-tab--status"
+                                    :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'"
+                                    x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
                             </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Files</span><span
-                                    x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Flows</span><span
-                                    x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.netflow?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.netflow?.last_file ?? '—'"></span></div>
+                        </div>
+                        <div class="status-card__hero">
+                            <span class="status-card__hero-value"
+                                x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'"></span>
+                            <span class="status-card__hero-unit">/s</span>
+                        </div>
+                        <div class="status-card__statstrip">
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">FILES</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">FLOWS</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">ERRORS</span>
+                                <span class="status-card__stat-value"
+                                    :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : ''"
+                                    x-text="serverHealth.netflow?.errors ?? '0'"></span>
+                            </div>
+                            <!-- 4th stat: Flows per File -->
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">AVG</span>
+                                <span class="status-card__stat-value"
+                                    x-text="(serverHealth.netflow?.files_count > 0) ? Math.round((serverHealth.netflow?.total_flows || 0) / serverHealth.netflow.files_count).toLocaleString() : '—'"></span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Filterlog (UDP 514) -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Filterlog (UDP 514)</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-active': serverHealth.syslog?.active, 'status-pill-crit': serverHealth.syslog && !serverHealth.syslog.active}"
-                                x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps + ' /s' : '—'"></span>
+                    <div class="status-card">
+                        <div class="status-card__header">
+                            <div class="status-card__title">FILTERLOG</div>
+                            <div class="status-card__meta-tabs">
+                                <span class="status-card__meta-tab">UDP 514</span>
+                                <span class="status-card__meta-tab"
+                                    x-text="serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() : '—'"></span>
+                                <span class="status-card__meta-tab status-card__meta-tab--status"
+                                    :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'"
+                                    x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                             </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Received</span><span
-                                    x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Parsed</span><span
-                                    x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.syslog?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.syslog?.last_event ?? '—'"></span></div>
+                        </div>
+                        <div class="status-card__hero">
+                            <span class="status-card__hero-value"
+                                x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'"></span>
+                            <span class="status-card__hero-unit">/s</span>
+                        </div>
+                        <div class="status-card__statstrip">
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">RCVD</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">PARSED</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">ERRORS</span>
+                                <span class="status-card__stat-value"
+                                    :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : ''"
+                                    x-text="serverHealth.syslog?.errors ?? '0'"></span>
+                            </div>
+                            <!-- 4th stat: Efficiency -->
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">RATE</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.syslog?.received > 0 ? ((serverHealth.syslog?.parsed || 0) / serverHealth.syslog.received * 100).toFixed(0) + '%' : '—'"></span>
+                            </div>
                         </div>
                     </div>
 
