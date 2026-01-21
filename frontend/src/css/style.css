@@ -1019,7 +1019,7 @@ body.sidebar-collapsed .layout-wrapper {
     padding: var(--space-4);
     min-height: 95px;
     background: var(--card-header-bg) !important;
-    border-left: 4px solid var(--signal-info) !important;
+    border: 1px solid var(--card-border) !important;
     border-radius: var(--card-radius) !important;
     display: flex;
     flex-direction: column;
@@ -1035,15 +1035,13 @@ body.sidebar-collapsed .layout-wrapper {
 /* CYBERPUNK UI: Stat box states - Signal accents (thin left bar + glow) */
 .stat-box.status-ok,
 .card.stat-box.status-ok {
-    border-left-color: var(--signal-ok) !important;
-    box-shadow: 0 0 15px rgba(0, 255, 136, 0.1), var(--card-shadow);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1), var(--card-shadow);
 }
 
 .stat-box.status-warning,
 .card.stat-box.status-warning {
-    border-left-color: var(--signal-warn);
     background: var(--card-header-bg) !important;
-    box-shadow: 0 0 15px rgba(255, 180, 0, 0.15), var(--card-shadow);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1), var(--card-shadow);
 }
 
 .stat-box.status-error,
@@ -1052,9 +1050,8 @@ body.sidebar-collapsed .layout-wrapper {
 .card.stat-box.status-unhealthy,
 .stat-box.status-critical,
 .card.stat-box.status-critical {
-    border-left-color: var(--signal-crit);
     background: var(--card-header-bg) !important;
-    box-shadow: 0 0 20px rgba(255, 23, 68, 0.2), var(--card-shadow);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1), var(--card-shadow);
     animation: pulse-critical 3s infinite;
 }
 

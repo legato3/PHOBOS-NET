@@ -41,9 +41,6 @@ Args:
             <span class="status-card__stat-value" x-text="{{ stat.value_expr }}" {% if stat.value_class_expr
                 %}:class="{{ stat.value_class_expr }}" {% endif %}>
             </span>
-            <span class="status-card__stat-subvalue" {% if stat.subvalue_expr %}x-text="{{ stat.subvalue_expr }}" {%
-                endif %}>
-            </span>
         </div>
         {% endfor %}
     </div>

@@ -33,10 +33,6 @@
                 x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.top_block_reason || 'N/A')">
                 ...</div>
             <div class="label">Top Block Reason</div>
-            <div x-show="!firewallStatsOverview.loading && firewallStatsOverview.top_block_count > 0"
-                style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);"
-                x-text="'(' + (firewallStatsOverview.top_block_count || 0).toLocaleString() + ' times)'">
-            </div>
         </div>
     </div>
 

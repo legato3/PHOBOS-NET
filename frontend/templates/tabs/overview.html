@@ -21,11 +21,7 @@
                     x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
                     ...</div>
                 <div class="label mobile-secondary-label">Overall Health</div>
-                <!-- Always show inline explanation (even when healthy) -->
-                <template x-if="overallHealth.shortExplanation">
-                    <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);"
-                        x-text="overallHealth.shortExplanation"></div>
-                </template>
+
                 <!-- Mobile-only system metrics integrated into health card -->
                 <div class="mobile-health-metrics" style="display:none;">
                     <span class="badge" :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span
@@ -48,8 +44,7 @@
                     </template>
                 </div>
                 <div class="label">Active Alerts</div>
-                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
-                    Live</div>
+
             </div>
 
             <!-- Mobile: Priority Stats (Above Fold) -->
@@ -74,14 +69,7 @@
                     </template>
                 </div>
                 <div class="label">Active Flows</div>
-                <template x-if="baselineSignals.baseline_stats?.active_flows">
-                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
-                        x-text="'Baseline: ' + baselineSignals.baseline_stats.active_flows.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.active_flows.normal_high.toLocaleString()">
-                    </div>
-                </template>
-                <template x-if="!baselineSignals.baseline_stats?.active_flows">
-                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
-                </template>
+
             </div>
             <div class="card stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
                 style="cursor: pointer;" title="Click to view external connections">
@@ -104,11 +92,7 @@
                     </template>
                 </div>
                 <div class="label">External Connections</div>
-                <template x-if="baselineSignals.baseline_stats?.external_connections">
-                    <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;"
-                        x-text="'Baseline: ' + baselineSignals.baseline_stats.external_connections.normal_low.toLocaleString() + '-' + baselineSignals.baseline_stats.external_connections.normal_high.toLocaleString()">
-                    </div>
-                </template>
+
             </div>
             <div class="card stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()" style="cursor: pointer;"
                 title="Click to view firewall logs">
