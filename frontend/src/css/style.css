@@ -10113,8 +10113,6 @@ body.compact-mode {
     display: flex;
     align-items: baseline;
     justify-content: center;
-    transform: translateY(-6px);
-    /* Optical centering */
 }
 
 /* Value is naturally centered in the wrapper */
