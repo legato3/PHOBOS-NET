@@ -67,14 +67,11 @@
                             <div class="status-card__title">NetFlow</div>
                             <div class="status-card__meta-tabs">
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value" :title="serverHealth.netflow?.directory || ''"
-                                        x-text="serverHealth.netflow?.directory || '—'"></span>
-                                </div>
-                                <div class="status-card__meta-tab">
                                     <span class="status-card__meta-value">UDP 2055</span>
                                 </div>
-                                <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
-                                    <span class="status-pulsing-dot"></span>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-value"
+                                        x-text="'UPDATED ' + (serverHealth.netflow?.last_file ? DashboardUtils.timeAgo(Date.parse(serverHealth.netflow.last_file)/1000) : '—')"></span>
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
@@ -123,13 +120,11 @@
                             <div class="status-card__title">Filterlog</div>
                             <div class="status-card__meta-tabs">
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value">FILTERLOG</span>
-                                </div>
-                                <div class="status-card__meta-tab">
                                     <span class="status-card__meta-value">UDP 514</span>
                                 </div>
-                                <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
-                                    <span class="status-pulsing-dot"></span>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-value"
+                                        x-text="'UPDATED ' + (serverHealth.syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.syslog.last_event)/1000) : '—')"></span>
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">
@@ -173,32 +168,54 @@
                     </div>
 
                     <!-- Firewall (UDP 515) -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Firewall (UDP 515)</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-active': serverHealth.firewall_syslog?.active, 'status-pill-crit': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active}"
-                                x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps + ' /s' : '—'"></span>
+                    <!-- Firewall (UDP 515) -->
+                    <div class="status-card">
+                        <div class="status-card__header">
+                            <div class="status-card__title">Firewall</div>
+                            <div class="status-card__meta-tabs">
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-value">UDP 515</span>
+                                </div>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-value"
+                                        x-text="'UPDATED ' + (serverHealth.firewall_syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.firewall_syslog.last_event)/1000) : '—')"></span>
+                                </div>
+                                <div class="status-card__meta-tab status-card__meta-tab--status"
+                                    :class="serverHealth.firewall_syslog?.active ? 'status-active' : 'status-crit'">
+                                    <span class="status-card__meta-value"
+                                        x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                </div>
                             </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Received</span><span
+                        </div>
+                        <div class="status-card__hero">
+                            <div class="status-card__hero-content">
+                                <span class="status-card__hero-value"
+                                    x-text="ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps : '—'"></span>
+                                <span class="status-card__hero-unit">EPS</span>
+                            </div>
+                        </div>
+                        <div class="status-card__statstrip">
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">RCVD</span>
+                                <span class="status-card__stat-value"
                                     x-text="serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'"></span>
                             </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Parsed</span><span
-                                    x-text="serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.firewall_syslog?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.firewall_syslog?.last_event ?? '—'"></span></div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">PARSED</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">ERRORS</span>
+                                <span class="status-card__stat-value"
+                                    :class="(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : ''"
+                                    x-text="serverHealth.firewall_syslog?.errors ?? '0'"></span>
+                            </div>
+                            <div class="status-card__stat">
+                                <span class="status-card__stat-label">LAST</span>
+                                <span class="status-card__stat-value"
+                                    x-text="serverHealth.firewall_syslog?.last_event ? serverHealth.firewall_syslog.last_event.split(' ').pop() : '—'"></span>
+                            </div>
                         </div>
                     </div>
                 </div>

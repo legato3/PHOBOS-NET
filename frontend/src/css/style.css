@@ -9945,10 +9945,13 @@ body.compact-mode {
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 13px;
-    /* Increased from 11px */
     letter-spacing: 0.1em;
     color: var(--text-0);
     text-transform: uppercase;
+    border-left: 3px solid var(--signal-ok);
+    /* Accent bar */
+    padding-left: 8px;
+    line-height: 1;
 }
 
 /* Pulsing dot for activity */
@@ -9987,9 +9990,11 @@ body.compact-mode {
 
 .status-card__meta-tab {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
+    /* Increased to 10px */
     padding: 2px 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    /* Increased alpha */
     color: var(--text-2);
     border-radius: 2px;
     text-transform: uppercase;
@@ -9997,7 +10002,6 @@ body.compact-mode {
     line-height: 1.2;
     display: flex;
     align-items: center;
-    /* Center content vertically */
 }
 
 /* ... existing meta tab status ... */
@@ -10067,15 +10071,7 @@ body.compact-mode {
     white-space: nowrap;
 }
 
-.status-card__hero-unit {
-    font-size: 12px;
-    color: var(--text-3);
-    margin-left: 6px;
-    font-family: var(--font-mono);
-    font-weight: 500;
-    margin-top: 8px;
-    /* Push down slightly to align visually with large number baseline */
-}
+
 
 .status-card__statstrip {
     display: grid;
