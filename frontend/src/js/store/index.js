@@ -410,6 +410,9 @@ export const Store = () => ({
     // Welcome Modal (first-time users)
     welcomeModalOpen: false,
 
+    // Shortcuts Modal
+    shortcutsModalOpen: false,
+
     // Configuration Settings Modal
     configModalOpen: false,
     configLoading: false,
@@ -1443,6 +1446,7 @@ export const Store = () => ({
                     this.expandedModalOpen = false;
                     this.networkGraphOpen = false;
                     this.ipInvestigationModalOpen = false;
+                    this.shortcutsModalOpen = false;
                     this.closeFullscreenChart();
                     // Return focus to a safe element
                     document.activeElement?.blur();
@@ -1450,7 +1454,7 @@ export const Store = () => ({
                 case '?':
                     if (e.shiftKey) {
                         e.preventDefault();
-                        alert('Keyboard Shortcuts:\n\nR - Refresh data\nP - Pause/Resume\n1-6 - Time range (15m to 7d)\nESC - Close modals\n? - Show this help');
+                        this.shortcutsModalOpen = !this.shortcutsModalOpen;
                     }
                     break;
                 case 'g':

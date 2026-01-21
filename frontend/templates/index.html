@@ -108,7 +108,7 @@
                     <!-- Widget Manager Modal -->
 
                     <!-- Keyboard Shortcuts Hint -->
-                    <div class="keyboard-hint" title="Press ? for all shortcuts">
+                    <div class="keyboard-hint" title="Click to view all shortcuts" @click="shortcutsModalOpen = true" role="button" tabindex="0" style="cursor: pointer;">
                         <kbd>R</kbd> Refresh <kbd>P</kbd> Pause <kbd>1-6</kbd> Time
                     </div>
 
@@ -431,6 +431,76 @@
                     style="color: var(--text-muted); font-size: var(--text-xs); margin-top: var(--space-4); margin-bottom: 0;">
                     You can always access Settings later from the top-right corner
                 </p>
+            </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Modal -->
+        <div class="modal" x-show="shortcutsModalOpen" :style="shortcutsModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="shortcutsModalOpen = false">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal__header"
+                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h2 style="margin:0">⌨️ Keyboard Shortcuts</h2>
+                    <button @click="shortcutsModalOpen = false"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red)"
+                        aria-label="Close shortcuts">×</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <h3 style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Navigation</h3>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Overview</span> <kbd>Shift + O</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Security</span> <kbd>Shift + S</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Network</span> <kbd>Shift + N</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Forensics</span> <kbd>Shift + F</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Assistant</span> <kbd>Shift + A</kbd>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Controls</h3>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Refresh</span> <kbd>R</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Pause/Resume</span> <kbd>P</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Search</span> <kbd>Shift + G</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Close Modal</span> <kbd>ESC</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Show Shortcuts</span> <kbd>?</kbd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+                    <h3 style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Time Range</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>1</kbd> 15m</span>
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>2</kbd> 30m</span>
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>3</kbd> 1h</span>
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>4</kbd> 6h</span>
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>5</kbd> 24h</span>
+                        <span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;"><kbd>6</kbd> 7d</span>
+                    </div>
+                </div>
             </div>
         </div>
 
