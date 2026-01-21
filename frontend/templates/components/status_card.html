@@ -1,22 +1,16 @@
-{% macro status_card(title, meta_items, state, hero, stats) %}
+{% macro status_card(title, meta_items, state, hero, stats, tier='signal') %}
 {#
-Reusable Status Card v3 Component
+Status Card v3 Component
 
 Args:
-- title: String title of the card
-- meta_items: List of objects or strings. If object: { text: '...', x_show: '...' }
-- state: { class_expr: string (alpine expression), text_expr: string (alpine expression) }
-- hero: { value_expr: string (alpine expression), unit: string }
-- stats: List of 4 stat objects:
-{
-label: string,
-value_expr: string (alpine expression),
-subvalue_expr: string (optional alpine expression),
-primary: boolean,
-value_class_expr: string (optional alpine expression)
-}
+- title: Card title
+- meta_items: List of meta information
+- state: State indicator {class_expr, text_expr}
+- hero: Hero metric {value_expr, unit}
+- stats: List of 4 stat objects
+- tier: Visual hierarchy tier ('signal' for primary, 'context' for secondary)
 #}
-<div class="status-card">
+<div class="status-card status-card--{{ tier }}">
     <div class="status-card__header">
         <div class="status-card__title">{{ title }}</div>
         <div class="status-card__meta">

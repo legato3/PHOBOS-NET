@@ -1,4 +1,4 @@
-{% macro panel_card(title='', title_expr='', meta_items=[]) %}
+{% macro panel_card(title='', title_expr='', meta_items=[], tier='context', compact=false) %}
 {#
 Reusable Panel Card v3 Component
 
@@ -20,8 +20,10 @@ badge_x_if: string (alpine x-if condition for badge)
 }
 If string: direct text output
 - caller: The content block to render inside the body (passed implicitly via call)
+- tier: Visual hierarchy tier ('signal' for primary, 'context' for secondary)
+- compact: Boolean to reduce height/padding for database cards
 #}
-<div class="status-card panel-card">
+<div class="status-card panel-card status-card--{{ tier }}{% if compact %} status-card--compact{% endif %}">
     <div class="status-card__header">
         {% if title_expr %}
         <div class="status-card__title" x-text="{{ title_expr }}"></div>

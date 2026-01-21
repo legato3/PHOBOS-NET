@@ -9940,6 +9940,66 @@ body.compact-mode {
     background: var(--sc-bg-hover);
 }
 
+/* ============================================
+   TIER A: SIGNAL CARDS (Primary)
+   NetFlow, Filterlog, Firewall, HTTP Traffic
+   ============================================ */
+.status-card--signal {
+    --sc-bg: rgba(0, 12, 18, 0.9);
+    --sc-border: rgba(0, 234, 255, 0.25);
+    border-width: 1px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 234, 255, 0.3);
+}
+
+.status-card--signal:hover {
+    box-shadow: 0 8px 32px rgba(0, 234, 255, 0.12), 0 0 2px rgba(0, 234, 255, 0.4) !important;
+}
+
+.status-card--signal .status-card__title {
+    border-left-width: 3px;
+    border-left-color: var(--signal-primary);
+    color: var(--text-0);
+}
+
+.status-card--signal .status-card__hero-value {
+    text-shadow: 0 0 12px rgba(0, 234, 255, 0.4);
+}
+
+/* ============================================
+   TIER B: CONTEXT CARDS (Secondary)
+   Services, Process/Cache, Network I/O, Container, Databases
+   ============================================ */
+.status-card--context {
+    --sc-bg: rgba(0, 8, 12, 0.75);
+    --sc-border: rgba(0, 234, 255, 0.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-card--context:hover {
+    box-shadow: 0 4px 20px rgba(0, 234, 255, 0.06) !important;
+    border-color: rgba(0, 234, 255, 0.15) !important;
+}
+
+.status-card--context .status-card__header {
+    background: rgba(0, 234, 255, 0.01);
+    border-bottom-color: rgba(0, 234, 255, 0.05);
+}
+
+.status-card--context .status-card__title {
+    border-left-color: rgba(0, 234, 255, 0.3);
+    color: var(--text-1);
+    font-weight: 600;
+}
+
+/* Reduce database card height */
+.status-card--context.status-card--compact {
+    min-height: 160px;
+}
+
+.status-card--context.status-card--compact .panel-card__body {
+    padding: 12px 16px;
+}
+
 /* ... existing .status-card styles ... */
 
 .status-card__header {
@@ -10211,6 +10271,142 @@ body.compact-mode {
 
 .status-card__stat-value.text-warn {
     color: var(--signal-warn);
+}
+
+/* ============================================
+   SERVICES LIST ENHANCEMENTS
+   ============================================ */
+.service-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.service-item:last-child {
+    border-bottom: none;
+}
+
+.service-item__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.service-item__status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.service-item__status-dot--ok {
+    background: var(--signal-ok);
+    box-shadow: 0 0 4px rgba(0, 255, 170, 0.5);
+}
+
+.service-item__status-dot--warn {
+    background: var(--signal-warn);
+    box-shadow: 0 0 4px rgba(255, 180, 0, 0.5);
+}
+
+.service-item__status-dot--crit {
+    background: var(--signal-crit);
+    box-shadow: 0 0 4px rgba(255, 0, 60, 0.5);
+}
+
+.service-item__value {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.service-section-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    margin-top: 8px;
+    margin-bottom: 4px;
+    opacity: 0.6;
+}
+
+/* ============================================
+   PROCESS/CACHE FOCAL POINT
+   ============================================ */
+.focal-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 234, 255, 0.08);
+    margin-bottom: 8px;
+}
+
+.focal-metric__label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+}
+
+.focal-metric__value {
+    font-size: 24px;
+    font-weight: 300;
+    font-family: var(--font-mono);
+    color: var(--text-0);
+    text-shadow: 0 0 8px rgba(0, 234, 255, 0.2);
+}
+
+.focal-metric__unit {
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+}
+
+/* ============================================
+   NETWORK I/O ENHANCEMENTS
+   ============================================ */
+.network-io-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.network-io-item__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-2);
+}
+
+.network-io-item__icon {
+    font-size: 14px;
+    font-weight: bold;
+    width: 16px;
+    text-align: center;
+}
+
+.network-io-item__icon--rx {
+    color: var(--signal-primary);
+}
+
+.network-io-item__icon--tx {
+    color: var(--signal-ok);
+}
+
+.network-io-item__value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: right;
 }
 
 /* ============================================
