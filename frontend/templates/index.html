@@ -107,18 +107,14 @@
 
                     <!-- Widget Manager Modal -->
 
-                    <!-- Keyboard Shortcuts Hint -->
-                    <div class="keyboard-hint" title="Press ? for all shortcuts">
-                        <kbd>R</kbd> Refresh <kbd>P</kbd> Pause <kbd>1-6</kbd> Time
-                    </div>
+
 
                     <!-- Sticky Status Bar -->
                     <div class="status-bar"
                         style="display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: var(--space-3);">
                         <!-- System Metrics -->
                         <div class="status-bar-item">
-                            <span class="status-bar-dot"
-                                :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
+
                             <span class="label">CPU:</span>
                             <span class="value"
                                 :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }"
@@ -142,8 +138,7 @@
                         </div>
                         <!-- Status -->
                         <div class="status-bar-item">
-                            <span class="status-bar-dot"
-                                :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
+
                             <span class="label">Status:</span>
                             <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
                         </div>
@@ -154,12 +149,12 @@
                         </div>
                         <div class="status-bar-item">
                             <span class="label">Next:</span>
-                            <span class="value" style="color: var(--text-muted);"
+                            <span class="value" style="color: var(--accent-cyan);"
                                 x-text="paused ? '--' : refreshCountdown + 's'"></span>
                         </div>
                         <div class="status-bar-item">
                             <span class="label">Up:</span>
-                            <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
+                            <span class="value" style="color: var(--accent-cyan);" x-text="lastUpdate"></span>
                         </div>
                     </div>
 

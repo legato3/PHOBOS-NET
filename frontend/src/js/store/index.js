@@ -844,8 +844,7 @@ export const Store = () => ({
             // Start real-time firewall stream (SSE) if supported
             this.startFirewallStream();
 
-            // Keyboard shortcuts
-            this.setupKeyboardShortcuts();
+
 
             // Start countdown timer
             this.startCountdown();
@@ -1155,7 +1154,7 @@ export const Store = () => ({
         this.tools.shell.error = null;
 
         // Append command to output immediately
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = new Date().toLocaleTimeString('en-GB');
         this.tools.shell.output = (this.tools.shell.output || '') + `\n[${timestamp}] $ ${cmd}\n`;
 
         try {
@@ -1394,106 +1393,7 @@ export const Store = () => ({
         return this.timeRange;
     },
 
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Don't trigger if typing in input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-            switch (e.key.toLowerCase()) {
-                case 'r':
-                    if (!e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        this.loadAll();
-                        this.refreshCountdown = this.refreshInterval / 1000;
-                    }
-                    break;
-                case 'p':
-                    e.preventDefault();
-                    this.togglePause();
-                    break;
-                case '1':
-                    e.preventDefault();
-                    this.timeRange = '15m';
-                    break;
-                case '2':
-                    e.preventDefault();
-                    this.timeRange = '30m';
-                    break;
-                case '3':
-                    e.preventDefault();
-                    this.timeRange = '1h';
-                    break;
-                case '4':
-                    e.preventDefault();
-                    this.timeRange = '6h';
-                    break;
-                case '5':
-                    e.preventDefault();
-                    this.timeRange = '24h';
-                    break;
-                case '6':
-                    e.preventDefault();
-                    this.timeRange = '7d';
-                    break;
-                case 'escape':
-                    this.modalOpen = false;
-                    this.trendModalOpen = false;
-                    this.thresholdsModalOpen = false;
-                    this.widgetManagerOpen = false;
-                    this.expandedModalOpen = false;
-                    this.networkGraphOpen = false;
-                    this.ipInvestigationModalOpen = false;
-                    this.closeFullscreenChart();
-                    // Return focus to a safe element
-                    document.activeElement?.blur();
-                    break;
-                case '?':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        alert('Keyboard Shortcuts:\n\nR - Refresh data\nP - Pause/Resume\n1-6 - Time range (15m to 7d)\nESC - Close modals\n? - Show this help');
-                    }
-                    break;
-                case 'g':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        // Focus search box
-                        const searchBox = document.querySelector('.search-box');
-                        if (searchBox) searchBox.focus();
-                    }
-                    break;
-                case 'o':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        this.activeTab = 'overview';
-                    }
-                    break;
-                case 's':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'security';
-                    }
-                    break;
-                case 'n':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'network';
-                    }
-                    break;
-                case 'f':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'forensics';
-                    }
-                    break;
-                case 'a':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'assistant';
-                    }
-                    break;
-            }
-        });
-    },
 
     togglePause() {
         this.paused = !this.paused;
@@ -1981,7 +1881,7 @@ export const Store = () => ({
     },
 
     async loadAll() {
-        this.lastUpdate = new Date().toLocaleTimeString();
+        this.lastUpdate = new Date().toLocaleTimeString('en-GB');
         this.lastUpdateTs = Date.now();
         const now = Date.now();
 
@@ -3210,7 +3110,7 @@ export const Store = () => ({
             setTimeout(() => this.renderBlocklistChart(), 100);
             return;
         }
-        const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
+        const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString('en-GB'));
         const values = (series || []).map(s => s.rate || 0);
         const blocked = (series || []).map(s => s.blocked || 0);
         const hasFwData = this.blocklist.has_fw_data;
@@ -6796,7 +6696,7 @@ export const Store = () => ({
         this.ollamaChat.messages.push({
             role: 'user',
             content: message,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString('en-GB')
         });
 
         // Clear input
@@ -6876,7 +6776,7 @@ export const Store = () => ({
             this.ollamaChat.messages.push({
                 role: 'assistant',
                 content: responseText,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString('en-GB')
             });
 
         } catch (e) {
@@ -6885,7 +6785,7 @@ export const Store = () => ({
             this.ollamaChat.messages.push({
                 role: 'assistant',
                 content: `Error: ${this.ollamaChat.error}`,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString('en-GB')
             });
         } finally {
             this.ollamaChat.loading = false;

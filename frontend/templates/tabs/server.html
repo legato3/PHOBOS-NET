@@ -275,50 +275,53 @@
 
                             <!-- Services Card -->
                             {% call panel_card(title='Services', meta_items=[], tier='context') %}
-                            <div class="service-section-label">INGESTION</div>
-                            <div class="service-item">
-                                <div class="service-item__label">
-                                    <span class="service-item__status-dot"
-                                        :class="monitoringSummary.dependencies?.nfcapd?.running ? 'service-item__status-dot--ok' : 'service-item__status-dot--crit'"></span>
-                                    <span>nfcapd</span>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <!-- Ingestion Service -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Ingestion</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">nfcapd</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-ok' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.nfcapd?.running ? 'Running' : 'Stopped'"></span>
                                 </div>
-                                <span class="service-item__value"
-                                    :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-ok' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.nfcapd?.running ? 'Running' : 'Stopped'"></span>
-                            </div>
 
-                            <div class="service-section-label">SYSLOG</div>
-                            <div class="service-item">
-                                <div class="service-item__label">
-                                    <span class="service-item__status-dot"
-                                        :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'service-item__status-dot--ok' : 'service-item__status-dot--crit'"></span>
-                                    <span>UDP 514</span>
+                                <!-- Syslog Services -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Syslog</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
+                                            514</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-cyan' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
                                 </div>
-                                <span class="service-item__value"
-                                    :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-cyan' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
-                            </div>
-                            <div class="service-item">
-                                <div class="service-item__label">
-                                    <span class="service-item__status-dot"
-                                        :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'service-item__status-dot--ok' : 'service-item__status-dot--crit'"></span>
-                                    <span>UDP 515</span>
-                                </div>
-                                <span class="service-item__value"
-                                    :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-cyan' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.syslog_515?.listening ? 'Listening' : 'Down'"></span>
-                            </div>
 
-                            <div class="service-section-label">THREADS</div>
-                            <div class="service-item">
-                                <div class="service-item__label">
-                                    <span class="service-item__status-dot"
-                                        :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'service-item__status-dot--ok' : 'service-item__status-dot--warn'"></span>
-                                    <span>Health</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Syslog</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
+                                            515</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-cyan' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.syslog_515?.listening ? 'Listening' : 'Down'"></span>
                                 </div>
-                                <span class="service-item__value"
-                                    :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
-                                    x-text="(monitoringSummary.thread_health?.ok || 0) + '/' + (monitoringSummary.thread_health?.total || 0)"></span>
+
+                                <!-- Thread Health -->
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-soft);">
+                                    <span class="text-muted text-8 uppercase">Thread Health</span>
+                                    <span
+                                        :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
+                                        style="font-family: var(--font-mono); font-weight: 700;"
+                                        x-text="(monitoringSummary.thread_health?.ok || 0) + ' / ' + (monitoringSummary.thread_health?.total || 0)"></span>
+                                </div>
                             </div>
                             {% endcall %}
 
@@ -538,17 +541,15 @@
                                             <canvas id="cpuHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
-                                                        const history = resourceHistory?.history;
-                                                        if (!history?.length) return;
+                                                        const history = resourceHistory?.history || [];
+                                                        if (!history.length) return;
                                                         const cpuData = history.map(s => s.cpu_percent);
                                                         if (window.renderSparkline) {
                                                             window.renderSparkline($el, cpuData, '#00ffaa');
-                                                            console.log('CPU chart rendered');
                                                         }
                                                     };
-                                                    setTimeout(render, 100);
-                                                    setTimeout(render, 500);
-                                                    setTimeout(render, 1000);
+                                                    $watch('resourceHistory.history', render);
+                                                    render();
                                                 })"></canvas>
                                         </div>
                                     </div>
@@ -565,17 +566,15 @@
                                             <canvas id="memHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
-                                                        const history = resourceHistory?.history;
-                                                        if (!history?.length) return;
+                                                        const history = resourceHistory?.history || [];
+                                                        if (!history.length) return;
                                                         const memData = history.map(s => s.mem_percent);
                                                         if (window.renderSparkline) {
                                                             window.renderSparkline($el, memData, '#00ccff');
-                                                            console.log('Memory chart rendered');
                                                         }
                                                     };
-                                                    setTimeout(render, 100);
-                                                    setTimeout(render, 500);
-                                                    setTimeout(render, 1000);
+                                                    $watch('resourceHistory.history', render);
+                                                    render();
                                                 })"></canvas>
                                         </div>
                                     </div>
