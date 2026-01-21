@@ -10147,10 +10147,10 @@ body.compact-mode {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    /* Align top so subvalues push down consistently */
+    justify-content: center;
+    /* Centered vertically as requested */
     min-height: 54px;
-    /* Fixed height to prevent row jumping */
+    /* Maintain fixed height */
 }
 
 /* Subtle emphasis for primary stats */
@@ -10178,8 +10178,8 @@ body.compact-mode {
 
 .status-card__stat-value {
     display: block;
-    font-size: 11px;
-    /* Increased from 10px */
+    font-size: 12px;
+    /* Increased from 11px */
     color: var(--text-0);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
