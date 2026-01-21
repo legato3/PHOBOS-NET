@@ -9887,8 +9887,8 @@ body.compact-mode {
     /* Deep dark background */
     border: 1px solid rgba(0, 234, 255, 0.15);
     /* Subtle cyan border */
-    border-radius: 4px;
-    /* Rectangular/angular */
+    border-radius: 2px;
+    /* Sharper geometry */
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -9996,8 +9996,12 @@ body.compact-mode {
     border: 1px solid rgba(255, 255, 255, 0.25);
     /* Increased alpha */
     color: var(--text-2);
+    /* Keep, or shift to text-1 if needed, but increased border alpha helps */
     border-radius: 2px;
     text-transform: uppercase;
+    background: transparent;
+    font-weight: 500;
+    /* Slightly bolder for readability */
     background: transparent;
     line-height: 1.2;
     display: flex;
@@ -10088,6 +10092,13 @@ body.compact-mode {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+/* Subtle emphasis for primary stats */
+.status-card__stat--primary .status-card__stat-value {
+    color: var(--text-0) !important;
+    text-shadow: 0 0 5px rgba(0, 234, 255, 0.2);
+    font-weight: 500;
 }
 
 .status-card__stat:last-child {

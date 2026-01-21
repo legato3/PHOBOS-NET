@@ -66,19 +66,19 @@
                         <div class="status-card__header">
                             <div class="status-card__title">NetFlow</div>
                             <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value">UDP 2055</span>
-                                </div>
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value"
-                                        x-text="'UPDATED ' + (serverHealth.netflow?.last_file ? DashboardUtils.timeAgo(Date.parse(serverHealth.netflow.last_file)/1000) : '—')"></span>
-                                </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
                                     <span class="status-card__meta-value"
                                         x-text="serverHealth.netflow?.available ? 'ACTIVE' : 'OFFLINE'"></span>
                                 </div>
                             </div>
+                        </div>
+                        <div class="status-card__sub-meta"
+                            style="padding: 0 12px; display: flex; gap: 8px; margin-top: -4px; margin-bottom: 4px;">
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;">UDP
+                                2055</span>
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;"
+                                x-text="'UPDATED ' + (serverHealth.netflow?.last_file ? DashboardUtils.timeAgo(Date.parse(serverHealth.netflow.last_file)/1000) : '—')"></span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">
@@ -93,7 +93,7 @@
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span>
                             </div>
-                            <div class="status-card__stat">
+                            <div class="status-card__stat status-card__stat--primary">
                                 <span class="status-card__stat-label">FLOWS</span>
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span>
@@ -119,19 +119,19 @@
                         <div class="status-card__header">
                             <div class="status-card__title">Filterlog</div>
                             <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value">UDP 514</span>
-                                </div>
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value"
-                                        x-text="'UPDATED ' + (serverHealth.syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.syslog.last_event)/1000) : '—')"></span>
-                                </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">
                                     <span class="status-card__meta-value"
                                         x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                                 </div>
                             </div>
+                        </div>
+                        <div class="status-card__sub-meta"
+                            style="padding: 0 12px; display: flex; gap: 8px; margin-top: -4px; margin-bottom: 4px;">
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;">UDP
+                                514</span>
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;"
+                                x-text="'UPDATED ' + (serverHealth.syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.syslog.last_event)/1000) : '—')"></span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">
@@ -146,7 +146,7 @@
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span>
                             </div>
-                            <div class="status-card__stat">
+                            <div class="status-card__stat status-card__stat--primary">
                                 <span class="status-card__stat-label">PARSED</span>
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span>
@@ -173,19 +173,19 @@
                         <div class="status-card__header">
                             <div class="status-card__title">Firewall</div>
                             <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value">UDP 515</span>
-                                </div>
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-value"
-                                        x-text="'UPDATED ' + (serverHealth.firewall_syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.firewall_syslog.last_event)/1000) : '—')"></span>
-                                </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.firewall_syslog?.active ? 'status-active' : 'status-crit'">
                                     <span class="status-card__meta-value"
                                         x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                                 </div>
                             </div>
+                        </div>
+                        <div class="status-card__sub-meta"
+                            style="padding: 0 12px; display: flex; gap: 8px; margin-top: -4px; margin-bottom: 4px;">
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;">UDP
+                                515</span>
+                            <span class="text-muted text-8" style="font-family: var(--font-mono); font-size: 10px;"
+                                x-text="'UPDATED ' + (serverHealth.firewall_syslog?.last_event ? DashboardUtils.timeAgo(Date.parse(serverHealth.firewall_syslog.last_event)/1000) : '—')"></span>
                         </div>
                         <div class="status-card__hero">
                             <div class="status-card__hero-content">
@@ -195,7 +195,7 @@
                             </div>
                         </div>
                         <div class="status-card__statstrip">
-                            <div class="status-card__stat">
+                            <div class="status-card__stat status-card__stat--primary">
                                 <span class="status-card__stat-label">RCVD</span>
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'"></span>
