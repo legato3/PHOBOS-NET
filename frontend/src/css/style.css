@@ -9899,10 +9899,10 @@ body.compact-mode {
 
 .status-card:hover {
     border-color: rgba(0, 234, 255, 0.3);
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.15);
-    /* Increased shadow depth */
-    transform: translateY(-2px) scale(1.005);
-    /* Subtle list towards user */
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
+    /* Reduced shadow opacity for subtlety */
+    transform: translateY(-2px);
+    /* Lift only, no scale to avoid jumpiness */
 }
 
 /* ... existing .status-card styles ... */
@@ -10006,7 +10006,8 @@ body.compact-mode {
 }
 
 .status-card__hero-value {
-    font-size: 32px;
+    font-size: 38px;
+    /* Increased from 32px */
     font-family: var(--font-mono);
     font-weight: 300;
     color: var(--text-0);
