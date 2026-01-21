@@ -67,19 +67,15 @@
                             <div class="status-card__title">NetFlow</div>
                             <div class="status-card__meta-tabs">
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">SOURCE</span>
-                                    <span class="status-card__meta-value"
-                                        :title="serverHealth.netflow?.directory || ''"
+                                    <span class="status-card__meta-value" :title="serverHealth.netflow?.directory || ''"
                                         x-text="serverHealth.netflow?.directory || '—'"></span>
                                 </div>
                                 <div class="status-card__meta-tab">
                                     <span class="status-card__meta-label">PORT</span>
                                     <span class="status-card__meta-value">UDP 2055</span>
                                 </div>
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">UPDATED</span>
-                                    <span class="status-card__meta-value"
-                                        x-text="serverHealth.timestamp ? timeAgo(serverHealth.timestamp) : '—'"></span>
+                                <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
+                                    <span class="status-pulsing-dot"></span>
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
@@ -127,17 +123,14 @@
                             <div class="status-card__title">Filterlog</div>
                             <div class="status-card__meta-tabs">
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">SOURCE</span>
                                     <span class="status-card__meta-value">FILTERLOG</span>
                                 </div>
                                 <div class="status-card__meta-tab">
                                     <span class="status-card__meta-label">PORT</span>
                                     <span class="status-card__meta-value">UDP 514</span>
                                 </div>
-                                <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">UPDATED</span>
-                                    <span class="status-card__meta-value"
-                                        x-text="serverHealth.timestamp ? timeAgo(serverHealth.timestamp) : '—'"></span>
+                                <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
+                                    <span class="status-pulsing-dot"></span>
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">

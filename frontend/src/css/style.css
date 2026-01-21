@@ -9914,16 +9914,45 @@ body.compact-mode {
     background: rgba(0, 234, 255, 0.02);
 }
 
+/* ... existing .status-card styles ... */
+
 .status-card__title {
     font-family: var(--font-mono);
     font-weight: 700;
-    /* Increased weight */
-    font-size: 11px;
+    font-size: 13px;
+    /* Increased from 11px */
     letter-spacing: 0.1em;
     color: var(--text-0);
-    /* Use neutral white (was muted) */
     text-transform: uppercase;
-    /* Optional: subtle divider below can be achieved via border-bottom on header which exists */
+}
+
+/* Pulsing dot for activity */
+.status-pulsing-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background-color: var(--signal-ok);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+    box-shadow: 0 0 5px rgba(0, 255, 170, 0.6);
+}
+
+@keyframes pulse-dot {
+    0% {
+        transform: scale(0.95);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+        box-shadow: 0 0 8px rgba(0, 255, 170, 0.8);
+    }
+
+    100% {
+        transform: scale(0.95);
+        opacity: 0.7;
+    }
 }
 
 .status-card__meta-tabs {
@@ -9937,26 +9966,23 @@ body.compact-mode {
     padding: 2px 6px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: var(--text-2);
-    /* Muted gray/cyan */
     border-radius: 2px;
     text-transform: uppercase;
     background: transparent;
     line-height: 1.2;
+    display: flex;
+    align-items: center;
+    /* Center content vertically */
 }
 
-/* 1. Top-right state button adjustments */
+/* ... existing meta tab status ... */
 .status-card__meta-tab--status.status-ok,
 .status-card__meta-tab--status.status-active {
     background: rgba(255, 255, 255, 0.05);
-    /* Lighten background slightly */
     border: 1px solid var(--signal-ok);
-    /* Thin inner border */
     color: var(--text-0);
-    /* Near-white text */
     text-shadow: 0 0 2px rgba(0, 255, 170, 0.4);
-    /* Subtle tint/readability */
     box-shadow: none;
-    /* No glow */
 }
 
 .status-card__meta-tab--status.status-crit {
@@ -9967,6 +9993,7 @@ body.compact-mode {
     box-shadow: none;
 }
 
+/* ... existing hero ... */
 .status-card__hero {
     display: flex;
     align-items: baseline;
@@ -9980,16 +10007,13 @@ body.compact-mode {
     font-family: var(--font-mono);
     font-weight: 300;
     color: var(--text-0);
-    /* Value: near-white */
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
-    /* Keep subtle hero glow */
     letter-spacing: -0.02em;
 }
 
 .status-card__hero-unit {
     font-size: 12px;
     color: var(--text-3);
-    /* Unit: muted */
     margin-left: 6px;
     font-family: var(--font-mono);
     font-weight: 500;
@@ -9999,7 +10023,6 @@ body.compact-mode {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid rgba(0, 234, 255, 0.08);
-    /* Keep border */
     background: rgba(0, 0, 0, 0.3);
 }
 
@@ -10007,7 +10030,6 @@ body.compact-mode {
     padding: 10px 4px;
     text-align: center;
     border-right: 1px solid rgba(255, 255, 255, 0.03);
-    /* Keep divder */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -10020,10 +10042,10 @@ body.compact-mode {
 
 .status-card__stat-label {
     display: block;
-    font-size: 8px;
+    font-size: 9px;
+    /* Increased from 8px */
     text-transform: uppercase;
     color: var(--text-3);
-    /* Label: muted */
     margin-bottom: 4px;
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
@@ -10032,9 +10054,9 @@ body.compact-mode {
 
 .status-card__stat-value {
     display: block;
-    font-size: 10px;
+    font-size: 11px;
+    /* Increased from 10px */
     color: var(--text-0);
-    /* Value: near-white */
     font-family: var(--font-mono);
     font-weight: 500;
 }
