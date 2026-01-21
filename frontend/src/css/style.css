@@ -9963,11 +9963,13 @@ body.compact-mode {
 
 /* Compact modifier for database cards - ONLY affects height/padding */
 .status-card--compact {
-    min-height: 100px;
+    max-height: 140px;
 }
 
 .status-card--compact .panel-card__body {
     padding: 6px 10px;
+    max-height: 100px;
+    overflow: hidden;
 }
 
 
