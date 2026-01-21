@@ -144,10 +144,11 @@
                     <option value="pass">Pass</option>
                 </select>
                 <input type="text" x-model="recentBlocksFilter.searchIP" placeholder="Search IP address..."
-                    class="search-box" style="flex: 1; min-width: 200px; max-width: 300px;"
+                    style="flex: 1; min-width: 200px; max-width: 300px; padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm);"
                     aria-label="Search by IP address">
-                <input type="text" x-model="recentBlocksFilter.port" placeholder="Filter by port..." class="search-box"
-                    style="min-width: 120px; max-width: 150px;" aria-label="Filter by port">
+                <input type="text" x-model="recentBlocksFilter.port" placeholder="Filter by port..."
+                    style="min-width: 120px; max-width: 150px; padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm);"
+                    aria-label="Filter by port">
                 <select x-model="recentBlocksFilter.protocol" class="filter-select" style="min-width: 120px;"
                     aria-label="Filter by protocol">
                     <option value="all">All Protocols</option>
