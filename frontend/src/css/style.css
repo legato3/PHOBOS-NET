@@ -9894,12 +9894,15 @@ body.compact-mode {
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .status-card:hover {
     border-color: rgba(0, 234, 255, 0.3);
-    box-shadow: 0 4px 25px rgba(0, 234, 255, 0.1);
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.15);
+    /* Increased shadow depth */
+    transform: translateY(-2px) scale(1.005);
+    /* Subtle list towards user */
 }
 
 /* ... existing .status-card styles ... */
