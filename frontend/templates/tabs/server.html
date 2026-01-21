@@ -60,7 +60,7 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      INGESTION PIPELINES - Primary focus area
                 ═══════════════════════════════════════════════════════════ -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
                     <!-- NetFlow Pipeline -->
                     <div class="status-card">
                         <div class="status-card__header">
@@ -71,7 +71,6 @@
                                         x-text="serverHealth.netflow?.directory || '—'"></span>
                                 </div>
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">PORT</span>
                                     <span class="status-card__meta-value">UDP 2055</span>
                                 </div>
                                 <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
@@ -79,9 +78,8 @@
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
-                                    <span class="status-card__meta-label">STATE</span>
                                     <span class="status-card__meta-value"
-                                        x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
+                                        x-text="serverHealth.netflow?.available ? 'ACTIVE' : 'OFFLINE'"></span>
                                 </div>
                             </div>
                         </div>
@@ -126,7 +124,6 @@
                                     <span class="status-card__meta-value">FILTERLOG</span>
                                 </div>
                                 <div class="status-card__meta-tab">
-                                    <span class="status-card__meta-label">PORT</span>
                                     <span class="status-card__meta-value">UDP 514</span>
                                 </div>
                                 <div class="status-card__meta-tab" style="border:none; padding:5px 6px;">
@@ -134,7 +131,6 @@
                                 </div>
                                 <div class="status-card__meta-tab status-card__meta-tab--status"
                                     :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">
-                                    <span class="status-card__meta-label">STATE</span>
                                     <span class="status-card__meta-value"
                                         x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
                                 </div>
