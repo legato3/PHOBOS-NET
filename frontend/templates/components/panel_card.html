@@ -1,0 +1,62 @@
+{% macro panel_card(title='', title_expr='', meta_items=[]) %}
+{#
+Reusable Panel Card v3 Component
+
+Purpose: A generic container for lists, tables, and other non-hero content that matches
+the visual language of Status Card v3.
+
+Args:
+- title: Static string title of the card
+- title_expr: Alpine.js expression for dynamic title (use instead of title if needed)
+- meta_items: List of objects or strings to display in the header.
+If object: {
+text: string,
+class_expr: string,
+x_show: string,
+badge_expr: string (alpine expression for badge text),
+badge_text: string (static badge text),
+badge_class_expr: string (alpine expression for badge classes),
+badge_x_if: string (alpine x-if condition for badge)
+}
+If string: direct text output
+- caller: The content block to render inside the body (passed implicitly via call)
+#}
+<div class="status-card panel-card">
+    <div class="status-card__header">
+        {% if title_expr %}
+        <div class="status-card__title" x-text="{{ title_expr }}"></div>
+        {% else %}
+        <div class="status-card__title">{{ title }}</div>
+        {% endif %}
+        <div class="status-card__meta">
+            {% for item in meta_items %}
+            {% if item.text is defined %}
+            <span class="status-card__meta-item" {% if item.class_expr %}:class="{{ item.class_expr }}" {% endif %} {%
+                if item.x_show %}x-show="{{ item.x_show }}" {% endif %}>
+                {{ item.text }}
+            </span>
+            {% elif item.badge_expr or item.badge_text %}
+            {% if item.badge_x_if %}
+            <template x-if="{{ item.badge_x_if }}">
+                {% endif %}
+                <div class="status-card__meta-tab status-card__meta-tab--status" {% if item.badge_class_expr
+                    %}:class="{{ item.badge_class_expr }}" {% endif %}>
+                    <span class="status-card__meta-value" {% if item.badge_expr %}x-text="{{ item.badge_expr }}" {%
+                        endif %}>
+                        {% if item.badge_text %}{{ item.badge_text }}{% endif %}
+                    </span>
+                </div>
+                {% if item.badge_x_if %}
+            </template>
+            {% endif %}
+            {% elif item is string %}
+            <span class="status-card__meta-item">{{ item }}</span>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="panel-card__body">
+        {{ caller() }}
+    </div>
+</div>
+{% endmacro %}
