@@ -291,39 +291,55 @@
                         : "(monitoringSummary.http?.error_rate_percent || 0) < 1 ? 'text-ok' : ((monitoringSummary.http?.error_rate_percent || 0) < 5 ? 'text-warn' : 'text-crit')"
                         , 'subvalue_expr' : "''" , 'primary' : true } ] ) }} <!-- Network I/O Card -->
                         {% call panel_card(title='Network I/O', meta_items=[], tier='context') %}
-                        <div class="network-io-item">
-                            <div class="network-io-item__label">
-                                <span class="network-io-item__icon network-io-item__icon--rx">↓</span>
-                                <span>Inbound</span>
+                        <div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.5;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
+                                <div
+                                    style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <span
+                                        style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-primary);">↓</span>
+                                    <span>Inbound</span>
+                                </div>
+                                <span
+                                    style="font-weight: 500; min-width: 80px; text-align: right; color: var(--signal-primary);"
+                                    x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
                             </div>
-                            <span class="network-io-item__value text-cyan"
-                                x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
-                        </div>
-                        <div class="network-io-item">
-                            <div class="network-io-item__label">
-                                <span class="network-io-item__icon network-io-item__icon--tx">↑</span>
-                                <span>Outbound</span>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
+                                <div
+                                    style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <span
+                                        style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-ok);">↑</span>
+                                    <span>Outbound</span>
+                                </div>
+                                <span
+                                    style="font-weight: 500; min-width: 80px; text-align: right; color: var(--signal-ok);"
+                                    x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
                             </div>
-                            <span class="network-io-item__value text-ok"
-                                x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
-                        </div>
-                        <div class="network-io-item">
-                            <div class="network-io-item__label">
-                                <span class="network-io-item__icon">⚠</span>
-                                <span>Errors</span>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
+                                <div
+                                    style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <span
+                                        style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">⚠</span>
+                                    <span>Errors</span>
+                                </div>
+                                <span style="font-weight: 500; min-width: 80px; text-align: right;"
+                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
                             </div>
-                            <span class="network-io-item__value"
-                                :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
-                                x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
-                        </div>
-                        <div class="network-io-item">
-                            <div class="network-io-item__label">
-                                <span class="network-io-item__icon">✖</span>
-                                <span>Dropped</span>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+                                <div
+                                    style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <span
+                                        style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">✖</span>
+                                    <span>Dropped</span>
+                                </div>
+                                <span style="font-weight: 500; min-width: 80px; text-align: right;"
+                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
+                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
                             </div>
-                            <span class="network-io-item__value"
-                                :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
-                                x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
                         </div>
                         {% endcall %}
 
@@ -507,9 +523,9 @@
                 ═══════════════════════════════════════════════════════════ -->
                 {% call panel_card(title='Server Logs', meta_items=[{
                 'badge_expr': "serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'buffer' ? 'BUFFER' :
-                (serverLogs.source === 'files' ? 'FILES' : 'N/A'))",
+                'N/A')",
                 'badge_class_expr': "{'status-ok': serverLogs.source === 'buffer' || serverLogs.source === 'docker',
-                'status-warn': serverLogs.source === 'files', 'status-crit': serverLogs.source === 'none'}"
+                'status-crit': serverLogs.source === 'none'}"
                 }], tier='context') %}
                 <div
                     style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
