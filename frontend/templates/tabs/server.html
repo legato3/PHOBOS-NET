@@ -21,7 +21,7 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      HOST STRIP - Compact horizontal system vitals bar
                 ═══════════════════════════════════════════════════════════ -->
-                <div class="card"
+                <div class="status-card status-card--signal"
                     style="padding: 14px 20px; margin-bottom: 20px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
                     <span class="status-pill" :class="{
                         'status-pill-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
@@ -453,51 +453,54 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      RESOURCE HISTORY
                 ═══════════════════════════════════════════════════════════ -->
-                {% call panel_card(title='Resource History (1h)', meta_items=[{
-                'text': '',
-                'badge_expr': "resourceHistory.history?.length ? resourceHistory.history.length + ' samples' :
-                'Collecting...'",
-                'badge_class_expr': "''"
-                }], tier='context') %}
-                <div x-show="resourceHistory.loading && !resourceHistory.history?.length"
-                    style="text-align: center; padding: 16px; color: var(--text-2); font-size: 12px;">
-                    <span>Loading resource history...</span>
-                </div>
-                <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                                <span class="text-muted text-8">CPU</span>
-                                <span class="text-2 text-8">Current: <span
-                                        x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"></span>
-                                    · Peak: <span
-                                        x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"></span></span>
+                <div style="margin-bottom: 20px;">
+                    {% call panel_card(title='Resource History (1h)', meta_items=[{
+                    'text': '',
+                    'badge_expr': "resourceHistory.history?.length ? resourceHistory.history.length + ' samples' :
+                    'Collecting...'",
+                    'badge_class_expr': "''"
+                    }], tier='context') %}
+                    <div x-show="resourceHistory.loading && !resourceHistory.history?.length"
+                        style="text-align: center; padding: 16px; color: var(--text-2); font-size: 12px;">
+                        <span>Loading resource history...</span>
+                    </div>
+                    <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <span class="text-muted text-8">CPU</span>
+                                    <span class="text-2 text-8">Current: <span
+                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"></span>
+                                        · Peak: <span
+                                            x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"></span></span>
+                                </div>
+                                <div class="panel-card__chart-container" style="height: 45px; position: relative;">
+                                    <canvas id="cpuHistoryChart" x-ref="cpuHistoryChart" width="400" height="90"
+                                        style="width: 100%; height: 100%; display: block;"></canvas>
+                                </div>
                             </div>
-                            <div class="panel-card__chart-container" style="height: 45px; position: relative;">
-                                <canvas id="cpuHistoryChart" x-ref="cpuHistoryChart" width="400" height="90"
-                                    style="width: 100%; height: 100%; display: block;"></canvas>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                                <span class="text-muted text-8">Memory</span>
-                                <span class="text-2 text-8">Current: <span
-                                        x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"></span>
-                                    · Peak: <span
-                                        x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"></span></span>
-                            </div>
-                            <div class="panel-card__chart-container" style="height: 45px; position: relative;">
-                                <canvas id="memHistoryChart" x-ref="memHistoryChart" width="400" height="90"
-                                    style="width: 100%; height: 100%; display: block;"></canvas>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <span class="text-muted text-8">Memory</span>
+                                    <span class="text-2 text-8">Current: <span
+                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"></span>
+                                        · Peak: <span
+                                            x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"></span></span>
+                                </div>
+                                <div class="panel-card__chart-container" style="height: 45px; position: relative;">
+                                    <canvas id="memHistoryChart" x-ref="memHistoryChart" width="400" height="90"
+                                        style="width: 100%; height: 100%; display: block;"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div x-show="resourceHistory.history?.length < 5"
+                        style="padding: 8px 12px; background: rgba(255,180,0,0.06); border-radius: var(--radius-sm); border-left: 2px solid var(--signal-warn); font-size: 11px; color: var(--text-2); margin-top: 10px;">
+                        Resource history warming up. Full data after ~5 minutes.
+                    </div>
+                    {% endcall %}
                 </div>
-                <div x-show="resourceHistory.history?.length < 5"
-                    style="padding: 8px 12px; background: rgba(255,180,0,0.06); border-radius: var(--radius-sm); border-left: 2px solid var(--signal-warn); font-size: 11px; color: var(--text-2); margin-top: 10px;">
-                    Resource history warming up. Full data after ~5 minutes.
-                </div>
-                {% endcall %}
+
 
                 <!-- ═══════════════════════════════════════════════════════════
                      SERVER LOGS
