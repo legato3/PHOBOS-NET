@@ -580,8 +580,8 @@ body.sidebar-collapsed .layout-wrapper {
 
 .header-control-group {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    flex-direction: row;
+    align-items: center;
 }
 
 /* CYBERPUNK UI: Control labels - Signal metadata */
@@ -682,15 +682,6 @@ body.sidebar-collapsed .layout-wrapper {
 
 .time-preset-item:hover {
     background: rgba(0, 234, 255, 0.08) !important;
-}
-
-.time-preset-btn {
-    opacity: 0.7;
-    transition: opacity var(--transition-fast);
-}
-
-.time-preset-btn:hover {
-    opacity: 1;
 }
 
 /* Export Dropdown */
