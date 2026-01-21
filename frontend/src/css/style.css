@@ -9874,15 +9874,19 @@ body.compact-mode {
         order: 0;
     }
 }
+
 /* ============================================
    STATUS CARDS V3 (Server Page)
    Clean cyberpunk, glass panels, no scanlines.
    ============================================ */
 
 .status-card {
-    background: rgba(0, 10, 16, 0.85); /* Deep dark background */
-    border: 1px solid rgba(0, 234, 255, 0.15); /* Subtle cyan border */
-    border-radius: 4px; /* Rectangular/angular */
+    background: rgba(0, 10, 16, 0.85);
+    /* Deep dark background */
+    border: 1px solid rgba(0, 234, 255, 0.15);
+    /* Subtle cyan border */
+    border-radius: 4px;
+    /* Rectangular/angular */
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -9898,22 +9902,28 @@ body.compact-mode {
     box-shadow: 0 4px 25px rgba(0, 234, 255, 0.1);
 }
 
+/* ... existing .status-card styles ... */
+
 .status-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid rgba(0, 234, 255, 0.08);
+    /* Keep existing border */
     background: rgba(0, 234, 255, 0.02);
 }
 
 .status-card__title {
     font-family: var(--font-mono);
     font-weight: 700;
+    /* Increased weight */
     font-size: 11px;
     letter-spacing: 0.1em;
-    color: var(--text-muted);
+    color: var(--text-0);
+    /* Use neutral white (was muted) */
     text-transform: uppercase;
+    /* Optional: subtle divider below can be achieved via border-bottom on header which exists */
 }
 
 .status-card__meta-tabs {
@@ -9927,23 +9937,34 @@ body.compact-mode {
     padding: 2px 6px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: var(--text-2);
+    /* Muted gray/cyan */
     border-radius: 2px;
     text-transform: uppercase;
-    background: transparent; /* No filled blocks */
+    background: transparent;
     line-height: 1.2;
 }
 
+/* 1. Top-right state button adjustments */
 .status-card__meta-tab--status.status-ok,
 .status-card__meta-tab--status.status-active {
-    border-color: var(--signal-ok);
-    color: var(--signal-ok);
-    box-shadow: 0 0 4px rgba(0, 255, 170, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    /* Lighten background slightly */
+    border: 1px solid var(--signal-ok);
+    /* Thin inner border */
+    color: var(--text-0);
+    /* Near-white text */
+    text-shadow: 0 0 2px rgba(0, 255, 170, 0.4);
+    /* Subtle tint/readability */
+    box-shadow: none;
+    /* No glow */
 }
 
 .status-card__meta-tab--status.status-crit {
-    border-color: var(--signal-crit);
-    color: var(--signal-crit);
-    box-shadow: 0 0 4px rgba(255, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--signal-crit);
+    color: var(--text-0);
+    text-shadow: 0 0 2px rgba(255, 0, 0, 0.4);
+    box-shadow: none;
 }
 
 .status-card__hero {
@@ -9958,14 +9979,17 @@ body.compact-mode {
     font-size: 32px;
     font-family: var(--font-mono);
     font-weight: 300;
-    color: var(--signal-primary);
+    color: var(--text-0);
+    /* Value: near-white */
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
+    /* Keep subtle hero glow */
     letter-spacing: -0.02em;
 }
 
 .status-card__hero-unit {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--text-3);
+    /* Unit: muted */
     margin-left: 6px;
     font-family: var(--font-mono);
     font-weight: 500;
@@ -9975,6 +9999,7 @@ body.compact-mode {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid rgba(0, 234, 255, 0.08);
+    /* Keep border */
     background: rgba(0, 0, 0, 0.3);
 }
 
@@ -9982,6 +10007,7 @@ body.compact-mode {
     padding: 10px 4px;
     text-align: center;
     border-right: 1px solid rgba(255, 255, 255, 0.03);
+    /* Keep divder */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -9996,7 +10022,8 @@ body.compact-mode {
     display: block;
     font-size: 8px;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-3);
+    /* Label: muted */
     margin-bottom: 4px;
     font-family: var(--font-mono);
     letter-spacing: 0.05em;
@@ -10006,7 +10033,8 @@ body.compact-mode {
 .status-card__stat-value {
     display: block;
     font-size: 10px;
-    color: var(--text-1);
+    color: var(--text-0);
+    /* Value: near-white */
     font-family: var(--font-mono);
     font-weight: 500;
 }
