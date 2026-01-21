@@ -309,52 +309,42 @@
                                 : "(monitoringSummary.http?.error_rate_percent || 0) < 1 ? 'text-ok' : ((monitoringSummary.http?.error_rate_percent || 0) < 5 ? 'text-warn' : 'text-crit')"
                                 , 'subvalue_expr' : "''" , 'primary' : true } ] ) }} <!-- Network I/O Card -->
                                 {% call panel_card(title='Network I/O', meta_items=[], tier='context') %}
-                                <div style="font-family: var(--font-mono); font-size: 12px; line-height: 1.5;">
-                                    <div
-                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
-                                        <div
-                                            style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
                                             <span
                                                 style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-primary);">↓</span>
-                                            <span>Inbound</span>
+                                            <span class="text-muted text-8">Inbound</span>
                                         </div>
-                                        <span
-                                            style="font-weight: 500; min-width: 80px; text-align: right; color: var(--signal-primary);"
+                                        <span class="text-cyan"
                                             x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
                                     </div>
-                                    <div
-                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
-                                        <div
-                                            style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
                                             <span
                                                 style="font-size: 14px; font-weight: bold; width: 16px; text-align: center; color: var(--signal-ok);">↑</span>
-                                            <span>Outbound</span>
+                                            <span class="text-muted text-8">Outbound</span>
                                         </div>
-                                        <span
-                                            style="font-weight: 500; min-width: 80px; text-align: right; color: var(--signal-ok);"
+                                        <span class="text-ok"
                                             x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
                                     </div>
-                                    <div
-                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(0, 234, 255, 0.10);">
-                                        <div
-                                            style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
                                             <span
                                                 style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">⚠</span>
-                                            <span>Errors</span>
+                                            <span class="text-muted text-8">Errors</span>
                                         </div>
-                                        <span style="font-weight: 500; min-width: 80px; text-align: right;"
+                                        <span
                                             :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
                                             x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
                                     </div>
-                                    <div
-                                        style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
-                                        <div
-                                            style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
                                             <span
                                                 style="font-size: 14px; font-weight: bold; width: 16px; text-align: center;">✖</span>
-                                            <span>Dropped</span>
+                                            <span class="text-muted text-8">Dropped</span>
                                         </div>
-                                        <span style="font-weight: 500; min-width: 80px; text-align: right;"
+                                        <span
                                             :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
                                             x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
                                     </div>
@@ -571,7 +561,8 @@
                         <div x-show="serverLogs.loading"
                             style="text-align: center; padding: 30px; color: var(--text-2); font-size: 12px;">
                             <span>Loading
-                                logs...</span></div>
+                                logs...</span>
+                        </div>
                         <div x-show="!serverLogs.loading && serverLogs.logs.length > 0"
                             style="padding: 12px 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--text-1); max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); margin-top: 8px;">
                             <template x-for="(log, index) in serverLogs.logs" :key="index">
