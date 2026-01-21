@@ -23,10 +23,10 @@
                 ═══════════════════════════════════════════════════════════ -->
                 <div class="status-card status-card--signal"
                     style="padding: 14px 20px; margin-bottom: 20px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
-                    <span class="status-pill" :class="{
-                        'status-pill-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
-                        'status-pill-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
-                        'status-pill-crit': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
+                    <span class="status-card__meta-tab status-card__meta-tab--status" :class="{
+                        'status-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
+                        'status-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
+                        'status-crit': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
                     }"
                         x-text="(serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 ? 'CRITICAL' : ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 ? 'ELEVATED' : 'HEALTHY')"></span>
 
