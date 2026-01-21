@@ -7948,6 +7948,7 @@ body.compact-mode {
     box-shadow: var(--shadow-soft);
     overflow: hidden;
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    margin-top: var(--space-3);
 }
 
 /* CYBERPUNK UI: World map header - Signal header */
@@ -8256,6 +8257,10 @@ body.compact-mode {
     height: 100%;
     min-height: 400px;
     z-index: 1;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* CYBERPUNK UI: Leaflet customization - Signal map styling */
@@ -8391,13 +8396,19 @@ body.compact-mode {
 
 /* CYBERPUNK UI: World map countries grid - Signal data grid (3 columns: Sources, Destinations, Threats) */
 .world-map-countries.compact-grid {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     /* 3 columns: Sources, Destinations, Threats */
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
-    background: linear-gradient(180deg, rgba(15, 15, 23, 0.6), rgba(21, 21, 32, 0.4));
+    background: linear-gradient(180deg, rgba(15, 15, 23, 0.9), rgba(21, 21, 32, 0.85));
     border-top: 1px solid var(--border-soft);
+    z-index: 10;
+    backdrop-filter: blur(8px);
 }
 
 .world-map-countries.compact-grid .wm-country-col {
