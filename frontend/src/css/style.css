@@ -9894,6 +9894,8 @@ body.compact-mode {
     flex-direction: column;
     height: 100%;
     /* overflow: hidden; Removed to ensure shadows/transforms work freely */
+    overflow: hidden;
+    /* Restored to prevent content spilling out */
     position: relative;
     z-index: 1;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
@@ -10032,6 +10034,15 @@ body.compact-mode {
 }
 
 /* Make the value the reference point for the unit */
+/* Hero Content Wrapper for Perfect Centering */
+.status-card__hero-content {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+}
+
+/* Value is naturally centered in the wrapper */
 .status-card__hero-value {
     font-size: 38px;
     font-family: var(--font-mono);
@@ -10040,25 +10051,19 @@ body.compact-mode {
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
     letter-spacing: -0.02em;
     line-height: 1;
-    position: relative;
-    /* Anchor for the unit */
-    display: inline-block;
 }
 
-/* Absolute position the unit so it doesn't affect the centering of the value */
+/* Unit hangs off the right side of the wrapper */
 .status-card__hero-unit {
     font-size: 12px;
     color: var(--text-3);
     font-family: var(--font-mono);
     font-weight: 500;
     line-height: 1;
-
-    /* Hang off the right side */
     position: absolute;
     left: 100%;
-    bottom: 4px;
-    /* Align with baseline roughly */
-    margin-left: 8px;
+    bottom: 6px;
+    margin-left: 6px;
     white-space: nowrap;
 }
 

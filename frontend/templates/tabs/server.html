@@ -84,9 +84,11 @@
                             </div>
                         </div>
                         <div class="status-card__hero">
-                            <span class="status-card__hero-value"
-                                x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'"></span>
-                            <span class="status-card__hero-unit">EPS</span>
+                            <div class="status-card__hero-content">
+                                <span class="status-card__hero-value"
+                                    x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'"></span>
+                                <span class="status-card__hero-unit">EPS</span>
+                            </div>
                         </div>
                         <div class="status-card__statstrip">
                             <div class="status-card__stat">
@@ -137,9 +139,11 @@
                             </div>
                         </div>
                         <div class="status-card__hero">
-                            <span class="status-card__hero-value"
-                                x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'"></span>
-                            <span class="status-card__hero-unit">EPS</span>
+                            <div class="status-card__hero-content">
+                                <span class="status-card__hero-value"
+                                    x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'"></span>
+                                <span class="status-card__hero-unit">EPS</span>
+                            </div>
                         </div>
                         <div class="status-card__statstrip">
                             <div class="status-card__stat">
