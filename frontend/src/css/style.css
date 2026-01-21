@@ -9880,6 +9880,7 @@ body.compact-mode {
    Clean cyberpunk, glass panels, no scanlines.
    ============================================ */
 
+/* Ensure card captures mouse events */
 .status-card {
     background: rgba(0, 10, 16, 0.85);
     /* Deep dark background */
@@ -9892,29 +9893,20 @@ body.compact-mode {
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    position: relative;
+    z-index: 1;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    transition: all 0.3s ease;
     cursor: default;
-    /* Ensure it doesn't look clickable */
     user-select: none;
-    /* Prevent text selection feeling like interaction */
-}
-
-/* Explicitly disable active state reaction if any */
-.status-card:active {
-    transform: translateY(-2px);
-    /* Maintain hover state, do not press down */
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
-    /* Maintain hover shadow */
 }
 
 .status-card:hover {
-    border-color: rgba(0, 234, 255, 0.3);
-    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08);
-    /* Reduced shadow opacity for subtlety */
-    transform: translateY(-2px);
-    /* Lift only, no scale to avoid jumpiness */
+    border-color: rgba(0, 234, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
+    transform: translateY(-4px);
+    z-index: 2;
 }
 
 /* ... existing .status-card styles ... */
@@ -10013,20 +10005,32 @@ body.compact-mode {
     display: flex;
     align-items: center;
     /* Vertical centering */
-    padding: 12px 16px;
     justify-content: center;
     /* Horizontal centering */
+    padding: 12px 16px;
     flex-grow: 1;
+    height: 100%;
 }
 
 .status-card__hero-value {
     font-size: 38px;
-    /* Increased from 32px */
     font-family: var(--font-mono);
     font-weight: 300;
     color: var(--text-0);
     text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
     letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.status-card__hero-unit {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    margin-top: 8px;
+    /* Push down slightly to align visually with large number baseline */
+    line-height: 1;
 }
 
 .status-card__hero-unit {
