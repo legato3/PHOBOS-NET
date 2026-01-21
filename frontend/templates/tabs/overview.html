@@ -182,10 +182,47 @@
         </button>
 
         {% set wm_actions %}
-        <div class="status-pills">
-            <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"
-                x-text="'Based on selected time range'"></span>
+        <div class="world-map-mode-toggle">
+            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'traffic' }"
+                @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
+                Traffic
+            </button>
+            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'exposure' }"
+                @click="worldMapMode = 'exposure'" title="Exposure view - emphasize destinations">
+                Exposure
+            </button>
+            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'attacks' }"
+                @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
+                Threats & Blocks
+            </button>
         </div>
+        <div class="world-map-layer-toggles">
+            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
+                title="Toggle Sources layer">
+                <input type="checkbox" x-model="worldMapLayers.sources">
+                <span class="layer-dot layer-dot-cyan"></span>
+                <span class="layer-label">Sources</span>
+            </label>
+            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.destinations }"
+                title="Toggle Destinations layer">
+                <input type="checkbox" x-model="worldMapLayers.destinations">
+                <span class="layer-dot layer-dot-purple"></span>
+                <span class="layer-label">Destinations</span>
+            </label>
+            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
+                title="Toggle Threats layer">
+                <input type="checkbox" x-model="worldMapLayers.threats">
+                <span class="layer-dot layer-dot-red"></span>
+                <span class="layer-label">Threats</span>
+            </label>
+        </div>
+        <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+            </svg>
+            Reset
+        </button>
         {% endset %}
 
         {% set wm_title %}
@@ -197,50 +234,6 @@
         <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
             {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
             extra_actions=wm_actions) %}
-            <!-- Map Controls -->
-            <div class="world-map-controls">
-                <div class="world-map-mode-toggle">
-                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'traffic' }"
-                        @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
-                        Traffic
-                    </button>
-                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'exposure' }"
-                        @click="worldMapMode = 'exposure'" title="Exposure view - emphasize destinations">
-                        Exposure
-                    </button>
-                    <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'attacks' }"
-                        @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
-                        Threats & Blocks
-                    </button>
-                </div>
-                <div class="world-map-layer-toggles">
-                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
-                        title="Toggle Sources layer">
-                        <input type="checkbox" x-model="worldMapLayers.sources">
-                        <span class="layer-dot layer-dot-cyan"></span>
-                        <span class="layer-label">Sources</span>
-                    </label>
-                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.destinations }"
-                        title="Toggle Destinations layer">
-                        <input type="checkbox" x-model="worldMapLayers.destinations">
-                        <span class="layer-dot layer-dot-purple"></span>
-                        <span class="layer-label">Destinations</span>
-                    </label>
-                    <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
-                        title="Toggle Threats layer">
-                        <input type="checkbox" x-model="worldMapLayers.threats">
-                        <span class="layer-dot layer-dot-red"></span>
-                        <span class="layer-label">Threats</span>
-                    </label>
-                </div>
-                <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 6v6l4 2"></path>
-                    </svg>
-                    Reset
-                </button>
-            </div>
             <div class="world-map-container">
                 <div id="world-map-svg" class="world-map-svg"></div>
                 <div x-show="worldMap.loading" class="spinner-overlay">
