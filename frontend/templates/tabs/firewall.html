@@ -38,16 +38,17 @@
 
     <!-- IP Investigation - Compact Top Menu -->
     <div class="card"
-        style="margin-bottom: var(--space-6); padding: var(--space-2) var(--space-3); background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
-            <span style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap;">🔍
+        style="margin-bottom: var(--space-6); padding: var(--space-3) var(--space-4); background: var(--card-bg); border: 1px solid var(--card-border);">
+        <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+            <span
+                style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap; font-weight: 500;">🔍
                 IP Investigation:</span>
             <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()"
-                aria-label="IP address to investigate" placeholder="IP, hostname, or domain..." class="search-box"
-                style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-1) var(--space-2);">
+                aria-label="IP address to investigate" placeholder="IP, hostname, or domain..."
+                style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono);">
             <button @click="investigateIP()" class="btn btn--primary"
                 :disabled="!ipInvestigation.searchIP.trim() || ipInvestigation.loading"
-                style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); white-space: nowrap;">
+                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3); white-space: nowrap;">
                 <span x-show="!ipInvestigation.loading">Investigate</span>
                 <span x-show="ipInvestigation.loading">Loading...</span>
             </button>
