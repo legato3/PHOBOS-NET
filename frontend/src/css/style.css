@@ -9955,77 +9955,86 @@ body.compact-mode {
     box-shadow: 0 8px 32px rgba(0, 234, 255, 0.12), 0 0 2px rgba(0, 234, 255, 0.4) !important;
 }
 
-.status-card--signal .status-card__title {
-    border-left-width: 3px;
-    border-left-color: var(--signal-primary);
-    color: var(--text-0);
-}
-
 .status-card--signal .status-card__hero-value {
     text-shadow: 0 0 12px rgba(0, 234, 255, 0.4);
 }
 
 /* ============================================
    TIER B: CONTEXT CARDS (Secondary)
-   Services, Process/Cache, Network I/O, Container, Databases
+   Services, Process/Cache, Network I/O, Container
    ============================================ */
 .status-card--context {
-    --sc-bg: rgba(0, 8, 12, 0.75);
-    --sc-border: rgba(0, 234, 255, 0.08);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --sc-bg: rgba(0, 8, 12, 0.8);
+    --sc-border: rgba(0, 234, 255, 0.18);
+    box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4);
 }
 
 .status-card--context:hover {
-    box-shadow: 0 4px 20px rgba(0, 234, 255, 0.06) !important;
-    border-color: rgba(0, 234, 255, 0.15) !important;
+    box-shadow: 0 6px 24px rgba(0, 234, 255, 0.08) !important;
+    border-color: rgba(0, 234, 255, 0.25) !important;
 }
 
-.status-card--context .status-card__header {
-    background: rgba(0, 234, 255, 0.01);
-    border-bottom-color: rgba(0, 234, 255, 0.05);
+/* ============================================
+   TIER C: BACKGROUND CARDS (Database summaries)
+   Trends Database, Firewall Database
+   ============================================ */
+.status-card--background {
+    --sc-bg: rgba(0, 6, 10, 0.7);
+    --sc-border: rgba(0, 234, 255, 0.12);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
-.status-card--context .status-card__title {
-    border-left-color: rgba(0, 234, 255, 0.3);
-    color: var(--text-1);
-    font-weight: 600;
+.status-card--background:hover {
+    box-shadow: 0 4px 16px rgba(0, 234, 255, 0.06) !important;
+    border-color: rgba(0, 234, 255, 0.18) !important;
 }
 
-/* Reduce database card height */
-.status-card--context.status-card--compact {
-    min-height: 160px;
+/* Compact modifier for database cards */
+.status-card--compact {
+    min-height: 140px;
 }
 
-.status-card--context.status-card--compact .panel-card__body {
-    padding: 12px 16px;
+.status-card--compact .panel-card__body {
+    padding: 10px 14px;
 }
+
+.status-card--compact .panel-card__body>div {
+    gap: 4px !important;
+}
+
+/* Ensure ALL cards have consistent header styling regardless of tier */
+.status-card__header {
+    background: rgba(0, 234, 255, 0.02);
+    border-bottom: 1px solid rgba(0, 234, 255, 0.08);
+}
+
+.status-card__title {
+    border-left: 3px solid var(--signal-ok);
+    color: var(--text-0);
+    font-weight: 700;
+}
+
 
 /* ... existing .status-card styles ... */
+
+/* Header and title base styles now defined in tier system above */
 
 .status-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    border-bottom: 1px solid rgba(0, 234, 255, 0.08);
-    /* Keep existing border */
-    background: rgba(0, 234, 255, 0.02);
 }
-
-/* ... existing .status-card styles ... */
 
 .status-card__title {
     font-family: var(--font-mono);
-    font-weight: 700;
     font-size: 13px;
     letter-spacing: 0.1em;
-    color: var(--text-0);
     text-transform: uppercase;
-    border-left: 3px solid var(--signal-ok);
-    /* Accent bar */
     padding-left: 8px;
     line-height: 1;
 }
+
 
 /* Pulsing dot for activity */
 .status-pulsing-dot {
