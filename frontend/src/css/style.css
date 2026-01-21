@@ -9905,19 +9905,16 @@ body.compact-mode {
 
 /* Active state override - locks appearance to hover state */
 .status-card:active {
-    transform: translateY(-4px) !important;
-    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1) !important;
-    border-color: rgba(0, 234, 255, 0.6) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
+    border-color: rgba(0, 234, 255, 0.4) !important;
     background: rgba(0, 10, 16, 0.85) !important;
 }
 
 .status-card:hover {
-    border-color: rgba(0, 234, 255, 0.6);
-    /* Much brighter border for visibility */
-    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
-    /* Visible glow */
-    transform: translateY(-4px);
-    /* Clear lift */
+    border-color: rgba(0, 234, 255, 0.4) !important;
+    box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
+    transform: translateY(-2px) !important;
     z-index: 2;
 }
 
