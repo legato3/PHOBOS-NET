@@ -485,8 +485,21 @@
                                         </div>
                                         <div class="panel-card__chart-container"
                                             style="height: 45px; position: relative;">
-                                            <canvas id="cpuHistoryChart" x-ref="cpuHistoryChart" width="400" height="90"
-                                                style="width: 100%; height: 100%; display: block;"></canvas>
+                                            <canvas id="cpuHistoryChart" width="400" height="90"
+                                                style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
+                                                    const render = () => {
+                                                        const history = $store.dashboard.resourceHistory?.history;
+                                                        if (!history?.length) return;
+                                                        const cpuData = history.map(s => s.cpu_percent);
+                                                        if (window.renderSparkline) {
+                                                            window.renderSparkline($el, cpuData, '#00ffaa');
+                                                            console.log('CPU chart rendered');
+                                                        }
+                                                    };
+                                                    setTimeout(render, 100);
+                                                    setTimeout(render, 500);
+                                                    setTimeout(render, 1000);
+                                                })"></canvas>
                                         </div>
                                     </div>
                                     <div>
@@ -499,8 +512,21 @@
                                         </div>
                                         <div class="panel-card__chart-container"
                                             style="height: 45px; position: relative;">
-                                            <canvas id="memHistoryChart" x-ref="memHistoryChart" width="400" height="90"
-                                                style="width: 100%; height: 100%; display: block;"></canvas>
+                                            <canvas id="memHistoryChart" width="400" height="90"
+                                                style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
+                                                    const render = () => {
+                                                        const history = $store.dashboard.resourceHistory?.history;
+                                                        if (!history?.length) return;
+                                                        const memData = history.map(s => s.mem_percent);
+                                                        if (window.renderSparkline) {
+                                                            window.renderSparkline($el, memData, '#00ccff');
+                                                            console.log('Memory chart rendered');
+                                                        }
+                                                    };
+                                                    setTimeout(render, 100);
+                                                    setTimeout(render, 500);
+                                                    setTimeout(render, 1000);
+                                                })"></canvas>
                                         </div>
                                     </div>
                                 </div>
@@ -564,164 +590,80 @@
 
 <!-- Resource History Chart Rendering -->
 <script>
-    (function () {
-        let chartsRendered = false;
-
-        function renderResourceHistoryCharts() {
-            const store = Alpine.store ? Alpine.store('dashboard') : null;
-            if (!store || !store.resourceHistory?.history?.length) {
-                console.log('Resource History: No data available yet');
-                return;
-            }
-
-            const history = store.resourceHistory.history;
-            console.log('Resource History: Rendering with', history.length, 'samples');
-
-            // Map data safely
-            const cpuData = history.map(s => s.cpu_percent);
-            const memData = history.map(s => s.mem_percent);
-
-            const cpuCanvas = document.getElementById('cpuHistoryChart');
-            const memCanvas = document.getElementById('memHistoryChart');
-
-            if (!cpuCanvas || !memCanvas) {
-                console.log('Resource History: Canvas elements not found');
-                return;
-            }
-
-            // Check if canvases are visible
-            const cpuVisible = cpuCanvas.offsetWidth > 0 && cpuCanvas.offsetHeight > 0;
-            const memVisible = memCanvas.offsetWidth > 0 && memCanvas.offsetHeight > 0;
-
-            console.log('Canvas visibility - CPU:', cpuVisible, 'Memory:', memVisible);
-
-            if (cpuVisible) {
-                renderSparkline(cpuCanvas, cpuData, '#00ffaa');
-            }
-
-            if (memVisible) {
-                renderSparkline(memCanvas, memData, '#00ccff');
-            }
-
-            if (cpuVisible && memVisible) {
-                chartsRendered = true;
-                console.log('Resource History: Charts rendered successfully');
-            }
+    // Expose renderSparkline globally for use in x-init
+    window.renderSparkline = function (canvas, values, color) {
+        if (!canvas || !canvas.getContext) {
+            console.log('renderSparkline: Invalid canvas');
+            return;
         }
 
-        function renderSparkline(canvas, values, color) {
-            if (!canvas || !canvas.getContext) return;
+        const ctx = canvas.getContext('2d');
 
-            const ctx = canvas.getContext('2d');
+        // Use the explicit canvas dimensions (400x90) scaled to display size
+        const width = canvas.width / 2;  // 200px logical width
+        const height = canvas.height / 2; // 45px logical height
 
-            // Use the explicit canvas dimensions (400x90) scaled to display size
-            const width = canvas.width / 2;  // 200px logical width
-            const height = canvas.height / 2; // 45px logical height
+        // Set up scaling for retina displays
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(2, 2);
+        ctx.clearRect(0, 0, width, height);
 
-            // Set up scaling for retina displays
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(2, 2);
-            ctx.clearRect(0, 0, width, height);
+        // Filter out nulls for range calculation
+        const validValues = values.filter(v => v !== null && v !== undefined);
+        if (validValues.length < 2) {
+            console.log('renderSparkline: Not enough valid values');
+            return;
+        }
 
-            // Filter out nulls for range calculation
-            const validValues = values.filter(v => v !== null && v !== undefined);
-            if (validValues.length < 2) return;
+        // Use 100 as fixed floor for range to keep scale consistent for %
+        const max = Math.max(...validValues, 100);
+        const range = max || 1;
 
-            // Use 100 as fixed floor for range to keep scale consistent for %
-            const max = Math.max(...validValues, 100);
-            const range = max || 1;
+        // Draw area fill
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        let lastX = 0;
+        values.forEach((v, i) => {
+            const x = (i / Math.max(1, values.length - 1)) * width;
+            if (v !== null && v !== undefined) {
+                const y = height - (v / range) * (height - 6) - 3;
+                if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
+                ctx.lineTo(x, y);
+                lastX = x;
+            }
+        });
+        ctx.lineTo(lastX, height);
+        ctx.closePath();
 
-            // Draw area fill
-            ctx.beginPath();
-            ctx.moveTo(0, height);
-            let lastX = 0;
-            values.forEach((v, i) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, color + '40'); // 25% opacity
+        gradient.addColorStop(1, color + '08'); // 3% opacity
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw stroke line
+        ctx.beginPath();
+        let started = false;
+        values.forEach((v, i) => {
+            if (v !== null && v !== undefined) {
                 const x = (i / Math.max(1, values.length - 1)) * width;
-                if (v !== null && v !== undefined) {
-                    const y = height - (v / range) * (height - 6) - 3;
-                    if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
+                const y = height - (v / range) * (height - 6) - 3;
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
                     ctx.lineTo(x, y);
-                    lastX = x;
                 }
-            });
-            ctx.lineTo(lastX, height);
-            ctx.closePath();
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, height);
-            gradient.addColorStop(0, color + '40'); // 25% opacity
-            gradient.addColorStop(1, color + '08'); // 3% opacity
-            ctx.fillStyle = gradient;
-            ctx.fill();
-
-            // Draw stroke line
-            ctx.beginPath();
-            let started = false;
-            values.forEach((v, i) => {
-                if (v !== null && v !== undefined) {
-                    const x = (i / Math.max(1, values.length - 1)) * width;
-                    const y = height - (v / range) * (height - 6) - 3;
-                    if (!started) {
-                        ctx.moveTo(x, y);
-                        started = true;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-            });
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2.0;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.stroke();
-        }
-
-        // Alpine.js integration - render when data changes
-        document.addEventListener('alpine:init', () => {
-            console.log('Resource History: Alpine initialized');
-
-            // Watch for data changes
-            Alpine.effect(() => {
-                const store = Alpine.store('dashboard');
-                if (store?.resourceHistory?.history?.length && !chartsRendered) {
-                    console.log('Resource History: Data detected, attempting render');
-                    setTimeout(renderResourceHistoryCharts, 100);
-                    setTimeout(renderResourceHistoryCharts, 500);
-                }
-            });
-
-            // Periodic refresh
-            setInterval(() => {
-                const serverTab = document.querySelector('#server-tab');
-                if (serverTab && serverTab.style.display !== 'none') {
-                    renderResourceHistoryCharts();
-                }
-            }, 5000);
-        });
-
-        // Render on page load
-        window.addEventListener('load', () => {
-            console.log('Resource History: Page loaded');
-            setTimeout(renderResourceHistoryCharts, 500);
-            setTimeout(renderResourceHistoryCharts, 1500);
-            setTimeout(renderResourceHistoryCharts, 3000);
-        });
-
-        // Render when tab becomes visible
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                setTimeout(renderResourceHistoryCharts, 200);
             }
         });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.0;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
 
-        // Render when Server tab is clicked
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('[data-tab="server"]') || e.target.id === 'server-tab-btn') {
-                setTimeout(renderResourceHistoryCharts, 300);
-                setTimeout(renderResourceHistoryCharts, 800);
-            }
-        });
+        console.log('renderSparkline: Rendered', values.length, 'points in', color);
+    };
 
-        // Expose for debugging
-        window.renderResourceHistoryCharts = renderResourceHistoryCharts;
-    })();
+    console.log('Resource History: renderSparkline function exposed globally');
 </script>
