@@ -95,6 +95,14 @@ def run_nfdump(args, tf=None):
         track_subprocess(duration, success, timeout)
 
 
+def _parse_nfdump_val(val_str):
+    """Helper to parse nfdump numeric values, handling int and float strings."""
+    try:
+        return int(val_str)
+    except ValueError:
+        return int(float(val_str))
+
+
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
     results = []
@@ -194,31 +202,42 @@ def parse_csv(output, expected_key=None):
         return results
     
     seen_keys = set()
+    # Pre-calculate max index to avoid re-calculation in loop
+    max_idx = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
+
     for line in lines[start_row_idx:]:
         if not line:
             continue
         if 'ts,' in line or 'te,' in line or 'Date first seen' in line:
             continue
+
         parts = line.split(",")
-        if len(parts) <= max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0):
+        if len(parts) <= max_idx:
             continue
+
         try:
             key = parts[key_idx]
-            if not key or "/" in key or key == "any":
+            if not key or key == "any" or "/" in key:
                 continue
             if key in seen_keys:
                 continue
             seen_keys.add(key)
-            bytes_val = int(float(parts[bytes_idx]))
-            flows_val = int(float(parts[flows_idx])) if flows_idx != -1 and len(parts) > flows_idx else 0
-            packets_val = int(float(parts[packets_idx])) if packets_idx != -1 and len(parts) > packets_idx else 0
+
+            # Optimization: Use helper to parse ints (handles float strings if needed)
+            bytes_val = _parse_nfdump_val(parts[bytes_idx])
+
+            flows_val = 0
+            if flows_idx != -1 and len(parts) > flows_idx:
+                flows_val = _parse_nfdump_val(parts[flows_idx])
+
+            packets_val = 0
+            if packets_idx != -1 and len(parts) > packets_idx:
+                packets_val = _parse_nfdump_val(parts[packets_idx])
+
             if bytes_val > 0:
                 # Extract timestamps (usually indexes 0 and 1 for -o csv)
                 ts = parts[0]
                 te = parts[1]
-                # Validate they look like timestamps (simple check)
-                # nfdump csv dates are usually strings "2023-..." which simple-json works with, 
-                # or we keep them as provided string
                 
                 results.append({
                     "key": key, 
