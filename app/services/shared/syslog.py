@@ -227,7 +227,7 @@ def _insert_fw_log(parsed: dict, raw_log: str):
             should_alert = True
             severity = 'high'
             alert_type = 'threat_blocked'
-            msg = f"🔥 Threat IP blocked: {src_ip}"
+            msg = f"Threat IP blocked: {src_ip}"
             mitre = 'T1595'  # Active Scanning - threat IP attempting access
             if country_name:
                 msg += f" ({country_name})"
@@ -238,7 +238,7 @@ def _insert_fw_log(parsed: dict, raw_log: str):
             port_names = {22: 'SSH', 23: 'Telnet', 445: 'SMB', 3389: 'RDP',
                          5900: 'VNC', 1433: 'MSSQL', 3306: 'MySQL', 5432: 'PostgreSQL', 27017: 'MongoDB'}
             service = port_names.get(dst_port, str(dst_port))
-            msg = f"🛡️ {service} probe blocked: {src_ip}:{dst_port}"
+            msg = f"{service} probe blocked: {src_ip}:{dst_port}"
             mitre = 'T1046'  # Network Service Discovery
         
         if should_alert:

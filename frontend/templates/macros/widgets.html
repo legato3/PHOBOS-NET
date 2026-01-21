@@ -1,18 +1,23 @@
 {% macro widget_card(id, title, icon, min_height='300px', extra_actions=None, show_spinner=False, card_class='',
-card_class_bind=None, footer_content=None) %}
+card_class_bind=None, footer_content=None, title_x_text=None, period_x_text=None) %}
 {%- set data_prop = id -%}
 {%- if id == 'worldmap' -%}
-    {%- set data_prop = 'worldMap' -%}
+{%- set data_prop = 'worldMap' -%}
 {%- elif id == 'insights' -%}
-    {%- set data_prop = 'insights' -%}
+{%- set data_prop = 'insights' -%}
 {%- endif -%}
 <div class="card {{ card_class }}" {% if card_class_bind %}:class="{{ card_class_bind }}" {% endif %}>
     <h2>
-        <div class="card-title-content">
-            <span class="title-icon">{{ icon }}</span>
-            <span>{{ title }}</span>
+        <div class="card-title-content" style="display: flex; align-items: center; flex: 1; min-width: 0;">
+
+            <span {% if title_x_text %}x-text="{{ title_x_text }}" {% endif %}
+                style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ title }}</span>
+            <template x-if="{{ period_x_text or 'false' }}">
+                <span class="period-badge" x-text="{{ period_x_text }}"
+                    style="margin-left: auto; font-size: 0.7em; color: var(--text-tertiary); font-weight: 500; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;"></span>
+            </template>
         </div>
-        <div class="card-actions">
+        <div class="card-actions" style="flex-shrink: 0;">
             {% if extra_actions %}
             {{ extra_actions | safe }}
             {% endif %}
@@ -30,7 +35,8 @@ card_class_bind=None, footer_content=None) %}
         </div>
 
         <!-- Real Content -->
-        <div x-show="!{{ data_prop }}?.loading" style="display: none;" :style="!{{ data_prop }}?.loading ? 'display: block' : ''">
+        <div x-show="!{{ data_prop }}?.loading" style="display: none;"
+            :style="!{{ data_prop }}?.loading ? 'display: block' : ''">
             {{ caller() }}
         </div>
     </div>
@@ -44,22 +50,14 @@ card_class_bind=None, footer_content=None) %}
 
 {# Reusable InsightPanel component - works for Traffic, Firewall, Hosts #}
 {% macro insight_panel(panel_key, title, icon, time_window_expr) %}
-<div class="card" @click="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded" 
-     style="cursor: pointer;" role="button" tabindex="0" 
-     @keydown.enter="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded" 
-     @keydown.space.prevent="insightPanels.{{ panel_key }}.expanded = !insightPanels.{{ panel_key }}.expanded">
+<div class="card">
     <h2>
-        <div class="card-title-content">
-            <span class="title-icon">{{ icon }}</span>
-            <div>
-                <span>{{ title }}</span>
-                <div style="font-size: 0.75em; color: var(--text-secondary); font-weight: normal; margin-top: 2px;" 
-                     x-text="'Based on selected time range'"></div>
-            </div>
-        </div>
-        <div class="card-actions">
-            <span style="font-size: 0.85em; color: var(--text-secondary);" 
-                  x-text="insightPanels.{{ panel_key }}.expanded ? '▼ Hide breakdown' : '▶ Show breakdown'"></span>
+        <div class="card-title-content" style="display: flex; align-items: center; flex: 1; min-width: 0;">
+
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ title }}</span>
+            <span class="period-badge"
+                style="margin-left: auto; font-size: 0.7em; color: var(--text-tertiary); font-weight: 500; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;"
+                x-text="{{ time_window_expr }}"></span>
         </div>
     </h2>
     <div class="widget-body">
@@ -69,18 +67,22 @@ card_class_bind=None, footer_content=None) %}
                 <span>Loading insights...</span>
             </div>
         </template>
-        
+
         <!-- Insight Cards (max 3-4 visible) -->
-        <template x-if="!insightPanels.{{ panel_key }}.loading && insightPanels.{{ panel_key }}.insights && insightPanels.{{ panel_key }}.insights.length > 0">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
-                <template x-for="(insight, idx) in insightPanels.{{ panel_key }}.insights.slice(0, insightPanels.{{ panel_key }}.expanded ? insightPanels.{{ panel_key }}.insights.length : 4)" 
-                          :key="'insight-' + idx + '-' + insight.id">
-                    <div class="card" style="padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
-                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;" x-text="insight.label"></div>
-                        <div style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 4px; font-weight: 500;">
+        <template
+            x-if="!insightPanels.{{ panel_key }}.loading && insightPanels.{{ panel_key }}.insights && insightPanels.{{ panel_key }}.insights.length > 0">
+            <div style="display: grid; grid-template-columns: 1fr; gap: 0; margin-bottom: 12px;">
+                <template x-for="(insight, idx) in insightPanels.{{ panel_key }}.insights.slice(0, 4)"
+                    :key="'insight-' + idx + '-' + insight.id">
+                    <div class="insight-row"
+                        style="padding: 10px 4px; background: transparent; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between;">
+                        <div style="font-size: 0.75em; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;"
+                            x-text="insight.label"></div>
+                        <div
+                            style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 4px; font-weight: 500;">
                             <template x-if="insight.type === 'talker' || insight.type === 'ip'">
-                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)" 
-                                      style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
+                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)"
+                                    style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'protocol'">
                                 <span x-text="insight.key"></span>
@@ -89,8 +91,8 @@ card_class_bind=None, footer_content=None) %}
                                 <span x-text="'Port ' + insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'destination'">
-                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)" 
-                                      style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
+                                <span class="clickable-ip" @click.stop="openIPModal(insight.key)"
+                                    style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'rule' || insight.type === 'category'">
                                 <span x-text="insight.key"></span>
@@ -105,24 +107,27 @@ card_class_bind=None, footer_content=None) %}
                                 <span x-text="insight.key"></span>
                             </template>
                         </div>
-                        <div style="font-size: 0.9em; color: var(--text-primary); margin-bottom: 2px;" x-text="insight.absolute"></div>
+                        <div style="font-size: 0.9em; color: var(--text-primary); margin-bottom: 2px;"
+                            x-text="insight.absolute"></div>
                         <div style="font-size: 0.75em; color: var(--text-secondary);" x-text="insight.relative"></div>
                         <template x-if="insight.service">
-                            <div style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 4px;" x-text="insight.service"></div>
+                            <div style="font-size: 0.7em; color: var(--text-tertiary); margin-top: 4px;"
+                                x-text="insight.service"></div>
                         </template>
                     </div>
                 </template>
             </div>
         </template>
-        
+
         <!-- Expanded View - Custom content per panel type -->
-        <div x-show="insightPanels.{{ panel_key }}.expanded" x-collapse 
-             style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div x-show="insightPanels.{{ panel_key }}.expanded" x-collapse
+            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
             {{ caller() }}
         </div>
-        
+
         <!-- Empty State -->
-        <template x-if="!insightPanels.{{ panel_key }}.loading && (!insightPanels.{{ panel_key }}.insights || insightPanels.{{ panel_key }}.insights.length === 0)">
+        <template
+            x-if="!insightPanels.{{ panel_key }}.loading && (!insightPanels.{{ panel_key }}.insights || insightPanels.{{ panel_key }}.insights.length === 0)">
             <div class="empty-state">
                 <span>No insights available</span>
             </div>

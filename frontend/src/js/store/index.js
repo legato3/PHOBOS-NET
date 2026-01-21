@@ -328,7 +328,7 @@ export const Store = () => ({
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
     flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
-    threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h', showDescription: false },
+    threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '1h', showDescription: false },
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
@@ -2533,7 +2533,7 @@ export const Store = () => ({
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`, {
+            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange || '24h'}`, {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -2642,7 +2642,7 @@ export const Store = () => ({
     async fetchAlertHistory() {
         this.alertHistory.loading = true;
         try {
-            const res = await fetch('/api/security/alerts/history');
+            const res = await fetch(`/api/security/alerts/history?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.alertHistory = { ...d, loading: false };
@@ -2725,7 +2725,7 @@ export const Store = () => ({
     async fetchMitreHeatmap() {
         this.mitreHeatmap.loading = true;
         try {
-            const res = await fetch('/api/security/mitre-heatmap');
+            const res = await fetch(`/api/security/mitre-heatmap?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.mitreHeatmap = { ...d, loading: false };
@@ -2737,7 +2737,7 @@ export const Store = () => ({
     async fetchProtocolAnomalies() {
         this.protocolAnomalies.loading = true;
         try {
-            const res = await fetch('/api/security/protocol-anomalies?range=' + this.timeRange);
+            const res = await fetch(`/api/security/protocol-anomalies?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.protocolAnomalies = { ...d, loading: false };
@@ -2847,7 +2847,7 @@ export const Store = () => ({
             // Add firewall blocks as a line overlay if data exists
             if (hasFwData) {
                 datasets.push({
-                    label: '🔥 FW Blocks',
+                    label: 'FW Blocks',
                     data: fwBlocks,
                     type: 'line',
                     borderColor: 'rgba(0, 255, 100, 1)',
@@ -2872,7 +2872,7 @@ export const Store = () => ({
                     scales: {
                         x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
                         y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' }, position: 'left' },
-                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'FW Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
+                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
                     }
                 }
             });
@@ -3040,7 +3040,7 @@ export const Store = () => ({
     async fetchThreatsByCountry() {
         this.threatsByCountry.loading = true;
         try {
-            const res = await fetch('/api/security/threats/by_country');
+            const res = await fetch(`/api/security/threats/by_country?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.threatsByCountry = { ...d, loading: false };
@@ -3052,7 +3052,7 @@ export const Store = () => ({
     async fetchThreatVelocity() {
         this.threatVelocity.loading = true;
         try {
-            const res = await fetch('/api/security/threat_velocity');
+            const res = await fetch(`/api/security/threat_velocity?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.threatVelocity = { ...d, loading: false };
@@ -3064,7 +3064,7 @@ export const Store = () => ({
     async fetchTopThreatIPs() {
         this.topThreatIPs.loading = true;
         try {
-            const res = await fetch('/api/security/top_threat_ips');
+            const res = await fetch(`/api/security/top_threat_ips?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.topThreatIPs = { ...d, loading: false };
@@ -3123,7 +3123,7 @@ export const Store = () => ({
         // Add firewall blocks as second line if data exists
         if (hasFwData) {
             datasets.push({
-                label: '🔥 FW Blocks',
+                label: 'FW Blocks',
                 data: blocked,
                 borderColor: 'rgba(0, 255, 100, 1)',
                 backgroundColor: 'rgba(0, 255, 100, 0.1)',
@@ -5823,22 +5823,18 @@ export const Store = () => ({
             const res = await fetch(`/api/security/attack-timeline?range=${range}`);
             if (res.ok) {
                 const d = await res.json();
-                // Calculate peak hour
-                let peak_count = 0;
-                let peak_hour = null;
-                if (d.timeline && d.timeline.length > 0) {
-                    const peak = d.timeline.reduce((max, item) => {
-                        const total = item.total || 0;
-                        return total > max.total ? { hour: item.hour, total: total } : max;
-                    }, { hour: null, total: 0 });
-                    peak_count = peak.total;
-                    peak_hour = peak.hour;
-                }
-
                 this.threatActivityTimeline = {
                     ...d,
-                    peak_count,
-                    peak_hour,
+                    avg_threat_rate: d.avg_threat_rate || 0,
+                    peak_threat_rate: d.peak_threat_rate || 0,
+                    avg_block_rate: d.avg_block_rate || 0,
+                    peak_block_rate: d.peak_block_rate || 0,
+                    avg_match_rate: d.avg_match_rate || 0,
+                    total_threats: d.total_threats || 0,
+                    total_matches: d.total_matches || 0,
+                    total_range_alerts: d.total_range_alerts || 0,
+                    period_total: d.period_total || 0,
+                    period_label: d.period_label || 'Period',
                     loading: false
                 };
                 this.$nextTick(() => {
@@ -5889,32 +5885,46 @@ export const Store = () => ({
             const medium = this.threatActivityTimeline.timeline.map(t => t.medium || 0);
             const low = this.threatActivityTimeline.timeline.map(t => t.low || 0);
             const fwBlocks = this.threatActivityTimeline.timeline.map(t => t.fw_blocks || 0);
+            const matchRate = this.threatActivityTimeline.timeline.map(t => t.match_rate || 0);
 
             const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
             const hasFwData = this.threatActivityTimeline.has_fw_data;
 
             const datasets = [
-                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 2 },
-                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 2 },
-                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 2 },
-                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 2 }
+                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 3 },
+                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 3 },
+                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 3 },
+                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 3 },
+                {
+                    label: 'Match Rate',
+                    data: matchRate,
+                    type: 'line',
+                    borderColor: 'rgba(255, 0, 255, 1)',
+                    backgroundColor: 'rgba(255, 0, 255, 0.1)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.4,
+                    yAxisID: 'yMatch',
+                    order: 1
+                }
             ];
 
             // Add firewall blocks as a line overlay if data exists
             if (hasFwData) {
                 datasets.push({
-                    label: '🔥 FW Blocks',
+                    label: 'Blocks',
                     data: fwBlocks,
                     type: 'line',
                     borderColor: 'rgba(0, 255, 100, 1)',
                     backgroundColor: 'rgba(0, 255, 100, 0.1)',
                     borderWidth: 2,
-                    pointRadius: 3,
+                    pointRadius: 2,
                     pointBackgroundColor: 'rgba(0, 255, 100, 1)',
                     fill: false,
                     tension: 0.3,
                     yAxisID: 'y1',
-                    order: 1
+                    order: 2
                 });
             }
 
@@ -5961,8 +5971,23 @@ export const Store = () => ({
                             position: 'left',
                             title: {
                                 display: true,
-                                text: 'Threats',
+                                text: 'Hits',
                                 color: this.getCssVar('--text-secondary') || '#888'
+                            }
+                        },
+                        yMatch: {
+                            grid: { display: false },
+                            ticks: {
+                                color: 'rgba(255, 0, 255, 0.7)',
+                                callback: (v) => v + '%'
+                            },
+                            position: 'right',
+                            min: 0,
+                            suggestedMax: 20,
+                            title: {
+                                display: true,
+                                text: 'Match %',
+                                color: 'rgba(255, 0, 255, 0.7)'
                             }
                         },
                         ...(hasFwData ? {
@@ -5972,7 +5997,7 @@ export const Store = () => ({
                                 position: 'right',
                                 title: {
                                     display: true,
-                                    text: 'FW Blocks',
+                                    text: 'Blocks',
                                     color: 'rgba(0, 255, 100, 0.8)'
                                 }
                             }

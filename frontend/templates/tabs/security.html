@@ -7,26 +7,24 @@
         <!-- Security Summary Stats -->
         <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
             <div class="card stat-box">
-                <div class="value text-cyan"
-                    x-text="(securityObservability.firewall?.threats_blocked || 0).toLocaleString()"></div>
-                <div class="label">Blocked (24h)</div>
-            </div>
-            <div class="card stat-box">
-                <div class="value">
-                    <span x-text="feedHealth.summary?.ok || 0"></span><span class="text-muted">/</span><span
-                        x-text="feedHealth.summary?.total || 0"></span>
+                <div class="value text-white" x-text="(threatActivityTimeline.total_threats || 0).toLocaleString()">
                 </div>
-                <div class="label">Feeds Active</div>
+                <div class="label">Threats</div>
             </div>
             <div class="card stat-box">
-                <div class="value" x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()">
+                <div class="value text-white" x-text="(threatActivityTimeline.period_total || 0).toLocaleString()">
                 </div>
-                <div class="label">Blocklist IPs</div>
+                <div class="label">Blocks</div>
             </div>
             <div class="card stat-box">
-                <div class="value" :class="(activeAlertsCount || 0) > 0 ? 'text-yellow' : ''"
-                    x-text="activeAlertsCount || 0"></div>
-                <div class="label">Alerts 24h</div>
+                <div class="value text-white" x-text="(threatActivityTimeline.total_matches || 0).toLocaleString()">
+                </div>
+                <div class="label">Matches</div>
+            </div>
+            <div class="card stat-box">
+                <div class="value text-white"
+                    x-text="(threatActivityTimeline.total_range_alerts || 0).toLocaleString()"></div>
+                <div class="label">Alerts</div>
             </div>
         </div>
 
@@ -86,30 +84,37 @@
             </div>
 
             <!-- Stats Summary -->
-            <div
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-2);">
-                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;">
-                    <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                        Total Threats</div>
-                    <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-cyan);"
-                        x-text="threatActivityTimeline.total_24h || 0"></div>
+            <div class="timeline-stats-summary">
+                <div class="timeline-stat-box">
+                    <div class="stat-label">Avg Threats/hr</div>
+                    <div class="stat-value" style="color: var(--neon-red);"
+                        x-text="(threatActivityTimeline.avg_threat_rate || 0)"></div>
                 </div>
-                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;"
-                    x-show="threatActivityTimeline.peak_hour">
-                    <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                        Peak Hour</div>
-                    <div style="font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--neon-red);"
-                        x-text="threatActivityTimeline.peak_hour || 'N/A'"></div>
-                    <div style="font-size: var(--text-xs); color: var(--text-muted);"
-                        x-text="(threatActivityTimeline.peak_count || 0) + ' threats'">
-                    </div>
+                <div class="timeline-stat-box">
+                    <div class="stat-label">Peak Threats/hr</div>
+                    <div class="stat-value" style="color: var(--neon-red); opacity: 0.8;"
+                        x-text="(threatActivityTimeline.peak_threat_rate || 0)"></div>
                 </div>
-                <div class="card" style="padding: var(--space-1) var(--space-2); text-align: center;"
-                    x-show="threatActivityTimeline.has_fw_data">
-                    <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-bottom: 2px;">
-                        FW Blocks</div>
-                    <div style="font-size: var(--text-lg); font-weight: var(--font-weight-bold); color: var(--neon-green);"
-                        x-text="threatActivityTimeline.fw_blocks_24h || 0"></div>
+                <div class="timeline-stat-box">
+                    <div class="stat-label">Match Rate (%)</div>
+                    <div class="stat-value" style="color: var(--neon-purple);"
+                        x-text="(threatActivityTimeline.avg_match_rate || 0) + '%'"></div>
+                </div>
+                <div class="timeline-stat-box">
+                    <div class="stat-label">Avg Blocks/hr</div>
+                    <div class="stat-value" style="color: var(--neon-green);"
+                        x-text="(threatActivityTimeline.avg_block_rate || 0)"></div>
+                </div>
+                <div class="timeline-stat-box">
+                    <div class="stat-label">Peak Blocks/hr</div>
+                    <div class="stat-value" style="color: var(--neon-green); opacity: 0.8;"
+                        x-text="(threatActivityTimeline.peak_block_rate || 0)"></div>
+                </div>
+                <div class="timeline-stat-box">
+                    <div class="stat-label"
+                        x-text="'Total Blocks (' + (threatActivityTimeline.period_label || 'Period') + ')'"></div>
+                    <div class="stat-value" style="color: var(--neon-cyan);"
+                        x-text="threatActivityTimeline.period_total || 0"></div>
                 </div>
             </div>
 
@@ -178,9 +183,11 @@
                                 </svg>
                             </span>
                             <div class="coverage-detail">
-                                <span class="coverage-label">Threats Blocked (24h)</span>
+                                <span class="coverage-label"
+                                    x-text="'Threats Blocked (' + (threatActivityTimeline.period_label || 'Period') + ')'">Threats
+                                    Blocked</span>
                                 <span class="coverage-value"
-                                    x-text="(securityObservability.firewall?.threats_blocked || 0).toLocaleString()"></span>
+                                    x-text="(threatActivityTimeline.period_total || 0).toLocaleString()"></span>
                             </div>
                         </div>
                         <div class="coverage-item">
@@ -223,9 +230,6 @@
                                     <span x-text="feedHealth.summary?.ok || 0"></span>
                                     <span class="coverage-separator">/</span>
                                     <span x-text="feedHealth.summary?.total || 0"></span>
-                                    <span class="coverage-badge"
-                                        :class="getCoverageClass(feedHealth.summary?.ok, feedHealth.summary?.total)"
-                                        x-text="getCoverageLabel(feedHealth.summary?.ok, feedHealth.summary?.total)"></span>
                                 </span>
                             </div>
                         </div>
@@ -277,16 +281,18 @@
 
             <!-- Alert History Widget -->
             <template x-if="isVisible('alertHistory')">
-                {% call widget_card('alertHistory', 'Alert History (24h)', '🔔', show_spinner=True)
+                {% call widget_card('alertHistory', 'Alert History', '', show_spinner=True,
+                title_x_text="'Alert History'",
+                period_x_text="threatActivityTimeline.period_label || '24h'")
                 %}
                 <!-- Alert Filters -->
                 <div class="alert-filters">
                     <select x-model="alertFilter.severity" class="filter-select" aria-label="Filter alerts by severity">
                         <option value="all">All Severities</option>
-                        <option value="critical">🔴 Critical</option>
-                        <option value="high">🟠 High</option>
-                        <option value="medium">🟡 Medium</option>
-                        <option value="low">🟢 Low</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
                     </select>
                     <select x-model="alertFilter.type" class="filter-select" aria-label="Filter alerts by type">
                         <option value="all">All Types</option>
@@ -303,15 +309,15 @@
                     </select>
                 </div>
                 <div class="alert-summary">
-                    <span class="alert-badge critical" x-show="activeAlertsBySeverity?.critical > 0">🔴 <span
+                    <span class="alert-badge critical" x-show="activeAlertsBySeverity?.critical > 0"><span
                             x-text="activeAlertsBySeverity?.critical || 0"></span>
                         critical</span>
-                    <span class="alert-badge high" x-show="activeAlertsBySeverity?.high > 0">🟠
+                    <span class="alert-badge high" x-show="activeAlertsBySeverity?.high > 0">
                         <span x-text="activeAlertsBySeverity?.high || 0"></span> high</span>
-                    <span class="alert-badge medium" x-show="activeAlertsBySeverity?.medium > 0">🟡
+                    <span class="alert-badge medium" x-show="activeAlertsBySeverity?.medium > 0">
                         <span x-text="activeAlertsBySeverity?.medium || 0"></span>
                         medium</span>
-                    <span class="alert-badge low" x-show="activeAlertsBySeverity?.low > 0">🟢
+                    <span class="alert-badge low" x-show="activeAlertsBySeverity?.low > 0">
                         <span x-text="activeAlertsBySeverity?.low || 0"></span> low</span>
                     <span class="text-muted">Total: <span x-text="activeAlertsCount || 0"></span></span>
                 </div>
@@ -323,31 +329,32 @@
                                 <span class="alert-type-badge"
                                     :class="'cat-' + (a.category || a.type || 'unknown').toLowerCase()"
                                     x-text="a.type || 'alert'"></span>
-                                <span class="alert-msg" :title="a.msg" x-text="a.msg"></span>
+                                <span class="alert-msg" :title="a.msg"
+                                    x-text="a.msg.replace(/^[^:]+:\s+/, '').replace(/\s*\([^)]+\)$/, '')"></span>
                             </div>
                             <div class="alert-severity" :class="'sev-' + a.severity" x-text="a.severity"></div>
                         </div>
                     </template>
                     <template x-if="filteredAlerts.length === 0">
                         <div class="alert-empty"
-                            x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? '🔍 No matching alerts' : '✅ No alerts in past 24 hours'">
+                            x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? 'No matching alerts' : 'No alerts in past ' + (threatActivityTimeline.period_label || '24h')">
                         </div>
                     </template>
                 </div>
                 {% endcall %}
             </template>
 
-            <!-- Threats by Country Widget (FIXED-SCOPE: 24h) -->
             <template x-if="isVisible('threatsByCountry')">
-                {% call widget_card('threatsByCountry', 'Threats by Country (24h)', '🌍',
-                show_spinner=True) %}
+                {% call widget_card('threatsByCountry', 'Detections by Country', '🌍',
+                show_spinner=True,
+                title_x_text="'DETECTIONS BY COUNTRY'",
+                period_x_text="threatActivityTimeline.period_label || '24h'") %}
                 <div class="country-threat-list">
                     <template x-if="threatsByCountry.countries && threatsByCountry.countries.length > 0">
                         <div>
                             <div class="text-85 text-muted mb-2">
                                 <span x-text="threatsByCountry.total_countries || 0"></span>
-                                countries
-                                detected
+                                countries — threats & blocks detected
                                 <template x-if="threatsByCountry.has_fw_data">
                                     <span> · <span class="text-green" x-text="threatsByCountry.total_blocked"></span>
                                         blocked</span>
@@ -361,8 +368,12 @@
                                     <span class="country-count">
                                         <span x-text="c.threat_count"></span>
                                         <template x-if="c.blocked > 0">
-                                            <span class="text-green text-8 ml-1">🔥<span
-                                                    x-text="c.blocked"></span></span>
+                                            <span style="display: inline-flex; align-items: center;">
+                                                <span class="text-muted"
+                                                    style="margin: 0 8px; font-size: 0.9em; opacity: 0.3;">/</span>
+                                                <span class="text-green" style="font-weight: 600;"
+                                                    x-text="c.blocked"></span>
+                                            </span>
                                         </template>
                                     </span>
                                 </div>
@@ -383,18 +394,8 @@
 
             <!-- Feed Health -->
             <template x-if="isVisible('feedHealth')">
-                {% set feed_actions %}
-                <button class="icon-btn-small" @click="refreshFeed()" title="Refresh Feeds Now" class="text-green">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2">
-                        <path d="M21 12a9 9 0 11-2.5-6.3" />
-                        <path d="M21 3v6h-6" />
-                    </svg>
-                </button>
-                {% endset %}
-
-                {% call widget_card('feedHealth', 'Feed Health', '📡', extra_actions=feed_actions,
-                show_spinner=True) %}
+                {% call widget_card('feedHealth', 'Feed Health', '📡', show_spinner=True,
+                period_x_text="feedHealth.summary?.last_refresh || 'never'") %}
                 <!-- Summary Bar -->
                 <div class="feed-summary-bar">
                     <div class="feed-stat">
@@ -408,14 +409,9 @@
                     </div>
                     <div class="feed-stat-sep">·</div>
                     <div class="feed-stat">
-                        <span class="feed-stat-value text-cyan"
+                        <span class="feed-stat-value text-white"
                             x-text="(feedHealth.summary?.total_ips || 0).toLocaleString()"></span>
                         <span class="feed-stat-label">IPs</span>
-                    </div>
-                    <div class="feed-stat-sep">·</div>
-                    <div class="feed-stat">
-                        <span class="feed-stat-value text-muted"
-                            x-text="feedHealth.summary?.last_refresh || 'never'"></span>
                     </div>
                 </div>
                 <!-- Feed List (Full Width) -->
@@ -439,7 +435,9 @@
             </template>
 
             <!-- Top Malicious Ports -->
-            {% call widget_card('maliciousPorts', 'Top Malicious Ports', '🔒', show_spinner=True) %}
+            {% call widget_card('maliciousPorts', 'Top Malicious Ports', '🔒', show_spinner=True,
+            title_x_text="'TOP MALICIOUS PORTS'",
+            period_x_text="threatActivityTimeline.period_label || '24h'") %}
             <div class="text-9 text-muted mb-2">
                 <template x-if="maliciousPorts.has_syslog">
                     <span>Ports targeted by threats + blocked by firewall</span>
@@ -448,7 +446,7 @@
                     <span>Ports most frequently seen in threat traffic</span>
                 </template>
             </div>
-            <div style="max-height: 240px; overflow-y: auto;">
+            <div style="max-height: 285px; overflow-y: auto;">
                 <table class="table-fixed table-compact">
                     <thead>
                         <tr>
@@ -458,19 +456,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="(p, i) in maliciousPorts.ports.slice(0, 15)" :key="p.port + '-' + i">
+                        <template x-for="(p, i) in maliciousPorts.ports.slice(0, 20)" :key="p.port + '-' + i">
                             <tr>
                                 <td>
                                     <strong class="text-cyan" x-text="p.port"></strong>
-                                    <template x-if="p.suspicious"><span
-                                            style="color: var(--neon-pink); font-size: 0.75em;">
+                                    <template x-if="p.suspicious"><span>
                                             ⚠</span></template>
                                     <div class="text-8 text-muted" x-text="p.service || ''">
                                     </div>
                                 </td>
                                 <td>
                                     <template x-if="p.blocked > 0">
-                                        <span class="text-green">🔥 <span x-text="p.blocked"></span></span>
+                                        <span class="text-green"><span x-text="p.blocked"></span></span>
                                     </template>
                                     <template x-if="!p.blocked || p.blocked === 0">
                                         <span class="text-muted">—</span>
@@ -508,74 +505,15 @@
             </div>
             {% endcall %}
 
-            <!-- Blocklist Match Rate -->
-            {% call widget_card('blocklist', 'Blocklist Match Rate', '🛡️', show_spinner=True) %}
-            <div class="text-85 text-muted mb-2">
-                Rate of flows matching blocklists / feeds
-                <template x-if="blocklist.has_fw_data">
-                    <span class="text-green"> + FW blocks</span>
-                </template>
-            </div>
-            <div class="h-25 mb-2 chart-expandable"
-                @click="openFullscreenChart('blocklistChart', 'Blocklist Match Rate')" title="Click to expand">
-                <canvas id="blocklistChart"></canvas>
-            </div>
-            <div class="blocklist-stats">
-                <div class="blocklist-stat">
-                    <span class="blocklist-value"
-                        :class="{ 'text-green': blocklist.current_rate == 0, 'text-yellow': blocklist.current_rate > 0 && blocklist.current_rate < 1, 'text-red': blocklist.current_rate >= 1 }"
-                        x-text="(blocklist.current_rate != null) ? (blocklist.current_rate + '%') : '--'"></span>
-                    <span class="blocklist-label">Match Rate</span>
-                </div>
-                <div class="blocklist-stat">
-                    <span class="blocklist-value text-muted"
-                        x-text="(blocklist.total_matches || 0).toLocaleString()"></span>
-                    <span class="blocklist-label">Matches</span>
-                </div>
-                <template x-if="blocklist.has_fw_data">
-                    <div class="blocklist-stat">
-                        <span class="blocklist-value text-green"
-                            x-text="(blocklist.total_blocked || 0).toLocaleString()"></span>
-                        <span class="blocklist-label">🔥 Blocked</span>
-                    </div>
-                </template>
-            </div>
-            {% endcall %}
 
-            <!-- Threat Velocity Widget -->
-            <template x-if="isVisible('threatVelocity')">
-                {% call widget_card('threatVelocity', 'Threat Trend (1h)', '📈',
-                show_spinner=True) %}
-                <div class="velocity-display">
-                    <div class="velocity-main">
-                        <span class="velocity-value"
-                            :class="{ 'text-green': threatVelocity.current === 0, 'text-yellow': threatVelocity.current > 0 && threatVelocity.current < 5, 'text-red': threatVelocity.current >= 5 }"
-                            x-text="threatVelocity.current || 0"></span>
-                        <span class="velocity-unit">threats/hr</span>
-                    </div>
-                    <div class="velocity-trend"
-                        :class="{ 'trend-up': threatVelocity.trend > 0, 'trend-down': threatVelocity.trend < 0, 'trend-stable': threatVelocity.trend === 0 }">
-                        <span x-text="threatVelocity.trend > 0 ? '↑' : threatVelocity.trend < 0 ? '↓' : '→'"></span>
-                        <span x-text="Math.abs(threatVelocity.trend || 0) + '%'"></span>
-                        <span class="trend-label">vs last hour</span>
-                    </div>
-                    <div class="velocity-stats">
-                        <div class="velocity-stat">
-                            <span class="velocity-stat-value" x-text="threatVelocity.total_24h || 0"></span>
-                            <span class="velocity-stat-label">24h Total</span>
-                        </div>
-                        <div class="velocity-stat">
-                            <span class="velocity-stat-value" x-text="threatVelocity.peak || 0"></span>
-                            <span class="velocity-stat-label">Peak/hr</span>
-                        </div>
-                    </div>
-                </div>
-                {% endcall %}
-            </template>
+
+
 
             <!-- Top Threat IPs Widget -->
             <template x-if="isVisible('topThreatIPs')">
-                {% call widget_card('topThreatIPs', 'Top Threat IPs', '🎯', show_spinner=True)
+                {% call widget_card('topThreatIPs', 'Top Threat IPs', '🎯', show_spinner=True,
+                title_x_text="'TOP THREAT IPS'",
+                period_x_text="threatActivityTimeline.period_label || '24h'")
                 %}
                 <div class="threat-ips-list">
                     <template x-for="(ip, idx) in (topThreatIPs.ips || []).slice(0, 5)" :key="ip.ip">
@@ -586,7 +524,8 @@
                                 <span class="threat-ip-meta">
                                     <span class="badge" :class="'cat-' + (ip.category || 'unknown').toLowerCase()"
                                         x-text="ip.category || 'Unknown'"></span>
-                                    <span x-text="ip.country || '--'"></span>
+                                    <span :title="ip.country_name || ''"
+                                        x-text="(ip.flag || '') + ' ' + (ip.country || '--')"></span>
                                 </span>
                             </div>
                             <div class="threat-ip-hits">
@@ -605,10 +544,12 @@
                 {% endcall %}
             </template>
 
-            <!-- MITRE ATT&CK Coverage Widget (FIXED-SCOPE: 24h) -->
+            <!-- MITRE ATT&CK Coverage Widget -->
             <template x-if="isVisible('mitreHeatmap')">
-                {% call widget_card('mitreHeatmap', 'Detected Techniques (24h)', '🎯',
-                show_spinner=True) %}
+                {% call widget_card('mitreHeatmap', 'Detected Techniques', '🎯',
+                show_spinner=True,
+                title_x_text="'DETECTED TECHNIQUES'",
+                period_x_text="threatActivityTimeline.period_label || '24h'") %}
                 <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                     <div
                         style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
@@ -618,7 +559,7 @@
                             Techniques Detected</div>
                     </div>
                     <div
-                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-2); max-height: 200px; overflow-y: auto;">
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: var(--space-2); max-height: 200px; overflow-y: auto;">
                         <template x-for="technique in mitreHeatmap.techniques.slice(0, 12)" :key="technique.id">
                             <div class="card"
                                 style="padding: var(--space-1) var(--space-2); text-align: center; cursor: pointer; transition: all var(--motion-base);"
@@ -661,10 +602,14 @@
             <!-- Protocol Anomalies Widget -->
             <template x-if="isVisible('protocolAnomalies')">
                 {% call widget_card('protocolAnomalies', 'Protocol Anomalies', '⚡',
-                show_spinner=True) %}
+                show_spinner=True,
+                title_x_text="'PROTOCOL ANOMALIES'",
+                period_x_text="threatActivityTimeline.period_label || '24h'") %}
                 <div class="anomaly-summary" :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
-                    <span x-show="protocolAnomalies.status === 'warming'" class="text-yellow"
-                        style="font-style:italic;">⚠️ Baseline Warming (learning phase)</span>
+                    <div x-show="protocolAnomalies.status === 'warming'" class="warming-banner">
+                        <span class="warming-icon">⚠️</span>
+                        <span class="warming-text">Baseline Warming (learning phase)</span>
+                    </div>
                     <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count > 0"
                         class="text-red">⚠️
                         <span x-text="protocolAnomalies.anomaly_count"></span> anomalies

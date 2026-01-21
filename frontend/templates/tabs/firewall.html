@@ -86,7 +86,7 @@
             </button>
         </div>
         {% endset %}
-        {% call widget_card('recentBlocks', 'Firewall Filter Logs', '🔥', card_class='wide-card mb-6',
+        {% call widget_card('recentBlocks', 'Firewall Filter Logs', '🛡️', card_class='wide-card mb-6',
         extra_actions=fw_actions, show_spinner=True) %}
         <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="empty-state">
             <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">✅</div>

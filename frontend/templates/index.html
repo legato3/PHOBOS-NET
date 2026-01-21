@@ -127,14 +127,21 @@
                                 x-text="(firewall.mem_percent || '--') + '%'"></span>
                         </div>
                         <!-- Network Metrics -->
+                        <!-- Data Sources -->
                         <div class="status-bar-item">
-                            <span class="label">Threats:</span>
-                            <span class="value" :class="{ 'critical': threats.hits.length > 0 }"
-                                x-text="threats.hits.length"></span>
+                            <span class="label">NetFlow:</span>
+                            <span class="value" :class="{ 'critical': !serverHealth.netflow?.available }"
+                                x-text="serverHealth.netflow?.available ? 'Active' : 'Down'"></span>
                         </div>
                         <div class="status-bar-item">
-                            <span class="label">Flows:</span>
-                            <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+                            <span class="label">SNMP:</span>
+                            <span class="value" :class="{ 'critical': firewall.cpu_percent === null }"
+                                x-text="firewall.cpu_percent !== null ? 'Active' : 'Down'"></span>
+                        </div>
+                        <div class="status-bar-item">
+                            <span class="label">Syslog:</span>
+                            <span class="value" :class="{ 'critical': !firewall.syslog_active }"
+                                x-text="firewall.syslog_active ? 'Active' : 'Down'"></span>
                         </div>
                         <!-- Status -->
                         <div class="status-bar-item">

@@ -1859,7 +1859,7 @@ table:has(.network-endpoint-row) td {
     font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-wide);
-    color: var(--text-muted);
+    color: #fff;
     text-align: left;
 }
 
@@ -1881,27 +1881,29 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 
 /* Unified endpoint row - surface depth instead of borders */
 .network-endpoint-row {
-    margin-bottom: var(--endpoint-row-gap);
-    border-radius: var(--radius-md);
-    background: var(--endpoint-surface-base);
+    margin-bottom: 0px;
+    border-radius: 0px;
+    background: transparent;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.1);
     transition: background-color var(--motion-base), transform var(--motion-fast);
     position: relative;
+    border-left: none;
 }
 
 /* Primary row (rank 0) - more prominent spacing and elevation */
 .network-endpoint-row[data-row-rank="0"] {
-    margin-bottom: var(--endpoint-row-gap-primary);
-    background: var(--endpoint-surface-primary);
+    margin-bottom: 0;
+    background: transparent;
 }
 
 /* Secondary rows (rank > 0) - standard treatment */
 .network-endpoint-row[data-row-rank]:not([data-row-rank="0"]) {
-    background: var(--endpoint-surface-base);
+    background: transparent;
 }
 
 /* Hover state - subtle elevation */
 .network-endpoint-row:hover {
-    background: var(--endpoint-surface-hover);
+    background: rgba(0, 243, 255, 0.03);
     transform: translateX(2px);
     cursor: pointer;
 }
@@ -1913,46 +1915,48 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     left: 0;
     top: 0;
     bottom: 0;
-    width: calc(var(--row-percentage, 0) * 1%);
-    background: var(--endpoint-surface-elevated);
-    border-radius: var(--radius-md) 0 0 var(--radius-md);
-    pointer-events: none;
+    width: calc(var(--row-percentage) * 1%);
+    background: rgba(0, 243, 255, 0.05);
     z-index: 0;
     transition: width var(--motion-slow), background var(--motion-base);
 }
 
 /* Primary row bar slightly more visible */
 .network-endpoint-row[data-row-rank="0"][data-percentage]::before {
-    background: var(--endpoint-surface-primary);
+    background: rgba(0, 243, 255, 0.08);
 }
 
 /* Hover state for background bar */
 .network-endpoint-row:hover[data-percentage]::before {
-    background: var(--endpoint-surface-hover);
+    background: rgba(0, 243, 255, 0.1);
 }
 
 /* Endpoint cell wrapper - handles padding and z-index */
 .endpoint-cell {
     position: relative;
     z-index: 1;
-    padding: var(--endpoint-row-padding-y) var(--endpoint-row-padding-x);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 8px 12px;
     text-align: left;
 }
 
 /* Primary row cell - more padding */
 .network-endpoint-row[data-row-rank="0"] .endpoint-cell {
-    padding: var(--endpoint-row-padding-y-primary) var(--endpoint-row-padding-x);
+    padding: 10px 12px;
 }
 
 /* Endpoint content structure */
 .endpoint-primary-line {
     display: flex;
     align-items: center;
-    gap: var(--endpoint-cell-gap);
-    margin-bottom: 4px;
-    justify-content: flex-start;
+    gap: var(--space-2);
+    flex: 0 1 auto;
     min-width: 0;
-    line-height: 1.2;
+    text-align: left;
 }
 
 .endpoint-ip {
@@ -1966,15 +1970,19 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 }
 
 .network-endpoint-row[data-row-rank="0"] .endpoint-ip {
-    font-size: var(--endpoint-ip-size-primary);
+    font-size: 1.1em;
+    color: var(--neon-cyan);
 }
 
 .endpoint-flag {
     flex-shrink: 0;
-    font-size: var(--text-base);
-    filter: grayscale(0.2);
-    width: 1.2em;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    font-size: 1em;
+    line-height: var(--line-height-tight);
+    letter-spacing: 0.02em;
 }
 
 .endpoint-filter-btn {
@@ -2512,14 +2520,21 @@ tr:hover td {
 
 /* CYBERPUNK UI: Spinner - Signal loading indicator */
 .spinner {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border: 2px solid var(--border-soft);
     border-top: 2px solid var(--signal-primary);
-    /* Use signal primary instead of neon-cyan */
     border-radius: 50%;
     animation: spin 1s linear infinite;
     box-shadow: 0 0 8px rgba(0, 234, 255, 0.3);
+}
+
+/* Specific override for widget headers to prevent height expansion */
+.card-actions .spinner {
+    width: 12px;
+    height: 12px;
+    border-width: 1.5px;
+    box-shadow: none;
 }
 
 @keyframes spin {
@@ -2988,6 +3003,46 @@ tr:hover td {
     font-weight: 500;
 }
 
+/* Country Bars (similar to ASN/Service) */
+.country-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.country-name {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.country-bar-container {
+    flex-grow: 1;
+    background: rgba(255, 255, 255, 0.1);
+    height: 6px;
+    border-radius: 3px;
+    margin: 0 10px;
+    overflow: hidden;
+}
+
+.country-bar {
+    height: 100%;
+    background: var(--neon-green);
+    border-radius: 3px;
+}
+
+.country-val {
+    width: 60px;
+    text-align: right;
+    color: var(--text-primary);
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
 /* Top Talkers Widget */
 .talkers-list {
     display: flex;
@@ -3001,9 +3056,7 @@ tr:hover td {
     align-items: center;
     justify-content: space-between;
     padding: 8px 10px;
-    background: rgba(0, 243, 255, 0.05);
     border-radius: 6px;
-    border-left: 3px solid var(--neon-cyan);
     gap: 10px;
 }
 
@@ -4675,9 +4728,6 @@ table[style*="table-layout:fixed"] td:first-child {
    SECURITY COVERAGE & PROTECTION WIDGET
    Calm, factual, observability-focused design
    ============================================ */
-.security-coverage-card {
-    border-left: 3px solid var(--neon-cyan);
-}
 
 /* Coverage Sections */
 .coverage-section {
@@ -4728,30 +4778,35 @@ table[style*="table-layout:fixed"] td:first-child {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
     flex-shrink: 0;
+    font-size: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .coverage-icon.status-ok {
     color: var(--signal-ok);
-    background: rgba(0, 255, 136, 0.1);
+    background: rgba(0, 255, 136, 0.12);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.1), inset 0 0 5px rgba(0, 255, 136, 0.05);
 }
 
 .coverage-icon.status-info {
     color: var(--neon-cyan);
-    background: rgba(0, 255, 255, 0.08);
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1), inset 0 0 5px rgba(0, 255, 255, 0.05);
 }
 
 .coverage-icon.status-warn {
     color: var(--signal-warn);
-    background: rgba(255, 180, 0, 0.1);
+    background: rgba(255, 180, 0, 0.12);
+    box-shadow: 0 0 10px rgba(255, 180, 0, 0.1), inset 0 0 5px rgba(255, 180, 0, 0.05);
 }
 
 .coverage-icon.status-unknown {
     color: var(--text-muted);
-    background: rgba(136, 136, 136, 0.1);
+    background: rgba(136, 136, 136, 0.08);
 }
 
 /* Coverage Details */
@@ -4762,15 +4817,17 @@ table[style*="table-layout:fixed"] td:first-child {
 }
 
 .coverage-label {
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    font-weight: 500;
+    font-size: 10px;
+    color: var(--text-2);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .coverage-value {
-    font-size: var(--fs-sm);
-    color: var(--text-primary);
-    font-weight: 600;
+    font-size: var(--fs-md);
+    color: var(--text-0);
+    font-weight: 700;
     font-family: var(--font-mono);
     display: flex;
     align-items: center;
@@ -4886,12 +4943,25 @@ table[style*="table-layout:fixed"] td:first-child {
     font-size: var(--fs-sm);
 }
 
-.card table td,
+.card table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-soft);
+}
+
 .card table th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     border-bottom: 1px solid var(--border-soft);
+    font-size: 10px;
+    color: var(--text-2);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+    padding-bottom: 8px;
 }
 
 .card table tr:hover {
@@ -4964,18 +5034,26 @@ table[style*="table-layout:fixed"] td:first-child {
 .country-threat-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
 }
 
 .country-threat-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 12px;
+    padding: 10px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
     overflow: hidden;
+    transition: background var(--transition-fast);
+}
+
+.country-threat-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.country-threat-item:last-child {
+    border-bottom: none;
 }
 
 .country-name {
@@ -4999,10 +5077,9 @@ table[style*="table-layout:fixed"] td:first-child {
 .country-count {
     font-family: var(--font-mono);
     font-weight: 600;
-    color: var(--neon-yellow);
-    padding: 2px 8px;
-    background: rgba(255, 204, 0, 0.1);
-    border-radius: 4px;
+    color: var(--neon-red);
+    padding: 2px 0;
+    background: transparent;
 }
 
 /* Empty States - Enhanced */
@@ -5151,10 +5228,9 @@ table[style*="table-layout:fixed"] td:first-child {
     align-items: center;
     gap: 6px;
     padding: 8px 12px;
-    background: rgba(0, 243, 255, 0.05);
+    background: transparent;
     border-radius: 6px;
     margin-bottom: 12px;
-    flex-wrap: wrap;
 }
 
 .feed-stat {
@@ -5164,8 +5240,7 @@ table[style*="table-layout:fixed"] td:first-child {
 }
 
 .feed-stat-value {
-    font-family: var(--font-sans);
-    /* Display number - use sans-serif */
+    font-family: var(--font-mono);
     font-weight: 700;
     font-size: 1.1em;
 }
@@ -5207,7 +5282,7 @@ table[style*="table-layout:fixed"] td:first-child {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 280px;
+    max-height: 345px;
     overflow-y: auto;
 }
 
@@ -5215,12 +5290,19 @@ table[style*="table-layout:fixed"] td:first-child {
     display: grid;
     grid-template-columns: 16px 1fr auto auto;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 5px;
-    border: 1px solid transparent;
+    gap: 12px;
+    padding: 8px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
     transition: all 0.15s;
+}
+
+.feed-item:last-child {
+    border-bottom: none;
 }
 
 .feed-item:hover {
@@ -5228,9 +5310,8 @@ table[style*="table-layout:fixed"] td:first-child {
     border-color: rgba(0, 243, 255, 0.15);
 }
 
-.feed-item.feed-error {
-    border-color: rgba(255, 0, 60, 0.25);
-    background: rgba(255, 0, 60, 0.05);
+.feed-item.feed-error .feed-status-dot {
+    box-shadow: 0 0 5px var(--signal-crit);
 }
 
 .feed-name-full {
@@ -5400,13 +5481,13 @@ table[style*="table-layout:fixed"] td:first-child {
 }
 
 .feed-status-dot.ok {
-    background: var(--accent-cyan);
-    box-shadow: 0 0 4px rgba(0, 243, 255, 0.4);
+    background: #00ff88 !important;
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
 }
 
 .feed-status-dot.error {
-    background: var(--neon-red);
-    box-shadow: 0 0 6px var(--neon-red);
+    background: #ff1744 !important;
+    box-shadow: 0 0 8px rgba(255, 23, 68, 0.6);
 }
 
 .feed-name {
@@ -5538,17 +5619,25 @@ table[style*="table-layout:fixed"] td:first-child {
 .threat-ips-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
 }
 
 .threat-ip-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    background: rgba(255, 0, 60, 0.05);
-    border-radius: 6px;
-    border-left: 3px solid var(--neon-red);
+    gap: 12px;
+    padding: 10px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
+    transition: background var(--transition-fast);
+}
+
+.threat-ip-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.threat-ip-item:last-child {
+    border-bottom: none;
 }
 
 .threat-ip-rank {
@@ -7323,7 +7412,7 @@ body.compact-mode {
 .alert-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
     max-height: 340px;
     overflow-y: auto;
 }
@@ -7332,11 +7421,10 @@ body.compact-mode {
     display: grid;
     grid-template-columns: 60px 1fr auto;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
-    border-left: 3px solid var(--card-border);
+    gap: 12px;
+    padding: 10px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
     transition: all 0.15s;
 }
 
@@ -7344,24 +7432,8 @@ body.compact-mode {
     background: rgba(0, 243, 255, 0.05);
 }
 
-/* CYBERPUNK UI: Alert row - Critical (RED) */
-.alert-row.severity-row-critical {
-    border-left-color: var(--signal-crit);
-    /* RED - ONLY for critical */
-    background: rgba(255, 23, 68, 0.08);
-}
-
-.alert-row.severity-row-high {
-    border-left-color: #ff8c00;
-    background: rgba(255, 140, 0, 0.06);
-}
-
-.alert-row.severity-row-medium {
-    border-left-color: #ffd700;
-}
-
-.alert-row.severity-row-low {
-    border-left-color: #00ff88;
+.alert-row:last-child {
+    border-bottom: none;
 }
 
 .alert-time {
@@ -7607,7 +7679,7 @@ body.compact-mode {
 
 .mitre-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 8px;
 }
 
@@ -7687,7 +7759,7 @@ body.compact-mode {
     font-size: 0.9em;
     margin-bottom: 10px;
     padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.2);
+    background: transparent;
     border-radius: 6px;
 }
 
@@ -7696,35 +7768,53 @@ body.compact-mode {
     border: 1px solid rgba(255, 0, 60, 0.3);
 }
 
+.warming-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.warming-icon {
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+}
+
+.warming-text {
+    font-size: 10px;
+    color: var(--signal-warn);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
 .protocol-anomaly-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
 }
 
 .protocol-anomaly-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    border-left: 3px solid var(--card-border);
+    gap: 12px;
+    padding: 10px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
+    border-left: none !important;
+    transition: all var(--transition-base);
+}
+
+.protocol-anomaly-item:last-child {
+    border-bottom: none;
 }
 
 /* CYBERPUNK UI: Protocol anomaly - Critical state (RED if critical, otherwise warn) */
-.protocol-anomaly-item.is-anomaly {
-    border-left-color: var(--signal-warn);
-    /* Warning color, not red */
-    background: rgba(255, 180, 0, 0.08);
-}
-
-.protocol-anomaly-item.is-anomaly.critical {
-    border-left-color: var(--signal-crit);
-    /* RED - ONLY if explicitly critical */
-    background: rgba(255, 23, 68, 0.08);
-    box-shadow: var(--glow-critical);
-}
 
 .proto-name {
     font-weight: 700;
@@ -7736,7 +7826,7 @@ body.compact-mode {
 .proto-bytes {
     flex: 1;
     font-size: 0.85em;
-    color: var(--text-muted);
+    color: #fff;
 }
 
 .proto-deviation {
@@ -7930,6 +8020,59 @@ body.compact-mode {
     scroll-margin-top: 80px;
 }
 
+/* CYBERPUNK UI: Threat Timeline Stats - Signal indicators */
+.timeline-stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+}
+
+.timeline-stat-box {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    padding: var(--space-1) var(--space-2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 56px;
+    text-align: center;
+    transition: all var(--transition-base);
+    backdrop-filter: blur(5px);
+}
+
+.timeline-stat-box:hover {
+    background: rgba(0, 0, 0, 0.45) !important;
+    border-color: var(--card-border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-soft);
+}
+
+.timeline-stat-box .stat-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-secondary);
+    margin-bottom: 1px;
+    font-weight: 600;
+}
+
+.timeline-stat-box .stat-value {
+    font-size: var(--text-base);
+    font-weight: 800;
+    font-family: var(--font-mono);
+    line-height: 1;
+}
+
+.timeline-stat-box .stat-sub {
+    font-size: 8px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    font-family: var(--font-mono);
+}
+
 /* ====================================
    World Map Widget Styles
    ==================================== */
@@ -7949,6 +8092,33 @@ body.compact-mode {
     overflow: hidden;
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
     margin-top: var(--space-3);
+    padding: 0 !important;
+    /* Force zero padding so contents can hit the edges */
+}
+
+/* Ensure the header fills the width and has no side gaps when card padding is 0 */
+.world-map-card h2 {
+    margin: 0 !important;
+    padding: 10px 16px !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    border-bottom: 1px solid var(--border-soft) !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.world-map-card .widget-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.world-map-card .widget-body>div {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* CYBERPUNK UI: World map header - Signal header */
@@ -8108,7 +8278,6 @@ body.compact-mode {
 .world-map-layer-toggles {
     display: flex;
     gap: var(--space-1);
-    flex-wrap: wrap;
     align-items: center;
     margin-right: var(--space-2);
 }
@@ -8212,35 +8381,31 @@ body.compact-mode {
 /* CYBERPUNK UI: World map container - Signal display area */
 .world-map-container {
     position: relative;
-    width: 100%;
-    height: 480px;
-    min-height: 480px;
-    aspect-ratio: 16 / 9;
-    /* Match card background exactly */
-    background: var(--card-bg, rgba(15, 15, 23, 0.6)) !important;
-    border: 1px solid var(--card-border);
-    border-radius: var(--card-radius) !important;
-    margin: 0 auto;
+    width: 100% !important;
+    height: 550px !important;
+    /* Substantial height to fill the widget body */
+    aspect-ratio: auto !important;
+    /* Disable specific aspect ratio to favor filling space */
+    background: transparent !important;
+    border: none !important;
+    /* "Lose the border" confirmed */
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     display: block;
     overflow: hidden !important;
     backdrop-filter: blur(var(--glass-blur, 12px));
-    /* Force strict clipping of all children to the rounded border */
-    /* Fix for WebKit hardware clipping of rounded corners */
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
-    mask-image: radial-gradient(white, black);
-    /* Alternative robust clipping */
-    overflow: hidden !important;
     isolation: isolate;
-    border-radius: var(--card-radius) !important;
-    /* Force GPU layer */
     transform: translate3d(0, 0, 0);
 }
 
 .world-map-container .leaflet-container {
-    width: 100%;
-    height: 100%;
-    border-radius: var(--card-radius) !important;
-    overflow: hidden !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
 }
 
 .world-map-container .leaflet-pane,
@@ -8248,19 +8413,21 @@ body.compact-mode {
 .world-map-container .leaflet-tile-pane,
 .world-map-container .leaflet-layer,
 .world-map-container canvas {
-    border-radius: var(--card-radius) !important;
+    border-radius: 0 !important;
 }
 
 .world-map-svg {
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     min-height: 400px;
     z-index: 1;
-    margin: 0 auto;
+    margin: 0 !important;
+    padding: 0 !important;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none !important;
 }
 
 /* CYBERPUNK UI: Leaflet customization - Signal map styling */
@@ -8405,10 +8572,12 @@ body.compact-mode {
     /* 3 columns: Sources, Destinations, Threats */
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
-    background: linear-gradient(180deg, rgba(15, 15, 23, 0.9), rgba(21, 21, 32, 0.85));
-    border-top: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, rgba(15, 15, 23, 0.94), rgba(21, 21, 32, 0.9));
+    border: none !important;
+    border-top: 1px solid rgba(0, 234, 255, 0.2) !important;
     z-index: 10;
     backdrop-filter: blur(8px);
+    border-radius: 0 !important;
 }
 
 .world-map-countries.compact-grid .wm-country-col {
@@ -9369,20 +9538,7 @@ body.compact-mode {
     background: rgba(255, 0, 60, 0.1);
 }
 
-.spinner {
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(0, 234, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: var(--signal-primary);
-    animation: spin 1s linear infinite;
-}
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
 
 /* ============================================
    TOOLS TAB - Network & Security Utilities
@@ -9603,33 +9759,37 @@ body.compact-mode {
 .timeline-events {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: 0;
 }
 
 .timeline-event {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: 0;
     cursor: pointer;
-    transition: background-color var(--transition-base), border-color var(--transition-base);
+    transition: background-color 0.15s;
+}
+
+.timeline-event:last-child {
+    border-bottom: none;
 }
 
 .timeline-event:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 243, 255, 0.05);
 }
 
 .timeline-event.expanded {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 243, 255, 0.02);
 }
 
 .timeline-event-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 20px 70px 90px 1fr 20px;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
+    gap: 12px;
+    padding: 8px 4px;
+    font-size: 0.9em;
 }
 
 .timeline-event-icon {
@@ -9647,15 +9807,16 @@ body.compact-mode {
 
 .timeline-event-source {
     flex-shrink: 0;
-    color: var(--text-secondary);
-    font-size: var(--text-xs);
+    font-size: 0.75em;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 243, 255, 0.1);
+    color: var(--neon-cyan);
     padding: 2px 6px;
-    border-radius: var(--radius-xs);
-    min-width: 70px;
+    border-radius: 4px;
     text-align: center;
+    white-space: nowrap;
 }
 
 .timeline-event-summary {

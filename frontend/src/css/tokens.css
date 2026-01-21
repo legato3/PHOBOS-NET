@@ -102,7 +102,7 @@
 
   /* V3 Card System - Glassmorphism */
   --card-bg: rgba(15, 15, 23, 0.6);
-  --card-bg-hover: rgba(20, 20, 28, 0.8);
+  --card-bg-hover: rgba(15, 15, 23, 0.6);
   --card-border: rgba(0, 234, 255, 0.15);
   --card-border-hover: rgba(0, 234, 255, 0.4);
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);

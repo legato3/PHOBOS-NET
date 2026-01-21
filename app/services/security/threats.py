@@ -456,7 +456,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 alert_key = f"suspicious_{port}"
                 if alert_key not in seen:
                     service = PORTS.get(port, "Unknown")
-                    alerts.append({"type":"suspicious_port","msg":f"⚠️ Suspicious port {port} ({service}): {fmt_bytes(item['bytes'])}","severity":"high","feed":"local"})
+                    alerts.append({"type":"suspicious_port","msg":f"Suspicious port {port} ({service}): {fmt_bytes(item['bytes'])}","severity":"high","feed":"local"})
                     seen.add(alert_key)
         except Exception:
             pass
@@ -481,7 +481,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 if alert_key not in seen:
                     alerts.append({
                         "type": "large_transfer",
-                        "msg": f"📊 Large transfer {dir_label} {ip}: {fmt_bytes(item['bytes'])}",
+                        "msg": f"Large transfer {dir_label} {ip}: {fmt_bytes(item['bytes'])}",
                         "severity": "medium",
                         "feed": "local",
                         "direction": "outbound" if is_source else "inbound"
@@ -519,7 +519,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                 if alert_key not in seen:
                     alerts.append({
                         "type": "watchlist",
-                        "msg": f"👁️ Watchlist IP Activity ({dir_label}): {ip}",
+                        "msg": f"Watchlist IP Activity ({dir_label}): {ip}",
                         "severity": "medium",
                         "feed": "watchlist",
                         "ip": ip,
@@ -561,7 +561,7 @@ def detect_port_scan(flow_data):
             if len(_port_scan_tracker[src_ip]['ports']) >= PORT_SCAN_THRESHOLD:
                 alerts.append({
                     "type": "port_scan",
-                    "msg": f"🔍 Port Scan Detected: {src_ip} probed {len(_port_scan_tracker[src_ip]['ports'])} ports",
+                    "msg": f"Port Scan Detected: {src_ip} probed {len(_port_scan_tracker[src_ip]['ports'])} ports",
                     "severity": "high",
                     "ip": src_ip,
                     "source": src_ip,  # Context for fingerprinting
@@ -600,7 +600,7 @@ def detect_brute_force(flow_data):
             service = PORTS.get(data['port'], f"Port {data['port']}")
             alerts.append({
                 "type": "brute_force",
-                "msg": f"🔐 Possible Brute Force: {ip} → {service} ({data['count']} attempts)",
+                "msg": f"Possible Brute Force: {ip} → {service} ({data['count']} attempts)",
                 "severity": "high",
                 "ip": ip,
                 "port": data['port'],
@@ -683,7 +683,7 @@ def detect_dns_anomaly(flow_data):
         if count >= DNS_QUERY_THRESHOLD:
             alerts.append({
                 "type": "dns_tunneling",
-                "msg": f"🌐 Excessive DNS: {ip} made {count} queries",
+                "msg": f"Excessive DNS: {ip} made {count} queries",
                 "severity": "medium",
                 "ip": ip,
                 "query_count": count,
@@ -794,7 +794,7 @@ def detect_lateral_movement(flow_data):
         if mb >= 100 or data['flows'] >= 1000:  # 100MB or 1000 flows internal
             alerts.append({
                 "type": "lateral_movement",
-                "msg": f"↔️ Internal Transfer: {data['src']} → {data['dst']} ({mb:.1f} MB)",
+                "msg": f"Internal Transfer: {data['src']} → {data['dst']} ({mb:.1f} MB)",
                 "severity": "medium",
                 "src_ip": data['src'],
                 "dst_ip": data['dst'],
@@ -830,7 +830,7 @@ def detect_protocol_anomaly(protocols_data):
             if proto_bytes > avg * 5 and proto_bytes > 10 * 1024 * 1024:  # 10MB minimum
                 alerts.append({
                     "type": "protocol_anomaly",
-                    "msg": f"⚡ Protocol Spike: {proto_name} at {fmt_bytes(proto_bytes)} (5x normal)",
+                    "msg": f"Protocol Spike: {proto_name} at {fmt_bytes(proto_bytes)} (5x normal)",
                     "severity": "medium",
                     "protocol": proto_name,
                     "bytes": proto_bytes,
@@ -864,7 +864,7 @@ def detect_off_hours_activity(sources_data):
             if mb >= OFF_HOURS_THRESHOLD_MB:
                 alerts.append({
                     "type": "off_hours",
-                    "msg": f"🌙 Off-Hours Activity: {ip} transferred {mb:.1f} MB at {current_hour}:00",
+                    "msg": f"Off-Hours Activity: {ip} transferred {mb:.1f} MB at {current_hour}:00",
                     "severity": "low",
                     "ip": ip,
                     "bytes": bytes_val,
@@ -1525,7 +1525,7 @@ def generate_ip_anomaly_alerts(ip, anomalies, geo):
             if anomaly.get('severity') in ('high', 'medium'):
                 alert = {
                     "type": "ip_anomaly",
-                    "msg": f"⚠️ IP Investigation Anomaly: {anomaly.get('message', 'Unknown anomaly')}",
+                    "msg": f"IP Investigation Anomaly: {anomaly.get('message', 'Unknown anomaly')}",
                     "severity": anomaly.get('severity', 'medium'),
                     "feed": "ip_investigation",
                     "ip": ip,

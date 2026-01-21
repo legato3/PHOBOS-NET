@@ -1073,7 +1073,7 @@
 .alert-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
     max-height: 340px;
     overflow-y: auto;
 }
@@ -1082,11 +1082,10 @@
     display: grid;
     grid-template-columns: 60px 1fr auto;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
-    border-left: 3px solid var(--card-border);
+    gap: 12px;
+    padding: 10px 4px;
+    background: transparent;
+    border-bottom: 1px solid var(--border-soft);
     transition: all 0.15s;
 }
 
@@ -1094,24 +1093,8 @@
     background: rgba(0, 243, 255, 0.05);
 }
 
-/* CYBERPUNK UI: Alert row - Critical (RED) */
-.alert-row.severity-row-critical {
-    border-left-color: var(--signal-crit);
-    /* RED - ONLY for critical */
-    background: rgba(255, 23, 68, 0.08);
-}
-
-.alert-row.severity-row-high {
-    border-left-color: #ff8c00;
-    background: rgba(255, 140, 0, 0.06);
-}
-
-.alert-row.severity-row-medium {
-    border-left-color: #ffd700;
-}
-
-.alert-row.severity-row-low {
-    border-left-color: #00ff88;
+.alert-row:last-child {
+    border-bottom: none;
 }
 
 .alert-time {
