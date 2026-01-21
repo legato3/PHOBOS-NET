@@ -9903,23 +9903,21 @@ body.compact-mode {
     user-select: none;
 }
 
-/* Active state should NOT do anything distinct from hover */
-/* Active state should NOT do anything distinct from hover */
-/* Use !important to override any browser default behavior or other conflicting styles */
+/* Active state override - locks appearance to hover state */
 .status-card:active {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05) !important;
-    border-color: rgba(0, 234, 255, 0.35) !important;
+    transform: translateY(-4px) !important;
+    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1) !important;
+    border-color: rgba(0, 234, 255, 0.6) !important;
     background: rgba(0, 10, 16, 0.85) !important;
 }
 
 .status-card:hover {
-    border-color: rgba(0, 234, 255, 0.35);
-    /* Slightly less bright border */
-    box-shadow: 0 6px 20px rgba(0, 234, 255, 0.05);
-    /* Very subtle shadow */
-    transform: translateY(-2px);
-    /* Subtle lift */
+    border-color: rgba(0, 234, 255, 0.6);
+    /* Much brighter border for visibility */
+    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.1);
+    /* Visible glow */
+    transform: translateY(-4px);
+    /* Clear lift */
     z-index: 2;
 }
 
