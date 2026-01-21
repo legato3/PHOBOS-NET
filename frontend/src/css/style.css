@@ -1418,7 +1418,7 @@ body.sidebar-collapsed .layout-wrapper {
     align-items: center;
     justify-content: center;
     padding: var(--sc-hero-pad);
-    background: var(--sc-header-bg);
+    background: transparent;
     flex-grow: 1;
     height: 100%;
     min-height: var(--sc-hero-min-h);
