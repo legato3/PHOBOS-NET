@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOC Wallboard - PHOBOS-NET</title>
     <script defer src="/static/js/modules/alpine.min.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0.1">
     <style>
         /* Wallboard-specific styles - Matches cyberpunk theme, readable sizes */
         body.wallboard {
@@ -17,7 +18,7 @@
             overflow: auto;
             min-height: 100vh;
         }
-        
+
         .wallboard-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -25,13 +26,13 @@
             flex-direction: column;
             gap: var(--space-6);
         }
-        
+
         .wallboard-header {
             text-align: center;
             padding: var(--space-6) 0;
             border-bottom: 1px solid var(--border-soft);
         }
-        
+
         .wallboard-header h1 {
             font-size: var(--text-3xl);
             margin: 0;
@@ -39,20 +40,20 @@
             font-weight: var(--font-weight-semibold);
             letter-spacing: var(--letter-spacing-wide);
         }
-        
+
         .wallboard-header .timestamp {
             font-size: var(--text-base);
             color: var(--text-secondary);
             margin-top: var(--space-2);
             font-family: var(--font-mono);
         }
-        
+
         .wallboard-stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: var(--space-4);
         }
-        
+
         .wallboard-stat {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -65,22 +66,22 @@
             text-align: center;
             transition: border-color var(--transition-base), box-shadow var(--transition-base);
         }
-        
+
         .wallboard-stat.status-ok {
             border-color: var(--signal-ok);
             box-shadow: 0 0 8px var(--glow-ok);
         }
-        
+
         .wallboard-stat.status-warning {
             border-color: var(--signal-warn);
             box-shadow: 0 0 8px var(--glow-warn);
         }
-        
+
         .wallboard-stat.status-error {
             border-color: var(--signal-crit);
             box-shadow: 0 0 8px var(--glow-critical);
         }
-        
+
         .wallboard-stat-label {
             font-size: var(--text-sm);
             color: var(--text-secondary);
@@ -89,7 +90,7 @@
             letter-spacing: var(--letter-spacing-wide);
             font-weight: var(--font-weight-medium);
         }
-        
+
         .wallboard-stat-value {
             font-size: var(--text-3xl);
             font-weight: var(--font-weight-semibold);
@@ -97,19 +98,19 @@
             line-height: var(--line-height-tight);
             font-family: var(--font-mono);
         }
-        
+
         .wallboard-stat-value.status-ok {
             color: var(--signal-ok);
         }
-        
+
         .wallboard-stat-value.status-warning {
             color: var(--signal-warn);
         }
-        
+
         .wallboard-stat-value.status-error {
             color: var(--signal-crit);
         }
-        
+
         .wallboard-health-large {
             grid-column: 1 / -1;
             background: var(--card-bg);
@@ -119,22 +120,22 @@
             text-align: center;
             transition: border-color var(--transition-base), box-shadow var(--transition-base);
         }
-        
+
         .wallboard-health-large.status-ok {
             border-color: var(--signal-ok);
             box-shadow: 0 0 12px var(--glow-ok);
         }
-        
+
         .wallboard-health-large.status-warning {
             border-color: var(--signal-warn);
             box-shadow: 0 0 12px var(--glow-warn);
         }
-        
+
         .wallboard-health-large.status-error {
             border-color: var(--signal-crit);
             box-shadow: 0 0 12px var(--glow-critical);
         }
-        
+
         .wallboard-health-label {
             font-size: var(--text-lg);
             color: var(--text-secondary);
@@ -143,7 +144,7 @@
             letter-spacing: var(--letter-spacing-wide);
             font-weight: var(--font-weight-medium);
         }
-        
+
         .wallboard-health-state {
             font-size: var(--text-4xl);
             font-weight: var(--font-weight-bold);
@@ -152,26 +153,26 @@
             margin: var(--space-4) 0;
             font-family: var(--font-mono);
         }
-        
+
         .wallboard-health-state.healthy {
             color: var(--signal-ok);
         }
-        
+
         .wallboard-health-state.degraded {
             color: var(--signal-warn);
         }
-        
+
         .wallboard-health-state.unhealthy {
             color: var(--signal-crit);
         }
-        
+
         .wallboard-health-explanation {
             font-size: var(--text-base);
             color: var(--text-secondary);
             margin-top: var(--space-3);
             font-style: italic;
         }
-        
+
         .wallboard-loading {
             font-size: var(--text-xl);
             color: var(--text-tertiary);
@@ -180,6 +181,7 @@
         }
     </style>
 </head>
+
 <body class="wallboard" x-data="wallboardStore()" x-init="init()">
     <div class="wallboard-container">
         <div class="wallboard-header">
@@ -189,18 +191,16 @@
                 PHOBOS-NET v1.2
             </div>
         </div>
-        
+
         <div class="wallboard-stats">
             <!-- Overall Health (Large, Prominent) -->
-            <div class="wallboard-health-large"
-                :class="{
+            <div class="wallboard-health-large" :class="{
                     'status-ok': overallHealth.state === 'healthy',
                     'status-warning': overallHealth.state === 'degraded',
                     'status-error': overallHealth.state === 'unhealthy'
                 }">
                 <div class="wallboard-health-label">Overall System Health</div>
-                <div class="wallboard-health-state"
-                    :class="overallHealth.state"
+                <div class="wallboard-health-state" :class="overallHealth.state"
                     x-text="overallHealth.state === 'healthy' ? 'HEALTHY' : overallHealth.state === 'degraded' ? 'DEGRADED' : 'UNHEALTHY'">
                     HEALTHY
                 </div>
@@ -208,18 +208,16 @@
                     <div class="wallboard-health-explanation" x-text="overallHealth.shortExplanation"></div>
                 </template>
             </div>
-            
+
             <!-- Active Alerts -->
-            <div class="wallboard-stat"
-                :class="{ 'status-warning': alertHistory.active_count > 0 }">
+            <div class="wallboard-stat" :class="{ 'status-warning': alertHistory.active_count > 0 }">
                 <div class="wallboard-stat-label">Active Alerts</div>
-                <div class="wallboard-stat-value"
-                    :class="{ 'status-warning': alertHistory.active_count > 0 }"
+                <div class="wallboard-stat-value" :class="{ 'status-warning': alertHistory.active_count > 0 }"
                     x-text="alertHistory.loading ? '...' : (alertHistory.active_count || 0).toLocaleString()">
                     0
                 </div>
             </div>
-            
+
             <!-- Active Flows -->
             <div class="wallboard-stat">
                 <div class="wallboard-stat-label">Active Flows</div>
@@ -228,7 +226,7 @@
                     0
                 </div>
             </div>
-            
+
             <!-- External Connections -->
             <div class="wallboard-stat">
                 <div class="wallboard-stat-label">External Connections</div>
@@ -237,7 +235,7 @@
                     0
                 </div>
             </div>
-            
+
             <!-- Blocked Events (24h) -->
             <div class="wallboard-stat">
                 <div class="wallboard-stat-label">Blocked Events (24h)</div>
@@ -246,20 +244,18 @@
                     0
                 </div>
             </div>
-            
+
             <!-- Network Anomalies (24h) -->
-            <div class="wallboard-stat"
-                :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+            <div class="wallboard-stat" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
                 <div class="wallboard-stat-label">Network Anomalies (24h)</div>
-                <div class="wallboard-stat-value"
-                    :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
+                <div class="wallboard-stat-value" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
                     x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">
                     0
                 </div>
             </div>
         </div>
     </div>
-    
+
     <script>
         function wallboardStore() {
             return {
@@ -268,7 +264,7 @@
                 firewallStatsOverview: { blocked_events_24h: 0, loading: true },
                 overallHealth: { state: 'healthy', shortExplanation: '' },
                 refreshTimer: null,
-                
+
                 async fetchAlertHistory() {
                     try {
                         const res = await fetch('/api/security/alerts/history');
@@ -284,7 +280,7 @@
                         this.alertHistory.loading = false;
                     }
                 },
-                
+
                 async fetchNetworkStatsOverview() {
                     try {
                         const res = await fetch('/api/network/stats/overview');
@@ -301,7 +297,7 @@
                         this.networkStatsOverview.loading = false;
                     }
                 },
-                
+
                 async fetchFirewallStatsOverview() {
                     try {
                         const res = await fetch('/api/firewall/stats/overview');
@@ -316,7 +312,7 @@
                         this.firewallStatsOverview.loading = false;
                     }
                 },
-                
+
                 async fetchBaselineSignals() {
                     // Health reflects SYSTEM OPERABILITY, not network noise
                     // Healthy = all data sources responding
@@ -373,7 +369,7 @@
                         this.overallHealth = { state: 'unhealthy', shortExplanation: 'data unavailable' };
                     }
                 },
-                
+
                 async loadAll() {
                     await Promise.all([
                         this.fetchAlertHistory(),
@@ -385,16 +381,16 @@
                         this.calculateSimpleHealth();
                     }
                 },
-                
+
                 init() {
                     // Initial load
                     this.loadAll();
-                    
+
                     // Auto-refresh every 30 seconds
                     this.refreshTimer = setInterval(() => {
                         this.loadAll();
                     }, 30000);
-                    
+
                     // Update timestamp every second
                     setInterval(() => {
                         // Timestamp updates automatically via Alpine.js reactivity
@@ -404,4 +400,5 @@
         }
     </script>
 </body>
+
 </html>
