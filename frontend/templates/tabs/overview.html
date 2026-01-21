@@ -2,12 +2,12 @@
     id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
     <!-- Summary Stats & Bandwidth - Horizontal Layout -->
-    <section id="section-summary" class="scroll-section mb-8">
+    <section id="section-summary" class="scroll-section mb-6">
 
         <!-- Top Row: Summary Stats (Compact Horizontal) -->
-        <div class="summary-stats-grid" style="margin-bottom: var(--space-7);">
+        <div class="summary-stats-grid" style="margin-bottom: var(--space-6);">
             <!-- Mobile: Priority Stats (Above Fold) -->
-            <div class="stat-box mobile-priority-stat mobile-health-card" :class="{ 
+            <div class="card stat-box mobile-priority-stat mobile-health-card" :class="{ 
                                         'status-ok': overallHealth.state === 'healthy',
                                         'status-warning': overallHealth.state === 'degraded',
                                         'status-error': overallHealth.state === 'unhealthy'
@@ -36,7 +36,7 @@
                             x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
                 </div>
             </div>
-            <div class="stat-box mobile-priority-stat"
+            <div class="card stat-box mobile-priority-stat"
                 :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
                 @click="navigateToActiveAlerts()" style="cursor: pointer;" title="Click to view active alerts">
                 <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }">
@@ -53,7 +53,7 @@
             </div>
 
             <!-- Mobile: Priority Stats (Above Fold) -->
-            <div class="stat-box mobile-priority-stat" @click="navigateToActiveFlows()" style="cursor: pointer;"
+            <div class="card stat-box mobile-priority-stat" @click="navigateToActiveFlows()" style="cursor: pointer;"
                 title="Click to view active flows">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <template x-if="networkStatsOverview.loading">
@@ -83,7 +83,7 @@
                     <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">Live</div>
                 </template>
             </div>
-            <div class="stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
+            <div class="card stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
                 style="cursor: pointer;" title="Click to view external connections">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <template x-if="networkStatsOverview.loading">
@@ -110,7 +110,7 @@
                     </div>
                 </template>
             </div>
-            <div class="stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()" style="cursor: pointer;"
+            <div class="card stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()" style="cursor: pointer;"
                 title="Click to view firewall logs">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <template x-if="firewallStatsOverview.loading">
@@ -132,7 +132,7 @@
                 </div>
                 <div class="label">Blocked Events (24h)</div>
             </div>
-            <div class="stat-box mobile-secondary-stat"
+            <div class="card stat-box mobile-secondary-stat"
                 :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }" @click="navigateToAnomalies()"
                 style="cursor: pointer;" title="Click to view network anomalies">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -322,7 +322,7 @@
 
     <!-- Recent Activity Timeline Section -->
     <section id="section-timeline" class="scroll-section"
-        style="margin-top: var(--space-4); margin-bottom: var(--space-6);">
+        style="margin-top: var(--space-6); margin-bottom: var(--space-6);">
         {% set timeline_actions %}
         <div class="status-pills">
             <span class="status-pill" style="font-size: 0.85em; color: var(--text-secondary);"

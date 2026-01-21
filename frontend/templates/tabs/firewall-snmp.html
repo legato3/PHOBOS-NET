@@ -1,6 +1,6 @@
 <div x-show="activeTab === 'firewall-snmp'" :style="activeTab === 'firewall-snmp' ? 'display:block' : 'display:none'"
     id="firewall-snmp-tab" role="tabpanel" aria-labelledby="firewall-snmp-tab-btn" tabindex="0">
-    <section id="section-firewall-snmp" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-firewall-snmp" class="scroll-section" style="margin-bottom: var(--space-6);">
 
         <!-- Loading State -->
         <template x-if="firewallSNMP.loading">
@@ -18,14 +18,18 @@
                     style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
                     SNMP Configuration Required</p>
                 <p style="font-size: var(--text-sm); color: var(--text-tertiary); margin-bottom: var(--space-3);">
-                    The Gateway page requires SNMP to be configured to monitor your firewall's gateway, interfaces, and system health.
+                    The Gateway page requires SNMP to be configured to monitor your firewall's gateway, interfaces, and
+                    system health.
                 </p>
                 <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-3);">
                     Please configure the following in Settings:
                 </p>
-                <ul style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-4); text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
-                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Host:</strong> Your firewall's IP address (e.g., 192.168.0.1)</li>
-                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Community:</strong> Community string (default: public)</li>
+                <ul
+                    style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-4); text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Host:</strong> Your firewall's IP address
+                        (e.g., 192.168.0.1)</li>
+                    <li style="margin-bottom: var(--space-2);"><strong>SNMP Community:</strong> Community string
+                        (default: public)</li>
                 </ul>
                 <button @click="configModalOpen = true" class="btn btn--primary">
                     ⚙️ Open Settings
@@ -38,30 +42,41 @@
                 <!-- System Stats -->
                 <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
                     <div class="card stat-box">
-                        <div class="value" :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
-                            x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="value"
+                            :class="{ 'text-warn': firewallSNMP.cpu_percent > 80, 'text-crit': firewallSNMP.cpu_percent > 90 }"
+                            x-text="firewallSNMP.cpu_percent !== null ? firewallSNMP.cpu_percent.toFixed(1) + '%' : '—'">
+                        </div>
                         <div class="label">CPU</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
-                            x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="value"
+                            :class="{ 'text-warn': firewallSNMP.memory_percent > 80, 'text-crit': firewallSNMP.memory_percent > 90 }"
+                            x-text="firewallSNMP.memory_percent !== null ? firewallSNMP.memory_percent.toFixed(1) + '%' : '—'">
+                        </div>
                         <div class="label">Memory</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" :class="{ 'text-warn': firewallSNMP.swap_percent > 50, 'text-crit': firewallSNMP.swap_percent > 80 }"
-                            x-text="firewallSNMP.swap_percent != null ? firewallSNMP.swap_percent.toFixed(1) + '%' : '—'"></div>
+                        <div class="value"
+                            :class="{ 'text-warn': firewallSNMP.swap_percent > 50, 'text-crit': firewallSNMP.swap_percent > 80 }"
+                            x-text="firewallSNMP.swap_percent != null ? firewallSNMP.swap_percent.toFixed(1) + '%' : '—'">
+                        </div>
                         <div class="label">Swap</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" x-text="firewallSNMP.process_count != null ? firewallSNMP.process_count.toLocaleString() : '—'"></div>
+                        <div class="value"
+                            x-text="firewallSNMP.process_count != null ? firewallSNMP.process_count.toLocaleString() : '—'">
+                        </div>
                         <div class="label">Processes</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : '—'"></div>
+                        <div class="value"
+                            x-text="firewallSNMP.active_sessions !== null ? firewallSNMP.active_sessions.toLocaleString() : '—'">
+                        </div>
                         <div class="label">Sessions</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" style="font-size: 1.1em;" x-text="firewallSNMP.uptime_formatted || '—'"></div>
+                        <div class="value" style="font-size: 1.1em;" x-text="firewallSNMP.uptime_formatted || '—'">
+                        </div>
                         <div class="label">Uptime</div>
                     </div>
                 </div>
@@ -69,35 +84,45 @@
                 <!-- Network Stats -->
                 <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
                     <div class="card stat-box">
-                        <div class="value text-cyan" x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) : '—'"></div>
+                        <div class="value text-cyan"
+                            x-text="firewallSNMP.total_throughput_mbps !== null ? firewallSNMP.total_throughput_mbps.toFixed(2) : '—'">
+                        </div>
                         <div class="label">Throughput Mbps</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" x-text="firewallSNMP.ip_forwarding_s != null ? firewallSNMP.ip_forwarding_s.toFixed(0) : '—'"></div>
+                        <div class="value"
+                            x-text="firewallSNMP.ip_forwarding_s != null ? firewallSNMP.ip_forwarding_s.toFixed(0) : '—'">
+                        </div>
                         <div class="label">IP Fwd/s</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" :class="{ 'text-warn': firewallSNMP.tcp_retrans_s > 10, 'text-crit': firewallSNMP.tcp_retrans_s > 50 }"
-                            x-text="firewallSNMP.tcp_retrans_s != null ? firewallSNMP.tcp_retrans_s.toFixed(1) : '—'"></div>
+                        <div class="value"
+                            :class="{ 'text-warn': firewallSNMP.tcp_retrans_s > 10, 'text-crit': firewallSNMP.tcp_retrans_s > 50 }"
+                            x-text="firewallSNMP.tcp_retrans_s != null ? firewallSNMP.tcp_retrans_s.toFixed(1) : '—'">
+                        </div>
                         <div class="label">TCP Retrans/s</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" :class="{ 'text-warn': firewallSNMP.tcp_resets_s > 5, 'text-crit': firewallSNMP.tcp_resets_s > 20 }"
-                            x-text="firewallSNMP.tcp_resets_s != null ? firewallSNMP.tcp_resets_s.toFixed(1) : '—'"></div>
+                        <div class="value"
+                            :class="{ 'text-warn': firewallSNMP.tcp_resets_s > 5, 'text-crit': firewallSNMP.tcp_resets_s > 20 }"
+                            x-text="firewallSNMP.tcp_resets_s != null ? firewallSNMP.tcp_resets_s.toFixed(1) : '—'">
+                        </div>
                         <div class="label">TCP Resets/s</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" x-text="firewallSNMP.udp_in_s != null ? firewallSNMP.udp_in_s.toFixed(0) : '—'"></div>
+                        <div class="value"
+                            x-text="firewallSNMP.udp_in_s != null ? firewallSNMP.udp_in_s.toFixed(0) : '—'"></div>
                         <div class="label">UDP In/s</div>
                     </div>
                     <div class="card stat-box">
-                        <div class="value" x-text="firewallSNMP.udp_out_s != null ? firewallSNMP.udp_out_s.toFixed(0) : '—'"></div>
+                        <div class="value"
+                            x-text="firewallSNMP.udp_out_s != null ? firewallSNMP.udp_out_s.toFixed(0) : '—'"></div>
                         <div class="label">UDP Out/s</div>
                     </div>
                 </div>
 
                 <!-- Interface Table -->
-                <div class="card">
+                <div class="card" style="margin-bottom: var(--space-6);">
                     <h2>
                         <div class="card-title-content">
                             <span class="title-icon">🌐</span>
@@ -125,7 +150,8 @@
                                             <tr>
                                                 <td><strong x-text="iface.name"></strong></td>
                                                 <td>
-                                                    <span x-show="iface.ip_address" class="text-mono" style="font-size: 0.9em;" x-text="iface.ip_address"></span>
+                                                    <span x-show="iface.ip_address" class="text-mono"
+                                                        style="font-size: 0.9em;" x-text="iface.ip_address"></span>
                                                     <span x-show="!iface.ip_address" class="text-muted">—</span>
                                                 </td>
                                                 <td>
@@ -254,7 +280,7 @@
 
                 <!-- Gateway Status -->
                 <template x-if="firewallSNMP.gateway && firewallSNMP.gateway.ip">
-                    <div class="card">
+                    <div class="card" style="margin-bottom: var(--space-6);">
                         <h2>
                             <div class="card-title-content">
                                 <span class="title-icon">🌐</span>
@@ -269,8 +295,7 @@
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span class="text-secondary">Status:</span>
-                                    <span class="badge"
-                                        :class="{
+                                    <span class="badge" :class="{
                                             'badge-success': firewallSNMP.gateway.status === 'up',
                                             'badge-error': firewallSNMP.gateway.status === 'down',
                                             'badge-warning': firewallSNMP.gateway.status === 'unknown'
@@ -293,7 +318,7 @@
                 </template>
 
                 <!-- System Info Panel -->
-                <div class="card">
+                <div class="card" style="margin-bottom: var(--space-6);">
                     <h2>
                         <div class="card-title-content">
                             <span class="title-icon">ℹ️</span>

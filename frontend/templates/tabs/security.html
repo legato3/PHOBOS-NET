@@ -3,9 +3,9 @@
     <!-- ============================================
              SECURITY CENTER
              ============================================ -->
-    <section id="section-security" class="scroll-section mb-8">
+    <section id="section-security" class="scroll-section mb-6">
         <!-- Security Summary Stats -->
-        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-7) !important;">
+        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
             <div class="card stat-box">
                 <div class="value text-cyan"
                     x-text="(securityObservability.firewall?.threats_blocked || 0).toLocaleString()"></div>
@@ -31,7 +31,7 @@
         </div>
 
         <!-- Threat Activity Timeline - Full Width -->
-        <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: var(--space-7);">
+        <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: var(--space-6);">
             {% set threat_actions %}
             <button class="icon-btn-small" @click="exportThreatActivityTimeline('csv')" title="Export CSV"
                 style="color: var(--neon-green);"

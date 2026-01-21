@@ -1,10 +1,10 @@
 <div x-show="activeTab === 'network'" :style="activeTab === 'network' ? 'display:block' : 'display:none'"
     id="network-tab" role="tabpanel" aria-labelledby="network-tab-btn" tabindex="0">
     <!-- Network Dashboard -->
-    <section id="section-network" class="scroll-section mb-8">
+    <section id="section-network" class="scroll-section mb-6">
 
         <!-- Network Status Blocks -->
-        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-7) !important;">
+        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
             <!-- Health Score Stat Box -->
             <div class="card stat-box"
                 :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
@@ -13,7 +13,8 @@
                     <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
-                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;" @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
+                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;"
+                        @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
                     <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                         style="margin-left: 4px; font-weight: normal;"></span>
                 </div>

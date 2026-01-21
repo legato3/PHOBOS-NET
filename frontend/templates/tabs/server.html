@@ -65,7 +65,7 @@
 
 <div x-show="activeTab === 'server'" :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
     role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
-    <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-server" class="scroll-section" style="margin-bottom: var(--space-6);">
         <!-- Loading State -->
         <template x-if="serverHealth.loading && !serverHealth.timestamp">
             <div class="empty-state">
@@ -87,7 +87,7 @@
                      HOST STRIP - Compact horizontal system vitals bar
                 ═══════════════════════════════════════════════════════════ -->
                 <div class="status-card status-card--signal"
-                    style="padding: 14px 20px; margin-bottom: 20px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
+                    style="padding: 14px 20px; margin-bottom: var(--space-6); flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
                     <span class="status-card__meta-tab status-card__meta-tab--status" :class="{
                         'status-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
                         'status-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
@@ -127,7 +127,8 @@
                 ═══════════════════════════════════════════════════════════ -->
                 {% from "components/status_card.html" import status_card %}
 
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-6);">
                     <!-- NetFlow Pipeline -->
                     {{ status_card(
                     title='NetFlow',
@@ -269,7 +270,7 @@
                      APPLICATION INTERNALS - Separate cards
                 ═══════════════════════════════════════════════════════════ -->
                         <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
                             {% from "components/panel_card.html" import panel_card %}
 
                             <!-- Services Card -->
@@ -458,7 +459,7 @@
                         </template>
                         <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
                             <div
-                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
                                 <template x-for="db in databaseStats.databases" :key="db.name">
                                     {% call panel_card(title_expr="db.name + ' Database'", meta_items=[{
                                     'badge_text': 'ERROR',
@@ -510,7 +511,7 @@
                         <!-- ═══════════════════════════════════════════════════════════
                      RESOURCE HISTORY
                 ═══════════════════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 20px;">
+                        <div style="margin-bottom: var(--space-6);">
                             {% call panel_card(title='Resource History (1h)', meta_items=[{
                             'text': '',
                             'badge_expr': "resourceHistory.history?.length ? resourceHistory.history.length + ' samples'
@@ -537,7 +538,7 @@
                                             <canvas id="cpuHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
-                                                        const history = $store.dashboard.resourceHistory?.history;
+                                                        const history = resourceHistory?.history;
                                                         if (!history?.length) return;
                                                         const cpuData = history.map(s => s.cpu_percent);
                                                         if (window.renderSparkline) {
@@ -564,7 +565,7 @@
                                             <canvas id="memHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
-                                                        const history = $store.dashboard.resourceHistory?.history;
+                                                        const history = resourceHistory?.history;
                                                         if (!history?.length) return;
                                                         const memData = history.map(s => s.mem_percent);
                                                         if (window.renderSparkline) {
