@@ -571,25 +571,50 @@
 <!-- Resource History Chart Rendering -->
 <script>
     (function () {
+        let chartsRendered = false;
+
         function renderResourceHistoryCharts() {
             const store = Alpine.store ? Alpine.store('dashboard') : null;
-            if (!store || !store.resourceHistory?.history?.length) return;
+            if (!store || !store.resourceHistory?.history?.length) {
+                console.log('Resource History: No data available yet');
+                return;
+            }
+
             const history = store.resourceHistory.history;
+            console.log('Resource History: Rendering with', history.length, 'samples');
 
             // Map data safely
             const cpuData = history.map(s => s.cpu_percent);
             const memData = history.map(s => s.mem_percent);
 
             const cpuCanvas = document.getElementById('cpuHistoryChart');
-            if (cpuCanvas && cpuCanvas.offsetParent !== null) { // Check if visible
-                renderSparkline(cpuCanvas, cpuData, '#00ffaa'); // Bright Spring Green
+            const memCanvas = document.getElementById('memHistoryChart');
+
+            if (!cpuCanvas || !memCanvas) {
+                console.log('Resource History: Canvas elements not found');
+                return;
             }
 
-            const memCanvas = document.getElementById('memHistoryChart');
-            if (memCanvas && memCanvas.offsetParent !== null) { // Check if visible
-                renderSparkline(memCanvas, memData, '#00ccff'); // Vivid Cyber Blue
+            // Check if canvases are visible
+            const cpuVisible = cpuCanvas.offsetWidth > 0 && cpuCanvas.offsetHeight > 0;
+            const memVisible = memCanvas.offsetWidth > 0 && memCanvas.offsetHeight > 0;
+
+            console.log('Canvas visibility - CPU:', cpuVisible, 'Memory:', memVisible);
+
+            if (cpuVisible) {
+                renderSparkline(cpuCanvas, cpuData, '#00ffaa');
+            }
+
+            if (memVisible) {
+                renderSparkline(memCanvas, memData, '#00ccff');
+            }
+
+            if (cpuVisible && memVisible) {
+                chartsRendered = true;
+                console.log('Resource History: Charts rendered successfully');
             }
         }
+
         function renderSparkline(canvas, values, color) {
             if (!canvas || !canvas.getContext) return;
 
@@ -656,37 +681,53 @@
             ctx.stroke();
         }
 
-        // Multiple render triggers to ensure charts appear
+        // Alpine.js integration - render when data changes
         document.addEventListener('alpine:init', () => {
-            // Initial render after delays
-            setTimeout(renderResourceHistoryCharts, 1500);
-            setTimeout(renderResourceHistoryCharts, 3000);
+            console.log('Resource History: Alpine initialized');
 
-            // Dynamic refresh loop
+            // Watch for data changes
+            Alpine.effect(() => {
+                const store = Alpine.store('dashboard');
+                if (store?.resourceHistory?.history?.length && !chartsRendered) {
+                    console.log('Resource History: Data detected, attempting render');
+                    setTimeout(renderResourceHistoryCharts, 100);
+                    setTimeout(renderResourceHistoryCharts, 500);
+                }
+            });
+
+            // Periodic refresh
             setInterval(() => {
-                if (document.querySelector('#server-tab')?.style.display !== 'none') {
+                const serverTab = document.querySelector('#server-tab');
+                if (serverTab && serverTab.style.display !== 'none') {
                     renderResourceHistoryCharts();
                 }
-            }, 3000);
+            }, 5000);
         });
 
-        // Catch-all startup triggers
+        // Render on page load
         window.addEventListener('load', () => {
-            setTimeout(renderResourceHistoryCharts, 1000);
-            setTimeout(renderResourceHistoryCharts, 2000);
+            console.log('Resource History: Page loaded');
+            setTimeout(renderResourceHistoryCharts, 500);
+            setTimeout(renderResourceHistoryCharts, 1500);
+            setTimeout(renderResourceHistoryCharts, 3000);
         });
 
+        // Render when tab becomes visible
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                setTimeout(renderResourceHistoryCharts, 100);
+                setTimeout(renderResourceHistoryCharts, 200);
             }
         });
 
-        // Render when tab becomes active
+        // Render when Server tab is clicked
         document.addEventListener('click', (e) => {
             if (e.target.closest('[data-tab="server"]') || e.target.id === 'server-tab-btn') {
-                setTimeout(renderResourceHistoryCharts, 500);
+                setTimeout(renderResourceHistoryCharts, 300);
+                setTimeout(renderResourceHistoryCharts, 800);
             }
         });
+
+        // Expose for debugging
+        window.renderResourceHistoryCharts = renderResourceHistoryCharts;
     })();
 </script>
