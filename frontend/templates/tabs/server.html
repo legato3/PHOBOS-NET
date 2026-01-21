@@ -64,20 +64,35 @@
                     <!-- NetFlow Pipeline -->
                     <div class="status-card">
                         <div class="status-card__header">
-                            <div class="status-card__title">NETFLOW</div>
+                            <div class="status-card__title">NetFlow</div>
                             <div class="status-card__meta-tabs">
-                                <span class="status-card__meta-tab">UDP 2055</span>
-                                <span class="status-card__meta-tab"
-                                    x-text="serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() : '—'"></span>
-                                <span class="status-card__meta-tab status-card__meta-tab--status"
-                                    :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'"
-                                    x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">SOURCE</span>
+                                    <span class="status-card__meta-value"
+                                        :title="serverHealth.netflow?.directory || ''"
+                                        x-text="serverHealth.netflow?.directory || '—'"></span>
+                                </div>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">PORT</span>
+                                    <span class="status-card__meta-value">UDP 2055</span>
+                                </div>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">UPDATED</span>
+                                    <span class="status-card__meta-value"
+                                        x-text="serverHealth.timestamp ? timeAgo(serverHealth.timestamp) : '—'"></span>
+                                </div>
+                                <div class="status-card__meta-tab status-card__meta-tab--status"
+                                    :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
+                                    <span class="status-card__meta-label">STATE</span>
+                                    <span class="status-card__meta-value"
+                                        x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="status-card__hero">
                             <span class="status-card__hero-value"
                                 x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'"></span>
-                            <span class="status-card__hero-unit">/s</span>
+                            <span class="status-card__hero-unit">EPS</span>
                         </div>
                         <div class="status-card__statstrip">
                             <div class="status-card__stat">
@@ -89,6 +104,8 @@
                                 <span class="status-card__stat-label">FLOWS</span>
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span>
+                                <span class="status-card__stat-subvalue"
+                                    x-text="serverHealth.netflow?.files_count > 0 ? 'AVG ' + Math.round((serverHealth.netflow?.total_flows || 0) / serverHealth.netflow.files_count).toLocaleString() + '/FILE' : 'AVG —'"></span>
                             </div>
                             <div class="status-card__stat">
                                 <span class="status-card__stat-label">ERRORS</span>
@@ -96,11 +113,10 @@
                                     :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : ''"
                                     x-text="serverHealth.netflow?.errors ?? '0'"></span>
                             </div>
-                            <!-- 4th stat: Flows per File -->
                             <div class="status-card__stat">
-                                <span class="status-card__stat-label">AVG</span>
+                                <span class="status-card__stat-label">LAST</span>
                                 <span class="status-card__stat-value"
-                                    x-text="(serverHealth.netflow?.files_count > 0) ? Math.round((serverHealth.netflow?.total_flows || 0) / serverHealth.netflow.files_count).toLocaleString() : '—'"></span>
+                                    x-text="serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() : '—'"></span>
                             </div>
                         </div>
                     </div>
@@ -108,20 +124,33 @@
                     <!-- Filterlog (UDP 514) -->
                     <div class="status-card">
                         <div class="status-card__header">
-                            <div class="status-card__title">FILTERLOG</div>
+                            <div class="status-card__title">Filterlog</div>
                             <div class="status-card__meta-tabs">
-                                <span class="status-card__meta-tab">UDP 514</span>
-                                <span class="status-card__meta-tab"
-                                    x-text="serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() : '—'"></span>
-                                <span class="status-card__meta-tab status-card__meta-tab--status"
-                                    :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'"
-                                    x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">SOURCE</span>
+                                    <span class="status-card__meta-value">FILTERLOG</span>
+                                </div>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">PORT</span>
+                                    <span class="status-card__meta-value">UDP 514</span>
+                                </div>
+                                <div class="status-card__meta-tab">
+                                    <span class="status-card__meta-label">UPDATED</span>
+                                    <span class="status-card__meta-value"
+                                        x-text="serverHealth.timestamp ? timeAgo(serverHealth.timestamp) : '—'"></span>
+                                </div>
+                                <div class="status-card__meta-tab status-card__meta-tab--status"
+                                    :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">
+                                    <span class="status-card__meta-label">STATE</span>
+                                    <span class="status-card__meta-value"
+                                        x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="status-card__hero">
                             <span class="status-card__hero-value"
                                 x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'"></span>
-                            <span class="status-card__hero-unit">/s</span>
+                            <span class="status-card__hero-unit">EPS</span>
                         </div>
                         <div class="status-card__statstrip">
                             <div class="status-card__stat">
@@ -133,6 +162,8 @@
                                 <span class="status-card__stat-label">PARSED</span>
                                 <span class="status-card__stat-value"
                                     x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span>
+                                <span class="status-card__stat-subvalue"
+                                    x-text="serverHealth.syslog?.received > 0 ? 'EFF ' + ((serverHealth.syslog?.parsed || 0) / serverHealth.syslog.received * 100).toFixed(0) + '%' : 'EFF —'"></span>
                             </div>
                             <div class="status-card__stat">
                                 <span class="status-card__stat-label">ERRORS</span>
@@ -140,11 +171,10 @@
                                     :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : ''"
                                     x-text="serverHealth.syslog?.errors ?? '0'"></span>
                             </div>
-                            <!-- 4th stat: Efficiency -->
                             <div class="status-card__stat">
-                                <span class="status-card__stat-label">RATE</span>
+                                <span class="status-card__stat-label">LAST</span>
                                 <span class="status-card__stat-value"
-                                    x-text="serverHealth.syslog?.received > 0 ? ((serverHealth.syslog?.parsed || 0) / serverHealth.syslog.received * 100).toFixed(0) + '%' : '—'"></span>
+                                    x-text="serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() : '—'"></span>
                             </div>
                         </div>
                     </div>
