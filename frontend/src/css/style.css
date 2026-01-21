@@ -10104,6 +10104,8 @@ body.compact-mode {
     display: flex;
     align-items: baseline;
     justify-content: center;
+    gap: 4px;
+    /* Maintain spacing between value and unit */
 }
 
 /* Value is naturally centered in the wrapper */
@@ -10124,10 +10126,13 @@ body.compact-mode {
     font-family: var(--font-mono);
     font-weight: 500;
     line-height: 1;
-    position: absolute;
-    left: 100%;
-    bottom: 6px;
-    margin-left: 6px;
+    font-weight: 500;
+    line-height: 1;
+    position: static;
+    /* Let it flow naturally */
+    left: auto;
+    bottom: auto;
+    margin-left: 0;
     white-space: nowrap;
 }
 
