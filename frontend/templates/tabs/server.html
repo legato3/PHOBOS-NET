@@ -60,164 +60,128 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      INGESTION PIPELINES - Primary focus area
                 ═══════════════════════════════════════════════════════════ -->
+                {% from "components/status_card.html" import status_card %}
+
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
                     <!-- NetFlow Pipeline -->
-                    <div class="status-card">
-                        <div class="status-card__header">
-                            <div class="status-card__title">NetFlow</div>
-                            <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab status-card__meta-tab--status"
-                                    :class="serverHealth.netflow?.available ? 'status-ok' : 'status-crit'">
-                                    <span class="status-card__meta-value"
-                                        x-text="serverHealth.netflow?.available ? 'ACTIVE' : 'OFFLINE'"></span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="status-card__meta">
-                            <span class="status-card__meta-item">UDP 2055</span>
-                        </div>
-                        <div class="status-card__hero">
-                            <div class="status-card__hero-content">
-                                <span class="status-card__hero-value"
-                                    x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'"></span>
-                                <span class="status-card__hero-unit">EPS</span>
-                            </div>
-                        </div>
-                        <div class="status-card__statstrip">
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">FILES</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat status-card__stat--primary">
-                                <span class="status-card__stat-label">FLOWS</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span>
-                                <span class="status-card__stat-subvalue"
-                                    x-text="serverHealth.netflow?.files_count > 0 ? 'AVG ' + Math.round((serverHealth.netflow?.total_flows || 0) / serverHealth.netflow.files_count).toLocaleString() + '/FILE' : 'AVG —'"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">ERRORS</span>
-                                <span class="status-card__stat-value"
-                                    :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : ''"
-                                    x-text="serverHealth.netflow?.errors ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">LAST</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() : '—'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                        </div>
-                    </div>
+                    {{ status_card(
+                    title='NetFlow',
+                    meta_items=['UDP 2055'],
+                    state={
+                    'class_expr': "serverHealth.netflow?.available ? 'status-ok' : 'status-crit'",
+                    'text_expr': "serverHealth.netflow?.available ? 'ACTIVE' : 'OFFLINE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'FILES',
+                    'value_expr': "serverHealth.netflow?.files_count?.toLocaleString() ?? '—'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'FLOWS',
+                    'value_expr': "serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'",
+                    'subvalue_expr': "serverHealth.netflow?.files_count > 0 ? 'AVG ' +
+                    Math.round((serverHealth.netflow?.total_flows || 0) /
+                    serverHealth.netflow.files_count).toLocaleString() + '/FILE' : 'AVG —'",
+                    'primary': true
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.netflow?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() :
+                    '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
 
                     <!-- Filterlog (UDP 514) -->
-                    <div class="status-card">
-                        <div class="status-card__header">
-                            <div class="status-card__title">Filterlog</div>
-                            <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab status-card__meta-tab--status"
-                                    :class="serverHealth.syslog?.active ? 'status-active' : 'status-crit'">
-                                    <span class="status-card__meta-value"
-                                        x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="status-card__meta">
-                            <span class="status-card__meta-item">UDP 514</span>
-                        </div>
-                        <div class="status-card__hero">
-                            <div class="status-card__hero-content">
-                                <span class="status-card__hero-value"
-                                    x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'"></span>
-                                <span class="status-card__hero-unit">EPS</span>
-                            </div>
-                        </div>
-                        <div class="status-card__statstrip">
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">RCVD</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat status-card__stat--primary">
-                                <span class="status-card__stat-label">PARSED</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"
-                                    x-text="serverHealth.syslog?.received > 0 ? 'EFF ' + ((serverHealth.syslog?.parsed || 0) / serverHealth.syslog.received * 100).toFixed(0) + '%' : 'EFF —'"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">ERRORS</span>
-                                <span class="status-card__stat-value"
-                                    :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : ''"
-                                    x-text="serverHealth.syslog?.errors ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">LAST</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() : '—'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                        </div>
-                    </div>
+                    {{ status_card(
+                    title='Filterlog',
+                    meta_items=['UDP 514'],
+                    state={
+                    'class_expr': "serverHealth.syslog?.active ? 'status-active' : 'status-crit'",
+                    'text_expr': "serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'RCVD',
+                    'value_expr': "serverHealth.syslog?.received?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'PARSED',
+                    'value_expr': "serverHealth.syslog?.parsed?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "serverHealth.syslog?.received > 0 ? 'EFF ' + ((serverHealth.syslog?.parsed || 0) /
+                    serverHealth.syslog.received * 100).toFixed(0) + '%' : 'EFF —'",
+                    'primary': true
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.syslog?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() :
+                    '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
 
                     <!-- Firewall (UDP 515) -->
-                    <!-- Firewall (UDP 515) -->
-                    <div class="status-card">
-                        <div class="status-card__header">
-                            <div class="status-card__title">Firewall</div>
-                            <div class="status-card__meta-tabs">
-                                <div class="status-card__meta-tab status-card__meta-tab--status"
-                                    :class="serverHealth.firewall_syslog?.active ? 'status-active' : 'status-crit'">
-                                    <span class="status-card__meta-value"
-                                        x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="status-card__meta">
-                            <span class="status-card__meta-item">UDP 515</span>
-                        </div>
-
-                        <div class="status-card__hero">
-                            <div class="status-card__hero-content">
-                                <span class="status-card__hero-value"
-                                    x-text="ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps : '—'"></span>
-                                <span class="status-card__hero-unit">EPS</span>
-                            </div>
-                        </div>
-                        <div class="status-card__statstrip">
-                            <div class="status-card__stat status-card__stat--primary">
-                                <span class="status-card__stat-label">RCVD</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">PARSED</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">ERRORS</span>
-                                <span class="status-card__stat-value"
-                                    :class="(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : ''"
-                                    x-text="serverHealth.firewall_syslog?.errors ?? '0'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-                            <div class="status-card__stat">
-                                <span class="status-card__stat-label">LAST</span>
-                                <span class="status-card__stat-value"
-                                    x-text="serverHealth.firewall_syslog?.last_event ? serverHealth.firewall_syslog.last_event.split(' ').pop() : '—'"></span>
-                                <span class="status-card__stat-subvalue"></span>
-                            </div>
-
-                        </div>
-                    </div>
+                    {{ status_card(
+                    title='Firewall',
+                    meta_items=['UDP 515'],
+                    state={
+                    'class_expr': "serverHealth.firewall_syslog?.active ? 'status-active' : 'status-crit'",
+                    'text_expr': "serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'RCVD',
+                    'value_expr': "serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''",
+                    'primary': true
+                    },
+                    {
+                    'label': 'PARSED',
+                    'value_expr': "serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.firewall_syslog?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.firewall_syslog?.last_event ?
+                    serverHealth.firewall_syslog.last_event.split(' ').pop() : '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════════════

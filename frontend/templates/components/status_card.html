@@ -1,0 +1,58 @@
+{% macro status_card(title, meta_items, state, hero, stats) %}
+{#
+Reusable Status Card v3 Component
+
+Args:
+- title: String title of the card
+- meta_items: List of objects or strings. If object: { text: '...', x_show: '...' }
+- state: { class_expr: string (alpine expression), text_expr: string (alpine expression) }
+- hero: { value_expr: string (alpine expression), unit: string }
+- stats: List of 4 stat objects:
+{
+label: string,
+value_expr: string (alpine expression),
+subvalue_expr: string (optional alpine expression),
+primary: boolean,
+value_class_expr: string (optional alpine expression)
+}
+#}
+<div class="status-card">
+    <div class="status-card__header">
+        <div class="status-card__title">{{ title }}</div>
+        <div class="status-card__meta-tabs">
+            <div class="status-card__meta-tab status-card__meta-tab--status" :class="{{ state.class_expr }}">
+                <span class="status-card__meta-value" x-text="{{ state.text_expr }}"></span>
+            </div>
+        </div>
+    </div>
+    <div class="status-card__meta">
+        {% for item in meta_items %}
+        {% if item.text is defined %}
+        <span class="status-card__meta-item" {% if item.x_show %}x-show="{{ item.x_show }}" {% endif %}>{{ item.text
+            }}</span>
+        {% else %}
+        <span class="status-card__meta-item">{{ item }}</span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="status-card__hero">
+        <div class="status-card__hero-content">
+            <span class="status-card__hero-value" x-text="{{ hero.value_expr }}"></span>
+            <span class="status-card__hero-unit">{{ hero.unit }}</span>
+        </div>
+    </div>
+    <div class="status-card__statstrip">
+        {% for stat in stats %}
+        <div class="status-card__stat{% if stat.primary %} status-card__stat--primary{% endif %}">
+            <span class="status-card__stat-label">{{ stat.label }}</span>
+            <span class="status-card__stat-value" x-text="{{ stat.value_expr }}" {% if stat.value_class_expr
+                %}:class="{{ stat.value_class_expr }}" {% endif %}>
+            </span>
+            <span class="status-card__stat-subvalue" {% if stat.subvalue_expr %}x-text="{{ stat.subvalue_expr }}" {%
+                endif %}>
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endmacro %}
