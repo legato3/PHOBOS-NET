@@ -9883,48 +9883,61 @@ body.compact-mode {
 /* Ensure card captures mouse events */
 /* Ensure card captures mouse events */
 .status-card {
-    background: rgba(0, 10, 16, 0.85);
-    /* Deep dark background */
-    border: 1px solid rgba(0, 234, 255, 0.15);
-    /* Subtle cyan border */
-    border-radius: 2px;
-    /* Sharper geometry */
+    /* --- COMPONENT TOKENS --- */
+    --sc-bg: rgba(0, 10, 16, 0.85);
+    --sc-bg-hover: rgba(0, 10, 16, 0.9);
+    --sc-border: rgba(0, 234, 255, 0.15);
+    --sc-border-hover: rgba(0, 234, 255, 0.4);
+    --sc-radius: 2px;
+    --sc-transition: 0.3s ease;
+
+    --sc-hero-min-h: 100px;
+    --sc-hero-pad: 16px;
+    --sc-hero-font-size: 42px;
+
+    --sc-stat-min-h: 64px;
+    --sc-stat-max-h: 72px;
+    --sc-stat-cell-h: 54px;
+
+    /* --- LAYOUT --- */
+    background: var(--sc-bg);
+    border: 1px solid var(--sc-border);
+    border-radius: var(--sc-radius);
     padding: 0;
+
     display: flex;
     flex-direction: column;
     height: 100%;
-    /* overflow: hidden; Removed to ensure shadows/transforms work freely */
     overflow: hidden;
-    /* Restored to prevent content spilling out */
     position: relative;
     z-index: 1;
+
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    transition: transform var(--sc-transition), box-shadow var(--sc-transition), border-color var(--sc-transition);
+
     cursor: context-menu;
-    /* Subtle indication of mouse detection */
     user-select: none;
     pointer-events: auto !important;
-    /* Force mouse interaction */
 }
 
 /* Active state: LOCK to Hover State */
 /* Important: This ensures clicking does NOT change the visual state from hover */
+/* Active state: LOCK to Hover State */
 .status-card:active {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
-    border-color: rgba(0, 234, 255, 0.4) !important;
-    background: rgba(0, 10, 16, 0.9) !important;
+    border-color: var(--sc-border-hover) !important;
+    background: var(--sc-bg-hover) !important;
 }
 
 /* Hover state: Lift and Glow */
 .status-card:hover {
     transform: translateY(-2px) !important;
-    border-color: rgba(0, 234, 255, 0.4) !important;
+    border-color: var(--sc-border-hover) !important;
     box-shadow: 0 8px 30px rgba(0, 234, 255, 0.08) !important;
     z-index: 100 !important;
-    /* Ensure it stays on top */
-    background: rgba(0, 10, 16, 0.9);
+    background: var(--sc-bg-hover);
 }
 
 /* ... existing .status-card styles ... */
@@ -10090,20 +10103,16 @@ body.compact-mode {
 
 /* ... existing hero ... */
 /* Hero Section: Centered Value */
+/* Hero Section: Centered Value */
 .status-card__hero {
     display: flex;
     align-items: center;
-    /* Vertical centering */
     justify-content: center;
-    /* Horizontal centering */
-    padding: 16px;
-    /* Increased per user request */
+    padding: var(--sc-hero-pad);
     flex-grow: 1;
     height: 100%;
-    min-height: 100px;
-    /* Added to increase hero dominance */
+    min-height: var(--sc-hero-min-h);
     position: relative;
-    /* Context for absolute positioning if needed */
 }
 
 /* Make the value the reference point for the unit */
@@ -10116,9 +10125,9 @@ body.compact-mode {
 }
 
 /* Value is naturally centered in the wrapper */
+/* Value is naturally centered in the wrapper */
 .status-card__hero-value {
-    font-size: 42px;
-    /* Increased from 38px */
+    font-size: var(--sc-hero-font-size);
     font-family: var(--font-mono);
     font-weight: 300;
     color: var(--text-0);
@@ -10148,10 +10157,10 @@ body.compact-mode {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid rgba(0, 234, 255, 0.08);
+    /* Could tokenize this too if strict adherence is needed */
     background: rgba(0, 0, 0, 0.3);
-    min-height: 64px;
-    /* Fixed height constraint */
-    max-height: 72px;
+    min-height: var(--sc-stat-min-h);
+    max-height: var(--sc-stat-max-h);
 }
 
 .status-card__stat {
@@ -10162,9 +10171,7 @@ body.compact-mode {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    /* Centered vertically as requested */
-    min-height: 54px;
-    /* Maintain fixed height */
+    min-height: var(--sc-stat-cell-h);
 }
 
 /* Subtle emphasis for primary stats */
