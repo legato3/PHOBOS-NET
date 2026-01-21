@@ -9980,6 +9980,8 @@ body.compact-mode {
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
+    background: rgba(0, 234, 255, 0.03);
+    border-bottom: 1px solid rgba(0, 234, 255, 0.12);
 }
 
 .status-card__title {
@@ -9989,8 +9991,10 @@ body.compact-mode {
     text-transform: uppercase;
     padding-left: 8px;
     line-height: 1;
+    border-left: 3px solid var(--signal-ok);
+    color: var(--text-0);
+    font-weight: 700;
 }
-
 
 /* Pulsing dot for activity */
 .status-pulsing-dot {
@@ -10021,7 +10025,7 @@ body.compact-mode {
     }
 }
 
-/* New Sub-Meta Row Styles */
+/* Meta row in header */
 .status-card__meta {
     display: flex;
     align-items: center;
@@ -10032,13 +10036,44 @@ body.compact-mode {
 .status-card__meta-item {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--text-2);
-    /* Increased contrast from text-3 */
+    color: rgba(255, 255, 255, 0.5);
     line-height: 1;
     white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+/* Unified status pill styling */
+.status-card__meta-tab {
+    padding: 3px 8px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    white-space: nowrap;
+    border: 1px solid;
+}
+
+.status-card__meta-tab--status.status-ok,
+.status-card__meta-tab--status.status-active {
+    background: rgba(0, 255, 170, 0.08);
+    border-color: var(--signal-ok);
+    color: var(--signal-ok);
+}
+
+.status-card__meta-tab--status.status-warn {
+    background: rgba(255, 180, 0, 0.08);
+    border-color: var(--signal-warn);
+    color: var(--signal-warn);
+}
+
+.status-card__meta-tab--status.status-crit {
+    background: rgba(255, 0, 60, 0.08);
+    border-color: var(--signal-crit);
+    color: var(--signal-crit);
 }
 
 /* Status Indicators */
@@ -10246,7 +10281,7 @@ body.compact-mode {
     justify-content: space-between;
     align-items: center;
     padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(0, 234, 255, 0.10);
 }
 
 .service-item:last-child {
@@ -10257,9 +10292,11 @@ body.compact-mode {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-2);
-    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
     font-family: var(--font-mono);
+    font-weight: 400;
+    line-height: 1.4;
 }
 
 .service-item__status-dot {
@@ -10285,8 +10322,9 @@ body.compact-mode {
 }
 
 .service-item__value {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 12px;
+    font-family: var(--font-mono);
 }
 
 .service-section-label {
@@ -10298,11 +10336,45 @@ body.compact-mode {
     margin-bottom: 6px;
     font-weight: 600;
     font-family: var(--font-mono);
+    line-height: 1.4;
 }
 
 .service-section-label:first-child {
     margin-top: 0;
 }
+
+/* ============================================
+   UNIFIED METRIC ROW TYPOGRAPHY
+   Used by: Network I/O, Container, Process/Cache
+   ============================================ */
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 234, 255, 0.10);
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+.metric-row__label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+.metric-row__value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: right;
+}
+
 
 /* ============================================
    PROCESS/CACHE FOCAL POINT
@@ -10346,6 +10418,11 @@ body.compact-mode {
     justify-content: space-between;
     align-items: center;
     padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 234, 255, 0.10);
+}
+
+.network-io-item:last-child {
+    border-bottom: none;
 }
 
 .network-io-item__label {
@@ -10353,7 +10430,10 @@ body.compact-mode {
     align-items: center;
     gap: 6px;
     font-size: 11px;
-    color: var(--text-2);
+    color: rgba(255, 255, 255, 0.5);
+    font-family: var(--font-mono);
+    font-weight: 400;
+    line-height: 1.4;
 }
 
 .network-io-item__icon {
@@ -10377,7 +10457,9 @@ body.compact-mode {
     font-weight: 500;
     min-width: 80px;
     text-align: right;
+    line-height: 1.4;
 }
+
 
 /* ============================================
    PANEL CARD V3 (Lists/Tables/Charts)
