@@ -27,8 +27,9 @@
     <div class="header-right">
         <div class="header-controls mobile-hide-controls">
             <!-- Time Range with Presets -->
-            <div class="header-control-group" style="position: relative;">
-                <span class="control-label">Time</span>
+            <div class="header-control-group"
+                style="position: relative; display: flex; align-items: center; gap: var(--space-2);">
+                <span class="control-label" style="color: var(--text-primary); font-weight: 500;">TIME</span>
                 <div style="display: flex; gap: 4px; align-items: center;">
                     <select x-model="timeRange" class="header-select" aria-label="Time Range">
                         <option value="15m">15m</option>
@@ -103,14 +104,21 @@
                 </div>
             </div>
             <!-- Refresh Interval -->
-            <div class="header-control-group">
-                <span class="control-label">Refresh</span>
+            <div class="header-control-group" style="display: flex; align-items: center; gap: var(--space-2);">
+                <span class="control-label" style="color: var(--text-primary); font-weight: 500;">REFRESH</span>
                 <select x-model="refreshInterval" class="header-select" aria-label="Refresh Interval">
                     <option value="10000">10s</option>
                     <option value="30000">30s</option>
                     <option value="60000">1m</option>
                     <option value="300000">5m</option>
                 </select>
+            </div>
+            <!-- Clock Display -->
+            <div style="display: flex; align-items: center; padding: 0 var(--space-2);">
+                <span
+                    x-text="new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })"
+                    x-init="setInterval(() => { $el.textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) }, 1000)"
+                    style="color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 500;"></span>
             </div>
             <!-- Pause Button -->
             <button class="header-action-btn" :class="{ 'paused': paused }" @click="togglePause()"
