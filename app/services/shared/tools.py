@@ -294,7 +294,9 @@ def http_probe(url: str) -> Dict[str, Any]:
             'headers': {k: v for k, v in headers.items() if v}
         }
     except requests.exceptions.RequestException as e:
-        return {'error': f'HTTP probe failed: {str(e)}'}
+        # Log full exception details server-side, but return a generic error to the client
+        logging.exception("HTTP probe failed for URL %s", url)
+        return {'error': 'HTTP probe failed'}
 
 
 def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
