@@ -1,7 +1,7 @@
 # PHOBOS-NET
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/legato3/phobos-net-assets/main/images/dashboard-overview.png" width="100%" />
+  <img src="https://raw.githubusercontent.com/legato3/PHOBOS-NET/main/docs/Dashboard.png" width="100%" />
 </p>
 
 <p align="center">
