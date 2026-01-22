@@ -312,13 +312,8 @@
                     <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
-                {% set country_footer %}
-                <button class="btn-view-all" @click="openExpandedTable('countries')">View
-                    All</button>
-                {% endset %}
                 {% call widget_card('countries', 'Top Countries', '🌍',
-                extra_actions=country_actions,
-                footer_content=country_footer) %}
+                extra_actions=country_actions) %}
                 <div class="widget-body-inner">
                     <template x-for="c in (countries.map_data || []).slice(0, 10)" :key="c.iso">
                         <div class="country-row">
@@ -349,12 +344,8 @@
                     <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
-                {% set svc_footer %}
-                <button class="btn-view-all" @click="openExpandedTable('services')">View
-                    All</button>
-                {% endset %}
                 {% call widget_card('services', 'Top Services', '🌐', extra_actions=svc_actions,
-                footer_content=svc_footer) %}
+                ) %}
                 <div class="widget-body-inner">
                     <template x-for="svc in services.services" :key="svc.service">
                         <div class="service-row">
@@ -691,13 +682,11 @@
                                         <span class="text-cyan clickable-ip" @click="openIPModal(flow.src)"
                                             style="cursor: pointer;" x-text="flow.src"
                                             :title="flow.src_country || ''"></span>
-                                        <span class="text-muted" x-text="':' + flow.src_port"></span>
                                         <span class="text-muted">→</span>
                                         <!-- Destination -->
                                         <span class="text-purple clickable-ip" @click="openIPModal(flow.dst)"
                                             style="cursor: pointer;" x-text="flow.dst"
                                             :title="flow.dst_country || ''"></span>
-                                        <span class="text-muted" x-text="':' + flow.dst_port"></span>
                                     </div>
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px;">

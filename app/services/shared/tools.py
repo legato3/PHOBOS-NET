@@ -3,9 +3,12 @@ Network Tools Service - DNS, Port Check, Ping, Reputation, Whois
 """
 import subprocess
 import socket
+import ssl
 import re
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+import requests
 
 def dns_lookup(query: str, record_type: str = 'A') -> Dict[str, Any]:
     """Perform DNS lookup using dig command."""
@@ -251,3 +254,114 @@ def whois_lookup(query: str) -> Dict[str, Any]:
         return {'error': 'whois command not found'}
     except Exception as e:
         return {'error': f'Whois lookup failed: {str(e)}'}
+
+
+def http_probe(url: str) -> Dict[str, Any]:
+    """Probe an HTTP endpoint for status, latency, and headers."""
+    if not url:
+        return {'error': 'URL is required'}
+
+    url = url.strip()
+    if not re.match(r'^https?://', url, re.IGNORECASE):
+        url = f'http://{url}'
+
+    if not re.match(r'^https?://', url, re.IGNORECASE):
+        return {'error': 'Invalid URL scheme'}
+
+    try:
+        response = requests.get(
+            url,
+            timeout=(3, 8),
+            allow_redirects=True,
+            headers={'User-Agent': 'PHOBOS-NET/1.0'}
+        )
+        elapsed_ms = int(response.elapsed.total_seconds() * 1000)
+        redirects = [{'status': r.status_code, 'url': r.url} for r in response.history]
+        headers = {
+            'content-type': response.headers.get('Content-Type', ''),
+            'content-length': response.headers.get('Content-Length', ''),
+            'server': response.headers.get('Server', ''),
+            'cache-control': response.headers.get('Cache-Control', ''),
+            'location': response.headers.get('Location', '')
+        }
+        return {
+            'url': url,
+            'final_url': response.url,
+            'status_code': response.status_code,
+            'elapsed_ms': elapsed_ms,
+            'redirect_chain': redirects,
+            'headers': {k: v for k, v in headers.items() if v}
+        }
+    except requests.exceptions.RequestException as e:
+        return {'error': f'HTTP probe failed: {str(e)}'}
+
+
+def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
+    """Inspect TLS certificate details for a host."""
+    if not host:
+        return {'error': 'Host is required'}
+
+    host = host.strip()
+    host = re.sub(r'[^a-zA-Z0-9.\-]', '', host)
+    if not host:
+        return {'error': 'Invalid host'}
+
+    try:
+        port_num = int(port)
+        if port_num < 1 or port_num > 65535:
+            return {'error': 'Port out of range'}
+    except (TypeError, ValueError):
+        return {'error': 'Invalid port'}
+
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((host, port_num), timeout=5) as sock:
+            with context.wrap_socket(sock, server_hostname=host) as tls_sock:
+                cert = tls_sock.getpeercert() or {}
+                cipher = tls_sock.cipher()
+                tls_version = tls_sock.version()
+
+        subject_cn = ''
+        issuer_cn = ''
+        for item in cert.get('subject', []):
+            for key, value in item:
+                if key.lower() == 'commonname':
+                    subject_cn = value
+                    break
+        for item in cert.get('issuer', []):
+            for key, value in item:
+                if key.lower() == 'commonname':
+                    issuer_cn = value
+                    break
+
+        not_before = cert.get('notBefore')
+        not_after = cert.get('notAfter')
+        days_remaining = None
+        if not_after:
+            try:
+                expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
+                days_remaining = (expiry - datetime.utcnow()).days
+            except ValueError:
+                days_remaining = None
+
+        san = []
+        for name_type, name in cert.get('subjectAltName', []):
+            if name_type.lower() == 'dns':
+                san.append(name)
+
+        return {
+            'host': host,
+            'port': port_num,
+            'subject_cn': subject_cn,
+            'issuer_cn': issuer_cn,
+            'not_before': not_before,
+            'not_after': not_after,
+            'days_remaining': days_remaining,
+            'san': san,
+            'tls_version': tls_version,
+            'cipher': cipher[0] if cipher else None
+        }
+    except (socket.timeout, ConnectionError, ssl.SSLError) as e:
+        return {'error': f'TLS inspection failed: {str(e)}'}
+    except Exception as e:
+        return {'error': f'TLS inspection failed: {str(e)}'}

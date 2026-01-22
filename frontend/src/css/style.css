@@ -368,6 +368,14 @@ body.sidebar-collapsed .layout-wrapper {
     justify-content: flex-start;
     border-left: 3px solid transparent;
     border-radius: var(--radius-sm);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.sidebar-item:focus,
+.sidebar-item:focus-visible,
+.sidebar-item:active {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 /* CYBERPUNK UI: Sidebar item hover - Signal highlight */
@@ -376,6 +384,16 @@ body.sidebar-collapsed .layout-wrapper {
     color: var(--text-0);
     border-left-color: var(--signal-primary);
     box-shadow: 0 0 8px rgba(0, 234, 255, 0.1);
+}
+
+.sidebar-item:active {
+    border-left-color: transparent;
+    box-shadow: none;
+}
+
+.sidebar-item.active:hover {
+    border-left-color: transparent;
+    box-shadow: none;
 }
 
 /* CYBERPUNK UI: Sidebar item active - Subtle signal accent */
@@ -850,6 +868,11 @@ body.sidebar-collapsed .layout-wrapper {
     opacity: 0.6;
     cursor: not-allowed;
     border-color: var(--border-soft);
+}
+
+/* Secondary button - same baseline as default with white text */
+.btn--secondary {
+    color: var(--text-0);
 }
 
 /* CYBERPUNK UI: Primary button - Signal primary */
@@ -3031,7 +3054,7 @@ tr:hover td {
 
 .country-bar {
     height: 100%;
-    background: var(--neon-green);
+    background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-magenta) 100%);
     border-radius: 3px;
 }
 
@@ -3057,6 +3080,7 @@ tr:hover td {
     justify-content: space-between;
     padding: 8px 10px;
     border-radius: 6px;
+    border-left: none;
     gap: 10px;
 }
 
@@ -7640,6 +7664,18 @@ body.compact-mode {
     gap: var(--space-4);
 }
 
+#tools-tab .card h2 {
+    margin-bottom: var(--space-2);
+}
+
+#tools-tab .widget-body p {
+    margin-top: 0;
+}
+
+.tools-shell-card {
+    margin-top: var(--space-6);
+}
+
 /* Tools - Server Shell */
 .terminal-window {
     background: var(--bg-2);
@@ -9550,6 +9586,12 @@ body.compact-mode {
     margin-bottom: var(--space-3);
 }
 
+.tool-shell-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--space-3);
+}
+
 .tool-input {
     flex: 1;
     min-width: 150px;
@@ -9710,6 +9752,20 @@ body.compact-mode {
 }
 
 .whois-result div:last-child {
+    border-bottom: none;
+}
+
+.tool-result-list {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+
+.tool-result-list div {
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tool-result-list div:last-child {
     border-bottom: none;
 }
 

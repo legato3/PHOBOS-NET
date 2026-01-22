@@ -1041,6 +1041,8 @@ export const Store = () => ({
         port: { host: '', ports: '', loading: false, result: null, error: null },
         ping: { host: '', mode: 'ping', loading: false, result: null, error: null },
         reputation: { ip: '', loading: false, result: null, error: null },
+        httpProbe: { url: '', loading: false, result: null, error: null },
+        tlsInspect: { host: '', port: '443', loading: false, result: null, error: null },
         whois: { query: '', loading: false, result: null, error: null },
         shell: { command: '', history: [], historyIndex: -1, output: '', loading: false, error: null }
     },
@@ -1062,6 +1064,44 @@ export const Store = () => ({
             this.tools.dns.error = 'Failed to perform DNS lookup: ' + e.message;
         }
         this.tools.dns.loading = false;
+    },
+
+    // HTTP Probe
+    async runHttpProbe() {
+        this.tools.httpProbe.loading = true;
+        this.tools.httpProbe.error = null;
+        this.tools.httpProbe.result = null;
+        try {
+            const response = await fetch(`/api/tools/http-probe?url=${encodeURIComponent(this.tools.httpProbe.url)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.httpProbe.error = data.error;
+            } else {
+                this.tools.httpProbe.result = data;
+            }
+        } catch (e) {
+            this.tools.httpProbe.error = 'Failed to probe URL: ' + e.message;
+        }
+        this.tools.httpProbe.loading = false;
+    },
+
+    // TLS Certificate Inspector
+    async runTlsInspect() {
+        this.tools.tlsInspect.loading = true;
+        this.tools.tlsInspect.error = null;
+        this.tools.tlsInspect.result = null;
+        try {
+            const response = await fetch(`/api/tools/tls-inspect?host=${encodeURIComponent(this.tools.tlsInspect.host)}&port=${encodeURIComponent(this.tools.tlsInspect.port || '443')}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.tlsInspect.error = data.error;
+            } else {
+                this.tools.tlsInspect.result = data;
+            }
+        } catch (e) {
+            this.tools.tlsInspect.error = 'Failed to inspect certificate: ' + e.message;
+        }
+        this.tools.tlsInspect.loading = false;
     },
 
     // Port Check

@@ -1460,7 +1460,7 @@ def api_database_stats():
 # ============================================
 # TOOLS API ENDPOINTS
 # ============================================
-from app.services.shared.tools import dns_lookup, port_check, ping_host, check_reputation, whois_lookup
+from app.services.shared.tools import dns_lookup, port_check, ping_host, check_reputation, whois_lookup, http_probe, tls_inspect
 from app.services.shared.timeline import get_timeline_store
 
 @bp.route('/api/tools/dns')
@@ -1501,6 +1501,21 @@ def api_tools_whois():
     """Whois/ASN lookup tool."""
     query = request.args.get('query', '')
     result = whois_lookup(query)
+    return jsonify(result)
+
+@bp.route('/api/tools/http-probe')
+def api_tools_http_probe():
+    """HTTP probe tool."""
+    url = request.args.get('url', '')
+    result = http_probe(url)
+    return jsonify(result)
+
+@bp.route('/api/tools/tls-inspect')
+def api_tools_tls_inspect():
+    """TLS certificate inspection tool."""
+    host = request.args.get('host', '')
+    port = request.args.get('port', '443')
+    result = tls_inspect(host, port)
     return jsonify(result)
 
 
