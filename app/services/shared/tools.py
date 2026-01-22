@@ -315,6 +315,17 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
 
     try:
         context = ssl.create_default_context()
+        # Restrict to modern TLS versions (TLS 1.2+)
+        try:
+            # Prefer explicit minimum version when available (Python 3.7+)
+            if hasattr(ssl, "TLSVersion") and hasattr(context, "minimum_version"):
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+        except Exception:
+            # Fallback for older Python/OpenSSL: disable TLSv1 and TLSv1_1 if supported
+            for opt_name in ("OP_NO_TLSv1", "OP_NO_TLSv1_1"):
+                opt = getattr(ssl, opt_name, None)
+                if opt is not None:
+                    context.options |= opt
         with socket.create_connection((host, port_num), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls_sock:
                 cert = tls_sock.getpeercert() or {}
