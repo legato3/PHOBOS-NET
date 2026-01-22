@@ -1,7 +1,7 @@
 // Service Worker for NetFlow Analytics Dashboard
 // Provides offline caching for static assets and graceful degradation
 
-const CACHE_NAME = 'netflow-dashboard-v3.0.2';
+const CACHE_NAME = 'netflow-dashboard-v3.0.3';
 const STATIC_ASSETS = [
     '/',
     '/static/style.css',
