@@ -1607,13 +1607,15 @@ def _restart_syslog_services():
         from app.services.shared.syslog import restart_syslog_thread
         syslog_514 = restart_syslog_thread()
     except Exception as e:
-        syslog_514 = {'status': 'error', 'message': str(e)}
+        add_app_log(f"Maintenance: failed to restart syslog listener on port 514: {repr(e)}", "ERROR")
+        syslog_514 = {'status': 'error', 'message': 'Failed to restart syslog listener on port 514.'}
 
     try:
         from app.services.syslog.firewall_listener import restart_firewall_syslog_thread
         syslog_515 = restart_firewall_syslog_thread()
     except Exception as e:
-        syslog_515 = {'status': 'error', 'message': str(e)}
+        add_app_log(f"Maintenance: failed to restart firewall syslog listener on port 515: {repr(e)}", "ERROR")
+        syslog_515 = {'status': 'error', 'message': 'Failed to restart firewall syslog listener on port 515.'}
 
     status = 'ok' if syslog_514.get('status') == 'ok' and syslog_515.get('status') == 'ok' else 'partial'
     add_app_log("Maintenance: restart_syslog", "INFO")
