@@ -194,13 +194,22 @@ def parse_csv(output, expected_key=None):
         return results
     
     seen_keys = set()
+
+    # PERFORMANCE: Pre-calculate required length to avoid repetitive max() calls and len checks
+    indices_to_check = [key_idx, bytes_idx]
+    if flows_idx != -1: indices_to_check.append(flows_idx)
+    if packets_idx != -1: indices_to_check.append(packets_idx)
+    required_len = max(indices_to_check) + 1
+
     for line in lines[start_row_idx:]:
         if not line:
             continue
         if 'ts,' in line or 'te,' in line or 'Date first seen' in line:
             continue
         parts = line.split(",")
-        if len(parts) <= max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0):
+
+        # PERFORMANCE: Use pre-calculated length check
+        if len(parts) < required_len:
             continue
         try:
             key = parts[key_idx]
@@ -210,8 +219,9 @@ def parse_csv(output, expected_key=None):
                 continue
             seen_keys.add(key)
             bytes_val = int(float(parts[bytes_idx]))
-            flows_val = int(float(parts[flows_idx])) if flows_idx != -1 and len(parts) > flows_idx else 0
-            packets_val = int(float(parts[packets_idx])) if packets_idx != -1 and len(parts) > packets_idx else 0
+            # PERFORMANCE: Simplified checks using logic that required_len ensures existence
+            flows_val = int(float(parts[flows_idx])) if flows_idx != -1 else 0
+            packets_val = int(float(parts[packets_idx])) if packets_idx != -1 else 0
             if bytes_val > 0:
                 # Extract timestamps (usually indexes 0 and 1 for -o csv)
                 ts = parts[0]
@@ -525,18 +535,25 @@ def get_raw_flows(tf, limit=2000):
                         elif 'byt' in header: ibyt_idx = header.index('byt')
 
                         if sa_idx != -1 and da_idx != -1:
+                            # PERFORMANCE: Pre-calculate minimum required length (just sa/da)
+                            # We can't enforce full length for optional fields to preserve original permissive behavior
+                            min_required_len = max(sa_idx, da_idx) + 1
+
                             for line in lines[header_idx+1:]:
                                 if not line or 'sys:' in line or 'summary' in line: continue
                                 parts = line.split(',')
-                                if len(parts) <= max(sa_idx, da_idx): continue
+                                if len(parts) < min_required_len: continue
+
+                                # Use local length variable to avoid repeated len() calls
+                                p_len = len(parts)
 
                                 flow_data.append({
                                     "src_ip": parts[sa_idx],
                                     "dst_ip": parts[da_idx],
-                                    "src_port": parts[sp_idx] if sp_idx != -1 and len(parts) > sp_idx else "0",
-                                    "dst_port": parts[dp_idx] if dp_idx != -1 and len(parts) > dp_idx else "0",
-                                    "proto": parts[pr_idx] if pr_idx != -1 and len(parts) > pr_idx else "0",
-                                    "bytes": int(float(parts[ibyt_idx])) if ibyt_idx != -1 and len(parts) > ibyt_idx else 0,
+                                    "src_port": parts[sp_idx] if sp_idx != -1 and p_len > sp_idx else "0",
+                                    "dst_port": parts[dp_idx] if dp_idx != -1 and p_len > dp_idx else "0",
+                                    "proto": parts[pr_idx] if pr_idx != -1 and p_len > pr_idx else "0",
+                                    "bytes": int(float(parts[ibyt_idx])) if ibyt_idx != -1 and p_len > ibyt_idx else 0,
                                     "flows": 1
                                 })
                     except Exception as e:
