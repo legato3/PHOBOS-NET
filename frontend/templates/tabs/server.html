@@ -691,6 +691,67 @@
                             style="padding-top: 8px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
                             Container: <span x-text="serverLogs.container"></span></div>
                         {% endcall %}
+
+                        <!-- ═══════════════════════════════════════════════════════════
+                     MAINTENANCE CONTROLS
+                ═══════════════════════════════════════════════════════════ -->
+                        {% call panel_card(title='Maintenance', meta_items=[], tier='context') %}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="text-muted text-8 uppercase">NetFlow</div>
+                                <button class="btn btn--danger btn--block"
+                                    :disabled="serverMaintenance.actions.clear_netflow_files.loading"
+                                    @click="confirm('Clear all NetFlow files? This cannot be undone.') && runServerMaintenance('clear_netflow_files')">
+                                    <span
+                                        x-text="serverMaintenance.actions.clear_netflow_files.loading ? 'Clearing...' : 'Clear NetFlow Files'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.clear_netflow_files.error"
+                                    style="color: var(--signal-crit);" x-text="serverMaintenance.actions.clear_netflow_files.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.clear_netflow_files.message"
+                                    x-text="serverMaintenance.actions.clear_netflow_files.message"></div>
+
+                                <button class="btn btn--secondary btn--block"
+                                    :disabled="serverMaintenance.actions.restart_netflow.loading"
+                                    @click="confirm('Restart the NetFlow service?') && runServerMaintenance('restart_netflow')">
+                                    <span
+                                        x-text="serverMaintenance.actions.restart_netflow.loading ? 'Restarting...' : 'Restart NetFlow Service'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_netflow.error"
+                                    style="color: var(--signal-crit);" x-text="serverMaintenance.actions.restart_netflow.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_netflow.message"
+                                    x-text="serverMaintenance.actions.restart_netflow.message"></div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="text-muted text-8 uppercase">Firewall / Syslog</div>
+                                <button class="btn btn--danger btn--block"
+                                    :disabled="serverMaintenance.actions.reset_firewall_db.loading"
+                                    @click="confirm('Reset the firewall database? This will erase stored firewall logs.') && runServerMaintenance('reset_firewall_db')">
+                                    <span
+                                        x-text="serverMaintenance.actions.reset_firewall_db.loading ? 'Resetting...' : 'Reset Firewall Database'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.reset_firewall_db.error"
+                                    style="color: var(--signal-crit);" x-text="serverMaintenance.actions.reset_firewall_db.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.reset_firewall_db.message"
+                                    x-text="serverMaintenance.actions.reset_firewall_db.message"></div>
+
+                                <button class="btn btn--secondary btn--block"
+                                    :disabled="serverMaintenance.actions.restart_syslog.loading"
+                                    @click="confirm('Restart syslog services?') && runServerMaintenance('restart_syslog')">
+                                    <span
+                                        x-text="serverMaintenance.actions.restart_syslog.loading ? 'Restarting...' : 'Restart Syslog Services'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_syslog.error"
+                                    style="color: var(--signal-crit);" x-text="serverMaintenance.actions.restart_syslog.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_syslog.message"
+                                    x-text="serverMaintenance.actions.restart_syslog.message"></div>
+                            </div>
+                        </div>
+                        <div class="text-2 text-8"
+                            style="margin-top: 10px; color: var(--text-2);">
+                            Actions are immediate and may interrupt ingestion. Confirm before running.
+                        </div>
+                        {% endcall %}
                 </div>
         </template>
     </section>

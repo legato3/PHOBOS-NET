@@ -53,6 +53,11 @@ FILTERLOG_PATTERN = re.compile(
     r'(?P<dst_port>\d+)?'        # Destination port
 )
 
+# Local control for syslog thread restart
+_syslog_thread_stop_event = threading.Event()
+_syslog_socket = None
+_syslog_threads = []
+
 
 def start_syslog_thread():
     """Start the syslog receiver and maintenance threads."""
@@ -70,11 +75,53 @@ def start_syslog_thread():
     t2 = threading.Thread(target=_syslog_maintenance_loop, daemon=True)
     t2.start()
 
+    global _syslog_threads
+    _syslog_threads = [t1, t2]
+
+
+def restart_syslog_thread():
+    """Restart the syslog receiver and maintenance threads."""
+    import app.core.app_state as state
+    if _shutdown_event.is_set():
+        return {"status": "error", "message": "Shutdown in progress"}
+
+    _syslog_thread_stop_event.set()
+    _close_syslog_socket()
+    _join_syslog_threads(timeout=2)
+    _syslog_thread_stop_event.clear()
+
+    state._syslog_thread_started = False
+    start_syslog_thread()
+    add_app_log("Syslog receiver restarted (port 514)", "INFO")
+    return {"status": "ok"}
+
+
+def _close_syslog_socket():
+    """Close the active syslog socket if present."""
+    global _syslog_socket
+    if _syslog_socket:
+        try:
+            _syslog_socket.close()
+        except Exception:
+            pass
+        _syslog_socket = None
+
+
+def _join_syslog_threads(timeout=2):
+    """Join syslog threads to avoid duplicate listeners."""
+    global _syslog_threads
+    for thread in _syslog_threads:
+        if thread and thread.is_alive():
+            thread.join(timeout=timeout)
+    _syslog_threads = []
+
 
 def _syslog_receiver_loop():
     """UDP syslog receiver loop."""
+    global _syslog_socket
     sock = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_DGRAM)
     sock.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
+    _syslog_socket = sock
     
     try:
         sock.bind((SYSLOG_BIND, SYSLOG_PORT))
@@ -95,7 +142,7 @@ def _syslog_receiver_loop():
     # Set socket timeout so we can check shutdown event
     sock.settimeout(1.0)
     
-    while not _shutdown_event.is_set():
+    while not _shutdown_event.is_set() and not _syslog_thread_stop_event.is_set():
         try:
             data, addr = sock.recvfrom(4096)
             
@@ -150,11 +197,12 @@ def _syslog_receiver_loop():
         except Exception:
             with _syslog_stats_lock:
                 _syslog_stats["errors"] += 1
+    _close_syslog_socket()
 
 
 def _syslog_maintenance_loop():
     """Periodic maintenance for firewall logs."""
-    while not _shutdown_event.is_set():
+    while not _shutdown_event.is_set() and not _syslog_thread_stop_event.is_set():
         try:
             _cleanup_old_fw_logs()
             
@@ -166,7 +214,10 @@ def _syslog_maintenance_loop():
                 print(f"INFO: NetFlow disk usage at {disk_info['percent_used']:.1f}% ({disk_info['used_gb']:.1f}GB / {disk_info['total_gb']:.1f}GB)")
         except Exception as e:
             print(f"Maintenance error: {e}")
-        _shutdown_event.wait(timeout=3600)  # Run every hour
+        for _ in range(3600):
+            if _shutdown_event.is_set() or _syslog_thread_stop_event.is_set():
+                break
+            time.sleep(1)
 
 
 def _parse_filterlog(line: str) -> dict:

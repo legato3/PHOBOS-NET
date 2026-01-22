@@ -184,6 +184,32 @@ def _firewall_db_init():
             conn.close()
 
 
+def reset_firewall_database():
+    """Reset firewall database files and reinitialize the schema."""
+    global _firewall_db_initialized
+    removed = []
+    errors = []
+
+    with _firewall_db_lock:
+        _firewall_db_initialized = False
+        paths = [
+            FIREWALL_DB_PATH,
+            f"{FIREWALL_DB_PATH}-wal",
+            f"{FIREWALL_DB_PATH}-shm"
+        ]
+        for path in paths:
+            try:
+                if path and os.path.exists(path):
+                    os.remove(path)
+                    removed.append(path)
+            except Exception as e:
+                errors.append(f"{path}: {e}")
+
+    _firewall_db_init()
+
+    return {"removed": removed, "errors": errors}
+
+
 def _get_firewall_block_stats(hours=1):
     """Get firewall block statistics for the last N hours."""
     try:

@@ -201,6 +201,14 @@ export const Store = () => ({
     ingestionRates: null,
     databaseStats: { databases: [], loading: true, error: null },
     serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
+    serverMaintenance: {
+        actions: {
+            clear_netflow_files: { loading: false, status: null, message: '', error: null, lastRun: null },
+            reset_firewall_db: { loading: false, status: null, message: '', error: null, lastRun: null },
+            restart_netflow: { loading: false, status: null, message: '', error: null, lastRun: null },
+            restart_syslog: { loading: false, status: null, message: '', error: null, lastRun: null }
+        }
+    },
     resourceHistory: { history: [], cpu_peak: null, mem_peak: null, loading: true, error: null },
     monitoringSummary: {
         thread_health: { ok: 0, total: 0, status: 'unknown', threads: {} },
@@ -4505,6 +4513,43 @@ export const Store = () => ({
             this.databaseStats.loading = false;
         } finally {
             this._databaseStatsFetching = false;
+        }
+    },
+
+    async runServerMaintenance(action) {
+        const actionState = this.serverMaintenance?.actions?.[action];
+        if (!actionState || actionState.loading) return;
+
+        actionState.loading = true;
+        actionState.status = null;
+        actionState.message = '';
+        actionState.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/server/maintenance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+
+            const data = await res.json();
+            actionState.status = data.status || 'ok';
+            actionState.message = data.message || 'Completed';
+            actionState.lastRun = Date.now();
+
+            if (action === 'clear_netflow_files' || action === 'restart_netflow' || action === 'restart_syslog') {
+                this.fetchServerHealth();
+            }
+            if (action === 'reset_firewall_db') {
+                this.fetchDatabaseStats();
+            }
+        } catch (e) {
+            const fallback = e?.error || e?.message || 'Maintenance action failed';
+            actionState.status = 'error';
+            actionState.error = DashboardUtils?.getUserFriendlyError(e, 'run maintenance action') || fallback;
+        } finally {
+            actionState.loading = false;
         }
     },
 
