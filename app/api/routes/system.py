@@ -1512,13 +1512,15 @@ def _clear_netflow_files():
             os.remove(path)
             removed += 1
         except Exception as e:
-            errors.append(f"{name}: {e}")
+            # Log detailed error server-side, but return only a generic message to the client
+            add_app_log(f"Maintenance: failed to remove NetFlow file '{name}': {repr(e)}", "ERROR")
+            errors.append(f"{name}: failed to remove file")
 
     msg = f"Removed {removed} NetFlow files ({fmt_bytes(removed_bytes)})."
     if errors:
         msg += f" {len(errors)} errors."
 
-    add_app_log(f"Maintenance: clear_netflow_files removed={removed} bytes={removed_bytes}", "INFO")
+    add_app_log(f"Maintenance: clear_netflow_files removed={removed} bytes={removed_bytes} errors={len(errors)}", "INFO")
     return {
         'status': 'ok' if not errors else 'partial',
         'removed': removed,
