@@ -1563,8 +1563,9 @@ def _restart_netflow_service():
 
     nfcapd_dir = NFCAPD_DIR or '/var/cache/nfdump'
     nfcapd_port = int(os.environ.get('NFCAPD_PORT', '2055'))
-    pid_file = os.environ.get('NFCAPD_PID_FILE', '/tmp/nfcapd.pid')
-
+    pid_file = os.environ.get('NFCAPD_PID_FILE')
+    if not pid_file:
+        pid_file = os.path.join(nfcapd_dir, 'nfcapd.pid')
     try:
         os.makedirs(nfcapd_dir, exist_ok=True)
     except Exception as e:
