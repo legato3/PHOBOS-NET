@@ -2659,7 +2659,8 @@ def api_attack_timeline():
                                 if parts[sa_idx] in threat_set or parts[da_idx] in threat_set:
                                     matched_sampled_flows += 1
                                     match_buckets[bucket_label] += 1
-                        except: continue
+                        except (ValueError, TypeError, IndexError):
+                            continue
             except (ValueError, IndexError):
                 pass
 
