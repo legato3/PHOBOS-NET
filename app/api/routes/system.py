@@ -1568,7 +1568,8 @@ def _restart_netflow_service():
     try:
         os.makedirs(nfcapd_dir, exist_ok=True)
     except Exception as e:
-        return {'status': 'error', 'message': f'Failed to access NetFlow dir: {e}'}
+        add_app_log(f"Maintenance: restart_netflow - Failed to access NetFlow dir '{nfcapd_dir}': {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to access NetFlow directory.'}
 
     if os.path.exists(pid_file):
         try:
@@ -1593,7 +1594,8 @@ def _restart_netflow_service():
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        return {'status': 'error', 'message': f'Failed to start nfcapd: {e}'}
+        add_app_log(f"Maintenance: restart_netflow - Failed to start nfcapd with command {cmd}: {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to start NetFlow collector.'}
 
     add_app_log("Maintenance: restart_netflow", "INFO")
     return {'status': 'ok', 'message': 'NetFlow service restart requested.'}
