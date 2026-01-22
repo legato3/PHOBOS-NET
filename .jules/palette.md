@@ -1,0 +1,3 @@
+## 2025-05-15 - Accessible Timeline Interactions
+**Learning:** Interactive lists (like timelines) often use `div` elements with click handlers for styling convenience, which excludes keyboard and screen reader users. The "Recent Activity" timeline was inaccessible because it nested the expanded content *inside* the clickable container, complicating semantics.
+**Action:** Convert the interactive header part into a semantic `<button type="button">` with `aria-expanded` and `aria-controls`. Apply CSS reset styles to the button to maintain the visual design of a list item while gaining native accessibility behaviors (focus, enter/space to activate). Ensure `cursor: pointer` is applied only to the interactive element, not the container.

@@ -347,9 +347,11 @@
             <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
                 <div class="timeline-events">
                     <template x-for="event in timeline.events.slice(0, timeline.viewLimit)" :key="event.timestamp_ts">
-                        <div class="timeline-event" @click="toggleTimelineEvent(event.timestamp_ts)"
-                            :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
-                            <div class="timeline-event-header">
+                        <div class="timeline-event" :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
+                            <button type="button" class="timeline-event-header"
+                                @click="toggleTimelineEvent(event.timestamp_ts)"
+                                :aria-expanded="isTimelineEventExpanded(event.timestamp_ts)"
+                                :aria-controls="'event-details-' + event.timestamp_ts">
                                 <span class="timeline-event-icon" x-text="getTimelineSourceIcon(event.source)"></span>
                                 <span class="timeline-event-time"
                                     x-text="new Date(event.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></span>
@@ -357,10 +359,10 @@
                                 <span class="timeline-event-summary" x-text="event.summary"></span>
                                 <span class="timeline-event-expand"
                                     x-text="isTimelineEventExpanded(event.timestamp_ts) ? '▼' : '▶'"></span>
-                            </div>
+                            </button>
                             <!-- Expanded Raw Details -->
                             <template x-if="isTimelineEventExpanded(event.timestamp_ts) && event.raw">
-                                <div class="timeline-event-details">
+                                <div class="timeline-event-details" :id="'event-details-' + event.timestamp_ts">
                                     <pre x-text="JSON.stringify(event.raw, null, 2)"></pre>
                                 </div>
                             </template>

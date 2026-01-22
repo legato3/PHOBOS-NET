@@ -9748,7 +9748,6 @@ body.compact-mode {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: var(--radius-sm);
-    cursor: pointer;
     transition: background-color var(--transition-base), border-color var(--transition-base);
 }
 
@@ -9768,6 +9767,13 @@ body.compact-mode {
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     font-size: var(--text-sm);
+    cursor: pointer;
+    width: 100%;
+    border: none;
+    text-align: left;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
 }
 
 .timeline-event-icon {
