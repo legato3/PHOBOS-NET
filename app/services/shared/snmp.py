@@ -63,10 +63,10 @@ def get_snmp_data():
     
     try:
         result = {}
-        oids = " ".join(SNMP_OIDS.values())
-        cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {oids}"
+        oid_list = list(SNMP_OIDS.values())
+        cmd = ["snmpget", "-v2c", "-c", snmp_community, "-Oqv", snmp_host] + oid_list
         
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=5, text=True)
         values = output.strip().split("\n")
         
         oid_keys = list(SNMP_OIDS.keys())
@@ -388,13 +388,13 @@ def discover_interfaces():
     
     try:
         # Walk interface descriptions
-        cmd = f"snmpwalk -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.2.2.1.2"
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        cmd = ["snmpwalk", "-v2c", "-c", snmp_community, "-Oqv", snmp_host, ".1.3.6.1.2.1.2.2.1.2"]
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=5, text=True)
         if_descr = output.strip().split("\n")
         
         # Walk interface operational status to filter only UP interfaces
-        cmd = f"snmpwalk -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.2.2.1.8"
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=5, text=True)
+        cmd = ["snmpwalk", "-v2c", "-c", snmp_community, "-Oqv", snmp_host, ".1.3.6.1.2.1.2.2.1.8"]
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=5, text=True)
         if_status = output.strip().split("\n")
         
         mapping = {}
