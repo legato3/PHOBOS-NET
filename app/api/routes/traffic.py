@@ -212,8 +212,13 @@ def api_stats_flags():
         try:
             flg_idx = header.index('flg')
         except ValueError:
-            # Fallback for mock or unknown
-            flg_idx = 8
+             # nfdump 1.7+ might use 'flags' and requires a custom format call for flags or explicit selection.
+             # If flags are not in default CSV, we should request them or switch to standard output.
+             # However, this endpoint relies on 'csv', so try to find 'flags'
+             if 'flags' in header:
+                 flg_idx = header.index('flags')
+             else:
+                 flg_idx = 8 # Last resort fallback
 
         for line in lines[1:]:
             parts = line.split(',')
@@ -278,17 +283,23 @@ def api_stats_durations():
         rows = []
         lines = output.strip().split("\n")
         header = lines[0].split(',')
-        # Map indices
         try:
-            ts_idx = header.index('ts')
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            pr_idx = header.index('proto')
-            td_idx = header.index('td')
-            ibyt_idx = header.index('ibyt')
+            # Normalize header for easier matching
+            header_norm = [h.lower() for h in header]
+            ts_idx = header_norm.index('ts') if 'ts' in header_norm else header_norm.index('firstseen')
+            sa_idx = header_norm.index('sa') if 'sa' in header_norm else header_norm.index('srcaddr')
+            da_idx = header_norm.index('da') if 'da' in header_norm else header_norm.index('dstaddr')
+            pr_idx = header_norm.index('proto') if 'proto' in header_norm else header_norm.index('pr')
+            td_idx = header_norm.index('td') if 'td' in header_norm else header_norm.index('duration')
+            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else header_norm.index('byt'))
         except ValueError:
-            # Fallback indices
-            sa_idx, da_idx, pr_idx, td_idx, ibyt_idx = 3, 4, 7, 2, 12
+            # Fallback indices (legacy default vs new default)
+            # New nfdump 1.7+ csv: firstSeen,duration,proto,srcAddr,srcPort,dstAddr,dstPort,packets,bytes,flows
+            # 0=ts, 1=td, 2=pr, 3=sa, 4=sp, 5=da, 6=dp, 7=pkt, 8=byt
+            if 'firstSeen' in header[0] or 'firstseen' in lines[0].lower():
+                 sa_idx, da_idx, pr_idx, td_idx, ibyt_idx = 3, 5, 2, 1, 8
+            else:
+                 sa_idx, da_idx, pr_idx, td_idx, ibyt_idx = 3, 4, 7, 2, 12
 
         seen_flows = set()  # Deduplicate flows
         for line in lines[1:]:
@@ -403,12 +414,14 @@ def api_stats_packet_sizes():
 
     try:
         lines = output.strip().split("\n")
+        lines = output.strip().split("\n")
         # Check if first line looks like a header
-        if lines and 'ibyt' in lines[0]:
+        if lines and ('ibyt' in lines[0] or 'bytes' in lines[0] or 'byt' in lines[0]):
              header = lines[0].split(',')
+             header_norm = [h.lower() for h in header]
              try:
-                 ibyt_idx = header.index('ibyt')
-                 ipkt_idx = header.index('ipkt')
+                 ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else header_norm.index('byt'))
+                 ipkt_idx = header_norm.index('ipkt') if 'ipkt' in header_norm else (header_norm.index('packets') if 'packets' in header_norm else header_norm.index('pkt'))
              except ValueError:
                  pass
              start_idx = 1
@@ -697,13 +710,35 @@ def api_stats_talkers():
                 # Map headers to indices if possible, else rely on defaults
                 try:
                     # check for common variances
-                    sa_key = 'sa' if 'sa' in header else 'srcAddr'
-                    da_key = 'da' if 'da' in header else 'dstAddr'
-                    ibyt_key = 'ibyt' if 'ibyt' in header else 'bytes'
+                    header_norm = [h.lower() for h in header]
+                    
+                    if 'sa' in header_norm: sa_idx = header_norm.index('sa')
+                    elif 'srcaddr' in header_norm: sa_idx = header_norm.index('srcaddr')
+                    
+                    if 'da' in header_norm: da_idx = header_norm.index('da')
+                    elif 'dstaddr' in header_norm: da_idx = header_norm.index('dstaddr')
+                    
+                    if 'ibyt' in header_norm: ibyt_idx = header_norm.index('ibyt')
+                    elif 'bytes' in header_norm: ibyt_idx = header_norm.index('bytes')
+                    
+                    if 'ts' in header_norm: ts_idx = header_norm.index('ts')
+                    elif 'firstseen' in header_norm: ts_idx = header_norm.index('firstseen')
+                    
+                    if 'td' in header_norm: td_idx = header_norm.index('td')
+                    elif 'duration' in header_norm: td_idx = header_norm.index('duration')
+                    
+                    if 'pr' in header_norm: pr_idx = header_norm.index('pr')
+                    elif 'proto' in header_norm: pr_idx = header_norm.index('proto')
+                    
+                    if 'sp' in header_norm: sp_idx = header_norm.index('sp')
+                    elif 'srcport' in header_norm: sp_idx = header_norm.index('srcport')
+                    
+                    if 'dp' in header_norm: dp_idx = header_norm.index('dp')
+                    elif 'dstport' in header_norm: dp_idx = header_norm.index('dstport')
 
-                    if sa_key in header: sa_idx = header.index(sa_key)
-                    if da_key in header: da_idx = header.index(da_key)
-                    if ibyt_key in header: ibyt_idx = header.index(ibyt_key)
+                    if 'ipkt' in header_norm: ipkt_idx = header_norm.index('ipkt')
+                    elif 'packets' in header_norm: ipkt_idx = header_norm.index('packets')
+                    
                     start_idx = 1
                 except ValueError:
                     pass
