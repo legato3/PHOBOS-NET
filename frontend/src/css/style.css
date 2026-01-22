@@ -1986,7 +1986,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
     font-size: var(--endpoint-ip-size);
     font-weight: var(--endpoint-ip-weight);
     font-family: var(--font-mono);
-    color: var(--text-primary);
+    color: var(--text-0);
     flex: 0 1 auto;
     min-width: 0;
     text-align: left;
@@ -1994,7 +1994,7 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 
 .network-endpoint-row[data-row-rank="0"] .endpoint-ip {
     font-size: 1.1em;
-    color: var(--neon-cyan);
+    color: var(--text-0);
 }
 
 .endpoint-flag {
@@ -2056,6 +2056,8 @@ table:has(.network-endpoint-row) tr:last-child .network-endpoint-row {
 
 .endpoint-value-cell {
     text-align: right;
+    justify-content: flex-end;
+    width: 100%;
 }
 
 /* CYBERPUNK UI: Endpoint value - Signal traffic data */
