@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+import logging
 import requests
 
 def dns_lookup(query: str, record_type: str = 'A') -> Dict[str, Any]:
@@ -373,6 +374,10 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
             'cipher': cipher[0] if cipher else None
         }
     except (socket.timeout, ConnectionError, ssl.SSLError) as e:
-        return {'error': f'TLS inspection failed: {str(e)}'}
-    except Exception as e:
-        return {'error': f'TLS inspection failed: {str(e)}'}
+        # Log detailed error server-side but return a generic message to the client
+        logging.warning("TLS inspection connection error for %s:%s: %s", host, port, e)
+        return {'error': 'TLS inspection failed due to a connection or TLS error'}
+    except Exception:
+        # Log full stack trace for unexpected errors while keeping the client message generic
+        logging.exception("Unexpected error during TLS inspection for %s:%s", host, port)
+        return {'error': 'TLS inspection failed due to an internal error'}
