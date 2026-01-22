@@ -203,7 +203,16 @@ def reset_firewall_database():
                     os.remove(path)
                     removed.append(path)
             except Exception as e:
-                errors.append(f"{path}: {e}")
+                # Log full details on the server but avoid exposing them to API callers
+                try:
+                    add_app_log(f"Error removing firewall DB file '{path}': {e}", "ERROR")
+                except Exception:
+                    # Ensure logging failures do not break the reset flow
+                    pass
+                # Append a generic error message without internal exception details
+                errors.append(
+                    f"Failed to remove firewall database file: {os.path.basename(path) if path else 'unknown path'}"
+                )
 
     _firewall_db_init()
 
