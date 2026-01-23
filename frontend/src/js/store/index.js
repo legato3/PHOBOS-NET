@@ -6286,7 +6286,7 @@ export const Store = () => ({
         this.fetchRecentBlocks();
 
         // Set up interval: refresh every 3 seconds for real-time feel
-        const refreshInterval = 3000;
+        const refreshInterval = 10000;
         this.recentBlocksRefreshTimer = setInterval(() => {
             if (this.recentBlocksAutoRefresh && this.activeTab === 'forensics') {
                 this.fetchRecentBlocksIncremental();

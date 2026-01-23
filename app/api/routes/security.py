@@ -678,7 +678,7 @@ def api_firewall_logs_timeline():
 
 
 @bp.route("/api/firewall/logs/recent")
-@throttle(5, 10)
+@throttle(20, 10)
 def api_firewall_logs_recent():
     """Get most recent firewall log entries (up to 1000)."""
     limit = min(int(request.args.get('limit', 1000)), 1000)
@@ -819,7 +819,7 @@ def api_firewall_logs_recent():
 
 
 @bp.route("/api/firewall/syslog/recent")
-@throttle(5, 10)
+@throttle(20, 10)
 def api_firewall_syslog_recent():
     """Get recent syslog entries from port 515 (OPNsense general syslog)."""
     limit = min(int(request.args.get('limit', 500)), 1000)

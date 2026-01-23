@@ -13,6 +13,8 @@ sys.path.insert(0, work_dir)
 # This is required when running in Docker with virtualized filesystems (like on Mac)
 # to ensure consistent Content-Length calculation during high concurrency.
 sendfile = False
+# Use /dev/shm for Gunicorn temporary files to improve performance and reliability in Docker
+worker_tmp_dir = "/dev/shm"
 
 def post_worker_init(worker):
     """Called just after a worker has initialized the application."""
