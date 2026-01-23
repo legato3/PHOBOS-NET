@@ -13,53 +13,58 @@ _SECURITY_SCORE_CACHE_TTL = 30  # 30 seconds
 
 
 @instrument_service('calculate_security_observability')
-def calculate_security_observability():
+def calculate_security_observability(range_key='1h'):
     """Calculate security observability state based on current threat state and firewall activity.
     
     Returns descriptive state language and contributing factors without scoring.
-    
-    OBSERVABILITY: Instrumented to track execution time and call frequency.
     """
-    # PERFORMANCE: Cache result for 30s to reduce redundant DB queries and timeline iterations
     now = time.time()
+    
+    # Map range keys to hours
+    range_map = {
+        '15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168
+    }
+    hours = range_map.get(range_key, 1)
+    range_seconds = hours * 3600
+    
+    cache_key = f"{range_key}"
     with _security_score_lock:
-        if _security_score_cache["data"] and now - _security_score_cache["ts"] < _SECURITY_SCORE_CACHE_TTL:
+        if _security_score_cache.get("data") and _security_score_cache.get("key") == cache_key and now - _security_score_cache["ts"] < _SECURITY_SCORE_CACHE_TTL:
             return _security_score_cache["data"]
     
     # Initialize observability state
     overall_state = "UNKNOWN"
     contributing_factors = []
     
-    # Get firewall block stats (expensive DB query - cached at function level)
-    fw_stats = _get_firewall_block_stats(hours=1)
+    # Get firewall block stats (dynamic range)
+    fw_stats = _get_firewall_block_stats(hours=hours)
     
-    # PERFORMANCE: Compute active threat count once instead of filtering list comprehension each time
-    now_ts = time.time()
-    hour_ago = now_ts - 3600
+    # PERFORMANCE: Compute active threat count once
+    cutoff = now - range_seconds
     threat_count = sum(1 for ip, data in threats_module._threat_timeline.items() 
-                      if data.get('last_seen', 0) > hour_ago)
+                      if data.get('last_seen', 0) > cutoff)
     
     # Categorize signals
     protection_signals = []
     exposure_signals = []
     data_quality_signals = []
     
-    # Protection signals (firewall activity, threats blocked)
+    # Protection signals
     threats_blocked = fw_stats.get('threats_blocked', 0)
     if threats_blocked > 0:
         protection_signals.append(f"Firewall blocked {threats_blocked} known threats")
     
-    if fw_stats.get('blocks', 0) > 10:
+    if fw_stats.get('blocks', 0) > (10 * hours):
         protection_signals.append("Firewall actively blocking attacks")
     
-    # Exposure signals (external connections, attack rate)
+    # Exposure signals
     if threat_count > 0:
         exposure_signals.append(f"{threat_count} active threats detected")
     
     if fw_stats.get('blocks_per_hour', 0) > 100:
         exposure_signals.append(f"High attack rate: {fw_stats['blocks_per_hour']}/hour")
     
-    # Data Quality signals (feed health, visibility gaps)
+    # Data Quality signals
     feeds_ok = sum(1 for f in threats_module._feed_status.values() if f.get('status') == 'ok')
     feeds_total = len(threats_module._feed_status)
     if feeds_total > 0 and feeds_ok < feeds_total:
@@ -75,37 +80,29 @@ def calculate_security_observability():
     recent_critical = 0
     with threats_module._alert_history_lock:
         for alert in threats_module._alert_history:
-            if alert.get('severity') == 'critical' and now_ts - alert.get('ts', 0) < 3600:
+            if alert.get('severity') == 'critical' and now - alert.get('ts', 0) < range_seconds:
                 recent_critical += 1
     if recent_critical > 0:
-        exposure_signals.append(f"{recent_critical} critical alerts in last hour")
+        exposure_signals.append(f"{recent_critical} critical alerts in selected range")
     
-    # Determine overall state based on signals
-    # Priority: UNDER PRESSURE > DEGRADED > ELEVATED > STABLE > QUIET
-    if recent_critical > 0 or threat_count > 5:
+    # Determine overall state
+    if recent_critical > 0 or threat_count > (5 * hours):
         overall_state = "UNDER PRESSURE"
     elif threat_count > 0 or fw_stats.get('blocks_per_hour', 0) > 100:
         overall_state = "DEGRADED"
     elif feeds_ok < feeds_total:
-        # Feed issues but no active threats
         overall_state = "ELEVATED"
     elif fw_stats.get('blocks', 0) > 0 or threats_blocked > 0:
-        # Firewall is active and blocking (threats or other traffic)
         overall_state = "STABLE"
     elif total_ips >= 10000:
-        # Good coverage, no blocks means quiet network
         overall_state = "STABLE"
     else:
-        # Insufficient data to determine state (no firewall activity, limited coverage)
         overall_state = "QUIET"
     
     # Build contributing factors
-    if protection_signals:
-        contributing_factors.extend(protection_signals)
-    if exposure_signals:
-        contributing_factors.extend(exposure_signals)
-    if data_quality_signals:
-        contributing_factors.extend(data_quality_signals)
+    if protection_signals: contributing_factors.extend(protection_signals)
+    if exposure_signals: contributing_factors.extend(exposure_signals)
+    if data_quality_signals: contributing_factors.extend(data_quality_signals)
     
     result = {
         'overall_state': overall_state,
@@ -118,18 +115,19 @@ def calculate_security_observability():
         'feeds_total': feeds_total,
         'blocklist_ips': total_ips,
         'firewall': fw_stats,
-        'last_updated': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
+        'last_updated': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now)),
+        'range': range_key
     }
     
-    # PERFORMANCE: Cache result before returning
     with _security_score_lock:
         _security_score_cache["data"] = result
         _security_score_cache["ts"] = now
+        _security_score_cache["key"] = cache_key
     
     return result
 
 
 # Legacy function for backward compatibility
-def calculate_security_score():
+def calculate_security_score(range_key='1h'):
     """Legacy wrapper for backward compatibility."""
-    return calculate_security_observability()
+    return calculate_security_observability(range_key)

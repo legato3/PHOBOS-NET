@@ -546,8 +546,8 @@ def api_server_health():
         
         data['firewall_syslog'] = {
             'received': fw_status.get('received', 0),
-            'parsed': 0, # Not tracked deeply in shared yet
-            'errors': 0,
+            'parsed': fw_status.get('parsed', 0),
+            'errors': fw_status.get('errors', 0),
             'last_log': fw_last_log,
             'last_event': datetime.fromtimestamp(fw_last_log).strftime('%H:%M:%S') if fw_last_log else None,
             'active': fw_active

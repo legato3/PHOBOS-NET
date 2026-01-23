@@ -299,7 +299,7 @@ def api_stats_durations():
 
     tf = get_time_range(range_key)
 
-    output = run_nfdump(["-n", "100"], tf) # Get recent flows
+    output = run_nfdump(["-O", "duration", "-n", "100"], tf) # Get top flows by duration
 
     try:
         rows = []
@@ -1237,17 +1237,17 @@ def api_stats_services():
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
 def api_stats_hourly():
-    """Traffic distribution by hour (last 24 hours)."""
+    """Traffic distribution by hour for selected range."""
+    range_key = request.args.get('range', '24h')
     now = time.time()
     win = int(now // 60)
     with _cache_lock:
-        if _stats_hourly_cache["data"] and _stats_hourly_cache.get("win") == win:
+        if _stats_hourly_cache["data"] and _stats_hourly_cache.get("key") == range_key and _stats_hourly_cache.get("win") == win:
             return jsonify(_stats_hourly_cache["data"])
 
-    # Always use 24h range for hourly stats
-    tf = get_time_range("24h")
-    # Sort by bytes to capture the top contributors rather than a random start-of-file sample
-    output = run_nfdump(["-O", "bytes", "-n", "5000"], tf)
+    tf = get_time_range(range_key)
+    # Sort by bytes to capture the top contributors
+    output = run_nfdump(["-O", "bytes", "-n", "10000"], tf)
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -1330,16 +1330,17 @@ def api_stats_hourly():
             "total_bytes": sum(bytes_data),
             "total_bytes_fmt": fmt_bytes(sum(bytes_data)),
             "timezone": "local",  # Clarify that hours are in server local time
-            "time_scope": "24h",  # Fixed window explicit declaration
+            "time_scope": range_key,  # Fixed window explicit declaration
             "current_hour": current_hour  # For frontend reference
         }
     except (ValueError, TypeError, IndexError, KeyError):
-        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": "24h"}
+        data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": range_key}
 
     with _cache_lock:
         _stats_hourly_cache["data"] = data
         _stats_hourly_cache["ts"] = now
         _stats_hourly_cache["win"] = win
+        _stats_hourly_cache["key"] = range_key
     return jsonify(data)
 
 
@@ -2041,8 +2042,11 @@ def api_network_stats_overview():
     update_baseline('active_flows', active_flows_count)
     update_baseline('external_connections', external_connections_count)
     
-    # Calculate anomalies rate (anomalies per hour) and update baseline
-    anomalies_rate = anomalies_24h / 24.0 if anomalies_24h > 0 else 0.0
+    # Calculate anomalies rate (anomalies per hour)
+    range_hours = {
+        '15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168
+    }.get(range_key, 1)
+    anomalies_rate = anomalies_24h / range_hours if anomalies_24h > 0 else 0.0
     update_baseline('anomalies_rate', anomalies_rate)
     
     # Calculate trends (since last hour)
@@ -2061,9 +2065,9 @@ def api_network_stats_overview():
         },
         # TIME SCOPE METADATA: Documents fixed time windows used for each metric
         "time_scope": {
-            "active_flows": "1h",
-            "external_connections": "1h",
-            "anomalies_24h": "24h"
+            "active_flows": range_key,
+            "external_connections": range_key,
+            "anomalies_24h": range_key
         }
     })
 

@@ -30,58 +30,9 @@
 
         <!-- Threat Activity Timeline - Full Width -->
         <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: var(--space-6);">
-            {% set threat_actions %}
-            <button class="icon-btn-small" @click="exportThreatActivityTimeline('csv')" title="Export CSV"
-                style="color: var(--neon-green);"
-                x-show="threatActivityTimeline.timeline && threatActivityTimeline.timeline.length > 0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-            </button>
-            {% endset %}
             {% call widget_card('threatActivityTimeline', 'Threat Activity Timeline', '📈',
-            card_class='wide-card', extra_actions=threat_actions, show_spinner=True) %}
-            <!-- Time Range Selector -->
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); flex-wrap: wrap; gap: var(--space-1);">
-                <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
-                    <button @click="threatActivityTimeline.timeRange = '1h'; fetchThreatActivityTimeline()"
-                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '1h', 'btn--secondary': threatActivityTimeline.timeRange !== '1h' }"
-                        class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                        1 Hour
-                    </button>
-                    <button @click="threatActivityTimeline.timeRange = '6h'; fetchThreatActivityTimeline()"
-                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '6h', 'btn--secondary': threatActivityTimeline.timeRange !== '6h' }"
-                        class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                        6 Hours
-                    </button>
-                    <button @click="threatActivityTimeline.timeRange = '24h'; fetchThreatActivityTimeline()"
-                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '24h', 'btn--secondary': threatActivityTimeline.timeRange !== '24h' }"
-                        class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                        24 Hours
-                    </button>
-                    <button @click="threatActivityTimeline.timeRange = '7d'; fetchThreatActivityTimeline()"
-                        :class="{ 'btn--primary': threatActivityTimeline.timeRange === '7d', 'btn--secondary': threatActivityTimeline.timeRange !== '7d' }"
-                        class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                        7 Days
-                    </button>
-                </div>
-                <div style="display: flex; gap: var(--space-1); flex-wrap: wrap;">
-                    <button @click="exportThreatActivityTimeline('csv')" class="btn btn--secondary"
-                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
-                        :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
-                        📥 CSV
-                    </button>
-                    <button @click="exportThreatActivityTimeline('json')" class="btn btn--secondary"
-                        style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
-                        :disabled="!threatActivityTimeline.timeline || threatActivityTimeline.timeline.length === 0">
-                        📥 JSON
-                    </button>
-                </div>
-            </div>
+            card_class='wide-card', show_spinner=True) %}
+            <!-- Control Bar Removed (Redundant range/export) -->
 
             <!-- Stats Summary -->
             <div class="timeline-stats-summary">

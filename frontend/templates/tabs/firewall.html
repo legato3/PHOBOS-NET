@@ -526,7 +526,6 @@
         {% set conv_actions %}
         <div class="flex gap-2" style="align-items: center;">
             <div class="status-pills">
-                <span class="status-pill running">Live</span>
             </div>
             <button @click="setFlowsViewLimit(15)"
                 :class="{ 'btn--primary': flows.viewLimit === 15, 'btn--secondary': flows.viewLimit !== 15 }"
@@ -547,7 +546,7 @@
         </div>
         {% endset %}
         {% call widget_card('flows', 'Active Flows', '⚡', card_class='wide-card',
-        extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True) %}
+        extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True, period_x_text="timeRange") %}
         <!-- List View -->
         <table class="table-fixed table-compact">
             <thead>

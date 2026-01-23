@@ -690,12 +690,17 @@ def api_firewall_logs_timeline():
 @bp.route("/api/firewall/logs/recent")
 @throttle(100, 10)
 def api_firewall_logs_recent():
-    """Get most recent firewall log entries (up to 300)."""
+    """Get most recent firewall log entries."""
+    range_key = request.args.get('range', '1h')
     limit = min(int(request.args.get('limit', 300)), 1000)
-    action_filter = request.args.get('action')  # 'block', 'pass', or None for all
-    since_ts = request.args.get('since')  # Optional: only return logs newer than this timestamp
+    action_filter = request.args.get('action') 
+    since_ts = request.args.get('since') 
+    
+    range_map = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}
+    range_seconds = range_map.get(range_key, 3600)
+    
     now = time.time()
-    cutoff_1h = now - 3600
+    cutoff_range = now - range_seconds
 
     with _firewall_db_lock:
         conn = _firewall_db_connect()
@@ -726,7 +731,7 @@ def api_firewall_logs_recent():
             """
             
             try:
-                cur = conn.execute(query, params)
+                cur = conn.execute(query, params + [limit])
             except sqlite3.OperationalError as e:
                 # Self-healing: If column is missing (migration didn't run), add it now
                 if "no such column: rule_label" in str(e):
@@ -758,8 +763,8 @@ def api_firewall_logs_recent():
     unique_src = set()
     unique_dst = set()
     threat_count = 0
-    blocks_last_hour = 0
-    passes_last_hour = 0
+    blocks_in_range = 0
+    passes_in_range = 0
     latest_ts = None
 
     for row in rows:
@@ -782,10 +787,10 @@ def api_firewall_logs_recent():
             action_counts[action] += 1
         if is_threat:
             threat_count += 1
-        if ts and action in ('block', 'reject') and ts >= cutoff_1h:
-            blocks_last_hour += 1
-        if ts and action == 'pass' and ts >= cutoff_1h:
-            passes_last_hour += 1
+        if ts and action in ('block', 'reject') and ts >= cutoff_range:
+            blocks_in_range += 1
+        if ts and action == 'pass' and ts >= cutoff_range:
+            passes_in_range += 1
         if src_ip:
             unique_src.add(src_ip)
         if dst_ip:
@@ -827,8 +832,8 @@ def api_firewall_logs_recent():
         "threats": threat_count,
         "unique_src": len(unique_src),
         "unique_dst": len(unique_dst),
-        "blocks_last_hour": blocks_last_hour,
-        "passes_last_hour": passes_last_hour,
+        "blocks_last_hour": blocks_in_range,
+        "passes_last_hour": passes_in_range,
         "latest_ts": latest_ts
     }
 
@@ -2432,7 +2437,8 @@ def api_feed_status():
 @throttle(5, 10)
 def api_security_score():
     """Get current security score"""
-    return jsonify(calculate_security_score())
+    range_key = request.args.get('range', '1h')
+    return jsonify(calculate_security_score(range_key))
 
 
 

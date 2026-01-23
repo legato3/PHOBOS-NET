@@ -372,11 +372,12 @@
                     </div>
                     <div class="hourly-stat">
                         <span class="hourly-stat-value" x-text="hourlyTraffic.total_bytes_fmt"></span>
-                        <span class="hourly-stat-label">24h Total</span>
+                        <span class="hourly-stat-label" x-text="timeRange + ' Total'"></span>
                     </div>
                 </div>
                 <div class="chart-wrapper-small chart-expandable"
-                    @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (24h)')" title="Click to expand">
+                    @click="openFullscreenChart('hourlyChart', 'Traffic by Hour (' + timeRange + ')')"
+                    title="Click to expand">
                     <canvas id="hourlyChart"></canvas>
                 </div>
                 {% endcall %}
@@ -618,11 +619,10 @@
             <template x-if="isVisible('durations')">
                 {% set dur_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('durations', 'Long Flows', '⏱️', extra_actions=dur_actions,
-                show_spinner=True) %}
+                show_spinner=True, period_x_text="timeRange") %}
                 <div class="widget-body-inner">
                     <!-- Summary Stats -->
                     <div class="duration-summary"
@@ -685,11 +685,10 @@
             <template x-if="isVisible('talkers')">
                 {% set talk_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('talkers', 'Top Talkers', '💬', extra_actions=talk_actions,
-                show_spinner=True) %}
+                show_spinner=True, period_x_text="timeRange") %}
                 <div class="widget-body-inner">
                     <div class="talkers-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
                         <template x-for="(flow, idx) in (talkers.flows || []).slice(0, 5)" :key="idx">

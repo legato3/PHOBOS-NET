@@ -868,12 +868,18 @@ export const Store = () => ({
         }, { timeout: 100 });
 
         // Watchers
-        this.$watch('timeRange', () => {
+        this.$watch('timeRange', (val) => {
             // Reset all fetch timestamps to force refresh with new time range
             this.lastFetch = {
                 summary: 0, network: 0, security: 0, server: 0,
                 firewall: 0, hosts: 0, forensics: 0, worldmap: 0
             };
+
+            // Sync nested time ranges
+            if (this.threatActivityTimeline) {
+                this.threatActivityTimeline.timeRange = val;
+            }
+
             this.loadAll();
         });
         this.$watch('activeTab', (val) => {
@@ -2731,7 +2737,7 @@ export const Store = () => ({
     async fetchSecurityObservability() {
         this.securityObservability.loading = true;
         try {
-            const res = await fetch('/api/security/score');
+            const res = await fetch(`/api/security/score?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 this.securityObservability = { ...d, loading: false };
@@ -2883,7 +2889,7 @@ export const Store = () => ({
     async fetchRecentBlocks() {
         this.recentBlocks.loading = true;
         try {
-            const res = await fetch('/api/firewall/logs/recent?limit=300');
+            const res = await fetch(`/api/firewall/logs/recent?limit=300&range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 const logs = d.logs || [];
@@ -3949,7 +3955,7 @@ export const Store = () => ({
     async fetchHourlyTraffic() {
         this.hourlyTraffic.loading = true;
         try {
-            const res = await fetch('/api/stats/hourly');
+            const res = await fetch(`/api/stats/hourly?range=${this.timeRange}`);
             if (res.ok) {
                 const data = await res.json();
                 this.hourlyTraffic = { ...data };
@@ -6316,7 +6322,7 @@ export const Store = () => ({
         // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
         // This ensures we always have the latest data
         try {
-            const res = await fetch('/api/firewall/logs/recent?limit=300');
+            const res = await fetch(`/api/firewall/logs/recent?limit=300&range=${this.timeRange}`);
 
             if (res.ok) {
                 const d = await res.json();
