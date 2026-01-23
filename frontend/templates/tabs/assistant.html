@@ -51,7 +51,7 @@
                     <div
                         :class="'chat-message ' + (msg.role === 'user' ? 'chat-message-user' : 'chat-message-assistant')">
                         <div class="chat-message-role" x-text="msg.role === 'user' ? 'You' : 'Assistant'"></div>
-                        <div class="chat-message-content" x-html="msg.content.replace(/\n/g, '<br>')">
+                        <div class="chat-message-content" x-text="msg.content" style="white-space: pre-wrap;">
                         </div>
                         <div class="chat-message-time" x-text="msg.timestamp"></div>
                     </div>
