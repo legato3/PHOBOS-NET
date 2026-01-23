@@ -371,16 +371,71 @@ _dependency_health = {
 _dependency_health_lock = threading.Lock()
 
 def update_dependency_health(service, **kwargs):
-    """Update dependency health metrics."""
+    """Update dependency health metrics and persist to shared memory for other workers."""
     with _dependency_health_lock:
         if service in _dependency_health:
             _dependency_health[service].update(kwargs)
+            
+            # MULTI-WORKER SYNC: Write to shared file in /dev/shm
+            # This allows the maintenance worker (which runs the checks) to share status
+            # with other web workers handling API requests.
+            try:
+                import json
+                import os
+                
+                # Snapshot current state
+                state_snapshot = {}
+                for k, v in _dependency_health.items():
+                    # Helper to convert sets/deques to list for JSON
+                    val_copy = dict(v)
+                    for vk, vv in val_copy.items():
+                        if isinstance(vv, (list, tuple, deque)):
+                            val_copy[vk] = list(vv)
+                    state_snapshot[k] = val_copy
+                
+                # Write atomically to /dev/shm/phobos_health.json
+                # /dev/shm is RAM-based, so this is fast and safe for Docker
+                temp_path = '/dev/shm/phobos_health.json.tmp'
+                final_path = '/dev/shm/phobos_health.json'
+                
+                with open(temp_path, 'w') as f:
+                    json.dump(state_snapshot, f)
+                os.replace(temp_path, final_path)
+            except Exception as e:
+                # Log but don't fail, we still have local memory state
+                # add_app_log(f"Failed to persist health state: {e}", 'DEBUG')
+                pass
 
 def get_dependency_health():
-    """Get current dependency health status."""
+    """Get current dependency health status, merging from shared memory if available."""
     import time
+    import json
+    import os
+    
     now = time.time()
+    
+    # 1. READ FROM SHARED MEMORY (Primary Source)
+    # The maintenance worker writes authoritative status here.
+    # Web workers should prefer this over their likely-stale local state.
+    shared_state = None
+    try:
+        if os.path.exists('/dev/shm/phobos_health.json'):
+            with open('/dev/shm/phobos_health.json', 'r') as f:
+                shared_state = json.load(f)
+    except Exception:
+        pass
+
     with _dependency_health_lock:
+        # If we successfully read shared state, merge it safely
+        if shared_state:
+            for service, data in shared_state.items():
+                if service in _dependency_health:
+                    # Update local keys if they exist in shared data
+                    for k, v in data.items():
+                        if k in _dependency_health[service]:
+                            _dependency_health[service][k] = v
+
+        # Construct result from (now updated) local state
         result = {}
         for service, data in _dependency_health.items():
             result[service] = dict(data)
