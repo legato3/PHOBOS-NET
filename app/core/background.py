@@ -369,6 +369,11 @@ def start_dependency_health_thread():
         }
 
         try:
+            # 1. Binary Check (is nfdump installed/runnable?)
+            # This is set in run_nfdump -> state._has_nfdump
+            is_installed = getattr(state, '_has_nfdump', False)
+
+            # 2. Data Freshness Check (are files being rotated?)
             if NETFLOW_DIR and os.path.exists(NETFLOW_DIR):
                 files = glob.glob(os.path.join(NETFLOW_DIR, 'nfcapd.*'))
                 result['files_count'] = len(files)
@@ -377,66 +382,73 @@ def start_dependency_health_thread():
                     mtime = os.path.getmtime(latest_file)
                     age = time.time() - mtime
                     result['latest_file_age_sec'] = round(age, 1)
-                    # Consider running if file was written in last 5 minutes
-                    result['running'] = age < 300
+                    
+                    # CONSIDERED RUNNING IF:
+                    # - nfdump binary works (is_installed)
+                    # - AND recent file activity (< 10 mins)
+                    #   (nfcapd rotates every 5 mins usually, allow buffer)
+                    result['running'] = is_installed and (age < 600)
+                else:
+                    # No files yet, but if binary exists we assume it's starting up
+                    result['running'] = is_installed
+            else:
+                result['running'] = False
         except Exception:
             pass
 
         return result
 
     def check_syslog_health():
-        """Check syslog listener health using application stats and thread flags."""
+        """Check syslog listener health using strict application thread flags."""
         results = {
             'syslog_514': {'listening': False, 'received': 0},
             'syslog_515': {'listening': False, 'received': 0}
         }
 
-        # Check port 514 (filterlog) - use syslog stats and thread flag
+        # Check port 514 (Standard Syslog)
         try:
-            received = 0
-            thread_started = False
+            # Rely 100% on the internal flag set by the thread starter
+            # This is the Source of Truth for "is the thread running?"
+            status_514 = getattr(state, '_syslog_thread_started', False)
+            
             with state._syslog_stats_lock:
-                received = state._syslog_stats.get('received', 0)
-            thread_started = getattr(state, '_syslog_thread_started', False)
-            results['syslog_514']['received'] = received
-            # Consider listening if thread started OR we've received data
-            results['syslog_514']['listening'] = thread_started or received > 0
+                rec_514 = state._syslog_stats.get('received', 0)
+            
+            results['syslog_514']['listening'] = status_514
+            results['syslog_514']['received'] = rec_514
         except Exception as e:
-            add_app_log(f"Syslog 514 health check error: {e}", 'DEBUG')
+            add_app_log(f"Syslog 514 check error: {e}", 'DEBUG')
 
-        # Check port 515 (firewall syslog)
+        # Check port 515 (Firewall Syslog)
         try:
-            received = 0
-            thread_started = False
+            # Check the specific flag from the module
+            import app.services.syslog.firewall_listener as fw_listener
+            status_515 = getattr(fw_listener, '_firewall_syslog_thread_started', False)
+            
             try:
                 from app.services.syslog.syslog_store import syslog_store
-                received = syslog_store.get_stats().get('total_received', 0)
-            except Exception:
-                pass
-            try:
-                # Import module and access attribute to get current value (not a copy)
-                import app.services.syslog.firewall_listener as fw_listener
-                thread_started = getattr(fw_listener, '_firewall_syslog_thread_started', False)
-            except Exception:
-                pass
-            results['syslog_515']['received'] = received
-            results['syslog_515']['listening'] = thread_started or received > 0
+                rec_515 = syslog_store.get_stats().get('total_received', 0)
+            except:
+                rec_515 = 0
+
+            results['syslog_515']['listening'] = status_515
+            results['syslog_515']['received'] = rec_515
         except Exception as e:
-            add_app_log(f"Syslog 515 health check error: {e}", 'DEBUG')
+            add_app_log(f"Syslog 515 check error: {e}", 'DEBUG')
 
         return results
 
     def loop():
-        # Wait a bit for other threads to start
-        _shutdown_event.wait(timeout=5)
+        # Wait for startup
+        _shutdown_event.wait(timeout=10)
 
         while not _shutdown_event.is_set():
             try:
-                # Check nfcapd via file freshness
+                # Check nfcapd via file freshness and binary status
                 nfcapd_health = check_nfcapd()
                 update_dependency_health('nfcapd', **nfcapd_health)
 
-                # Check syslog listeners via application stats
+                # Check syslog listeners via thread flags
                 syslog_health = check_syslog_health()
                 update_dependency_health('syslog_514', **syslog_health['syslog_514'])
                 update_dependency_health('syslog_515', **syslog_health['syslog_515'])
@@ -444,8 +456,8 @@ def start_dependency_health_thread():
             except Exception as e:
                 add_app_log(f"Dependency health check error: {e}", 'ERROR')
 
-            # Check every 10 seconds for more responsive updates
-            _shutdown_event.wait(timeout=10)
+            # Check every 15 seconds
+            _shutdown_event.wait(timeout=15)
 
     t = threading.Thread(target=loop, daemon=True, name='DependencyHealthThread')
     t.start()
