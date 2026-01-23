@@ -55,19 +55,10 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. ROBUST CONTENT-LENGTH HANDLING (Re-applied):
-            # We explicitly buffer the response to calculate the EXACT byte length.
-            # This is critical for Docker environments where 'gthread' might otherwise 
-            # stream data with a mismatched Content-Length header derived from file stat.
-            if not response.is_streamed:
-                # Force full read into memory
-                response.direct_passthrough = False
-                content_bytes = response.get_data()
-                # Re-set data to ensure consistency
-                response.set_data(content_bytes)
-                # Set accurate header
-                response.headers['Content-Length'] = str(len(content_bytes))
-
+            # 1. Gevent Handling:
+            # We rely on standard WSGI buffer handling. 
+            # Manual buffering is removed to save memory and trust gevent loop.
+            
             path = request.path
             is_static = path == '/' or \
                         request.endpoint == 'static' or \

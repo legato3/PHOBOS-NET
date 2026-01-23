@@ -33,9 +33,8 @@ echo "Starting Gunicorn application server on port $WEB_PORT..."
 exec python3 -m gunicorn \
     --bind "0.0.0.0:$WEB_PORT" \
     --workers 2 \
-    --threads 8 \
-    --worker-class gthread \
-    --worker-connections 1000 \
+    --worker-class gevent \
+    --worker-connections 2048 \
     --backlog 2048 \
     --timeout 120 \
     --graceful-timeout 30 \

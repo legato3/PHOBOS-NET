@@ -225,7 +225,19 @@ def parse_csv(output, expected_key=None):
     # PERFORMANCE: Calculate required length once outside loop
     required_len = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
 
-    for line in lines[start_row_idx:]:
+    # COOPERATIVE MULTITASKING: Yield to event loop periodically
+    # This prevents Gevent workers from freezing the web server during heavy CSV parsing
+    try:
+        import gevent
+        has_gevent = True
+    except ImportError:
+        has_gevent = False
+
+    for i, line in enumerate(lines[start_row_idx:]):
+        # Yield every 1000 lines to keep the web server responsive
+        if has_gevent and i % 1000 == 0:
+            gevent.sleep(0)
+
         if not line:
             continue
 
