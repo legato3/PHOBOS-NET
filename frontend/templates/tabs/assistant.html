@@ -73,8 +73,7 @@
             <div style="padding: var(--space-4); border-top: 1px solid var(--card-border);">
                 <div style="display: flex; gap: var(--space-2);">
                     <textarea x-model="ollamaChat.inputMessage"
-                        @keydown.enter.prevent="ollamaChat.inputMessage.trim() && !ollamaChat.loading && sendChatMessage()"
-                        @keydown.enter.shift="ollamaChat.inputMessage += '\n'"
+                        `@keydown.enter.exact.prevent`="ollamaChat.inputMessage.trim() && !ollamaChat.loading && sendChatMessage()"
                         placeholder="Type your message... (Enter to send, Shift+Enter for new line)" style="flex: 1; min-height: 60px; max-height: 150px; padding: var(--space-3); 
                                                 background: var(--bg-primary); border: 1px solid var(--card-border); 
                                                 border-radius: var(--radius-md); color: var(--text-primary); 
