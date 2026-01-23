@@ -279,13 +279,54 @@ def update_thread_health(thread_name, success=True, execution_time_ms=None, erro
             th['last_error_msg'] = error_msg
             th['error_count'] += 1
             th['status'] = 'errored'
+            
+        # MULTI-WORKER SYNC: Persist thread health
+        try:
+            import json
+            import os
+            # Snapshot
+            snapshot = {}
+            for k, v in _thread_health.items():
+                val = dict(v)
+                val['execution_times_ms'] = list(val['execution_times_ms'])
+                snapshot[k] = val
+                
+            temp_path = '/dev/shm/phobos_threads.json.tmp'
+            final_path = '/dev/shm/phobos_threads.json'
+            with open(temp_path, 'w') as f:
+                json.dump(snapshot, f)
+            os.replace(temp_path, final_path)
+        except Exception:
+            pass
 
 def get_thread_health_status():
     """Get health status for all threads."""
     import time
+    import json
+    import os
     now = time.time()
+    
+    # Read shared state
+    shared = None
+    try:
+        if os.path.exists('/dev/shm/phobos_threads.json'):
+            with open('/dev/shm/phobos_threads.json', 'r') as f:
+                shared = json.load(f)
+    except Exception:
+        pass
+
     result = {}
     with _thread_health_lock:
+        # Merge shared
+        if shared:
+            for k, v in shared.items():
+                if k in _thread_health:
+                    _thread_health[k].update(v)
+                    # Restore deque logic if needed, but for reporting we just need values
+                    if 'execution_times_ms' in v:
+                         # We don't restore the deque from shared, just use the latest list for avg calculation below if needed
+                         pass
+
         for name, th in _thread_health.items():
             status = th['status']
             # Check if thread is lagging (hasn't run in 3x expected interval)
@@ -359,13 +400,19 @@ _dependency_health = {
         'listening': None,
         'last_packet_time': None,
         'buffer_size': 0,
-        'buffer_max': 100
+        'buffer_max': 100,
+        'received': 0,
+        'parsed': 0,
+        'errors': 0
     },
     'syslog_515': {
         'listening': None,
         'last_packet_time': None,
         'buffer_size': 0,
-        'buffer_max': 5000
+        'buffer_max': 5000,
+        'received': 0,
+        'parsed': 0,
+        'errors': 0
     }
 }
 _dependency_health_lock = threading.Lock()

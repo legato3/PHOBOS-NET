@@ -16,7 +16,9 @@ from app.core.app_state import (
     _syslog_stats, _syslog_stats_lock,
     _syslog_buffer, _syslog_buffer_lock, _syslog_buffer_size,
     _alert_history, _alert_history_lock,
-    add_app_log
+    _syslog_buffer, _syslog_buffer_lock, _syslog_buffer_size,
+    _alert_history, _alert_history_lock,
+    add_app_log, update_dependency_health
 )
 
 # Import helpers
@@ -133,19 +135,24 @@ def _syslog_receiver_loop():
         msg = f"Syslog receiver started on {SYSLOG_BIND}:{SYSLOG_PORT}"
         print(msg)
         add_app_log(msg, 'INFO')
+        update_dependency_health('syslog_514', listening=True)
     except PermissionError:
         msg = f"ERROR: Cannot bind to port {SYSLOG_PORT} - need root or CAP_NET_BIND_SERVICE"
         print(msg)
         add_app_log(msg, 'ERROR')
+        update_dependency_health('syslog_514', listening=False, last_error=msg)
         return
     except Exception as e:
         msg = f"ERROR: Syslog bind failed: {e}"
         print(msg)
         add_app_log(msg, 'ERROR')
+        update_dependency_health('syslog_514', listening=False, last_error=msg)
         return
     
     # Set socket timeout so we can check shutdown event
     sock.settimeout(1.0)
+    
+    last_health_update = 0
     
     while not _shutdown_event.is_set() and not _syslog_thread_stop_event.is_set():
         try:
@@ -197,6 +204,20 @@ def _syslog_receiver_loop():
             else:
                 with _syslog_stats_lock:
                     _syslog_stats["errors"] += 1
+            
+            # Sync to shared health (throttled)
+            now = time.time()
+            if now - last_health_update > 1.0:
+                with _syslog_stats_lock:
+                    update_dependency_health(
+                        'syslog_514',
+                        listening=True,
+                        last_packet_time=now,
+                        received=_syslog_stats["received"],
+                        parsed=_syslog_stats["parsed"],
+                        errors=_syslog_stats["errors"]
+                    )
+                last_health_update = now
         except socket_module.timeout:
             continue  # Normal timeout, check shutdown and continue
         except Exception:

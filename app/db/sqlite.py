@@ -151,6 +151,20 @@ def _firewall_db_init():
                 )
             """)
             
+            # Create generic syslog table (port 515)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS syslog_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL NOT NULL,
+                    timestamp_iso TEXT,
+                    program TEXT,
+                    message TEXT,
+                    hostname TEXT,
+                    facility TEXT,
+                    severity TEXT
+                )
+            """)
+            
             # Migration: Ensure rule_label column exists for existing tables
             try:
                 # Check if column exists
@@ -166,6 +180,9 @@ def _firewall_db_init():
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_src_ip ON fw_logs(src_ip)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_dst_port ON fw_logs(dst_port)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_fw_action_ts ON fw_logs(action, timestamp)")
+
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_syslog_timestamp ON syslog_events(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_syslog_program ON syslog_events(program)")
             
             # Hourly aggregates table
             conn.execute("""
@@ -273,6 +290,7 @@ def _cleanup_old_fw_logs():
         conn = _firewall_db_connect()
         try:
             conn.execute("DELETE FROM fw_logs WHERE timestamp < ?", (cutoff,))
+            conn.execute("DELETE FROM syslog_events WHERE timestamp < ?", (cutoff,))
             conn.execute("VACUUM")
             conn.commit()
         finally:

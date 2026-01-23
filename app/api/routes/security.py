@@ -123,14 +123,24 @@ def api_stats_net_health():
     
     # Check Syslog status (Firewall visibility)
     # Check both generic syslog (514) and firewall specific (515)
-    syslog_generic_active = _syslog_stats.get('received', 0) > 0 or state._syslog_thread_started
+    # Check Syslog status (Firewall visibility)
+    # Check both generic syslog (514) and firewall specific (515)
+    deps = state.get_dependency_health()
+    syslog_generic_info = deps.get('syslog_514', {})
+    syslog_fw_info = deps.get('syslog_515', {})
     
-    from app.services.syslog.firewall_listener import get_firewall_syslog_stats
-    fw_stats_syslog = get_firewall_syslog_stats()
-    syslog_fw_active = (fw_stats_syslog and fw_stats_syslog.get('received', 0) > 0)
+    syslog_generic_active = syslog_generic_info.get('listening', False)
+    syslog_fw_active = syslog_fw_info.get('listening', False)
     
     # Check if we have RECENT logs (stalls)
-    last_log_ts = _syslog_stats.get('last_log') or (fw_stats_syslog.get('last_log') if fw_stats_syslog else None)
+    last_log_ts_generic = syslog_generic_info.get('last_packet_time')
+    last_log_ts_fw = syslog_fw_info.get('last_packet_time')
+    
+    # Use the most recent log time from either source
+    last_log_ts = last_log_ts_generic
+    if last_log_ts_fw and (not last_log_ts or last_log_ts_fw > last_log_ts):
+        last_log_ts = last_log_ts_fw
+        
     syslog_stalled = False
     if last_log_ts and (now - last_log_ts > 3600): # No logs for 1 hour
         syslog_stalled = True
@@ -848,8 +858,17 @@ def api_firewall_syslog_recent():
         # Get stats
         stats = syslog_store.get_stats()
 
-        # Get receiver stats
-        receiver_stats = get_firewall_syslog_stats() or {}
+        # Get receiver stats from authoritative shared health
+        deps = state.get_dependency_health()
+        syslog_status = deps.get('syslog_515', {})
+        
+        receiver_stats = {
+            "received": syslog_status.get('received', 0),
+            "parsed": syslog_status.get('parsed', 0),
+            "errors": syslog_status.get('errors', 0),
+            "last_log": syslog_status.get('last_packet_time'),
+            "listening": syslog_status.get('listening', False)
+        }
 
         return jsonify({
             "logs": events,
@@ -2359,9 +2378,19 @@ def api_malicious_ports():
 @bp.route('/api/stats/feeds')
 @throttle(5, 10)
 def api_feed_status():
-    """Get per-feed health status"""
+    """Get per-feed health status (multi-worker aware)"""
+    # Use authoritative shared health state
+    deps = state.get_dependency_health()
+    tf_health = deps.get('threat_feeds', {})
+    feeds_status = tf_health.get('feeds_status', {})
+    
     feeds = []
-    for name, info in threats_module._feed_status.items():
+    # If shared state is empty, try fallback to local state (e.g. at startup)
+    if not feeds_status and threats_module._feed_status:
+        feeds_status = threats_module._feed_status
+
+    for name, info in feeds_status.items():
+        if not isinstance(info, dict): continue
         last_ok = info.get('last_ok', 0)
         feeds.append({
             "name": name,
@@ -2375,6 +2404,16 @@ def api_feed_status():
 
     # Sort by status (ok first), then by ips
     feeds.sort(key=lambda x: (0 if x["status"] == "ok" else 1, -x["ips"]))
+    
+    # Get summary stats
+    total_ips = tf_health.get("records_count", 0)
+    last_ok_ts = tf_health.get("last_ok", 0)
+    
+    # Fallback for summary
+    if total_ips == 0 and threats_module._threat_status.get("size", 0) > 0:
+        total_ips = threats_module._threat_status.get("size", 0)
+    if last_ok_ts == 0 and threats_module._threat_status.get("last_ok", 0) > 0:
+        last_ok_ts = threats_module._threat_status.get("last_ok", 0)
 
     return jsonify({
         "feeds": feeds,
@@ -2382,8 +2421,8 @@ def api_feed_status():
             "total": len(feeds),
             "ok": sum(1 for f in feeds if f["status"] == "ok"),
             "error": sum(1 for f in feeds if f["status"] == "error"),
-            "total_ips": threats_module._threat_status.get("size", 0),
-            "last_refresh": format_time_ago(threats_module._threat_status.get("last_ok", 0)) if threats_module._threat_status.get("last_ok") else "never"
+            "total_ips": total_ips,
+            "last_refresh": format_time_ago(last_ok_ts) if last_ok_ts else "never"
         }
     })
 

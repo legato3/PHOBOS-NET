@@ -22,7 +22,7 @@ import re
 from datetime import datetime
 
 from app.config import FIREWALL_SYSLOG_PORT, FIREWALL_SYSLOG_BIND, FIREWALL_IP
-from app.core.app_state import _shutdown_event, add_app_log
+from app.core.app_state import _shutdown_event, add_app_log, update_dependency_health
 from app.services.syslog.syslog_store import syslog_store, SyslogEvent
 from app.services.shared.timeline import add_timeline_event
 
@@ -233,18 +233,23 @@ def _syslog_receiver_loop():
         msg = f"[SYSLOG 515] Listener started on {FIREWALL_SYSLOG_BIND}:{FIREWALL_SYSLOG_PORT}"
         print(msg)
         add_app_log(msg, 'INFO')
+        update_dependency_health('syslog_515', listening=True)
     except PermissionError:
         msg = f"[SYSLOG 515] ERROR: Cannot bind to port {FIREWALL_SYSLOG_PORT}"
         print(msg)
         add_app_log(msg, 'ERROR')
+        update_dependency_health('syslog_515', listening=False, last_error=msg)
         return
     except Exception as e:
         msg = f"[SYSLOG 515] ERROR: Bind failed: {e}"
         print(msg)
         add_app_log(msg, 'ERROR')
+        update_dependency_health('syslog_515', listening=False, last_error=msg)
         return
 
     sock.settimeout(1.0)
+    
+    last_health_update = 0
 
     while not _shutdown_event.is_set() and not _syslog_515_stop_event.is_set():
         try:
@@ -273,6 +278,20 @@ def _syslog_receiver_loop():
 
                 # Check for state-changing events to add to unified timeline
                 _emit_timeline_event_if_significant(event)
+                
+                # Sync to shared health (throttled)
+                now = time.time()
+                if now - last_health_update > 1.0:
+                    with _syslog_515_stats_lock:
+                        update_dependency_health(
+                            'syslog_515',
+                            listening=True,
+                            last_packet_time=now,
+                            received=_syslog_515_stats["received"],
+                            parsed=_syslog_515_stats["parsed"],
+                            errors=_syslog_515_stats["errors"]
+                        )
+                    last_health_update = now
 
             except Exception as e:
                 with _syslog_515_stats_lock:
@@ -280,6 +299,19 @@ def _syslog_receiver_loop():
                 print(f"[SYSLOG 515] Parse error: {e}")
 
         except socket_module.timeout:
+            # Sync to shared health even if idle (throttled)
+            now = time.time()
+            if now - last_health_update > 1.0:
+                with _syslog_515_stats_lock:
+                    update_dependency_health(
+                        'syslog_515',
+                        listening=True,
+                        last_packet_time=_syslog_515_stats.get("last_log", 0),
+                        received=_syslog_515_stats["received"],
+                        parsed=_syslog_515_stats["parsed"],
+                        errors=_syslog_515_stats["errors"]
+                    )
+                last_health_update = now
             continue
         except Exception as e:
             print(f"[SYSLOG 515] Receiver error: {e}")

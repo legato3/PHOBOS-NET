@@ -8,7 +8,7 @@ import queue
 import concurrent.futures
 from datetime import datetime, timezone
 from collections import defaultdict, deque
-from app.core.app_state import add_app_log
+from app.core.app_state import add_app_log, update_dependency_health
 from app.services.shared.observability import instrument_service
 from app.config import (
     WATCHLIST_PATH, THREATLIST_PATH, THREAT_FEEDS_PATH, THREAT_FEED_URL_PATH, MITRE_MAPPINGS,
@@ -149,7 +149,11 @@ def _process_feed(url, category, name, last_ok):
 def fetch_threat_feed():
     global _threat_status, _threat_ip_to_feed, _feed_status, _feed_data_lock
     try:
-        _threat_status['last_attempt'] = time.time()
+        now = time.time()
+        _threat_status['last_attempt'] = now
+        
+        # Report start of fetch
+        update_dependency_health('threat_feeds', last_fetch=now)
         
         # Support multiple feeds from threat-feeds.txt
         feed_entries = []
@@ -221,9 +225,23 @@ def fetch_threat_feed():
         _threat_status['feeds_total'] = len(new_feed_status)
         _threat_status['status'] = 'ok'
         _threat_status['error'] = '; '.join(errors) if errors else None
+        
+        # Report success
+        update_dependency_health('threat_feeds', 
+            records_count=len(all_ips),
+            feeds_status=new_feed_status,
+            fetch_success_count=_threat_status.get('success_count', 0) + 1,
+            last_ok=time.time()
+        )
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
+        
+        # Report error
+        update_dependency_health('threat_feeds', 
+            last_error=str(e),
+            fetch_error_count=_threat_status.get('error_count', 0) + 1
+        )
 
 
 def get_threat_info(ip):

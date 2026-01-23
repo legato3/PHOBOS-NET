@@ -3306,9 +3306,18 @@ def api_stats_firewall():
         snmp_data['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
         snmp_data['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
         snmp_data['threats_blocked'] = fw_stats.get('threats_blocked', 0)
-        with _syslog_stats_lock:
-            snmp_data['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
-            snmp_data['syslog_stats'] = dict(_syslog_stats)
+        # Use authoritative shared status for syslog active check
+        deps = state.get_dependency_health()
+        syslog_status = deps.get('syslog_515', {})
+        snmp_data['syslog_active'] = syslog_status.get('listening', False)
+        
+        # Use shared stats if available (multi-worker support)
+        snmp_data['syslog_stats'] = {
+            "received": syslog_status.get('received', 0),
+            "parsed": syslog_status.get('parsed', 0),
+            "errors": syslog_status.get('errors', 0),
+            "last_log": syslog_status.get('last_packet_time')
+        }
 
     return jsonify({"firewall": snmp_data})
 
@@ -3327,18 +3336,30 @@ def api_stats_firewall_stream():
                 ts = _snmp_cache.get("ts", 0)
             if ts and ts != last_ts and data is not None:
                 # Merge syslog stats into SSE payload
-                merged = dict(data) if data else {}
-                fw_stats = _get_firewall_block_stats(hours=1)
-                merged['blocks_1h'] = fw_stats.get('blocks', 0)
-                merged['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
-                merged['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
-                merged['threats_blocked'] = fw_stats.get('threats_blocked', 0)
-                with _syslog_stats_lock:
-                    merged['syslog_active'] = _syslog_stats.get('parsed', 0) > 0
-                    merged['syslog_stats'] = dict(_syslog_stats)
-                payload = json.dumps({"firewall": merged})
-                yield f"data: {payload}\n\n"
-                last_ts = ts
+                # Merge syslog data into response
+                if data:
+                    merged = dict(data)
+                    fw_stats = _get_firewall_block_stats(hours=1)
+                    merged['blocks_1h'] = fw_stats.get('blocks', 0)
+                    merged['blocks_per_hour'] = fw_stats.get('blocks_per_hour', 0)
+                    merged['unique_blocked_ips'] = fw_stats.get('unique_ips', 0)
+                    merged['threats_blocked'] = fw_stats.get('threats_blocked', 0)
+                    
+                    # Use authoritative shared status for syslog active check
+                    deps = state.get_dependency_health()
+                    syslog_status = deps.get('syslog_515', {})
+                    merged['syslog_active'] = syslog_status.get('listening', False)
+                    
+                    merged['syslog_stats'] = {
+                        "received": syslog_status.get('received', 0),
+                        "parsed": syslog_status.get('parsed', 0),
+                        "errors": syslog_status.get('errors', 0),
+                        "last_log": syslog_status.get('last_packet_time')
+                    }
+                    
+                    payload = json.dumps({"firewall": merged})
+                    yield f"data: {payload}\n\n"
+                    last_ts = ts
             _shutdown_event.wait(timeout=max(0.2, SNMP_POLL_INTERVAL / 2.0))
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
