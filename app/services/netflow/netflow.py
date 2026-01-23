@@ -87,8 +87,8 @@ def run_nfdump(args, tf=None):
         #     if result:
         #         success = True
         
-        # Ensure we always return a string, never None
-        return result if result is not None else ""
+        # Return None on failure to distinguish from empty result ("")
+        return result
     finally:
         # OBSERVABILITY: Track subprocess metrics
         duration = time.time() - start_time
@@ -97,10 +97,11 @@ def run_nfdump(args, tf=None):
 
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
-    results = []
-    # Defensive check: ensure output is a string (handle None case)
+    # Propagate failure signal
     if output is None:
-        return results
+        return None
+
+    results = []
     if not output:
         return results
         
@@ -274,6 +275,11 @@ def get_traffic_direction(ip, tf):
 
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
+
+    # If fetch failed, return None to signal error
+    if out_parsed is None or in_parsed is None:
+        return None
+
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     result = {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
@@ -305,17 +311,29 @@ def get_common_nfdump_data(query_type, range_key):
     tf = get_time_range(range_key)
     data = []
     
+    raw_out = None
     if query_type == "sources":
-        data = parse_csv(run_nfdump(["-s", "srcip/bytes/flows/packets", "-n", "100"], tf), expected_key='sa')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        raw_out = run_nfdump(["-s", "srcip/bytes/flows/packets", "-n", "100"], tf)
+        data = parse_csv(raw_out, expected_key='sa')
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "ports":
-        data = parse_csv(run_nfdump(["-s", "dstport/bytes/flows", "-n", "100"], tf), expected_key='dp')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        raw_out = run_nfdump(["-s", "dstport/bytes/flows", "-n", "100"], tf)
+        data = parse_csv(raw_out, expected_key='dp')
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "dests":
-        data = parse_csv(run_nfdump(["-s", "dstip/bytes/flows/packets", "-n", "100"], tf), expected_key='da')
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        raw_out = run_nfdump(["-s", "dstip/bytes/flows/packets", "-n", "100"], tf)
+        data = parse_csv(raw_out, expected_key='da')
+        if data is not None:
+            data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
     elif query_type == "protos":
-        data = parse_csv(run_nfdump(["-s", "proto/bytes/flows/packets", "-n", "20"], tf), expected_key='proto')
+        raw_out = run_nfdump(["-s", "proto/bytes/flows/packets", "-n", "20"], tf)
+        data = parse_csv(raw_out, expected_key='proto')
+
+    # Return None if data is None (signal failure)
+    if data is None:
+        return None
     
     with _common_data_lock:
         _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
@@ -361,7 +379,10 @@ def get_merged_host_stats(range_key="24h", limit=1000):
         
         src_rows = parse_csv(future_src.result(), expected_key='sa')
         dst_rows = parse_csv(future_dst.result(), expected_key='da')
-    
+
+    if src_rows is None or dst_rows is None:
+        return None
+
     hosts = {}
     
     def parse_time(t_str):
@@ -484,6 +505,10 @@ def get_raw_flows(tf, limit=2000):
         # Request raw flows with specific fields if possible, or standard CSV
         # nfdump -o csv provides fixed columns.
         raw_flows_output = run_nfdump(["-o", "csv", "-n", str(limit)], tf)
+
+        if raw_flows_output is None:
+            return None
+
         flow_data = []
 
         if raw_flows_output:

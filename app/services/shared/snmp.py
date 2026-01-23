@@ -417,7 +417,9 @@ def discover_interfaces():
                         mapping["tailscale"] = idx
         
         return mapping if mapping else None
-    except Exception:
+    except Exception as e:
+        from app.core.app_state import add_app_log
+        add_app_log(f"SNMP interface discovery failed: {e}", 'WARN')
         return None
 
 

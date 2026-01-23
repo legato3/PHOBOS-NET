@@ -98,6 +98,8 @@ def api_stats_sources():
         limit = 10
 
     full_sources = get_common_nfdump_data("sources", range_key)
+    if full_sources is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
     sources = full_sources[:limit]
 
     for i in sources:
@@ -125,6 +127,8 @@ def api_stats_destinations():
         limit = 10
 
     full_dests = get_common_nfdump_data("dests", range_key)
+    if full_dests is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
     dests = full_dests[:limit]
 
     for i in dests:
@@ -152,6 +156,8 @@ def api_stats_ports():
         limit = 10
 
     full_ports = get_common_nfdump_data("ports", range_key)
+    if full_ports is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
     ports = full_ports[:limit]
 
     for i in ports:
@@ -173,7 +179,11 @@ def api_stats_ports():
 def api_stats_protocols():
     range_key = request.args.get('range', '1h')
 
-    protos_raw = get_common_nfdump_data("protos", range_key)[:10]
+    protos_raw = get_common_nfdump_data("protos", range_key)
+    if protos_raw is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
+    protos_raw = protos_raw[:10]
 
     for i in protos_raw:
         i["bytes_fmt"] = fmt_bytes(i["bytes"])
@@ -203,6 +213,9 @@ def api_stats_flags():
     # Get raw flows (limit 1000)
     # Note: run_nfdump automatically adds -o csv
     output = run_nfdump(["-n", "1000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     try:
         rows = []
@@ -273,6 +286,9 @@ def api_stats_durations():
     tf = get_time_range(range_key)
 
     output = run_nfdump(["-n", "100"], tf) # Get recent flows
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     try:
         rows = []
@@ -388,6 +404,9 @@ def api_stats_packet_sizes():
     # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     # Buckets
     dist = {
         "Tiny (<64B)": 0,
@@ -453,8 +472,14 @@ def api_stats_countries():
     """Top countries by bytes using top sources and destinations."""
     range_key = request.args.get('range', '1h')
 
-    sources = get_common_nfdump_data("sources", range_key)[:100]
-    dests = get_common_nfdump_data("dests", range_key)[:100]
+    sources_raw = get_common_nfdump_data("sources", range_key)
+    dests_raw = get_common_nfdump_data("dests", range_key)
+
+    if sources_raw is None or dests_raw is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
+    sources = sources_raw[:100]
+    dests = dests_raw[:100]
 
     country_bytes = {}
     for item in sources + dests:
@@ -505,8 +530,14 @@ def api_stats_worldmap():
     range_key = request.args.get('range', '1h')
 
     # Get source and destination data
-    sources_raw = get_common_nfdump_data("sources", range_key)[:100]
-    dests_raw = get_common_nfdump_data("dests", range_key)[:100]
+    sources_data = get_common_nfdump_data("sources", range_key)
+    dests_data = get_common_nfdump_data("dests", range_key)
+
+    if sources_data is None or dests_data is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
+    sources_raw = sources_data[:100]
+    dests_raw = dests_data[:100]
 
     # Build sources with geo data
     sources = []
@@ -682,6 +713,9 @@ def api_stats_talkers():
     # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
     output = run_nfdump(["-O", "bytes", "-n", "50"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     flows = []
     # NFDump CSV indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
     ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8
@@ -811,6 +845,9 @@ def api_stats_protocol_hierarchy():
     # Use -A proto,dstport -O bytes
     output = run_nfdump(["-A", "proto,dstport", "-O", "bytes", "-n", "100"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     hierarchy = {"name": "Root", "children": []}
 
     # Structure:
@@ -917,6 +954,9 @@ def api_noise_metrics():
     tf = get_time_range(range_key)
     # We use a large limit to get a statistical sample for ratios
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     total_flows = 0
     syn_only = 0
@@ -1026,6 +1066,9 @@ def api_stats_services():
     range_key = request.args.get('range', '1h')
     ports_data = get_common_nfdump_data("ports", range_key)
 
+    if ports_data is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     service_bytes = Counter()
     service_flows = Counter()
     for item in ports_data:
@@ -1067,6 +1110,9 @@ def api_stats_hourly():
     # Always use 24h range for hourly stats
     tf = get_time_range("24h")
     output = run_nfdump(["-n", "5000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -1161,6 +1207,9 @@ def api_stats_flow_stats():
 
     tf = get_time_range(range_key)
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     try:
         durations = []
@@ -1258,6 +1307,9 @@ def api_stats_proto_mix():
     try:
         # Reuse protocols data
         protos_data = get_common_nfdump_data("protos", range_key)
+
+        if protos_data is None:
+            return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
         if not protos_data:
             # Return empty but valid structure
@@ -1686,9 +1738,12 @@ def api_network_stats_overview():
     
     # Get total count by running without -n limit, using -q for quiet output
     # Count all flow lines (excluding header)
+    failure = False
     try:
         full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
-        if full_output:
+        if full_output is None:
+            failure = True
+        elif full_output:
             lines = full_output.strip().split("\n")
             # Count non-header lines (actual flow records)
             for line in lines:
@@ -1699,8 +1754,23 @@ def api_network_stats_overview():
                         active_flows_count += 1
     except Exception as e:
         # Log error in production, but don't fail the endpoint
-        active_flows_count = 0
+        add_app_log(f"Overview stats error: {e}", 'WARN')
+        failure = True
     
+    if failure:
+        return jsonify({
+            "active_flows": None,
+            "external_connections": None,
+            "anomalies_24h": None,
+            "trends": {},
+            "time_scope": {
+                "active_flows": "1h",
+                "external_connections": "1h",
+                "anomalies_24h": "24h"
+            },
+            "error": "Data unavailable"
+        }), 503
+
     # Now get external connections count using a sample
     # We use a sample (500 flows) to determine the ratio of external connections
     # This is more efficient than processing all flows
@@ -1898,6 +1968,9 @@ def api_flows():
     fetch_limit = str(max(100, limit))
     # Aggregate by 5-tuple to merge duplicate/fragmented flows
     output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", fetch_limit], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     convs = []
     # NFDump CSV indices defaults
@@ -2317,8 +2390,9 @@ def api_firewall_snmp_status():
                 vpn_interfaces["wireguard"] = interface_mapping["wireguard"]
             if "tailscale" in interface_mapping:
                 vpn_interfaces["tailscale"] = interface_mapping["tailscale"]
-    except (KeyError, TypeError, AttributeError):
+    except (KeyError, TypeError, AttributeError) as e:
         # Discovery failed - continue without VPN interfaces
+        add_app_log(f"VPN interface discovery failed: {e}", 'WARN')
         pass
 
     # Fetch interface IP addresses via SNMP
