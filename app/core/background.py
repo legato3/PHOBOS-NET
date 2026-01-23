@@ -407,32 +407,41 @@ def start_dependency_health_thread():
 
         # Check port 514 (Standard Syslog)
         try:
-            # Rely 100% on the internal flag set by the thread starter
-            # This is the Source of Truth for "is the thread running?"
+            # Rely on thread flag AND recent activity
             status_514 = getattr(state, '_syslog_thread_started', False)
             
             with state._syslog_stats_lock:
                 rec_514 = state._syslog_stats.get('received', 0)
+                last_log = state._syslog_stats.get('last_log')
             
-            results['syslog_514']['listening'] = status_514
+            # If we have recent logs (< 5 mins), we are definitely active
+            has_recent = last_log and (time.time() - last_log < 300)
+            
+            results['syslog_514']['listening'] = status_514 or has_recent
             results['syslog_514']['received'] = rec_514
+            results['syslog_514']['last_packet_time'] = last_log
         except Exception as e:
             add_app_log(f"Syslog 514 check error: {e}", 'DEBUG')
 
         # Check port 515 (Firewall Syslog)
         try:
-            # Check the specific flag from the module
             import app.services.syslog.firewall_listener as fw_listener
             status_515 = getattr(fw_listener, '_firewall_syslog_thread_started', False)
             
             try:
                 from app.services.syslog.syslog_store import syslog_store
-                rec_515 = syslog_store.get_stats().get('total_received', 0)
+                stats = syslog_store.get_stats()
+                rec_515 = stats.get('total_received', 0)
+                last_log_515 = stats.get('last_log_ts')
             except:
                 rec_515 = 0
+                last_log_515 = None
 
-            results['syslog_515']['listening'] = status_515
+            has_recent_515 = last_log_515 and (time.time() - last_log_515 < 300)
+
+            results['syslog_515']['listening'] = status_515 or has_recent_515
             results['syslog_515']['received'] = rec_515
+            results['syslog_515']['last_packet_time'] = last_log_515
         except Exception as e:
             add_app_log(f"Syslog 515 check error: {e}", 'DEBUG')
 
