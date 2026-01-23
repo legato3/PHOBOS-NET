@@ -1246,7 +1246,8 @@ def api_stats_hourly():
 
     # Always use 24h range for hourly stats
     tf = get_time_range("24h")
-    output = run_nfdump(["-n", "5000"], tf)
+    # Sort by bytes to capture the top contributors rather than a random start-of-file sample
+    output = run_nfdump(["-O", "bytes", "-n", "5000"], tf)
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
