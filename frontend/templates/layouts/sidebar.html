@@ -1,79 +1,77 @@
-            <aside class="sidebar" :class="{ 'collapsed': sidebarCollapsed }" title="Main Navigation">
-                <div class="sidebar-header">
-                    <div class="sidebar-logo">
-                        <img src="/static/logo_small.png" alt="PHOBOS-NET Logo"
-                            style="width: 24px; height: 24px; object-fit: contain;">
-                        <span class="logo-text">PHOBOS-NET</span>
-                    </div>
-                </div>
+<aside class="sidebar" :class="{ 'collapsed': sidebarCollapsed }" title="Main Navigation">
+    <div class="sidebar-header">
+        <div class="sidebar-logo">
+            <img src="/static/logo_sm.png" alt="PHOBOS-NET Logo"
+                style="width: 24px; height: 24px; object-fit: contain;">
+            <span class="logo-text">PHOBOS-NET</span>
+        </div>
+    </div>
 
-                <nav class="sidebar-nav" role="tablist" aria-orientation="vertical" aria-label="Main navigation">
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'overview' }"
-                        @click="loadTab('overview')" role="tab" :aria-selected="activeTab === 'overview'"
-                        id="overview-tab-btn" aria-controls="overview-tab" aria-label="Dashboard" title="Dashboard">
-                        <span class="sidebar-icon">📊</span>
-                        <span class="sidebar-item-text">Dashboard</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'security' }"
-                        @click="loadTab('security')" role="tab" :aria-selected="activeTab === 'security'"
-                        id="security-tab-btn" aria-controls="security-tab" aria-label="Security" title="Security">
-                        <span class="sidebar-icon">🛡️</span>
-                        <span class="sidebar-item-text">Security</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'network' }"
-                        @click="loadTab('network')" role="tab" :aria-selected="activeTab === 'network'"
-                        id="network-tab-btn" aria-controls="network-tab" aria-label="Network" title="Network">
-                        <span class="sidebar-icon">🕸️</span>
-                        <span class="sidebar-item-text">Network</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'hosts' }"
-                        @click="loadTab('hosts')" role="tab" :aria-selected="activeTab === 'hosts'" id="hosts-tab-btn"
-                        aria-controls="hosts-tab" aria-label="Hosts" title="Hosts">
-                        <span class="sidebar-icon">🖥️</span>
-                        <span class="sidebar-item-text">Hosts</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall' }"
-                        @click="loadTab('firewall')" role="tab" :aria-selected="activeTab === 'firewall'"
-                        id="firewall-tab-btn" aria-controls="firewall-tab" aria-label="Firewall" title="Firewall">
-                        <span class="sidebar-icon">🔥</span>
-                        <span class="sidebar-item-text">Firewall</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall-snmp' }"
-                        @click="loadTab('firewall-snmp')" role="tab" :aria-selected="activeTab === 'firewall-snmp'"
-                        id="firewall-snmp-tab-btn" aria-controls="firewall-snmp-tab" aria-label="Gateway"
-                        title="Gateway">
-                        <span class="sidebar-icon">📡</span>
-                        <span class="sidebar-item-text">Gateway</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }"
-                        @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'"
-                        id="server-tab-btn" aria-controls="server-tab" aria-label="Server" title="Server">
-                        <span class="sidebar-icon">🖥️</span>
-                        <span class="sidebar-item-text">Server</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
-                        @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'"
-                        id="forensics-tab-btn" aria-controls="forensics-tab" aria-label="Forensics" title="Forensics">
-                        <span class="sidebar-icon">🔍</span>
-                        <span class="sidebar-item-text">Forensics</span>
-                    </button>
-                    <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'tools' }"
-                        @click="loadTab('tools')" role="tab" :aria-selected="activeTab === 'tools'" id="tools-tab-btn"
-                        aria-controls="tools-tab" aria-label="Tools" title="Tools">
-                        <span class="sidebar-icon">🛠️</span>
-                        <span class="sidebar-item-text">Tools</span>
-                    </button>
-                                    </nav>
+    <nav class="sidebar-nav" role="tablist" aria-orientation="vertical" aria-label="Main navigation">
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'overview' }"
+            @click="loadTab('overview')" role="tab" :aria-selected="activeTab === 'overview'" id="overview-tab-btn"
+            aria-controls="overview-tab" aria-label="Dashboard" title="Dashboard">
+            <span class="sidebar-icon">📊</span>
+            <span class="sidebar-item-text">Dashboard</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'security' }"
+            @click="loadTab('security')" role="tab" :aria-selected="activeTab === 'security'" id="security-tab-btn"
+            aria-controls="security-tab" aria-label="Security" title="Security">
+            <span class="sidebar-icon">🛡️</span>
+            <span class="sidebar-item-text">Security</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'network' }"
+            @click="loadTab('network')" role="tab" :aria-selected="activeTab === 'network'" id="network-tab-btn"
+            aria-controls="network-tab" aria-label="Network" title="Network">
+            <span class="sidebar-icon">🕸️</span>
+            <span class="sidebar-item-text">Network</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'hosts' }"
+            @click="loadTab('hosts')" role="tab" :aria-selected="activeTab === 'hosts'" id="hosts-tab-btn"
+            aria-controls="hosts-tab" aria-label="Hosts" title="Hosts">
+            <span class="sidebar-icon">🖥️</span>
+            <span class="sidebar-item-text">Hosts</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall' }"
+            @click="loadTab('firewall')" role="tab" :aria-selected="activeTab === 'firewall'" id="firewall-tab-btn"
+            aria-controls="firewall-tab" aria-label="Firewall" title="Firewall">
+            <span class="sidebar-icon">🔥</span>
+            <span class="sidebar-item-text">Firewall</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'firewall-snmp' }"
+            @click="loadTab('firewall-snmp')" role="tab" :aria-selected="activeTab === 'firewall-snmp'"
+            id="firewall-snmp-tab-btn" aria-controls="firewall-snmp-tab" aria-label="Gateway" title="Gateway">
+            <span class="sidebar-icon">📡</span>
+            <span class="sidebar-item-text">Gateway</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'server' }"
+            @click="loadTab('server')" role="tab" :aria-selected="activeTab === 'server'" id="server-tab-btn"
+            aria-controls="server-tab" aria-label="Server" title="Server">
+            <span class="sidebar-icon">🖥️</span>
+            <span class="sidebar-item-text">Server</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
+            @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'" id="forensics-tab-btn"
+            aria-controls="forensics-tab" aria-label="Forensics" title="Forensics">
+            <span class="sidebar-icon">🔍</span>
+            <span class="sidebar-item-text">Forensics</span>
+        </button>
+        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'tools' }"
+            @click="loadTab('tools')" role="tab" :aria-selected="activeTab === 'tools'" id="tools-tab-btn"
+            aria-controls="tools-tab" aria-label="Tools" title="Tools">
+            <span class="sidebar-icon">🛠️</span>
+            <span class="sidebar-item-text">Tools</span>
+        </button>
+    </nav>
 
-                <div class="sidebar-footer">
-                    <div style="display: flex; justify-content: center; margin-bottom: var(--space-2);">
-                        <img src="/static/logo_big.png" alt="PHOBOS-NET Logo"
-                            style="max-width: 120px; height: auto; opacity: 0.8;">
-                    </div>
-                    <div class="footer-copy" style="text-align: center; margin-bottom: 0;">
-                        <span x-text="appMetadata.name || 'PHOBOS-NET'"></span> <span
-                            x-text="appMetadata.version_display || 'v2.0.0'"></span><br>
-                        © 2026
-                    </div>
-                </div>
-            </aside>
+    <div class="sidebar-footer">
+        <div style="display: flex; justify-content: center; margin-bottom: var(--space-2);">
+            <img src="/static/logo_bg.png" alt="PHOBOS-NET Logo" style="max-width: 120px; height: auto; opacity: 0.8;">
+        </div>
+        <div class="footer-copy" style="text-align: center; margin-bottom: 0;">
+            <span x-text="appMetadata.name || 'PHOBOS-NET'"></span> <span
+                x-text="appMetadata.version_display || 'v2.0.0'"></span><br>
+            © 2026
+        </div>
+    </div>
+</aside>

@@ -65,41 +65,48 @@ If data is unavailable, PHOBOS-NET shows **UNKNOWN / —** instead of inferring 
 
 ---
 
-## Quick Start (Docker)
+## Quick Start (Docker Compose)
+Dockerhub: https://hub.docker.com/r/legato3/phobos-net
 
-Docker image:
-https://hub.docker.com/r/legato3/phobos-net
+The fastest way to deploy PHOBOS-NET is using Docker Compose.
 
-PHOBOS-NET runs as a Docker container and listens for data from OPNsense.
+1. **Create `docker-compose.yml`**:
+```yaml
+services:
+  phobos-net:
+    image: legato3/phobos-net:latest
+    container_name: phobos-net
+    restart: unless-stopped
+    cap_add:
+      - NET_RAW
+    ports:
+      - "3434:8080"      # Web UI
+      - "514:5514/udp"   # Firewall Logs (OPNsense)
+      - "515:5515/udp"   # App/Syslog
+      - "2055:2055/udp"  # NetFlow (nfcapd)
+    volumes:
+      - ./docker-data:/app/data
+      - ./docker-data/nfdump:/var/cache/nfdump
+    environment:
+      - TZ=UTC # Set to your timezone
+```
 
+2. **Launch**:
 ```bash
-docker pull legato3/phobos-net:latest
+docker-compose up -d
 ```
 
-PHOBOS-NET requires:
-- OPNsense Syslog (UDP 514 / 515)
-- NetFlow (UDP 2055)
-- SNMP (required)
-
-⚠️ On first launch, the dashboard may appear mostly empty until OPNsense
-starts sending NetFlow, Syslog, and SNMP data. This is expected behavior.
-
-See:
-- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-
-Access the UI:
-```
-http://<host>:3434
-```
+### First-Run Validation
+PHOBOS-NET is observational; it needs data to show anything. Verify your setup in 3 steps:
+1. **Open UI**: Access `http://localhost:3434`. You should see the login-less dashboard.
+2. **Confirm Syslog**: Go to the **Firewall** tab. If OPNsense is configured, you should see logs appearing within 60 seconds.
+3. **Confirm NetFlow**: Go to the **Network** tab. Data appears in 5-minute increments as `nfdump` rotates files.
 
 ---
 
 ## OPNsense Configuration
-
-SNMP and Syslog are **not optional**.
-
-See:
-- [`docs/OPNSENSE_CONFIG.md`](docs/OPNSENSE_CONFIG.md)
+SNMP, Syslog, and NetFlow must be configured on your gateway. 
+See: [`docs/OPNSENSE_CONFIG.md`](docs/OPNSENSE_CONFIG.md)
 
 ---
 

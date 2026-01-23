@@ -18,14 +18,8 @@ def create_app():
                 static_folder=os.path.join(base_dir, 'frontend', 'src'),
                 template_folder=os.path.join(base_dir, 'frontend', 'templates'))
     
-    # Configure compression
-    Compress(app)
-    app.config['COMPRESS_MIMETYPES'] = [
-        'text/html', 'text/css', 'text/javascript',
-        'application/json', 'application/javascript'
-    ]
-    app.config['COMPRESS_LEVEL'] = 6
-    app.config['COMPRESS_MIN_SIZE'] = 500
+    # Remove compression configuration for stability
+    # (Previously causing ERR_CONTENT_LENGTH_MISMATCH)
     
     # Register blueprints
     from app.api.routes import bp as routes_bp
@@ -80,14 +74,12 @@ def create_app():
     
     @app.after_request
     def set_security_headers(response):
-        """Add security headers and cache headers to all responses."""
+        """Add basic security headers and cache headers."""
+        # Standard safety headers
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
-        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         
-        # Content Security Policy (relaxed for Alpine.js inline handlers)
+        # Simpler CSP to avoid blocking assets during troubleshooting
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; "
@@ -95,21 +87,14 @@ def create_app():
             "img-src 'self' data: https:; "
             "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; "
             "connect-src 'self'; "
-            "frame-ancestors 'none';"
         )
         response.headers['Content-Security-Policy'] = csp
         
-        # Cache headers for static files
+        # Standard cache headers
         if request.endpoint == 'static' or request.path.startswith('/static/'):
-            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
-        # Cache headers for API endpoints
+            response.headers['Cache-Control'] = 'no-cache'
         elif request.path.startswith('/api/'):
-            response.headers['Cache-Control'] = 'public, max-age=60'
-        # No cache for HTML
-        elif request.path == '/' or request.path.endswith('.html'):
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
+            response.headers['Cache-Control'] = 'no-cache'
         
         return response
     

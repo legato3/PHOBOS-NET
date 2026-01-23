@@ -132,8 +132,7 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      HOST STRIP - Compact horizontal system vitals bar
                 ═══════════════════════════════════════════════════════════ -->
-                <div class="status-card status-card--signal"
-                    style="padding: 14px 20px; margin-bottom: var(--space-6); flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
+                <div class="status-card status-card--signal server-status-strip">
                     <span class="status-card__meta-tab status-card__meta-tab--status" :class="{
                         'status-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
                         'status-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
@@ -141,30 +140,24 @@
                     }"
                         x-text="(serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 ? 'CRITICAL' : ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 ? 'ELEVATED' : 'HEALTHY')"></span>
 
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">Host</span><span
+                    <span class="server-strip-item"><span class="text-muted text-8">Host</span><span
                             x-text="serverHealth.system?.hostname || '—'"></span></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">Uptime</span><span
+                    <span class="server-strip-item"><span class="text-muted text-8">Uptime</span><span
                             x-text="serverHealth.system?.uptime_formatted || '—'"></span></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">OS</span><span class="text-1 text-85"
-                            x-text="serverHealth.system?.os_info || '—'"></span></span>
+                    <span class="server-strip-item"><span class="text-muted text-8">OS</span><span
+                            class="text-1 text-85" x-text="serverHealth.system?.os_info || '—'"></span></span>
                     <span style="flex: 1; min-width: 20px;"></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">CPU</span><span
+                    <span class="server-strip-item"><span class="text-muted text-8">CPU</span><span
                             :class="{'text-ok': (serverHealth.cpu?.percent || 0) < 70, 'text-warn': (serverHealth.cpu?.percent || 0) >= 70 && (serverHealth.cpu?.percent || 0) < 90, 'text-crit': (serverHealth.cpu?.percent || 0) >= 90}"
                             x-text="(serverHealth.cpu?.percent ?? '—') + '%'"></span></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">Mem</span><span
+                    <span class="server-strip-item"><span class="text-muted text-8">Mem</span><span
                             :class="{'text-ok': (serverHealth.memory?.percent || 0) < 80, 'text-warn': (serverHealth.memory?.percent || 0) >= 80 && (serverHealth.memory?.percent || 0) < 90, 'text-crit': (serverHealth.memory?.percent || 0) >= 90}"
                             x-text="(serverHealth.memory?.percent ?? '—') + '%'"></span></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">Disk</span><span
+                    <span class="server-strip-item"><span class="text-muted text-8">Disk</span><span
                             :class="{'text-ok': (serverHealth.disk?.root?.percent_used || 0) < 80, 'text-warn': (serverHealth.disk?.root?.percent_used || 0) >= 80 && (serverHealth.disk?.root?.percent_used || 0) < 90, 'text-crit': (serverHealth.disk?.root?.percent_used || 0) >= 90}"
                             x-text="(serverHealth.disk?.root?.percent_used ?? '—') + '%'"></span></span>
-                    <span style="display: inline-flex; gap: 6px; align-items: baseline;"><span
-                            class="text-muted text-8">Load</span><span class="text-1 text-85"
+                    <span class="server-strip-item"><span class="text-muted text-8">Load</span><span
+                            class="text-1 text-85"
                             x-text="(serverHealth.cpu?.load_1min || '—') + ' / ' + (serverHealth.cpu?.load_5min || '—') + ' / ' + (serverHealth.cpu?.load_15min || '—')"></span></span>
                 </div>
 
@@ -173,8 +166,7 @@
                 ═══════════════════════════════════════════════════════════ -->
                 {% from "components/status_card.html" import status_card %}
 
-                <div
-                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-6);">
+                <div class="ingestion-grid">
                     <!-- NetFlow Pipeline -->
                     {{ status_card(
                     title='NetFlow',
@@ -315,16 +307,15 @@
                         <!-- ═══════════════════════════════════════════════════════════
                      APPLICATION INTERNALS - Separate cards
                 ═══════════════════════════════════════════════════════════ -->
-                        <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
+                        <div class="internals-grid">
                             {% from "components/panel_card.html" import panel_card %}
 
                             <!-- Services Card -->
                             {% call panel_card(title='Services', meta_items=[], tier='context') %}
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div class="server-card-list">
                                 <!-- Ingestion Service -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="server-card-row">
+                                    <div class="server-card-subrow">
                                         <span class="text-muted text-8 uppercase">Ingestion</span>
                                         <span class="text-0 text-8" style="font-family: var(--font-mono);">nfcapd</span>
                                     </div>
@@ -335,8 +326,8 @@
                                 </div>
 
                                 <!-- Syslog Services -->
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="server-card-row">
+                                    <div class="server-card-subrow">
                                         <span class="text-muted text-8 uppercase">Syslog</span>
                                         <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
                                             514</span>
@@ -347,8 +338,8 @@
                                         x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
                                 </div>
 
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="server-card-row">
+                                    <div class="server-card-subrow">
                                         <span class="text-muted text-8 uppercase">Syslog</span>
                                         <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
                                             515</span>
@@ -360,8 +351,8 @@
                                 </div>
 
                                 <!-- Thread Health -->
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-soft);">
+                                <div class="server-card-row"
+                                    style="margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-soft);">
                                     <span class="text-muted text-8 uppercase">Thread Health</span>
                                     <span
                                         :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
@@ -379,16 +370,13 @@
                                     x-text="serverHealth.process?.process_memory_mb || '—'"></span>
                                 <span class="focal-metric__unit">MB</span>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Process</span><span
+                            <div class="server-card-list">
+                                <div class="server-card-row"><span class="text-muted text-8">Process</span><span
                                         x-text="serverHealth.system?.process_name || 'gunicorn'"></span></div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Threads</span><span
+                                <div class="server-card-row"><span class="text-muted text-8">Threads</span><span
                                         x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Total Cache</span><span
+                                <div class="server-card-row"><span class="text-muted text-8">Total Cache</span><span
                                         x-text="((serverHealth.cache?.dns_cache_size || 0) + (serverHealth.cache?.geo_cache_size || 0) + (serverHealth.cache?.common_cache_size || 0)).toLocaleString()"></span>
                                 </div>
                                 <div class="text-2 text-8" style="margin-top: 4px;">DNS: <span
@@ -403,24 +391,24 @@
 
                             <!-- Network I/O Card -->
                             {% call panel_card(title='Network I/O', meta_items=[], tier='context') %}
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="server-card-list">
+                                <div class="server-card-row">
                                     <span class="text-muted text-8">Inbound</span>
                                     <span
                                         x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="server-card-row">
                                     <span class="text-muted text-8">Outbound</span>
                                     <span
                                         x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="server-card-row">
                                     <span class="text-muted text-8">Errors</span>
                                     <span
                                         :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : ''"
                                         x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="server-card-row">
                                     <span class="text-muted text-8">Dropped</span>
                                     <span
                                         :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : ''"
@@ -442,26 +430,22 @@
                             monitoringSummary.container?.health_status"
                             }], tier='context') %}
                             <template x-if="monitoringSummary.container?.is_containerized">
-                                <div style="display: flex; flex-direction: column; gap: 6px;">
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Uptime</span><span
+                                <div class="server-card-list" style="gap: 6px;">
+                                    <div class="server-card-row"><span class="text-muted text-8">Uptime</span><span
                                             x-text="monitoringSummary.container?.container_uptime_formatted || '—'"></span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Restarts</span><span
+                                    <div class="server-card-row"><span class="text-muted text-8">Restarts</span><span
                                             :class="(monitoringSummary.container?.restart_count || 0) > 0 ? 'text-warn' : 'text-muted'"
                                             x-text="monitoringSummary.container?.restart_count ?? '0'"></span></div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Memory</span><span
+                                    <div class="server-card-row"><span class="text-muted text-8">Memory</span><span
                                             :class="{'text-ok': (monitoringSummary.container?.memory_usage_percent || 0) < 80, 'text-warn': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90, 'text-crit': (monitoringSummary.container?.memory_usage_percent || 0) >= 90}"
                                             x-text="(monitoringSummary.container?.memory_usage_percent ?? '—') + '% / ' + (monitoringSummary.container?.memory_limit_mb ? monitoringSummary.container.memory_limit_mb + ' MB' : '—')"></span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">PIDs / FDs</span><span
+                                    <div class="server-card-row"><span class="text-muted text-8">PIDs / FDs</span><span
                                             x-text="(monitoringSummary.container?.pids_current ?? '—') + ' / ' + (monitoringSummary.container?.fd_current ?? '—')"></span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">OOM / Throttle</span><span><span
+                                    <div class="server-card-row"><span class="text-muted text-8">OOM /
+                                            Throttle</span><span><span
                                                 :class="(monitoringSummary.container?.oom_kill_count || 0) > 0 ? 'text-crit' : 'text-muted'"
                                                 x-text="monitoringSummary.container?.oom_kill_count ?? '0'"></span>
                                             /
@@ -475,19 +459,17 @@
                                 </div>
                             </template>
                             <template x-if="!monitoringSummary.container?.is_containerized">
-                                <div style="display: flex; flex-direction: column; gap: 6px;">
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Mode</span><span>Host Process</span></div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Memory</span><span
+                                <div class="server-card-list" style="gap: 6px;">
+                                    <div class="server-card-row"><span class="text-muted text-8">Mode</span><span>Host
+                                            Process</span></div>
+                                    <div class="server-card-row"><span class="text-muted text-8">Memory</span><span
                                             x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">Threads</span><span
+                                    <div class="server-card-row"><span class="text-muted text-8">Threads</span><span
                                             x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between;"><span
-                                            class="text-muted text-8">FDs</span><span class="text-muted"
+                                    <div class="server-card-row"><span class="text-muted text-8">FDs</span><span
+                                            class="text-muted"
                                             x-text="(monitoringSummary.container?.fd_current ?? '—') + (monitoringSummary.container?.fd_limit ? ' / ' + monitoringSummary.container.fd_limit : '')"></span>
                                     </div>
                                 </div>
@@ -507,16 +489,14 @@
                                     x-text="databaseStats.error"></span></div>
                         </template>
                         <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
-                            <div
-                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
+                            <div class="internals-grid">
                                 <template x-for="db in databaseStats.databases" :key="db.name">
                                     {% call panel_card(title_expr="db.name + ' Database'", meta_items=[{
                                     'badge_text': 'ERROR',
                                     'badge_class_expr': "'status-warn'",
                                     'badge_x_if': 'db.error'
                                     }], tier='background', compact=true) %}
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; font-size: 10px;">
+                                    <div class="database-stats-grid">
                                         <div>
                                             <div class="text-2 text-8" style="font-size: 8px;">Size</div>
                                             <div style="font-size: 10px;"
@@ -573,7 +553,7 @@
                                 <span>Loading resource history...</span>
                             </div>
                             <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                                <div class="resource-history-grid">
                                     <div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                                             <span class="text-muted text-8">CPU</span>
@@ -697,9 +677,8 @@
                      MAINTENANCE CONTROLS
                 ═══════════════════════════════════════════════════════════ -->
                         {% call panel_card(title='Maintenance', meta_items=[], tier='context') %}
-                        <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="maintenance-grid">
+                            <div class="server-card-list" style="gap: 10px;">
                                 <div class="text-muted text-8 uppercase">NetFlow</div>
                                 <button class="btn btn--danger btn--block"
                                     :disabled="serverMaintenance.actions.clear_netflow_files.loading"
@@ -727,7 +706,7 @@
                                     x-text="serverMaintenance.actions.restart_netflow.message"></div>
                             </div>
 
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="server-card-list" style="gap: 10px;">
                                 <div class="text-muted text-8 uppercase">Firewall / Syslog</div>
                                 <button class="btn btn--danger btn--block"
                                     :disabled="serverMaintenance.actions.reset_firewall_db.loading"
