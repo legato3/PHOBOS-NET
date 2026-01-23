@@ -55,49 +55,45 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. PASSTHROUGH BYPASS: Do NOT touch responses that are already optimized.
-            # This includes static files and streaming responses.
-            if response.direct_passthrough or response.is_streamed:
-                return response
+            # 1. THE STABILITY FIX: Recalculate Content-Length for all non-streamed responses.
+            # This is the most reliable way to avoid Content-Length mismatches in Docker.
+            # It forces Flask to read the data (even for static files) and set the header correctly.
+            if not response.is_streamed:
+                try:
+                    # get_data() reads the response; set_data() updates the Content-Length header.
+                    response.set_data(response.get_data())
+                except Exception:
+                    pass
 
             path = request.path
-            # 2. ADDITIONAL STATIC BYPASS: Extra safety for identified common assets.
-            if path == '/' or \
-               request.endpoint == 'static' or \
-               path.startswith(('/static/', '/img/')) or \
-               path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2', '.mmdb')):
-                return response
+            is_static = path == '/' or \
+                        request.endpoint == 'static' or \
+                        path.startswith(('/static/', '/img/')) or \
+                        path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2', '.mmdb'))
 
-            # 3. THE NUCLEAR FIX: Recalculate Content-Length for APIs and dynamic routes.
-            # Forces data read into memory to ensure the length header is 100% accurate.
-            try:
-                # set_data() resets the body and updates the Content-Length header.
-                response.set_data(response.get_data())
-            except Exception:
-                pass
+            # 2. Performance Tracking (Dynamic Routes Only)
+            if not is_static:
+                endpoint = request.endpoint or 'unknown'
+                if hasattr(g, 'request_start_time'):
+                    duration = time.time() - g.request_start_time
+                    duration_ms = duration * 1000
+                    
+                    is_cached = response.status_code == 304 or 'cache' in response.headers.get('Cache-Control', '').lower()
+                    track_performance(endpoint, duration, cached=is_cached)
 
-            # 4. Performance Tracking (Dynamic Routes Only)
-            endpoint = request.endpoint or 'unknown'
-            if hasattr(g, 'request_start_time'):
-                duration = time.time() - g.request_start_time
-                duration_ms = duration * 1000
-                
-                is_cached = response.status_code == 304 or 'cache' in response.headers.get('Cache-Control', '').lower()
-                track_performance(endpoint, duration, cached=is_cached)
+                    if hasattr(g, 'request_id'):
+                        record_http_request_end(g.request_id, response.status_code, request.method, endpoint)
 
-                if hasattr(g, 'request_id'):
-                    record_http_request_end(g.request_id, response.status_code, request.method, endpoint)
+                    if duration_ms > OBS_ROUTE_SLOW_MS:
+                        track_slow_request()
+                        if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
+                            _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {path}")
 
-                if duration_ms > OBS_ROUTE_SLOW_MS:
-                    track_slow_request()
-                    if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
-                        _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {path}")
-
-            # 5. Security Headers
+            # 3. Security Headers
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
             
-            # 6. API Cache Control
+            # 4. API Cache Control
             if path.startswith('/api/'):
                 response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             
