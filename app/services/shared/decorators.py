@@ -8,6 +8,30 @@ from flask import jsonify, request
 
 # Import state variables
 from app.core.app_state import _throttle_lock, _request_times, _metric_http_429
+from flask_login import current_user
+from flask import abort
+
+
+def login_required(f):
+    """Decorator to ensure user is logged in."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return jsonify({'status': 'error', 'message': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to ensure user has admin privileges."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return jsonify({'status': 'error', 'message': 'Authentication required'}), 401
+        if not getattr(current_user, 'is_admin', False):
+            return jsonify({'status': 'error', 'message': 'Administrator privileges required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def cached_endpoint(cache_dict, lock, key_params=None, ttl_minutes=1):

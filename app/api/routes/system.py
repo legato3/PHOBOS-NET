@@ -74,8 +74,8 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
-from app.services.shared.decorators import throttle
-from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
+from app.services.shared.decorators import throttle, login_required, admin_required
+from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect, reset_firewall_database
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
     NOTIFY_CFG_PATH, THRESHOLDS_CFG_PATH, CONFIG_PATH, THREAT_WHITELIST,
@@ -1458,9 +1458,194 @@ def api_database_stats():
 
 
 # ============================================
+# SERVER MAINTENANCE
+# ============================================
+@bp.route('/api/server/maintenance', methods=['POST'])
+@login_required
+@admin_required
+@throttle(2, 10)
+def api_server_maintenance():
+    """Run server maintenance actions (destructive).
+    
+    SECURITY: Internal Authentication, Admin authorization, and CSRF 
+    protection are enforced here. Authentication/Admin checks are performed 
+    by decorators before the throttle to prevent rate-limit exhaustion by attackers.
+    """
+    # CSRF Validation
+    from flask_wtf.csrf import validate_csrf
+    try:
+        # validate_csrf will look for X-CSRFToken header or form field
+        # We manually call it here for the POST request
+        validate_csrf(request.headers.get('X-CSRF-Token') or request.form.get('csrf_token') or (request.get_json(silent=True) or {}).get('csrf_token'))
+    except Exception:
+        return {'status': 'error', 'message': 'Invalid CSRF token'}, 400
+
+    data = request.get_json(force=True, silent=True) or {}
+    action = (data.get('action') or '').strip()
+
+    if action == 'clear_netflow_files':
+        result = _clear_netflow_files()
+        if result.get('error'):
+            return jsonify(result), 400
+        return jsonify(result)
+
+    if action == 'reset_firewall_db':
+        result = _reset_firewall_db()
+        if result.get('error'):
+            return jsonify(result), 500
+        return jsonify(result)
+
+    if action == 'restart_netflow':
+        result = _restart_netflow_service()
+        status = 200 if result.get('status') == 'ok' else 500
+        return jsonify(result), status
+
+    if action == 'restart_syslog':
+        result = _restart_syslog_services()
+        status = 200 if result.get('status') in ['ok', 'partial'] else 500
+        return jsonify(result), status
+
+    return jsonify({'error': 'Unknown maintenance action'}), 400
+
+
+def _clear_netflow_files():
+    """Remove NetFlow capture files from the nfcapd directory."""
+    if not NFCAPD_DIR or not os.path.isdir(NFCAPD_DIR):
+        return {'error': 'NetFlow directory not found', 'message': 'No files removed'}
+
+    removed = 0
+    removed_bytes = 0
+    errors = []
+
+    for name in os.listdir(NFCAPD_DIR):
+        if not name.startswith('nfcapd.'):
+            continue
+        path = os.path.join(NFCAPD_DIR, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            removed_bytes += os.path.getsize(path)
+            os.remove(path)
+            removed += 1
+        except Exception as e:
+            # Log detailed error server-side, but return only a generic message to the client
+            add_app_log(f"Maintenance: failed to remove NetFlow file '{name}': {repr(e)}", "ERROR")
+            errors.append(f"{name}: failed to remove file")
+
+    msg = f"Removed {removed} NetFlow files ({fmt_bytes(removed_bytes)})."
+    if errors:
+        msg += f" {len(errors)} errors."
+
+    add_app_log(f"Maintenance: clear_netflow_files removed={removed} bytes={removed_bytes} errors={len(errors)}", "INFO")
+    return {
+        'status': 'ok' if not errors else 'partial',
+        'removed': removed,
+        'removed_bytes': removed_bytes,
+        'errors': errors,
+        'message': msg
+    }
+
+
+def _reset_firewall_db():
+    """Delete and recreate the firewall database."""
+    result = reset_firewall_database()
+    removed = result.get('removed', [])
+    errors = result.get('errors', [])
+
+    msg = f"Firewall database reset. Removed {len(removed)} file(s)."
+    if errors:
+        msg += f" {len(errors)} errors."
+
+    add_app_log("Maintenance: reset_firewall_db", "INFO")
+    return {
+        'status': 'ok' if not errors else 'partial',
+        'removed': removed,
+        'errors': errors,
+        'message': msg
+    }
+
+
+def _restart_netflow_service():
+    """Restart the nfcapd NetFlow collector."""
+    if _shutdown_event.is_set():
+        return {'status': 'error', 'message': 'Shutdown in progress'}
+
+    import signal
+    import shutil
+
+    nfcapd_path = shutil.which('nfcapd')
+    if not nfcapd_path:
+        return {'status': 'error', 'message': 'nfcapd not found on PATH'}
+
+    nfcapd_dir = NFCAPD_DIR or '/var/cache/nfdump'
+    nfcapd_port = int(os.environ.get('NFCAPD_PORT', '2055'))
+    pid_file = os.environ.get('NFCAPD_PID_FILE') or os.path.join(nfcapd_dir, 'nfcapd.pid')
+    try:
+        os.makedirs(nfcapd_dir, exist_ok=True)
+    except Exception as e:
+        add_app_log(f"Maintenance: restart_netflow - Failed to access NetFlow dir '{nfcapd_dir}': {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to access NetFlow directory.'}
+
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, 'r', encoding='utf-8') as f:
+                pid = int(f.read().strip())
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+
+    cmd = [
+        nfcapd_path,
+        '-w', nfcapd_dir,
+        '-D',
+        '-p', str(nfcapd_port),
+        '-y',
+        '-B', '8388608',
+        '-e',
+        '-t', '300',
+        '-P', pid_file
+    ]
+
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        add_app_log(f"Maintenance: restart_netflow - Failed to start nfcapd with command {cmd}: {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to start NetFlow collector.'}
+
+    add_app_log("Maintenance: restart_netflow", "INFO")
+    return {'status': 'ok', 'message': 'NetFlow service restart requested.'}
+
+
+def _restart_syslog_services():
+    """Restart syslog listeners (ports 514 and 515)."""
+    try:
+        from app.services.shared.syslog import restart_syslog_thread
+        syslog_514 = restart_syslog_thread()
+    except Exception as e:
+        add_app_log(f"Maintenance: failed to restart syslog listener on port 514: {repr(e)}", "ERROR")
+        syslog_514 = {'status': 'error', 'message': 'Failed to restart syslog listener on port 514.'}
+
+    try:
+        from app.services.syslog.firewall_listener import restart_firewall_syslog_thread
+        syslog_515 = restart_firewall_syslog_thread()
+    except Exception as e:
+        add_app_log(f"Maintenance: failed to restart firewall syslog listener on port 515: {repr(e)}", "ERROR")
+        syslog_515 = {'status': 'error', 'message': 'Failed to restart firewall syslog listener on port 515.'}
+
+    status = 'ok' if syslog_514.get('status') == 'ok' and syslog_515.get('status') == 'ok' else 'partial'
+    add_app_log("Maintenance: restart_syslog", "INFO")
+    return {
+        'status': status,
+        'message': 'Syslog services restart requested.',
+        'syslog_514': syslog_514,
+        'syslog_515': syslog_515
+    }
+
+
+# ============================================
 # TOOLS API ENDPOINTS
 # ============================================
-from app.services.shared.tools import dns_lookup, port_check, ping_host, check_reputation, whois_lookup
+from app.services.shared.tools import dns_lookup, port_check, ping_host, check_reputation, whois_lookup, http_probe, tls_inspect
 from app.services.shared.timeline import get_timeline_store
 
 @bp.route('/api/tools/dns')
@@ -1501,6 +1686,21 @@ def api_tools_whois():
     """Whois/ASN lookup tool."""
     query = request.args.get('query', '')
     result = whois_lookup(query)
+    return jsonify(result)
+
+@bp.route('/api/tools/http-probe')
+def api_tools_http_probe():
+    """HTTP probe tool."""
+    url = request.args.get('url', '')
+    result = http_probe(url)
+    return jsonify(result)
+
+@bp.route('/api/tools/tls-inspect')
+def api_tools_tls_inspect():
+    """TLS certificate inspection tool."""
+    host = request.args.get('host', '')
+    port = request.args.get('port', '443')
+    result = tls_inspect(host, port)
     return jsonify(result)
 
 

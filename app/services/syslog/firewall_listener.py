@@ -37,6 +37,10 @@ _syslog_515_stats_lock = threading.Lock()
 
 # Thread started flag
 _firewall_syslog_thread_started = False
+_firewall_syslog_thread = None
+_syslog_515_stop_event = threading.Event()
+_syslog_515_socket = None
+_restart_lock = threading.Lock()
 
 # Regex patterns for parsing syslog
 # RFC5424 timestamp: 2026-01-18T19:15:00+01:00
@@ -49,14 +53,54 @@ HOSTNAME_PATTERN = re.compile(r'^\s*\S+\s+\S+\s+(\S+)\s+')
 
 def start_firewall_syslog_thread():
     """Start the syslog listener thread for port 515."""
-    global _firewall_syslog_thread_started
+    global _firewall_syslog_thread_started, _firewall_syslog_thread
 
     if _firewall_syslog_thread_started:
         return
     _firewall_syslog_thread_started = True
 
-    t = threading.Thread(target=_syslog_receiver_loop, daemon=True)
-    t.start()
+    _firewall_syslog_thread = threading.Thread(target=_syslog_receiver_loop, daemon=True)
+    _firewall_syslog_thread.start()
+
+
+def restart_firewall_syslog_thread():
+    """Restart the syslog listener thread for port 515."""
+    with _restart_lock:
+        if _shutdown_event.is_set():
+            return {"status": "error", "message": "Shutdown in progress"}
+
+        try:
+            _syslog_515_stop_event.set()
+            _close_syslog_515_socket()
+            _join_firewall_syslog_thread(timeout=2)
+            _syslog_515_stop_event.clear()
+
+            global _firewall_syslog_thread_started
+            _firewall_syslog_thread_started = False
+            start_firewall_syslog_thread()
+            add_app_log("Syslog listener restarted (port 515)", "INFO")
+            return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
+def _close_syslog_515_socket():
+    """Close the active syslog 515 socket if present."""
+    global _syslog_515_socket
+    if _syslog_515_socket:
+        try:
+            _syslog_515_socket.close()
+        except Exception:
+            pass
+        _syslog_515_socket = None
+
+
+def _join_firewall_syslog_thread(timeout=2):
+    """Join firewall syslog thread to avoid duplicate listeners."""
+    global _firewall_syslog_thread
+    if _firewall_syslog_thread and _firewall_syslog_thread.is_alive():
+        _firewall_syslog_thread.join(timeout=timeout)
+    _firewall_syslog_thread = None
 
 
 def _parse_syslog(raw: str) -> SyslogEvent:
@@ -179,8 +223,10 @@ def _emit_timeline_event_if_significant(event: SyslogEvent) -> None:
 
 def _syslog_receiver_loop():
     """UDP syslog receiver loop for port 515."""
+    global _syslog_515_socket
     sock = socket_module.socket(socket_module.AF_INET, socket_module.SOCK_DGRAM)
     sock.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
+    _syslog_515_socket = sock
 
     try:
         sock.bind((FIREWALL_SYSLOG_BIND, FIREWALL_SYSLOG_PORT))
@@ -200,7 +246,7 @@ def _syslog_receiver_loop():
 
     sock.settimeout(1.0)
 
-    while not _shutdown_event.is_set():
+    while not _shutdown_event.is_set() and not _syslog_515_stop_event.is_set():
         try:
             data, addr = sock.recvfrom(8192)
 
@@ -238,6 +284,7 @@ def _syslog_receiver_loop():
         except Exception as e:
             print(f"[SYSLOG 515] Receiver error: {e}")
             continue
+    _close_syslog_515_socket()
 
 
 def get_firewall_syslog_stats():

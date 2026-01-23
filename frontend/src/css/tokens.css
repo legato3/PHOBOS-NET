@@ -99,4 +99,15 @@
   --sidebar-width: 210px;
   --sidebar-collapsed: 64px;
   --panel-padding: var(--space-4);
+
+  /* V3 Card System - Glassmorphism */
+  --card-bg: rgba(15, 15, 23, 0.6);
+  --card-bg-hover: rgba(15, 15, 23, 0.6);
+  --card-border: rgba(0, 234, 255, 0.15);
+  --card-border-hover: rgba(0, 234, 255, 0.4);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 10px rgba(0, 234, 255, 0.05);
+  --card-radius: var(--radius-lg);
+  --glass-blur: 12px;
+  --card-header-bg: rgba(0, 0, 0, 0.3);
 }

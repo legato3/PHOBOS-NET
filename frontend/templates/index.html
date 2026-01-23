@@ -35,7 +35,7 @@
 
     <!-- CSS - Critical render path, load first -->
     <!-- CYBERPUNK UI: Signal-first design system -->
-    <link rel="stylesheet" href="/static/css/style.css?v=5.0.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0.10">
     <link rel="stylesheet" href="/static/css/mobile.css">
     <!-- Widget-specific enhancements -->
 
@@ -107,18 +107,14 @@
 
                     <!-- Widget Manager Modal -->
 
-                    <!-- Keyboard Shortcuts Hint -->
-                    <div class="keyboard-hint" title="Press ? for all shortcuts">
-                        <kbd>R</kbd> Refresh <kbd>P</kbd> Pause <kbd>1-6</kbd> Time
-                    </div>
+
 
                     <!-- Sticky Status Bar -->
                     <div class="status-bar"
                         style="display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: var(--space-3);">
                         <!-- System Metrics -->
                         <div class="status-bar-item">
-                            <span class="status-bar-dot"
-                                :class="{ 'warning': firewall.cpu_percent >= 70, 'disconnected': firewall.cpu_percent >= 90 }"></span>
+
                             <span class="label">CPU:</span>
                             <span class="value"
                                 :class="{ 'warning': firewall.cpu_percent >= 70, 'critical': firewall.cpu_percent >= 90 }"
@@ -131,19 +127,26 @@
                                 x-text="(firewall.mem_percent || '--') + '%'"></span>
                         </div>
                         <!-- Network Metrics -->
+                        <!-- Data Sources -->
                         <div class="status-bar-item">
-                            <span class="label">Threats:</span>
-                            <span class="value" :class="{ 'critical': threats.hits.length > 0 }"
-                                x-text="threats.hits.length"></span>
+                            <span class="label">NetFlow:</span>
+                            <span class="value" :class="{ 'critical': !serverHealth.netflow?.available }"
+                                x-text="serverHealth.netflow?.available ? 'Active' : 'Down'"></span>
                         </div>
                         <div class="status-bar-item">
-                            <span class="label">Flows:</span>
-                            <span class="value" x-text="Number(summary.totals.flows || 0).toLocaleString()"></span>
+                            <span class="label">SNMP:</span>
+                            <span class="value"
+                                :class="{ 'critical': firewall.cpu_percent === null || firewall.cpu_percent === undefined }"
+                                x-text="firewall.cpu_percent === null || firewall.cpu_percent === undefined ? 'Down' : 'Active'"></span>
+                        </div>
+                        <div class="status-bar-item">
+                            <span class="label">Syslog:</span>
+                            <span class="value" :class="{ 'critical': !firewall.syslog_active }"
+                                x-text="firewall.syslog_active ? 'Active' : 'Down'"></span>
                         </div>
                         <!-- Status -->
                         <div class="status-bar-item">
-                            <span class="status-bar-dot"
-                                :class="{ 'disconnected': !firewallStreamActive && !initDone }"></span>
+
                             <span class="label">Status:</span>
                             <span class="value" x-text="paused ? 'Paused' : 'Live'"></span>
                         </div>
@@ -154,12 +157,12 @@
                         </div>
                         <div class="status-bar-item">
                             <span class="label">Next:</span>
-                            <span class="value" style="color: var(--text-muted);"
+                            <span class="value" style="color: var(--accent-cyan);"
                                 x-text="paused ? '--' : refreshCountdown + 's'"></span>
                         </div>
                         <div class="status-bar-item">
                             <span class="label">Up:</span>
-                            <span class="value" style="color: var(--text-muted);" x-text="lastUpdate"></span>
+                            <span class="value" style="color: var(--accent-cyan);" x-text="lastUpdate"></span>
                         </div>
                     </div>
 

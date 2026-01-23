@@ -180,6 +180,15 @@ export const Store = () => ({
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
     networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
+    networkIntelligence: {
+        anomaly_score: 0,
+        anomaly_level: 'Low',
+        top_concern: null,
+        network_efficiency: { productive_pct: 100, noise_pct: 0, status: 'Clean' },
+        geographic_risk: null,
+        protocol_health: [],
+        loading: true
+    },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -201,6 +210,14 @@ export const Store = () => ({
     ingestionRates: null,
     databaseStats: { databases: [], loading: true, error: null },
     serverLogs: { logs: [], count: 0, loading: true, source: 'none', container: '', lines: 100 },
+    serverMaintenance: {
+        actions: {
+            clear_netflow_files: { loading: false, status: null, message: '', error: null, lastRun: null },
+            reset_firewall_db: { loading: false, status: null, message: '', error: null, lastRun: null },
+            restart_netflow: { loading: false, status: null, message: '', error: null, lastRun: null },
+            restart_syslog: { loading: false, status: null, message: '', error: null, lastRun: null }
+        }
+    },
     resourceHistory: { history: [], cpu_peak: null, mem_peak: null, loading: true, error: null },
     monitoringSummary: {
         thread_health: { ok: 0, total: 0, status: 'unknown', threads: {} },
@@ -316,7 +333,7 @@ export const Store = () => ({
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
-    appMetadata: { name: 'PHOBOS-NET', version: 'v1.2.5', version_display: 'v1.2.5' }, // Application metadata from backend
+    appMetadata: { name: 'PHOBOS-NET', version: 'v2.0.0', version_display: 'v2.0.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
@@ -328,7 +345,7 @@ export const Store = () => ({
     ipInvestigation: { searchIP: '', result: null, loading: false, error: null, timeline: { labels: [], bytes: [], flows: [], loading: false, compareHistory: false } },
     flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
-    threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '24h', showDescription: false },
+    threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '1h', showDescription: false },
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
@@ -384,7 +401,7 @@ export const Store = () => ({
             flowStats: 'Flow Statistics',
 
             netHealth: 'Network Health',
-            insights: 'Traffic Insights',
+            insights: 'Network Intelligence',
             mitreHeatmap: 'Detected Techniques',
             protocolAnomalies: 'Protocol Anomalies',
             attackTimeline: 'Attack Timeline',
@@ -619,8 +636,8 @@ export const Store = () => ({
                 const data = await res.json();
                 this.appMetadata = {
                     name: data.name || 'PHOBOS-NET',
-                    version: data.version || 'v1.2.5',
-                    version_display: data.version_display || 'v1.2.5'
+                    version: data.version || 'v2.0.0',
+                    version_display: data.version_display || 'v2.0.0'
                 };
             }
         } catch (e) {
@@ -844,11 +861,13 @@ export const Store = () => ({
             // Start real-time firewall stream (SSE) if supported
             this.startFirewallStream();
 
-            // Keyboard shortcuts
-            this.setupKeyboardShortcuts();
+
 
             // Start countdown timer
             this.startCountdown();
+
+            // Initialize Ollama models
+            this.fetchOllamaModels();
         }, { timeout: 100 });
 
         // Watchers
@@ -1042,6 +1061,8 @@ export const Store = () => ({
         port: { host: '', ports: '', loading: false, result: null, error: null },
         ping: { host: '', mode: 'ping', loading: false, result: null, error: null },
         reputation: { ip: '', loading: false, result: null, error: null },
+        httpProbe: { url: '', loading: false, result: null, error: null },
+        tlsInspect: { host: '', port: '443', loading: false, result: null, error: null },
         whois: { query: '', loading: false, result: null, error: null },
         shell: { command: '', history: [], historyIndex: -1, output: '', loading: false, error: null }
     },
@@ -1063,6 +1084,44 @@ export const Store = () => ({
             this.tools.dns.error = 'Failed to perform DNS lookup: ' + e.message;
         }
         this.tools.dns.loading = false;
+    },
+
+    // HTTP Probe
+    async runHttpProbe() {
+        this.tools.httpProbe.loading = true;
+        this.tools.httpProbe.error = null;
+        this.tools.httpProbe.result = null;
+        try {
+            const response = await fetch(`/api/tools/http-probe?url=${encodeURIComponent(this.tools.httpProbe.url)}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.httpProbe.error = data.error;
+            } else {
+                this.tools.httpProbe.result = data;
+            }
+        } catch (e) {
+            this.tools.httpProbe.error = 'Failed to probe URL: ' + e.message;
+        }
+        this.tools.httpProbe.loading = false;
+    },
+
+    // TLS Certificate Inspector
+    async runTlsInspect() {
+        this.tools.tlsInspect.loading = true;
+        this.tools.tlsInspect.error = null;
+        this.tools.tlsInspect.result = null;
+        try {
+            const response = await fetch(`/api/tools/tls-inspect?host=${encodeURIComponent(this.tools.tlsInspect.host)}&port=${encodeURIComponent(this.tools.tlsInspect.port || '443')}`);
+            const data = await response.json();
+            if (data.error) {
+                this.tools.tlsInspect.error = data.error;
+            } else {
+                this.tools.tlsInspect.result = data;
+            }
+        } catch (e) {
+            this.tools.tlsInspect.error = 'Failed to inspect certificate: ' + e.message;
+        }
+        this.tools.tlsInspect.loading = false;
     },
 
     // Port Check
@@ -1155,7 +1214,7 @@ export const Store = () => ({
         this.tools.shell.error = null;
 
         // Append command to output immediately
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = new Date().toLocaleTimeString('en-GB');
         this.tools.shell.output = (this.tools.shell.output || '') + `\n[${timestamp}] $ ${cmd}\n`;
 
         try {
@@ -1394,106 +1453,7 @@ export const Store = () => ({
         return this.timeRange;
     },
 
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Don't trigger if typing in input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-            switch (e.key.toLowerCase()) {
-                case 'r':
-                    if (!e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        this.loadAll();
-                        this.refreshCountdown = this.refreshInterval / 1000;
-                    }
-                    break;
-                case 'p':
-                    e.preventDefault();
-                    this.togglePause();
-                    break;
-                case '1':
-                    e.preventDefault();
-                    this.timeRange = '15m';
-                    break;
-                case '2':
-                    e.preventDefault();
-                    this.timeRange = '30m';
-                    break;
-                case '3':
-                    e.preventDefault();
-                    this.timeRange = '1h';
-                    break;
-                case '4':
-                    e.preventDefault();
-                    this.timeRange = '6h';
-                    break;
-                case '5':
-                    e.preventDefault();
-                    this.timeRange = '24h';
-                    break;
-                case '6':
-                    e.preventDefault();
-                    this.timeRange = '7d';
-                    break;
-                case 'escape':
-                    this.modalOpen = false;
-                    this.trendModalOpen = false;
-                    this.thresholdsModalOpen = false;
-                    this.widgetManagerOpen = false;
-                    this.expandedModalOpen = false;
-                    this.networkGraphOpen = false;
-                    this.ipInvestigationModalOpen = false;
-                    this.closeFullscreenChart();
-                    // Return focus to a safe element
-                    document.activeElement?.blur();
-                    break;
-                case '?':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        alert('Keyboard Shortcuts:\n\nR - Refresh data\nP - Pause/Resume\n1-6 - Time range (15m to 7d)\nESC - Close modals\n? - Show this help');
-                    }
-                    break;
-                case 'g':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        // Focus search box
-                        const searchBox = document.querySelector('.search-box');
-                        if (searchBox) searchBox.focus();
-                    }
-                    break;
-                case 'o':
-                    if (e.shiftKey) {
-                        e.preventDefault();
-                        this.activeTab = 'overview';
-                    }
-                    break;
-                case 's':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'security';
-                    }
-                    break;
-                case 'n':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'network';
-                    }
-                    break;
-                case 'f':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'forensics';
-                    }
-                    break;
-                case 'a':
-                    if (e.shiftKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        this.activeTab = 'assistant';
-                    }
-                    break;
-            }
-        });
-    },
 
     togglePause() {
         this.paused = !this.paused;
@@ -1981,7 +1941,7 @@ export const Store = () => ({
     },
 
     async loadAll() {
-        this.lastUpdate = new Date().toLocaleTimeString();
+        this.lastUpdate = new Date().toLocaleTimeString('en-GB');
         this.lastUpdateTs = Date.now();
         const now = Date.now();
 
@@ -1992,6 +1952,7 @@ export const Store = () => ({
         // Fetch Overview page stat boxes early (needed for initial page load)
         await Promise.allSettled([
             this.fetchNetworkStatsOverview(),
+            this.fetchNetworkIntelligence(),
             this.fetchFirewallStatsOverview(),
             this.fetchAlertHistory(),
             this.fetchTimeline(),  // Unified Event Timeline (Recent Activity)
@@ -2633,7 +2594,7 @@ export const Store = () => ({
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange}`, {
+            const res = await fetch(`/api/stats/malicious_ports?range=${this.timeRange || '24h'}`, {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -2742,7 +2703,7 @@ export const Store = () => ({
     async fetchAlertHistory() {
         this.alertHistory.loading = true;
         try {
-            const res = await fetch('/api/security/alerts/history');
+            const res = await fetch(`/api/security/alerts/history?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.alertHistory = { ...d, loading: false };
@@ -2825,7 +2786,7 @@ export const Store = () => ({
     async fetchMitreHeatmap() {
         this.mitreHeatmap.loading = true;
         try {
-            const res = await fetch('/api/security/mitre-heatmap');
+            const res = await fetch(`/api/security/mitre-heatmap?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.mitreHeatmap = { ...d, loading: false };
@@ -2837,7 +2798,7 @@ export const Store = () => ({
     async fetchProtocolAnomalies() {
         this.protocolAnomalies.loading = true;
         try {
-            const res = await fetch('/api/security/protocol-anomalies?range=' + this.timeRange);
+            const res = await fetch(`/api/security/protocol-anomalies?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.protocolAnomalies = { ...d, loading: false };
@@ -2947,7 +2908,7 @@ export const Store = () => ({
             // Add firewall blocks as a line overlay if data exists
             if (hasFwData) {
                 datasets.push({
-                    label: '🔥 FW Blocks',
+                    label: 'FW Blocks',
                     data: fwBlocks,
                     type: 'line',
                     borderColor: 'rgba(0, 255, 100, 1)',
@@ -2972,7 +2933,7 @@ export const Store = () => ({
                     scales: {
                         x: { stacked: true, grid: { display: false }, ticks: { color: '#666', maxRotation: 45 } },
                         y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' }, position: 'left' },
-                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'FW Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
+                        ...(hasFwData ? { y1: { grid: { display: false }, ticks: { color: 'rgba(0, 255, 100, 0.8)' }, position: 'right', title: { display: true, text: 'Blocks', color: 'rgba(0, 255, 100, 0.8)' } } } : {})
                     }
                 }
             });
@@ -3140,7 +3101,7 @@ export const Store = () => ({
     async fetchThreatsByCountry() {
         this.threatsByCountry.loading = true;
         try {
-            const res = await fetch('/api/security/threats/by_country');
+            const res = await fetch(`/api/security/threats/by_country?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.threatsByCountry = { ...d, loading: false };
@@ -3152,7 +3113,7 @@ export const Store = () => ({
     async fetchThreatVelocity() {
         this.threatVelocity.loading = true;
         try {
-            const res = await fetch('/api/security/threat_velocity');
+            const res = await fetch(`/api/security/threat_velocity?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.threatVelocity = { ...d, loading: false };
@@ -3164,7 +3125,7 @@ export const Store = () => ({
     async fetchTopThreatIPs() {
         this.topThreatIPs.loading = true;
         try {
-            const res = await fetch('/api/security/top_threat_ips');
+            const res = await fetch(`/api/security/top_threat_ips?range=${this.timeRange || '24h'}`);
             if (res.ok) {
                 const d = await res.json();
                 this.topThreatIPs = { ...d, loading: false };
@@ -3210,7 +3171,7 @@ export const Store = () => ({
             setTimeout(() => this.renderBlocklistChart(), 100);
             return;
         }
-        const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString());
+        const labels = (series || []).map(s => new Date(s.ts).toLocaleTimeString('en-GB'));
         const values = (series || []).map(s => s.rate || 0);
         const blocked = (series || []).map(s => s.blocked || 0);
         const hasFwData = this.blocklist.has_fw_data;
@@ -3223,7 +3184,7 @@ export const Store = () => ({
         // Add firewall blocks as second line if data exists
         if (hasFwData) {
             datasets.push({
-                label: '🔥 FW Blocks',
+                label: 'FW Blocks',
                 data: blocked,
                 borderColor: 'rgba(0, 255, 100, 1)',
                 backgroundColor: 'rgba(0, 255, 100, 0.1)',
@@ -4286,6 +4247,31 @@ export const Store = () => ({
         }
     },
 
+    async fetchNetworkIntelligence() {
+        this.networkIntelligence.loading = true;
+        try {
+            const range = this.timeRange || '1h';
+            const res = await fetch(`/api/network/intelligence?range=${range}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.networkIntelligence = {
+                    anomaly_score: data.anomaly_score || 0,
+                    anomaly_level: data.anomaly_level || 'Low',
+                    top_concern: data.top_concern || null,
+                    network_efficiency: data.network_efficiency || { productive_pct: 100, noise_pct: 0, status: 'Clean' },
+                    geographic_risk: data.geographic_risk || null,
+                    protocol_health: data.protocol_health || [],
+                    loading: false
+                };
+            } else {
+                this.networkIntelligence.loading = false;
+            }
+        } catch (e) {
+            console.error('Network intelligence fetch error:', e);
+            this.networkIntelligence.loading = false;
+        }
+    },
+
     async fetchBaselineSignals() {
         this.baselineSignals.loading = true;
         try {
@@ -4565,6 +4551,51 @@ export const Store = () => ({
             this.databaseStats.loading = false;
         } finally {
             this._databaseStatsFetching = false;
+        }
+    },
+
+    async runServerMaintenance(action) {
+        const actionState = this.serverMaintenance?.actions?.[action];
+        if (!actionState || actionState.loading) return;
+
+        actionState.loading = true;
+        actionState.status = null;
+        actionState.message = '';
+        actionState.error = null;
+
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const res = await safeFetchFn('/api/server/maintenance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                const msg = errorData.message || res.statusText || `Error ${res.status}`;
+                actionState.status = 'error';
+                actionState.error = DashboardUtils?.getUserFriendlyError(msg, 'run maintenance action') || msg;
+                return;
+            }
+
+            const data = await res.json();
+            actionState.status = data.status || 'ok';
+            actionState.message = data.message || 'Completed';
+            actionState.lastRun = Date.now();
+
+            if (action === 'clear_netflow_files' || action === 'restart_netflow' || action === 'restart_syslog') {
+                this.fetchServerHealth();
+            }
+            if (action === 'reset_firewall_db') {
+                this.fetchDatabaseStats();
+            }
+        } catch (e) {
+            const fallback = e?.error || e?.message || 'Maintenance action failed';
+            actionState.status = 'error';
+            actionState.error = DashboardUtils?.getUserFriendlyError(e, 'run maintenance action') || fallback;
+        } finally {
+            actionState.loading = false;
         }
     },
 
@@ -5491,7 +5522,7 @@ export const Store = () => ({
         <tr><th>Metric</th><th>Value</th></tr>
         <tr><td>Report Generated</td><td>${now.toISOString()}</td></tr>
         <tr><td>Time Range</td><td>${this.timeRange}</td></tr>
-        <tr><td>Dashboard Version</td><td>PHOBOS-NET v1.2.5</td></tr>
+        <tr><td>Dashboard Version</td><td>PHOBOS-NET v2.0.0</td></tr>
     </table>
 
     <div class="footer">
@@ -5923,22 +5954,19 @@ export const Store = () => ({
             const res = await fetch(`/api/security/attack-timeline?range=${range}`);
             if (res.ok) {
                 const d = await res.json();
-                // Calculate peak hour
-                let peak_count = 0;
-                let peak_hour = null;
-                if (d.timeline && d.timeline.length > 0) {
-                    const peak = d.timeline.reduce((max, item) => {
-                        const total = item.total || 0;
-                        return total > max.total ? { hour: item.hour, total: total } : max;
-                    }, { hour: null, total: 0 });
-                    peak_count = peak.total;
-                    peak_hour = peak.hour;
-                }
-
                 this.threatActivityTimeline = {
+                    ...this.threatActivityTimeline,
                     ...d,
-                    peak_count,
-                    peak_hour,
+                    avg_threat_rate: d.avg_threat_rate || 0,
+                    peak_threat_rate: d.peak_threat_rate || 0,
+                    avg_block_rate: d.avg_block_rate || 0,
+                    peak_block_rate: d.peak_block_rate || 0,
+                    avg_match_rate: d.avg_match_rate || 0,
+                    total_threats: d.total_threats || 0,
+                    total_matches: d.total_matches || 0,
+                    total_range_alerts: d.total_range_alerts || 0,
+                    period_total: d.period_total || 0,
+                    period_label: d.period_label || 'Period',
                     loading: false
                 };
                 this.$nextTick(() => {
@@ -5989,32 +6017,46 @@ export const Store = () => ({
             const medium = this.threatActivityTimeline.timeline.map(t => t.medium || 0);
             const low = this.threatActivityTimeline.timeline.map(t => t.low || 0);
             const fwBlocks = this.threatActivityTimeline.timeline.map(t => t.fw_blocks || 0);
+            const matchRate = this.threatActivityTimeline.timeline.map(t => t.match_rate || 0);
 
             const critColor = this.getCssVar('--neon-red') || 'rgba(255, 0, 60, 0.8)';
             const hasFwData = this.threatActivityTimeline.has_fw_data;
 
             const datasets = [
-                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 2 },
-                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 2 },
-                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 2 },
-                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 2 }
+                { label: 'Critical', data: critical, backgroundColor: critColor, stack: 'severity', order: 3 },
+                { label: 'High', data: high, backgroundColor: 'rgba(255, 165, 0, 0.8)', stack: 'severity', order: 3 },
+                { label: 'Medium', data: medium, backgroundColor: 'rgba(255, 255, 0, 0.7)', stack: 'severity', order: 3 },
+                { label: 'Low', data: low, backgroundColor: 'rgba(0, 255, 255, 0.5)', stack: 'severity', order: 3 },
+                {
+                    label: 'Match Rate',
+                    data: matchRate,
+                    type: 'line',
+                    borderColor: 'rgba(255, 0, 255, 1)',
+                    backgroundColor: 'rgba(255, 0, 255, 0.1)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.4,
+                    yAxisID: 'yMatch',
+                    order: 1
+                }
             ];
 
             // Add firewall blocks as a line overlay if data exists
             if (hasFwData) {
                 datasets.push({
-                    label: '🔥 FW Blocks',
+                    label: 'Blocks',
                     data: fwBlocks,
                     type: 'line',
                     borderColor: 'rgba(0, 255, 100, 1)',
                     backgroundColor: 'rgba(0, 255, 100, 0.1)',
                     borderWidth: 2,
-                    pointRadius: 3,
+                    pointRadius: 2,
                     pointBackgroundColor: 'rgba(0, 255, 100, 1)',
                     fill: false,
                     tension: 0.3,
                     yAxisID: 'y1',
-                    order: 1
+                    order: 2
                 });
             }
 
@@ -6061,8 +6103,23 @@ export const Store = () => ({
                             position: 'left',
                             title: {
                                 display: true,
-                                text: 'Threats',
+                                text: 'Hits',
                                 color: this.getCssVar('--text-secondary') || '#888'
+                            }
+                        },
+                        yMatch: {
+                            grid: { display: false },
+                            ticks: {
+                                color: 'rgba(255, 0, 255, 0.7)',
+                                callback: (v) => v + '%'
+                            },
+                            position: 'right',
+                            min: 0,
+                            suggestedMax: 20,
+                            title: {
+                                display: true,
+                                text: 'Match %',
+                                color: 'rgba(255, 0, 255, 0.7)'
                             }
                         },
                         ...(hasFwData ? {
@@ -6072,7 +6129,7 @@ export const Store = () => ({
                                 position: 'right',
                                 title: {
                                     display: true,
-                                    text: 'FW Blocks',
+                                    text: 'Blocks',
                                     color: 'rgba(0, 255, 100, 0.8)'
                                 }
                             }
@@ -6567,6 +6624,7 @@ export const Store = () => ({
                 this.fetchFlowStats();
                 this.fetchProtoMix();
                 this.fetchNetworkStatsOverview();
+                this.fetchNetworkIntelligence();
                 this.fetchNetHealth();
                 this.fetchASNs();
                 this.fetchCountries();
@@ -6796,7 +6854,7 @@ export const Store = () => ({
         this.ollamaChat.messages.push({
             role: 'user',
             content: message,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString('en-GB')
         });
 
         // Clear input
@@ -6876,7 +6934,7 @@ export const Store = () => ({
             this.ollamaChat.messages.push({
                 role: 'assistant',
                 content: responseText,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString('en-GB')
             });
 
         } catch (e) {
@@ -6885,7 +6943,7 @@ export const Store = () => ({
             this.ollamaChat.messages.push({
                 role: 'assistant',
                 content: `Error: ${this.ollamaChat.error}`,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString('en-GB')
             });
         } finally {
             this.ollamaChat.loading = false;

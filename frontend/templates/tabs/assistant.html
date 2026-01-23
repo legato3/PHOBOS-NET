@@ -1,108 +1,95 @@
-<div x-show="activeTab === 'assistant'"
-                        :style="activeTab === 'assistant' ? 'display:block' : 'display:none'" id="assistant-tab"
-                        role="tabpanel" aria-labelledby="assistant-tab-btn" tabindex="0">
-                        <section id="section-assistant" class="scroll-section" style="margin-bottom: 32px;">
-                            <div class="card wide-card"
-                                style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
-                                <h2>
-                                    <span>🤖 Assistant</span>
-                                    <div class="card-actions">
-                                        <select x-model="ollamaChat.model" class="filter-select"
-                                            style="min-width: 150px;" @change="fetchOllamaModels()"
-                                            title="Select Ollama model">
-                                            <template
-                                                x-for="model in ollamaChat.availableModels.length > 0 ? ollamaChat.availableModels : ['deepseek-coder-v2:16b']"
-                                                :key="model">
-                                                <option :value="model" x-text="model"></option>
-                                            </template>
-                                        </select>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer;"
-                                            title="Include current dashboard data as context">
-                                            <input type="checkbox" x-model="ollamaChat.includeContext"
-                                                style="cursor: pointer;">
-                                            <span>Use Context</span>
-                                        </label>
-                                        <select x-model="ollamaChat.analysisType" class="filter-select"
-                                            style="min-width: 120px;"
-                                            title="Analysis type for enhanced threat investigation">
-                                            <option value="general">General</option>
-                                            <option value="forensics">Forensics</option>
-                                            <option value="investigation">Investigation</option>
-                                            <option value="mitigation">Mitigation</option>
-                                        </select>
-                                        <button class="btn btn--secondary" @click="clearChat()" title="Clear chat">
-                                            Clear
-                                        </button>
-                                    </div>
-                                </h2>
+<div x-show="activeTab === 'assistant'" :style="activeTab === 'assistant' ? 'display:block' : 'display:none'"
+    id="assistant-tab" role="tabpanel" aria-labelledby="assistant-tab-btn" tabindex="0">
+    <section id="section-assistant" class="scroll-section" style="margin-bottom: var(--space-6);">
+        <div class="card wide-card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
+            <h2>
+                <span>🤖 Assistant</span>
+                <div class="card-actions">
+                    <select x-model="ollamaChat.model" class="filter-select" style="min-width: 150px;"
+                        title="Select Ollama model">
+                        <template
+                            x-for="model in ollamaChat.availableModels.length > 0 ? ollamaChat.availableModels : ['deepseek-coder-v2:16b']"
+                            :key="model">
+                            <option :value="model" x-text="model"></option>
+                        </template>
+                    </select>
+                    <label
+                        style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); cursor: pointer;"
+                        title="Include current dashboard data as context">
+                        <input type="checkbox" x-model="ollamaChat.includeContext" style="cursor: pointer;">
+                        <span>Use Context</span>
+                    </label>
+                    <select x-model="ollamaChat.analysisType" class="filter-select" style="min-width: 120px;"
+                        title="Analysis type for enhanced threat investigation">
+                        <option value="general">General</option>
+                        <option value="forensics">Forensics</option>
+                        <option value="investigation">Investigation</option>
+                        <option value="mitigation">Mitigation</option>
+                    </select>
+                    <button class="btn btn--secondary" @click="clearChat()" title="Clear chat">
+                        Clear
+                    </button>
+                </div>
+            </h2>
 
-                                <!-- Chat Messages Area -->
-                                <div class="chat-messages" style="flex: 1; overflow-y: auto; padding: var(--space-4); 
+            <!-- Chat Messages Area -->
+            <div class="chat-messages" style="flex: 1; overflow-y: auto; padding: var(--space-4); 
                                     display: flex; flex-direction: column; gap: var(--space-3); min-height: 0;">
-                                    <template x-if="ollamaChat.messages.length === 0">
-                                        <div
-                                            style="text-align: center; color: var(--text-secondary); padding: var(--space-8);">
-                                            <div style="font-size: 48px; margin-bottom: var(--space-4);">🤖</div>
-                                            <div style="font-size: var(--text-lg); margin-bottom: var(--space-2);">AI
-                                                Assistant</div>
-                                            <div style="font-size: var(--text-sm);">Ask me anything about your network,
-                                                security, or system.</div>
-                                            <div
-                                                style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-4);">
-                                                Powered by Ollama (local LLM)
-                                            </div>
-                                        </div>
-                                    </template>
-                                    <template x-for="(msg, idx) in ollamaChat.messages" :key="idx">
-                                        <div
-                                            :class="'chat-message ' + (msg.role === 'user' ? 'chat-message-user' : 'chat-message-assistant')">
-                                            <div class="chat-message-role"
-                                                x-text="msg.role === 'user' ? 'You' : 'Assistant'"></div>
-                                            <div class="chat-message-content"
-                                                x-html="msg.content.replace(/\n/g, '<br>')">
-                                            </div>
-                                            <div class="chat-message-time" x-text="msg.timestamp"></div>
-                                        </div>
-                                    </template>
-                                    <div x-show="ollamaChat.loading" class="chat-message chat-message-assistant">
-                                        <div class="chat-message-role">Assistant</div>
-                                        <div class="chat-message-content">
-                                            <div class="spinner"
-                                                style="display: inline-block; margin-right: var(--space-2);"></div>
-                                            <span>Thinking...</span>
-                                        </div>
-                                    </div>
-                                    <div x-show="ollamaChat.error" class="chat-message chat-message-error">
-                                        <div class="chat-message-role">Error</div>
-                                        <div class="chat-message-content" x-text="ollamaChat.error"></div>
-                                    </div>
-                                </div>
+                <template x-if="ollamaChat.messages.length === 0">
+                    <div style="text-align: center; color: var(--text-secondary); padding: var(--space-8);">
+                        <div style="font-size: 48px; margin-bottom: var(--space-4);">🤖</div>
+                        <div style="font-size: var(--text-lg); margin-bottom: var(--space-2);">AI
+                            Assistant</div>
+                        <div style="font-size: var(--text-sm);">Ask me anything about your network,
+                            security, or system.</div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-4);">
+                            Powered by Ollama (local LLM)
+                        </div>
+                    </div>
+                </template>
+                <template x-for="(msg, idx) in ollamaChat.messages" :key="idx">
+                    <div
+                        :class="'chat-message ' + (msg.role === 'user' ? 'chat-message-user' : 'chat-message-assistant')">
+                        <div class="chat-message-role" x-text="msg.role === 'user' ? 'You' : 'Assistant'"></div>
+                        <div class="chat-message-content" x-text="msg.content" style="white-space: pre-wrap;">
+                        </div>
+                        <div class="chat-message-time" x-text="msg.timestamp"></div>
+                    </div>
+                </template>
+                <div x-show="ollamaChat.loading" class="chat-message chat-message-assistant">
+                    <div class="chat-message-role">Assistant</div>
+                    <div class="chat-message-content">
+                        <div class="spinner" style="display: inline-block; margin-right: var(--space-2);"></div>
+                        <span>Thinking...</span>
+                    </div>
+                </div>
+                <div x-show="ollamaChat.error" class="chat-message chat-message-error">
+                    <div class="chat-message-role">Error</div>
+                    <div class="chat-message-content" x-text="ollamaChat.error"></div>
+                </div>
+            </div>
 
-                                <!-- Chat Input Area -->
-                                <div style="padding: var(--space-4); border-top: 1px solid var(--card-border);">
-                                    <div style="display: flex; gap: var(--space-2);">
-                                        <textarea x-model="ollamaChat.inputMessage"
-                                            @keydown.enter.prevent="ollamaChat.inputMessage.trim() && !ollamaChat.loading && sendChatMessage()"
-                                            @keydown.enter.shift="ollamaChat.inputMessage += '\n'"
-                                            placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-                                            style="flex: 1; min-height: 60px; max-height: 150px; padding: var(--space-3); 
+            <!-- Chat Input Area -->
+            <div style="padding: var(--space-4); border-top: 1px solid var(--card-border);">
+                <div style="display: flex; gap: var(--space-2);">
+                    <textarea x-model="ollamaChat.inputMessage"
+                        @keydown.enter.exact.prevent="ollamaChat.inputMessage.trim() && !ollamaChat.loading && sendChatMessage()"
+                        placeholder="Type your message... (Enter to send, Shift+Enter for new line)" style="flex: 1; min-height: 60px; max-height: 150px; padding: var(--space-3); 
                                                 background: var(--bg-primary); border: 1px solid var(--card-border); 
                                                 border-radius: var(--radius-md); color: var(--text-primary); 
                                                 font-family: inherit; font-size: var(--text-base); resize: vertical;"
-                                            :disabled="ollamaChat.loading"></textarea>
-                                        <button class="btn btn--primary" @click="sendChatMessage()"
-                                            :disabled="!ollamaChat.inputMessage.trim() || ollamaChat.loading"
-                                            style="align-self: flex-end;">
-                                            <span x-show="!ollamaChat.loading">Send</span>
-                                            <span x-show="ollamaChat.loading">...</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
+                        :disabled="ollamaChat.loading"></textarea>
+                    <button class="btn btn--primary" @click="sendChatMessage()"
+                        :disabled="!ollamaChat.inputMessage.trim() || ollamaChat.loading" style="align-self: flex-end;">
+                        <span x-show="!ollamaChat.loading">Send</span>
+                        <span x-show="ollamaChat.loading">...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
 
-                    <!-- ============================================
+<!-- ============================================
              NETWORK FORENSICS TAB - Incident Response Tools
              ============================================ -->

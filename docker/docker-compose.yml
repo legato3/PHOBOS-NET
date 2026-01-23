@@ -20,6 +20,9 @@ services:
       # - VIRUSTOTAL_API_KEY=your_key
       # - ABUSEIPDB_API_KEY=your_key
       # - TELEMETRY_ENABLED=false  # Opt-out of anonymous usage telemetry
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../docker-data:/app/data
       - ../docker-data/nfdump:/var/cache/nfdump # NetFlow data persistence

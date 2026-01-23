@@ -108,11 +108,15 @@ def parse_csv(output, expected_key=None):
     if not lines:
         return results
     
-    # Header detection - Scan for the real CSV header (starts with ts,)
-    # This skips warnings like "Command line switch -s overwrites -a"
+    # Header detection - Scan for the real CSV header (starts with ts, or firstSeen,)
+    # This skips warnings, info lines, or summary lines at the top.
     header_idx = -1
     for i, line in enumerate(lines):
-        if line.lower().startswith('ts,'):
+        line_clean = line.strip().lower()
+        # Common nfdump CSV headers:
+        # ts,te,td,sa,da,sp,dp,pr,flg... (1.6)
+        # firstseen,duration,proto,srcaddr,srcport... (1.7)
+        if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
             header_idx = i
             break
             
@@ -120,21 +124,34 @@ def parse_csv(output, expected_key=None):
         header_line = lines[header_idx].lower()
         start_row_idx = header_idx + 1
     else:
-        # Fallback to first line if no standard header found
-        header_line = lines[0].lower()
-        start_row_idx = 1
+        # Fallback to first line if no standard header found, but skip if it looks like garbage
+        if lines[0] and (',' in lines[0]):
+            header_line = lines[0].lower()
+            start_row_idx = 1
+        else:
+            return results
         
+    # Robustly map columns by name, ignoring whitespace
     cols = [c.strip() for c in header_line.split(',')]
     
     try:
         key_idx = -1
         
-        # Priority check for expected key
+            # Priority check for expected key
         if expected_key:
             if 'val' in cols:
                 key_idx = cols.index('val')
             elif expected_key in cols:
                 key_idx = cols.index(expected_key)
+            # nfdump 1.7+ Aliases
+            elif expected_key == 'sa' and 'srcaddr' in cols:
+                key_idx = cols.index('srcaddr')
+            elif expected_key == 'da' and 'dstaddr' in cols:
+                key_idx = cols.index('dstaddr')
+            elif expected_key == 'sp' and 'srcport' in cols:
+                key_idx = cols.index('srcport')
+            elif expected_key == 'dp' and 'dstport' in cols:
+                key_idx = cols.index('dstport')
             elif expected_key == 'proto' and 'pr' in cols:
                 key_idx = cols.index('pr')
             elif expected_key == 'proto' and 'proto' in cols:
@@ -155,6 +172,15 @@ def parse_csv(output, expected_key=None):
                 key_idx = cols.index('pr')
             elif 'proto' in cols:
                 key_idx = cols.index('proto')
+            # nfdump 1.7+ Aliases
+            elif 'srcaddr' in cols:
+                key_idx = cols.index('srcaddr')
+            elif 'dstaddr' in cols:
+                key_idx = cols.index('dstaddr')
+            elif 'srcport' in cols:
+                key_idx = cols.index('srcport')
+            elif 'dstport' in cols:
+                key_idx = cols.index('dstport')
         
         if key_idx == -1:
             key_idx = 4
@@ -197,21 +223,25 @@ def parse_csv(output, expected_key=None):
     for line in lines[start_row_idx:]:
         if not line:
             continue
-        if 'ts,' in line or 'te,' in line or 'Date first seen' in line:
+        line_lower = line.lower().strip()
+        if 'ts,' in line_lower or 'te,' in line_lower or 'date first seen' in line_lower or 'firstseen,' in line_lower:
             continue
         parts = line.split(",")
         if len(parts) <= max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0):
             continue
         try:
-            key = parts[key_idx]
+            key = parts[key_idx].strip()
             if not key or "/" in key or key == "any":
                 continue
             if key in seen_keys:
                 continue
             seen_keys.add(key)
+            
+            # Use safe numeric conversion (handle floats in strings)
             bytes_val = int(float(parts[bytes_idx]))
             flows_val = int(float(parts[flows_idx])) if flows_idx != -1 and len(parts) > flows_idx else 0
             packets_val = int(float(parts[packets_idx])) if packets_idx != -1 and len(parts) > packets_idx else 0
+            
             if bytes_val > 0:
                 # Extract timestamps (usually indexes 0 and 1 for -o csv)
                 ts = parts[0]
@@ -492,7 +522,7 @@ def get_raw_flows(tf, limit=2000):
                 # Find header line
                 header_idx = -1
                 for i, line in enumerate(lines):
-                    if 'ts,' in line.lower() or 'sa,' in line.lower():
+                    if 'ts,' in line.lower() or 'sa,' in line.lower() or 'firstseen,' in line.lower():
                         header_idx = i
                         break
 

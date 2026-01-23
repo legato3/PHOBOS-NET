@@ -2,7 +2,7 @@
     id="firewall-tab" role="tabpanel" aria-labelledby="firewall-tab-btn" tabindex="0">
 
     <!-- Firewall Stats Overview (4 stat boxes) -->
-    <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-7) !important;">
+    <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
         <div class="card stat-box">
             <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                 <span
@@ -33,25 +33,22 @@
                 x-text="firewallStatsOverview.loading ? '...' : (firewallStatsOverview.top_block_reason || 'N/A')">
                 ...</div>
             <div class="label">Top Block Reason</div>
-            <div x-show="!firewallStatsOverview.loading && firewallStatsOverview.top_block_count > 0"
-                style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);"
-                x-text="'(' + (firewallStatsOverview.top_block_count || 0).toLocaleString() + ' times)'">
-            </div>
         </div>
     </div>
 
     <!-- IP Investigation - Compact Top Menu -->
     <div class="card"
-        style="margin-bottom: var(--space-4); padding: var(--space-2) var(--space-3); background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15);">
-        <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
-            <span style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap;">🔍
+        style="margin-bottom: var(--space-6); padding: var(--space-3) var(--space-4); background: var(--card-bg); border: 1px solid var(--card-border);">
+        <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+            <span
+                style="color: var(--text-secondary); font-size: var(--text-sm); white-space: nowrap; font-weight: 500;">🔍
                 IP Investigation:</span>
             <input type="text" x-model="ipInvestigation.searchIP" @keyup.enter="investigateIP()"
-                aria-label="IP address to investigate" placeholder="IP, hostname, or domain..." class="search-box"
-                style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-1) var(--space-2);">
+                aria-label="IP address to investigate" placeholder="IP, hostname, or domain..."
+                style="flex: 1; min-width: 200px; max-width: 400px; font-size: var(--text-sm); padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono);">
             <button @click="investigateIP()" class="btn btn--primary"
                 :disabled="!ipInvestigation.searchIP.trim() || ipInvestigation.loading"
-                style="font-size: var(--text-sm); padding: var(--space-1) var(--space-2); white-space: nowrap;">
+                style="font-size: var(--text-sm); padding: var(--space-2) var(--space-3); white-space: nowrap;">
                 <span x-show="!ipInvestigation.loading">Investigate</span>
                 <span x-show="ipInvestigation.loading">Loading...</span>
             </button>
@@ -63,7 +60,7 @@
     <!-- ========================================
      FIREWALL LOGS (Moved from Security)
      ======================================== -->
-    <section id="section-firewall-forensics" class="scroll-section">
+    <section id="section-firewall-forensics" class="scroll-section" style="margin-bottom: var(--space-6);">
         <!-- Firewall Filter Logs Widget -->
         {% set fw_actions %}
         <div class="card-actions" style="gap: var(--space-2); flex-wrap: wrap;">
@@ -89,7 +86,7 @@
             </button>
         </div>
         {% endset %}
-        {% call widget_card('recentBlocks', 'Firewall Filter Logs', '🔥', card_class='wide-card',
+        {% call widget_card('recentBlocks', 'Firewall Filter Logs', '🛡️', card_class='wide-card mb-6',
         extra_actions=fw_actions, show_spinner=True) %}
         <div x-show="recentBlocks.blocks.length === 0 && !recentBlocks.loading" class="empty-state">
             <div style="font-size: 32px; margin-bottom: var(--space-2);" aria-hidden="true">✅</div>
@@ -147,10 +144,11 @@
                     <option value="pass">Pass</option>
                 </select>
                 <input type="text" x-model="recentBlocksFilter.searchIP" placeholder="Search IP address..."
-                    class="search-box" style="flex: 1; min-width: 200px; max-width: 300px;"
+                    style="flex: 1; min-width: 200px; max-width: 300px; padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm);"
                     aria-label="Search by IP address">
-                <input type="text" x-model="recentBlocksFilter.port" placeholder="Filter by port..." class="search-box"
-                    style="min-width: 120px; max-width: 150px;" aria-label="Filter by port">
+                <input type="text" x-model="recentBlocksFilter.port" placeholder="Filter by port..."
+                    style="min-width: 120px; max-width: 150px; padding: var(--space-2) var(--space-3); background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm);"
+                    aria-label="Filter by port">
                 <select x-model="recentBlocksFilter.protocol" class="filter-select" style="min-width: 120px;"
                     aria-label="Filter by protocol">
                     <option value="all">All Protocols</option>
@@ -389,7 +387,7 @@
      ======================================== -->
 
     <!-- Alert Correlation & Attack Chains -->
-    <section id="section-alert-correlation" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-alert-correlation" class="scroll-section" style="margin-bottom: var(--space-6);">
         {% call widget_card('alertCorrelation', 'Alert Correlation & Attack Chains', '🔗',
         card_class='wide-card', show_spinner=True) %}
         <!-- Explanation Panel (Collapsible) -->
@@ -524,7 +522,7 @@
 
 
     <!-- Active Flows Widget -->
-    <section id="section-flows" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-flows" class="scroll-section" style="margin-bottom: var(--space-6);">
         {% set conv_actions %}
         <div class="flex gap-2" style="align-items: center;">
             <div class="status-pills">

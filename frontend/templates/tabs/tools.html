@@ -6,7 +6,6 @@
         <div class="card">
             <h2>
                 <div class="card-title-content">
-                    <span class="title-icon">🔎</span>
                     <span>DNS Lookup</span>
                 </div>
                 <div class="card-actions">
@@ -26,7 +25,7 @@
                         <option value="NS">NS</option>
                         <option value="PTR">PTR</option>
                     </select>
-                    <button class="btn btn--primary" @click="runDnsLookup()"
+                    <button class="btn btn--secondary" @click="runDnsLookup()"
                         :disabled="!tools.dns.query || tools.dns.loading">
                         Query
                     </button>
@@ -42,7 +41,6 @@
         <div class="card">
             <h2>
                 <div class="card-title-content">
-                    <span class="title-icon">🚪</span>
                     <span>Port Check</span>
                 </div>
                 <div class="card-actions">
@@ -56,7 +54,7 @@
                         class="tool-input" @keydown.enter="runPortCheck()">
                     <input type="text" x-model="tools.port.ports" placeholder="Ports (e.g., 22,80,443)"
                         class="tool-input-sm" @keydown.enter="runPortCheck()">
-                    <button class="btn btn--primary" @click="runPortCheck()"
+                    <button class="btn btn--secondary" @click="runPortCheck()"
                         :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
                         Check
                     </button>
@@ -79,7 +77,6 @@
         <div class="card">
             <h2>
                 <div class="card-title-content">
-                    <span class="title-icon">📡</span>
                     <span>Ping / Traceroute</span>
                 </div>
                 <div class="card-actions">
@@ -95,7 +92,7 @@
                         <option value="ping">Ping</option>
                         <option value="traceroute">Traceroute</option>
                     </select>
-                    <button class="btn btn--primary" @click="runPing()"
+                    <button class="btn btn--secondary" @click="runPing()"
                         :disabled="!tools.ping.host || tools.ping.loading">
                         Run
                     </button>
@@ -111,7 +108,6 @@
         <div class="card">
             <h2>
                 <div class="card-title-content">
-                    <span class="title-icon">🌍</span>
                     <span>Whois / ASN Lookup</span>
                 </div>
                 <div class="card-actions">
@@ -123,7 +119,7 @@
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.whois.query" placeholder="IP or domain" class="tool-input"
                         @keydown.enter="runWhoisLookup()">
-                    <button class="btn btn--primary" @click="runWhoisLookup()"
+                    <button class="btn btn--secondary" @click="runWhoisLookup()"
                         :disabled="!tools.whois.query || tools.whois.loading">
                         Lookup
                     </button>
@@ -140,29 +136,143 @@
                 </div>
             </div>
         </div>
+
+        <!-- HTTP Probe Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span>HTTP Probe</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.httpProbe.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Check status, latency, and response headers</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.httpProbe.url" placeholder="URL (e.g., https://example.com)"
+                        class="tool-input" @keydown.enter="runHttpProbe()">
+                    <button class="btn btn--secondary" @click="runHttpProbe()"
+                        :disabled="!tools.httpProbe.url || tools.httpProbe.loading">
+                        Probe
+                    </button>
+                </div>
+                <div x-show="tools.httpProbe.error" class="tool-error" x-text="tools.httpProbe.error"></div>
+                <div x-show="tools.httpProbe.result" class="tool-result">
+                    <div class="tool-result-list">
+                        <div><strong>Status:</strong> <span x-text="tools.httpProbe.result?.status_code || '-'"></span>
+                        </div>
+                        <div><strong>Latency:</strong> <span
+                                x-text="tools.httpProbe.result?.elapsed_ms !== null && tools.httpProbe.result?.elapsed_ms !== undefined ? tools.httpProbe.result.elapsed_ms + ' ms' : '-'"></span>
+                        </div>
+                        <div><strong>Final URL:</strong> <span x-text="tools.httpProbe.result?.final_url || '-'"></span>
+                        </div>
+                    </div>
+                    <template
+                        x-if="tools.httpProbe.result?.redirect_chain && tools.httpProbe.result.redirect_chain.length">
+                        <div style="margin-top: var(--space-2);">
+                            <div class="text-muted"
+                                style="font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em;">
+                                Redirects</div>
+                            <div class="tool-result-list">
+                                <template x-for="(hop, idx) in tools.httpProbe.result.redirect_chain" :key="idx">
+                                    <div x-text="hop.status + ' -> ' + hop.url"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="tools.httpProbe.result?.headers">
+                        <div style="margin-top: var(--space-2);">
+                            <div class="text-muted"
+                                style="font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em;">
+                                Headers</div>
+                            <pre x-text="JSON.stringify(tools.httpProbe.result.headers, null, 2)"></pre>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- TLS Certificate Tool -->
+        <div class="card">
+            <h2>
+                <div class="card-title-content">
+                    <span>TLS Certificate</span>
+                </div>
+                <div class="card-actions">
+                    <div class="spinner" x-show="tools.tlsInspect.loading"></div>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <p class="text-muted mb-3">Inspect certificate issuer, expiry, and SANs</p>
+                <div class="tool-input-group">
+                    <input type="text" x-model="tools.tlsInspect.host" placeholder="Host (e.g., example.com)"
+                        class="tool-input" @keydown.enter="runTlsInspect()">
+                    <input type="text" x-model="tools.tlsInspect.port" placeholder="443" class="tool-input-sm"
+                        @keydown.enter="runTlsInspect()">
+                    <button class="btn btn--secondary" @click="runTlsInspect()"
+                        :disabled="!tools.tlsInspect.host || tools.tlsInspect.loading">
+                        Inspect
+                    </button>
+                </div>
+                <div x-show="tools.tlsInspect.error" class="tool-error" x-text="tools.tlsInspect.error"></div>
+                <div x-show="tools.tlsInspect.result" class="tool-result">
+                    <div class="tool-result-list">
+                        <div><strong>Subject:</strong> <span x-text="tools.tlsInspect.result?.subject_cn || '-'"></span>
+                        </div>
+                        <div><strong>Issuer:</strong> <span x-text="tools.tlsInspect.result?.issuer_cn || '-'"></span>
+                        </div>
+                        <div><strong>Valid From:</strong> <span
+                                x-text="tools.tlsInspect.result?.not_before || '-'"></span></div>
+                        <div><strong>Valid To:</strong> <span x-text="tools.tlsInspect.result?.not_after || '-'"></span>
+                        </div>
+                        <div><strong>Days Remaining:</strong> <span
+                                x-text="tools.tlsInspect.result?.days_remaining !== null && tools.tlsInspect.result?.days_remaining !== undefined ? tools.tlsInspect.result.days_remaining : '-'"></span>
+                        </div>
+                        <div><strong>TLS:</strong> <span x-text="tools.tlsInspect.result?.tls_version || '-'"></span>
+                        </div>
+                        <div><strong>Cipher:</strong> <span x-text="tools.tlsInspect.result?.cipher || '-'"></span>
+                        </div>
+                    </div>
+                    <template x-if="tools.tlsInspect.result?.san && tools.tlsInspect.result.san.length">
+                        <div style="margin-top: var(--space-2);">
+                            <div class="text-muted"
+                                style="font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em;">
+                                SAN</div>
+                            <div class="tool-result-list">
+                                <template x-for="(name, idx) in tools.tlsInspect.result.san" :key="idx">
+                                    <div x-text="name"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Shell Terminal - Full Width -->
-    <div class="card" style="margin-top: var(--space-4);">
+    <div class="card tools-shell-card">
         <h2>
             <div class="card-title-content">
-                <span class="title-icon">💻</span>
                 <span>Server Shell</span>
             </div>
             <div class="card-actions">
                 <div class="spinner" x-show="tools.shell && tools.shell.loading"></div>
-                <button class="btn btn--ghost btn--sm" @click="tools.shell.output = ''; tools.shell.history = []"
+            </div>
+        </h2>
+        <div class="widget-body">
+            <div class="tool-shell-actions">
+                <button class="btn btn--secondary"
+                    @click="if(tools.shell) { tools.shell.output = ''; tools.shell.history = []; tools.shell.error = ''; tools.shell.command = '' }"
                     title="Clear terminal">
                     Clear
                 </button>
             </div>
-        </h2>
-        <div class="widget-body">
             <p class="text-muted mb-3">Execute commands on the server (network diagnostics)</p>
 
             <!-- Terminal Output -->
-            <div class="terminal-output" x-ref="terminalOutput"
-                style="background: #1a1a2e; color: #00ff88; font-family: 'Fira Code', 'Monaco', 'Consolas', monospace; font-size: 13px; padding: 16px; border-radius: 8px; min-height: 300px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 12px;">
+            <div class="terminal-output terminal-window" x-ref="terminalOutput">
                 <template x-if="!tools.shell || !tools.shell.output">
                     <span style="color: #666;">Welcome to PHOBOS-NET Server Shell
                         Type commands and press Enter to execute.
@@ -174,13 +284,12 @@
             </div>
 
             <!-- Command Input -->
-            <div class="tool-input-group" style="gap: 8px;">
-                <span style="color: var(--accent-cyan); font-family: monospace; font-weight: bold;">$</span>
-                <input type="text" x-model="tools.shell.command" placeholder="Enter command..." class="tool-input"
-                    style="flex: 1; font-family: 'Fira Code', monospace; background: #1a1a2e; color: #00ff88; border-color: #333;"
-                    @keydown.enter="runShellCommand()" @keydown.up="shellHistoryUp()"
-                    @keydown.down="shellHistoryDown()">
-                <button class="btn btn--primary" @click="runShellCommand()"
+            <div class="tool-input-group" style="gap: var(--space-2);">
+                <span class="terminal-prompt">$</span>
+                <input type="text" x-model="tools.shell.command" placeholder="Enter command..."
+                    class="tool-input terminal-input-custom" @keydown.enter="runShellCommand()"
+                    @keydown.up="shellHistoryUp()" @keydown.down="shellHistoryDown()">
+                <button class="btn btn--secondary" @click="runShellCommand()"
                     :disabled="!tools.shell?.command || tools.shell?.loading">
                     Run
                 </button>

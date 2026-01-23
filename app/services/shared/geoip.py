@@ -164,6 +164,7 @@ def lookup_geo(ip):
                 res.update({
                     "country": name,
                     "country_iso": iso,
+                    "country_code": iso,
                     "city": city,
                     "flag": flag_from_iso(iso),
                     "lat": lat,
@@ -186,6 +187,7 @@ def lookup_geo(ip):
         iso = _guess_country_from_ip(ip)
         if iso:
             res['country_iso'] = iso
+            res['country_code'] = iso
             res['country'] = _COUNTRY_NAMES.get(iso, 'Unknown')
             res['flag'] = flag_from_iso(iso)
 

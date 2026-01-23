@@ -4,6 +4,12 @@ This document provides detailed release notes for all versions of PHOBOS-NET, wi
 
 ---
 
+## v2.0.0 — Major Release
+
+- Updated site version to v2.0.0
+- Maintenance controls on Server tab
+- Long Flows list shows 6 rows
+
 ## v1.2 — Project Rebrand & Polish
 
 **Release Date:** January 2026

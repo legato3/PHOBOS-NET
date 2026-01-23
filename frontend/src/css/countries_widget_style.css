@@ -1,0 +1,39 @@
+/* Country Bars (similar to ASN/Service) */
+.country-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.country-name {
+    width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.country-bar-container {
+    flex-grow: 1;
+    background: rgba(255, 255, 255, 0.1);
+    height: 6px;
+    border-radius: 3px;
+    margin: 0 10px;
+    overflow: hidden;
+}
+
+.country-bar {
+    height: 100%;
+    background: var(--neon-green);
+    border-radius: 3px;
+}
+
+.country-val {
+    width: 60px;
+    text-align: right;
+    color: var(--text-primary);
+    font-size: 0.9em;
+    font-weight: 500;
+}

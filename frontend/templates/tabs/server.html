@@ -1,6 +1,117 @@
+<script>
+    // Expose renderSparkline globally for use in x-init
+    window.renderSparkline = function (canvas, values, color) {
+        if (!canvas || !canvas.getContext) {
+            console.log('renderSparkline: Invalid canvas');
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+
+        // Update canvas resolution to match display size
+        if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+        }
+
+        const width = rect.width;
+        const height = rect.height;
+
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, width, height);
+
+        const validValues = values.filter(v => v !== null && v !== undefined);
+
+        // Draw Grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1; // 1px logical, will be sharp if aligned or thin enough
+        // Horizontal lines (25%, 50%, 75%)
+        ctx.beginPath();
+        for (let i = 1; i < 4; i++) {
+            const y = Math.floor(height * (i / 4)) + 0.5;
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+        }
+        ctx.stroke();
+
+        // Vertical lines (every 10%)
+        ctx.beginPath();
+        ctx.setLineDash([2, 4]); // Dashed vertical lines
+        for (let i = 1; i < 10; i++) {
+            const x = Math.floor(width * (i / 10)) + 0.5;
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset dash
+
+        if (validValues.length < 2) return;
+
+        const max = Math.max(...validValues, 100);
+        const range = max || 1;
+
+        // Fill Area
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        let lastX = 0;
+
+        const totalPoints = values.length;
+
+        values.forEach((v, i) => {
+            const x = (i / Math.max(1, totalPoints - 1)) * width;
+            if (v !== null && v !== undefined) {
+                const y = height - (v / range) * (height) - 1; // Use full height, minus 1px padding
+                if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
+                ctx.lineTo(x, y);
+                lastX = x;
+            }
+        });
+        ctx.lineTo(lastX, height);
+        ctx.closePath();
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, color + '30'); // Slightly more transparent
+        gradient.addColorStop(1, color + '00'); // Fade to transparent
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Stroke Line
+        ctx.beginPath();
+        let started = false;
+        values.forEach((v, i) => {
+            if (v !== null && v !== undefined) {
+                const x = (i / Math.max(1, totalPoints - 1)) * width;
+                const y = height - (v / range) * (height) - 1;
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    };
+
+    window.calculateAvg = function (history, key) {
+        if (!history || !history.length) return '—';
+        const valid = history.filter(h => h[key] !== null && h[key] !== undefined);
+        if (!valid.length) return '—';
+        const sum = valid.reduce((acc, curr) => acc + curr[key], 0);
+        return (sum / valid.length).toFixed(1);
+    };
+</script>
+
 <div x-show="activeTab === 'server'" :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
     role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
-    <section id="section-server" class="scroll-section" style="margin-bottom: 32px;">
+    <section id="section-server" class="scroll-section" style="margin-bottom: var(--space-6);">
         <!-- Loading State -->
         <template x-if="serverHealth.loading && !serverHealth.timestamp">
             <div class="empty-state">
@@ -21,12 +132,12 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      HOST STRIP - Compact horizontal system vitals bar
                 ═══════════════════════════════════════════════════════════ -->
-                <div class="card"
-                    style="padding: 14px 20px; margin-bottom: 20px; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
-                    <span class="status-pill" :class="{
-                        'status-pill-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
-                        'status-pill-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
-                        'status-pill-crit': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
+                <div class="status-card status-card--signal"
+                    style="padding: 14px 20px; margin-bottom: var(--space-6); flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 24px;">
+                    <span class="status-card__meta-tab status-card__meta-tab--status" :class="{
+                        'status-ok': (serverHealth.cpu?.percent || 0) < 70 && (serverHealth.memory?.percent || 0) < 80,
+                        'status-warn': ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80) && !((serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90),
+                        'status-crit': (serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90
                     }"
                         x-text="(serverHealth.cpu?.percent || 0) >= 90 || (serverHealth.memory?.percent || 0) >= 90 ? 'CRITICAL' : ((serverHealth.cpu?.percent || 0) >= 70 || (serverHealth.memory?.percent || 0) >= 80 ? 'ELEVATED' : 'HEALTHY')"></span>
 
@@ -60,531 +171,599 @@
                 <!-- ═══════════════════════════════════════════════════════════
                      INGESTION PIPELINES - Primary focus area
                 ═══════════════════════════════════════════════════════════ -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                {% from "components/status_card.html" import status_card %}
+
+                <div
+                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: var(--space-6);">
                     <!-- NetFlow Pipeline -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>NetFlow</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-ok': serverHealth.netflow?.available, 'status-pill-crit': serverHealth.netflow && !serverHealth.netflow.available}"
-                                x-text="serverHealth.netflow?.available ? 'ONLINE' : 'OFFLINE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps + ' /s' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Files</span><span
-                                    x-text="serverHealth.netflow?.files_count?.toLocaleString() ?? '—'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Flows</span><span
-                                    x-text="serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.netflow?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.netflow?.last_file ?? '—'"></span></div>
-                        </div>
-                    </div>
+                    {{ status_card(
+                    title='NetFlow',
+                    meta_items=['UDP 2055'],
+                    state={
+                    'class_expr': "serverHealth.netflow?.available ? 'status-ok' : 'status-crit'",
+                    'text_expr': "serverHealth.netflow?.available ? 'ACTIVE' : 'OFFLINE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.netflow_eps !== undefined ? ingestionRates.netflow_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'FILES',
+                    'value_expr': "serverHealth.netflow?.files_count?.toLocaleString() ?? '—'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'FLOWS',
+                    'value_expr': "serverHealth.netflow?.total_flows?.toLocaleString() ?? '—'",
+                    'subvalue_expr': "serverHealth.netflow?.files_count > 0 ? 'AVG ' +
+                    Math.round((serverHealth.netflow?.total_flows || 0) /
+                    serverHealth.netflow.files_count).toLocaleString() + '/FILE' : 'AVG —'",
+                    'primary': true
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.netflow?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.netflow?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.netflow?.last_file ? serverHealth.netflow.last_file.split(' ').pop() :
+                    '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
 
                     <!-- Filterlog (UDP 514) -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Filterlog (UDP 514)</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-active': serverHealth.syslog?.active, 'status-pill-crit': serverHealth.syslog && !serverHealth.syslog.active}"
-                                x-text="serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps + ' /s' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Received</span><span
-                                    x-text="serverHealth.syslog?.received?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Parsed</span><span
-                                    x-text="serverHealth.syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.syslog?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.syslog?.last_event ?? '—'"></span></div>
-                        </div>
-                    </div>
+                    {{ status_card(
+                    title='Filterlog',
+                    meta_items=['UDP 514'],
+                    state={
+                    'class_expr': "serverHealth.syslog?.active ? 'status-active' : 'status-crit'",
+                    'text_expr': "serverHealth.syslog?.active ? 'ACTIVE' : 'INACTIVE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.syslog_eps !== undefined ? ingestionRates.syslog_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'RCVD',
+                    'value_expr': "serverHealth.syslog?.received?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'PARSED',
+                    'value_expr': "serverHealth.syslog?.parsed?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "serverHealth.syslog?.received > 0 ? 'EFF ' + ((serverHealth.syslog?.parsed || 0) /
+                    serverHealth.syslog.received * 100).toFixed(0) + '%' : 'EFF —'",
+                    'primary': true
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.syslog?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.syslog?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.syslog?.last_event ? serverHealth.syslog.last_event.split(' ').pop() :
+                    '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
 
                     <!-- Firewall (UDP 515) -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Firewall (UDP 515)</span>
-                            <span class="status-pill"
-                                :class="{'status-pill-active': serverHealth.firewall_syslog?.active, 'status-pill-crit': serverHealth.firewall_syslog && !serverHealth.firewall_syslog.active}"
-                                x-text="serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"></span>
-                        </h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Rate</span><span class="text-cyan"
-                                    x-text="ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps + ' /s' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Received</span><span
-                                    x-text="serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Parsed</span><span
-                                    x-text="serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="serverHealth.firewall_syslog?.errors ?? '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Last</span><span class="text-1 text-8"
-                                    x-text="serverHealth.firewall_syslog?.last_event ?? '—'"></span></div>
-                        </div>
-                    </div>
-                </div>
+                    {{ status_card(
+                    title='Firewall',
+                    meta_items=['UDP 515'],
+                    state={
+                    'class_expr': "serverHealth.firewall_syslog?.active ? 'status-active' : 'status-crit'",
+                    'text_expr': "serverHealth.firewall_syslog?.active ? 'ACTIVE' : 'INACTIVE'"
+                    },
+                    hero={
+                    'value_expr': "ingestionRates?.firewall_eps !== undefined ? ingestionRates.firewall_eps : '—'",
+                    'unit': 'EPS'
+                    },
+                    stats=[
+                    {
+                    'label': 'RCVD',
+                    'value_expr': "serverHealth.firewall_syslog?.received?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''",
+                    'primary': true
+                    },
+                    {
+                    'label': 'PARSED',
+                    'value_expr': "serverHealth.firewall_syslog?.parsed?.toLocaleString() ?? '0'",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'ERRORS',
+                    'value_expr': "serverHealth.firewall_syslog?.errors ?? '0'",
+                    'value_class_expr': "(serverHealth.firewall_syslog?.errors || 0) > 0 ? 'text-warn' : ''",
+                    'subvalue_expr': "''"
+                    },
+                    {
+                    'label': 'LAST',
+                    'value_expr': "serverHealth.firewall_syslog?.last_event ?
+                    serverHealth.firewall_syslog.last_event.split(' ').pop() : '—'",
+                    'subvalue_expr': "''"
+                    }
+                    ]
+                    ) }}
 
-                <!-- ═══════════════════════════════════════════════════════════
+                    <!-- HTTP Traffic -->
+                    {{ status_card(title='HTTP Traffic', meta_items=[], state={ 'class_expr':
+                    "(monitoringSummary.http?.error_rate_percent || 0) < 1 ? 'status-ok' :
+                        ((monitoringSummary.http?.error_rate_percent || 0) < 5 ? 'status-warn' : 'status-crit'
+                        )", 'text_expr'
+                        : "(monitoringSummary.http?.error_rate_percent || 0) < 1 ? 'HEALTHY' : ((monitoringSummary.http?.error_rate_percent || 0) < 5 ? 'ELEVATED' : 'CRITICAL')"
+                        }, hero={ 'value_expr' : "monitoringSummary.http?.concurrent_requests ?? '—'" , 'unit'
+                        : 'ACTIVE' }, stats=[ { 'label' : 'TOTAL' , 'value_expr'
+                        : "monitoringSummary.http?.total_requests?.toLocaleString() ?? '—'" , 'subvalue_expr' : "''" },
+                        { 'label' : 'PEAK' , 'value_expr' : "monitoringSummary.http?.peak_concurrent ?? '—'"
+                        , 'subvalue_expr' : "''" , 'primary' : true }, { 'label' : '5XX' , 'value_expr'
+                        : "monitoringSummary.http?.status_5xx?.toLocaleString() ?? '0'" , 'subvalue_expr' : "''" },
+                        { 'label' : 'ERR RATE' , 'value_expr'
+                        : "(monitoringSummary.http?.error_rate_percent || 0) + '%'" , 'value_class_expr'
+                        : "(monitoringSummary.http?.error_rate_percent || 0) < 1 ? 'text-ok' : ((monitoringSummary.http?.error_rate_percent || 0) < 5 ? 'text-warn' : 'text-crit')"
+                        , 'subvalue_expr' : "''" , 'primary' : true } ] ) }} </div>
+
+                        <!-- ═══════════════════════════════════════════════════════════
                      APPLICATION INTERNALS - Separate cards
                 ═══════════════════════════════════════════════════════════ -->
-                <div
-                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
-                    <!-- Services Card -->
-                    <div class="card">
-                        <h2>Services</h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-muted text-8">nfcapd</span>
-                                <span :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-ok' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.nfcapd?.running ? 'Running' : 'Stopped'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-muted text-8">Syslog 514</span>
-                                <span
-                                    :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-cyan' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-muted text-8">Syslog 515</span>
-                                <span
-                                    :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-cyan' : 'text-crit'"
-                                    x-text="monitoringSummary.dependencies?.syslog_515?.listening ? 'Listening' : 'Down'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="text-muted text-8">Threads</span>
-                                <span
-                                    :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
-                                    x-text="(monitoringSummary.thread_health?.ok || 0) + '/' + (monitoringSummary.thread_health?.total || 0)"></span>
-                            </div>
-                        </div>
-                    </div>
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
+                            {% from "components/panel_card.html" import panel_card %}
 
-                    <!-- Process & Cache Card -->
-                    <div class="card">
-                        <h2>Process / Cache</h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Process</span><span
-                                    x-text="serverHealth.system?.process_name || 'gunicorn'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Memory</span><span
-                                    x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Threads</span><span
-                                    x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Total Cache</span><span
-                                    x-text="((serverHealth.cache?.dns_cache_size || 0) + (serverHealth.cache?.geo_cache_size || 0) + (serverHealth.cache?.common_cache_size || 0)).toLocaleString()"></span>
-                            </div>
-                            <div class="text-2 text-8" style="margin-top: 4px;">DNS: <span
-                                    x-text="serverHealth.cache?.dns_cache_size?.toLocaleString() || '0'"></span> · Geo:
-                                <span x-text="serverHealth.cache?.geo_cache_size?.toLocaleString() || '0'"></span> ·
-                                Common: <span
-                                    x-text="serverHealth.cache?.common_cache_size?.toLocaleString() || '0'"></span>
-                            </div>
-                        </div>
-                    </div>
+                            <!-- Services Card -->
+                            {% call panel_card(title='Services', meta_items=[], tier='context') %}
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <!-- Ingestion Service -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Ingestion</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">nfcapd</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.nfcapd?.running ? 'text-ok' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.nfcapd?.running ? 'Running' : 'Stopped'"></span>
+                                </div>
 
-                    <!-- HTTP Metrics Card -->
-                    <div class="card">
-                        <h2>HTTP Metrics</h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Total Requests</span><span
-                                    x-text="monitoringSummary.http?.total_requests?.toLocaleString() || '0'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Active Now</span><span class="text-cyan"
-                                    x-text="monitoringSummary.http?.concurrent_requests || '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Peak Concurrent</span><span
-                                    x-text="monitoringSummary.http?.peak_concurrent || '0'"></span></div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">5xx Errors</span><span
-                                    :class="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0) > 0 ? 'text-crit' : 'text-muted'"
-                                    x-text="(monitoringSummary.http?.status_codes?.['500'] || 0) + (monitoringSummary.http?.status_codes?.['502'] || 0) + (monitoringSummary.http?.status_codes?.['503'] || 0)"></span>
-                            </div>
-                            <div class="text-2 text-8" style="margin-top: 4px;">Error Rate: <span
-                                    :class="{'text-ok': (monitoringSummary.http?.error_rate_percent || 0) < 1, 'text-warn': (monitoringSummary.http?.error_rate_percent || 0) >= 1 && (monitoringSummary.http?.error_rate_percent || 0) < 5, 'text-crit': (monitoringSummary.http?.error_rate_percent || 0) >= 5}"
-                                    x-text="(monitoringSummary.http?.error_rate_percent || 0) + '%'"></span></div>
-                        </div>
-                    </div>
+                                <!-- Syslog Services -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Syslog</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
+                                            514</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.syslog_514?.listening ? 'text-cyan' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.syslog_514?.listening ? 'Listening' : 'Down'"></span>
+                                </div>
 
-                    <!-- Network I/O Card -->
-                    <div class="card">
-                        <h2>Network I/O</h2>
-                        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">↓ Inbound</span><span class="text-cyan"
-                                    x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">↑ Outbound</span><span class="text-ok"
-                                    x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Errors</span><span
-                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;"><span
-                                    class="text-muted text-8">Dropped</span><span
-                                    :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : 'text-muted'"
-                                    x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
-                            </div>
-                        </div>
-                    </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="text-muted text-8 uppercase">Syslog</span>
+                                        <span class="text-0 text-8" style="font-family: var(--font-mono);">UDP
+                                            515</span>
+                                    </div>
+                                    <span
+                                        :class="monitoringSummary.dependencies?.syslog_515?.listening ? 'text-cyan' : 'text-crit'"
+                                        style="font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase;"
+                                        x-text="monitoringSummary.dependencies?.syslog_515?.listening ? 'Listening' : 'Down'"></span>
+                                </div>
 
-                    <!-- Container / Runtime Card -->
-                    <div class="card">
-                        <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                            <span
-                                x-text="monitoringSummary.container?.is_containerized ? 'Container' : 'Runtime'"></span>
-                            <template
-                                x-if="monitoringSummary.container?.is_containerized && monitoringSummary.container?.health_status">
-                                <span class="status-pill" style="font-size: 9px; padding: 2px 6px;"
-                                    :class="{'status-pill-ok': monitoringSummary.container?.health_status === 'healthy', 'status-pill-warn': monitoringSummary.container?.health_status === 'starting', 'status-pill-crit': monitoringSummary.container?.health_status === 'unhealthy'}"
-                                    x-text="monitoringSummary.container?.health_status?.toUpperCase()"></span>
-                            </template>
-                        </h2>
-                        <template x-if="monitoringSummary.container?.is_containerized">
-                            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Uptime</span><span
-                                        x-text="monitoringSummary.container?.container_uptime_formatted || '—'"></span>
+                                <!-- Thread Health -->
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-soft);">
+                                    <span class="text-muted text-8 uppercase">Thread Health</span>
+                                    <span
+                                        :class="monitoringSummary.thread_health?.ok === monitoringSummary.thread_health?.total ? 'text-ok' : 'text-warn'"
+                                        style="font-family: var(--font-mono); font-weight: 700;"
+                                        x-text="(monitoringSummary.thread_health?.ok || 0) + ' / ' + (monitoringSummary.thread_health?.total || 0)"></span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Restarts</span><span
-                                        :class="(monitoringSummary.container?.restart_count || 0) > 0 ? 'text-warn' : 'text-muted'"
-                                        x-text="monitoringSummary.container?.restart_count ?? '0'"></span></div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Memory</span><span
-                                        :class="{'text-ok': (monitoringSummary.container?.memory_usage_percent || 0) < 80, 'text-warn': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90, 'text-crit': (monitoringSummary.container?.memory_usage_percent || 0) >= 90}"
-                                        x-text="(monitoringSummary.container?.memory_usage_percent ?? '—') + '% / ' + (monitoringSummary.container?.memory_limit_mb ? monitoringSummary.container.memory_limit_mb + ' MB' : '—')"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">PIDs / FDs</span><span
-                                        x-text="(monitoringSummary.container?.pids_current ?? '—') + ' / ' + (monitoringSummary.container?.fd_current ?? '—')"></span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">OOM / Throttle</span><span><span
-                                            :class="(monitoringSummary.container?.oom_kill_count || 0) > 0 ? 'text-crit' : 'text-muted'"
-                                            x-text="monitoringSummary.container?.oom_kill_count ?? '0'"></span> / <span
-                                            :class="(monitoringSummary.container?.cpu_throttled_periods || 0) > 100 ? 'text-warn' : 'text-muted'"
-                                            x-text="monitoringSummary.container?.cpu_throttled_periods ?? '0'"></span></span>
-                                </div>
-                                <div class="text-2 text-8" style="margin-top: 4px;"
-                                    x-show="monitoringSummary.container?.container_id_short">ID: <span
-                                        x-text="monitoringSummary.container?.container_id_short"></span></div>
                             </div>
-                        </template>
-                        <template x-if="!monitoringSummary.container?.is_containerized">
-                            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px;">
+                            {% endcall %}
+
+                            <!-- Process & Cache Card -->
+                            {% call panel_card(title='Process / Cache', meta_items=[], tier='context') %}
+                            <div class="focal-metric">
+                                <span class="focal-metric__label">Memory</span>
+                                <span class="focal-metric__value"
+                                    x-text="serverHealth.process?.process_memory_mb || '—'"></span>
+                                <span class="focal-metric__unit">MB</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
                                 <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Mode</span><span>Host Process</span></div>
-                                <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">Memory</span><span
-                                        x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
-                                </div>
+                                        class="text-muted text-8">Process</span><span
+                                        x-text="serverHealth.system?.process_name || 'gunicorn'"></span></div>
                                 <div style="display: flex; justify-content: space-between;"><span
                                         class="text-muted text-8">Threads</span><span
                                         x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between;"><span
-                                        class="text-muted text-8">FDs</span><span class="text-muted"
-                                        x-text="(monitoringSummary.container?.fd_current ?? '—') + (monitoringSummary.container?.fd_limit ? ' / ' + monitoringSummary.container.fd_limit : '')"></span>
+                                        class="text-muted text-8">Total Cache</span><span
+                                        x-text="((serverHealth.cache?.dns_cache_size || 0) + (serverHealth.cache?.geo_cache_size || 0) + (serverHealth.cache?.common_cache_size || 0)).toLocaleString()"></span>
+                                </div>
+                                <div class="text-2 text-8" style="margin-top: 4px;">DNS: <span
+                                        x-text="serverHealth.cache?.dns_cache_size?.toLocaleString() || '0'"></span> ·
+                                    Geo:
+                                    <span x-text="serverHealth.cache?.geo_cache_size?.toLocaleString() || '0'"></span> ·
+                                    Common: <span
+                                        x-text="serverHealth.cache?.common_cache_size?.toLocaleString() || '0'"></span>
                                 </div>
                             </div>
-                        </template>
-                    </div>
-                </div>
+                            {% endcall %}
 
-                <!-- ═══════════════════════════════════════════════════════════
+                            <!-- Network I/O Card -->
+                            {% call panel_card(title='Network I/O', meta_items=[], tier='context') %}
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-muted text-8">Inbound</span>
+                                    <span
+                                        x-text="monitoringSummary.network_io?.rx_mbps !== undefined ? monitoringSummary.network_io.rx_mbps + ' Mbps' : '—'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-muted text-8">Outbound</span>
+                                    <span
+                                        x-text="monitoringSummary.network_io?.tx_mbps !== undefined ? monitoringSummary.network_io.tx_mbps + ' Mbps' : '—'"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-muted text-8">Errors</span>
+                                    <span
+                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0)) > 0 ? 'text-warn' : ''"
+                                        x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_errors || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_errors || 0))"></span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="text-muted text-8">Dropped</span>
+                                    <span
+                                        :class="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0)) > 0 ? 'text-warn' : ''"
+                                        x-text="((monitoringSummary.network_io?.interfaces?.eth0?.rx_dropped || 0) + (monitoringSummary.network_io?.interfaces?.eth0?.tx_dropped || 0))"></span>
+                                </div>
+                            </div>
+                            {% endcall %}
+
+                            <!-- Container / Runtime Card -->
+                            {% call panel_card(title_expr="monitoringSummary.container?.is_containerized ?
+                            'Container' :
+                            'Runtime'", meta_items=[{
+                            'badge_expr': "monitoringSummary.container?.health_status?.toUpperCase()",
+                            'badge_class_expr': "{'status-ok': monitoringSummary.container?.health_status ===
+                            'healthy',
+                            'status-warn': monitoringSummary.container?.health_status === 'starting', 'status-crit':
+                            monitoringSummary.container?.health_status === 'unhealthy'}",
+                            'badge_x_if': "monitoringSummary.container?.is_containerized &&
+                            monitoringSummary.container?.health_status"
+                            }], tier='context') %}
+                            <template x-if="monitoringSummary.container?.is_containerized">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Uptime</span><span
+                                            x-text="monitoringSummary.container?.container_uptime_formatted || '—'"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Restarts</span><span
+                                            :class="(monitoringSummary.container?.restart_count || 0) > 0 ? 'text-warn' : 'text-muted'"
+                                            x-text="monitoringSummary.container?.restart_count ?? '0'"></span></div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Memory</span><span
+                                            :class="{'text-ok': (monitoringSummary.container?.memory_usage_percent || 0) < 80, 'text-warn': (monitoringSummary.container?.memory_usage_percent || 0) >= 80 && (monitoringSummary.container?.memory_usage_percent || 0) < 90, 'text-crit': (monitoringSummary.container?.memory_usage_percent || 0) >= 90}"
+                                            x-text="(monitoringSummary.container?.memory_usage_percent ?? '—') + '% / ' + (monitoringSummary.container?.memory_limit_mb ? monitoringSummary.container.memory_limit_mb + ' MB' : '—')"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">PIDs / FDs</span><span
+                                            x-text="(monitoringSummary.container?.pids_current ?? '—') + ' / ' + (monitoringSummary.container?.fd_current ?? '—')"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">OOM / Throttle</span><span><span
+                                                :class="(monitoringSummary.container?.oom_kill_count || 0) > 0 ? 'text-crit' : 'text-muted'"
+                                                x-text="monitoringSummary.container?.oom_kill_count ?? '0'"></span>
+                                            /
+                                            <span
+                                                :class="(monitoringSummary.container?.cpu_throttled_periods || 0) > 100 ? 'text-warn' : 'text-muted'"
+                                                x-text="monitoringSummary.container?.cpu_throttled_periods ?? '0'"></span></span>
+                                    </div>
+                                    <div class="text-2 text-8" style="margin-top: 4px;"
+                                        x-show="monitoringSummary.container?.container_id_short">ID: <span
+                                            x-text="monitoringSummary.container?.container_id_short"></span></div>
+                                </div>
+                            </template>
+                            <template x-if="!monitoringSummary.container?.is_containerized">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Mode</span><span>Host Process</span></div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Memory</span><span
+                                            x-text="serverHealth.process?.process_memory_mb ? serverHealth.process.process_memory_mb + ' MB' : '—'"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">Threads</span><span
+                                            x-text="serverHealth.process?.threads || serverHealth.system?.process_threads || '—'"></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between;"><span
+                                            class="text-muted text-8">FDs</span><span class="text-muted"
+                                            x-text="(monitoringSummary.container?.fd_current ?? '—') + (monitoringSummary.container?.fd_limit ? ' / ' + monitoringSummary.container.fd_limit : '')"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            {% endcall %}
+                        </div>
+
+                        <!-- ═══════════════════════════════════════════════════════════
                      DATABASE STATISTICS
                 ═══════════════════════════════════════════════════════════ -->
-                <template x-if="databaseStats.loading">
-                    <div class="empty-state" style="padding: 20px;"><span>Loading database statistics...</span></div>
-                </template>
-                <template x-if="databaseStats.error && !databaseStats.loading">
-                    <div class="empty-state" style="color: var(--signal-crit); padding: 20px;"><span
-                            x-text="databaseStats.error"></span></div>
-                </template>
-                <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
-                    <div
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
-                        <template x-for="db in databaseStats.databases" :key="db.name">
-                            <div class="card">
-                                <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span><span x-text="db.name"></span> Database</span>
-                                    <template x-if="db.error"><span class="status-pill status-pill-warn"
-                                            style="font-size: 9px;">ERROR</span></template>
-                                </h2>
-                                <div
-                                    style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding-top: 8px;">
-                                    <div>
-                                        <div class="text-2 text-8">Size</div>
-                                        <div x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
-                                    </div>
-                                    <div>
-                                        <div class="text-2 text-8">Records</div>
-                                        <div x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-2 text-8">WAL</div>
-                                        <div><template x-if="db.wal_exists"><span
-                                                    x-text="fmtBytes(db.wal_size)"></span></template><template
-                                                x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'"><span
-                                                    class="text-muted">Idle</span></template><template
-                                                x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')"><span
-                                                    class="text-muted">—</span></template></div>
-                                    </div>
-                                    <div>
-                                        <div class="text-2 text-8">Last Write</div>
-                                        <div class="text-1 text-85"
-                                            x-text="db.last_write ? new Date(db.last_write).toLocaleTimeString() : 'N/A'">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-2 text-8"
-                                    style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
-                                    <template x-if="db.oldest_record_age"><span>Oldest: <span
-                                                x-text="db.oldest_record_age"></span> · </span></template>
-                                    SQLite <span x-text="db.sqlite_version || 'N/A'"></span> · <span
-                                        x-text="db.journal_mode || 'N/A'"></span> · Page <span
-                                        x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
-                                </div>
+                        <template x-if="databaseStats.loading">
+                            <div class="empty-state" style="padding: 20px;"><span>Loading database statistics...</span>
                             </div>
                         </template>
-                    </div>
-                </template>
+                        <template x-if="databaseStats.error && !databaseStats.loading">
+                            <div class="empty-state" style="color: var(--signal-crit); padding: 20px;"><span
+                                    x-text="databaseStats.error"></span></div>
+                        </template>
+                        <template x-if="!databaseStats.loading && !databaseStats.error && databaseStats.databases">
+                            <div
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: var(--space-6);">
+                                <template x-for="db in databaseStats.databases" :key="db.name">
+                                    {% call panel_card(title_expr="db.name + ' Database'", meta_items=[{
+                                    'badge_text': 'ERROR',
+                                    'badge_class_expr': "'status-warn'",
+                                    'badge_x_if': 'db.error'
+                                    }], tier='background', compact=true) %}
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; font-size: 10px;">
+                                        <div>
+                                            <div class="text-2 text-8" style="font-size: 8px;">Size</div>
+                                            <div style="font-size: 10px;"
+                                                x-text="db.file_size ? fmtBytes(db.file_size) : 'N/A'"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-2 text-8" style="font-size: 8px;">Records</div>
+                                            <div style="font-size: 10px;"
+                                                x-text="db.total_records ? db.total_records.toLocaleString() : 'N/A'">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="text-2 text-8" style="font-size: 8px;">WAL</div>
+                                            <div style="font-size: 10px;"><template x-if="db.wal_exists"><span
+                                                        x-text="fmtBytes(db.wal_size)"></span></template><template
+                                                    x-if="!db.wal_exists && db.journal_mode && db.journal_mode.toLowerCase() === 'wal'"><span
+                                                        class="text-muted">Idle</span></template><template
+                                                    x-if="!db.wal_exists && (!db.journal_mode || db.journal_mode.toLowerCase() !== 'wal')"><span
+                                                        class="text-muted">—</span></template></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-2 text-8" style="font-size: 8px;">Last</div>
+                                            <div class="text-1 text-85" style="font-size: 9px;"
+                                                x-text="db.last_write ? new Date(db.last_write).toLocaleTimeString() : 'N/A'">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-2 text-8"
+                                        style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(0, 234, 255, 0.06); font-size: 8px; line-height: 1.3;">
+                                        <template x-if="db.oldest_record_age"><span>Oldest: <span
+                                                    x-text="db.oldest_record_age"></span> · </span></template>SQLite
+                                        <span x-text="db.sqlite_version || 'N/A'"></span> · <span
+                                            x-text="db.journal_mode || 'N/A'"></span> · <span
+                                            x-text="db.page_size ? fmtBytes(db.page_size) : 'N/A'"></span>
+                                    </div>
+                                    {% endcall %}
+                                </template>
+                            </div>
+                        </template>
 
-                <!-- ═══════════════════════════════════════════════════════════
+                        <!-- ═══════════════════════════════════════════════════════════
                      RESOURCE HISTORY
                 ═══════════════════════════════════════════════════════════ -->
-                <div class="card" style="margin-bottom: 20px;">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Resource History (1h)</span>
-                        <span class="text-2 text-8"
-                            x-text="resourceHistory.history?.length ? resourceHistory.history.length + ' samples' : 'Collecting...'"></span>
-                    </h2>
-                    <div x-show="resourceHistory.loading && !resourceHistory.history?.length"
-                        style="text-align: center; padding: 16px; color: var(--text-2); font-size: 12px;">
-                        <span>Loading resource history...</span>
-                    </div>
-                    <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0"
-                        style="padding-top: 8px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                            <div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                                    <span class="text-muted text-8">CPU</span>
-                                    <span class="text-2 text-8">Current: <span
-                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"></span>
-                                        · Peak: <span
-                                            x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"></span></span>
-                                </div>
-                                <div
-                                    style="height: 45px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
-                                    <canvas id="cpuHistoryChart" x-ref="cpuHistoryChart"
-                                        style="width: 100%; height: 100%;"></canvas>
+                        <div style="margin-bottom: var(--space-6);">
+                            {% call panel_card(title='Resource History (1h)', meta_items=[{
+                            'text': '',
+                            'badge_expr': "resourceHistory.history?.length ? resourceHistory.history.length + ' samples'
+                            :
+                            'Collecting...'",
+                            'badge_class_expr': "''"
+                            }], tier='context') %}
+                            <div x-show="resourceHistory.loading && !resourceHistory.history?.length"
+                                style="text-align: center; padding: 16px; color: var(--text-2); font-size: 12px;">
+                                <span>Loading resource history...</span>
+                            </div>
+                            <div x-show="!resourceHistory.loading || resourceHistory.history?.length > 0">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                            <span class="text-muted text-8">CPU</span>
+                                            <span class="text-2 text-8">
+                                                Cur: <span
+                                                    x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"
+                                                    style="color: #fff;"></span>
+                                                · Avg: <span
+                                                    x-text="window.calculateAvg(resourceHistory.history, 'cpu_percent') + '%'"
+                                                    style="color: #ccc;"></span>
+                                                · Peak: <span
+                                                    x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"
+                                                    style="color: #ccc;"></span>
+                                            </span>
+                                        </div>
+                                        <div class="panel-card__chart-container"
+                                            style="height: 45px; position: relative;">
+                                            <canvas id="cpuHistoryChart" width="400" height="90"
+                                                style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
+                                                    const render = () => {
+                                                        const history = resourceHistory?.history || [];
+                                                        if (!history.length) return;
+                                                        const cpuData = history.map(s => s.cpu_percent);
+                                                        if (window.renderSparkline) {
+                                                            window.renderSparkline($el, cpuData, '#00ffaa');
+                                                        }
+                                                    };
+                                                    $watch('resourceHistory.history', render);
+                                                    render();
+                                                })"></canvas>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                            <span class="text-muted text-8">Memory</span>
+                                            <span class="text-2 text-8">
+                                                Cur: <span
+                                                    x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"
+                                                    style="color: #fff;"></span>
+                                                · Avg: <span
+                                                    x-text="window.calculateAvg(resourceHistory.history, 'mem_percent') + '%'"
+                                                    style="color: #ccc;"></span>
+                                                · Peak: <span
+                                                    x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"
+                                                    style="color: #ccc;"></span>
+                                            </span>
+                                        </div>
+                                        <div class="panel-card__chart-container"
+                                            style="height: 45px; position: relative;">
+                                            <canvas id="memHistoryChart" width="400" height="90"
+                                                style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
+                                                    const render = () => {
+                                                        const history = resourceHistory?.history || [];
+                                                        if (!history.length) return;
+                                                        const memData = history.map(s => s.mem_percent);
+                                                        if (window.renderSparkline) {
+                                                            window.renderSparkline($el, memData, '#00ccff');
+                                                        }
+                                                    };
+                                                    $watch('resourceHistory.history', render);
+                                                    render();
+                                                })"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                                    <span class="text-muted text-8">Memory</span>
-                                    <span class="text-2 text-8">Current: <span
-                                            x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"></span>
-                                        · Peak: <span
-                                            x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"></span></span>
-                                </div>
-                                <div
-                                    style="height: 45px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);">
-                                    <canvas id="memHistoryChart" x-ref="memHistoryChart"
-                                        style="width: 100%; height: 100%;"></canvas>
-                                </div>
+                            <div x-show="resourceHistory.history?.length < 5"
+                                style="padding: 8px 12px; background: rgba(255,180,0,0.06); border-radius: var(--radius-sm); border-left: 2px solid var(--signal-warn); font-size: 11px; color: var(--text-2); margin-top: 10px;">
+                                Resource history warming up. Full data after ~5 minutes.
                             </div>
+                            {% endcall %}
                         </div>
-                    </div>
-                    <div x-show="resourceHistory.history?.length < 5"
-                        style="padding: 8px 12px; background: rgba(255,180,0,0.06); border-radius: var(--radius-sm); border-left: 2px solid var(--signal-warn); font-size: 11px; color: var(--text-2); margin-top: 10px;">
-                        Resource history warming up. Full data after ~5 minutes.
-                    </div>
-                </div>
 
-                <!-- ═══════════════════════════════════════════════════════════
+
+                        <!-- ═══════════════════════════════════════════════════════════
                      SERVER LOGS
                 ═══════════════════════════════════════════════════════════ -->
-                <div class="card">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Server Logs</span>
-                        <span class="status-pill"
-                            :class="{'status-pill-ok': serverLogs.source === 'buffer' || serverLogs.source === 'docker', 'status-pill-warn': serverLogs.source === 'files', 'status-pill-crit': serverLogs.source === 'none'}"
-                            x-text="serverLogs.source === 'docker' ? 'DOCKER' : (serverLogs.source === 'buffer' ? 'BUFFER' : (serverLogs.source === 'files' ? 'FILES' : 'N/A'))"></span>
-                    </h2>
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <span class="text-muted text-8">Lines:</span>
-                            <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)"
-                                aria-label="Number of log lines"
-                                style="padding: 4px 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,234,255,0.1); border-radius: var(--radius-sm); color: var(--text-0); font-size: 11px;">
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="500">500</option>
-                            </select>
-                            <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh logs"
-                                :disabled="serverLogs.loading"
-                                style="padding: 4px 12px; background: rgba(0,234,255,0.08); border: 1px solid rgba(0,234,255,0.15); border-radius: var(--radius-sm); color: var(--signal-primary); font-size: 11px; font-weight: 500; cursor: pointer;">
-                                <span x-text="serverLogs.loading ? '...' : 'Refresh'"></span>
-                            </button>
+                        {% call panel_card(title='Server Logs', meta_items=[], tier='context') %}
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span class="text-muted text-8">Lines:</span>
+                                <select x-model="serverLogs.lines" @change="fetchServerLogs(serverLogs.lines)"
+                                    aria-label="Number of log lines"
+                                    style="padding: 4px 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,234,255,0.1); border-radius: var(--radius-sm); color: var(--text-0); font-size: 11px;">
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                    <option value="500">500</option>
+                                </select>
+                                <button @click="fetchServerLogs(serverLogs.lines)" aria-label="Refresh logs"
+                                    :disabled="serverLogs.loading"
+                                    style="padding: 4px 12px; background: rgba(0,234,255,0.08); border: 1px solid rgba(0,234,255,0.15); border-radius: var(--radius-sm); color: var(--signal-primary); font-size: 11px; font-weight: 500; cursor: pointer;">
+                                    <span x-text="serverLogs.loading ? '...' : 'Refresh'"></span>
+                                </button>
+                            </div>
+                            <span class="text-2 text-8" x-text="serverLogs.count + ' lines'"></span>
                         </div>
-                        <span class="text-2 text-8" x-text="serverLogs.count + ' lines'"></span>
-                    </div>
-                    <div x-show="serverLogs.loading"
-                        style="text-align: center; padding: 30px; color: var(--text-2); font-size: 12px;"><span>Loading
-                            logs...</span></div>
-                    <div x-show="!serverLogs.loading && serverLogs.logs.length > 0"
-                        style="padding: 12px 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--text-1); max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); margin-top: 8px;">
-                        <template x-for="(log, index) in serverLogs.logs" :key="index">
-                            <div style="padding: 0 12px; margin-bottom: 2px; word-break: break-all;" x-text="log"></div>
-                        </template>
-                    </div>
-                    <div x-show="!serverLogs.loading && serverLogs.logs.length === 0"
-                        style="text-align: center; padding: 30px; color: var(--text-3); font-size: 12px;"><span>No logs
-                            available</span></div>
-                    <div x-show="serverLogs.container" class="text-2 text-8"
-                        style="padding-top: 8px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
-                        Container: <span x-text="serverLogs.container"></span></div>
+                        <div x-show="serverLogs.loading"
+                            style="text-align: center; padding: 30px; color: var(--text-2); font-size: 12px;">
+                            <span>Loading
+                                logs...</span>
+                        </div>
+                        <div x-show="!serverLogs.loading && serverLogs.logs.length > 0"
+                            style="padding: 12px 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--text-1); max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); margin-top: 8px;">
+                            <template x-for="(log, index) in serverLogs.logs" :key="index">
+                                <div style="padding: 0 12px; margin-bottom: 2px; word-break: break-all;" x-text="log">
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="!serverLogs.loading && serverLogs.logs.length === 0"
+                            style="text-align: center; padding: 30px; color: var(--text-3); font-size: 12px;"><span>No
+                                logs
+                                available</span></div>
+                        <div x-show="serverLogs.container" class="text-2 text-8"
+                            style="padding-top: 8px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                            Container: <span x-text="serverLogs.container"></span></div>
+                        {% endcall %}
+
+                        <!-- ═══════════════════════════════════════════════════════════
+                     MAINTENANCE CONTROLS
+                ═══════════════════════════════════════════════════════════ -->
+                        {% call panel_card(title='Maintenance', meta_items=[], tier='context') %}
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="text-muted text-8 uppercase">NetFlow</div>
+                                <button class="btn btn--danger btn--block"
+                                    :disabled="serverMaintenance.actions.clear_netflow_files.loading"
+                                    @click="confirm('Clear all NetFlow files? This cannot be undone.') && runServerMaintenance('clear_netflow_files')">
+                                    <span
+                                        x-text="serverMaintenance.actions.clear_netflow_files.loading ? 'Clearing...' : 'Clear NetFlow Files'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.clear_netflow_files.error"
+                                    style="color: var(--signal-crit);"
+                                    x-text="serverMaintenance.actions.clear_netflow_files.error"></div>
+                                <div class="text-2 text-8"
+                                    x-show="serverMaintenance.actions.clear_netflow_files.message"
+                                    x-text="serverMaintenance.actions.clear_netflow_files.message"></div>
+
+                                <button class="btn btn--secondary btn--block"
+                                    :disabled="serverMaintenance.actions.restart_netflow.loading"
+                                    @click="confirm('Restart the NetFlow service?') && runServerMaintenance('restart_netflow')">
+                                    <span
+                                        x-text="serverMaintenance.actions.restart_netflow.loading ? 'Restarting...' : 'Restart NetFlow Service'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_netflow.error"
+                                    style="color: var(--signal-crit);"
+                                    x-text="serverMaintenance.actions.restart_netflow.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_netflow.message"
+                                    x-text="serverMaintenance.actions.restart_netflow.message"></div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="text-muted text-8 uppercase">Firewall / Syslog</div>
+                                <button class="btn btn--danger btn--block"
+                                    :disabled="serverMaintenance.actions.reset_firewall_db.loading"
+                                    @click="confirm('Reset the firewall database? This will erase stored firewall logs.') && runServerMaintenance('reset_firewall_db')">
+                                    <span
+                                        x-text="serverMaintenance.actions.reset_firewall_db.loading ? 'Resetting...' : 'Reset Firewall Database'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.reset_firewall_db.error"
+                                    style="color: var(--signal-crit);"
+                                    x-text="serverMaintenance.actions.reset_firewall_db.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.reset_firewall_db.message"
+                                    x-text="serverMaintenance.actions.reset_firewall_db.message"></div>
+
+                                <button class="btn btn--secondary btn--block"
+                                    :disabled="serverMaintenance.actions.restart_syslog.loading"
+                                    @click="confirm('Restart syslog services?') && runServerMaintenance('restart_syslog')">
+                                    <span
+                                        x-text="serverMaintenance.actions.restart_syslog.loading ? 'Restarting...' : 'Restart Syslog Services'"></span>
+                                </button>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_syslog.error"
+                                    style="color: var(--signal-crit);"
+                                    x-text="serverMaintenance.actions.restart_syslog.error"></div>
+                                <div class="text-2 text-8" x-show="serverMaintenance.actions.restart_syslog.message"
+                                    x-text="serverMaintenance.actions.restart_syslog.message"></div>
+                            </div>
+                        </div>
+                        <div class="text-2 text-8" style="margin-top: 10px; color: var(--text-2);">
+                            Actions are immediate and may interrupt ingestion. Confirm before running.
+                        </div>
+                        {% endcall %}
                 </div>
-            </div>
         </template>
     </section>
 </div>
 
 <!-- Resource History Chart Rendering -->
 <script>
-    (function () {
-        function renderResourceHistoryCharts() {
-            const store = Alpine.store ? Alpine.store('dashboard') : null;
-            if (!store || !store.resourceHistory?.history?.length) return;
-            const history = store.resourceHistory.history;
-
-            // Map data safely
-            const cpuData = history.map(s => s.cpu_percent);
-            const memData = history.map(s => s.mem_percent);
-
-            const cpuCanvas = document.getElementById('cpuHistoryChart');
-            if (cpuCanvas) renderSparkline(cpuCanvas, cpuData, '#00ffaa'); // Bright Spring Green
-
-            const memCanvas = document.getElementById('memHistoryChart');
-            if (memCanvas) renderSparkline(memCanvas, memData, '#00ccff'); // Vivid Cyber Blue
-        }
-        function renderSparkline(canvas, values, color) {
-            const ctx = canvas.getContext('2d');
-            const width = canvas.clientWidth || canvas.offsetWidth || 200;
-            const height = canvas.clientHeight || canvas.offsetHeight || 45;
-
-            // Reset backing store if dimensions changed
-            if (canvas.width !== width * 2 || canvas.height !== height * 2) {
-                canvas.width = width * 2;
-                canvas.height = height * 2;
-                ctx.scale(2, 2);
-            }
-
-            ctx.clearRect(0, 0, width, height);
-
-            // Filter out nulls for range calculation
-            const validValues = values.filter(v => v !== null && v !== undefined);
-            if (validValues.length < 2) return;
-
-            // Use 100 as fixed floor for range to keep scale consistent for %
-            const max = Math.max(...validValues, 100);
-            const range = max || 1;
-
-            // Draw area fill
-            ctx.beginPath();
-            ctx.moveTo(0, height);
-            let lastX = 0;
-            values.forEach((v, i) => {
-                const x = (i / Math.max(1, values.length - 1)) * width;
-                if (v !== null && v !== undefined) {
-                    const y = height - (v / range) * (height - 6) - 3;
-                    if (i === 0 || values[i - 1] === null) ctx.lineTo(x, height);
-                    ctx.lineTo(x, y);
-                    lastX = x;
-                }
-            });
-            ctx.lineTo(lastX, height);
-            ctx.closePath();
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, height);
-            gradient.addColorStop(0, color + '40'); // 25% opacity
-            gradient.addColorStop(1, color + '08'); // 3% opacity
-            ctx.fillStyle = gradient;
-            ctx.fill();
-
-            // Draw stroke line
-            ctx.beginPath();
-            let started = false;
-            values.forEach((v, i) => {
-                if (v !== null && v !== undefined) {
-                    const x = (i / Math.max(1, values.length - 1)) * width;
-                    const y = height - (v / range) * (height - 6) - 3;
-                    if (!started) {
-                        ctx.moveTo(x, y);
-                        started = true;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-            });
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2.0;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.stroke();
-        }
-        document.addEventListener('alpine:init', () => {
-            // Initial render after a short delay
-            setTimeout(renderResourceHistoryCharts, 1500);
-            // Dynamic refresh loop
-            setInterval(() => {
-                if (document.querySelector('#server-tab')?.style.display !== 'none') {
-                    renderResourceHistoryCharts();
-                }
-            }, 3000);
-        });
-        // Catch-all startup triggers
-        window.addEventListener('load', () => setTimeout(renderResourceHistoryCharts, 1000));
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) renderResourceHistoryCharts(); });
-    })();
+    console.log('Resource History: renderSparkline function exposed globally');
 </script>

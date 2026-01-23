@@ -6,6 +6,7 @@ Routes are organized in a single Flask Blueprint.
 """
 from flask import Blueprint, render_template, jsonify, request, Response, stream_with_context, current_app
 import time
+import logging
 import os
 import json
 import hashlib
@@ -84,6 +85,7 @@ from app.config import (
 )
 
 # Create Blueprint
+logger = logging.getLogger(__name__)
 
 # Routes extracted from netflow-dashboard.py
 # Changed @app.route() to @bp.route()
@@ -1159,26 +1161,44 @@ def api_ip_detail(ip):
         # Get flows involving this IP
         convs_output = run_nfdump(["-a", f"ip {ip}", "-n", "500", "-o", "csv"], tf)
         lines = convs_output.strip().split("\n")
-        if len(lines) > 1:
-            header = lines[0].split(',')
+        if len(lines) > 0:
+            # Robust header detection
+            header_idx = -1
+            for i, line in enumerate(lines):
+                line_clean = line.strip().lower()
+                if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                    header_idx = i
+                    break
+            
+            if header_idx != -1:
+                header_line = lines[header_idx].lower()
+                start_row_idx = header_idx + 1
+            else:
+                header_line = lines[0].lower()
+                start_row_idx = 1
+                
+            header = [c.strip() for c in header_line.split(',')]
             try:
-                sa_idx = header.index('sa')
-                da_idx = header.index('da')
-                ibyt_idx = header.index('ibyt')
+                sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+                da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+                ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 12)
             except ValueError:
-                sa_idx, da_idx, ibyt_idx = 3, 4, 12
+                # Default fallbacks
+                sa_idx, da_idx, ibyt_idx = 3, 5, 8 # 1.7 default
+                if 'firstseen' not in header: sa_idx, da_idx, ibyt_idx = 3, 4, 12 # 1.6 default
 
             # Track IPs that communicate with this IP
             related_ip_stats = defaultdict(lambda: {'bytes': 0, 'count': 0, 'type': ''})
 
-            for line in lines[1:]:
-                if not line or line.startswith('ts,'): continue
+            for line in lines[start_row_idx:]:
+                line = line.strip()
+                if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
                 parts = line.split(',')
                 if len(parts) > max(sa_idx, da_idx, ibyt_idx):
                     try:
                         src = parts[sa_idx].strip()
                         dst = parts[da_idx].strip()
-                        bytes_val = int(parts[ibyt_idx]) if len(parts) > ibyt_idx and parts[ibyt_idx].strip().isdigit() else 0
+                        bytes_val = int(float(parts[ibyt_idx])) if parts[ibyt_idx].strip() else 0
 
                         if src == ip and dst != ip:
                             # This IP is source - track destination as related
@@ -1524,22 +1544,23 @@ def api_forensics_timeline():
         header_line = lines[0]
         header = [c.strip().lower() for c in header_line.split(',')]
         
-        # Find column indices
         try:
-            # Map actual nfdump columns to expected names (case-insensitive)
-            ts_idx = header.index('firstseen') if 'firstseen' in header else -1
-            te_idx = header.index('duration') if 'duration' in header else -1
-            sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
-            da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
-            sp_idx = header.index('srcport') if 'srcport' in header else -1
-            dp_idx = header.index('dstport') if 'dstport' in header else -1
-            pr_idx = header.index('proto') if 'proto' in header else -1
-            flg_idx = -1  # Flags not available in this format
-            ibyt_idx = header.index('bytes') if 'bytes' in header else -1
-            ipkt_idx = header.index('packets') if 'packets' in header else -1
+            # Map actual nfdump columns to expected names (case-insensitive) - robust mappings
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else -1)
+            te_idx = header.index('duration') if 'duration' in header else (header.index('td') if 'td' in header else -1)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else -1)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else -1)
+            sp_idx = header.index('sp') if 'sp' in header else (header.index('srcport') if 'srcport' in header else -1)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else -1)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else -1)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else -1)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else -1)
             
-            if -1 in [ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
-                raise ValueError(f"Missing required columns. Available columns: {header}")
+            if -1 in [ts_idx, sa_idx, da_idx, pr_idx, ibyt_idx]:
+                # Relaxing requirements slightly to avoid crashing if minor columns missing
+                pass
+            if sa_idx == -1 or da_idx == -1:
+                raise ValueError(f"Missing required IP columns. Available columns: {header}")
                 
         except ValueError as e:
             return jsonify({"error": f"Required columns not found in NetFlow data: {e}"}), 500
@@ -1688,12 +1709,12 @@ def api_forensics_session():
         # Get session data
         tf = get_time_range(time_range)
         
-        # Get flows between the two IPs
+        # Get flows between the two IPs (limit 5000 for performance)
         nfdump_cmd = [
             f"host {src_ip} and host {dst_ip}",
             "-o", "csv",
             "-t", tf,
-            "-s", "srcip/dstip/bytes"
+            "-n", "5000"
         ]
         
         output = run_nfdump(nfdump_cmd)
@@ -1708,70 +1729,74 @@ def api_forensics_session():
 
         # Parse session data
         lines = output.strip().split('\n')
-        if len(lines) < 2:
+        if not lines:
             return jsonify({"error": "Insufficient data for session analysis"}), 404
 
-        header_line = lines[0]
+        # Robust Header Detection
+        header_idx = -1
+        for i, line in enumerate(lines):
+            line_clean = line.strip().lower()
+            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                header_idx = i
+                break
+        
+        if header_idx != -1:
+            header_line = lines[header_idx]
+            start_idx = header_idx + 1
+        else:
+            header_line = lines[0]
+            start_idx = 1 if ',' in header_line else 0
+
         header = [c.strip().lower() for c in header_line.split(',')]
         
         # Find column indices
         try:
-            # Map actual nfdump columns to expected names (case-insensitive)
-            # Handle different nfdump output formats
-            if 'ts' in header and 'te' in header:
-                # Standard format
-                ts_idx = header.index('ts') if 'ts' in header else -1
-                te_idx = header.index('te') if 'te' in header else -1
-                sa_idx = header.index('sa') if 'sa' in header else -1
-                da_idx = header.index('da') if 'da' in header else -1
-                sp_idx = header.index('sp') if 'sp' in header else -1
-                dp_idx = header.index('dp') if 'dp' in header else -1
-                pr_idx = header.index('proto') if 'proto' in header else -1
-                ibyt_idx = header.index('ibyt') if 'ibyt' in header else -1
-                ipkt_idx = header.index('ipkt') if 'ipkt' in header else -1
-            else:
-                # CSV format
-                ts_idx = header.index('firstseen') if 'firstseen' in header else -1
-                te_idx = header.index('duration') if 'duration' in header else -1
-                sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
-                da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
-                sp_idx = header.index('srcport') if 'srcport' in header else -1
-                dp_idx = header.index('dstport') if 'dstport' in header else -1
-                pr_idx = header.index('proto') if 'proto' in header else -1
-                ibyt_idx = header.index('bytes') if 'bytes' in header else -1
-                ipkt_idx = header.index('packets') if 'packets' in header else -1
+            # Check for common variants in both 1.6 and 1.7
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            te_idx = header.index('te') if 'te' in header else (header.index('duration') if 'duration' in header else 1)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+            sp_idx = header.index('sp') if 'sp' in header else (header.index('srcport') if 'srcport' in header else 4)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else 6)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else 2)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 8)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else 7)
             
-            if -1 in [ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
-                raise ValueError(f"Missing required columns. Available columns: {header}")
+            # Duration special case (sometimes index 1 is Duration in seconds, index 2 is Proto)
+            # In -o csv 1.6: ts=0, te=1, td=2 ...
+            # In -o csv 1.7: firstseen=0, duration=1, proto=2 ...
+            # We'll handle this in the loop
                 
-        except ValueError as e:
-            return jsonify({"error": f"Required columns not found: {e}"}), 500
+        except (ValueError, IndexError) as e:
+            return jsonify({"error": f"Required columns not found in nfdump output: {header}"}), 500
 
         session_flows = []
         total_bytes = 0
         total_packets = 0
-        session_duration = 0
         ports_used = set()
         
         first_timestamp = None
         last_timestamp = None
         
-        for line in lines[1:]:
-            if not line or line.startswith('ts,'):
+        max_idx = max(ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx)
+        
+        for line in lines[start_idx:]:
+            line = line.strip()
+            if not line or line.startswith('ts,') or line.startswith('firstseen,'):
                 continue
                 
             parts = line.split(',')
-            if len(parts) <= max(ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx):
+            if len(parts) <= max_idx:
                 continue
                 
             try:
-                start_time = parts[ts_idx]
-                end_time = parts[te_idx] if te_idx >= 0 and len(parts) > te_idx else start_time
-                src_port = parts[sp_idx]
-                dst_port = parts[dp_idx]
-                protocol = parts[pr_idx]
-                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and len(parts) > ibyt_idx and parts[ibyt_idx] else 0
-                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and len(parts) > ipkt_idx and parts[ipkt_idx] else 0
+                start_time = parts[ts_idx].strip()
+                end_time = parts[te_idx].strip() if te_idx >= 0 else start_time
+                src_port = parts[sp_idx].strip()
+                dst_port = parts[dp_idx].strip()
+                protocol = parts[pr_idx].strip()
+                bytes_xfer = int(float(parts[ibyt_idx])) if parts[ibyt_idx] else 0
+                packets = int(float(parts[ipkt_idx])) if parts[ipkt_idx] else 0
                 
                 session_flows.append({
                     'timestamp': start_time,
@@ -1787,7 +1812,6 @@ def api_forensics_session():
                 total_packets += packets
                 ports_used.add(f"{src_port}->{dst_port}")
                 
-                # Track session duration
                 if not first_timestamp:
                     first_timestamp = start_time
                 last_timestamp = end_time
@@ -2351,16 +2375,15 @@ def api_security_score():
 @bp.route('/api/security/alerts/history')
 @throttle(5, 10)
 def api_alert_history():
-    """Get alert history for past 24 hours.
-
-    SEMANTICS FIX:
-    - 'alerts': All alerts (active and resolved) for display
-    - 'total': Count of DISTINCT alert conditions (not sum of occurrence counts)
-    - 'active_count': Count of currently ACTIVE alerts only (this is the key metric)
-    - Alerts auto-resolve after 30 minutes of inactivity
-    """
+    """Get alert history for selected time range."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {
+        '15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, 
+        '24h': 86400, '7d': 604800
+    }.get(range_key, 86400)
+    
     now = time.time()
-    cutoff = now - 86400  # 24 hours
+    cutoff = now - range_seconds
 
     # Auto-resolve stale alerts before querying
     threats_module.auto_resolve_stale_alerts()
@@ -2532,11 +2555,18 @@ def api_attack_timeline():
 
     # Get firewall block counts from syslog (if available)
     fw_buckets = {}
+    total_blocks_24h = 0
     try:
         db_path = FIREWALL_DB_PATH
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
+            
+            # Fetch 24h total for the summary box
+            cutoff_24h_int = int(now - 86400)
+            cur.execute("SELECT COUNT(*) FROM fw_logs WHERE action = 'block' AND timestamp >= ?", (cutoff_24h_int,))
+            total_blocks_24h = cur.fetchone()[0] or 0
+
             cutoff_int = int(cutoff)
 
             if range_key == '7d':
@@ -2618,17 +2648,128 @@ def api_attack_timeline():
             'fw_threat_blocks': fw_data['threat_blocks']
         })
 
+    # INTEGRATION: Calculate Blocklist Match Rate (sampled from nfdump)
+    tf = get_time_range(range_key)
+    # Adjust sample size based on range to prevent timeouts
+    sample_size = 5000 if range_key in ['1h', '6h'] else 2500
+    nfdump_output = run_nfdump(["-n", str(sample_size)], tf)
+    
+    total_sampled_flows = 0
+    matched_sampled_flows = 0
+    flow_buckets = defaultdict(int)
+    match_buckets = defaultdict(int)
+    
+    threat_set = load_threatlist()
+    
+    if nfdump_output:
+        lines = nfdump_output.strip().split("\n")
+        # Robust Header Detection
+        header_idx = -1
+        for i, line in enumerate(lines):
+            line_clean = line.strip().lower()
+            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                header_idx = i
+                break
+        
+        if header_idx != -1:
+            header_line = lines[header_idx].lower()
+            start_row_idx = header_idx + 1
+            header = [c.strip() for c in header_line.split(',')]
+            try:
+                # Robust header detection for nfdump 1.6 and 1.7+
+                ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+                sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+                da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+                
+                for line in lines[start_row_idx:]:
+                    line = line.strip()
+                    if not line or line.startswith('ts,') or line.startswith('firstseen,'):
+                         continue
+                    parts = line.split(',')
+                    if len(parts) > max(ts_idx, sa_idx, da_idx):
+                        total_sampled_flows += 1
+                        try:
+                            # Use faster slicing if possible, but nfdump is usually consistent
+                            dt_str = parts[ts_idx].strip()
+                            if len(dt_str) >= 19:
+                                # Standard nfdump timestamp: YYYY-MM-DD HH:MM:SS
+                                # Fast parse avoiding strptime where possible
+                                try:
+                                    # YYYY-MM-DD HH:MM:SS
+                                    dt = datetime(
+                                        int(dt_str[0:4]), int(dt_str[5:7]), int(dt_str[8:10]),
+                                        int(dt_str[11:13]), int(dt_str[14:16]), int(dt_str[17:19])
+                                    )
+                                    flow_ts = dt.timestamp()
+                                except (ValueError, IndexError):
+                                    # Fallback to strptime if format varies
+                                    dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
+                                    flow_ts = dt.timestamp()
+                                    
+                                bucket_start = int(flow_ts / bucket_size) * bucket_size
+                                bucket_label = time.strftime(bucket_label_format, time.localtime(bucket_start))
+                                flow_buckets[bucket_label] += 1
+                                if parts[sa_idx].strip() in threat_set or parts[da_idx].strip() in threat_set:
+                                    matched_sampled_flows += 1
+                                    match_buckets[bucket_label] += 1
+                        except (ValueError, IndexError, TypeError):
+                            continue
+            except (ValueError, IndexError):
+                pass
+
+    # Add match rate to timeline items
+    for item in timeline:
+        label = item['hour']
+        f_hits = flow_buckets.get(label, 0)
+        m_hits = match_buckets.get(label, 0)
+        item['match_rate'] = round((m_hits / f_hits * 100), 2) if f_hits > 0 else 0
+
+    avg_match_rate = round((matched_sampled_flows / max(total_sampled_flows, 1)) * 100, 2)
+    # Estimate total matches based on avg rate and total flows if we have them (or just return the sampled count)
+    total_matches = matched_sampled_flows # For now, return sampled matches
+
+    # Calculate rates as averages and peaks per hour based on the selected range
+    total_threat_blocks = sum(t['fw_threat_blocks'] for t in timeline)
+    total_all_blocks = sum(t['fw_blocks'] for t in timeline)
+    
+    # Calculate range duration in hours for normalization
+    range_hours = range_seconds / 3600.0
+    
+    # Average rates (Total / Hours)
+    avg_threat_rate = round(total_threat_blocks / max(range_hours, 0.01), 1)
+    avg_block_rate = round(total_all_blocks / max(range_hours, 0.01), 1)
+
+    # Peak rates normalized to /hr
+    rate_multiplier = 3600.0 / bucket_size
+    peak_threat_rate = round(max((t['fw_threat_blocks'] for t in timeline), default=0) * rate_multiplier, 1)
+    peak_block_rate = round(max((t['fw_blocks'] for t in timeline), default=0) * rate_multiplier, 1)
+
+    # Always fetch 24h alerts for the internal total_24h field
+    cutoff_24h = now - 86400
+    with threats_module._alert_history_lock:
+        alerts_24h = sum(1 for a in threats_module._alert_history if a.get('ts', 0) > cutoff_24h)
+
     # Peak bucket
     peak = max(timeline, key=lambda x: x['total']) if timeline else None
-    total_fw_blocks = sum(t['fw_blocks'] for t in timeline)
 
     return jsonify({
         'timeline': timeline,
-        'total_24h': len(recent),  # Keep key for compatibility, but contains data for selected range
-        'peak_hour': peak['hour'] if peak else None,
+        'avg_threat_rate': avg_threat_rate,
+        'peak_threat_rate': peak_threat_rate,
+        'avg_block_rate': avg_block_rate,
+        'peak_block_rate': peak_block_rate,
+        'avg_match_rate': avg_match_rate,
+        'total_threats': total_threat_blocks,
+        'total_matches': total_matches,
+        'period_total': total_all_blocks,
+        'period_label': range_key,
+        'alerts_24h': alerts_24h,
+        'blocks_24h': total_blocks_24h,
+        'total_range_alerts': len(recent),
+        'total_24h': alerts_24h,  # Keep for compatibility
+        'peak_hour': peak['hour'] if peak and peak['total'] > 0 else None,
         'peak_count': peak['total'] if peak else 0,
-        'fw_blocks_24h': total_fw_blocks,
-        'has_fw_data': total_fw_blocks > 0
+        'has_fw_data': total_all_blocks > 0
     })
 
 
@@ -2637,9 +2778,15 @@ def api_attack_timeline():
 @throttle(5, 10)
 def api_mitre_heatmap():
     """Get MITRE ATT&CK technique coverage from alerts."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {
+        '15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, 
+        '24h': 86400, '7d': 604800
+    }.get(range_key, 86400)
+    
     now = time.time()
-    cutoff = now - 86400  # 24 hours
-
+    cutoff = now - range_seconds
+ 
     with threats_module._alert_history_lock:
         recent = [a for a in threats_module._alert_history if a.get('ts', 0) > cutoff]
 
@@ -2699,8 +2846,7 @@ def api_mitre_heatmap():
         'by_tactic': dict(by_tactic),
         'total_techniques': len(heatmap),
         'total_detections': sum(t['count'] for t in heatmap),
-        # FIXED-SCOPE: This endpoint always uses 24h of alert data
-        'time_scope': '24h'
+        'time_scope': range_key
     })
 
 
@@ -2788,7 +2934,16 @@ def api_run_detection():
 @bp.route('/api/security/threats/by_country')
 @throttle(5, 10)
 def api_threats_by_country():
-    """Get threat counts grouped by country with firewall block data"""
+    """Get detections (threats + blocks) grouped by country for a time range."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {
+        '15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, 
+        '24h': 86400, '7d': 604800
+    }.get(range_key, 86400)
+    
+    now = time.time()
+    cutoff = now - range_seconds
+    
     country_stats = defaultdict(lambda: {'count': 0, 'ips': [], 'categories': defaultdict(int), 'blocked': 0})
 
     # Get blocked IPs by country from syslog
@@ -2798,13 +2953,12 @@ def api_threats_by_country():
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path, timeout=5)
             cur = conn.cursor()
-            cutoff = int(time.time()) - 86400
             cur.execute("""
                 SELECT country_iso, COUNT(*) as blocks, COUNT(DISTINCT src_ip) as unique_ips
                 FROM fw_logs
                 WHERE action = 'block' AND timestamp >= ? AND country_iso IS NOT NULL
                 GROUP BY country_iso
-            """, (cutoff,))
+            """, (int(cutoff),))
             for row in cur.fetchall():
                 if row[0]:
                     blocked_by_country[row[0]] = {'blocks': row[1], 'unique_ips': row[2]}
@@ -2813,9 +2967,9 @@ def api_threats_by_country():
         pass
 
     for ip, timeline in threats_module._threat_timeline.items():
-        if time.time() - timeline['last_seen'] < 86400:
+        if now - timeline['last_seen'] < range_seconds:
             geo = lookup_geo(ip) or {}
-            country = geo.get('country_code', 'XX')
+            country = geo.get('country_iso', 'XX')
             country_name = geo.get('country', 'Unknown')
 
             country_stats[country]['count'] += 1
@@ -2829,8 +2983,9 @@ def api_threats_by_country():
     # Merge with firewall block data
     for code, block_data in blocked_by_country.items():
         if code not in country_stats:
-            # Country only seen in firewall blocks, not in threat feeds
-            country_stats[code]['name'] = code  # We don't have the full name
+            # Try to get full name from our shared mapping
+            from app.services.shared.geoip import _COUNTRY_NAMES
+            country_stats[code]['name'] = _COUNTRY_NAMES.get(code, code)
             country_stats[code]['blocked_only'] = True
         country_stats[code]['blocked'] = block_data['blocks']
         country_stats[code]['blocked_ips'] = block_data['unique_ips']
@@ -2915,13 +3070,20 @@ def api_threat_velocity():
 @bp.route('/api/security/top_threat_ips')
 @throttle(5, 10)
 def api_top_threat_ips():
-    """Get top threat IPs by hit count"""
+    """Get top threat IPs by hit count for selected time range."""
+    range_key = request.args.get('range', '24h')
+    range_seconds = {
+        '15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, 
+        '24h': 86400, '7d': 604800
+    }.get(range_key, 86400)
+    
     now = time.time()
-
-    # Get IPs with timeline data from last 24h
+    cutoff = now - range_seconds
+ 
+    # Get IPs with timeline data from last period
     threat_ips = []
     for ip, timeline in threats_module._threat_timeline.items():
-        if now - timeline['last_seen'] < 86400:
+        if timeline['last_seen'] >= cutoff:
             info = get_threat_info(ip)
             geo = lookup_geo(ip) or {}
             threat_ips.append({
@@ -2932,6 +3094,8 @@ def api_top_threat_ips():
                 'category': info.get('category', 'UNKNOWN'),
                 'feed': info.get('feed', 'unknown'),
                 'country': geo.get('country_code', '--'),
+                'country_name': geo.get('country', 'Unknown'),
+                'flag': geo.get('flag', ''),
                 'mitre': info.get('mitre_technique', '')
             })
 
@@ -3171,15 +3335,16 @@ def api_forensics_flow_search():
         if not lines:
             return jsonify({'flows': [], 'count': 0})
 
-        # Parse header dynamically
-        header = lines[0].split(',')
         try:
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            dp_idx = header.index('dp')
-            pr_idx = header.index('proto')
-            ibyt_idx = header.index('ibyt')
-            ipkt_idx = header.index('ipkt')
+            # Robust mapping for nfdump csv outputs
+            header = lines[0].split(',')
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else 6)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else 2)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 8)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else 7)
         except ValueError:
             # Fallback indices (based on mock/nfdump std)
             sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
@@ -3390,10 +3555,11 @@ def api_stats_blocklist_rate():
         lines = output.strip().split("\n")
         header = lines[0].split(',')
         try:
-            ts_idx = header.index('ts')
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 4)
         except (ValueError, IndexError):
+            # Safe fallbacks if index not found or header malformed
             ts_idx, sa_idx, da_idx = 0, 3, 4
 
         for line in lines[1:]:

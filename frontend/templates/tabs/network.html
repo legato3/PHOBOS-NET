@@ -1,10 +1,10 @@
 <div x-show="activeTab === 'network'" :style="activeTab === 'network' ? 'display:block' : 'display:none'"
     id="network-tab" role="tabpanel" aria-labelledby="network-tab-btn" tabindex="0">
     <!-- Network Dashboard -->
-    <section id="section-network" class="scroll-section mb-8">
+    <section id="section-network" class="scroll-section mb-6">
 
         <!-- Network Status Blocks -->
-        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-7) !important;">
+        <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
             <!-- Health Score Stat Box -->
             <div class="card stat-box"
                 :class="'grade-' + (netHealth.health_score >= 90 ? 'a' : netHealth.health_score >= 70 ? 'b' : netHealth.health_score >= 50 ? 'c' : 'd')"
@@ -13,7 +13,8 @@
                     <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
-                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;" @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
+                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;"
+                        @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
                     <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                         style="margin-left: 4px; font-weight: normal;"></span>
                 </div>
@@ -47,8 +48,7 @@
                     </template>
                 </div>
                 <div class="label">Active Flows</div>
-                <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px;">
-                    Live</div>
+
             </div>
             <div class="card stat-box">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -103,7 +103,7 @@
             <template x-if="isVisible('sources')">
                 {% set src_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Running</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% set src_footer %}
@@ -127,28 +127,10 @@
                                     <div class="endpoint-cell">
                                         <!-- Primary: IP Address -->
                                         <div class="endpoint-primary-line">
+                                            <span class="flag-icon"
+                                                :class="'flag-icon-' + (item.country_iso || 'xx').toLowerCase()"
+                                                :title="item.country || 'Unknown'" style="margin-right: 8px;"></span>
                                             <strong x-text="item.key" class="endpoint-ip"></strong>
-                                            <button class="icon-btn-small endpoint-filter-btn"
-                                                @click.stop="applyFilter(item.key)" title="Filter / Details"
-                                                :aria-label="'View details for ' + item.key">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <circle cx="11" cy="11" r="8"></circle>
-                                                    <line x1="21" y1="21" x2="16.65" y2="16.65">
-                                                    </line>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <!-- Secondary: Metadata with inline sparkline -->
-                                        <div class="endpoint-meta-line">
-                                            <span x-text="item.region"></span>
-                                            <span x-show="item.hostname && item.hostname !== item.key"
-                                                x-text="' • ' + item.hostname"></span>
-                                            <span class="endpoint-meta-sparkline">
-                                                <canvas class="spark spark-subtle" width="80" height="14"
-                                                    :data-ip="item.key" data-kind="source"></canvas>
-                                            </span>
                                         </div>
                                         <!-- Supporting: Badges -->
                                         <div class="endpoint-badges">
@@ -160,10 +142,7 @@
                                 <div class="grid-td w-50">
                                     <div class="endpoint-cell endpoint-value-cell">
                                         <div class="endpoint-value"
-                                            :class="{'text-green': item.bytes > (filteredSources[0]?.bytes * 0.5)}"
                                             x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
-                                        </div>
-                                        <div class="endpoint-flows" x-text="(item.flows || 0) + ' flows'">
                                         </div>
                                     </div>
                                 </div>
@@ -178,7 +157,7 @@
             <template x-if="isVisible('destinations')">
                 {% set dst_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Running</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% set dst_footer %}
@@ -204,28 +183,10 @@
                                     <div class="endpoint-cell">
                                         <!-- Primary: IP Address -->
                                         <div class="endpoint-primary-line">
+                                            <span class="flag-icon"
+                                                :class="'flag-icon-' + (item.country_iso || 'xx').toLowerCase()"
+                                                :title="item.country || 'Unknown'" style="margin-right: 8px;"></span>
                                             <strong x-text="item.key" class="endpoint-ip"></strong>
-                                            <button class="icon-btn-small endpoint-filter-btn"
-                                                @click.stop="applyFilter(item.key)" title="Filter / Details"
-                                                :aria-label="'View details for ' + item.key">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <circle cx="11" cy="11" r="8"></circle>
-                                                    <line x1="21" y1="21" x2="16.65" y2="16.65">
-                                                    </line>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <!-- Secondary: Metadata with inline sparkline -->
-                                        <div class="endpoint-meta-line">
-                                            <span x-text="item.region"></span>
-                                            <span x-show="item.hostname && item.hostname !== item.key"
-                                                x-text="' • ' + item.hostname"></span>
-                                            <span class="endpoint-meta-sparkline">
-                                                <canvas class="spark spark-subtle" width="80" height="14"
-                                                    :data-ip="item.key" data-kind="dest"></canvas>
-                                            </span>
                                         </div>
                                         <!-- Supporting: Badges -->
                                         <div class="endpoint-badges">
@@ -237,10 +198,7 @@
                                 <div class="grid-td w-50">
                                     <div class="endpoint-cell endpoint-value-cell">
                                         <div class="endpoint-value"
-                                            :class="{'text-green': item.bytes > (filteredDestinations[0]?.bytes * 0.5)}"
                                             x-text="item.bytes_fmt || fmtBytes(item.bytes || 0)">
-                                        </div>
-                                        <div class="endpoint-flows" x-text="(item.flows || 0) + ' flows'">
                                         </div>
                                     </div>
                                 </div>
@@ -287,7 +245,7 @@
             <template x-if="isVisible('ports')">
                 {% set ports_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Running</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('ports', 'Top Ports', '🔌', extra_actions=ports_actions) %}
@@ -308,7 +266,8 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                    <div style="color: #fff; font-weight: 500;"
+                                        x-text="item.bytes_fmt || fmtBytes(item.bytes)">
                                     </div>
                                     <span class="badge suspicious" x-show="item.suspicious">SUSPICIOUS</span>
                                 </td>
@@ -323,7 +282,7 @@
             <template x-if="isVisible('asns')">
                 {% set asns_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Live</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions) %}
@@ -350,22 +309,28 @@
             <template x-if="isVisible('countries')">
                 {% set country_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Live</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
-                {% set country_footer %}
-                <button class="btn-view-all" @click="openExpandedTable('countries')">View
-                    All</button>
-                {% endset %}
                 {% call widget_card('countries', 'Top Countries', '🌍',
-                extra_actions=country_actions,
-                footer_content=country_footer) %}
+                extra_actions=country_actions) %}
                 <div class="widget-body-inner">
-                    <div class="chart-wrapper-small chart-expandable"
-                        @click="openFullscreenChart('countriesChart', 'Top Countries by Traffic')"
-                        title="Click to expand">
-                        <canvas id="countriesChart"></canvas>
-                    </div>
+                    <template x-for="c in (countries.map_data || []).slice(0, 10)" :key="c.iso">
+                        <div class="country-row">
+                            <div class="country-name" :title="c.name">
+                                <span :class="'flag-icon flag-icon-' + (c.iso || 'xx').toLowerCase()"
+                                    style="margin-right: 6px;"></span>
+                                <span x-text="c.name"></span>
+                            </div>
+                            <div class="country-bar-container">
+                                <div class="country-bar" :style="'width:' + c.pct + '%'">
+                                </div>
+                            </div>
+                            <div class="country-val" x-text="c.bytes_fmt"></div>
+                        </div>
+                    </template>
+                    <div x-show="!countries.loading && (!countries.map_data || countries.map_data.length === 0)"
+                        class="empty-state">No country data available</div>
                 </div>
                 {% endcall %}
             </template>
@@ -376,15 +341,11 @@
             <template x-if="isVisible('services')">
                 {% set svc_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Live</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
-                {% set svc_footer %}
-                <button class="btn-view-all" @click="openExpandedTable('services')">View
-                    All</button>
-                {% endset %}
                 {% call widget_card('services', 'Top Services', '🌐', extra_actions=svc_actions,
-                footer_content=svc_footer) %}
+                ) %}
                 <div class="widget-body-inner">
                     <template x-for="svc in services.services" :key="svc.service">
                         <div class="service-row">
@@ -468,121 +429,6 @@
                 {% endcall %}
             </template>
 
-            <!-- Protocols -->
-            <template x-if="isVisible('protocols')">
-                {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True) %}
-                <div class="chart-wrapper-small chart-expandable" style="margin-bottom: 12px; height: 160px;"
-                    x-show="protoMix && protoMix.labels && protoMix.labels.length > 0"
-                    @click="openFullscreenChart('protoMixChart', 'Protocol Distribution')" title="Click to expand">
-                    <canvas id="protoMixChart"></canvas>
-                </div>
-                <table class="table-fixed table-compact" x-show="protocols.protocols && protocols.protocols.length > 0">
-                    <thead>
-                        <tr>
-                            <th>Protocol</th>
-                            <th>Stats</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in protocols.protocols" :key="index">
-                            <tr>
-                                <td>
-                                    <strong class="text-cyan" x-text="item.proto_name"></strong>
-                                </td>
-                                <td>
-                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)">
-                                    </div>
-                                    <div class="text-8 text-muted"
-                                        x-text="Number(item.flows).toLocaleString() + ' flows'">
-                                    </div>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-                <div x-show="!protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)"
-                    class="empty-state">No protocol data available</div>
-                {% endcall %}
-            </template>
-
-            <!-- Traffic Insights (Unified InsightPanel) -->
-            <template x-if="isVisible('insights')">
-                {% call insight_panel('traffic', 'Traffic Insights', '💡', 'global_time_range') %}
-                <!-- Expanded View Content - Top 5 Talkers -->
-                <template x-if="sources.sources && sources.sources.length > 0">
-                    <div style="margin-bottom: 16px;">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Top Talkers</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(src, idx) in sources.sources.slice(0, 5)" :key="src.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                    <span>
-                                        <span class="clickable-ip" @click.stop="openIPModal(src.key)"
-                                            style="color: var(--neon-cyan); cursor: pointer;" x-text="src.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (src.bytes && summary.total_bytes ? ((src.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="src.bytes_fmt || fmtBytes(src.bytes || 0)"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- Top 5 Ports -->
-                <template x-if="ports.ports && ports.ports.length > 0">
-                    <div style="margin-bottom: 16px;">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Top Ports</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(port, idx) in ports.ports.slice(0, 5)" :key="port.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                    <span>
-                                        <span style="color: var(--text-primary);" x-text="'Port ' + port.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="port.service ? '(' + port.service + ')' : ''"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (port.bytes && summary.total_bytes ? ((port.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="port.bytes_fmt || fmtBytes(port.bytes || 0)"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- Protocol Distribution -->
-                <template x-if="protocols.protocols && protocols.protocols.length > 0">
-                    <div>
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Protocol Distribution</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(proto, idx) in protocols.protocols.slice(0, 5)" :key="proto.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                    <span>
-                                        <span style="color: var(--text-primary);"
-                                            x-text="proto.proto_name || proto.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (proto.bytes && summary.total_bytes ? ((proto.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="proto.bytes_fmt || fmtBytes(proto.bytes || 0)"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-                {% endcall %}
-            </template>
-
             <!-- Flow Statistics -->
             <template x-if="isVisible('flowStats')">
                 {% call widget_card('flowStats', 'Flow Statistics', '📊', show_spinner=True) %}
@@ -632,11 +478,174 @@
                 {% endcall %}
             </template>
 
+            <!-- Network Intelligence Widget -->
+            <template x-if="isVisible('insights')">
+                {% call widget_card('insights', 'Network Intelligence', '🧠', show_spinner=True) %}
+                <div class="widget-body-inner" style="padding: var(--space-4);">
+                    
+                    <!-- Anomaly Score -->
+                    <div style="margin-bottom: var(--space-5);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
+                            <span style="font-weight: 600; color: var(--text-primary); font-size: var(--fs-sm);">Traffic Anomaly Score</span>
+                            <span style="font-size: var(--fs-2xl); font-weight: 700;"
+                                :style="'color: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')"
+                                x-text="networkIntelligence.anomaly_score + '%'">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                            <div :style="'width: ' + networkIntelligence.anomaly_score + '%; height: 100%; background: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; transition: width 0.3s ease;'"></div>
+                        </div>
+                        <div style="margin-top: var(--space-1); font-size: var(--fs-xs); color: var(--text-2);"
+                            x-text="'Level: ' + networkIntelligence.anomaly_level">Level: Low</div>
+                    </div>
+
+                    <!-- Top Security Concern -->
+                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.top_concern">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚠️ Top Security Concern</div>
+                        <div style="padding: var(--space-3); background: rgba(255, 23, 68, 0.08); border-left: 3px solid var(--signal-crit); border-radius: var(--radius-sm);">
+                            <template x-if="networkIntelligence.top_concern?.type === 'threat_ip'">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
+                                        <span class="flag-icon" 
+                                            :class="'flag-icon-' + (networkIntelligence.top_concern.country_iso || 'xx').toLowerCase()"
+                                            style="font-size: 1.2em;"></span>
+                                        <span class="clickable-ip" @click="openIPModal(networkIntelligence.top_concern.ip)"
+                                            style="color: var(--signal-crit); font-weight: 600; cursor: pointer;"
+                                            x-text="networkIntelligence.top_concern.ip"></span>
+                                        <span class="badge" style="background: rgba(255, 23, 68, 0.2); color: var(--signal-crit); font-size: var(--fs-xs);"
+                                            x-text="networkIntelligence.top_concern.category"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="networkIntelligence.top_concern.hits + ' detections'"></span>
+                                        <span style="margin: 0 var(--space-1);">•</span>
+                                        <span x-text="networkIntelligence.top_concern.feed"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="networkIntelligence.top_concern?.type === 'suspicious_port'">
+                                <div>
+                                    <div style="color: var(--signal-warn); font-weight: 600; margin-bottom: var(--space-1);">
+                                        Port <span x-text="networkIntelligence.top_concern.port"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="networkIntelligence.top_concern.bytes_fmt + ' traffic'"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Network Efficiency -->
+                    <div style="margin-bottom: var(--space-5);">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">Network Efficiency</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                            <div style="padding: var(--space-3); background: rgba(0, 255, 136, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-ok);"
+                                    x-text="networkIntelligence.network_efficiency.productive_pct + '%'">100%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Productive</div>
+                            </div>
+                            <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-warn);"
+                                    x-text="networkIntelligence.network_efficiency.noise_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Noise</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: var(--space-2); text-align: center; font-size: var(--fs-sm);">
+                            Status: <span style="font-weight: 600;"
+                                :style="'color: ' + (networkIntelligence.network_efficiency.status === 'Excellent' ? 'var(--signal-ok)' : networkIntelligence.network_efficiency.status === 'Good' ? 'var(--signal-info)' : networkIntelligence.network_efficiency.status === 'Fair' ? 'var(--signal-warn)' : 'var(--signal-crit)')"
+                                x-text="networkIntelligence.network_efficiency.status">Clean</span>
+                        </div>
+                    </div>
+
+                    <!-- Geographic Risk -->
+                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.geographic_risk">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">🌍 Geographic Risk</div>
+                        <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-left: 3px solid var(--signal-warn); border-radius: var(--radius-sm);">
+                            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                                <span class="flag-icon" 
+                                    :class="'flag-icon-' + (networkIntelligence.geographic_risk?.country_iso || 'xx').toLowerCase()"
+                                    style="font-size: 1.5em;"></span>
+                                <div>
+                                    <div style="font-weight: 600; color: var(--text-primary);"
+                                        x-text="networkIntelligence.geographic_risk?.country">Unknown</div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="(networkIntelligence.geographic_risk?.threat_count || 0).toLocaleString() + ' threats'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Protocol Health Warnings -->
+                    <div x-show="networkIntelligence.protocol_health && networkIntelligence.protocol_health.length > 0">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚡ Protocol Warnings</div>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                            <template x-for="warning in networkIntelligence.protocol_health" :key="warning.protocol">
+                                <div style="padding: var(--space-2); background: rgba(255, 180, 0, 0.05); border-left: 2px solid var(--signal-warn); border-radius: var(--radius-sm); font-size: var(--fs-sm);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-weight: 600;" x-text="warning.protocol"></span>
+                                        <span style="color: var(--signal-warn); font-weight: 600;" x-text="warning.percentage + '%'"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);"
+                                        x-text="warning.warning"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- No Concerns State -->
+                    <div x-show="!networkIntelligence.loading && networkIntelligence.anomaly_score === 0 && !networkIntelligence.top_concern && (!networkIntelligence.protocol_health || networkIntelligence.protocol_health.length === 0)"
+                        style="text-align: center; padding: var(--space-6); color: var(--text-2);">
+                        <div style="font-size: 3em; margin-bottom: var(--space-2);">✅</div>
+                        <div style="font-weight: 600; color: var(--signal-ok); margin-bottom: var(--space-1);">All Clear</div>
+                        <div style="font-size: var(--fs-sm);">No security concerns detected</div>
+                    </div>
+
+                </div>
+                {% endcall %}
+            </template>
+
+            <!-- Protocols -->
+            <template x-if="isVisible('protocols')">
+                {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True) %}
+                <div class="chart-wrapper-small chart-expandable" style="margin-bottom: 12px; height: 160px;"
+                    x-show="protoMix && protoMix.labels && protoMix.labels.length > 0"
+                    @click="openFullscreenChart('protoMixChart', 'Protocol Distribution')" title="Click to expand">
+                    <canvas id="protoMixChart"></canvas>
+                </div>
+                <table class="table-fixed table-compact" x-show="protocols.protocols && protocols.protocols.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Stats</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in protocols.protocols" :key="index">
+                            <tr>
+                                <td>
+                                    <strong class="text-cyan" x-text="item.proto_name"></strong>
+                                </td>
+                                <td>
+                                    <div class="text-green" x-text="item.bytes_fmt || fmtBytes(item.bytes)">
+                                    </div>
+                                    <div class="text-8 text-muted"
+                                        x-text="Number(item.flows).toLocaleString() + ' flows'">
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div x-show="!protocols.loading && (!protocols.protocols || protocols.protocols.length === 0)"
+                    class="empty-state">No protocol data available</div>
+                {% endcall %}
+            </template>
+
             <!-- Long-Duration Flows -->
             <template x-if="isVisible('durations')">
                 {% set dur_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Live</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('durations', 'Long Flows', '⏱️', extra_actions=dur_actions,
@@ -660,9 +669,9 @@
                     </div>
                     <!-- Flow List -->
                     <div class="duration-flow-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
-                        <template x-for="(flow, idx) in (durations.durations || []).slice(0, 8)" :key="idx">
+                        <template x-for="(flow, idx) in (durations.durations || []).slice(0, 6)" :key="idx">
                             <div class="duration-flow-row"
-                                style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">
+                                style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: transparent; border-radius: 0; border-bottom: 1px solid var(--border-soft);">
                                 <!-- Flow Info -->
                                 <div style="flex: 1; min-width: 0; overflow: hidden;">
                                     <div
@@ -683,7 +692,7 @@
                                 </div>
                                 <!-- Duration & Bytes -->
                                 <div style="text-align: right; flex-shrink: 0;">
-                                    <div class="text-green" style="font-weight: 600; font-size: var(--text-sm);"
+                                    <div style="color: #fff; font-weight: 600; font-size: var(--text-sm);"
                                         x-text="flow.duration_fmt"></div>
                                     <div class="text-muted" style="font-size: var(--text-xs);" x-text="flow.bytes_fmt">
                                     </div>
@@ -703,7 +712,7 @@
             <template x-if="isVisible('talkers')">
                 {% set talk_actions %}
                 <div class="status-pills">
-                    <span class="status-pill running">Live</span>
+                    <span class="status-pill running">LIVE</span>
                 </div>
                 {% endset %}
                 {% call widget_card('talkers', 'Top Talkers', '💬', extra_actions=talk_actions,
@@ -712,24 +721,20 @@
                     <div class="talkers-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
                         <template x-for="(flow, idx) in (talkers.flows || []).slice(0, 5)" :key="idx">
                             <div class="talker-row"
-                                style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border-left: 3px solid var(--neon-cyan);">
+                                style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: transparent; border-radius: 0; border-bottom: 1px solid var(--border-soft);">
                                 <!-- Flow Info -->
                                 <div style="flex: 1; min-width: 0;">
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); flex-wrap: wrap;">
                                         <!-- Source -->
-                                        <span x-text="flow.src_flag || '🌐'" style="font-size: 14px;"></span>
                                         <span class="text-cyan clickable-ip" @click="openIPModal(flow.src)"
                                             style="cursor: pointer;" x-text="flow.src"
                                             :title="flow.src_country || ''"></span>
-                                        <span class="text-muted" x-text="':' + flow.src_port"></span>
                                         <span class="text-muted">→</span>
                                         <!-- Destination -->
-                                        <span x-text="flow.dst_flag || '🌐'" style="font-size: 14px;"></span>
                                         <span class="text-purple clickable-ip" @click="openIPModal(flow.dst)"
                                             style="cursor: pointer;" x-text="flow.dst"
                                             :title="flow.dst_country || ''"></span>
-                                        <span class="text-muted" x-text="':' + flow.dst_port"></span>
                                     </div>
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px;">
@@ -742,7 +747,7 @@
                                 </div>
                                 <!-- Traffic -->
                                 <div style="text-align: right;">
-                                    <div class="text-green" style="font-weight: 600; font-size: var(--text-sm);"
+                                    <div style="color: #fff; font-weight: 600; font-size: var(--text-sm);"
                                         x-text="flow.bytes_fmt"></div>
                                     <div class="text-muted" style="font-size: var(--text-xs);"
                                         x-text="(flow.packets || 0).toLocaleString() + ' pkts'">

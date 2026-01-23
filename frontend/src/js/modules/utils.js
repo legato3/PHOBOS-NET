@@ -18,8 +18,9 @@ function formatBytes(bytes) {
 
 // Get time ago string from timestamp
 function timeAgo(ts) {
-    if (!ts) return '';
+    if (!ts || isNaN(ts)) return '—';
     const diff = Math.max(0, (Date.now() / 1000) - ts);
+    if (isNaN(diff)) return '—';
     if (diff < 60) return `${Math.round(diff)}s ago`;
     if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;

@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir \
     requests \
     maxminddb \
     dnspython \
+    flask-login \
     gunicorn>=21.2.0
 
 # Copy application files
