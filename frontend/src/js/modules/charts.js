@@ -74,6 +74,29 @@ export const Charts = {
         }
     },
 
+    // Simple Sparkline (for Resource History)
+    drawSimpleSparkline(canvas, values, color = '#00f3ff') {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        if (!values || values.length === 0) return;
+
+        const max = Math.max(...values, 100); // Assume percentage 0-100 for resources
+        const step = w / Math.max(values.length - 1, 1);
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+
+        for (let i = 0; i < values.length; i++) {
+            const x = i * step;
+            const y = h - (values[i] / max) * (h - 2) - 1;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    },
+
     // Fullscreen Chart
     openFullscreen(chartInstance, title) {
         if (!chartInstance) return null;
