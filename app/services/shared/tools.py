@@ -257,26 +257,92 @@ def whois_lookup(query: str) -> Dict[str, Any]:
 
 
 def http_probe(url: str) -> Dict[str, Any]:
-    """Probe an HTTP endpoint for status, latency, and headers."""
+    """Probe an HTTP endpoint for status, latency, and headers.
+    
+    Includes comprehensive SSRF guardrails to prevent internal/private network probing.
+    Exposed via api_tools_http_probe route.
+    """
+    from app.services.shared.helpers import is_internal
+    from urllib.parse import urlparse, urljoin
+
     if not url:
         return {'error': 'URL is required'}
 
     url = url.strip()
-    if not re.match(r'^https?://', url, re.IGNORECASE):
-        url = f'http://{url}'
-
-    if not re.match(r'^https?://', url, re.IGNORECASE):
-        return {'error': 'Invalid URL scheme'}
+    
+    # 1. Enforcement: Scheme validation (fail fast)
+    if not re.match(r'^https?://', url, re.CASEINSENSITIVE):
+        # Default to http if no scheme, but re-validate
+        if not '://' in url:
+            url = f'http://{url}'
+        else:
+            return {'error': 'Only http and https schemes are permitted'}
 
     try:
-        response = requests.get(
-            url,
-            timeout=(3, 8),
-            allow_redirects=True,
-            headers={'User-Agent': 'PHOBOS-NET/1.0'}
-        )
+        def validate_target(target_url):
+            parsed = urlparse(target_url)
+            if parsed.scheme.lower() not in ['http', 'https']:
+                return False, f"Invalid scheme: {parsed.scheme}"
+            
+            host = parsed.hostname
+            if not host:
+                return False, "Invalid URL: no hostname"
+            
+            # Check host for internal/forbidden patterns
+            if is_internal(host):
+                return False, "Access to restricted address is forbidden"
+                
+            # Resolve to all IPs (v4/v6) to prevent DNS rebinding
+            try:
+                # getaddrinfo returns a list of address info tuples
+                addr_info = socket.getaddrinfo(host, parsed.port or (80 if parsed.scheme == 'http' else 443))
+                for info in addr_info:
+                    ip = info[4][0]
+                    if is_internal(ip):
+                        return False, f"Restricted IP resolved: {ip}"
+            except socket.gaierror:
+                pass # Let requests handle final resolution if it survives initial checks
+            
+            return True, None
+
+        # Initial validation
+        is_ok, err_msg = validate_target(url)
+        if not is_ok:
+            return {'error': f"SSRF Guard: {err_msg}"}
+
+        # Custom redirect loop for SSRF protection
+        max_redirects = 5
+        redirect_chain = []
+        current_url = url
+        
+        for _ in range(max_redirects + 1):
+            response = requests.get(
+                current_url,
+                timeout=(3, 8),
+                allow_redirects=False, # Manual handling for safety
+                headers={'User-Agent': 'PHOBOS-NET/1.0'}
+            )
+            
+            if response.is_redirect:
+                location = response.headers.get('Location')
+                if not location:
+                    break
+                
+                next_url = urljoin(current_url, location)
+                
+                # Re-validate redirect target
+                is_ok, err_msg = validate_target(next_url)
+                if not is_ok:
+                     return {'error': f"SSRF Guard (Redirect): {err_msg}"}
+                
+                redirect_chain.append({'status': response.status_code, 'url': current_url})
+                current_url = next_url
+            else:
+                break
+        else:
+            return {'error': 'Too many redirects'}
+
         elapsed_ms = int(response.elapsed.total_seconds() * 1000)
-        redirects = [{'status': r.status_code, 'url': r.url} for r in response.history]
         headers = {
             'content-type': response.headers.get('Content-Type', ''),
             'content-length': response.headers.get('Content-Length', ''),
@@ -286,10 +352,10 @@ def http_probe(url: str) -> Dict[str, Any]:
         }
         return {
             'url': url,
-            'final_url': response.url,
+            'final_url': current_url,
             'status_code': response.status_code,
             'elapsed_ms': elapsed_ms,
-            'redirect_chain': redirects,
+            'redirect_chain': redirect_chain,
             'headers': {k: v for k, v in headers.items() if v}
         }
     except requests.exceptions.RequestException as e:
@@ -297,7 +363,12 @@ def http_probe(url: str) -> Dict[str, Any]:
 
 
 def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
-    """Inspect TLS certificate details for a host."""
+    """Inspect TLS certificate details for a host.
+    
+    Includes SSRF guardrails to prevent internal/private network probing.
+    Exposed via api_tools_tls_inspect route.
+    """
+    from app.services.shared.helpers import is_internal
     if not host:
         return {'error': 'Host is required'}
 
@@ -305,6 +376,10 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
     host = re.sub(r'[^a-zA-Z0-9.\-]', '', host)
     if not host:
         return {'error': 'Invalid host'}
+
+    # 1. Host validation: SSRF protection
+    if is_internal(host):
+        return {'error': 'Access to restricted address is forbidden'}
 
     try:
         port_num = int(port)
@@ -314,8 +389,27 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
         return {'error': 'Invalid port'}
 
     try:
+        # 2. Resolve IP(s) and check them all to prevent SSRF/Rebinding
+        resolved_ip = None
+        try:
+            # getaddrinfo returns a list of address info tuples
+            # We check all resolved addresses (v4/v6)
+            addr_info = socket.getaddrinfo(host, port_num)
+            for info in addr_info:
+                ip = info[4][0]
+                if is_internal(ip):
+                    return {'error': f'Access to restricted IP is forbidden: {ip}'}
+                if not resolved_ip:
+                    resolved_ip = ip # Use first safe IP
+        except socket.gaierror:
+            return {'error': f'Could not resolve host: {host}'}
+
+        if not resolved_ip:
+            return {'error': 'No safe IP addresses found for host'}
+
         context = ssl.create_default_context()
-        with socket.create_connection((host, port_num), timeout=5) as sock:
+        # Use a safe resolved IP for connection
+        with socket.create_connection((resolved_ip, port_num), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls_sock:
                 cert = tls_sock.getpeercert() or {}
                 cipher = tls_sock.cipher()
@@ -333,7 +427,6 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
                 if key.lower() == 'commonname':
                     issuer_cn = value
                     break
-
         not_before = cert.get('notBefore')
         not_after = cert.get('notAfter')
         days_remaining = None
@@ -365,3 +458,4 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
         return {'error': f'TLS inspection failed: {str(e)}'}
     except Exception as e:
         return {'error': f'TLS inspection failed: {str(e)}'}
+

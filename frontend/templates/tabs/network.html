@@ -318,7 +318,7 @@
                     <template x-for="c in (countries.map_data || []).slice(0, 10)" :key="c.iso">
                         <div class="country-row">
                             <div class="country-name" :title="c.name">
-                                <span :class="'flag-icon flag-icon-' + c.iso.toLowerCase()"
+                                <span :class="'flag-icon flag-icon-' + (c.iso || 'xx').toLowerCase()"
                                     style="margin-right: 6px;"></span>
                                 <span x-text="c.name"></span>
                             </div>

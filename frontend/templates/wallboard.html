@@ -186,7 +186,7 @@
     <div class="wallboard-container">
         <div class="wallboard-header">
             <h1>NETWORK OPERATIONS CENTER</h1>
-            <div class="timestamp" x-text="new Date().toLocaleString()"></div>
+            <div class="timestamp" x-text="now.toLocaleString()"></div>
             <div style="margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-tertiary);">
                 PHOBOS-NET v2.0.0
             </div>
@@ -264,6 +264,7 @@
                 firewallStatsOverview: { blocked_events_24h: 0, loading: true },
                 overallHealth: { state: 'healthy', shortExplanation: '' },
                 refreshTimer: null,
+                now: new Date(),
 
                 async fetchAlertHistory() {
                     try {
@@ -393,7 +394,7 @@
 
                     // Update timestamp every second
                     setInterval(() => {
-                        // Timestamp updates automatically via Alpine.js reactivity
+                        this.now = new Date();
                     }, 1000);
                 }
             };

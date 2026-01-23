@@ -1463,7 +1463,16 @@ def api_database_stats():
 @bp.route('/api/server/maintenance', methods=['POST'])
 @throttle(2, 10)
 def api_server_maintenance():
-    """Run server maintenance actions (destructive)."""
+    """Run server maintenance actions (destructive).
+    
+    SECURITY NOTE: This endpoint performs destructive actions. In the current
+    architecture, it is assumed that access to this management API is restricted
+    externally via a reverse proxy (e.g., Nginx with Basic Auth/IP whitelist) 
+    or a private network ACL.
+    
+    TODO: Implement internal Authentication and Authorization (loggedInAdmin) 
+    and CSRF verification once a user management system is integrated.
+    """
     data = request.get_json(force=True, silent=True) or {}
     action = (data.get('action') or '').strip()
 

@@ -6,6 +6,7 @@ Routes are organized in a single Flask Blueprint.
 """
 from flask import Blueprint, render_template, jsonify, request, Response, stream_with_context, current_app
 import time
+import logging
 import os
 import json
 import hashlib
@@ -84,6 +85,7 @@ from app.config import (
 )
 
 # Create Blueprint
+logger = logging.getLogger(__name__)
 
 # Routes extracted from netflow-dashboard.py
 # Changed @app.route() to @bp.route()
@@ -2642,8 +2644,15 @@ def api_attack_timeline():
         if len(lines) > 1:
             header = lines[0].split(',')
             try:
-                ts_idx = header.index('ts'); sa_idx = header.index('sa'); da_idx = header.index('da')
+                # Robust header detection for nfdump 1.6 and 1.7+
+                header_norm = [h.lower().strip() for h in header]
+                ts_idx = header_norm.index('ts') if 'ts' in header_norm else header_norm.index('firstseen')
+                sa_idx = header_norm.index('sa') if 'sa' in header_norm else header_norm.index('srcaddr')
+                da_idx = header_norm.index('da') if 'da' in header_norm else header_norm.index('dstaddr')
+                
                 for line in lines[1:]:
+                    if not line or line.startswith('ts,') or line.startswith('firstSeen,'):
+                         continue
                     parts = line.split(',')
                     if len(parts) > max(ts_idx, sa_idx, da_idx):
                         total_sampled_flows += 1
@@ -2659,8 +2668,11 @@ def api_attack_timeline():
                                 if parts[sa_idx] in threat_set or parts[da_idx] in threat_set:
                                     matched_sampled_flows += 1
                                     match_buckets[bucket_label] += 1
-                        except: continue
-            except (ValueError, IndexError):
+                        except (ValueError, IndexError, TypeError) as e:
+                            logger.error(f"Error parsing flow line: {e}")
+                            continue
+            except (ValueError, IndexError) as e:
+                logger.error(f"Error detecting nfdump headers: {e}")
                 pass
 
     # Add match rate to timeline items
@@ -3024,7 +3036,7 @@ def api_top_threat_ips():
     }.get(range_key, 86400)
     
     now = time.time()
-    cutoff = now - range_seconds
+
  
     # Get IPs with timeline data from last period
     threat_ips = []

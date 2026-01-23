@@ -286,7 +286,6 @@ def api_stats_durations():
         try:
             # Normalize header for easier matching
             header_norm = [h.lower() for h in header]
-            ts_idx = header_norm.index('ts') if 'ts' in header_norm else header_norm.index('firstseen')
             sa_idx = header_norm.index('sa') if 'sa' in header_norm else header_norm.index('srcaddr')
             da_idx = header_norm.index('da') if 'da' in header_norm else header_norm.index('dstaddr')
             pr_idx = header_norm.index('proto') if 'proto' in header_norm else header_norm.index('pr')

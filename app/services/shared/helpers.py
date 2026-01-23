@@ -4,9 +4,42 @@ from datetime import datetime, timedelta
 from app.config import INTERNAL_NETS, REGION_MAPPING
 
 
-def is_internal(ip):
-    """Check if IP is internal/private."""
-    return ip.startswith(INTERNAL_NETS)
+import ipaddress
+
+FORBIDDEN_HOSTS = {
+    'localhost', 'metadata.google.internal', 'instance-data', 
+    'metadata', '169.254.169.254'
+}
+
+def is_internal(host_or_ip):
+    """Check if host or IP is internal, private, or restricted for SSRF protection."""
+    if not host_or_ip:
+        return False
+        
+    host_lower = str(host_or_ip).lower().strip()
+    
+    # Check against known forbidden hostnames/domains
+    if host_lower in FORBIDDEN_HOSTS:
+        return True
+    
+    # Check if it starts with internal net prefixes (legacy fallback/string match)
+    if host_lower.startswith(INTERNAL_NETS):
+        return True
+        
+    # Robust IP address validation (IPv4 and IPv6)
+    try:
+        ip_obj = ipaddress.ip_address(host_lower)
+        return (
+            ip_obj.is_private or 
+            ip_obj.is_loopback or 
+            ip_obj.is_link_local or 
+            ip_obj.is_multicast or
+            ip_obj.is_unspecified or
+            ip_obj.is_reserved
+        )
+    except ValueError:
+        # Not a direct IP address, could be a hostname
+        return False
 
 
 def get_region(ip, country_iso=None):
