@@ -4274,7 +4274,7 @@ export const Store = () => ({
     async fetchNetworkStatsOverview() {
         this.networkStatsOverview.loading = true;
         try {
-            const res = await fetch('/api/network/stats/overview');
+            const res = await fetch(`/api/network/stats/overview?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 this.networkStatsOverview = {

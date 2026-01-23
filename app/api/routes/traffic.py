@@ -1863,12 +1863,11 @@ def api_bandwidth():
 @bp.route("/api/network/stats/overview")
 @throttle(30, 10)
 def api_network_stats_overview():
-    """Get high-signal network stat box metrics for at-a-glance network behavior insight."""
-    now = time.time()
-    tf_24h = get_time_range('24h')
-    
-    # Get current active flows (1h range for "current")
-    tf_1h = get_time_range('1h')
+    """Get high-signal network stat box metrics respecting global time range."""
+    # Get range from request, default to 1h for backward compatibility if not provided
+    range_key = request.args.get('range', '1h')
+    # Use requested range for all metrics
+    tf_range = get_time_range(range_key)
     
     # Load threat list for correlation
     threat_set = load_threatlist()
@@ -1883,7 +1882,7 @@ def api_network_stats_overview():
     # Get total count by running without -n limit, using -q for quiet output
     # Count all flow lines (excluding header)
     try:
-        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
+        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
         if full_output:
             lines = full_output.strip().split("\n")
             # Count non-header lines (actual flow records)
@@ -1901,7 +1900,7 @@ def api_network_stats_overview():
     # We use a sample (500 flows) to determine the ratio of external connections
     # This is more efficient than processing all flows
     if active_flows_count > 0:
-        sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_1h)
+        sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_range)
         sample_count = 0
         sample_external = 0
         
@@ -1966,9 +1965,9 @@ def api_network_stats_overview():
     else:
         external_connections_count = 0
     
-    # Count anomalies (detections) over 24h
-    # Fetch flows with detection criteria over 24h range
-    output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
+    # Count anomalies (detections) over requested range
+    # Fetch flows with detection criteria
+    output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_range)
     
     anomalies_24h = 0
     anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
