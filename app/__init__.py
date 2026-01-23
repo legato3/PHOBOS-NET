@@ -4,8 +4,6 @@ This module creates and configures the Flask application instance.
 """
 import time
 from flask import Flask, request, g
-from flask_compress import Compress
-
 import os
 
 def create_app():
@@ -42,6 +40,10 @@ def create_app():
     @app.after_request
     def track_request_performance(response):
         """OBSERVABILITY: Track request duration, HTTP metrics, and flag slow requests."""
+        # High-performance exit for static files (avoid overhead and header interference)
+        if request.endpoint == 'static' or request.path.startswith('/static/'):
+            return response
+
         from app.services.shared.metrics import track_performance, track_slow_request
         from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
         from app.services.shared.observability import _logger
@@ -75,7 +77,13 @@ def create_app():
     @app.after_request
     def set_security_headers(response):
         """Add basic security headers and cache headers."""
-        # Standard safety headers
+        # CRITICAL FIX: Explicitly bypass ALL static file responses.
+        # Touching headers on static file responses (generators/streaming) in Flask/Gunicorn
+        # frequently triggers ERR_CONTENT_LENGTH_MISMATCH or trunkated downloads.
+        if request.endpoint == 'static' or request.path.startswith('/static/'):
+            return response
+
+        # Standard safety headers for API and HTML routes
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         
@@ -90,11 +98,9 @@ def create_app():
         )
         response.headers['Content-Security-Policy'] = csp
         
-        # Standard cache headers
-        if request.endpoint == 'static' or request.path.startswith('/static/'):
-            response.headers['Cache-Control'] = 'no-cache'
-        elif request.path.startswith('/api/'):
-            response.headers['Cache-Control'] = 'no-cache'
+        # Standard cache headers for API
+        if request.path.startswith('/api/'):
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         
         return response
     

@@ -60,7 +60,8 @@ def post_worker_init(worker):
         # Track telemetry startup
         try:
             from app.services.shared.telemetry import track_startup
-            track_startup(version="1.2.5")
+            from app.config import APP_VERSION
+            track_startup(version=APP_VERSION)
         except Exception:
             pass  # Telemetry is non-critical
     except Exception as e:

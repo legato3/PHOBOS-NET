@@ -58,7 +58,8 @@ if __name__ == "__main__":
     )
     
     # Track telemetry startup
-    track_startup(version="1.0")
+    from app.config import APP_VERSION
+    track_startup(version=APP_VERSION)
     
     # Graceful shutdown handler
     def shutdown_handler(signum=None, frame=None):
