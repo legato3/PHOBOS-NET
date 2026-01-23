@@ -2885,7 +2885,7 @@ export const Store = () => ({
     async fetchRecentBlocks() {
         this.recentBlocks.loading = true;
         try {
-            const res = await fetch('/api/firewall/logs/recent?limit=1000');
+            const res = await fetch('/api/firewall/logs/recent?limit=300');
             if (res.ok) {
                 const d = await res.json();
                 const logs = d.logs || [];
@@ -6318,7 +6318,7 @@ export const Store = () => ({
         // Use regular fetch for now (backend supports since parameter but we'll use full refresh for simplicity)
         // This ensures we always have the latest data
         try {
-            const res = await fetch('/api/firewall/logs/recent?limit=1000');
+            const res = await fetch('/api/firewall/logs/recent?limit=300');
 
             if (res.ok) {
                 const d = await res.json();
@@ -6373,7 +6373,7 @@ export const Store = () => ({
         this.fetchFirewallSyslog();
 
         // Set up interval: refresh every 3 seconds for real-time feel
-        const refreshInterval = 3000;
+        const refreshInterval = 10000;
         this.firewallSyslogRefreshTimer = setInterval(() => {
             if (this.firewallSyslogAutoRefresh && this.activeTab === 'firewall') {
                 this.fetchFirewallSyslogIncremental();
@@ -6404,7 +6404,7 @@ export const Store = () => ({
 
         // Use regular fetch for now
         try {
-            const res = await fetch('/api/firewall/syslog/recent?limit=500');
+            const res = await fetch('/api/firewall/syslog/recent?limit=300');
 
             if (res.ok) {
                 const d = await res.json();

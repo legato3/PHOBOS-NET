@@ -56,6 +56,8 @@ def create_app():
             if request.endpoint == 'static' or \
                request.path.startswith('/static/') or \
                request.path.startswith('/img/') or \
+               request.path.startswith('/api/firewall/') or \
+               request.path.startswith('/api/stats/') or \
                request.path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2')):
                 return response
 
