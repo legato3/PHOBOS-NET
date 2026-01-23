@@ -540,7 +540,7 @@ def api_stats_packet_sizes():
             _stats_pkts_cache["ts"] = now
             _stats_pkts_cache["key"] = range_key
         return jsonify(data)
-    except (ValueError, IndexError, KeyError, TypeError):
+    except (ValueError, IndexError, KeyError, TypeError, ZeroDivisionError):
         return jsonify({"labels":[], "data":[]})
 
 
@@ -1246,7 +1246,8 @@ def api_stats_hourly():
 
     # Always use 24h range for hourly stats
     tf = get_time_range("24h")
-    output = run_nfdump(["-n", "5000"], tf)
+    # Sort by bytes to capture the top contributors rather than a random start-of-file sample
+    output = run_nfdump(["-O", "bytes", "-n", "5000"], tf)
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -2481,6 +2482,10 @@ def api_flows():
                     flow_history = []
                     with _flow_history_lock:
                         if history_key not in _flow_history:
+                            # Prevent unbounded memory growth
+                            if len(_flow_history) > 10000:
+                                _flow_history.clear()
+                                add_app_log("Cleared flow history cache (size limit exceeded)", "WARN")
                             _flow_history[history_key] = []
                         _flow_history[history_key].append({
                             "ts": flow_time,

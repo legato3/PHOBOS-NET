@@ -13,7 +13,7 @@
                     <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
-                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;"
+                <div class="label">System Status <span style="opacity:0.6; cursor:pointer;"
                         @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
                     <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                         style="margin-left: 4px; font-weight: normal;"></span>
@@ -61,7 +61,7 @@
                             :title="'Since last hour: ' + (networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
                     </template>
                 </div>
-                <div class="label">External Connections</div>
+                <div class="label">External Connections (Est.)</div>
             </div>
             <!-- Health Indicator Stat Boxes -->
             <template x-for="ind in netHealth.indicators" :key="ind.name">
@@ -366,7 +366,7 @@
 
             <!-- Traffic by Hour -->
             <template x-if="isVisible('hourlyTraffic')">
-                {% call widget_card('hourlyTraffic', 'Traffic by Hour', '⏰', show_spinner=True) %}
+                {% call widget_card('hourlyTraffic', 'Traffic Volume (Top 5k Flows)', '⏰', show_spinner=True) %}
                 <div class="hourly-summary">
                     <div class="hourly-stat">
                         <span class="hourly-stat-value text-green" x-text="hourlyTraffic.peak_hour + ':00'"></span>
@@ -390,7 +390,7 @@
 
             <!-- TCP Flags -->
             <template x-if="isVisible('flags')">
-                {% call widget_card('flags', 'TCP Flags', '🏳️', show_spinner=True) %}
+                {% call widget_card('flags', 'TCP Flags (Sampled)', '🏳️', show_spinner=True) %}
                 <div class="chart-wrapper-small chart-expandable"
                     @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')" title="Click to expand">
                     <canvas id="flagsChart"></canvas>
@@ -421,7 +421,7 @@
 
             <!-- Packet Size Distribution -->
             <template x-if="isVisible('packetSizes')">
-                {% call widget_card('packetSizes', 'Packet Sizes', '📦', show_spinner=True) %}
+                {% call widget_card('packetSizes', 'Packet Sizes (Sampled)', '📦', show_spinner=True) %}
                 <div class="chart-wrapper-small chart-expandable"
                     @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')" title="Click to expand">
                     <canvas id="pktSizeChart"></canvas>
@@ -480,7 +480,7 @@
 
             <!-- Network Intelligence Widget -->
             <template x-if="isVisible('insights')">
-                {% call widget_card('insights', 'Network Intelligence', '🧠', show_spinner=True) %}
+                {% call widget_card('insights', 'Network Intelligence (Sampled)', '🧠', show_spinner=True) %}
                 <div class="widget-body-inner" style="padding: var(--space-4);">
 
                     <!-- Bandwidth Utilization -->
