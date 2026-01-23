@@ -576,62 +576,6 @@
                         </div>
                     </div>
 
-                    <!-- Traffic Characteristics -->
-                    <div style="margin-bottom: var(--space-5);">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">
-                            📈 Traffic Stats</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-                            <div>
-                                <div
-                                    style="font-size: var(--fs-xs); color: var(--text-2); margin-bottom: var(--space-1);">
-                                    Total Flows</div>
-                                <div style="font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary);"
-                                    x-text="(networkIntelligence.traffic_characteristics.total_flows || 0).toLocaleString()">
-                                    0</div>
-                            </div>
-                            <div>
-                                <div
-                                    style="font-size: var(--fs-xs); color: var(--text-2); margin-bottom: var(--space-1);">
-                                    Flows/Min</div>
-                                <div style="font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary);"
-                                    x-text="networkIntelligence.traffic_characteristics.flows_per_minute">0</div>
-                            </div>
-                            <div style="grid-column: 1 / -1;">
-                                <div
-                                    style="font-size: var(--fs-xs); color: var(--text-2); margin-bottom: var(--space-1);">
-                                    Avg Packet Size</div>
-                                <div style="font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary);"
-                                    x-text="networkIntelligence.traffic_characteristics.avg_packet_size_fmt">0 B</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Top Application -->
-                    <div x-show="networkIntelligence.top_application">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">
-                            🎯 Top Application</div>
-                        <div
-                            style="padding: var(--space-3); background: rgba(0, 234, 255, 0.05); border-left: 3px solid var(--signal-primary); border-radius: var(--radius-sm);">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="font-weight: 600; color: var(--text-primary); font-size: var(--fs-md);"
-                                        x-text="networkIntelligence.top_application?.service || 'Unknown'">Unknown</div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
-                                        Port <span x-text="networkIntelligence.top_application?.port || '—'">—</span>
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-primary);"
-                                        x-text="(networkIntelligence.top_application?.percentage || 0) + '%'">0%</div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2);"
-                                        x-text="networkIntelligence.top_application?.bytes_fmt || '0 B'">0 B</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
                 {% endcall %}
             </template>
