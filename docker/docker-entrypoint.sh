@@ -36,11 +36,11 @@ exec python3 -m gunicorn \
     --threads "$THREADS" \
     --worker-class gthread \
     --worker-connections 1000 \
-    --timeout 30 \
+    --timeout 120 \
     --graceful-timeout 30 \
     --keep-alive 5 \
-    --max-requests 2000 \
-    --max-requests-jitter 100 \
+    --max-requests 5000 \
+    --max-requests-jitter 500 \
     --access-logfile /app/data/phobos-net.log \
     --error-logfile /app/data/phobos-net.log \
     --log-level info \

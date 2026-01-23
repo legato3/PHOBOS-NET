@@ -55,15 +55,15 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. THE STABILITY FIX: Recalculate Content-Length for all non-streamed responses.
-            # This is the most reliable way to avoid Content-Length mismatches in Docker.
-            # It forces Flask to read the data (even for static files) and set the header correctly.
+            # 1. THE DEFINITIVE FIX: Use Chunked Transfer Encoding.
+            # ERR_CONTENT_LENGTH_MISMATCH occurs when the declared length differs from transmitted bytes.
+            # In Docker/Virtualized environments, filesystem reports (index/stat) are often unreliable.
+            # By removing the Content-Length header, we force Gunicorn/Flask to use 'Transfer-Encoding: chunked'.
+            # Current browsers handle this perfectly, and it eliminates the 'length mismatch' problem entirely.
             if not response.is_streamed:
-                try:
-                    # get_data() reads the response; set_data() updates the Content-Length header.
-                    response.set_data(response.get_data())
-                except Exception:
-                    pass
+                # Still buffer to ensure consistency, but let the server handle the chunking.
+                response.set_data(response.get_data())
+                response.headers.pop('Content-Length', None)
 
             path = request.path
             is_static = path == '/' or \
@@ -98,7 +98,9 @@ def create_app():
                 response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             
             return response
-        except Exception:
+        except Exception as e:
+            # Basic logging of the failure
+            _logger.error(f"Error in apply_server_policies: {e}")
             return response
     
     return app
