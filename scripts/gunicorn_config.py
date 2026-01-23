@@ -25,58 +25,91 @@ preload_app = False # Ensure background threads start fresh in worker
 
 def post_worker_init(worker):
     """Called just after a worker has initialized the application."""
-    # Start background threads (happens once per worker)
-    # With 1 worker, this runs once and threads are shared
+    # MULTI-WORKER GUARD:
+    # Use a lock file to ensure only ONE worker starts the background threads.
+    # This prevents duplicate DB writes and redundant thread overhead.
+    import fcntl
+    import os
+    
+    lock_file = "/tmp/phobos_thread.lock"
+    # Create the file if it doesn't exist
+    if not os.path.exists(lock_file):
+        try:
+            with open(lock_file, "w") as f:
+                f.write("lock")
+        except Exception:
+            pass
+
     try:
-        from app.core.background import (
-            start_threat_thread, start_trends_thread, start_agg_thread,
-            start_db_size_sampler_thread, start_resource_sampler_thread,
-            start_network_io_sampler_thread, start_dependency_health_thread,
-            start_container_metrics_thread
-        )
-        # Import syslog thread from new service module
-        try:
-            from app.services.shared.syslog import start_syslog_thread
-        except ImportError:
-            start_syslog_thread = None
+        # Opening 'r+' so we don't truncate or delete existing lock
+        f = open(lock_file, "r")
+        # Attempt to get an exclusive lock. LOCK_NB means "Non-Blocking" (fail if someone else has it)
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         
-        # Import firewall syslog listener (port 515)
-        try:
-            from app.services.syslog.firewall_listener import start_firewall_syslog_thread
-        except ImportError:
-            start_firewall_syslog_thread = None
+        # WE GOT THE LOCK! This worker is the designated maintenance worker.
+        worker.log.info("Worker acquired maintenance lock. Starting background threads...")
         
-        start_threat_thread()
-        start_trends_thread()
-        start_agg_thread()
-        start_db_size_sampler_thread()  # Background database size sampling (decoupled from API)
-        start_resource_sampler_thread()  # Background CPU/memory sampling for resource history
-        start_network_io_sampler_thread()  # Network I/O bandwidth monitoring
-        start_dependency_health_thread()  # External dependency health checks
-        start_container_metrics_thread()  # Docker container metrics (if containerized)
-        if start_syslog_thread:
-            start_syslog_thread()
-        if start_firewall_syslog_thread:
-            start_firewall_syslog_thread()
-            worker.log.info("Firewall syslog listener started on port 515")
-
-        # Add system startup event to timeline
         try:
-            from app.services.shared.timeline import add_timeline_event
-            add_timeline_event(
-                source='system',
-                summary='PHOBOS-NET service started (gunicorn)',
-                raw={'event': 'startup', 'worker_pid': worker.pid}
+            from app.core.background import (
+                start_threat_thread, start_trends_thread, start_agg_thread,
+                start_db_size_sampler_thread, start_resource_sampler_thread,
+                start_network_io_sampler_thread, start_dependency_health_thread,
+                start_container_metrics_thread
             )
-        except Exception:
-            pass  # Timeline event is non-critical
+            # Import syslog thread from new service module
+            try:
+                from app.services.shared.syslog import start_syslog_thread
+            except ImportError:
+                start_syslog_thread = None
+            
+            # Import firewall syslog listener (port 515)
+            try:
+                from app.services.syslog.firewall_listener import start_firewall_syslog_thread
+            except ImportError:
+                start_firewall_syslog_thread = None
+            
+            start_threat_thread()
+            start_trends_thread()
+            start_agg_thread()
+            start_db_size_sampler_thread()
+            start_resource_sampler_thread()
+            start_network_io_sampler_thread()
+            start_dependency_health_thread()
+            start_container_metrics_thread()
+            
+            if start_syslog_thread:
+                start_syslog_thread()
+            if start_firewall_syslog_thread:
+                start_firewall_syslog_thread()
+                worker.log.info("Firewall syslog listener started on port 515")
 
-        # Track telemetry startup
-        try:
-            from app.services.shared.telemetry import track_startup
-            from app.config import APP_VERSION
-            track_startup(version=APP_VERSION)
-        except Exception:
-            pass  # Telemetry is non-critical
-    except Exception as e:
-        worker.log.error(f"Error starting background threads: {e}")
+            # Add system startup event to timeline
+            try:
+                from app.services.shared.timeline import add_timeline_event
+                add_timeline_event(
+                    source='system',
+                    summary=f'PHOBOS-NET maintenance started (pid {os.getpid()})',
+                    raw={'event': 'startup', 'worker_pid': worker.pid}
+                )
+            except Exception:
+                pass
+
+            # Track telemetry startup
+            try:
+                from app.services.shared.telemetry import track_startup
+                from app.config import APP_VERSION
+                track_startup(version=APP_VERSION)
+            except Exception:
+                pass
+                
+        except Exception as e:
+            worker.log.error(f"Error starting background threads: {e}")
+            
+    except (BlockingIOError, IOError):
+        # Another worker already has the lock.
+        worker.log.info(f"Worker (pid {os.getpid()}) skipped background threads (already running in another worker)")
+        # Keep file open for the duration of the process life? 
+        # Actually, f is local to this function. 
+        # If f is garbage collected, the lock might be released?
+        # To be safe, we'll store f on the worker object.
+        worker._maintenance_lock_file = f

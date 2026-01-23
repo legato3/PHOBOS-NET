@@ -55,15 +55,17 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. THE DEFINITIVE FIX: Use Chunked Transfer Encoding.
-            # ERR_CONTENT_LENGTH_MISMATCH occurs when the declared length differs from transmitted bytes.
-            # In Docker/Virtualized environments, filesystem reports (index/stat) are often unreliable.
-            # By removing the Content-Length header, we force Gunicorn/Flask to use 'Transfer-Encoding: chunked'.
-            # Current browsers handle this perfectly, and it eliminates the 'length mismatch' problem entirely.
+            # 1. THE DEFINITIVE FIX: Pre-read and explicitly set Content-Length.
+            # We buffer the response to memory to ensure the length is 100% accurate.
+            # This avoids ERR_CONTENT_LENGTH_MISMATCH in Docker while avoiding
+            # the Socket Errors (BlockingIOError) seen with Chunked Encoding.
             if not response.is_streamed:
-                # Still buffer to ensure consistency, but let the server handle the chunking.
-                response.set_data(response.get_data())
-                response.headers.pop('Content-Length', None)
+                # MUST set direct_passthrough to False before get_data() to get actual contents
+                response.direct_passthrough = False
+                content_bytes = response.get_data()
+                response.set_data(content_bytes)
+                # Ensure header is set based on the buffered memory size
+                response.headers['Content-Length'] = str(len(content_bytes))
 
             path = request.path
             is_static = path == '/' or \

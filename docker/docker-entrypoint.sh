@@ -32,15 +32,16 @@ tail -F /app/data/phobos-net.log &
 echo "Starting Gunicorn application server on port $WEB_PORT..."
 exec python3 -m gunicorn \
     --bind "0.0.0.0:$WEB_PORT" \
-    --workers "$WORKERS" \
-    --threads "$THREADS" \
+    --workers 2 \
+    --threads 16 \
     --worker-class gthread \
-    --worker-connections 1000 \
+    --worker-connections 2048 \
+    --backlog 2048 \
     --timeout 120 \
     --graceful-timeout 30 \
     --keep-alive 5 \
     --max-requests 5000 \
-    --max-requests-jitter 500 \
+    --max-requests-jitter 1000 \
     --access-logfile /app/data/phobos-net.log \
     --error-logfile /app/data/phobos-net.log \
     --log-level info \
