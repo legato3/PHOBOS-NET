@@ -458,35 +458,35 @@
                     <div class="config-section">
                         <h3>🌐 Network</h3>
                         <div class="config-row">
-                            <label>DNS Server</label>
-                            <input type="text" x-model="config.dns_server" placeholder="e.g., 192.168.1.1 (optional)">
-                            <span class="config-hint">Used for hostname resolution</span>
+                            <label for="config-dns-server">DNS Server</label>
+                            <input id="config-dns-server" type="text" x-model="config.dns_server" placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-dns-hint">
+                            <span id="config-dns-hint" class="config-hint">Used for hostname resolution</span>
                         </div>
                         <div class="config-row">
-                            <label>Internal Networks</label>
-                            <input type="text" x-model="config.internal_networks"
-                                placeholder="192.168.0.0/16,10.0.0.0/8">
-                            <span class="config-hint">CIDR notation, comma-separated</span>
+                            <label for="config-internal-networks">Internal Networks</label>
+                            <input id="config-internal-networks" type="text" x-model="config.internal_networks"
+                                placeholder="192.168.0.0/16,10.0.0.0/8" aria-describedby="config-networks-hint">
+                            <span id="config-networks-hint" class="config-hint">CIDR notation, comma-separated</span>
                         </div>
                     </div>
 
                     <div class="config-section">
                         <h3>📡 SNMP (Firewall Monitoring)</h3>
                         <div class="config-row">
-                            <label>SNMP Host</label>
-                            <input type="text" x-model="config.snmp_host" placeholder="e.g., 192.168.1.1 (optional)">
-                            <span class="config-hint">OPNsense/pfSense firewall IP</span>
+                            <label for="config-snmp-host">SNMP Host</label>
+                            <input id="config-snmp-host" type="text" x-model="config.snmp_host" placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-snmp-host-hint">
+                            <span id="config-snmp-host-hint" class="config-hint">OPNsense/pfSense firewall IP</span>
                         </div>
                         <div class="config-row">
-                            <label>SNMP Community</label>
-                            <input type="password" x-model="config.snmp_community" placeholder="public">
-                            <span class="config-hint">SNMP v2c community string</span>
+                            <label for="config-snmp-community">SNMP Community</label>
+                            <input id="config-snmp-community" type="password" x-model="config.snmp_community" placeholder="public" aria-describedby="config-snmp-comm-hint">
+                            <span id="config-snmp-comm-hint" class="config-hint">SNMP v2c community string</span>
                         </div>
                         <div class="config-row">
                             <label for="snmp-poll-interval">Poll Interval (sec)</label>
                             <input id="snmp-poll-interval" type="number" x-model.number="config.snmp_poll_interval"
-                                min="1" max="60" step="1" placeholder="Enter poll interval">
-                            <span class="config-hint">How often to poll SNMP (1-60s)</span>
+                                min="1" max="60" step="1" placeholder="Enter poll interval" aria-describedby="config-poll-hint">
+                            <span id="config-poll-hint" class="config-hint">How often to poll SNMP (1-60s)</span>
                         </div>
                     </div>
 
@@ -495,7 +495,7 @@
                         <div class="config-row">
                             <label for="default-time-range">Default Time Range</label>
                             <select id="default-time-range" x-model="config.default_time_range"
-                                aria-label="Default Time Range">
+                                aria-label="Default Time Range" aria-describedby="config-time-hint">
                                 <option value="15m">15 minutes</option>
                                 <option value="30m">30 minutes</option>
                                 <option value="1h">1 hour</option>
@@ -503,13 +503,13 @@
                                 <option value="24h">24 hours</option>
                                 <option value="7d">7 days</option>
                             </select>
-                            <span class="config-hint">Default time window for data queries</span>
+                            <span id="config-time-hint" class="config-hint">Default time window for data queries</span>
                         </div>
                         <div class="config-row">
-                            <label>Refresh Interval (ms)</label>
-                            <input type="number" x-model.number="config.refresh_interval" min="5000" max="300000"
-                                step="1000" placeholder="30000">
-                            <span class="config-hint">How often to refresh dashboard data (5-300
+                            <label for="config-refresh-interval">Refresh Interval (ms)</label>
+                            <input id="config-refresh-interval" type="number" x-model.number="config.refresh_interval" min="5000" max="300000"
+                                step="1000" placeholder="30000" aria-describedby="config-refresh-hint">
+                            <span id="config-refresh-hint" class="config-hint">How often to refresh dashboard data (5-300
                                 seconds)</span>
                         </div>
                     </div>

@@ -112,7 +112,7 @@
             <!-- Pause Button -->
             <button class="header-action-btn" :class="{ 'paused': paused }" @click="togglePause()"
                 title="Pause auto-refresh" :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
-                :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
+                :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'" aria-keyshortcuts="p">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     x-show="!paused">
                     <rect x="6" y="4" width="4" height="16"></rect>
@@ -144,7 +144,7 @@
                     <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
             </button>
-            <button class="header-action-btn" title="Refresh" aria-label="Refresh" @click="dataRefresh()">
+            <button class="header-action-btn" title="Refresh" aria-label="Refresh" aria-keyshortcuts="r" @click="dataRefresh()">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M23 4v6h-6"></path>
                     <path d="M1 20v-6h6"></path>
