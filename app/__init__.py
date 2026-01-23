@@ -16,6 +16,11 @@ def create_app():
                 static_folder=os.path.join(base_dir, 'frontend', 'src'),
                 template_folder=os.path.join(base_dir, 'frontend', 'templates'))
     
+    # CRITICAL FIX: Disable X-Sendfile to resolve ERR_CONTENT_LENGTH_MISMATCH
+    # This is common in Docker-on-Mac/Windows or proxy setups.
+    app.config['USE_X_SENDFILE'] = False
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
+    
     # Remove compression configuration for stability
     # (Previously causing ERR_CONTENT_LENGTH_MISMATCH)
     
@@ -31,64 +36,53 @@ def create_app():
     @app.before_request
     def track_request_start():
         """OBSERVABILITY: Track request start time and concurrent requests."""
+        # Simple bypass for static files to reduce overhead
+        if request.path.startswith('/static/') or request.path.endswith(('.ico', '.png', '.js', '.css')):
+            return
+
         import uuid
         from app.core.app_state import record_http_request_start
+        from datetime import datetime
         g.request_start_time = time.time()
         g.request_id = str(uuid.uuid4())[:8]
         record_http_request_start(g.request_id)
     
     @app.after_request
-    def track_request_performance(response):
-        """OBSERVABILITY: Track request duration, HTTP metrics, and flag slow requests."""
-        # High-performance exit for static files (avoid overhead and header interference)
-        if request.endpoint == 'static' or request.path.startswith('/static/'):
+    def apply_server_policies(response):
+        """Unified after_request handler for performance tracking and security headers."""
+        # CRITICAL BYPASS: Skip ALL custom logic for static files and common assets.
+        # Modifying responses for static files (streaming/generators) frequently causes 
+        # ERR_CONTENT_LENGTH_MISMATCH in Gunicorn/Nginx.
+        if request.endpoint == 'static' or request.path.startswith('/static/') or \
+           request.path.endswith(('.ico', '.png', '.jpg', '.js', '.css')):
             return response
 
+        # 1. Performance Tracking
         from app.services.shared.metrics import track_performance, track_slow_request
         from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
         from app.services.shared.observability import _logger
         from app.core.app_state import record_http_request_end
 
+        endpoint = request.endpoint or 'unknown'
         if hasattr(g, 'request_start_time'):
             duration = time.time() - g.request_start_time
             duration_ms = duration * 1000
-
-            # Track performance metrics
-            endpoint = request.endpoint or 'unknown'
+            
             is_cached = response.status_code == 304 or 'cache' in response.headers.get('Cache-Control', '').lower()
             track_performance(endpoint, duration, cached=is_cached)
 
-            # Track HTTP metrics (status codes, methods, concurrent requests)
             if hasattr(g, 'request_id'):
                 record_http_request_end(g.request_id, response.status_code, request.method, endpoint)
 
-            # Guardrail: Track and warn on slow requests
             if duration_ms > OBS_ROUTE_SLOW_MS:
                 track_slow_request()
-
                 if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
-                    _logger.warning(
-                        f"Slow request detected: {endpoint} took {duration_ms:.1f}ms "
-                        f"(threshold: {OBS_ROUTE_SLOW_WARN_MS}ms) - {request.path}"
-                    )
+                    _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {request.path}")
 
-        return response
-    
-    @app.after_request
-    def set_security_headers(response):
-        """Add basic security headers and cache headers."""
-        # CRITICAL FIX: Explicitly bypass ALL static file responses.
-        # Touching headers on static file responses (generators/streaming) in Flask/Gunicorn
-        # frequently triggers ERR_CONTENT_LENGTH_MISMATCH or trunkated downloads.
-        if request.endpoint == 'static' or request.path.startswith('/static/'):
-            return response
-
-        # Standard safety headers for API and HTML routes
+        # 2. Security Headers
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-        
-        # Simpler CSP to avoid blocking assets during troubleshooting
-        csp = (
+        response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; "
@@ -96,9 +90,8 @@ def create_app():
             "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; "
             "connect-src 'self'; "
         )
-        response.headers['Content-Security-Policy'] = csp
-        
-        # Standard cache headers for API
+
+        # 3. API Cache Control
         if request.path.startswith('/api/'):
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         
