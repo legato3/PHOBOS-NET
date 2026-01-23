@@ -10,7 +10,7 @@ from app.services.netflow.netflow import run_nfdump, parse_csv
 
 # Database locks
 _trends_db_lock = threading.Lock()
-_firewall_db_lock = threading.Lock()
+_firewall_db_lock = threading.RLock()
 
 # Initialization flags
 _trends_db_initialized = False
@@ -205,7 +205,7 @@ def reset_firewall_database():
             except Exception as e:
                 errors.append(f"{path}: {e}")
 
-    _firewall_db_init()
+        _firewall_db_init()
 
     return {"removed": removed, "errors": errors}
 

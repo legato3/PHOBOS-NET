@@ -40,6 +40,7 @@ _firewall_syslog_thread_started = False
 _firewall_syslog_thread = None
 _syslog_515_stop_event = threading.Event()
 _syslog_515_socket = None
+_restart_lock = threading.Lock()
 
 # Regex patterns for parsing syslog
 # RFC5424 timestamp: 2026-01-18T19:15:00+01:00
@@ -64,19 +65,23 @@ def start_firewall_syslog_thread():
 
 def restart_firewall_syslog_thread():
     """Restart the syslog listener thread for port 515."""
-    if _shutdown_event.is_set():
-        return {"status": "error", "message": "Shutdown in progress"}
+    with _restart_lock:
+        if _shutdown_event.is_set():
+            return {"status": "error", "message": "Shutdown in progress"}
 
-    _syslog_515_stop_event.set()
-    _close_syslog_515_socket()
-    _join_firewall_syslog_thread(timeout=2)
-    _syslog_515_stop_event.clear()
+        try:
+            _syslog_515_stop_event.set()
+            _close_syslog_515_socket()
+            _join_firewall_syslog_thread(timeout=2)
+            _syslog_515_stop_event.clear()
 
-    global _firewall_syslog_thread_started
-    _firewall_syslog_thread_started = False
-    start_firewall_syslog_thread()
-    add_app_log("Syslog listener restarted (port 515)", "INFO")
-    return {"status": "ok"}
+            global _firewall_syslog_thread_started
+            _firewall_syslog_thread_started = False
+            start_firewall_syslog_thread()
+            add_app_log("Syslog listener restarted (port 515)", "INFO")
+            return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 
 def _close_syslog_515_socket():

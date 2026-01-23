@@ -4533,6 +4533,14 @@ export const Store = () => ({
                 body: JSON.stringify({ action })
             });
 
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                const msg = errorData.message || res.statusText || `Error ${res.status}`;
+                actionState.status = 'error';
+                actionState.error = DashboardUtils?.getUserFriendlyError(msg, 'run maintenance action') || msg;
+                return;
+            }
+
             const data = await res.json();
             actionState.status = data.status || 'ok';
             actionState.message = data.message || 'Completed';
@@ -5909,6 +5917,7 @@ export const Store = () => ({
             if (res.ok) {
                 const d = await res.json();
                 this.threatActivityTimeline = {
+                    ...this.threatActivityTimeline,
                     ...d,
                     avg_threat_rate: d.avg_threat_rate || 0,
                     peak_threat_rate: d.peak_threat_rate || 0,

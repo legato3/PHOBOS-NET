@@ -135,8 +135,8 @@
                         </div>
                         <div class="status-bar-item">
                             <span class="label">SNMP:</span>
-                            <span class="value" :class="{ 'critical': firewall.cpu_percent === null }"
-                                x-text="firewall.cpu_percent !== null ? 'Active' : 'Down'"></span>
+                            <span class="value" :class="{ 'critical': firewall.cpu_percent == null }"
+                                x-text="firewall.cpu_percent != null ? 'Active' : 'Down'"></span>
                         </div>
                         <div class="status-bar-item">
                             <span class="label">Syslog:</span>

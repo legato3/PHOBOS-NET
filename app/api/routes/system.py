@@ -1465,14 +1465,27 @@ def api_database_stats():
 def api_server_maintenance():
     """Run server maintenance actions (destructive).
     
-    SECURITY NOTE: This endpoint performs destructive actions. In the current
-    architecture, it is assumed that access to this management API is restricted
-    externally via a reverse proxy (e.g., Nginx with Basic Auth/IP whitelist) 
-    or a private network ACL.
-    
-    TODO: Implement internal Authentication and Authorization (loggedInAdmin) 
-    and CSRF verification once a user management system is integrated.
+    SECURITY: Internal Authentication, Admin authorization, and CSRF 
+    protection are enforced here.
     """
+    # 1. Authentication Check
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return {'status': 'error', 'message': 'Authentication required'}, 401
+    
+    # 2. Authorization Check (Admin Only)
+    if not getattr(current_user, 'is_admin', False):
+        return {'status': 'error', 'message': 'Administrator privileges required'}, 403
+    
+    # 3. CSRF Validation
+    from flask_wtf.csrf import validate_csrf
+    try:
+        # validate_csrf will look for X-CSRFToken header or form field
+        # We manually call it here for the POST request
+        validate_csrf(request.headers.get('X-CSRF-Token') or request.form.get('csrf_token') or (request.get_json(silent=True) or {}).get('csrf_token'))
+    except Exception:
+        return {'status': 'error', 'message': 'Invalid CSRF token'}, 400
+
     data = request.get_json(force=True, silent=True) or {}
     action = (data.get('action') or '').strip()
 
@@ -1570,7 +1583,7 @@ def _restart_netflow_service():
 
     nfcapd_dir = NFCAPD_DIR or '/var/cache/nfdump'
     nfcapd_port = int(os.environ.get('NFCAPD_PORT', '2055'))
-    pid_file = os.environ.get('NFCAPD_PID_FILE', '/tmp/nfcapd.pid')
+    pid_file = os.environ.get('NFCAPD_PID_FILE') or os.path.join(nfcapd_dir, 'nfcapd.pid')
 
     try:
         os.makedirs(nfcapd_dir, exist_ok=True)

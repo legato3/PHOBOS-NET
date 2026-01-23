@@ -57,6 +57,7 @@ FILTERLOG_PATTERN = re.compile(
 _syslog_thread_stop_event = threading.Event()
 _syslog_socket = None
 _syslog_threads = []
+_syslog_restart_lock = threading.Lock()
 
 
 def start_syslog_thread():
@@ -82,18 +83,22 @@ def start_syslog_thread():
 def restart_syslog_thread():
     """Restart the syslog receiver and maintenance threads."""
     import app.core.app_state as state
-    if _shutdown_event.is_set():
-        return {"status": "error", "message": "Shutdown in progress"}
+    with _syslog_restart_lock:
+        if _shutdown_event.is_set():
+            return {"status": "error", "message": "Shutdown in progress"}
 
-    _syslog_thread_stop_event.set()
-    _close_syslog_socket()
-    _join_syslog_threads(timeout=2)
-    _syslog_thread_stop_event.clear()
+        try:
+            _syslog_thread_stop_event.set()
+            _close_syslog_socket()
+            _join_syslog_threads(timeout=2)
+            _syslog_thread_stop_event.clear()
 
-    state._syslog_thread_started = False
-    start_syslog_thread()
-    add_app_log("Syslog receiver restarted (port 514)", "INFO")
-    return {"status": "ok"}
+            state._syslog_thread_started = False
+            start_syslog_thread()
+            add_app_log("Syslog receiver restarted (port 514)", "INFO")
+            return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 
 def _close_syslog_socket():

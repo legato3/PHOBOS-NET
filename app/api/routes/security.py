@@ -1161,26 +1161,44 @@ def api_ip_detail(ip):
         # Get flows involving this IP
         convs_output = run_nfdump(["-a", f"ip {ip}", "-n", "500", "-o", "csv"], tf)
         lines = convs_output.strip().split("\n")
-        if len(lines) > 1:
-            header = lines[0].split(',')
+        if len(lines) > 0:
+            # Robust header detection
+            header_idx = -1
+            for i, line in enumerate(lines):
+                line_clean = line.strip().lower()
+                if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                    header_idx = i
+                    break
+            
+            if header_idx != -1:
+                header_line = lines[header_idx].lower()
+                start_row_idx = header_idx + 1
+            else:
+                header_line = lines[0].lower()
+                start_row_idx = 1
+                
+            header = [c.strip() for c in header_line.split(',')]
             try:
-                sa_idx = header.index('sa')
-                da_idx = header.index('da')
-                ibyt_idx = header.index('ibyt')
+                sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+                da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+                ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 12)
             except ValueError:
-                sa_idx, da_idx, ibyt_idx = 3, 4, 12
+                # Default fallbacks
+                sa_idx, da_idx, ibyt_idx = 3, 5, 8 # 1.7 default
+                if 'firstseen' not in header: sa_idx, da_idx, ibyt_idx = 3, 4, 12 # 1.6 default
 
             # Track IPs that communicate with this IP
             related_ip_stats = defaultdict(lambda: {'bytes': 0, 'count': 0, 'type': ''})
 
-            for line in lines[1:]:
-                if not line or line.startswith('ts,'): continue
+            for line in lines[start_row_idx:]:
+                line = line.strip()
+                if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
                 parts = line.split(',')
                 if len(parts) > max(sa_idx, da_idx, ibyt_idx):
                     try:
                         src = parts[sa_idx].strip()
                         dst = parts[da_idx].strip()
-                        bytes_val = int(parts[ibyt_idx]) if len(parts) > ibyt_idx and parts[ibyt_idx].strip().isdigit() else 0
+                        bytes_val = int(float(parts[ibyt_idx])) if parts[ibyt_idx].strip() else 0
 
                         if src == ip and dst != ip:
                             # This IP is source - track destination as related
@@ -1690,12 +1708,12 @@ def api_forensics_session():
         # Get session data
         tf = get_time_range(time_range)
         
-        # Get flows between the two IPs
+        # Get flows between the two IPs (limit 5000 for performance)
         nfdump_cmd = [
             f"host {src_ip} and host {dst_ip}",
             "-o", "csv",
             "-t", tf,
-            "-s", "srcip/dstip/bytes"
+            "-n", "5000"
         ]
         
         output = run_nfdump(nfdump_cmd)
@@ -1710,70 +1728,74 @@ def api_forensics_session():
 
         # Parse session data
         lines = output.strip().split('\n')
-        if len(lines) < 2:
+        if not lines:
             return jsonify({"error": "Insufficient data for session analysis"}), 404
 
-        header_line = lines[0]
+        # Robust Header Detection
+        header_idx = -1
+        for i, line in enumerate(lines):
+            line_clean = line.strip().lower()
+            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                header_idx = i
+                break
+        
+        if header_idx != -1:
+            header_line = lines[header_idx]
+            start_idx = header_idx + 1
+        else:
+            header_line = lines[0]
+            start_idx = 1 if ',' in header_line else 0
+
         header = [c.strip().lower() for c in header_line.split(',')]
         
         # Find column indices
         try:
-            # Map actual nfdump columns to expected names (case-insensitive)
-            # Handle different nfdump output formats
-            if 'ts' in header and 'te' in header:
-                # Standard format
-                ts_idx = header.index('ts') if 'ts' in header else -1
-                te_idx = header.index('te') if 'te' in header else -1
-                sa_idx = header.index('sa') if 'sa' in header else -1
-                da_idx = header.index('da') if 'da' in header else -1
-                sp_idx = header.index('sp') if 'sp' in header else -1
-                dp_idx = header.index('dp') if 'dp' in header else -1
-                pr_idx = header.index('proto') if 'proto' in header else -1
-                ibyt_idx = header.index('ibyt') if 'ibyt' in header else -1
-                ipkt_idx = header.index('ipkt') if 'ipkt' in header else -1
-            else:
-                # CSV format
-                ts_idx = header.index('firstseen') if 'firstseen' in header else -1
-                te_idx = header.index('duration') if 'duration' in header else -1
-                sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
-                da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
-                sp_idx = header.index('srcport') if 'srcport' in header else -1
-                dp_idx = header.index('dstport') if 'dstport' in header else -1
-                pr_idx = header.index('proto') if 'proto' in header else -1
-                ibyt_idx = header.index('bytes') if 'bytes' in header else -1
-                ipkt_idx = header.index('packets') if 'packets' in header else -1
+            # Check for common variants in both 1.6 and 1.7
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            te_idx = header.index('te') if 'te' in header else (header.index('duration') if 'duration' in header else 1)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+            sp_idx = header.index('sp') if 'sp' in header else (header.index('srcport') if 'srcport' in header else 4)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else 6)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else 2)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 8)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else 7)
             
-            if -1 in [ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
-                raise ValueError(f"Missing required columns. Available columns: {header}")
+            # Duration special case (sometimes index 1 is Duration in seconds, index 2 is Proto)
+            # In -o csv 1.6: ts=0, te=1, td=2 ...
+            # In -o csv 1.7: firstseen=0, duration=1, proto=2 ...
+            # We'll handle this in the loop
                 
-        except ValueError as e:
-            return jsonify({"error": f"Required columns not found: {e}"}), 500
+        except (ValueError, IndexError) as e:
+            return jsonify({"error": f"Required columns not found in nfdump output: {header}"}), 500
 
         session_flows = []
         total_bytes = 0
         total_packets = 0
-        session_duration = 0
         ports_used = set()
         
         first_timestamp = None
         last_timestamp = None
         
-        for line in lines[1:]:
-            if not line or line.startswith('ts,'):
+        max_idx = max(ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx)
+        
+        for line in lines[start_idx:]:
+            line = line.strip()
+            if not line or line.startswith('ts,') or line.startswith('firstseen,'):
                 continue
                 
             parts = line.split(',')
-            if len(parts) <= max(ts_idx, te_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx):
+            if len(parts) <= max_idx:
                 continue
                 
             try:
-                start_time = parts[ts_idx]
-                end_time = parts[te_idx] if te_idx >= 0 and len(parts) > te_idx else start_time
-                src_port = parts[sp_idx]
-                dst_port = parts[dp_idx]
-                protocol = parts[pr_idx]
-                bytes_xfer = int(parts[ibyt_idx]) if ibyt_idx >= 0 and len(parts) > ibyt_idx and parts[ibyt_idx] else 0
-                packets = int(parts[ipkt_idx]) if ipkt_idx >= 0 and len(parts) > ipkt_idx and parts[ipkt_idx] else 0
+                start_time = parts[ts_idx].strip()
+                end_time = parts[te_idx].strip() if te_idx >= 0 else start_time
+                src_port = parts[sp_idx].strip()
+                dst_port = parts[dp_idx].strip()
+                protocol = parts[pr_idx].strip()
+                bytes_xfer = int(float(parts[ibyt_idx])) if parts[ibyt_idx] else 0
+                packets = int(float(parts[ipkt_idx])) if parts[ipkt_idx] else 0
                 
                 session_flows.append({
                     'timestamp': start_time,
@@ -1789,7 +1811,6 @@ def api_forensics_session():
                 total_packets += packets
                 ports_used.add(f"{src_port}->{dst_port}")
                 
-                # Track session duration
                 if not first_timestamp:
                     first_timestamp = start_time
                 last_timestamp = end_time
@@ -2641,38 +2662,58 @@ def api_attack_timeline():
     
     if nfdump_output:
         lines = nfdump_output.strip().split("\n")
-        if len(lines) > 1:
-            header = lines[0].split(',')
+        # Robust Header Detection
+        header_idx = -1
+        for i, line in enumerate(lines):
+            line_clean = line.strip().lower()
+            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                header_idx = i
+                break
+        
+        if header_idx != -1:
+            header_line = lines[header_idx].lower()
+            start_row_idx = header_idx + 1
+            header = [c.strip() for c in header_line.split(',')]
             try:
                 # Robust header detection for nfdump 1.6 and 1.7+
-                header_norm = [h.lower().strip() for h in header]
-                ts_idx = header_norm.index('ts') if 'ts' in header_norm else header_norm.index('firstseen')
-                sa_idx = header_norm.index('sa') if 'sa' in header_norm else header_norm.index('srcaddr')
-                da_idx = header_norm.index('da') if 'da' in header_norm else header_norm.index('dstaddr')
+                ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+                sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+                da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
                 
-                for line in lines[1:]:
-                    if not line or line.startswith('ts,') or line.startswith('firstSeen,'):
+                for line in lines[start_row_idx:]:
+                    line = line.strip()
+                    if not line or line.startswith('ts,') or line.startswith('firstseen,'):
                          continue
                     parts = line.split(',')
                     if len(parts) > max(ts_idx, sa_idx, da_idx):
                         total_sampled_flows += 1
                         try:
                             # Use faster slicing if possible, but nfdump is usually consistent
-                            dt_str = parts[ts_idx]
+                            dt_str = parts[ts_idx].strip()
                             if len(dt_str) >= 19:
-                                dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
-                                flow_ts = dt.timestamp()
+                                # Standard nfdump timestamp: YYYY-MM-DD HH:MM:SS
+                                # Fast parse avoiding strptime where possible
+                                try:
+                                    # YYYY-MM-DD HH:MM:SS
+                                    dt = datetime(
+                                        int(dt_str[0:4]), int(dt_str[5:7]), int(dt_str[8:10]),
+                                        int(dt_str[11:13]), int(dt_str[14:16]), int(dt_str[17:19])
+                                    )
+                                    flow_ts = dt.timestamp()
+                                except (ValueError, IndexError):
+                                    # Fallback to strptime if format varies
+                                    dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
+                                    flow_ts = dt.timestamp()
+                                    
                                 bucket_start = int(flow_ts / bucket_size) * bucket_size
                                 bucket_label = time.strftime(bucket_label_format, time.localtime(bucket_start))
                                 flow_buckets[bucket_label] += 1
-                                if parts[sa_idx] in threat_set or parts[da_idx] in threat_set:
+                                if parts[sa_idx].strip() in threat_set or parts[da_idx].strip() in threat_set:
                                     matched_sampled_flows += 1
                                     match_buckets[bucket_label] += 1
-                        except (ValueError, IndexError, TypeError) as e:
-                            logger.error(f"Error parsing flow line: {e}")
+                        except (ValueError, IndexError, TypeError):
                             continue
-            except (ValueError, IndexError) as e:
-                logger.error(f"Error detecting nfdump headers: {e}")
+            except (ValueError, IndexError):
                 pass
 
     # Add match rate to timeline items
@@ -3036,12 +3077,12 @@ def api_top_threat_ips():
     }.get(range_key, 86400)
     
     now = time.time()
-
+    cutoff = now - range_seconds
  
     # Get IPs with timeline data from last period
     threat_ips = []
     for ip, timeline in threats_module._threat_timeline.items():
-        if now - timeline['last_seen'] < range_seconds:
+        if timeline['last_seen'] >= cutoff:
             info = get_threat_info(ip)
             geo = lookup_geo(ip) or {}
             threat_ips.append({

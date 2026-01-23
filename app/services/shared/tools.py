@@ -314,18 +314,25 @@ def http_probe(url: str) -> Dict[str, Any]:
         max_redirects = 5
         redirect_chain = []
         current_url = url
+        max_bytes = 1024 * 1024 # 1MB limit for safety
         
         for _ in range(max_redirects + 1):
+            # We use stream=True to prevent buffering the whole response in memory
             response = requests.get(
                 current_url,
                 timeout=(3, 8),
                 allow_redirects=False, # Manual handling for safety
-                headers={'User-Agent': 'PHOBOS-NET/1.0'}
+                headers={'User-Agent': 'PHOBOS-NET/1.0'},
+                stream=True
             )
+            
+            # Record any redirects found in response history if they were allowed, 
+            # though here we disable auto-redirects and handle manually.
             
             if response.is_redirect:
                 location = response.headers.get('Location')
                 if not location:
+                    response.close()
                     break
                 
                 next_url = urljoin(current_url, location)
@@ -333,11 +340,23 @@ def http_probe(url: str) -> Dict[str, Any]:
                 # Re-validate redirect target
                 is_ok, err_msg = validate_target(next_url)
                 if not is_ok:
+                     response.close()
                      return {'error': f"SSRF Guard (Redirect): {err_msg}"}
                 
                 redirect_chain.append({'status': response.status_code, 'url': current_url})
+                response.close() # Close current connection before redirecting
                 current_url = next_url
             else:
+                # Consume a small portion of the body (or just close if we only care about headers)
+                # This protects against memory exhaustion if the response is a large file.
+                try:
+                    bytes_read = 0
+                    for chunk in response.iter_content(chunk_size=8192):
+                        bytes_read += len(chunk)
+                        if bytes_read > max_bytes:
+                            break
+                finally:
+                    response.close()
                 break
         else:
             return {'error': 'Too many redirects'}
