@@ -269,6 +269,7 @@ def http_probe(url: str) -> Dict[str, Any]:
     if not url:
         return {'error': 'URL is required'}
 
+    # Work with a stripped copy of the user-provided URL
     url = url.strip()
     
     # 1. Enforcement: Scheme validation (fail fast)
@@ -280,9 +281,10 @@ def http_probe(url: str) -> Dict[str, Any]:
             return {'error': 'Only http and https schemes are permitted'}
 
     try:
-        def validate_target(target_url):
+        def validate_target(target_url: str):
             parsed = urlparse(target_url)
-            if parsed.scheme.lower() not in ['http', 'https']:
+            scheme = (parsed.scheme or '').lower()
+            if scheme not in ['http', 'https']:
                 return False, f"Invalid scheme: {parsed.scheme}"
             
             host = parsed.hostname
@@ -296,20 +298,27 @@ def http_probe(url: str) -> Dict[str, Any]:
             # Resolve to all IPs (v4/v6) to prevent DNS rebinding
             try:
                 # getaddrinfo returns a list of address info tuples
-                addr_info = socket.getaddrinfo(host, parsed.port or (80 if parsed.scheme == 'http' else 443))
+                addr_info = socket.getaddrinfo(
+                    host,
+                    parsed.port or (80 if scheme == 'http' else 443)
+                )
                 for info in addr_info:
                     ip = info[4][0]
                     if is_internal(ip):
                         return False, f"Restricted IP resolved: {ip}"
             except socket.gaierror:
-                pass # Let requests handle final resolution if it survives initial checks
+                # Let requests handle final resolution if it survives initial checks
+                pass
             
             return True, None
 
-        # Initial validation
+        # Initial validation on the normalized URL
         is_ok, err_msg = validate_target(url)
         if not is_ok:
             return {'error': f"SSRF Guard: {err_msg}"}
+        # Use a separate variable to make it explicit that the URL has passed validation
+        validated_url = url
+
 
         # Create a session with a custom adapter that refuses internal IPs at connect time
         class SafeHTTPAdapter(requests.adapters.HTTPAdapter):
@@ -353,7 +362,7 @@ def http_probe(url: str) -> Dict[str, Any]:
         # Custom redirect loop for SSRF protection
         max_redirects = 5
         redirect_chain = []
-        current_url = url
+        current_url = validated_url
         max_bytes = 1024 * 1024 # 1MB limit for safety
         
         for _ in range(max_redirects + 1):
@@ -410,7 +419,7 @@ def http_probe(url: str) -> Dict[str, Any]:
             'location': response.headers.get('Location', '')
         }
         return {
-            'url': url,
+            'url': validated_url,
             'final_url': current_url,
             'status_code': response.status_code,
             'elapsed_ms': elapsed_ms,
