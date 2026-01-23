@@ -263,7 +263,8 @@
         </h2>
         <div class="widget-body">
             <div class="tool-shell-actions">
-                <button class="btn btn--secondary" @click="tools.shell.output = ''; tools.shell.history = []"
+                <button class="btn btn--secondary"
+                    `@click`="if (tools.shell) { tools.shell.output = ''; tools.shell.history = [] }"
                     title="Clear terminal">
                     Clear
                 </button>
