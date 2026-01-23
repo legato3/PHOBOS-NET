@@ -55,18 +55,10 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. THE DEFINITIVE FIX: Pre-read and explicitly set Content-Length.
-            # We buffer the response to memory to ensure the length is 100% accurate.
-            # This avoids ERR_CONTENT_LENGTH_MISMATCH in Docker while avoiding
-            # the Socket Errors (BlockingIOError) seen with Chunked Encoding.
-            if not response.is_streamed:
-                # MUST set direct_passthrough to False before get_data() to get actual contents
-                response.direct_passthrough = False
-                content_bytes = response.get_data()
-                response.set_data(content_bytes)
-                # Ensure header is set based on the buffered memory size
-                response.headers['Content-Length'] = str(len(content_bytes))
-
+            # 1. Gevent Handling:
+            # With Gevent worker, we rely on standard WSGI behavior.
+            # We do NOT manually buffer or set Content-Length here to avoid double-handling.
+            
             path = request.path
             is_static = path == '/' or \
                         request.endpoint == 'static' or \

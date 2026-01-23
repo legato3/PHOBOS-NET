@@ -25,13 +25,13 @@ LABEL org.opencontainers.image.description="Self-hosted, read-only network obser
 LABEL org.opencontainers.image.source="https://github.com/legato3/PHOBOS-NET"
 
 # Install Python dependencies directly (requirements.txt removed)
-RUN pip install --no-cache-dir \
-    flask \
+flask \
     requests \
     maxminddb \
     dnspython \
     flask-login \
-    gunicorn>=21.2.0
+    gunicorn>=21.2.0 \
+    gevent
 
 # Copy application files
 # Copy the entire app directory structure
