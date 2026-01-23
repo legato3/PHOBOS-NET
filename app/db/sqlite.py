@@ -199,6 +199,15 @@ def reset_firewall_database():
         ]
         for path in paths:
             try:
+    with _firewall_db_lock:
+        _firewall_db_initialized = False
+        paths = [
+            FIREWALL_DB_PATH,
+            f"{FIREWALL_DB_PATH}-wal",
+            f"{FIREWALL_DB_PATH}-shm"
+        ]
+        for path in paths:
+            try:
                 if path and os.path.exists(path):
                     os.remove(path)
                     removed.append(path)
@@ -206,7 +215,6 @@ def reset_firewall_database():
                 errors.append(f"{path}: {e}")
 
         _firewall_db_init()
-
     return {"removed": removed, "errors": errors}
 
 

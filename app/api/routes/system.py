@@ -1528,13 +1528,15 @@ def _clear_netflow_files():
             os.remove(path)
             removed += 1
         except Exception as e:
-            errors.append(f"{name}: {e}")
+            # Log detailed error server-side, but return only a generic message to the client
+            add_app_log(f"Maintenance: failed to remove NetFlow file '{name}': {repr(e)}", "ERROR")
+            errors.append(f"{name}: failed to remove file")
 
     msg = f"Removed {removed} NetFlow files ({fmt_bytes(removed_bytes)})."
     if errors:
         msg += f" {len(errors)} errors."
 
-    add_app_log(f"Maintenance: clear_netflow_files removed={removed} bytes={removed_bytes}", "INFO")
+    add_app_log(f"Maintenance: clear_netflow_files removed={removed} bytes={removed_bytes} errors={len(errors)}", "INFO")
     return {
         'status': 'ok' if not errors else 'partial',
         'removed': removed,
@@ -1578,11 +1580,11 @@ def _restart_netflow_service():
     nfcapd_dir = NFCAPD_DIR or '/var/cache/nfdump'
     nfcapd_port = int(os.environ.get('NFCAPD_PORT', '2055'))
     pid_file = os.environ.get('NFCAPD_PID_FILE') or os.path.join(nfcapd_dir, 'nfcapd.pid')
-
     try:
         os.makedirs(nfcapd_dir, exist_ok=True)
     except Exception as e:
-        return {'status': 'error', 'message': f'Failed to access NetFlow dir: {e}'}
+        add_app_log(f"Maintenance: restart_netflow - Failed to access NetFlow dir '{nfcapd_dir}': {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to access NetFlow directory.'}
 
     if os.path.exists(pid_file):
         try:
@@ -1607,7 +1609,8 @@ def _restart_netflow_service():
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        return {'status': 'error', 'message': f'Failed to start nfcapd: {e}'}
+        add_app_log(f"Maintenance: restart_netflow - Failed to start nfcapd with command {cmd}: {e}", "ERROR")
+        return {'status': 'error', 'message': 'Failed to start NetFlow collector.'}
 
     add_app_log("Maintenance: restart_netflow", "INFO")
     return {'status': 'ok', 'message': 'NetFlow service restart requested.'}
@@ -1619,13 +1622,15 @@ def _restart_syslog_services():
         from app.services.shared.syslog import restart_syslog_thread
         syslog_514 = restart_syslog_thread()
     except Exception as e:
-        syslog_514 = {'status': 'error', 'message': str(e)}
+        add_app_log(f"Maintenance: failed to restart syslog listener on port 514: {repr(e)}", "ERROR")
+        syslog_514 = {'status': 'error', 'message': 'Failed to restart syslog listener on port 514.'}
 
     try:
         from app.services.syslog.firewall_listener import restart_firewall_syslog_thread
         syslog_515 = restart_firewall_syslog_thread()
     except Exception as e:
-        syslog_515 = {'status': 'error', 'message': str(e)}
+        add_app_log(f"Maintenance: failed to restart firewall syslog listener on port 515: {repr(e)}", "ERROR")
+        syslog_515 = {'status': 'error', 'message': 'Failed to restart firewall syslog listener on port 515.'}
 
     status = 'ok' if syslog_514.get('status') == 'ok' and syslog_515.get('status') == 'ok' else 'partial'
     add_app_log("Maintenance: restart_syslog", "INFO")

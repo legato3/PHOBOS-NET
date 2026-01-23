@@ -1,4 +1,4 @@
-# UI Contract: Server Status Cards V2
+# UI Contract: Server Status Cards V3
 
 - Redesign only the NetFlow and Filterlog status widgets on the Server page with one shared status-card grammar.
 - Enforce hierarchy: header meta -> hero metric -> stat strip; all data always visible.

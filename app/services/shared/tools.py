@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+import logging
 import requests
 
 def dns_lookup(query: str, record_type: str = 'A') -> Dict[str, Any]:
@@ -378,7 +379,9 @@ def http_probe(url: str) -> Dict[str, Any]:
             'headers': {k: v for k, v in headers.items() if v}
         }
     except requests.exceptions.RequestException as e:
-        return {'error': f'HTTP probe failed: {str(e)}'}
+        # Log full exception details server-side, but return a generic error to the client
+        logging.exception("HTTP probe failed for URL %s", url)
+        return {'error': 'HTTP probe failed'}
 
 
 def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
@@ -427,6 +430,18 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
             return {'error': 'No safe IP addresses found for host'}
 
         context = ssl.create_default_context()
+        # Restrict to modern TLS versions (TLS 1.2+)
+        try:
+            # Prefer explicit minimum version when available (Python 3.7+)
+            if hasattr(ssl, "TLSVersion") and hasattr(context, "minimum_version"):
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+        except Exception:
+            # Fallback for older Python/OpenSSL: disable TLSv1 and TLSv1_1 if supported
+            for opt_name in ("OP_NO_TLSv1", "OP_NO_TLSv1_1"):
+                opt = getattr(ssl, opt_name, None)
+                if opt is not None:
+                    context.options |= opt
+
         # Use a safe resolved IP for connection
         with socket.create_connection((resolved_ip, port_num), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls_sock:
@@ -474,7 +489,10 @@ def tls_inspect(host: str, port: str = '443') -> Dict[str, Any]:
             'cipher': cipher[0] if cipher else None
         }
     except (socket.timeout, ConnectionError, ssl.SSLError) as e:
-        return {'error': f'TLS inspection failed: {str(e)}'}
+        # Log detailed error server-side but return a generic message to the client
+        logging.warning("TLS inspection connection error for %s:%s: %s", host, port, e)
+        return {'error': 'TLS inspection failed due to a connection or TLS error'}
     except Exception as e:
-        return {'error': f'TLS inspection failed: {str(e)}'}
-
+        # Log full stack trace for unexpected errors while keeping the client message generic
+        logging.error("TLS inspection unexpected error: %s", e)
+        return {'error': 'TLS inspection failed'}
