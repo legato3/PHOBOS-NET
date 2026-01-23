@@ -274,7 +274,7 @@ def http_probe(url: str) -> Dict[str, Any]:
     # 1. Enforcement: Scheme validation (fail fast)
     if not re.match(r'^https?://', url, re.CASEINSENSITIVE):
         # Default to http if no scheme, but re-validate
-        if not '://' in url:
+        if '://' not in url:
             url = f'http://{url}'
         else:
             return {'error': 'Only http and https schemes are permitted'}
@@ -311,6 +311,45 @@ def http_probe(url: str) -> Dict[str, Any]:
         if not is_ok:
             return {'error': f"SSRF Guard: {err_msg}"}
 
+        # Create a session with a custom adapter that refuses internal IPs at connect time
+        class SafeHTTPAdapter(requests.adapters.HTTPAdapter):
+            def get_connection(self, url, proxies=None):
+                conn = super().get_connection(url, proxies=proxies)
+                # Wrap the underlying connection pool's _new_conn to enforce IP checks
+                if hasattr(conn, "pool") and hasattr(conn.pool, "_get_conn"):
+                    orig_get_conn = conn.pool._get_conn
+
+                    def _wrapped_get_conn(timeout=None):
+                        c = orig_get_conn(timeout=timeout)
+                        try:
+                            host = getattr(c, "host", None)
+                            port = getattr(c, "port", None)
+                            if host:
+                                try:
+                                    # Resolve host to IP and apply internal check
+                                    infos = socket.getaddrinfo(host, port or 0, type=socket.SOCK_STREAM)
+                                    for family, _, _, _, sockaddr in infos:
+                                        ip = sockaddr[0]
+                                        if is_internal(ip):
+                                            raise requests.exceptions.RequestException(
+                                                f"Blocked internal IP address {ip}"
+                                            )
+                                except socket.gaierror:
+                                    # If resolution fails, let the original error surface later
+                                    pass
+                        except Exception:
+                            # Avoid breaking the adapter; any raised RequestException will be caught by caller
+                            raise
+                        return c
+
+                    conn.pool._get_conn = _wrapped_get_conn
+                return conn
+
+        session = requests.Session()
+        adapter = SafeHTTPAdapter()
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
         # Custom redirect loop for SSRF protection
         max_redirects = 5
         redirect_chain = []
@@ -319,10 +358,10 @@ def http_probe(url: str) -> Dict[str, Any]:
         
         for _ in range(max_redirects + 1):
             # We use stream=True to prevent buffering the whole response in memory
-            response = requests.get(
+            response = session.get(
                 current_url,
                 timeout=(3, 8),
-                allow_redirects=False, # Manual handling for safety
+                allow_redirects=False,  # Manual handling for safety
                 headers={'User-Agent': 'PHOBOS-NET/1.0'},
                 stream=True
             )
@@ -341,11 +380,11 @@ def http_probe(url: str) -> Dict[str, Any]:
                 # Re-validate redirect target
                 is_ok, err_msg = validate_target(next_url)
                 if not is_ok:
-                     response.close()
-                     return {'error': f"SSRF Guard (Redirect): {err_msg}"}
+                    response.close()
+                    return {'error': f"SSRF Guard (Redirect): {err_msg}"}
                 
                 redirect_chain.append({'status': response.status_code, 'url': current_url})
-                response.close() # Close current connection before redirecting
+                response.close()  # Close current connection before redirecting
                 current_url = next_url
             else:
                 # Consume a small portion of the body (or just close if we only care about headers)
