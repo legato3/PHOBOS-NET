@@ -41,8 +41,8 @@
 
 
     <!-- External Libs (bundled locally to reduce CDN dependency) - Defer all heavy libraries -->
-    <script src="/static/js/modules/chart.min.js" defer></script>
-    <script src="/static/js/modules/alpine-collapse.min.js" defer></script>
+    <script src="/static/js/modules/chart.min.js?v=4.4.1" defer></script>
+    <script src="/static/js/modules/alpine-collapse.min.js?v=3.13.3" defer></script>
 
     <!-- Modular JavaScript - Load modules before app (critical path) -->
     <script src="/static/js/modules/lazy-load.js"></script>
@@ -51,7 +51,7 @@
     <script type="module" src="/static/js/app.js?v=3.2.2"></script>
 
     <!-- Alpine.js - Defer to allow app.js to register -->
-    <script src="/static/js/modules/alpine.min.js" defer></script>
+    <script src="/static/js/modules/alpine.min.js?v=3.13.3" defer></script>
 
     <!-- Heavy visualization libraries - Defer until needed -->
 
@@ -459,7 +459,8 @@
                         <h3>🌐 Network</h3>
                         <div class="config-row">
                             <label for="config-dns-server">DNS Server</label>
-                            <input id="config-dns-server" type="text" x-model="config.dns_server" placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-dns-hint">
+                            <input id="config-dns-server" type="text" x-model="config.dns_server"
+                                placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-dns-hint">
                             <span id="config-dns-hint" class="config-hint">Used for hostname resolution</span>
                         </div>
                         <div class="config-row">
@@ -474,18 +475,21 @@
                         <h3>📡 SNMP (Firewall Monitoring)</h3>
                         <div class="config-row">
                             <label for="config-snmp-host">SNMP Host</label>
-                            <input id="config-snmp-host" type="text" x-model="config.snmp_host" placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-snmp-host-hint">
+                            <input id="config-snmp-host" type="text" x-model="config.snmp_host"
+                                placeholder="e.g., 192.168.1.1 (optional)" aria-describedby="config-snmp-host-hint">
                             <span id="config-snmp-host-hint" class="config-hint">OPNsense/pfSense firewall IP</span>
                         </div>
                         <div class="config-row">
                             <label for="config-snmp-community">SNMP Community</label>
-                            <input id="config-snmp-community" type="password" x-model="config.snmp_community" placeholder="public" aria-describedby="config-snmp-comm-hint">
+                            <input id="config-snmp-community" type="password" x-model="config.snmp_community"
+                                placeholder="public" aria-describedby="config-snmp-comm-hint">
                             <span id="config-snmp-comm-hint" class="config-hint">SNMP v2c community string</span>
                         </div>
                         <div class="config-row">
                             <label for="snmp-poll-interval">Poll Interval (sec)</label>
                             <input id="snmp-poll-interval" type="number" x-model.number="config.snmp_poll_interval"
-                                min="1" max="60" step="1" placeholder="Enter poll interval" aria-describedby="config-poll-hint">
+                                min="1" max="60" step="1" placeholder="Enter poll interval"
+                                aria-describedby="config-poll-hint">
                             <span id="config-poll-hint" class="config-hint">How often to poll SNMP (1-60s)</span>
                         </div>
                     </div>
@@ -507,9 +511,11 @@
                         </div>
                         <div class="config-row">
                             <label for="config-refresh-interval">Refresh Interval (ms)</label>
-                            <input id="config-refresh-interval" type="number" x-model.number="config.refresh_interval" min="5000" max="300000"
-                                step="1000" placeholder="30000" aria-describedby="config-refresh-hint">
-                            <span id="config-refresh-hint" class="config-hint">How often to refresh dashboard data (5-300
+                            <input id="config-refresh-interval" type="number" x-model.number="config.refresh_interval"
+                                min="5000" max="300000" step="1000" placeholder="30000"
+                                aria-describedby="config-refresh-hint">
+                            <span id="config-refresh-hint" class="config-hint">How often to refresh dashboard data
+                                (5-300
                                 seconds)</span>
                         </div>
                     </div>

@@ -4788,8 +4788,14 @@ export const Store = () => ({
 
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
-                console.warn('Chart.js not loaded yet, deferring chart creation');
-                setTimeout(() => this.updateBwChart(data), 100);
+                const retryCount = (data._retries || 0);
+                if (retryCount < 30) { // Limit to ~6 seconds of retries
+                    data._retries = retryCount + 1;
+                    if (retryCount % 10 === 0) console.warn(`Chart.js loading... (retry ${retryCount}/30)`);
+                    setTimeout(() => this.updateBwChart(data), 200);
+                } else {
+                    console.error('Chart.js failed to load after multiple retries. Bandwidth chart disabled.');
+                }
                 return;
             }
 
