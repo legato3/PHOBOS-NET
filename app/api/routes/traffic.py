@@ -2068,6 +2068,246 @@ def api_network_stats_overview():
     })
 
 
+@bp.route("/api/network/intelligence")
+@throttle(5, 10)
+def api_network_intelligence():
+    """Get actionable network intelligence insights for security and performance monitoring."""
+    range_key = request.args.get('range', '1h')
+    now = time.time()
+    
+    # Initialize response structure
+    intelligence = {
+        "anomaly_score": 0,
+        "anomaly_level": "Low",
+        "top_concern": None,
+        "network_efficiency": {
+            "productive_pct": 100,
+            "noise_pct": 0,
+            "status": "Clean"
+        },
+        "geographic_risk": None,
+        "protocol_health": []
+    }
+    
+    try:
+        # 1. Get Traffic Anomaly Score from noise metrics
+        tf = get_time_range(range_key)
+        output = run_nfdump(["-n", "1000"], tf)
+        
+        total_flows = 0
+        syn_only = 0
+        small_flows = 0
+        
+        lines = output.strip().split("\n") if output else []
+        if lines:
+            # Robust Header Detection
+            header_idx = -1
+            for i, line in enumerate(lines):
+                line_clean = line.strip().lower()
+                if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                    header_idx = i
+                    break
+            
+            if header_idx != -1:
+                header = lines[header_idx].split(',')
+                start_idx = header_idx + 1
+            else:
+                header = lines[0].split(',')
+                start_idx = 1 if len(header) > 1 else 0
+            
+            # Map headers to indices
+            header_norm = [h.lower().strip() for h in header]
+            try:
+                flg_idx = header_norm.index('flg') if 'flg' in header_norm else (header_norm.index('flags') if 'flags' in header_norm else 9)
+                ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+            except (ValueError, IndexError):
+                flg_idx, ibyt_idx = 9, 8
+            
+            for line in lines[start_idx:]:
+                if not line or line.startswith('ts,'): continue
+                parts = line.split(',')
+                total_flows += 1
+                if len(parts) > max(flg_idx, ibyt_idx):
+                    try:
+                        flags = parts[flg_idx].upper()
+                        b = int(float(parts[ibyt_idx]))
+                        
+                        if flags == 'S' or flags == '.S': 
+                            syn_only += 1
+                        if b < 64: 
+                            small_flows += 1
+                    except (ValueError, IndexError, KeyError):
+                        pass
+        
+        # Get blocked flows from firewall
+        hours_map = {'15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
+        h = hours_map.get(range_key, 1)
+        fw_stats = _get_firewall_block_stats(hours=h)
+        blocked_count = fw_stats.get('blocks', 0)
+        
+        # Calculate anomaly score
+        effective_total = total_flows + blocked_count
+        noise_flows = syn_only + blocked_count
+        
+        if effective_total > 0:
+            intelligence["anomaly_score"] = min(100, int((noise_flows / effective_total) * 100))
+        
+        # Classify anomaly level
+        if intelligence["anomaly_score"] > 50:
+            intelligence["anomaly_level"] = "High"
+        elif intelligence["anomaly_score"] > 20:
+            intelligence["anomaly_level"] = "Moderate"
+        else:
+            intelligence["anomaly_level"] = "Low"
+        
+        # 2. Calculate Network Efficiency
+        productive_flows = effective_total - noise_flows
+        if effective_total > 0:
+            intelligence["network_efficiency"]["productive_pct"] = round((productive_flows / effective_total) * 100, 1)
+            intelligence["network_efficiency"]["noise_pct"] = round((noise_flows / effective_total) * 100, 1)
+        
+        if intelligence["network_efficiency"]["noise_pct"] < 10:
+            intelligence["network_efficiency"]["status"] = "Excellent"
+        elif intelligence["network_efficiency"]["noise_pct"] < 25:
+            intelligence["network_efficiency"]["status"] = "Good"
+        elif intelligence["network_efficiency"]["noise_pct"] < 50:
+            intelligence["network_efficiency"]["status"] = "Fair"
+        else:
+            intelligence["network_efficiency"]["status"] = "Poor"
+        
+        # 3. Find Top Security Concern
+        threat_set = load_threatlist()
+        whitelist = load_list(THREAT_WHITELIST)
+        threat_set = threat_set - whitelist
+        
+        # Check for active threats in timeline
+        top_threat = None
+        max_hits = 0
+        range_seconds = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}.get(range_key, 3600)
+        cutoff = now - range_seconds
+        
+        try:
+            for ip, timeline in threats_module._threat_timeline.items():
+                if timeline.get('last_seen', 0) >= cutoff:
+                    hits = timeline.get('hit_count', 0)
+                    if hits > max_hits:
+                        max_hits = hits
+                        info = threats_module.get_threat_info(ip)
+                        geo = lookup_geo(ip) or {}
+                        top_threat = {
+                            "type": "threat_ip",
+                            "ip": ip,
+                            "hits": hits,
+                            "category": info.get('category', 'UNKNOWN'),
+                            "feed": info.get('feed', 'unknown'),
+                            "country": geo.get('country', 'Unknown'),
+                            "country_iso": geo.get('country_iso', 'xx'),
+                            "description": f"Threat IP {ip} detected {hits} times"
+                        }
+        except Exception:
+            pass
+        
+        # If no threat found, check for suspicious ports
+        if not top_threat:
+            try:
+                ports_data = get_common_nfdump_data("ports", range_key)
+                for port_item in ports_data[:5]:  # Check top 5 ports
+                    port = int(port_item.get("key", 0))
+                    if port in SUSPICIOUS_PORTS:
+                        top_threat = {
+                            "type": "suspicious_port",
+                            "port": port,
+                            "bytes": port_item.get("bytes", 0),
+                            "bytes_fmt": fmt_bytes(port_item.get("bytes", 0)),
+                            "description": f"High traffic on suspicious port {port}"
+                        }
+                        break
+            except Exception:
+                pass
+        
+        intelligence["top_concern"] = top_threat
+        
+        # 4. Geographic Risk Assessment
+        try:
+            # Get countries with threats
+            threat_countries = {}
+            for ip, timeline in threats_module._threat_timeline.items():
+                if timeline.get('last_seen', 0) >= cutoff:
+                    geo = lookup_geo(ip) or {}
+                    iso = geo.get('country_iso', 'xx')
+                    country = geo.get('country', 'Unknown')
+                    if iso != 'xx':
+                        if iso not in threat_countries:
+                            threat_countries[iso] = {"name": country, "iso": iso, "count": 0}
+                        threat_countries[iso]["count"] += timeline.get('hit_count', 1)
+            
+            # Also add blocked countries
+            from app.db.sqlite import get_top_blocked_sources
+            blocked_sources = get_top_blocked_sources(limit=50)
+            for item in blocked_sources:
+                ip = item.get('src_ip')
+                if ip:
+                    geo = lookup_geo(ip) or {}
+                    iso = geo.get('country_iso', 'xx')
+                    country = geo.get('country', 'Unknown')
+                    if iso != 'xx':
+                        if iso not in threat_countries:
+                            threat_countries[iso] = {"name": country, "iso": iso, "count": 0}
+                        threat_countries[iso]["count"] += item.get('count', 1)
+            
+            # Find top risky country
+            if threat_countries:
+                top_country = max(threat_countries.values(), key=lambda x: x['count'])
+                intelligence["geographic_risk"] = {
+                    "country": top_country["name"],
+                    "country_iso": top_country["iso"],
+                    "threat_count": top_country["count"],
+                    "flag": flag_from_iso(top_country["iso"])
+                }
+        except Exception:
+            pass
+        
+        # 5. Protocol Health Warnings
+        try:
+            protocols_data = get_common_nfdump_data("protocols", range_key)
+            total_bytes = sum(p.get("bytes", 0) for p in protocols_data)
+            
+            for proto in protocols_data:
+                proto_name = proto.get("proto_name", "Unknown")
+                proto_bytes = proto.get("bytes", 0)
+                proto_pct = (proto_bytes / total_bytes * 100) if total_bytes > 0 else 0
+                
+                # Check for unusual protocol distributions
+                if proto_name == "ICMP" and proto_pct > 10:
+                    intelligence["protocol_health"].append({
+                        "protocol": "ICMP",
+                        "warning": "High ICMP traffic detected",
+                        "percentage": round(proto_pct, 1),
+                        "severity": "medium"
+                    })
+                elif proto_name == "UDP" and proto_pct > 60:
+                    intelligence["protocol_health"].append({
+                        "protocol": "UDP",
+                        "warning": "Excessive UDP traffic",
+                        "percentage": round(proto_pct, 1),
+                        "severity": "medium"
+                    })
+                elif proto_name not in ["TCP", "UDP", "ICMP"] and proto_pct > 5:
+                    intelligence["protocol_health"].append({
+                        "protocol": proto_name,
+                        "warning": f"Unusual {proto_name} traffic",
+                        "percentage": round(proto_pct, 1),
+                        "severity": "low"
+                    })
+        except Exception:
+            pass
+        
+    except Exception as e:
+        add_app_log(f"Error generating network intelligence: {e}", 'ERROR')
+    
+    return jsonify(intelligence)
+
+
 @bp.route("/api/flows")
 @throttle(10,30)
 def api_flows():

@@ -106,7 +106,7 @@
   --card-border: rgba(0, 234, 255, 0.15);
   --card-border-hover: rgba(0, 234, 255, 0.4);
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 234, 255, 0.1);
+  --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 10px rgba(0, 234, 255, 0.05);
   --card-radius: var(--radius-lg);
   --glass-blur: 12px;
   --card-header-bg: rgba(0, 0, 0, 0.3);

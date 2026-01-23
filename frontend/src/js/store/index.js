@@ -180,6 +180,15 @@ export const Store = () => ({
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
     networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
+    networkIntelligence: {
+        anomaly_score: 0,
+        anomaly_level: 'Low',
+        top_concern: null,
+        network_efficiency: { productive_pct: 100, noise_pct: 0, status: 'Clean' },
+        geographic_risk: null,
+        protocol_health: [],
+        loading: true
+    },
 
     // New Features Stores
     flags: { flags: [], loading: true },
@@ -392,7 +401,7 @@ export const Store = () => ({
             flowStats: 'Flow Statistics',
 
             netHealth: 'Network Health',
-            insights: 'Traffic Insights',
+            insights: 'Network Intelligence',
             mitreHeatmap: 'Detected Techniques',
             protocolAnomalies: 'Protocol Anomalies',
             attackTimeline: 'Attack Timeline',
@@ -1943,6 +1952,7 @@ export const Store = () => ({
         // Fetch Overview page stat boxes early (needed for initial page load)
         await Promise.allSettled([
             this.fetchNetworkStatsOverview(),
+            this.fetchNetworkIntelligence(),
             this.fetchFirewallStatsOverview(),
             this.fetchAlertHistory(),
             this.fetchTimeline(),  // Unified Event Timeline (Recent Activity)
@@ -4234,6 +4244,31 @@ export const Store = () => ({
         } catch (e) {
             console.error('Network stats overview fetch error:', e);
             this.networkStatsOverview.loading = false;
+        }
+    },
+
+    async fetchNetworkIntelligence() {
+        this.networkIntelligence.loading = true;
+        try {
+            const range = this.timeRange || '1h';
+            const res = await fetch(`/api/network/intelligence?range=${range}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.networkIntelligence = {
+                    anomaly_score: data.anomaly_score || 0,
+                    anomaly_level: data.anomaly_level || 'Low',
+                    top_concern: data.top_concern || null,
+                    network_efficiency: data.network_efficiency || { productive_pct: 100, noise_pct: 0, status: 'Clean' },
+                    geographic_risk: data.geographic_risk || null,
+                    protocol_health: data.protocol_health || [],
+                    loading: false
+                };
+            } else {
+                this.networkIntelligence.loading = false;
+            }
+        } catch (e) {
+            console.error('Network intelligence fetch error:', e);
+            this.networkIntelligence.loading = false;
         }
     },
 
@@ -6589,6 +6624,7 @@ export const Store = () => ({
                 this.fetchFlowStats();
                 this.fetchProtoMix();
                 this.fetchNetworkStatsOverview();
+                this.fetchNetworkIntelligence();
                 this.fetchNetHealth();
                 this.fetchASNs();
                 this.fetchCountries();

@@ -382,7 +382,6 @@ body.sidebar-collapsed .layout-wrapper {
 .sidebar-item:hover {
     background: rgba(0, 234, 255, 0.06);
     color: var(--text-0);
-    border-left-color: var(--signal-primary);
     box-shadow: 0 0 8px rgba(0, 234, 255, 0.1);
 }
 

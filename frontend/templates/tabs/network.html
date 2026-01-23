@@ -478,81 +478,129 @@
                 {% endcall %}
             </template>
 
-            <!-- Traffic Insights (Unified InsightPanel) -->
+            <!-- Network Intelligence Widget -->
             <template x-if="isVisible('insights')">
-                {% call insight_panel('traffic', 'Traffic Insights', '💡', 'global_time_range') %}
-                <!-- Expanded View Content - Top 5 Talkers -->
-                <template x-if="sources.sources && sources.sources.length > 0">
-                    <div style="margin-bottom: 16px;">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Top Talkers</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(src, idx) in sources.sources.slice(0, 5)" :key="src.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: transparent; border-bottom: 1px solid var(--border-soft); border-radius: 0; font-size: 0.85em;">
-                                    <span>
-                                        <span class="clickable-ip" @click.stop="openIPModal(src.key)"
-                                            style="color: var(--neon-cyan); cursor: pointer;" x-text="src.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (src.bytes && summary.total_bytes ? ((src.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="src.bytes_fmt || fmtBytes(src.bytes || 0)"></span>
-                                </div>
-                            </template>
+                {% call widget_card('insights', 'Network Intelligence', '🧠', show_spinner=True) %}
+                <div class="widget-body-inner" style="padding: var(--space-4);">
+                    
+                    <!-- Anomaly Score -->
+                    <div style="margin-bottom: var(--space-5);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
+                            <span style="font-weight: 600; color: var(--text-primary); font-size: var(--fs-sm);">Traffic Anomaly Score</span>
+                            <span style="font-size: var(--fs-2xl); font-weight: 700;"
+                                :style="'color: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')"
+                                x-text="networkIntelligence.anomaly_score + '%'">0%</span>
                         </div>
+                        <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                            <div :style="'width: ' + networkIntelligence.anomaly_score + '%; height: 100%; background: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; transition: width 0.3s ease;'"></div>
+                        </div>
+                        <div style="margin-top: var(--space-1); font-size: var(--fs-xs); color: var(--text-2);"
+                            x-text="'Level: ' + networkIntelligence.anomaly_level">Level: Low</div>
                     </div>
-                </template>
 
-                <!-- Top 5 Ports -->
-                <template x-if="ports.ports && ports.ports.length > 0">
-                    <div style="margin-bottom: 16px;">
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Top Ports</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(port, idx) in ports.ports.slice(0, 5)" :key="port.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                    <span>
-                                        <span style="color: var(--text-primary);" x-text="'Port ' + port.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="port.service ? '(' + port.service + ')' : ''"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (port.bytes && summary.total_bytes ? ((port.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="port.bytes_fmt || fmtBytes(port.bytes || 0)"></span>
+                    <!-- Top Security Concern -->
+                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.top_concern">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚠️ Top Security Concern</div>
+                        <div style="padding: var(--space-3); background: rgba(255, 23, 68, 0.08); border-left: 3px solid var(--signal-crit); border-radius: var(--radius-sm);">
+                            <template x-if="networkIntelligence.top_concern?.type === 'threat_ip'">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
+                                        <span class="flag-icon" 
+                                            :class="'flag-icon-' + (networkIntelligence.top_concern.country_iso || 'xx').toLowerCase()"
+                                            style="font-size: 1.2em;"></span>
+                                        <span class="clickable-ip" @click="openIPModal(networkIntelligence.top_concern.ip)"
+                                            style="color: var(--signal-crit); font-weight: 600; cursor: pointer;"
+                                            x-text="networkIntelligence.top_concern.ip"></span>
+                                        <span class="badge" style="background: rgba(255, 23, 68, 0.2); color: var(--signal-crit); font-size: var(--fs-xs);"
+                                            x-text="networkIntelligence.top_concern.category"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="networkIntelligence.top_concern.hits + ' detections'"></span>
+                                        <span style="margin: 0 var(--space-1);">•</span>
+                                        <span x-text="networkIntelligence.top_concern.feed"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="networkIntelligence.top_concern?.type === 'suspicious_port'">
+                                <div>
+                                    <div style="color: var(--signal-warn); font-weight: 600; margin-bottom: var(--space-1);">
+                                        Port <span x-text="networkIntelligence.top_concern.port"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="networkIntelligence.top_concern.bytes_fmt + ' traffic'"></span>
+                                    </div>
                                 </div>
                             </template>
                         </div>
                     </div>
-                </template>
 
-                <!-- Protocol Distribution -->
-                <template x-if="protocols.protocols && protocols.protocols.length > 0">
-                    <div>
-                        <div
-                            style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">
-                            Protocol Distribution</div>
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <template x-for="(proto, idx) in protocols.protocols.slice(0, 5)" :key="proto.key">
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 0.85em;">
-                                    <span>
-                                        <span style="color: var(--text-primary);"
-                                            x-text="proto.proto_name || proto.key"></span>
-                                        <span style="color: var(--text-secondary); margin-left: 6px;"
-                                            x-text="'(' + (proto.bytes && summary.total_bytes ? ((proto.bytes / summary.total_bytes * 100).toFixed(1)) : '0') + '% of total)'"></span>
-                                    </span>
-                                    <span style="color: var(--text-primary); font-weight: 500;"
-                                        x-text="proto.bytes_fmt || fmtBytes(proto.bytes || 0)"></span>
+                    <!-- Network Efficiency -->
+                    <div style="margin-bottom: var(--space-5);">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">Network Efficiency</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+                            <div style="padding: var(--space-3); background: rgba(0, 255, 136, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-ok);"
+                                    x-text="networkIntelligence.network_efficiency.productive_pct + '%'">100%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Productive</div>
+                            </div>
+                            <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-warn);"
+                                    x-text="networkIntelligence.network_efficiency.noise_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Noise</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: var(--space-2); text-align: center; font-size: var(--fs-sm);">
+                            Status: <span style="font-weight: 600;"
+                                :style="'color: ' + (networkIntelligence.network_efficiency.status === 'Excellent' ? 'var(--signal-ok)' : networkIntelligence.network_efficiency.status === 'Good' ? 'var(--signal-info)' : networkIntelligence.network_efficiency.status === 'Fair' ? 'var(--signal-warn)' : 'var(--signal-crit)')"
+                                x-text="networkIntelligence.network_efficiency.status">Clean</span>
+                        </div>
+                    </div>
+
+                    <!-- Geographic Risk -->
+                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.geographic_risk">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">🌍 Geographic Risk</div>
+                        <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-left: 3px solid var(--signal-warn); border-radius: var(--radius-sm);">
+                            <div style="display: flex; align-items: center; gap: var(--space-2);">
+                                <span class="flag-icon" 
+                                    :class="'flag-icon-' + (networkIntelligence.geographic_risk?.country_iso || 'xx').toLowerCase()"
+                                    style="font-size: 1.5em;"></span>
+                                <div>
+                                    <div style="font-weight: 600; color: var(--text-primary);"
+                                        x-text="networkIntelligence.geographic_risk?.country">Unknown</div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
+                                        <span x-text="(networkIntelligence.geographic_risk?.threat_count || 0).toLocaleString() + ' threats'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Protocol Health Warnings -->
+                    <div x-show="networkIntelligence.protocol_health && networkIntelligence.protocol_health.length > 0">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚡ Protocol Warnings</div>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                            <template x-for="warning in networkIntelligence.protocol_health" :key="warning.protocol">
+                                <div style="padding: var(--space-2); background: rgba(255, 180, 0, 0.05); border-left: 2px solid var(--signal-warn); border-radius: var(--radius-sm); font-size: var(--fs-sm);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-weight: 600;" x-text="warning.protocol"></span>
+                                        <span style="color: var(--signal-warn); font-weight: 600;" x-text="warning.percentage + '%'"></span>
+                                    </div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);"
+                                        x-text="warning.warning"></div>
                                 </div>
                             </template>
                         </div>
                     </div>
-                </template>
+
+                    <!-- No Concerns State -->
+                    <div x-show="!networkIntelligence.loading && networkIntelligence.anomaly_score === 0 && !networkIntelligence.top_concern && (!networkIntelligence.protocol_health || networkIntelligence.protocol_health.length === 0)"
+                        style="text-align: center; padding: var(--space-6); color: var(--text-2);">
+                        <div style="font-size: 3em; margin-bottom: var(--space-2);">✅</div>
+                        <div style="font-weight: 600; color: var(--signal-ok); margin-bottom: var(--space-1);">All Clear</div>
+                        <div style="font-size: var(--fs-sm);">No security concerns detected</div>
+                    </div>
+
+                </div>
                 {% endcall %}
             </template>
 
