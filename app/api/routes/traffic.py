@@ -2723,11 +2723,11 @@ def api_firewall_snmp_status():
     gateway_latency = None
     try:
         # Get IP addresses and their interface mappings
-        ip_addr_cmd = f"snmpwalk -v2c -c {snmp_community} -Oqn {snmp_host} .1.3.6.1.2.1.4.20.1.1 2>/dev/null"
-        ip_idx_cmd = f"snmpwalk -v2c -c {snmp_community} -Oqn {snmp_host} .1.3.6.1.2.1.4.20.1.2 2>/dev/null"
+        ip_addr_cmd = ["snmpwalk", "-v2c", "-c", snmp_community, "-Oqn", snmp_host, ".1.3.6.1.2.1.4.20.1.1"]
+        ip_idx_cmd = ["snmpwalk", "-v2c", "-c", snmp_community, "-Oqn", snmp_host, ".1.3.6.1.2.1.4.20.1.2"]
 
-        ip_addr_output = subprocess.check_output(ip_addr_cmd, shell=True, timeout=3, text=True)
-        ip_idx_output = subprocess.check_output(ip_idx_cmd, shell=True, timeout=3, text=True)
+        ip_addr_output = subprocess.check_output(ip_addr_cmd, shell=False, stderr=subprocess.DEVNULL, timeout=3, text=True)
+        ip_idx_output = subprocess.check_output(ip_idx_cmd, shell=False, stderr=subprocess.DEVNULL, timeout=3, text=True)
 
         # Parse IP addresses: .1.3.6.1.2.1.4.20.1.1.x.x.x.x -> x.x.x.x
         ip_addresses = {}
@@ -2752,15 +2752,15 @@ def api_firewall_snmp_status():
                         interface_ips[idx] = ip_suffix
 
         # Get default gateway (route for 0.0.0.0)
-        gw_cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} .1.3.6.1.2.1.4.21.1.7.0.0.0.0 2>/dev/null"
-        gw_output = subprocess.check_output(gw_cmd, shell=True, timeout=3, text=True).strip()
+        gw_cmd = ["snmpget", "-v2c", "-c", snmp_community, "-Oqv", snmp_host, ".1.3.6.1.2.1.4.21.1.7.0.0.0.0"]
+        gw_output = subprocess.check_output(gw_cmd, shell=False, stderr=subprocess.DEVNULL, timeout=3, text=True).strip()
         if gw_output and gw_output != '0.0.0.0':
             default_gateway = gw_output
 
             # Ping gateway to measure latency
-            ping_cmd = f"ping -c 1 -W 1 {default_gateway} 2>/dev/null"
+            ping_cmd = ["ping", "-c", "1", "-W", "1", default_gateway]
             try:
-                ping_output = subprocess.check_output(ping_cmd, shell=True, timeout=2, text=True)
+                ping_output = subprocess.check_output(ping_cmd, shell=False, stderr=subprocess.DEVNULL, timeout=2, text=True)
                 # Parse ping output for time=X.XXX ms
                 import re
                 match = re.search(r'time[=<](\d+\.?\d*)', ping_output)
@@ -2891,19 +2891,19 @@ def api_firewall_snmp_status():
             vpn_out_disc_oid = f".1.3.6.1.2.1.2.2.1.19.{vpn_idx}"
             
             # Common OID string for errors/discards
-            err_oids = f"{vpn_in_err_oid} {vpn_out_err_oid} {vpn_in_disc_oid} {vpn_out_disc_oid}"
+            err_oid_list = [vpn_in_err_oid, vpn_out_err_oid, vpn_in_disc_oid, vpn_out_disc_oid]
             
             # Try 64-bit counters first, fallback to 32-bit if not available
             try:
-                cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {vpn_in_oid_hc} {vpn_out_oid_hc} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
+                cmd = ["snmpget", "-v2c", "-c", snmp_community, "-Oqv", snmp_host, vpn_in_oid_hc, vpn_out_oid_hc, vpn_status_oid, vpn_speed_oid] + err_oid_list
+                output = subprocess.check_output(cmd, shell=False, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
                 if len(values) < 8 or "No Such" in output:
                     raise ValueError("64-bit counters not available")
             except (ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
                 # Fallback to 32-bit counters
-                cmd = f"snmpget -v2c -c {snmp_community} -Oqv {snmp_host} {vpn_in_oid_32} {vpn_out_oid_32} {vpn_status_oid} {vpn_speed_oid} {err_oids}"
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.PIPE, timeout=3, text=True)
+                cmd = ["snmpget", "-v2c", "-c", snmp_community, "-Oqv", snmp_host, vpn_in_oid_32, vpn_out_oid_32, vpn_status_oid, vpn_speed_oid] + err_oid_list
+                output = subprocess.check_output(cmd, shell=False, stderr=subprocess.PIPE, timeout=3, text=True)
                 values = output.strip().split("\n")
             
             if len(values) >= 8:
