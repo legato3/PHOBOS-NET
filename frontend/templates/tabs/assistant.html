@@ -6,7 +6,7 @@
                 <span>🤖 Assistant</span>
                 <div class="card-actions">
                     <select x-model="ollamaChat.model" class="filter-select" style="min-width: 150px;"
-                        @change="fetchOllamaModels()" title="Select Ollama model">
+                        title="Select Ollama model">
                         <template
                             x-for="model in ollamaChat.availableModels.length > 0 ? ollamaChat.availableModels : ['deepseek-coder-v2:16b']"
                             :key="model">

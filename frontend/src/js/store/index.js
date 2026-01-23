@@ -856,6 +856,9 @@ export const Store = () => ({
 
             // Start countdown timer
             this.startCountdown();
+
+            // Initialize Ollama models
+            this.fetchOllamaModels();
         }, { timeout: 100 });
 
         // Watchers

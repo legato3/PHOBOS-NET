@@ -327,11 +327,32 @@ def api_stats_durations():
         header_norm = [h.lower().strip() for h in header]
         try:
             # Robust mapping for source/destination addresses and other fields
-            sa_idx = header_norm.index('sa') if 'sa' in header_norm else (header_norm.index('srcaddr') if 'srcaddr' in header_norm else 3)
-            da_idx = header_norm.index('da') if 'da' in header_norm else (header_norm.index('dstaddr') if 'dstaddr' in header_norm else 5)
-            pr_idx = header_norm.index('proto') if 'proto' in header_norm else (header_norm.index('pr') if 'pr' in header_norm else 2)
-            td_idx = header_norm.index('td') if 'td' in header_norm else (header_norm.index('duration') if 'duration' in header_norm else 1)
-            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else (header_norm.index('byt') if 'byt' in header_norm else 8))
+            if 'sa' in header_norm:
+                sa_idx = header_norm.index('sa')
+            elif 'srcaddr' in header_norm:
+                sa_idx = header_norm.index('srcaddr')
+            
+            if 'da' in header_norm:
+                da_idx = header_norm.index('da')
+            elif 'dstaddr' in header_norm:
+                da_idx = header_norm.index('dstaddr')
+            
+            if 'proto' in header_norm:
+                pr_idx = header_norm.index('proto')
+            elif 'pr' in header_norm:
+                pr_idx = header_norm.index('pr')
+            
+            if 'td' in header_norm:
+                td_idx = header_norm.index('td')
+            elif 'duration' in header_norm:
+                td_idx = header_norm.index('duration')
+
+            if 'ibyt' in header_norm:
+                ibyt_idx = header_norm.index('ibyt')
+            elif 'bytes' in header_norm:
+                ibyt_idx = header_norm.index('bytes')
+            elif 'byt' in header_norm:
+                ibyt_idx = header_norm.index('byt')
         except ValueError:
             # Last resort fallbacks based on version hints
             if 'firstseen' in header_norm:
@@ -777,15 +798,50 @@ def api_stats_talkers():
         # Map headers to indices with robust naming support
         try:
             header_norm = [h.lower().strip() for h in header]
-            ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
-            td_idx = header_norm.index('td') if 'td' in header_norm else (header_norm.index('duration') if 'duration' in header_norm else 1)
-            pr_idx = header_norm.index('pr') if 'pr' in header_norm else (header_norm.index('proto') if 'proto' in header_norm else 2)
-            sa_idx = header_norm.index('sa') if 'sa' in header_norm else (header_norm.index('srcaddr') if 'srcaddr' in header_norm else 3)
-            da_idx = header_norm.index('da') if 'da' in header_norm else (header_norm.index('dstaddr') if 'dstaddr' in header_norm else 5)
-            sp_idx = header_norm.index('sp') if 'sp' in header_norm else (header_norm.index('srcport') if 'srcport' in header_norm else 4)
-            dp_idx = header_norm.index('dp') if 'dp' in header_norm else (header_norm.index('dstport') if 'dstport' in header_norm else 6)
-            ipkt_idx = header_norm.index('ipkt') if 'ipkt' in header_norm else (header_norm.index('packets') if 'packets' in header_norm else 7)
-            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+            if 'ts' in header_norm:
+                ts_idx = header_norm.index('ts')
+            elif 'firstseen' in header_norm:
+                ts_idx = header_norm.index('firstseen')
+
+            if 'td' in header_norm:
+                td_idx = header_norm.index('td')
+            elif 'duration' in header_norm:
+                td_idx = header_norm.index('duration')
+
+            if 'pr' in header_norm:
+                pr_idx = header_norm.index('pr')
+            elif 'proto' in header_norm:
+                pr_idx = header_norm.index('proto')
+
+            if 'sa' in header_norm:
+                sa_idx = header_norm.index('sa')
+            elif 'srcaddr' in header_norm:
+                sa_idx = header_norm.index('srcaddr')
+
+            if 'da' in header_norm:
+                da_idx = header_norm.index('da')
+            elif 'dstaddr' in header_norm:
+                da_idx = header_norm.index('dstaddr')
+
+            if 'sp' in header_norm:
+                sp_idx = header_norm.index('sp')
+            elif 'srcport' in header_norm:
+                sp_idx = header_norm.index('srcport')
+
+            if 'dp' in header_norm:
+                dp_idx = header_norm.index('dp')
+            elif 'dstport' in header_norm:
+                dp_idx = header_norm.index('dstport')
+
+            if 'ipkt' in header_norm:
+                ipkt_idx = header_norm.index('ipkt')
+            elif 'packets' in header_norm:
+                ipkt_idx = header_norm.index('packets')
+
+            if 'ibyt' in header_norm:
+                ibyt_idx = header_norm.index('ibyt')
+            elif 'bytes' in header_norm:
+                ibyt_idx = header_norm.index('bytes')
         except (ValueError, IndexError):
             pass
 
