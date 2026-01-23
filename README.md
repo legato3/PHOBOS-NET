@@ -93,7 +93,7 @@ services:
 
 2. **Launch**:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### First-Run Validation
