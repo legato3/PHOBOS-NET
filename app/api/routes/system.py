@@ -64,10 +64,12 @@ from app.core.app_state import (
     _dns_resolver_executor,
     _flow_history, _flow_history_lock, _flow_history_ttl,
     _app_log_buffer, _app_log_buffer_lock, add_app_log,
+    get_dependency_health,
 )
 # Import threats module to access threat state
 import app.services.security.threats as threats_module
 import app.core.app_state as state
+from app.core.app_state import get_dependency_health
 from app.services.shared.config_helpers import load_notify_cfg, save_notify_cfg, load_thresholds, save_thresholds, load_config, save_config
 from app.services.shared.formatters import format_time_ago, format_uptime
 from app.services.shared.geoip import lookup_geo, load_city_db
@@ -260,16 +262,17 @@ def metrics():
 @bp.route('/health')
 def health_check():
     """Health check endpoint for monitoring."""
-    # Syslog is considered active if:
-    # 1. Messages have been received, OR
-    # 2. The receiver thread is running (listening but no traffic yet)
-    syslog_active = _syslog_stats.get('received', 0) > 0 or state._syslog_thread_started
+    # Use shared state (from maintenance worker) via /dev/shm
+    deps = get_dependency_health()
+    
+    syslog_active = deps.get('syslog_514', {}).get('listening', False)
+    nfdump_running = deps.get('nfcapd', {}).get('running', False)
     
     checks = {
         'database': False,
         'disk_space': check_disk_space(NFCAPD_DIR),
         'syslog_active': syslog_active,
-        'nfdump_available': state._has_nfdump,
+        'nfdump_available': nfdump_running,
         'memory_usage_mb': 0
     }
 
@@ -328,6 +331,12 @@ def api_server_health():
     """Comprehensive server health statistics for the dashboard server."""
     global _server_health_cache
     now = time.time()
+    
+    # Fetch shared dependency health (authoritative source)
+    deps = get_dependency_health()
+    
+    # Fetch shared dependency health (authoritative source)
+    deps = get_dependency_health()
 
     # Use cache if data is fresh (1 second TTL for near-real-time updates)
     SERVER_HEALTH_CACHE_TTL = 1.0
@@ -506,53 +515,42 @@ def api_server_health():
 
     # Syslog Statistics
     try:
-        with _syslog_stats_lock:
-            # Syslog is active if: thread is started (receiver is running)
-            # If logs have been received, also check if last log was recent (within 5 min)
-            last_log_ts = _syslog_stats.get('last_log')
-            if last_log_ts:
-                # If we have logs, check if they're recent
-                syslog_active = (time.time() - last_log_ts) < 300
-            else:
-                # If no logs yet, consider active if thread is running (receiver is listening)
-                syslog_active = state._syslog_thread_started
-
-            data['syslog'] = {
-                'received': _syslog_stats.get('received', 0),
-                'parsed': _syslog_stats.get('parsed', 0),
-                'errors': _syslog_stats.get('errors', 0),
-                'last_log': last_log_ts,
-                'last_event': datetime.fromtimestamp(last_log_ts).strftime('%H:%M:%S') if last_log_ts else None,
-                'active': syslog_active
-            }
+        # Use authoritative shared status
+        syslog_status = deps.get('syslog_514', {})
+        active = syslog_status.get('listening', False)
+        received = syslog_status.get('received', 0)
+        
+        # Fallback to local stats if shared memory is empty (e.g. at startup)
+        if not active:
+             with _syslog_stats_lock:
+                received_local = _syslog_stats.get('received', 0)
+                if received_local > received:
+                    received = received_local
+                    
+        data['syslog'] = {
+            'received': received,
+            'parsed': syslog_status.get('parsed', 0) or _syslog_stats.get('parsed', 0),
+            'errors': syslog_status.get('errors', 0) or _syslog_stats.get('errors', 0),
+            'last_log': syslog_status.get('last_packet_time'),
+            'last_event': datetime.fromtimestamp(syslog_status.get('last_packet_time')).strftime('%H:%M:%S') if syslog_status.get('last_packet_time') else None,
+            'active': active
+        }
     except Exception:
         data['syslog'] = {'error': 'Unable to read syslog stats'}
 
     # Firewall Syslog Statistics (Port 515)
     try:
-        from app.services.syslog.firewall_listener import get_firewall_syslog_stats
-        firewall_syslog_stats = get_firewall_syslog_stats()
+        fw_status = deps.get('syslog_515', {})
+        fw_active = fw_status.get('listening', False)
+        fw_last_log = fw_status.get('last_packet_time')
         
-        # Determine if firewall syslog is active
-        firewall_syslog_active = False
-        if firewall_syslog_stats:
-            last_log_ts = firewall_syslog_stats.get('last_log')
-            if last_log_ts:
-                # If we have logs, check if they're recent
-                firewall_syslog_active = (time.time() - last_log_ts) < 300
-            else:
-                # If no logs yet, consider active if thread is running
-                from app.services.syslog.firewall_listener import _firewall_syslog_thread_started
-                firewall_syslog_active = _firewall_syslog_thread_started
-
-        fw_last_log = firewall_syslog_stats.get('last_log') if firewall_syslog_stats else None
         data['firewall_syslog'] = {
-            'received': firewall_syslog_stats.get('received', 0) if firewall_syslog_stats else 0,
-            'parsed': firewall_syslog_stats.get('parsed', 0) if firewall_syslog_stats else 0,
-            'errors': firewall_syslog_stats.get('errors', 0) if firewall_syslog_stats else 0,
+            'received': fw_status.get('received', 0),
+            'parsed': 0, # Not tracked deeply in shared yet
+            'errors': 0,
             'last_log': fw_last_log,
             'last_event': datetime.fromtimestamp(fw_last_log).strftime('%H:%M:%S') if fw_last_log else None,
-            'active': firewall_syslog_active
+            'active': fw_active
         }
     except Exception:
         data['firewall_syslog'] = {'error': 'Unable to read firewall syslog stats'}
@@ -637,6 +635,13 @@ def api_server_health():
                     netflow_data['files_count'] = max(netflow_data['files_count'], len(files))
         except Exception:
             pass
+
+        # Force authoritative status from shared state
+        if 'nfcapd' in deps:
+             netflow_data['available'] = deps['nfcapd'].get('running', False)
+             # Update file count from shared state if disk scan failed or was empty
+             if not netflow_data.get('files_count'):
+                  netflow_data['files_count'] = deps['nfcapd'].get('files_count', 0)
 
         data['netflow'] = netflow_data
     except Exception as e:
