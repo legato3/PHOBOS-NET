@@ -11,6 +11,7 @@ Note: Some state remains in specialized modules:
 - Database locks → app/db/sqlite.py
 """
 import threading
+import time
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
 

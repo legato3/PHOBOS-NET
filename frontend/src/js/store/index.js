@@ -68,6 +68,7 @@ export const Store = () => ({
     },
     heavyTTL: 60000, // 60s for heavy widgets
     mediumTTL: 30000, // 30s for flows
+    shortTTL: 10000, // 10s for light overview boxes
 
     // Low Power mode
     lowPower: false,
@@ -864,9 +865,6 @@ export const Store = () => ({
 
             // Start countdown timer
             this.startCountdown();
-
-            // Initialize Ollama models
-            this.fetchOllamaModels();
         }, { timeout: 100 });
 
         // Watchers
@@ -6642,13 +6640,16 @@ export const Store = () => ({
                 this.fetchWorldMap();
                 this.lastFetch.worldmap = now;
             }
-            // Fetch data needed for Overview stat boxes
-            this.fetchNetworkStatsOverview();
-            this.fetchFirewallStatsOverview();
-            this.fetchNetHealth();
-            this.fetchSecurityObservability();
-            this.fetchAlertHistory();
-            this.fetchBaselineSignals();
+            // Fetch data needed for Overview stat boxes with short TTL gating
+            if (now - (this.lastFetch.overview || 0) > this.shortTTL) {
+                this.fetchNetworkStatsOverview();
+                this.fetchFirewallStatsOverview();
+                this.fetchNetHealth();
+                this.fetchSecurityObservability();
+                this.fetchAlertHistory();
+                this.fetchBaselineSignals();
+                this.lastFetch.overview = now;
+            }
             // Map initialization is handled by IntersectionObserver when section becomes visible
             // Just fetch data here if needed
         } else if (tab === 'server') {
@@ -6704,13 +6705,19 @@ export const Store = () => ({
                 this.fetchFlows();
                 this.lastFetch.flows = now;
             }
-            this.fetchFirewallStatsOverview();
+            if (now - (this.lastFetch.overview || 0) > this.shortTTL) {
+                this.fetchFirewallStatsOverview();
+                this.lastFetch.overview = now;
+            }
             this.fetchRecentBlocks();
             this.fetchAlertCorrelation();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
         } else if (tab === 'firewall') {
-            this.fetchFirewallStatsOverview();
+            if (now - (this.lastFetch.overview || 0) > this.shortTTL) {
+                this.fetchFirewallStatsOverview();
+                this.lastFetch.overview = now;
+            }
             this.fetchRecentBlocks();
             this.fetchFirewallSyslog();
             this.fetchAlertCorrelation();

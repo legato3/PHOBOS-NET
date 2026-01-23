@@ -89,9 +89,7 @@ from app.config import (
 
 @bp.route("/")
 def index():
-    start_threat_thread()
-    start_trends_thread()
-    start_agg_thread()
+    """Main dashboard entry point. Background threads are managed at the worker level."""
     return render_template("index.html")
 
 

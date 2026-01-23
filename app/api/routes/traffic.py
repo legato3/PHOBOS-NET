@@ -1528,7 +1528,7 @@ def api_stats_proto_mix():
 
 
 @bp.route("/api/firewall/stats/overview")
-@throttle(5, 10)
+@throttle(30, 10)
 def api_firewall_stats_overview():
     """Get high-signal firewall stat box metrics for at-a-glance situational awareness."""
     now = time.time()
@@ -1861,7 +1861,7 @@ def api_bandwidth():
 
 
 @bp.route("/api/network/stats/overview")
-@throttle(5, 10)
+@throttle(30, 10)
 def api_network_stats_overview():
     """Get high-signal network stat box metrics for at-a-glance network behavior insight."""
     now = time.time()

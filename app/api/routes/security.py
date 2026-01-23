@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 # Changed @app.route() to @bp.route()
 
 @bp.route("/api/stats/net_health")
-@throttle(5, 10)
+@throttle(30, 10)
 def api_stats_net_health():
     """System Health Check (Operability Focus).
     
@@ -2036,7 +2036,23 @@ def api_ollama_models():
         models = [model.get('name', '') for model in data.get('models', [])]
         return jsonify({"models": models})
 
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
+        ollama_base = os.getenv('OLLAMA_URL', 'http://localhost:11434')
+        add_app_log(f"Ollama connection failed to {ollama_base}: {e}", 'WARN')
+        
+        # Simple auto-fallback for local Docker development
+        if 'localhost' in ollama_base:
+            try:
+                fallback_url = ollama_base.replace('localhost', 'host.docker.internal')
+                add_app_log(f"Attempting Ollama fallback to {fallback_url}...", 'INFO')
+                response = requests.get(f"{fallback_url}/api/tags", timeout=3)
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [model.get('name', '') for model in data.get('models', [])]
+                    return jsonify({"models": models})
+            except Exception:
+                pass
+
         return jsonify({"error": "Cannot connect to Ollama", "models": []}), 503
     except Exception as e:
         add_app_log(f"Ollama models error: {e}", 'ERROR')

@@ -10,11 +10,18 @@ work_dir = os.getenv('WORKDIR', '/app')
 sys.path.insert(0, work_dir)
 
 # CRITICAL FIX: Disable sendfile to resolve ERR_CONTENT_LENGTH_MISMATCH
-# This is required when running in Docker with virtualized filesystems (like on Mac)
-# to ensure consistent Content-Length calculation during high concurrency.
+# This is required when running in Docker with virtualized filesystems
+# to ensure consistent Content-Length calculation.
 sendfile = False
-# Use /dev/shm for Gunicorn temporary files to improve performance and reliability in Docker
+# Use /dev/shm for Gunicorn temporary files
 worker_tmp_dir = "/dev/shm"
+
+# Performance & Stability Tuning
+workers = 1  # Standard for this application's background thread model
+threads = 4  # Allow concurrency within the worker
+timeout = 120  # Prevent SIGKILL on slow database queries or large log fetches
+keepalive = 5  # Help with persistent connections from browser
+preload_app = False # Ensure background threads start fresh in worker
 
 def post_worker_init(worker):
     """Called just after a worker has initialized the application."""

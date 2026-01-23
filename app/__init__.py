@@ -3,8 +3,15 @@
 This module creates and configures the Flask application instance.
 """
 import time
-from flask import Flask, request, g
 import os
+import uuid
+from flask import Flask, request, g, jsonify, Response, current_app
+
+# Import observability and metrics at top level to avoid handler overhead
+from app.services.shared.metrics import track_performance, track_slow_request
+from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
+from app.services.shared.observability import _logger
+from app.core.app_state import record_http_request_start, record_http_request_end
 
 def create_app():
     """Create and configure the Flask application."""
@@ -37,12 +44,9 @@ def create_app():
     def track_request_start():
         """OBSERVABILITY: Track request start time and concurrent requests."""
         # Simple bypass for static files to reduce overhead
-        if request.path.startswith('/static/') or request.path.endswith(('.ico', '.png', '.js', '.css')):
+        if request.path.startswith('/static/') or request.path.endswith(('.ico', '.png', '.js', '.css', '.svg', '.woff', '.woff2')):
             return
 
-        import uuid
-        from app.core.app_state import record_http_request_start
-        from datetime import datetime
         g.request_start_time = time.time()
         g.request_id = str(uuid.uuid4())[:8]
         record_http_request_start(g.request_id)
@@ -51,22 +55,28 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. CRITICAL BYPASS: Skip ALL custom logic for static files and common assets.
-            # Use path-based matching FIRST for speed, then extension matching.
-            if request.endpoint == 'static' or \
-               request.path.startswith('/static/') or \
-               request.path.startswith('/img/') or \
-               request.path.startswith('/api/firewall/') or \
-               request.path.startswith('/api/stats/') or \
-               request.path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2')):
+            # 1. PASSTHROUGH BYPASS: Do NOT touch responses that are already optimized.
+            # This includes static files and streaming responses.
+            if response.direct_passthrough or response.is_streamed:
                 return response
 
-            # 2. Performance Tracking
-            from app.services.shared.metrics import track_performance, track_slow_request
-            from app.config import OBS_ROUTE_SLOW_MS, OBS_ROUTE_SLOW_WARN_MS
-            from app.services.shared.observability import _logger
-            from app.core.app_state import record_http_request_end
+            path = request.path
+            # 2. ADDITIONAL STATIC BYPASS: Extra safety for identified common assets.
+            if path == '/' or \
+               request.endpoint == 'static' or \
+               path.startswith(('/static/', '/img/')) or \
+               path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2', '.mmdb')):
+                return response
 
+            # 3. THE NUCLEAR FIX: Recalculate Content-Length for APIs and dynamic routes.
+            # Forces data read into memory to ensure the length header is 100% accurate.
+            try:
+                # set_data() resets the body and updates the Content-Length header.
+                response.set_data(response.get_data())
+            except Exception:
+                pass
+
+            # 4. Performance Tracking (Dynamic Routes Only)
             endpoint = request.endpoint or 'unknown'
             if hasattr(g, 'request_start_time'):
                 duration = time.time() - g.request_start_time
@@ -81,34 +91,18 @@ def create_app():
                 if duration_ms > OBS_ROUTE_SLOW_MS:
                     track_slow_request()
                     if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
-                        _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {request.path}")
+                        _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {path}")
 
-            # 3. Security Headers (only for non-static content)
+            # 5. Security Headers
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
             
-            # Use a slightly more relaxed CSP for CDN/Icons if needed, but keep it strict by default
-            response.headers['Content-Security-Policy'] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; "
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; "
-                "img-src 'self' data: https:; "
-                "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; "
-                "connect-src 'self'; "
-            )
-
-            # 4. API Cache Control
-            if request.path.startswith('/api/'):
+            # 6. API Cache Control
+            if path.startswith('/api/'):
                 response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             
             return response
-        except Exception as e:
-            # Fallback for unexpected errors in middleware to ensure response delivery
-            try:
-                from app.services.shared.observability import _logger
-                _logger.error(f"Error in after_request: {e}")
-            except:
-                pass
+        except Exception:
             return response
     
     return app
