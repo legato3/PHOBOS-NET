@@ -220,15 +220,26 @@ def parse_csv(output, expected_key=None):
         return results
     
     seen_keys = set()
+    # PERFORMANCE: Calculate required length once outside loop
+    required_len = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
+
     for line in lines[start_row_idx:]:
         if not line:
             continue
-        line_lower = line.lower().strip()
-        if 'ts,' in line_lower or 'te,' in line_lower or 'date first seen' in line_lower or 'firstseen,' in line_lower:
-            continue
+
+        # PERFORMANCE: Split first, then check length to avoid processing short lines
         parts = line.split(",")
-        if len(parts) <= max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0):
+        if len(parts) <= required_len:
             continue
+
+        # PERFORMANCE: Fast path to skip header/summary checks for data rows
+        # Timestamps start with a digit (e.g., 2023-...). Headers start with 'ts', 'te', 'Sys', etc.
+        p0 = parts[0]
+        if not (p0 and p0[0].isdigit()):
+            line_lower = line.lower()
+            if 'ts,' in line_lower or 'te,' in line_lower or 'date first seen' in line_lower or 'firstseen,' in line_lower or 'sys:' in line_lower or 'summary' in line_lower:
+                continue
+
         try:
             key = parts[key_idx].strip()
             if not key or "/" in key or key == "any":
@@ -555,10 +566,12 @@ def get_raw_flows(tf, limit=2000):
                         elif 'byt' in header: ibyt_idx = header.index('byt')
 
                         if sa_idx != -1 and da_idx != -1:
+                            # PERFORMANCE: Calculate required length once
+                            required_len = max(sa_idx, da_idx)
                             for line in lines[header_idx+1:]:
                                 if not line or 'sys:' in line or 'summary' in line: continue
                                 parts = line.split(',')
-                                if len(parts) <= max(sa_idx, da_idx): continue
+                                if len(parts) <= required_len: continue
 
                                 flow_data.append({
                                     "src_ip": parts[sa_idx],
