@@ -482,122 +482,98 @@
             <template x-if="isVisible('insights')">
                 {% call widget_card('insights', 'Network Intelligence', '🧠', show_spinner=True) %}
                 <div class="widget-body-inner" style="padding: var(--space-4);">
-                    
-                    <!-- Anomaly Score -->
+
+                    <!-- Bandwidth Utilization -->
                     <div style="margin-bottom: var(--space-5);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
-                            <span style="font-weight: 600; color: var(--text-primary); font-size: var(--fs-sm);">Traffic Anomaly Score</span>
-                            <span style="font-size: var(--fs-2xl); font-weight: 700;"
-                                :style="'color: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)')"
-                                x-text="networkIntelligence.anomaly_score + '%'">0%</span>
+                        <div
+                            style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-3); font-size: var(--fs-sm);">
+                            📊 Bandwidth Distribution</div>
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-2);">
+                            <div style="text-align: center;">
+                                <div style="font-size: var(--fs-2xl); font-weight: 700; color: var(--signal-primary);"
+                                    x-text="networkIntelligence.bandwidth_utilization.top_talker_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">
+                                    Top Talker</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: var(--fs-2xl); font-weight: 700; color: var(--signal-info);"
+                                    x-text="networkIntelligence.bandwidth_utilization.top_5_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">
+                                    Top 5</div>
+                            </div>
                         </div>
-                        <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
-                            <div :style="'width: ' + networkIntelligence.anomaly_score + '%; height: 100%; background: ' + (networkIntelligence.anomaly_score > 50 ? 'var(--signal-crit)' : networkIntelligence.anomaly_score > 20 ? 'var(--signal-warn)' : 'var(--signal-ok)') + '; transition: width 0.3s ease;'"></div>
-                        </div>
-                        <div style="margin-top: var(--space-1); font-size: var(--fs-xs); color: var(--text-2);"
-                            x-text="'Level: ' + networkIntelligence.anomaly_level">Level: Low</div>
-                    </div>
-
-                    <!-- Top Security Concern -->
-                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.top_concern">
-                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚠️ Top Security Concern</div>
-                        <div style="padding: var(--space-3); background: rgba(255, 23, 68, 0.08); border-left: 3px solid var(--signal-crit); border-radius: var(--radius-sm);">
-                            <template x-if="networkIntelligence.top_concern?.type === 'threat_ip'">
-                                <div>
-                                    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
-                                        <span class="flag-icon" 
-                                            :class="'flag-icon-' + (networkIntelligence.top_concern.country_iso || 'xx').toLowerCase()"
-                                            style="font-size: 1.2em;"></span>
-                                        <span class="clickable-ip" @click="openIPModal(networkIntelligence.top_concern.ip)"
-                                            style="color: var(--signal-crit); font-weight: 600; cursor: pointer;"
-                                            x-text="networkIntelligence.top_concern.ip"></span>
-                                        <span class="badge" style="background: rgba(255, 23, 68, 0.2); color: var(--signal-crit); font-size: var(--fs-xs);"
-                                            x-text="networkIntelligence.top_concern.category"></span>
-                                    </div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
-                                        <span x-text="networkIntelligence.top_concern.hits + ' detections'"></span>
-                                        <span style="margin: 0 var(--space-1);">•</span>
-                                        <span x-text="networkIntelligence.top_concern.feed"></span>
-                                    </div>
-                                </div>
-                            </template>
-                            <template x-if="networkIntelligence.top_concern?.type === 'suspicious_port'">
-                                <div>
-                                    <div style="color: var(--signal-warn); font-weight: 600; margin-bottom: var(--space-1);">
-                                        Port <span x-text="networkIntelligence.top_concern.port"></span>
-                                    </div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
-                                        <span x-text="networkIntelligence.top_concern.bytes_fmt + ' traffic'"></span>
-                                    </div>
-                                </div>
-                            </template>
+                        <div
+                            style="text-align: center; padding: var(--space-2); background: rgba(0, 234, 255, 0.05); border-radius: var(--radius-sm);">
+                            <span style="font-size: var(--fs-xs); color: var(--text-2);">Distribution: </span>
+                            <span style="font-weight: 600; color: var(--text-primary);"
+                                x-text="networkIntelligence.bandwidth_utilization.distribution">Balanced</span>
                         </div>
                     </div>
 
-                    <!-- Network Efficiency -->
+                    <!-- Protocol Diversity -->
                     <div style="margin-bottom: var(--space-5);">
-                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">Network Efficiency</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
-                            <div style="padding: var(--space-3); background: rgba(0, 255, 136, 0.05); border-radius: var(--radius-sm); text-align: center;">
-                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-ok);"
-                                    x-text="networkIntelligence.network_efficiency.productive_pct + '%'">100%</div>
-                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Productive</div>
-                            </div>
-                            <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-radius: var(--radius-sm); text-align: center;">
-                                <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-warn);"
-                                    x-text="networkIntelligence.network_efficiency.noise_pct + '%'">0%</div>
-                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">Noise</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: var(--space-2); text-align: center; font-size: var(--fs-sm);">
-                            Status: <span style="font-weight: 600;"
-                                :style="'color: ' + (networkIntelligence.network_efficiency.status === 'Excellent' ? 'var(--signal-ok)' : networkIntelligence.network_efficiency.status === 'Good' ? 'var(--signal-info)' : networkIntelligence.network_efficiency.status === 'Fair' ? 'var(--signal-warn)' : 'var(--signal-crit)')"
-                                x-text="networkIntelligence.network_efficiency.status">Clean</span>
-                        </div>
-                    </div>
-
-                    <!-- Geographic Risk -->
-                    <div style="margin-bottom: var(--space-5);" x-show="networkIntelligence.geographic_risk">
-                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">🌍 Geographic Risk</div>
-                        <div style="padding: var(--space-3); background: rgba(255, 180, 0, 0.05); border-left: 3px solid var(--signal-warn); border-radius: var(--radius-sm);">
-                            <div style="display: flex; align-items: center; gap: var(--space-2);">
-                                <span class="flag-icon" 
-                                    :class="'flag-icon-' + (networkIntelligence.geographic_risk?.country_iso || 'xx').toLowerCase()"
-                                    style="font-size: 1.5em;"></span>
+                        <div
+                            style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">
+                            🔀 Protocol Mix</div>
+                        <div
+                            style="padding: var(--space-3); background: rgba(123, 123, 255, 0.05); border-left: 3px solid var(--signal-tertiary); border-radius: var(--radius-sm);">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
                                 <div>
-                                    <div style="font-weight: 600; color: var(--text-primary);"
-                                        x-text="networkIntelligence.geographic_risk?.country">Unknown</div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">
-                                        <span x-text="(networkIntelligence.geographic_risk?.threat_count || 0).toLocaleString() + ' threats'"></span>
-                                    </div>
+                                    <div style="font-weight: 600; color: var(--text-primary); font-size: var(--fs-md);"
+                                        x-text="networkIntelligence.protocol_diversity.primary_protocol">TCP</div>
+                                    <div style="font-size: var(--fs-xs); color: var(--text-2);">Primary Protocol</div>
                                 </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: var(--fs-xl); font-weight: 700; color: var(--signal-tertiary);"
+                                        x-text="networkIntelligence.protocol_diversity.primary_pct + '%'">0%</div>
+                                </div>
+                            </div>
+                            <div
+                                style="display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-2);">
+                                <span x-text="networkIntelligence.protocol_diversity.protocols_count + ' protocols'">0
+                                    protocols</span>
+                                <span style="font-weight: 600;"
+                                    :style="'color: ' + (networkIntelligence.protocol_diversity.balance === 'Diverse' ? 'var(--signal-ok)' : networkIntelligence.protocol_diversity.balance === 'Dominant' ? 'var(--signal-info)' : 'var(--signal-warn)')"
+                                    x-text="networkIntelligence.protocol_diversity.balance">Diverse</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Protocol Health Warnings -->
-                    <div x-show="networkIntelligence.protocol_health && networkIntelligence.protocol_health.length > 0">
-                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">⚡ Protocol Warnings</div>
-                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                            <template x-for="warning in networkIntelligence.protocol_health" :key="warning.protocol">
-                                <div style="padding: var(--space-2); background: rgba(255, 180, 0, 0.05); border-left: 2px solid var(--signal-warn); border-radius: var(--radius-sm); font-size: var(--fs-sm);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="font-weight: 600;" x-text="warning.protocol"></span>
-                                        <span style="color: var(--signal-warn); font-weight: 600;" x-text="warning.percentage + '%'"></span>
-                                    </div>
-                                    <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);"
-                                        x-text="warning.warning"></div>
-                                </div>
-                            </template>
+                    <!-- Connection Patterns -->
+                    <div style="margin-bottom: var(--space-5);">
+                        <div
+                            style="font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--fs-sm);">
+                            ⏱️ Connection Patterns</div>
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-2);">
+                            <div
+                                style="padding: var(--space-2); background: rgba(0, 255, 136, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-lg); font-weight: 700; color: var(--signal-ok);"
+                                    x-text="networkIntelligence.connection_patterns.short_lived_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">
+                                    Short</div>
+                            </div>
+                            <div
+                                style="padding: var(--space-2); background: rgba(0, 162, 255, 0.05); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-lg); font-weight: 700; color: var(--signal-info);"
+                                    x-text="networkIntelligence.connection_patterns.long_lived_pct + '%'">0%</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">
+                                    Long</div>
+                            </div>
+                            <div
+                                style="padding: var(--space-2); background: rgba(255, 255, 255, 0.02); border-radius: var(--radius-sm); text-align: center;">
+                                <div style="font-size: var(--fs-lg); font-weight: 700; color: var(--text-primary);"
+                                    x-text="networkIntelligence.connection_patterns.avg_duration_fmt">0s</div>
+                                <div style="font-size: var(--fs-xs); color: var(--text-2); margin-top: var(--space-1);">
+                                    Avg</div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- No Concerns State -->
-                    <div x-show="!networkIntelligence.loading && networkIntelligence.anomaly_score === 0 && !networkIntelligence.top_concern && (!networkIntelligence.protocol_health || networkIntelligence.protocol_health.length === 0)"
-                        style="text-align: center; padding: var(--space-6); color: var(--text-2);">
-                        <div style="font-size: 3em; margin-bottom: var(--space-2);">✅</div>
-                        <div style="font-weight: 600; color: var(--signal-ok); margin-bottom: var(--space-1);">All Clear</div>
-                        <div style="font-size: var(--fs-sm);">No security concerns detected</div>
+                        <div style="text-align: center; font-size: var(--fs-xs); color: var(--text-2);">
+                            Pattern: <span style="font-weight: 600; color: var(--text-primary);"
+                                x-text="networkIntelligence.connection_patterns.pattern">Normal</span>
+                        </div>
                     </div>
 
                 </div>
