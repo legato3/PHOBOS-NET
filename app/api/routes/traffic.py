@@ -305,7 +305,18 @@ def api_stats_durations():
         rows = []
         lines = output.strip().split("\n")
         if not lines:
-             return jsonify({"durations": [], "avg_duration": 0, "total_bytes_fmt": "0 B"})
+             return jsonify({
+                 "durations": [],
+                 "stats": {
+                     "avg_duration": 0,
+                     "avg_duration_fmt": "0s",
+                     "total_flows": 0,
+                     "total_bytes": 0,
+                     "total_bytes_fmt": "0 B",
+                     "max_duration": 0,
+                     "max_duration_fmt": "0s"
+                 }
+             })
 
         # Robust Header Detection
         header_idx = -1
@@ -777,7 +788,7 @@ def api_stats_talkers():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return jsonify([])
+            return jsonify({"flows": []})
 
         # Robust Header Detection
         header_idx = -1
@@ -1072,7 +1083,17 @@ def api_noise_metrics():
     try:
         lines = output.strip().split("\n")
         if not lines:
-             return jsonify(None)
+             return jsonify({
+                 "score": 0,
+                 "level": "Low",
+                 "total_flows": 0,
+                 "noise_flows": 0,
+                 "breakdown": {
+                     "scans": 0,
+                     "blocked": 0,
+                     "tiny": 0
+                 }
+             })
 
         # Robust Header Detection
         header_idx = -1
@@ -1238,7 +1259,7 @@ def api_stats_hourly():
     try:
         lines = output.strip().split("\n")
         if not lines:
-             return jsonify(None)
+             return jsonify({})
 
         # Robust Header Detection
         header_idx = -1

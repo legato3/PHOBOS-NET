@@ -3337,6 +3337,7 @@ def api_forensics_flow_search():
 
         try:
             # Robust mapping for nfdump csv outputs
+            header = lines[0].split(',')
             ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
             sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
             da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
