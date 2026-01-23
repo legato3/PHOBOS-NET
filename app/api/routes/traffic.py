@@ -540,7 +540,7 @@ def api_stats_packet_sizes():
             _stats_pkts_cache["ts"] = now
             _stats_pkts_cache["key"] = range_key
         return jsonify(data)
-    except (ValueError, IndexError, KeyError, TypeError):
+    except (ValueError, IndexError, KeyError, TypeError, ZeroDivisionError):
         return jsonify({"labels":[], "data":[]})
 
 
@@ -2482,6 +2482,10 @@ def api_flows():
                     flow_history = []
                     with _flow_history_lock:
                         if history_key not in _flow_history:
+                            # Prevent unbounded memory growth
+                            if len(_flow_history) > 10000:
+                                _flow_history.clear()
+                                add_app_log("Cleared flow history cache (size limit exceeded)", "WARN")
                             _flow_history[history_key] = []
                         _flow_history[history_key].append({
                             "ts": flow_time,

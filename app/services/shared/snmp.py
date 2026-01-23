@@ -22,6 +22,7 @@ from app.services.shared.timeline import add_timeline_event
 # Track previous SNMP availability state for change detection
 _snmp_prev_available = None
 _snmp_prev_available_lock = threading.Lock()
+_startup_lock = threading.Lock()
 
 
 @instrument_service('get_snmp_data')
@@ -423,9 +424,10 @@ def discover_interfaces():
 
 def start_snmp_thread():
     """Start background SNMP polling to enable near real-time updates."""
-    if state._snmp_thread_started:
-        return
-    state._snmp_thread_started = True
+    with _startup_lock:
+        if state._snmp_thread_started:
+            return
+        state._snmp_thread_started = True
 
     def loop():
         while not _shutdown_event.is_set():

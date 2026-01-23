@@ -100,6 +100,7 @@ def parse_csv(output, expected_key=None):
     results = []
     # Defensive check: ensure output is a string (handle None case)
     if output is None:
+        add_app_log("parse_csv received None output (nfdump failure)", "WARN")
         return results
     if not output:
         return results
@@ -183,6 +184,7 @@ def parse_csv(output, expected_key=None):
                 key_idx = cols.index('dstport')
         
         if key_idx == -1:
+            add_app_log("nfdump CSV header missing/unknown, using fallback indices (fragile)", "WARN")
             key_idx = 4
         
         # Value columns
