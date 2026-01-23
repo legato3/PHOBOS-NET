@@ -74,7 +74,7 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
-from app.services.shared.decorators import throttle
+from app.services.shared.decorators import throttle, login_required, admin_required
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect, reset_firewall_database
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
@@ -1461,23 +1461,17 @@ def api_database_stats():
 # SERVER MAINTENANCE
 # ============================================
 @bp.route('/api/server/maintenance', methods=['POST'])
+@login_required
+@admin_required
 @throttle(2, 10)
 def api_server_maintenance():
     """Run server maintenance actions (destructive).
     
     SECURITY: Internal Authentication, Admin authorization, and CSRF 
-    protection are enforced here.
+    protection are enforced here. Authentication/Admin checks are performed 
+    by decorators before the throttle to prevent rate-limit exhaustion by attackers.
     """
-    # 1. Authentication Check
-    from flask_login import current_user
-    if not current_user.is_authenticated:
-        return {'status': 'error', 'message': 'Authentication required'}, 401
-    
-    # 2. Authorization Check (Admin Only)
-    if not getattr(current_user, 'is_admin', False):
-        return {'status': 'error', 'message': 'Administrator privileges required'}, 403
-    
-    # 3. CSRF Validation
+    # CSRF Validation
     from flask_wtf.csrf import validate_csrf
     try:
         # validate_csrf will look for X-CSRFToken header or form field

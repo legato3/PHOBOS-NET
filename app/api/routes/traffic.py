@@ -326,6 +326,7 @@ def api_stats_durations():
         # Normalize header for easier matching
         header_norm = [h.lower().strip() for h in header]
         try:
+            # Robust mapping for source/destination addresses and other fields
             sa_idx = header_norm.index('sa') if 'sa' in header_norm else (header_norm.index('srcaddr') if 'srcaddr' in header_norm else 3)
             da_idx = header_norm.index('da') if 'da' in header_norm else (header_norm.index('dstaddr') if 'dstaddr' in header_norm else 5)
             pr_idx = header_norm.index('proto') if 'proto' in header_norm else (header_norm.index('pr') if 'pr' in header_norm else 2)
@@ -448,7 +449,8 @@ def api_stats_packet_sizes():
 
     # NFDump CSV usually has no header, or specific columns: ts,td,pr,sa,sp,da,dp,ipkt,ibyt,fl
     # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
-    ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx, fl_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    # Indices mapping for packet size distribution (defaults)
+    ipkt_idx, ibyt_idx = 7, 8
 
     try:
         lines = output.strip().split("\n")
@@ -772,36 +774,18 @@ def api_stats_talkers():
             header = lines[0].split(',')
             start_idx = 1 if len(header) > 1 else 0
 
-        # Map headers to indices if possible, else rely on defaults
+        # Map headers to indices with robust naming support
         try:
             header_norm = [h.lower().strip() for h in header]
-            
-            if 'sa' in header_norm: sa_idx = header_norm.index('sa')
-            elif 'srcaddr' in header_norm: sa_idx = header_norm.index('srcaddr')
-            
-            if 'da' in header_norm: da_idx = header_norm.index('da')
-            elif 'dstaddr' in header_norm: da_idx = header_norm.index('dstaddr')
-            
-            if 'ibyt' in header_norm: ibyt_idx = header_norm.index('ibyt')
-            elif 'bytes' in header_norm: ibyt_idx = header_norm.index('bytes')
-            
-            if 'ts' in header_norm: ts_idx = header_norm.index('ts')
-            elif 'firstseen' in header_norm: ts_idx = header_norm.index('firstseen')
-            
-            if 'td' in header_norm: td_idx = header_norm.index('td')
-            elif 'duration' in header_norm: td_idx = header_norm.index('duration')
-            
-            if 'pr' in header_norm: pr_idx = header_norm.index('pr')
-            elif 'proto' in header_norm: pr_idx = header_norm.index('proto')
-            
-            if 'sp' in header_norm: sp_idx = header_norm.index('sp')
-            elif 'srcport' in header_norm: sp_idx = header_norm.index('srcport')
-            
-            if 'dp' in header_norm: dp_idx = header_norm.index('dp')
-            elif 'dstport' in header_norm: dp_idx = header_norm.index('dstport')
-
-            if 'ipkt' in header_norm: ipkt_idx = header_norm.index('ipkt')
-            elif 'packets' in header_norm: ipkt_idx = header_norm.index('packets')
+            ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+            td_idx = header_norm.index('td') if 'td' in header_norm else (header_norm.index('duration') if 'duration' in header_norm else 1)
+            pr_idx = header_norm.index('pr') if 'pr' in header_norm else (header_norm.index('proto') if 'proto' in header_norm else 2)
+            sa_idx = header_norm.index('sa') if 'sa' in header_norm else (header_norm.index('srcaddr') if 'srcaddr' in header_norm else 3)
+            da_idx = header_norm.index('da') if 'da' in header_norm else (header_norm.index('dstaddr') if 'dstaddr' in header_norm else 5)
+            sp_idx = header_norm.index('sp') if 'sp' in header_norm else (header_norm.index('srcport') if 'srcport' in header_norm else 4)
+            dp_idx = header_norm.index('dp') if 'dp' in header_norm else (header_norm.index('dstport') if 'dstport' in header_norm else 6)
+            ipkt_idx = header_norm.index('ipkt') if 'ipkt' in header_norm else (header_norm.index('packets') if 'packets' in header_norm else 7)
+            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
         except (ValueError, IndexError):
             pass
 
@@ -1050,12 +1034,12 @@ def api_noise_metrics():
             header = lines[0].split(',')
             start_idx = 1 if len(header) > 1 else 0
 
-        # Map headers to indices
+        # Map headers to indices with robust fallbacks
         header_norm = [h.lower().strip() for h in header]
         try:
-            flg_idx = header_norm.index('flg') if 'flg' in header_norm else (header_norm.index('flags') if 'flags' in header_norm else 10)
-            pr_idx = header_norm.index('pr') if 'pr' in header_norm else (header_norm.index('proto') if 'proto' in header_norm else 7)
-            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 12)
+            flg_idx = header_norm.index('flg') if 'flg' in header_norm else (header_norm.index('flags') if 'flags' in header_norm else 9)
+            pr_idx = header_norm.index('pr') if 'pr' in header_norm else (header_norm.index('proto') if 'proto' in header_norm else 2)
+            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
         except (ValueError, IndexError):
             pass
 
@@ -1066,7 +1050,7 @@ def api_noise_metrics():
             if len(parts) > max(flg_idx, pr_idx, ibyt_idx):
                 try:
                     flags = parts[flg_idx].upper()
-                    b = int(parts[ibyt_idx])
+                    b = int(float(parts[ibyt_idx]))
 
                     if flags == 'S' or flags == '.S': syn_only += 1
                     if b < 64: small_flows += 1 # Strict tiny flows
@@ -1197,17 +1181,32 @@ def api_stats_hourly():
 
     try:
         lines = output.strip().split("\n")
-        # Check if first line looks like a header
-        if lines and 'ibyt' in lines[0]:
-            header = lines[0].split(',')
-            try:
-                ts_idx = header.index('ts')
-                ibyt_idx = header.index('ibyt')
-            except ValueError:
-                pass
-            start_idx = 1
+        if not lines:
+             return jsonify(None)
+
+        # Robust Header Detection
+        header_idx = -1
+        for i, line in enumerate(lines):
+            line_clean = line.strip().lower()
+            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                header_idx = i
+                break
+        
+        if header_idx != -1:
+            header = lines[header_idx].split(',')
+            start_idx = header_idx + 1
         else:
-            start_idx = 0
+            # Fallback
+            header = lines[0].split(',')
+            start_idx = 1 if len(header) > 1 else 0
+
+        # Map headers to indices
+        header_norm = [h.lower().strip() for h in header]
+        try:
+            ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+        except (ValueError, IndexError):
+            pass
 
         for line in lines[start_idx:]:
             if not line or line.startswith('ts,'): continue
@@ -1221,7 +1220,7 @@ def api_stats_hourly():
                         hour = int(time_part.split(':')[0])
                     else:
                         hour = datetime.now().hour
-                    b = int(parts[ibyt_idx])
+                    b = int(float(parts[ibyt_idx]))
                     hourly_bytes[hour] += b
                     hourly_flows[hour] += 1
                 except (ValueError, IndexError, KeyError):

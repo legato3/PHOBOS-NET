@@ -1544,22 +1544,23 @@ def api_forensics_timeline():
         header_line = lines[0]
         header = [c.strip().lower() for c in header_line.split(',')]
         
-        # Find column indices
         try:
-            # Map actual nfdump columns to expected names (case-insensitive)
-            ts_idx = header.index('firstseen') if 'firstseen' in header else -1
-            te_idx = header.index('duration') if 'duration' in header else -1
-            sa_idx = header.index('srcaddr') if 'srcaddr' in header else -1
-            da_idx = header.index('dstaddr') if 'dstaddr' in header else -1
-            sp_idx = header.index('srcport') if 'srcport' in header else -1
-            dp_idx = header.index('dstport') if 'dstport' in header else -1
-            pr_idx = header.index('proto') if 'proto' in header else -1
-            flg_idx = -1  # Flags not available in this format
-            ibyt_idx = header.index('bytes') if 'bytes' in header else -1
-            ipkt_idx = header.index('packets') if 'packets' in header else -1
+            # Map actual nfdump columns to expected names (case-insensitive) - robust mappings
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else -1)
+            te_idx = header.index('duration') if 'duration' in header else (header.index('td') if 'td' in header else -1)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else -1)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else -1)
+            sp_idx = header.index('sp') if 'sp' in header else (header.index('srcport') if 'srcport' in header else -1)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else -1)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else -1)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else -1)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else -1)
             
-            if -1 in [ts_idx, te_idx, sa_idx, da_idx, sp_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx]:
-                raise ValueError(f"Missing required columns. Available columns: {header}")
+            if -1 in [ts_idx, sa_idx, da_idx, pr_idx, ibyt_idx]:
+                # Relaxing requirements slightly to avoid crashing if minor columns missing
+                pass
+            if sa_idx == -1 or da_idx == -1:
+                raise ValueError(f"Missing required IP columns. Available columns: {header}")
                 
         except ValueError as e:
             return jsonify({"error": f"Required columns not found in NetFlow data: {e}"}), 500
@@ -3334,15 +3335,15 @@ def api_forensics_flow_search():
         if not lines:
             return jsonify({'flows': [], 'count': 0})
 
-        # Parse header dynamically
-        header = lines[0].split(',')
         try:
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
-            dp_idx = header.index('dp')
-            pr_idx = header.index('proto')
-            ibyt_idx = header.index('ibyt')
-            ipkt_idx = header.index('ipkt')
+            # Robust mapping for nfdump csv outputs
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 5)
+            dp_idx = header.index('dp') if 'dp' in header else (header.index('dstport') if 'dstport' in header else 6)
+            pr_idx = header.index('proto') if 'proto' in header else (header.index('pr') if 'pr' in header else 2)
+            ibyt_idx = header.index('ibyt') if 'ibyt' in header else (header.index('bytes') if 'bytes' in header else 8)
+            ipkt_idx = header.index('ipkt') if 'ipkt' in header else (header.index('packets') if 'packets' in header else 7)
         except ValueError:
             # Fallback indices (based on mock/nfdump std)
             sa_idx, da_idx, dp_idx, pr_idx, ibyt_idx, ipkt_idx = 3, 4, 6, 7, 12, 11
@@ -3553,10 +3554,11 @@ def api_stats_blocklist_rate():
         lines = output.strip().split("\n")
         header = lines[0].split(',')
         try:
-            ts_idx = header.index('ts')
-            sa_idx = header.index('sa')
-            da_idx = header.index('da')
+            ts_idx = header.index('ts') if 'ts' in header else (header.index('firstseen') if 'firstseen' in header else 0)
+            sa_idx = header.index('sa') if 'sa' in header else (header.index('srcaddr') if 'srcaddr' in header else 3)
+            da_idx = header.index('da') if 'da' in header else (header.index('dstaddr') if 'dstaddr' in header else 4)
         except (ValueError, IndexError):
+            # Safe fallbacks if index not found or header malformed
             ts_idx, sa_idx, da_idx = 0, 3, 4
 
         for line in lines[1:]:
