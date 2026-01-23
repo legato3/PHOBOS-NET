@@ -273,7 +273,7 @@ def http_probe(url: str) -> Dict[str, Any]:
     url = url.strip()
     
     # 1. Enforcement: Scheme validation (fail fast)
-    if not re.match(r'^https?://', url, re.CASEINSENSITIVE):
+    if not re.match(r'^https?://', url, re.IGNORECASE):
         # Default to http if no scheme, but re-validate
         if '://' not in url:
             url = f'http://{url}'
