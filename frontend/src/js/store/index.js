@@ -181,12 +181,11 @@ export const Store = () => ({
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
     networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
     networkIntelligence: {
-        anomaly_score: 0,
-        anomaly_level: 'Low',
-        top_concern: null,
-        network_efficiency: { productive_pct: 100, noise_pct: 0, status: 'Clean' },
-        geographic_risk: null,
-        protocol_health: [],
+        bandwidth_utilization: { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
+        protocol_diversity: { primary_protocol: 'TCP', primary_pct: 0, protocols_count: 0, balance: 'Diverse' },
+        connection_patterns: { avg_duration: 0, avg_duration_fmt: '0s', short_lived_pct: 0, long_lived_pct: 0, pattern: 'Normal' },
+        traffic_characteristics: { avg_packet_size: 0, avg_packet_size_fmt: '0 B', total_flows: 0, flows_per_minute: 0 },
+        top_application: null,
         loading: true
     },
 
@@ -1074,6 +1073,16 @@ export const Store = () => ({
         this.tools.dns.result = null;
         try {
             const response = await fetch(`/api/tools/dns?query=${encodeURIComponent(this.tools.dns.query)}&type=${this.tools.dns.type}`);
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const errorBody = await response.text();
+                    if (errorBody) errorMsg += `: ${errorBody}`;
+                } catch { }
+                this.tools.dns.error = errorMsg;
+                this.tools.dns.loading = false;
+                return;
+            }
             const data = await response.json();
             if (data.error) {
                 this.tools.dns.error = data.error;
@@ -1093,6 +1102,16 @@ export const Store = () => ({
         this.tools.httpProbe.result = null;
         try {
             const response = await fetch(`/api/tools/http-probe?url=${encodeURIComponent(this.tools.httpProbe.url)}`);
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const errorBody = await response.text();
+                    if (errorBody) errorMsg += `: ${errorBody}`;
+                } catch { }
+                this.tools.httpProbe.error = errorMsg;
+                this.tools.httpProbe.loading = false;
+                return;
+            }
             const data = await response.json();
             if (data.error) {
                 this.tools.httpProbe.error = data.error;
@@ -1112,6 +1131,16 @@ export const Store = () => ({
         this.tools.tlsInspect.result = null;
         try {
             const response = await fetch(`/api/tools/tls-inspect?host=${encodeURIComponent(this.tools.tlsInspect.host)}&port=${encodeURIComponent(this.tools.tlsInspect.port || '443')}`);
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const errorBody = await response.text();
+                    if (errorBody) errorMsg += `: ${errorBody}`;
+                } catch { }
+                this.tools.tlsInspect.error = errorMsg;
+                this.tools.tlsInspect.loading = false;
+                return;
+            }
             const data = await response.json();
             if (data.error) {
                 this.tools.tlsInspect.error = data.error;
@@ -1131,6 +1160,16 @@ export const Store = () => ({
         this.tools.port.result = null;
         try {
             const response = await fetch(`/api/tools/port-check?host=${encodeURIComponent(this.tools.port.host)}&ports=${encodeURIComponent(this.tools.port.ports)}`);
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const errorBody = await response.text();
+                    if (errorBody) errorMsg += `: ${errorBody}`;
+                } catch { }
+                this.tools.port.error = errorMsg;
+                this.tools.port.loading = false;
+                return;
+            }
             const data = await response.json();
             if (data.error) {
                 this.tools.port.error = data.error;
@@ -1150,6 +1189,16 @@ export const Store = () => ({
         this.tools.ping.result = null;
         try {
             const response = await fetch(`/api/tools/ping?host=${encodeURIComponent(this.tools.ping.host)}&mode=${this.tools.ping.mode}`);
+            if (!response.ok) {
+                let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const errorBody = await response.text();
+                    if (errorBody) errorMsg += `: ${errorBody}`;
+                } catch { }
+                this.tools.ping.error = errorMsg;
+                this.tools.ping.loading = false;
+                return;
+            }
             const data = await response.json();
             if (data.error) {
                 this.tools.ping.error = data.error;
@@ -4255,12 +4304,11 @@ export const Store = () => ({
             if (res.ok) {
                 const data = await res.json();
                 this.networkIntelligence = {
-                    anomaly_score: data.anomaly_score || 0,
-                    anomaly_level: data.anomaly_level || 'Low',
-                    top_concern: data.top_concern || null,
-                    network_efficiency: data.network_efficiency || { productive_pct: 100, noise_pct: 0, status: 'Clean' },
-                    geographic_risk: data.geographic_risk || null,
-                    protocol_health: data.protocol_health || [],
+                    bandwidth_utilization: data.bandwidth_utilization || { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
+                    protocol_diversity: data.protocol_diversity || { primary_protocol: 'TCP', primary_pct: 0, protocols_count: 0, balance: 'Diverse' },
+                    connection_patterns: data.connection_patterns || { avg_duration: 0, avg_duration_fmt: '0s', short_lived_pct: 0, long_lived_pct: 0, pattern: 'Normal' },
+                    traffic_characteristics: data.traffic_characteristics || { avg_packet_size: 0, avg_packet_size_fmt: '0 B', total_flows: 0, flows_per_minute: 0 },
+                    top_application: data.top_application || null,
                     loading: false
                 };
             } else {
