@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
 # Import from service modules (already extracted)
-from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction
+from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction, stream_nfdump
 from app.services.security.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
@@ -1247,7 +1247,8 @@ def api_stats_hourly():
 
     tf = get_time_range(range_key)
     # Sort by bytes to capture the top contributors
-    output = run_nfdump(["-O", "bytes", "-n", "10000"], tf)
+    # STREAMING OPTIMIZATION
+    stream = stream_nfdump(["-O", "bytes", "-n", "10000"], tf)
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -1256,38 +1257,45 @@ def api_stats_hourly():
     # NFDump CSV usually has no header
     # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
     ts_idx, ibyt_idx = 0, 8
+    header_parsed = False
 
     try:
-        lines = output.strip().split("\n")
-        if not lines:
-             return jsonify({})
+        for i, line in enumerate(stream):
+            line = line.strip()
+            if not line: continue
 
-        # Robust Header Detection
-        header_idx = -1
-        for i, line in enumerate(lines):
-            line_clean = line.strip().lower()
+            line_clean = line.lower()
+
+            # Explicit Header Detection
             if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
-                header_idx = i
-                break
-        
-        if header_idx != -1:
-            header = lines[header_idx].split(',')
-            start_idx = header_idx + 1
-        else:
-            # Fallback
-            header = lines[0].split(',')
-            start_idx = 1 if len(header) > 1 else 0
+                 header = line.split(',')
+                 header_norm = [h.lower().strip() for h in header]
+                 try:
+                    ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+                    ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+                 except (ValueError, IndexError):
+                    pass
+                 header_parsed = True
+                 continue
 
-        # Map headers to indices
-        header_norm = [h.lower().strip() for h in header]
-        try:
-            ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
-            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
-        except (ValueError, IndexError):
-            pass
+            # If we haven't found an explicit header yet
+            if not header_parsed:
+                 # Check if this line looks like data (starts with digit)
+                 if line[0].isdigit():
+                     # It's data, use default indices and process it
+                     header_parsed = True
+                 else:
+                     # Treat as fallback header
+                     header = line.split(',')
+                     header_norm = [h.lower().strip() for h in header]
+                     try:
+                        ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+                        ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+                     except (ValueError, IndexError):
+                        pass
+                     header_parsed = True
+                     continue
 
-        for line in lines[start_idx:]:
-            if not line or line.startswith('ts,'): continue
             parts = line.split(',')
             if len(parts) > max(ts_idx, ibyt_idx):
                 try:
@@ -1885,18 +1893,18 @@ def api_network_stats_overview():
     # Get total count by running without -n limit, using -q for quiet output
     # Count all flow lines (excluding header)
     try:
-        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
-        if full_output:
-            lines = full_output.strip().split("\n")
-            # Count non-header lines (actual flow records)
-            for line in lines:
-                if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
-                    # Check if it's a valid flow line (has enough fields)
-                    parts = line.split(',')
-                    if len(parts) > 7:
-                        active_flows_count += 1
+        # STREAMING OPTIMIZATION: Use stream_nfdump to avoid loading all flows into memory
+        stream = stream_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
+        for line in stream:
+            line = line.strip()
+            if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
+                # Check if it's a valid flow line (has enough fields)
+                # Fast check: ensure enough commas (7 commas = 8 fields)
+                if line.count(',') >= 7:
+                    active_flows_count += 1
     except Exception as e:
         # Log error in production, but don't fail the endpoint
+        add_app_log(f"Error counting active flows: {e}", "WARN")
         active_flows_count = 0
     
     # Now get external connections count using a sample

@@ -95,151 +95,161 @@ def run_nfdump(args, tf=None):
         track_subprocess(duration, success, timeout)
 
 
+def stream_nfdump(args, tf=None):
+    """Run nfdump command and yield output lines generator.
+
+    Uses subprocess.Popen to stream output, avoiding memory spikes for large datasets.
+    """
+    state._metric_nfdump_calls += 1
+
+    # Check availability (reuse logic)
+    if state._has_nfdump is not True:
+        try:
+            subprocess.run(["nfdump", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=5)
+            state._has_nfdump = True
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            state._has_nfdump = False
+
+    if not state._has_nfdump:
+        return
+
+    cmd = ["nfdump", "-R", NFCAPD_DIR, "-o", "csv"]
+    if tf:
+        cmd.extend(["-t", tf])
+    cmd.extend(args)
+
+    try:
+        # Use Popen for streaming
+        # stderr=subprocess.DEVNULL is used to suppress warnings/info messages from nfdump
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1) as p:
+            for line in p.stdout:
+                yield line
+    except Exception as e:
+        add_app_log(f"nfdump stream error: {e}", 'ERROR')
+
+
 def parse_csv(output, expected_key=None):
-    """Parse nfdump CSV output into structured data."""
+    """Parse nfdump CSV output into structured data.
+
+    Supports both string output (legacy) and iterable/generator (streaming).
+    """
     results = []
-    # Defensive check: ensure output is a string (handle None case)
+    # Defensive check: ensure output is not None
     if output is None:
         add_app_log("parse_csv received None output (nfdump failure)", "WARN")
         return results
-    if not output:
-        return results
         
-    lines = output.strip().split("\n")
-    if not lines:
-        return results
-    
-    # Header detection - Scan for the real CSV header (starts with ts, or firstSeen,)
-    # This skips warnings, info lines, or summary lines at the top.
-    header_idx = -1
-    for i, line in enumerate(lines):
-        line_clean = line.strip().lower()
-        # Common nfdump CSV headers:
-        # ts,te,td,sa,da,sp,dp,pr,flg... (1.6)
-        # firstseen,duration,proto,srcaddr,srcport... (1.7)
-        if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
-            header_idx = i
-            break
-            
-    if header_idx != -1:
-        header_line = lines[header_idx].lower()
-        start_row_idx = header_idx + 1
-    else:
-        # Fallback to first line if no standard header found, but skip if it looks like garbage
-        if lines[0] and (',' in lines[0]):
-            header_line = lines[0].lower()
-            start_row_idx = 1
-        else:
+    if isinstance(output, str):
+        if not output:
             return results
-        
-    # Robustly map columns by name, ignoring whitespace
-    cols = [c.strip() for c in header_line.split(',')]
+        lines_iter = output.strip().split("\n")
+    else:
+        # Assume iterable
+        lines_iter = output
     
-    try:
-        key_idx = -1
-        
-            # Priority check for expected key
-        if expected_key:
-            if 'val' in cols:
-                key_idx = cols.index('val')
-            elif expected_key in cols:
-                key_idx = cols.index(expected_key)
-            # nfdump 1.7+ Aliases
-            elif expected_key == 'sa' and 'srcaddr' in cols:
-                key_idx = cols.index('srcaddr')
-            elif expected_key == 'da' and 'dstaddr' in cols:
-                key_idx = cols.index('dstaddr')
-            elif expected_key == 'sp' and 'srcport' in cols:
-                key_idx = cols.index('srcport')
-            elif expected_key == 'dp' and 'dstport' in cols:
-                key_idx = cols.index('dstport')
-            elif expected_key == 'proto' and 'pr' in cols:
-                key_idx = cols.index('pr')
-            elif expected_key == 'proto' and 'proto' in cols:
-                key_idx = cols.index('proto')
-        
-        if key_idx == -1:
-            if 'val' in cols:
-                key_idx = cols.index('val')
-            elif 'sa' in cols:
-                key_idx = cols.index('sa')
-            elif 'da' in cols:
-                key_idx = cols.index('da')
-            elif 'sp' in cols:
-                key_idx = cols.index('sp')
-            elif 'dp' in cols:
-                key_idx = cols.index('dp')
-            elif 'pr' in cols:
-                key_idx = cols.index('pr')
-            elif 'proto' in cols:
-                key_idx = cols.index('proto')
-            # nfdump 1.7+ Aliases
-            elif 'srcaddr' in cols:
-                key_idx = cols.index('srcaddr')
-            elif 'dstaddr' in cols:
-                key_idx = cols.index('dstaddr')
-            elif 'srcport' in cols:
-                key_idx = cols.index('srcport')
-            elif 'dstport' in cols:
-                key_idx = cols.index('dstport')
-        
-        if key_idx == -1:
-            add_app_log("nfdump CSV header missing/unknown, using fallback indices (fragile)", "WARN")
-            key_idx = 4
-        
-        # Value columns
-        bytes_idx = -1
-        if 'ibyt' in cols:
-            bytes_idx = cols.index('ibyt')
-        elif 'byt' in cols:
-            bytes_idx = cols.index('byt')
-        elif 'bytes' in cols:
-            bytes_idx = cols.index('bytes')
-        elif 'obyt' in cols: 
-            bytes_idx = cols.index('obyt')
-        
-        flows_idx = -1
-        if 'fl' in cols:
-            flows_idx = cols.index('fl')
-        elif 'flows' in cols:
-            flows_idx = cols.index('flows')
-        
-        packets_idx = -1
-        if 'ipkt' in cols:
-            packets_idx = cols.index('ipkt')
-        elif 'pkt' in cols:
-            packets_idx = cols.index('pkt')
-        elif 'packets' in cols:
-            packets_idx = cols.index('packets')
-        elif 'opkt' in cols:
-            packets_idx = cols.index('opkt')
-        
-        if bytes_idx == -1:
-            bytes_idx = 12
-        
-    except ValueError as e:
-        add_app_log(f"CSV Header Parse Error: {e}", "ERROR")
-        return results
+    # State for streaming parsing
+    header_parsed = False
+
+    # Default column indices (will be overridden if header found)
+    key_idx = -1
+    bytes_idx = 12 # Default for nfdump < 1.7
+    flows_idx = -1
+    packets_idx = -1
     
     seen_keys = set()
-    # PERFORMANCE: Calculate required length once outside loop
-    required_len = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
+    required_len = 0
 
     # COOPERATIVE MULTITASKING: Yield to event loop periodically
-    # This prevents Gevent workers from freezing the web server during heavy CSV parsing
     try:
         import gevent
         has_gevent = True
     except ImportError:
         has_gevent = False
 
-    for i, line in enumerate(lines[start_row_idx:]):
+    for i, line in enumerate(lines_iter):
         # Yield every 1000 lines to keep the web server responsive
         if has_gevent and i % 1000 == 0:
             gevent.sleep(0)
 
+        line = line.strip()
         if not line:
             continue
+
+        # Header Detection Logic
+        if not header_parsed:
+            line_clean = line.lower()
+
+            # Common nfdump CSV headers check
+            is_explicit_header = line_clean.startswith('ts,') or line_clean.startswith('firstseen,')
+
+            cols = []
+            is_header = False
+
+            if is_explicit_header:
+                cols = [c.strip() for c in line_clean.split(',')]
+                is_header = True
+            elif not line[0].isdigit() and ',' in line:
+                # Fallback: if not digit and has comma, assume header
+                cols = [c.strip() for c in line_clean.split(',')]
+                is_header = True
+
+            if is_header:
+                # Map columns
+                try:
+                    # Priority check for expected key
+                    if expected_key:
+                        if 'val' in cols: key_idx = cols.index('val')
+                        elif expected_key in cols: key_idx = cols.index(expected_key)
+                        elif expected_key == 'sa' and 'srcaddr' in cols: key_idx = cols.index('srcaddr')
+                        elif expected_key == 'da' and 'dstaddr' in cols: key_idx = cols.index('dstaddr')
+                        elif expected_key == 'sp' and 'srcport' in cols: key_idx = cols.index('srcport')
+                        elif expected_key == 'dp' and 'dstport' in cols: key_idx = cols.index('dstport')
+                        elif expected_key == 'proto' and 'pr' in cols: key_idx = cols.index('pr')
+                        elif expected_key == 'proto' and 'proto' in cols: key_idx = cols.index('proto')
+
+                    if key_idx == -1:
+                        if 'val' in cols: key_idx = cols.index('val')
+                        elif 'sa' in cols: key_idx = cols.index('sa')
+                        elif 'da' in cols: key_idx = cols.index('da')
+                        elif 'sp' in cols: key_idx = cols.index('sp')
+                        elif 'dp' in cols: key_idx = cols.index('dp')
+                        elif 'pr' in cols: key_idx = cols.index('pr')
+                        elif 'proto' in cols: key_idx = cols.index('proto')
+                        elif 'srcaddr' in cols: key_idx = cols.index('srcaddr')
+                        elif 'dstaddr' in cols: key_idx = cols.index('dstaddr')
+                        elif 'srcport' in cols: key_idx = cols.index('srcport')
+                        elif 'dstport' in cols: key_idx = cols.index('dstport')
+
+                    # Value columns
+                    if 'ibyt' in cols: bytes_idx = cols.index('ibyt')
+                    elif 'byt' in cols: bytes_idx = cols.index('byt')
+                    elif 'bytes' in cols: bytes_idx = cols.index('bytes')
+                    elif 'obyt' in cols: bytes_idx = cols.index('obyt')
+
+                    if 'fl' in cols: flows_idx = cols.index('fl')
+                    elif 'flows' in cols: flows_idx = cols.index('flows')
+
+                    if 'ipkt' in cols: packets_idx = cols.index('ipkt')
+                    elif 'pkt' in cols: packets_idx = cols.index('pkt')
+                    elif 'packets' in cols: packets_idx = cols.index('packets')
+                    elif 'opkt' in cols: packets_idx = cols.index('opkt')
+
+                except ValueError as e:
+                    add_app_log(f"CSV Header Parse Error: {e}", "ERROR")
+                    return results
+
+                header_parsed = True
+                # Recalculate required len
+                required_len = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
+                continue # Skip header line
+            else:
+                # No header found, treating as data with default indices
+                if key_idx == -1:
+                    add_app_log("nfdump CSV header missing/unknown, using fallback indices (fragile)", "WARN")
+                    key_idx = 4
+                header_parsed = True
+                required_len = max(key_idx, bytes_idx, flows_idx if flows_idx != -1 else 0, packets_idx if packets_idx != -1 else 0)
+                # Fall through to process as data
 
         # PERFORMANCE: Split first, then check length to avoid processing short lines
         parts = line.split(",")
@@ -320,15 +330,15 @@ def get_traffic_direction(ip, tf):
     # Fetch data (two nfdump calls)
     # Filter must be LAST arguments
     # PERFORMANCE: Run queries in parallel to reduce latency
+    def _fetch_parse(args, key):
+        return parse_csv(stream_nfdump(args, tf), expected_key=key)
+
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_out = executor.submit(run_nfdump, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
-        future_in = executor.submit(run_nfdump, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+        future_out = executor.submit(_fetch_parse, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], 'sa')
+        future_in = executor.submit(_fetch_parse, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], 'da')
 
-        out = future_out.result()
-        in_data = future_in.result()
-
-    out_parsed = parse_csv(out, expected_key='sa')
-    in_parsed = parse_csv(in_data, expected_key='da')
+        out_parsed = future_out.result()
+        in_parsed = future_in.result()
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     result = {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
@@ -410,12 +420,15 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     src_cmd = ["-s", "srcip/bytes/flows", "-n", str(query_limit)]
     dst_cmd = ["-s", "dstip/bytes/flows", "-n", str(query_limit)]
     
+    def _fetch_parse(cmd, key):
+        return parse_csv(stream_nfdump(cmd, tf), expected_key=key)
+
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future_src = executor.submit(run_nfdump, src_cmd, tf)
-        future_dst = executor.submit(run_nfdump, dst_cmd, tf)
+        future_src = executor.submit(_fetch_parse, src_cmd, 'sa')
+        future_dst = executor.submit(_fetch_parse, dst_cmd, 'da')
         
-        src_rows = parse_csv(future_src.result(), expected_key='sa')
-        dst_rows = parse_csv(future_dst.result(), expected_key='da')
+        src_rows = future_src.result()
+        dst_rows = future_dst.result()
     
     hosts = {}
     
@@ -538,66 +551,68 @@ def get_raw_flows(tf, limit=2000):
     try:
         # Request raw flows with specific fields if possible, or standard CSV
         # nfdump -o csv provides fixed columns.
-        raw_flows_output = run_nfdump(["-o", "csv", "-n", str(limit)], tf)
+        stream = stream_nfdump(["-o", "csv", "-n", str(limit)], tf)
         flow_data = []
 
-        if raw_flows_output:
-            lines = raw_flows_output.strip().split("\n")
-            if len(lines) > 1:
-                # Find header line
-                header_idx = -1
-                for i, line in enumerate(lines):
-                    if 'ts,' in line.lower() or 'sa,' in line.lower() or 'firstseen,' in line.lower():
-                        header_idx = i
-                        break
+        header_parsed = False
+        sa_idx = da_idx = sp_idx = dp_idx = pr_idx = ibyt_idx = -1
+        required_len = 0
 
-                if header_idx != -1:
-                    header = lines[header_idx].lower().split(',')
+        for line in stream:
+            line = line.strip()
+            if not line or 'sys:' in line or 'summary' in line: continue
+
+            line_clean = line.lower()
+
+            # Header Detection
+            if not header_parsed:
+                is_explicit = line_clean.startswith('ts,') or line_clean.startswith('firstseen,')
+                if is_explicit or (',' in line and not line[0].isdigit()):
+                    header = line_clean.split(',')
                     try:
-                        sa_idx = -1
                         if 'sa' in header: sa_idx = header.index('sa')
                         elif 'srcaddr' in header: sa_idx = header.index('srcaddr')
 
-                        da_idx = -1
                         if 'da' in header: da_idx = header.index('da')
                         elif 'dstaddr' in header: da_idx = header.index('dstaddr')
 
-                        sp_idx = -1
                         if 'sp' in header: sp_idx = header.index('sp')
                         elif 'srcport' in header: sp_idx = header.index('srcport')
 
-                        dp_idx = -1
                         if 'dp' in header: dp_idx = header.index('dp')
                         elif 'dstport' in header: dp_idx = header.index('dstport')
 
-                        pr_idx = -1
                         if 'pr' in header: pr_idx = header.index('pr')
                         elif 'proto' in header: pr_idx = header.index('proto')
 
-                        ibyt_idx = -1
                         if 'ibyt' in header: ibyt_idx = header.index('ibyt')
                         elif 'bytes' in header: ibyt_idx = header.index('bytes')
                         elif 'byt' in header: ibyt_idx = header.index('byt')
 
-                        if sa_idx != -1 and da_idx != -1:
-                            # PERFORMANCE: Calculate required length once
-                            required_len = max(sa_idx, da_idx)
-                            for line in lines[header_idx+1:]:
-                                if not line or 'sys:' in line or 'summary' in line: continue
-                                parts = line.split(',')
-                                if len(parts) <= required_len: continue
+                        required_len = max(sa_idx, da_idx)
+                        header_parsed = True
+                    except Exception:
+                        pass
+                    continue
 
-                                flow_data.append({
-                                    "src_ip": parts[sa_idx],
-                                    "dst_ip": parts[da_idx],
-                                    "src_port": parts[sp_idx] if sp_idx != -1 and len(parts) > sp_idx else "0",
-                                    "dst_port": parts[dp_idx] if dp_idx != -1 and len(parts) > dp_idx else "0",
-                                    "proto": parts[pr_idx] if pr_idx != -1 and len(parts) > pr_idx else "0",
-                                    "bytes": int(float(parts[ibyt_idx])) if ibyt_idx != -1 and len(parts) > ibyt_idx else 0,
-                                    "flows": 1
-                                })
-                    except Exception as e:
-                        add_app_log(f"Flow parsing error: {e}", "ERROR")
+            # Data Processing
+            if header_parsed and sa_idx != -1 and da_idx != -1:
+                parts = line.split(',')
+                if len(parts) <= required_len: continue
+
+                try:
+                    flow_data.append({
+                        "src_ip": parts[sa_idx],
+                        "dst_ip": parts[da_idx],
+                        "src_port": parts[sp_idx] if sp_idx != -1 and len(parts) > sp_idx else "0",
+                        "dst_port": parts[dp_idx] if dp_idx != -1 and len(parts) > dp_idx else "0",
+                        "proto": parts[pr_idx] if pr_idx != -1 and len(parts) > pr_idx else "0",
+                        "bytes": int(float(parts[ibyt_idx])) if ibyt_idx != -1 and len(parts) > ibyt_idx else 0,
+                        "flows": 1
+                    })
+                except Exception:
+                    continue
+
         return flow_data
     except Exception as e:
         add_app_log(f"Error fetching raw flows: {e}", "ERROR")
