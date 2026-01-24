@@ -35,6 +35,7 @@ FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
 # Webhook queue for non-blocking security alerts
 _webhook_queue = queue.Queue()
 _webhook_thread = None
+_webhook_start_lock = threading.Lock()
 _webhook_config_cache = {"data": None, "mtime": 0, "last_check": 0}
 
 # Detection state
@@ -444,9 +445,12 @@ def _process_webhooks():
 def start_webhook_worker():
     """Start the webhook worker thread if not running."""
     global _webhook_thread
+    # Double-check pattern to avoid lock overhead if already running
     if _webhook_thread is None or not _webhook_thread.is_alive():
-        _webhook_thread = threading.Thread(target=_process_webhooks, daemon=True, name="SecurityWebhookWorker")
-        _webhook_thread.start()
+        with _webhook_start_lock:
+            if _webhook_thread is None or not _webhook_thread.is_alive():
+                _webhook_thread = threading.Thread(target=_process_webhooks, daemon=True, name="SecurityWebhookWorker")
+                _webhook_thread.start()
 
 
 def send_security_webhook(threat_data):
@@ -456,8 +460,23 @@ def send_security_webhook(threat_data):
     return True
 
 
+def send_security_webhook_batch(threat_data_list):
+    """Enqueue multiple threat data items for security webhook (non-blocking).
+
+    OPTIMIZED: Starts worker once and enqueues items without repeated checks.
+    """
+    if not threat_data_list:
+        return True
+
+    start_webhook_worker()
+    for item in threat_data_list:
+        _webhook_queue.put(item)
+    return True
+
+
 def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label="threat-feed", destinations_data=None):
     alerts = []
+    webhook_alerts = []  # Batch alerts for webhook to avoid N+1 calls
     seen = set()
     threat_set = threat_set - whitelist
     
@@ -528,8 +547,8 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
                     seen.add(alert_key)
                     # Track timeline
                     update_threat_timeline(ip)
-                    # Send to security webhook if configured
-                    send_security_webhook(alert)
+                    # Queue for batch sending
+                    webhook_alerts.append(alert)
 
             # Watchlist Check
             if ip in watchlist:
@@ -549,6 +568,10 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
     for alert in alerts:
         if _should_escalate_anomaly(alert):
             _upsert_alert_to_history(alert)
+
+    # PERFORMANCE: Send webhooks in batch
+    if webhook_alerts:
+        send_security_webhook_batch(webhook_alerts)
 
     return alerts
 
