@@ -188,6 +188,7 @@ def add_app_log(message, level='INFO'):
 _dns_resolver_executor = ThreadPoolExecutor(max_workers=5)
 _rollup_executor = ThreadPoolExecutor(max_workers=8)
 _batch_executor = ThreadPoolExecutor(max_workers=20)  # Dedicated pool for batch API requests
+_nfdump_executor = ThreadPoolExecutor(max_workers=8)  # Dedicated pool for nfdump subprocess calls
 
 # ==================== Background Thread Health ====================
 # Track health of each background thread for monitoring

@@ -4,7 +4,6 @@ import subprocess
 import threading
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX, NFCAPD_DIR
 from app.services.shared.helpers import get_time_range
 
@@ -333,12 +332,12 @@ def get_traffic_direction(ip, tf):
     def _fetch_parse(args, key):
         return parse_csv(stream_nfdump(args, tf), expected_key=key)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_out = executor.submit(_fetch_parse, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], 'sa')
-        future_in = executor.submit(_fetch_parse, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], 'da')
+    # Use shared executor to avoid thread creation overhead
+    future_out = state._nfdump_executor.submit(_fetch_parse, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], 'sa')
+    future_in = state._nfdump_executor.submit(_fetch_parse, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], 'da')
 
-        out_parsed = future_out.result()
-        in_parsed = future_in.result()
+    out_parsed = future_out.result()
+    in_parsed = future_in.result()
     upload = out_parsed[0]["bytes"] if out_parsed else 0
     download = in_parsed[0]["bytes"] if in_parsed else 0
     result = {"upload": upload, "download": download, "ratio": round(upload / download, 2) if download > 0 else 0}
@@ -425,12 +424,12 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     def _fetch_parse(cmd, key):
         return parse_csv(stream_nfdump(cmd, tf), expected_key=key)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_src = executor.submit(_fetch_parse, src_cmd, 'sa')
-        future_dst = executor.submit(_fetch_parse, dst_cmd, 'da')
-        
-        src_rows = future_src.result()
-        dst_rows = future_dst.result()
+    # Use shared executor to avoid thread creation overhead
+    future_src = state._nfdump_executor.submit(_fetch_parse, src_cmd, 'sa')
+    future_dst = state._nfdump_executor.submit(_fetch_parse, dst_cmd, 'da')
+
+    src_rows = future_src.result()
+    dst_rows = future_dst.result()
     
     hosts = {}
     
