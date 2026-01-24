@@ -1810,6 +1810,20 @@ def api_bandwidth():
                         conn.commit()
                     finally:
                         conn.close()
+
+                # Re-fetch data after computation (only for synchronous mock optimization)
+                with _trends_db_lock:
+                    conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                    try:
+                        cur = conn.execute(
+                            "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                            (start_ts, end_ts)
+                        )
+                        rows = cur.fetchall()
+                        by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
+                    finally:
+                        conn.close()
+
             else:
                 # Normal behavior (or single bucket)
                 # Offload to background executor (non-blocking) to prevent request timeout/latency
@@ -1820,19 +1834,6 @@ def api_bandwidth():
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
                     add_app_log(f"Bandwidth computation background submission failed: {e}", 'WARN')
-
-            # Re-fetch data after computation
-            with _trends_db_lock:
-                conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
-                try:
-                    cur = conn.execute(
-                        "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                        (start_ts, end_ts)
-                    )
-                    rows = cur.fetchall()
-                    by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
-                finally:
-                    conn.close()
 
         for i in range(bucket_count, 0, -1):
             et = current_bucket_end - timedelta(minutes=i*5)
