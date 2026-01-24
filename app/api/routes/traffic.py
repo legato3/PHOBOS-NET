@@ -35,7 +35,7 @@ from app.core.background import start_threat_thread, start_trends_thread, start_
 from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.core.app_state import (
     _shutdown_event,
-    _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
+    _lock_summary, _lock_sources, _lock_dests, _lock_talkers, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
     _lock_flows, _lock_countries, _lock_worldmap, _lock_hourly, _lock_firewall_overview, _lock_network_overview,
     _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
