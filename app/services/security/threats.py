@@ -31,6 +31,7 @@ _watchlist_cache = {"data": set(), "mtime": 0, "last_check": 0}
 _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat list file
 
 FILE_CHECK_INTERVAL = 5  # Check file mtime every 5 seconds
+MAX_FEED_WORKERS = 10  # Parallel feed fetching workers
 
 # Webhook queue for non-blocking security alerts
 _webhook_queue = queue.Queue()
@@ -86,58 +87,60 @@ def parse_feed_line(line):
     return url, category, name
 
 
-def _process_feed(url, category, name, last_ok):
+def _process_feed(url, category, name, last_ok, session=None):
     """Process a single feed in a separate thread."""
     feed_start = time.time()
     try:
         # PERFORMANCE: Stream response to save memory on large feeds
         headers = {'User-Agent': 'PHOBOS-NET/1.0'}
-        r = requests.get(url, headers=headers, timeout=25, stream=True)
-        latency_ms = int((time.time() - feed_start) * 1000)
+        req_func = session.get if session else requests.get
 
-        if r.status_code != 200:
+        with req_func(url, headers=headers, timeout=25, stream=True) as r:
+            latency_ms = int((time.time() - feed_start) * 1000)
+
+            if r.status_code != 200:
+                return {
+                    'name': name,
+                    'success': False,
+                    'status_data': {
+                        'status': 'error', 'category': category, 'ips': 0,
+                        'error': f'HTTP {r.status_code}', 'latency_ms': latency_ms,
+                        'last_attempt': time.time(), 'last_ok': last_ok
+                    },
+                    'error_msg': f'{name}: HTTP {r.status_code}'
+                }
+
+            # Parse IPs from feed
+            feed_ips = []
+            feed_ip_map = {}
+            # Use iter_lines for memory efficiency
+            for line in r.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith(';'):
+                    continue
+                # Handle CIDR notation in DROP lists
+                if '/' in line:
+                    line = line.split('/')[0].strip()
+                # Handle space-separated formats (some feeds have "IP ; comment")
+                if ' ' in line:
+                    line = line.split()[0].strip()
+                if line:
+                    feed_ips.append(line)
+                    feed_ip_map[line] = {'category': category, 'feed': name}
+
             return {
                 'name': name,
-                'success': False,
+                'success': True,
+                'ips': feed_ips,
+                'ip_map': feed_ip_map,
                 'status_data': {
-                    'status': 'error', 'category': category, 'ips': 0,
-                    'error': f'HTTP {r.status_code}', 'latency_ms': latency_ms,
-                    'last_attempt': time.time(), 'last_ok': last_ok
-                },
-                'error_msg': f'{name}: HTTP {r.status_code}'
+                    'status': 'ok', 'category': category, 'ips': len(feed_ips),
+                    'error': None, 'latency_ms': latency_ms,
+                    'last_attempt': time.time(), 'last_ok': time.time()
+                }
             }
-
-        # Parse IPs from feed
-        feed_ips = []
-        feed_ip_map = {}
-        # Use iter_lines for memory efficiency
-        for line in r.iter_lines(decode_unicode=True):
-            if not line:
-                continue
-            line = line.strip()
-            if not line or line.startswith('#') or line.startswith(';'):
-                continue
-            # Handle CIDR notation in DROP lists
-            if '/' in line:
-                line = line.split('/')[0].strip()
-            # Handle space-separated formats (some feeds have "IP ; comment")
-            if ' ' in line:
-                line = line.split()[0].strip()
-            if line:
-                feed_ips.append(line)
-                feed_ip_map[line] = {'category': category, 'feed': name}
-
-        return {
-            'name': name,
-            'success': True,
-            'ips': feed_ips,
-            'ip_map': feed_ip_map,
-            'status_data': {
-                'status': 'ok', 'category': category, 'ips': len(feed_ips),
-                'error': None, 'latency_ms': latency_ms,
-                'last_attempt': time.time(), 'last_ok': time.time()
-            }
-        }
     except Exception as e:
         latency_ms = int((time.time() - feed_start) * 1000)
         return {
@@ -187,27 +190,36 @@ def fetch_threat_feed():
         new_feed_status = {}
         
         # PERFORMANCE: Parallelize feed fetching
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = []
-            for url, category, name in feed_entries:
-                last_ok = _feed_status.get(name, {}).get('last_ok', 0)
-                futures.append(executor.submit(_process_feed, url, category, name, last_ok))
+        with requests.Session() as session:
+            # Optimize connection pooling
+            adapter = requests.adapters.HTTPAdapter(
+                pool_connections=MAX_FEED_WORKERS,
+                pool_maxsize=MAX_FEED_WORKERS
+            )
+            session.mount('http://', adapter)
+            session.mount('https://', adapter)
 
-            # Process results in order to preserve priority (last feed wins for overlapping IPs)
-            for future in futures:
-                try:
-                    result = future.result()
-                    name = result['name']
-                    new_feed_status[name] = result['status_data']
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_FEED_WORKERS) as executor:
+                futures = []
+                for url, category, name in feed_entries:
+                    last_ok = _feed_status.get(name, {}).get('last_ok', 0)
+                    futures.append(executor.submit(_process_feed, url, category, name, last_ok, session))
 
-                    if result['success']:
-                        all_ips.update(result['ips'])
-                        ip_to_feed.update(result['ip_map'])
-                    else:
-                        errors.append(result['error_msg'])
-                except Exception as exc:
-                    # Should be caught in _process_feed, but just in case
-                    errors.append(f'Feed processing error: {str(exc)}')
+                # Process results in order to preserve priority (last feed wins for overlapping IPs)
+                for future in futures:
+                    try:
+                        result = future.result()
+                        name = result['name']
+                        new_feed_status[name] = result['status_data']
+
+                        if result['success']:
+                            all_ips.update(result['ips'])
+                            ip_to_feed.update(result['ip_map'])
+                        else:
+                            errors.append(result['error_msg'])
+                    except Exception as exc:
+                        # Should be caught in _process_feed, but just in case
+                        errors.append(f'Feed processing error: {str(exc)}')
 
         # Update global state atomically
         with _feed_data_lock:
@@ -222,7 +234,7 @@ def fetch_threat_feed():
         
         tmp_path = THREATLIST_PATH + '.tmp'
         with open(tmp_path, 'w') as f:
-            f.write('\n'.join(sorted(all_ips)))
+            f.write('\n'.join(all_ips))
         os.replace(tmp_path, THREATLIST_PATH)
         
         _threat_status['last_ok'] = time.time()
