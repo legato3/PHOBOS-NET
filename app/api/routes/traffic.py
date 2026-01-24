@@ -1695,6 +1695,16 @@ def _safe_ensure_rollup(bucket):
 @bp.route("/api/bandwidth")
 @throttle(10,20)
 def api_bandwidth():
+    """
+    Get bandwidth usage over the specified time range.
+
+    Performance Note:
+    Traffic rollups for missing buckets are computed asynchronously using a background
+    thread pool (`_rollup_executor`). This ensures the API response is non-blocking and fast,
+    even if historical data needs to be aggregated on-demand. Clients may initially see
+    incomplete data (zeros) for missing buckets, which will be populated in subsequent requests
+    once the background tasks complete.
+    """
     range_key = request.args.get('range', '1h')
     now_ts = time.time()
 
