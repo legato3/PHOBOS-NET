@@ -194,12 +194,6 @@ def api_stats_flags():
     # New Feature: TCP Flags
     # Parse raw flows using nfdump
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_flags:
-        if _stats_flags_cache["data"] and _stats_flags_cache["key"] == range_key and _stats_flags_cache.get("win") == win:
-            return jsonify(_stats_flags_cache["data"])
-
     tf = get_time_range(range_key)
 
     # Get raw flows (limit 1000)
@@ -210,7 +204,7 @@ def api_stats_flags():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return jsonify({"flags": []})
+            return {"flags": []}
             
         # Robust Header Detection
         header_idx = -1
@@ -289,12 +283,6 @@ def api_stats_asns():
 def api_stats_durations():
     # New Feature: Longest Duration Flows
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _lock_durations:
-        if _stats_durations_cache["data"] and _stats_durations_cache["key"] == range_key and _stats_durations_cache.get("win") == win:
-            return jsonify(_stats_durations_cache["data"])
-
     tf = get_time_range(range_key)
 
     output = run_nfdump(["-O", "duration", "-n", "100"], tf) # Get top flows by duration
@@ -303,7 +291,7 @@ def api_stats_durations():
         rows = []
         lines = output.strip().split("\n")
         if not lines:
-             return jsonify({
+             return {
                  "durations": [],
                  "stats": {
                      "avg_duration": 0,
@@ -314,7 +302,7 @@ def api_stats_durations():
                      "max_duration": 0,
                      "max_duration_fmt": "0s"
                  }
-             })
+             }
 
         # Robust Header Detection
         header_idx = -1
@@ -455,11 +443,6 @@ def api_stats_durations():
 def api_stats_packet_sizes():
     # New Feature: Packet Size Distribution
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    with _cache_lock:
-        if _stats_pkts_cache["data"] and _stats_pkts_cache["key"] == range_key and now - _stats_pkts_cache["ts"] < 60:
-            return jsonify(_stats_pkts_cache["data"])
-
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
@@ -481,7 +464,7 @@ def api_stats_packet_sizes():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return jsonify({"labels":[], "data":[]})
+            return {"labels":[], "data":[]}
 
         # Robust Header Detection
         header_idx = -1
@@ -1227,7 +1210,7 @@ def api_stats_services():
 
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
-@cached_endpoint(_stats_hourly_cache, _lock_hourly)
+@cached_endpoint(_stats_hourly_cache, _lock_hourly, key_params=['range'])
 def api_stats_hourly():
     """Traffic distribution by hour for selected range."""
     range_key = request.args.get('range', '24h')
@@ -1247,7 +1230,7 @@ def api_stats_hourly():
     try:
         lines = output.strip().split("\n")
         if not lines:
-             return jsonify({})
+             return {}
 
         # Robust Header Detection
         header_idx = -1
@@ -1333,12 +1316,6 @@ def api_stats_hourly():
 def api_stats_flow_stats():
     """Flow statistics - averages, totals, distributions."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_flow_stats_cache["data"] and _stats_flow_stats_cache["key"] == range_key and _stats_flow_stats_cache.get("win") == win:
-            return jsonify(_stats_flow_stats_cache["data"])
-
     tf = get_time_range(range_key)
     output = run_nfdump(["-n", "2000"], tf)
 
@@ -1411,8 +1388,7 @@ def api_stats_flow_stats():
                 "long": long_flows
             },
             "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
-        }
-    return data
+        return data
     except (ValueError, TypeError, IndexError, KeyError):
         return {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
 
@@ -1424,19 +1400,13 @@ def api_stats_flow_stats():
 def api_stats_proto_mix():
     """Protocol mix for pie chart visualization."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_proto_mix_cache["data"] and _stats_proto_mix_cache["key"] == range_key and _stats_proto_mix_cache.get("win") == win:
-            return jsonify(_stats_proto_mix_cache["data"])
-
     try:
         # Reuse protocols data
         protos_data = get_common_nfdump_data("protos", range_key)
 
         if not protos_data:
             # Return empty but valid structure
-            return jsonify({
+            return {
                 "labels": [],
                 "bytes": [],
                 "bytes_fmt": [],
@@ -1445,7 +1415,7 @@ def api_stats_proto_mix():
                 "colors": [],
                 "total_bytes": 0,
                 "total_bytes_fmt": "0 B"
-            })
+            }
 
         labels = []
         bytes_data = []
@@ -1488,7 +1458,7 @@ def api_stats_proto_mix():
         import traceback
         traceback.print_exc()
         # Return empty but valid structure on error
-        return jsonify({
+        return {
             "labels": [],
             "bytes": [],
             "bytes_fmt": [],
@@ -1497,7 +1467,7 @@ def api_stats_proto_mix():
             "colors": [],
             "total_bytes": 0,
             "total_bytes_fmt": "0 B"
-        })
+        }
 
 
 
@@ -1686,13 +1656,7 @@ def api_bandwidth():
 
     cache_key = f"bw_{range_key}"
 
-    # Check cache with range key validation
-    with _lock_bandwidth:
-        if _bandwidth_cache.get("data") and _bandwidth_cache.get("key") == cache_key and now_ts - _bandwidth_cache.get("ts", 0) < 5:
-            global _metric_bw_cache_hits
-            _metric_bw_cache_hits += 1
-            return jsonify(_bandwidth_cache["data"])
-
+    # Check cache with range key validation (Removed manual block, handled by decorator)
     now = datetime.now()
     labels, bw, flows = [], [], []
 
