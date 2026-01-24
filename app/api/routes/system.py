@@ -126,9 +126,11 @@ def debug_paths():
 def api_stats_summary():
     range_key = request.args.get('range', '1h')
     now = time.time()
-    win = int(now // 60)
+    cache_ttl = 60 # 1 minute
     with _lock_summary:
-        if _stats_summary_cache["data"] and _stats_summary_cache.get("key") == range_key and _stats_summary_cache.get("win") == win:
+        if (_stats_summary_cache["data"] and 
+            _stats_summary_cache.get("key") == range_key and 
+            (now - _stats_summary_cache.get("ts", 0)) < cache_ttl):
             return jsonify(_stats_summary_cache["data"])
 
     # Reuse common data cache instead of running separate nfdump query

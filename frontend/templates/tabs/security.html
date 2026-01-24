@@ -9,29 +9,29 @@
             <div class="card stat-box">
                 <div class="value text-white" x-text="(threatActivityTimeline.total_threats || 0).toLocaleString()">
                 </div>
-                <div class="label">Threats</div>
+                <div class="label" x-text="'Threats (' + timeRangeLabel + ')'">Threats</div>
             </div>
             <div class="card stat-box">
                 <div class="value text-white" x-text="(threatActivityTimeline.period_total || 0).toLocaleString()">
                 </div>
-                <div class="label">Blocks</div>
+                <div class="label" x-text="'Blocks (' + timeRangeLabel + ')'">Blocks</div>
             </div>
             <div class="card stat-box">
                 <div class="value text-white" x-text="(threatActivityTimeline.total_matches || 0).toLocaleString()">
                 </div>
-                <div class="label">Matches</div>
+                <div class="label" x-text="'Matches (' + timeRangeLabel + ')'">Matches</div>
             </div>
             <div class="card stat-box">
                 <div class="value text-white"
                     x-text="(threatActivityTimeline.total_range_alerts || 0).toLocaleString()"></div>
-                <div class="label">Alerts</div>
+                <div class="label" x-text="'Alerts (' + timeRangeLabel + ')'">Alerts</div>
             </div>
         </div>
 
         <!-- Threat Activity Timeline - Full Width -->
         <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: var(--space-6);">
             {% call widget_card('threatActivityTimeline', 'Threat Activity Timeline', '📈',
-            card_class='wide-card', show_spinner=True) %}
+            card_class='wide-card', show_spinner=True, period_x_text="timeRangeLabel") %}
             <!-- Control Bar Removed (Redundant range/export) -->
 
             <!-- Stats Summary -->
@@ -100,7 +100,7 @@
             <template x-if="isVisible('securityObservability')">
                 {% call widget_card('securityObservability', 'Security Coverage & Protection', '🛡️',
                 show_spinner=True,
-                card_class="security-coverage-card") %}
+                card_class="security-coverage-card", period_x_text="timeRangeLabel") %}
 
                 <!-- Protection Status Section -->
                 <div class="coverage-section protection-status">
@@ -134,8 +134,7 @@
                                 </svg>
                             </span>
                             <div class="coverage-detail">
-                                <span class="coverage-label"
-                                    x-text="'Threats Blocked (' + (threatActivityTimeline.period_label || 'Period') + ')'">Threats
+                                <span class="coverage-label" x-text="'Threats Blocked (' + timeRangeLabel + ')'">Threats
                                     Blocked</span>
                                 <span class="coverage-value"
                                     x-text="(threatActivityTimeline.period_total || 0).toLocaleString()"></span>
@@ -234,7 +233,7 @@
             <template x-if="isVisible('alertHistory')">
                 {% call widget_card('alertHistory', 'Alert History', '', show_spinner=True,
                 title_x_text="'Alert History'",
-                period_x_text="threatActivityTimeline.period_label || '24h'")
+                period_x_text="timeRangeLabel")
                 %}
                 <!-- Alert Filters -->
                 <div class="alert-filters">
@@ -288,7 +287,7 @@
                     </template>
                     <template x-if="filteredAlerts.length === 0">
                         <div class="alert-empty"
-                            x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? 'No matching alerts' : 'No alerts in past ' + (threatActivityTimeline.period_label || '24h')">
+                            x-text="alertFilter.severity !== 'all' || alertFilter.type !== 'all' ? 'No matching alerts' : 'No alerts in past ' + timeRangeLabel">
                         </div>
                     </template>
                 </div>
@@ -299,7 +298,7 @@
                 {% call widget_card('threatsByCountry', 'Detections by Country', '🌍',
                 show_spinner=True,
                 title_x_text="'DETECTIONS BY COUNTRY'",
-                period_x_text="threatActivityTimeline.period_label || '24h'") %}
+                period_x_text="timeRangeLabel") %}
                 <div class="country-threat-list">
                     <template x-if="threatsByCountry.countries && threatsByCountry.countries.length > 0">
                         <div>
@@ -388,7 +387,7 @@
             <!-- Top Malicious Ports -->
             {% call widget_card('maliciousPorts', 'Top Malicious Ports', '🔒', show_spinner=True,
             title_x_text="'TOP MALICIOUS PORTS'",
-            period_x_text="threatActivityTimeline.period_label || '24h'") %}
+            period_x_text="timeRangeLabel") %}
             <div class="text-9 text-muted mb-2">
                 <template x-if="maliciousPorts.has_syslog">
                     <span>Ports targeted by threats + blocked by firewall</span>
@@ -464,7 +463,7 @@
             <template x-if="isVisible('topThreatIPs')">
                 {% call widget_card('topThreatIPs', 'Top Threat IPs', '🎯', show_spinner=True,
                 title_x_text="'TOP THREAT IPS'",
-                period_x_text="threatActivityTimeline.period_label || '24h'")
+                period_x_text="timeRangeLabel")
                 %}
                 <div class="threat-ips-list">
                     <template x-for="(ip, idx) in (topThreatIPs.ips || []).slice(0, 5)" :key="ip.ip">
@@ -500,7 +499,7 @@
                 {% call widget_card('mitreHeatmap', 'Detected Techniques', '🎯',
                 show_spinner=True,
                 title_x_text="'DETECTED TECHNIQUES'",
-                period_x_text="threatActivityTimeline.period_label || '24h'") %}
+                period_x_text="timeRangeLabel") %}
                 <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                     <div
                         style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
@@ -555,7 +554,7 @@
                 {% call widget_card('protocolAnomalies', 'Protocol Anomalies', '⚡',
                 show_spinner=True,
                 title_x_text="'PROTOCOL ANOMALIES'",
-                period_x_text="threatActivityTimeline.period_label || '24h'") %}
+                period_x_text="timeRangeLabel") %}
                 <div class="anomaly-summary" :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
                     <div x-show="protocolAnomalies.status === 'warming'" class="warming-banner">
                         <span class="warming-icon">⚠️</span>

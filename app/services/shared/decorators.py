@@ -34,27 +34,17 @@ def admin_required(f):
     return decorated_function
 
 
-def cached_endpoint(cache_dict, lock, key_params=None, ttl_minutes=1):
+def cached_endpoint(cache_dict, lock, key_params=None, ttl_seconds=60):
     """Caching decorator for Flask JSON endpoints.
 
-    Caches endpoint responses based on request parameters with minute-window expiry.
-    Eliminates duplicate caching boilerplate across routes.
+    Caches endpoint responses based on request parameters with a sliding TTL.
+    Sliding TTL prevents simultaneous cache misses at minute boundaries.
 
     Args:
-        cache_dict: Dict to store cached data (must have 'data', 'key', 'ts', 'win' keys)
+        cache_dict: Dict to store cached data (must have 'data', 'key', 'ts' keys)
         lock: Threading lock for cache access
         key_params: List of request.args param names to include in cache key.
-                   If None, uses 'range' param only. Use [] for no params.
-        ttl_minutes: Cache TTL in minutes (default: 1)
-
-    Example:
-        @bp.route("/api/stats/sources")
-        @throttle(5, 10)
-        @cached_endpoint(_stats_sources_cache, _lock_sources, key_params=['range', 'limit'])
-        def api_stats_sources():
-            # Just return the data - caching is handled by decorator
-            sources = fetch_sources()
-            return {"sources": sources}
+        ttl_seconds: Cache TTL in seconds (default: 60)
     """
     if key_params is None:
         key_params = ['range']
@@ -70,24 +60,22 @@ def cached_endpoint(cache_dict, lock, key_params=None, ttl_minutes=1):
             cache_key = ':'.join(key_parts) if key_parts else 'default'
 
             now = time.time()
-            win = int(now // (60 * ttl_minutes))
 
             # Check cache
             with lock:
                 if (cache_dict.get("data") and
                     cache_dict.get("key") == cache_key and
-                    cache_dict.get("win") == win):
+                    (now - cache_dict.get("ts", 0)) < ttl_seconds):
                     return jsonify(cache_dict["data"])
 
             # Cache miss - call function
             result = func(*args, **kwargs)
 
-            # Store in cache (result should be a dict, not jsonify'd)
+            # Store in cache
             with lock:
                 cache_dict["data"] = result
                 cache_dict["ts"] = now
                 cache_dict["key"] = cache_key
-                cache_dict["win"] = win
 
             return jsonify(result)
         return wrapper

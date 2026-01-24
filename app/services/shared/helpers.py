@@ -82,7 +82,10 @@ def fmt_bytes(b):
 def get_time_range(range_key):
     """Convert range key to nfdump time range string."""
     now = datetime.now()
-    hours = {"15m": 0.25, "30m": 0.5, "1h": 1, "6h": 6, "24h": 24, "48h": 48}.get(range_key, 1)
+    hours = {
+        "15m": 0.25, "30m": 0.5, "1h": 1, "4h": 4, "6h": 6, 
+        "12h": 12, "24h": 24, "48h": 48, "3d": 72, "7d": 168, "30d": 720
+    }.get(range_key, 1)
     past = now - timedelta(hours=hours)
     return f"{past.strftime('%Y/%m/%d.%H:%M:%S')}-{now.strftime('%Y/%m/%d.%H:%M:%S')}"
 

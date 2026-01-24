@@ -23,18 +23,8 @@
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <span
                         x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
-                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                        <span
-                            :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                            x-text="networkStatsOverview.trends.anomalies.indicator"
-                            :title="'Since last hour: ' + (networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
-                    </template>
                 </div>
-                <div class="label">Network Anomalies
-                    <span style="margin-left: var(--space-1); opacity: 0.6; cursor: pointer;"
-                        title="Anomalies are behavioral deviations from normal network patterns, not confirmed threats. They indicate unusual activity that may warrant investigation. (Click for details)"
-                        @click.stop="openFwDetail('networkAnomalies')">ℹ️</span>
-                </div>
+                <div class="label" x-text="'Anomalies (' + timeRangeLabel + ')'">Network Anomalies</div>
             </div>
             <div class="card stat-box">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
@@ -109,7 +99,7 @@
                 <button class="btn-view-all" @click="openExpandedTable('sources')">View All</button>
                 {% endset %}
                 {% call widget_card('sources', 'Top Sources', '🔼', extra_actions=src_actions,
-                footer_content=src_footer, period_x_text="timeRange") %}
+                footer_content=src_footer, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <div class="endpoint-grid-header">
                         <div class="grid-th w-50">Source Address</div>
@@ -164,7 +154,7 @@
                 {% endset %}
                 {% call widget_card('destinations', 'Top Destinations', '🎯',
                 extra_actions=dst_actions,
-                footer_content=dst_footer, period_x_text="timeRange") %}
+                footer_content=dst_footer, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <div class="endpoint-grid-header">
                         <div class="grid-th w-50">IP Address</div>
@@ -210,7 +200,7 @@
             <!-- Protocol Hierarchy -->
             <template x-if="isVisible('protocolHierarchy')">
                 {% call widget_card('protocolHierarchy', 'Protocol Hierarchy', '🧬',
-                show_spinner=True, period_x_text="timeRange") %}
+                show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="chart-wrapper" style="height: 300px; position: relative;">
                     <canvas id="protocolHierarchyChart"></canvas>
                 </div>
@@ -229,7 +219,7 @@
             <!-- Traffic Distribution -->
             <template x-if="isVisible('trafficScatter')">
                 {% call widget_card('trafficScatter', 'Host Traffic Matrix', '💠',
-                show_spinner=True, period_x_text="timeRange") %}
+                show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="chart-wrapper" style="height: 300px; position: relative;">
                     <canvas id="trafficScatterChart"></canvas>
                 </div>
@@ -245,7 +235,8 @@
                 <div class="status-pills">
                 </div>
                 {% endset %}
-                {% call widget_card('ports', 'Top Ports', '🔌', extra_actions=ports_actions, period_x_text="timeRange")
+                {% call widget_card('ports', 'Top Ports', '🔌', extra_actions=ports_actions,
+                period_x_text="timeRangeLabel")
                 %}
                 <table class="table-fixed table-compact">
                     <thead>
@@ -282,7 +273,8 @@
                 <div class="status-pills">
                 </div>
                 {% endset %}
-                {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions, period_x_text="timeRange") %}
+                {% call widget_card('asns', 'Top ASNs', '🏢', extra_actions=asns_actions,
+                period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <template x-for="asn in asns.asns" :key="asn.asn">
                         <div class="asn-row">
@@ -309,7 +301,7 @@
                 </div>
                 {% endset %}
                 {% call widget_card('countries', 'Top Countries', '🌍',
-                extra_actions=country_actions, period_x_text="timeRange") %}
+                extra_actions=country_actions, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <template x-for="c in (countries.map_data || []).slice(0, 10)" :key="c.iso">
                         <div class="country-row">
@@ -340,7 +332,7 @@
                 </div>
                 {% endset %}
                 {% call widget_card('services', 'Top Services', '🌐', extra_actions=svc_actions,
-                period_x_text="timeRange") %}
+                period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <template x-for="svc in services.services" :key="svc.service">
                         <div class="service-row">
@@ -360,7 +352,8 @@
             </template>
 
             <template x-if="isVisible('hourlyTraffic')">
-                {% call widget_card('hourlyTraffic', 'Traffic Volume', '⏰', show_spinner=True) %}
+                {% call widget_card('hourlyTraffic', 'Traffic Volume', '⏰', show_spinner=True,
+                period_x_text="timeRangeLabel") %}
                 <div class="hourly-summary">
                     <div class="hourly-stat">
                         <span class="hourly-stat-value text-green" x-text="hourlyTraffic.peak_hour + ':00'"></span>
@@ -372,7 +365,7 @@
                     </div>
                     <div class="hourly-stat">
                         <span class="hourly-stat-value" x-text="hourlyTraffic.total_bytes_fmt"></span>
-                        <span class="hourly-stat-label" x-text="timeRange + ' Total'"></span>
+                        <span class="hourly-stat-label" x-text="timeRangeLabel + ' Total'"></span>
                     </div>
                 </div>
                 <div class="chart-wrapper-small chart-expandable"
@@ -385,7 +378,7 @@
 
             <!-- TCP Flags -->
             <template x-if="isVisible('flags')">
-                {% call widget_card('flags', 'TCP Flags', '🏳️', show_spinner=True, period_x_text="timeRange") %}
+                {% call widget_card('flags', 'TCP Flags', '🏳️', show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="chart-wrapper-small chart-expandable"
                     @click="openFullscreenChart('flagsChart', 'TCP Flags Distribution')" title="Click to expand">
                     <canvas id="flagsChart"></canvas>
@@ -416,7 +409,8 @@
 
             <!-- Packet Size Distribution -->
             <template x-if="isVisible('packetSizes')">
-                {% call widget_card('packetSizes', 'Packet Sizes', '📦', show_spinner=True, period_x_text="timeRange")
+                {% call widget_card('packetSizes', 'Packet Sizes', '📦', show_spinner=True,
+                period_x_text="timeRangeLabel")
                 %}
                 <div class="chart-wrapper-small chart-expandable"
                     @click="openFullscreenChart('pktSizeChart', 'Packet Size Distribution')" title="Click to expand">
@@ -427,7 +421,8 @@
 
             <!-- Flow Statistics -->
             <template x-if="isVisible('flowStats')">
-                {% call widget_card('flowStats', 'Flow Statistics', '📊', show_spinner=True, period_x_text="timeRange")
+                {% call widget_card('flowStats', 'Flow Statistics', '📊', show_spinner=True,
+                period_x_text="timeRangeLabel")
                 %}
                 <div class="flow-stats-grid">
                     <div class="flow-stat-item">
@@ -580,7 +575,8 @@
 
             <!-- Protocols -->
             <template x-if="isVisible('protocols')">
-                {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True, period_x_text="timeRange") %}
+                {% call widget_card('protocols', 'Protocols', '📡', show_spinner=True, period_x_text="timeRangeLabel")
+                %}
                 <div class="chart-wrapper-small chart-expandable" style="margin-bottom: 12px; height: 160px;"
                     x-show="protoMix && protoMix.labels && protoMix.labels.length > 0"
                     @click="openFullscreenChart('protoMixChart', 'Protocol Distribution')" title="Click to expand">
@@ -622,7 +618,7 @@
                 </div>
                 {% endset %}
                 {% call widget_card('durations', 'Long Flows', '⏱️', extra_actions=dur_actions,
-                show_spinner=True, period_x_text="timeRange") %}
+                show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <!-- Summary Stats -->
                     <div class="duration-summary"
@@ -688,7 +684,7 @@
                 </div>
                 {% endset %}
                 {% call widget_card('talkers', 'Top Talkers', '💬', extra_actions=talk_actions,
-                show_spinner=True, period_x_text="timeRange") %}
+                show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <div class="talkers-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
                         <template x-for="(flow, idx) in (talkers.flows || []).slice(0, 5)" :key="idx">

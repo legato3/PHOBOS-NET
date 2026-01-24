@@ -40,7 +40,7 @@ from app.core.app_state import (
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
     _lock_flows, _lock_countries, _lock_worldmap,
-    _lock_proto_hierarchy, _lock_noise,
+    _lock_proto_hierarchy, _lock_noise, _lock_attack_timeline,
     _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
@@ -49,7 +49,7 @@ from app.core.app_state import (
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
-    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_attack_timeline_cache,
     _server_health_cache,
     _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
     _flows_cache, _common_data_cache,
@@ -942,9 +942,13 @@ def api_health_baseline_signals():
     from app.config import LONG_LOW_DURATION_THRESHOLD, LONG_LOW_BYTES_THRESHOLD
     import time
     
+    range_key = request.args.get('range', '1h')
     now = time.time()
-    tf_1h = get_time_range('1h')
-    tf_24h = get_time_range('24h')
+    tf_range = get_time_range(range_key)
+    
+    # Map range keys to hours for normalization
+    range_map = {'15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168}
+    range_hours = range_map.get(range_key, 1)
     
     signals = []
     signal_details = []
@@ -952,7 +956,7 @@ def api_health_baseline_signals():
     # Get current metric values
     # 1. Active Flows
     try:
-        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_1h)
+        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
         active_flows = 0
         if full_output:
             lines = full_output.strip().split("\n")
@@ -968,7 +972,7 @@ def api_health_baseline_signals():
     external_connections = 0
     if active_flows > 0:
         try:
-            sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_1h)
+            sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_range)
             sample_count = 0
             sample_external = 0
             if sample_output:
@@ -1017,11 +1021,11 @@ def api_health_baseline_signals():
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
-                cutoff_24h = now - 86400
+                cutoff_range = now - (range_hours * 3600)
                 cur = conn.execute("""
                     SELECT COUNT(*) FROM fw_logs
                     WHERE timestamp > ? AND action IN ('block', 'reject')
-                """, (cutoff_24h,))
+                """, (cutoff_range,))
                 blocked_events_24h = cur.fetchone()[0] or 0
             finally:
                 conn.close()
@@ -1031,7 +1035,7 @@ def api_health_baseline_signals():
     # 4. Anomalies (24h)
     anomalies_24h = 0
     try:
-        output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_24h)
+        output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_range)
         if output_24h:
             lines_24h = output_24h.strip().split("\n")
             start_idx_24h = 0
@@ -2578,6 +2582,7 @@ def api_export_threats():
 
 @bp.route('/api/security/attack-timeline')
 @throttle(5, 10)
+@cached_endpoint(_stats_attack_timeline_cache, _lock_attack_timeline)
 def api_attack_timeline():
     """Get attack timeline data for visualization with configurable time range."""
     range_key = request.args.get('range', '24h')

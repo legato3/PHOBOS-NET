@@ -349,13 +349,15 @@ def get_traffic_direction(ip, tf):
 def get_common_nfdump_data(query_type, range_key):
     """Shared data fetcher for common queries (sources, ports, dests, protos)."""
     now = time.time()
-    win = int(now // 60)
-    cache_key = f"{query_type}:{range_key}:{win}"
+    cache_key = f"{query_type}:{range_key}"
+    cache_ttl = 60 # 1 minute sliding TTL
     
     with _common_data_lock:
         entry = _common_data_cache.get(cache_key)
         if entry:
-            return entry["data"]
+            # Check if entry is still valid based on sliding TTL
+            if (now - entry["ts"]) < cache_ttl:
+                return entry["data"]
     
     tf = get_time_range(range_key)
     data = []
@@ -373,7 +375,7 @@ def get_common_nfdump_data(query_type, range_key):
         data = parse_csv(run_nfdump(["-s", "proto/bytes/flows/packets", "-n", "20"], tf), expected_key='proto')
     
     with _common_data_lock:
-        _common_data_cache[cache_key] = {"data": data, "ts": now, "win": win}
+        _common_data_cache[cache_key] = {"data": data, "ts": now}
         if len(_common_data_cache) > COMMON_DATA_CACHE_MAX:
             drop_count = max(1, COMMON_DATA_CACHE_MAX // 5)
             # Ensure ts is always a float for comparison

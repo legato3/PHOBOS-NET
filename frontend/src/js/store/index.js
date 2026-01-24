@@ -869,11 +869,8 @@ export const Store = () => ({
 
         // Watchers
         this.$watch('timeRange', (val) => {
-            // Reset all fetch timestamps to force refresh with new time range
-            this.lastFetch = {
-                summary: 0, network: 0, security: 0, server: 0,
-                firewall: 0, hosts: 0, forensics: 0, worldmap: 0
-            };
+            // Reset ALL fetch timestamps to force refresh everything with new time range
+            this.lastFetch = {};
 
             // Sync nested time ranges
             if (this.threatActivityTimeline) {
@@ -1506,6 +1503,22 @@ export const Store = () => ({
         return this.timeRange;
     },
 
+    get timeRangeLabel() {
+        const labels = {
+            '15m': 'Last 15m',
+            '30m': 'Last 30m',
+            '1h': 'Last 1h',
+            '4h': 'Last 4h',
+            '6h': 'Last 6h',
+            '12h': 'Last 12h',
+            '24h': 'Last 24h',
+            '3d': 'Last 3d',
+            '7d': 'Last 7d',
+            '30d': 'Last 30d'
+        };
+        return labels[this.timeRange] || this.timeRange;
+    },
+
 
 
     togglePause() {
@@ -1999,8 +2012,8 @@ export const Store = () => ({
         const now = Date.now();
 
         // Staggered loading: Prioritize critical summary data
-        // Fetch summary first (await safe because it has internal try/catch)
-        await this.fetchSummary();
+        // Fetch summary (non-blocking)
+        this.fetchSummary();
 
         // Fetch Overview page stat boxes early (needed for initial page load)
         await Promise.allSettled([
@@ -2042,12 +2055,12 @@ export const Store = () => ({
 
         // Smart Loading via Polling: Check if sections are visible AND stale
 
-        if (this.isSectionVisible('section-worldmap') && (now - this.lastFetch.worldmap > this.heavyTTL)) {
+        if ((this.isSectionVisible('section-worldmap') || this.activeTab === 'network') && (now - (this.lastFetch.worldmap || 0) > this.heavyTTL)) {
             this.fetchWorldMap();
             this.lastFetch.worldmap = now;
         }
 
-        if (this.isSectionVisible('section-network') && (now - this.lastFetch.network > this.heavyTTL)) {
+        if ((this.isSectionVisible('section-network') || this.activeTab === 'network') && (now - (this.lastFetch.network || 0) > this.heavyTTL)) {
             // Parallelize all network section fetches for better performance
             await Promise.allSettled([
                 this.fetchFlags(),
@@ -2068,7 +2081,7 @@ export const Store = () => ({
             this.lastFetch.network = now;
         }
 
-        if (this.isSectionVisible('section-security') && (now - this.lastFetch.security > this.heavyTTL)) {
+        if ((this.isSectionVisible('section-security') || this.activeTab === 'security') && (now - (this.lastFetch.security || 0) > this.heavyTTL)) {
             // Parallelize security section fetches for better performance
             await Promise.allSettled([
                 this.fetchSecurityScore(),
@@ -2086,12 +2099,12 @@ export const Store = () => ({
             this.lastFetch.security = now;
         }
 
-        if (this.isSectionVisible('section-threat-activity-timeline') && (now - (this.lastFetch.threatActivityTimeline || 0) > this.heavyTTL)) {
+        if ((this.isSectionVisible('section-threat-activity-timeline') || this.activeTab === 'security') && (now - (this.lastFetch.threatActivityTimeline || 0) > this.heavyTTL)) {
             this.fetchThreatActivityTimeline();
             this.lastFetch.threatActivityTimeline = now;
         }
 
-        if (this.isSectionVisible('section-flows') && (now - this.lastFetch.flows > this.mediumTTL)) {
+        if ((this.isSectionVisible('section-flows') || this.activeTab === 'network') && (now - (this.lastFetch.flows || 0) > this.mediumTTL)) {
             this.fetchFlows();
             this.lastFetch.flows = now;
         }
@@ -2864,7 +2877,7 @@ export const Store = () => ({
     async fetchFirewallStatsOverview() {
         this.firewallStatsOverview.loading = true;
         try {
-            const res = await fetch('/api/firewall/stats/overview');
+            const res = await fetch(`/api/firewall/stats/overview?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 this.firewallStatsOverview = {
@@ -4327,7 +4340,7 @@ export const Store = () => ({
     async fetchBaselineSignals() {
         this.baselineSignals.loading = true;
         try {
-            const res = await fetch('/api/health/baseline-signals');
+            const res = await fetch(`/api/health/baseline-signals?range=${this.timeRange}`);
             if (res.ok) {
                 const d = await res.json();
                 this.baselineSignals = {

@@ -37,7 +37,7 @@ from app.core.app_state import (
     _shutdown_event,
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
-    _lock_flows, _lock_countries, _lock_worldmap,
+    _lock_flows, _lock_countries, _lock_worldmap, _lock_hourly, _lock_firewall_overview, _lock_network_overview,
     _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
     _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
@@ -47,9 +47,10 @@ from app.core.app_state import (
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
-    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache, _stats_firewall_overview_cache, _stats_network_overview_cache,
+    _bandwidth_history_cache, _bandwidth_cache,
     _server_health_cache,
-    _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
+    _mock_data_cache,
     _flows_cache, _common_data_cache, _service_cache,
     _request_times,
     _metric_nfdump_calls, _metric_stats_cache_hits, _metric_bw_cache_hits,
@@ -599,6 +600,7 @@ def api_stats_countries():
 
 @bp.route("/api/stats/worldmap")
 @throttle(5, 10)
+@cached_endpoint(_stats_worldmap_cache, _lock_worldmap)
 def api_stats_worldmap():
     """World map data endpoint with geo-located sources, destinations, and threats."""
     range_key = request.args.get('range', '1h')
@@ -1236,14 +1238,10 @@ def api_stats_services():
 
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
+@cached_endpoint(_stats_hourly_cache, _lock_hourly)
 def api_stats_hourly():
     """Traffic distribution by hour for selected range."""
     range_key = request.args.get('range', '24h')
-    now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_hourly_cache["data"] and _stats_hourly_cache.get("key") == range_key and _stats_hourly_cache.get("win") == win:
-            return jsonify(_stats_hourly_cache["data"])
 
     tf = get_time_range(range_key)
     # Sort by bytes to capture the top contributors
@@ -1530,11 +1528,16 @@ def api_stats_proto_mix():
 
 @bp.route("/api/firewall/stats/overview")
 @throttle(30, 10)
+@cached_endpoint(_stats_firewall_overview_cache, _lock_firewall_overview, ttl_seconds=10)
 def api_firewall_stats_overview():
     """Get high-signal firewall stat box metrics for at-a-glance situational awareness."""
+    range_key = request.args.get('range', '24h')
     now = time.time()
-    cutoff_24h = now - 86400  # 24 hours
-    cutoff_7d = now - (7 * 86400)  # 7 days lookback for "new" IPs
+    
+    range_map = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}
+    range_seconds = range_map.get(range_key, 86400)
+    range_cutoff = now - range_seconds
+    cutoff_7d = now - 604800
     
     with _firewall_db_lock:
         conn = _firewall_db_connect()
@@ -1543,14 +1546,14 @@ def api_firewall_stats_overview():
             cur = conn.execute("""
                 SELECT COUNT(*) FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (cutoff_24h,))
+            """, (range_cutoff,))
             blocked_events_24h = cur.fetchone()[0] or 0
             
             # 2. Unique Blocked Sources (24h)
             cur = conn.execute("""
                 SELECT COUNT(DISTINCT src_ip) FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (cutoff_24h,))
+            """, (range_cutoff,))
             unique_blocked_sources = cur.fetchone()[0] or 0
             
             # 3. New Blocked IPs (blocked in 24h but not in previous 7 days)
@@ -1558,14 +1561,14 @@ def api_firewall_stats_overview():
             cur = conn.execute("""
                 SELECT DISTINCT src_ip FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (cutoff_24h,))
+            """, (range_cutoff,))
             recent_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
             
             # Get IPs blocked in previous 7 days (before last 24h)
             cur = conn.execute("""
                 SELECT DISTINCT src_ip FROM fw_logs
                 WHERE timestamp > ? AND timestamp <= ? AND action IN ('block', 'reject')
-            """, (cutoff_7d, cutoff_24h))
+            """, (cutoff_7d, range_cutoff))
             previous_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
             
             # New IPs = recent - previous
@@ -1582,7 +1585,7 @@ def api_firewall_stats_overview():
                 GROUP BY rule_or_reason
                 ORDER BY cnt DESC
                 LIMIT 1
-            """, (cutoff_24h,))
+            """, (range_cutoff,))
             top_rule_row = cur.fetchone()
             raw_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
             top_block_count = top_rule_row[1] if top_rule_row else 0
@@ -1604,7 +1607,7 @@ def api_firewall_stats_overview():
                     GROUP BY interface, direction, dst_port, proto
                     ORDER BY cnt DESC
                     LIMIT 1
-                """, (cutoff_24h, raw_reason))
+                """, (range_cutoff, raw_reason))
                 context_row = cur.fetchone()
                 
                 if context_row:
@@ -1685,7 +1688,8 @@ def _safe_ensure_rollup(bucket):
 
 
 @bp.route("/api/bandwidth")
-@throttle(10,20)
+@throttle(10, 20)
+@cached_endpoint(_bandwidth_cache, _lock_bandwidth)
 def api_bandwidth():
     range_key = request.args.get('range', '1h')
     now_ts = time.time()
@@ -1863,6 +1867,7 @@ def api_bandwidth():
 
 @bp.route("/api/network/stats/overview")
 @throttle(30, 10)
+@cached_endpoint(_stats_network_overview_cache, _lock_network_overview, ttl_seconds=10)
 def api_network_stats_overview():
     """Get high-signal network stat box metrics respecting global time range."""
     # Get range from request, default to 1h for backward compatibility if not provided

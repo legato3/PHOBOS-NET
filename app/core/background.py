@@ -79,55 +79,72 @@ def start_trends_thread():
 
 
 def start_agg_thread():
-    """Background aggregator to precompute common nfdump data for 1h range every 60s."""
+    """Background aggregator to precompute common nfdump data for multiple ranges.
+    
+    STRATEGY:
+    - 1h range: Every minute (weight 1)
+    - 24h range: Every 5 minutes (weight 5)
+    - 7d range: Every 15 minutes (weight 15)
+    """
     if state._agg_thread_started:
         return
     state._agg_thread_started = True
 
     def loop():
+        iteration = 0
         while not _shutdown_event.is_set():
             start_time = time.time()
+            iteration += 1
+            
+            # Determine which ranges to refresh this iteration
+            ranges_to_fetch = ['1h']
+            if iteration % 5 == 0:
+                ranges_to_fetch.append('24h')
+            if iteration % 15 == 0:
+                ranges_to_fetch.append('7d')
+                
             try:
-                range_key = '1h'
-                tf = get_time_range(range_key)
-                now_ts = time.time()
-                win = int(now_ts // 60)
+                for range_key in ranges_to_fetch:
+                    tf = get_time_range(range_key)
+                    now_ts = time.time()
+                    win = int(now_ts // 60)
 
-                # Parallelize nfdump calls to speed up aggregation
-                def fetch_sources():
-                    data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
-                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                    return data
+                    # Parallelize nfdump calls per range
+                    def fetch_sources():
+                        data = parse_csv(run_nfdump(["-s","srcip/bytes/flows/packets","-n","100"], tf), expected_key='sa')
+                        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                        return data
 
-                def fetch_ports():
-                    data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
-                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                    return data
+                    def fetch_ports():
+                        data = parse_csv(run_nfdump(["-s","dstport/bytes/flows","-n","100"], tf), expected_key='dp')
+                        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                        return data
 
-                def fetch_dests():
-                    data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
-                    data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
-                    return data
+                    def fetch_dests():
+                        data = parse_csv(run_nfdump(["-s","dstip/bytes/flows/packets","-n","100"], tf), expected_key='da')
+                        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+                        return data
 
-                def fetch_protos():
-                    return parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
+                    def fetch_protos():
+                        return parse_csv(run_nfdump(["-s","proto/bytes/flows/packets","-n","20"], tf), expected_key='proto')
 
-                with ThreadPoolExecutor(max_workers=4) as executor:
-                    f_sources = executor.submit(fetch_sources)
-                    f_ports = executor.submit(fetch_ports)
-                    f_dests = executor.submit(fetch_dests)
-                    f_protos = executor.submit(fetch_protos)
+                    with ThreadPoolExecutor(max_workers=4) as executor:
+                        f_sources = executor.submit(fetch_sources)
+                        f_ports = executor.submit(fetch_ports)
+                        f_dests = executor.submit(fetch_dests)
+                        f_protos = executor.submit(fetch_protos)
 
-                    sources = f_sources.result()
-                    ports = f_ports.result()
-                    dests = f_dests.result()
-                    protos = f_protos.result()
+                        sources = f_sources.result()
+                        ports = f_ports.result()
+                        dests = f_dests.result()
+                        protos = f_protos.result()
 
-                with _common_data_lock:
-                    _common_data_cache[f"sources:{range_key}:{win}"] = {"data": sources, "ts": now_ts, "win": win}
-                    _common_data_cache[f"ports:{range_key}:{win}"] = {"data": ports, "ts": now_ts, "win": win}
-                    _common_data_cache[f"dests:{range_key}:{win}"] = {"data": dests, "ts": now_ts, "win": win}
-                    _common_data_cache[f"protos:{range_key}:{win}"] = {"data": protos, "ts": now_ts, "win": win}
+                    with _common_data_lock:
+                        _common_data_cache[f"sources:{range_key}"] = {"data": sources, "ts": now_ts}
+                        _common_data_cache[f"ports:{range_key}"] = {"data": ports, "ts": now_ts}
+                        _common_data_cache[f"dests:{range_key}"] = {"data": dests, "ts": now_ts}
+                        _common_data_cache[f"protos:{range_key}"] = {"data": protos, "ts": now_ts}
+                
                 exec_time_ms = (time.time() - start_time) * 1000
                 update_thread_health('AggregationThread', success=True, execution_time_ms=exec_time_ms)
             except Exception as e:
@@ -135,7 +152,10 @@ def start_agg_thread():
                 update_thread_health('AggregationThread', success=False, execution_time_ms=exec_time_ms, error_msg=str(e))
                 add_app_log(f"Agg thread error: {e}", 'ERROR')
 
-            # Align next run to the minute boundary to prevent drift
+            # Reset iteration counter to prevent overflow
+            if iteration >= 15: iteration = 0
+
+            # Align next run to the minute boundary
             now = time.time()
             next_minute = (int(now) // 60 + 1) * 60
             sleep_time = max(1, next_minute - now)
