@@ -1388,6 +1388,7 @@ def api_stats_flow_stats():
                 "long": long_flows
             },
             "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
+        }
         return data
     except (ValueError, TypeError, IndexError, KeyError):
         return {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
