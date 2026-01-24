@@ -331,6 +331,10 @@ def _ensure_rollup_for_bucket(bucket_end_dt):
     # Remove -n limit to get true total traffic stats
     output = run_nfdump(["-s", "proto/bytes/flows"], tf_key)
     stats = parse_csv(output, expected_key='proto')
+
+    if stats is None:
+        raise RuntimeError("nfdump execution failed during rollup")
+
     total_b = sum(s.get("bytes", 0) for s in stats)
     total_f = sum(s.get("flows", 0) for s in stats)
     

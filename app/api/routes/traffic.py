@@ -204,6 +204,9 @@ def api_stats_flags():
     # Note: run_nfdump automatically adds -o csv
     output = run_nfdump(["-n", "1000"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     rows = []
     try:
         lines = output.strip().split("\n")
@@ -300,6 +303,9 @@ def api_stats_durations():
     tf = get_time_range(range_key)
 
     output = run_nfdump(["-O", "duration", "-n", "100"], tf) # Get top flows by duration
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     try:
         rows = []
@@ -469,6 +475,9 @@ def api_stats_packet_sizes():
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     # Buckets
     dist = {
@@ -781,6 +790,9 @@ def api_stats_talkers():
     # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
     output = run_nfdump(["-O", "bytes", "-n", "50"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     flows = []
     # NFDump CSV indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
     ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx = 0, 1, 2, 3, 4, 5, 6, 7, 8
@@ -960,6 +972,9 @@ def api_stats_protocol_hierarchy():
     # Use -A proto,dstport -O bytes
     output = run_nfdump(["-A", "proto,dstport", "-O", "bytes", "-n", "100"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     hierarchy = {"name": "Root", "children": []}
 
     # Structure:
@@ -1075,6 +1090,9 @@ def api_noise_metrics():
     tf = get_time_range(range_key)
     # We use a large limit to get a statistical sample for ratios
     output = run_nfdump(["-n", "2000"], tf)
+
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
     total_flows = 0
     syn_only = 0
@@ -1249,6 +1267,9 @@ def api_stats_hourly():
     # Sort by bytes to capture the top contributors
     output = run_nfdump(["-O", "bytes", "-n", "10000"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
     hourly_flows = {h: 0 for h in range(24)}
@@ -1359,6 +1380,9 @@ def api_stats_flow_stats():
     tf = get_time_range(range_key)
     output = run_nfdump(["-n", "2000"], tf)
 
+    if output is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     try:
         durations = []
         bytes_list = []
@@ -1455,6 +1479,9 @@ def api_stats_proto_mix():
     try:
         # Reuse protocols data
         protos_data = get_common_nfdump_data("protos", range_key)
+
+        if protos_data is None:
+            return jsonify({"error": "Data unavailable", "status": "error"}), 503
 
         if not protos_data:
             # Return empty but valid structure

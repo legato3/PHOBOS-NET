@@ -135,6 +135,10 @@ def api_stats_summary():
     # Note: These totals are derived from top 100 sources (not complete dataset)
     # This provides a representative sample while avoiding expensive full aggregation
     sources = get_common_nfdump_data("sources", range_key)
+
+    if sources is None:
+        return jsonify({"error": "Data unavailable", "status": "error"}), 503
+
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)

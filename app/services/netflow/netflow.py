@@ -87,8 +87,8 @@ def run_nfdump(args, tf=None):
         #     if result:
         #         success = True
         
-        # Ensure we always return a string, never None
-        return result if result is not None else ""
+        # Return None on failure to allow caller to handle error state
+        return result
     finally:
         # OBSERVABILITY: Track subprocess metrics
         duration = time.time() - start_time
@@ -97,11 +97,12 @@ def run_nfdump(args, tf=None):
 
 def parse_csv(output, expected_key=None):
     """Parse nfdump CSV output into structured data."""
-    results = []
     # Defensive check: ensure output is a string (handle None case)
     if output is None:
         add_app_log("parse_csv received None output (nfdump failure)", "WARN")
-        return results
+        return None
+
+    results = []
     if not output:
         return results
         
