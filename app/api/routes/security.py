@@ -2827,7 +2827,7 @@ def api_attack_timeline():
     # Peak bucket
     peak = max(timeline, key=lambda x: x['total']) if timeline else None
 
-    return jsonify({
+    return {
         'timeline': timeline,
         'avg_threat_rate': avg_threat_rate,
         'peak_threat_rate': peak_threat_rate,
@@ -2845,7 +2845,7 @@ def api_attack_timeline():
         'peak_hour': peak['hour'] if peak and peak['total'] > 0 else None,
         'peak_count': peak['total'] if peak else 0,
         'has_fw_data': total_all_blocks > 0
-    })
+    }
 
 
 

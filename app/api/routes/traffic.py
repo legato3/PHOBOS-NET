@@ -39,7 +39,7 @@ from app.core.app_state import (
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
     _lock_flows, _lock_countries, _lock_worldmap, _lock_hourly, _lock_firewall_overview, _lock_network_overview,
     _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
-    _cache_lock, _mock_lock,
+    _cache_lock, _mock_lock, _lock_pkts, _lock_flow_stats, _lock_proto_mix, _lock_network_intelligence,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
     _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
@@ -47,7 +47,7 @@ from app.core.app_state import (
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
-    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache, _stats_firewall_overview_cache, _stats_network_overview_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache, _stats_firewall_overview_cache, _stats_network_overview_cache, _stats_network_intelligence_cache,
     _bandwidth_history_cache, _bandwidth_cache,
     _server_health_cache,
     _mock_data_cache,
@@ -189,6 +189,7 @@ def api_stats_protocols():
 
 @bp.route("/api/stats/flags")
 @throttle(5, 10)
+@cached_endpoint(_stats_flags_cache, _lock_flags, key_params=['range'])
 def api_stats_flags():
     # New Feature: TCP Flags
     # Parse raw flows using nfdump
@@ -258,14 +259,9 @@ def api_stats_flags():
 
         top = [{"flag": k, "count": v} for k,v in clean_counts.most_common(5)]
         data = {"flags": top}
-        with _lock_flags:
-            _stats_flags_cache["data"] = data
-            _stats_flags_cache["ts"] = now
-            _stats_flags_cache["key"] = range_key
-            _stats_flags_cache["win"] = win
-        return jsonify(data)
+        return data
     except Exception as e:
-        return jsonify({"flags": []})
+        return {"flags": []}
 
 
 @bp.route("/api/stats/asns")
@@ -289,6 +285,7 @@ def api_stats_asns():
 
 @bp.route("/api/stats/durations")
 @throttle(5, 10)
+@cached_endpoint(_stats_durations_cache, _lock_durations, key_params=['range'])
 def api_stats_durations():
     # New Feature: Longest Duration Flows
     range_key = request.args.get('range', '1h')
@@ -447,18 +444,14 @@ def api_stats_durations():
                 "max_duration_fmt": f"{max_dur:.1f}s" if max_dur < 60 else f"{max_dur/60:.1f}m"
             }
         }
-        with _lock_durations:
-            _stats_durations_cache["data"] = data
-            _stats_durations_cache["ts"] = now
-            _stats_durations_cache["key"] = range_key
-            _stats_durations_cache["win"] = win
-        return jsonify(data)
+        return data
     except Exception as e:
-        return jsonify({"durations": []})
+        return {"durations": []}
 
 
 @bp.route("/api/stats/packet_sizes")
 @throttle(5, 10)
+@cached_endpoint(_stats_pkts_cache, _lock_pkts, key_params=['range'])
 def api_stats_packet_sizes():
     # New Feature: Packet Size Distribution
     range_key = request.args.get('range', '1h')
@@ -536,13 +529,9 @@ def api_stats_packet_sizes():
             "labels": list(dist.keys()),
             "data": list(dist.values())
         }
-        with _cache_lock:
-            _stats_pkts_cache["data"] = data
-            _stats_pkts_cache["ts"] = now
-            _stats_pkts_cache["key"] = range_key
-        return jsonify(data)
+        return data
     except (ValueError, IndexError, KeyError, TypeError, ZeroDivisionError):
-        return jsonify({"labels":[], "data":[]})
+        return {"labels":[], "data":[]}
 
 
 
@@ -749,7 +738,7 @@ def api_stats_worldmap():
     threat_countries_list = sorted(threat_countries.values(), key=lambda x: x['count'], reverse=True)
     blocked_countries_list = sorted(blocked_countries.values(), key=lambda x: x['count'], reverse=True)
 
-    return jsonify({
+    return {
         "sources": sources,
         "destinations": destinations,
         "threats": threats,
@@ -766,7 +755,7 @@ def api_stats_worldmap():
             "source_country_count": len(source_countries),
             "dest_country_count": len(dest_countries)
         }
-    })
+    }
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
 def api_stats_talkers():
@@ -1334,17 +1323,13 @@ def api_stats_hourly():
     except (ValueError, TypeError, IndexError, KeyError):
         data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": range_key}
 
-    with _cache_lock:
-        _stats_hourly_cache["data"] = data
-        _stats_hourly_cache["ts"] = now
-        _stats_hourly_cache["win"] = win
-        _stats_hourly_cache["key"] = range_key
-    return jsonify(data)
+    return data
 
 
 
 @bp.route("/api/stats/flow_stats")
 @throttle(5, 10)
+@cached_endpoint(_stats_flow_stats_cache, _lock_flow_stats, key_params=['range'])
 def api_stats_flow_stats():
     """Flow statistics - averages, totals, distributions."""
     range_key = request.args.get('range', '1h')
@@ -1427,20 +1412,15 @@ def api_stats_flow_stats():
             },
             "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
         }
+    return data
     except (ValueError, TypeError, IndexError, KeyError):
-        data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
-
-    with _cache_lock:
-        _stats_flow_stats_cache["data"] = data
-        _stats_flow_stats_cache["ts"] = now
-        _stats_flow_stats_cache["key"] = range_key
-        _stats_flow_stats_cache["win"] = win
-    return jsonify(data)
+        return {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
 
 
 
 @bp.route("/api/stats/proto_mix")
 @throttle(5, 10)
+@cached_endpoint(_stats_proto_mix_cache, _lock_proto_mix, key_params=['range'])
 def api_stats_proto_mix():
     """Protocol mix for pie chart visualization."""
     range_key = request.args.get('range', '1h')
@@ -1501,12 +1481,7 @@ def api_stats_proto_mix():
             "total_bytes_fmt": fmt_bytes(total_bytes)
         }
 
-        with _cache_lock:
-            _stats_proto_mix_cache["data"] = data
-            _stats_proto_mix_cache["ts"] = now
-            _stats_proto_mix_cache["key"] = range_key
-            _stats_proto_mix_cache["win"] = win
-        return jsonify(data)
+        return data
 
     except Exception as e:
         print(f"Error in proto_mix: {e}")
@@ -1665,7 +1640,7 @@ def api_firewall_stats_overview():
     # Calculate trend for blocked events (using rate for comparison)
     blocked_trend = calculate_trend('firewall_blocks_rate', blocks_rate)
     
-    return jsonify({
+    return {
         "blocked_events_24h": blocked_events_24h,
         "unique_blocked_sources": unique_blocked_sources,
         "new_blocked_ips": new_blocked_ips,
@@ -1676,7 +1651,7 @@ def api_firewall_stats_overview():
         },
         # TIME SCOPE METADATA: Fixed 24h window
         "time_scope": "24h"
-    })
+    }
 
 
 def _safe_ensure_rollup(bucket):
@@ -1855,14 +1830,10 @@ def api_bandwidth():
             flows.append(val_flows)
 
         data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
-        with _lock_bandwidth:
-            _bandwidth_cache["data"] = data
-            _bandwidth_cache["ts"] = now_ts
-            _bandwidth_cache["key"] = cache_key
-        return jsonify(data)
+        return data
     except (ValueError, IndexError, KeyError, TypeError, sqlite3.Error) as e:
         add_app_log(f"Bandwidth API error: {e}", 'ERROR')
-        return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
+        return {"labels":[],"bandwidth":[],"flows":[]}
 
 
 @bp.route("/api/network/stats/overview")
@@ -2059,7 +2030,7 @@ def api_network_stats_overview():
     external_connections_trend = calculate_trend('external_connections', external_connections_count)
     anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
     
-    return jsonify({
+    return {
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
         "anomalies_24h": anomalies_24h,
@@ -2074,11 +2045,12 @@ def api_network_stats_overview():
             "external_connections": range_key,
             "anomalies_24h": range_key
         }
-    })
+    }
 
 
 @bp.route("/api/network/intelligence")
 @throttle(5, 10)
+@cached_endpoint(_stats_network_intelligence_cache, _lock_network_intelligence, key_params=['range'])
 def api_network_intelligence():
     """Get network performance and behavior insights."""
     range_key = request.args.get('range', '1h')
@@ -2272,7 +2244,7 @@ def api_network_intelligence():
     except Exception as e:
         add_app_log(f"Error generating network intelligence: {e}", 'ERROR')
     
-    return jsonify(intelligence)
+    return intelligence
 
 
 

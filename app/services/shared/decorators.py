@@ -63,10 +63,16 @@ def cached_endpoint(cache_dict, lock, key_params=None, ttl_seconds=60):
 
             # Check cache
             with lock:
-                if (cache_dict.get("data") and
+                cached_data = cache_dict.get("data")
+                if (cached_data is not None and
                     cache_dict.get("key") == cache_key and
                     (now - cache_dict.get("ts", 0)) < ttl_seconds):
-                    return jsonify(cache_dict["data"])
+                    # If we cached a dict-like object, jsonify it.
+                    # If we cached a Response object, return it as is.
+                    from flask import Response
+                    if isinstance(cached_data, Response):
+                        return cached_data
+                    return jsonify(cached_data)
 
             # Cache miss - call function
             result = func(*args, **kwargs)
@@ -77,6 +83,9 @@ def cached_endpoint(cache_dict, lock, key_params=None, ttl_seconds=60):
                 cache_dict["ts"] = now
                 cache_dict["key"] = cache_key
 
+            from flask import Response
+            if isinstance(result, Response):
+                return result
             return jsonify(result)
         return wrapper
     return decorator

@@ -17,8 +17,8 @@ sendfile = False
 worker_tmp_dir = "/dev/shm"
 
 # Performance & Stability Tuning
-workers = 1  # Standard for this application's background thread model
-threads = 4  # Allow concurrency within the worker
+workers = 2  # Increased for better concurrent request handling
+threads = 4  # Allow concurrency within each worker
 timeout = 120  # Prevent SIGKILL on slow database queries or large log fetches
 keepalive = 5  # Help with persistent connections from browser
 preload_app = False # Ensure background threads start fresh in worker
