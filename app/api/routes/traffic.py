@@ -1814,11 +1814,12 @@ def api_bandwidth():
                 # Normal behavior (or single bucket)
                 # Offload to background executor (non-blocking) to prevent request timeout/latency
                 # Client will see gaps (zeros) initially, which is acceptable for performance.
+                # Optimization: Submit tasks to global executor without waiting for results.
                 try:
                     for bucket in missing_buckets:
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
-                    add_app_log(f"Bandwidth computation submission partial failure: {e}", 'WARN')
+                    add_app_log(f"Bandwidth computation background submission failed: {e}", 'WARN')
 
             # Re-fetch data after computation
             with _trends_db_lock:
