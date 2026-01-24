@@ -893,18 +893,18 @@ def api_stats_talkers():
                         proto = 'tcp' if '6' in proto_val else 'udp'
                         service_key = (port_num, proto)
 
-                        with _lock_service_cache:
-                            svc = _service_cache.get(service_key)
-                            if svc is None:
-                                # Optimization: Check static PORTS first
-                                if port_num in PORTS:
-                                    svc = PORTS[port_num]
-                                else:
+                        # Optimization: Check static PORTS first (outside lock)
+                        if port_num in PORTS:
+                            svc = PORTS[port_num]
+                        else:
+                            with _lock_service_cache:
+                                svc = _service_cache.get(service_key)
+                                if svc is None:
                                     try:
                                         svc = socket.getservbyport(port_num, proto)
                                     except OSError:
                                         svc = str(port_num) # Fallback
-                                _service_cache[service_key] = svc
+                                    _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
 
@@ -2402,18 +2402,18 @@ def api_flows():
                         proto = 'tcp' if '6' in proto_val else 'udp'
                         service_key = (port_num, proto)
 
-                        with _lock_service_cache:
-                            svc = _service_cache.get(service_key)
-                            if svc is None:
-                                # Optimization: Check static PORTS first
-                                if port_num in PORTS:
-                                    svc = PORTS[port_num]
-                                else:
+                        # Optimization: Check static PORTS first (outside lock)
+                        if port_num in PORTS:
+                            svc = PORTS[port_num]
+                        else:
+                            with _lock_service_cache:
+                                svc = _service_cache.get(service_key)
+                                if svc is None:
                                     try:
                                         svc = socket.getservbyport(port_num, proto)
                                     except OSError:
                                         svc = str(port_num) # Fallback
-                                _service_cache[service_key] = svc
+                                    _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
                     # Track for heuristics (lightweight, per-request only) - do this first
