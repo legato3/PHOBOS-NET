@@ -1848,6 +1848,8 @@ def api_bandwidth():
                 # Client will see gaps (zeros) initially, which is acceptable for performance.
                 # Optimization: Submit tasks to global executor without waiting for results.
                 try:
+                    if missing_buckets:
+                        add_app_log(f"Submitting {len(missing_buckets)} background rollup tasks", 'INFO')
                     for bucket in missing_buckets:
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
