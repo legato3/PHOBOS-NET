@@ -564,10 +564,9 @@ def get_raw_flows(tf, limit=2000):
             line = line.strip()
             if not line or 'sys:' in line or 'summary' in line: continue
 
-            line_clean = line.lower()
-
             # Header Detection
             if not header_parsed:
+                line_clean = line.lower()
                 is_explicit = line_clean.startswith('ts,') or line_clean.startswith('firstseen,')
                 if is_explicit or (',' in line and not line[0].isdigit()):
                     header = line_clean.split(',')
