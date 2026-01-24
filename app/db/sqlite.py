@@ -1,4 +1,5 @@
 """SQLite database operations for PHOBOS-NET application."""
+import json
 import sqlite3
 import threading
 import time
@@ -58,6 +59,22 @@ def _trends_db_init():
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_host_memory_first_seen ON host_memory(first_seen_ts);")
+
+            # Host metadata table: tags, notes, and classification
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS host_metadata (
+                    ip TEXT PRIMARY KEY,
+                    tags TEXT,
+                    owner TEXT,
+                    device_type TEXT,
+                    criticality TEXT,
+                    notes TEXT,
+                    updated_at REAL NOT NULL
+                );
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_host_metadata_updated_at ON host_metadata(updated_at);")
             
             # Database file size history: bounded historical samples for growth trend
             conn.execute(
@@ -502,6 +519,148 @@ def get_hosts_memory(ip_list):
             conn.close()
     
     return result
+
+
+def _normalize_host_tags(tags):
+    if not tags:
+        return []
+    if isinstance(tags, list):
+        return [str(t).strip() for t in tags if str(t).strip()]
+    if isinstance(tags, str):
+        return [t.strip() for t in tags.split(',') if t.strip()]
+    return []
+
+
+def get_host_metadata(ip):
+    """Get metadata for a single host."""
+    try:
+        _trends_db_init()
+    except Exception as e:
+        add_app_log(f"DB Init failed in get_host_metadata: {e}", "ERROR")
+        return None
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT tags, owner, device_type, criticality, notes, updated_at
+                FROM host_metadata WHERE ip = ?
+                """,
+                (ip,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            tags_raw = row[0] or "[]"
+            try:
+                tags = json.loads(tags_raw) if isinstance(tags_raw, str) else []
+            except json.JSONDecodeError:
+                tags = _normalize_host_tags(tags_raw)
+            return {
+                "tags": _normalize_host_tags(tags),
+                "owner": row[1] or "",
+                "device_type": row[2] or "",
+                "criticality": row[3] or "",
+                "notes": row[4] or "",
+                "updated_at": row[5]
+            }
+        finally:
+            conn.close()
+
+
+def get_hosts_metadata(ip_list):
+    """Get metadata for multiple hosts."""
+    if not ip_list:
+        return {}
+    try:
+        _trends_db_init()
+    except Exception as e:
+        add_app_log(f"DB Init failed in get_hosts_metadata: {e}", "ERROR")
+        return {}
+
+    result = {}
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            batch_size = 500
+            for i in range(0, len(ip_list), batch_size):
+                batch = ip_list[i:i + batch_size]
+                if not batch:
+                    continue
+                placeholders = ','.join('?' * len(batch))
+                cur = conn.execute(
+                    f"""
+                    SELECT ip, tags, owner, device_type, criticality, notes, updated_at
+                    FROM host_metadata WHERE ip IN ({placeholders})
+                    """,
+                    batch
+                )
+                for row in cur.fetchall():
+                    tags_raw = row[1] or "[]"
+                    try:
+                        tags = json.loads(tags_raw) if isinstance(tags_raw, str) else []
+                    except json.JSONDecodeError:
+                        tags = _normalize_host_tags(tags_raw)
+                    result[row[0]] = {
+                        "tags": _normalize_host_tags(tags),
+                        "owner": row[2] or "",
+                        "device_type": row[3] or "",
+                        "criticality": row[4] or "",
+                        "notes": row[5] or "",
+                        "updated_at": row[6]
+                    }
+        finally:
+            conn.close()
+
+    return result
+
+
+def upsert_host_metadata(ip, tags=None, owner="", device_type="", criticality="", notes=""):
+    """Upsert host metadata and return the stored record."""
+    try:
+        _trends_db_init()
+    except Exception as e:
+        add_app_log(f"DB Init failed in upsert_host_metadata: {e}", "ERROR")
+        return None
+
+    normalized_tags = _normalize_host_tags(tags)
+    tags_json = json.dumps(normalized_tags)
+    owner = owner or ""
+    device_type = device_type or ""
+    criticality = criticality or ""
+    notes = notes or ""
+    now = time.time()
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO host_metadata (ip, tags, owner, device_type, criticality, notes, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ip) DO UPDATE SET
+                    tags = excluded.tags,
+                    owner = excluded.owner,
+                    device_type = excluded.device_type,
+                    criticality = excluded.criticality,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
+                """,
+                (ip, tags_json, owner, device_type, criticality, notes, now)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    return {
+        "tags": normalized_tags,
+        "owner": owner,
+        "device_type": device_type,
+        "criticality": criticality,
+        "notes": notes,
+        "updated_at": now
+    }
 
 
 def update_db_size_history(db_name, db_path, file_size):

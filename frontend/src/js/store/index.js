@@ -280,6 +280,12 @@ export const Store = () => ({
         list: [],
         loading: true,
         viewMode: 'observed',
+        filters: { search: '', owner: '', device_type: '', criticality: '', tag: '', type: 'all', newOnly: false },
+        savedViews: [],
+        selectedViewId: '',
+        sparklines: {},
+        sparklinesLoading: {},
+        changes: { loading: false, ports: [], countries: [], asns: [], updated_at: null },
         discovery: {
             loading: false,
             results: null,
@@ -288,6 +294,8 @@ export const Store = () => ({
             error: null
         }
     },
+    hostMetaSaving: false,
+    hostMetaSavedAt: null,
 
     // Security Features
     securityObservability: {
@@ -650,7 +658,12 @@ export const Store = () => ({
     async openHostDetail(ip, extraData = {}) {
         this.selectedIP = ip;
         this.ipLoading = true;
-        this.ipDetails = { ...extraData, timeline: { labels: [], bytes: [], flows: [], loading: true } };
+        this.hostMetaSavedAt = null;
+        this.ipDetails = {
+            ...extraData,
+            metadata: { tags: [], tags_text: '', owner: '', device_type: '', criticality: '', notes: '' },
+            timeline: { labels: [], bytes: [], flows: [], loading: true }
+        };
         this.modalOpen = true;
 
         try {
@@ -664,6 +677,7 @@ export const Store = () => ({
             if (detailRes.ok) {
                 const data = await detailRes.json();
                 this.ipDetails = { ...data, ...extraData, timeline: this.ipDetails.timeline };
+                this.hydrateHostMetadataForm();
             }
 
             if (timelineRes.ok) {
@@ -687,6 +701,172 @@ export const Store = () => ({
         } finally {
             this.ipLoading = false;
         }
+    },
+
+    normalizeHostTags(tags) {
+        if (!tags) return [];
+        if (Array.isArray(tags)) return tags.map(t => String(t).trim()).filter(Boolean);
+        if (typeof tags === 'string') {
+            return tags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+        return [];
+    },
+
+    hydrateHostMetadataForm() {
+        if (!this.ipDetails) return;
+        const meta = this.ipDetails.metadata || {};
+        const tags = this.normalizeHostTags(meta.tags);
+        this.ipDetails.metadata = {
+            tags,
+            tags_text: tags.join(', '),
+            owner: meta.owner || '',
+            device_type: meta.device_type || '',
+            criticality: meta.criticality || '',
+            notes: meta.notes || ''
+        };
+    },
+
+    async saveHostMetadata() {
+        if (!this.selectedIP || !this.ipDetails?.metadata) return;
+        this.hostMetaSaving = true;
+        this.hostMetaSavedAt = null;
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const payload = {
+                tags: this.normalizeHostTags(this.ipDetails.metadata.tags_text),
+                owner: this.ipDetails.metadata.owner || '',
+                device_type: this.ipDetails.metadata.device_type || '',
+                criticality: this.ipDetails.metadata.criticality || '',
+                notes: this.ipDetails.metadata.notes || ''
+            };
+            const res = await safeFetchFn(`/api/hosts/${this.selectedIP}/metadata`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                this.ipDetails.metadata = {
+                    ...this.ipDetails.metadata,
+                    ...data,
+                    tags_text: (data.tags || []).join(', ')
+                };
+                this.updateHostListMetadata(this.selectedIP, data);
+                this.hostMetaSavedAt = Date.now();
+            }
+        } catch (e) {
+            console.error('Failed to save host metadata:', e);
+        } finally {
+            this.hostMetaSaving = false;
+        }
+    },
+
+    updateHostListMetadata(ip, data) {
+        if (!this.hosts.list || !ip) return;
+        const tags = this.normalizeHostTags(data?.tags || []);
+        this.hosts.list = this.hosts.list.map(host => {
+            if (host.ip !== ip) return host;
+            return {
+                ...host,
+                tags,
+                owner: data?.owner || '',
+                device_type: data?.device_type || '',
+                criticality: data?.criticality || '',
+                notes: data?.notes || ''
+            };
+        });
+    },
+
+    loadHostViews() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('hostsSavedViews') || '[]');
+            this.hosts.savedViews = Array.isArray(saved) ? saved : [];
+        } catch (e) {
+            console.warn('Failed to load host views:', e);
+            this.hosts.savedViews = [];
+        }
+    },
+
+    saveHostView() {
+        const name = prompt('Name this host view:');
+        if (!name || !name.trim()) return;
+        const view = {
+            id: `hosts_${Date.now()}`,
+            name: name.trim(),
+            filters: { ...this.hosts.filters },
+            viewMode: this.hosts.viewMode
+        };
+        this.hosts.savedViews = [...this.hosts.savedViews, view];
+        localStorage.setItem('hostsSavedViews', JSON.stringify(this.hosts.savedViews));
+        this.hosts.selectedViewId = view.id;
+    },
+
+    applyHostView(viewId) {
+        const view = this.hosts.savedViews.find(v => v.id === viewId);
+        if (!view) return;
+        this.hosts.filters = { ...this.hosts.filters, ...view.filters };
+        this.hosts.viewMode = view.viewMode || this.hosts.viewMode;
+    },
+
+    deleteHostView(viewId) {
+        if (!viewId) return;
+        this.hosts.savedViews = this.hosts.savedViews.filter(v => v.id !== viewId);
+        localStorage.setItem('hostsSavedViews', JSON.stringify(this.hosts.savedViews));
+        if (this.hosts.selectedViewId === viewId) {
+            this.hosts.selectedViewId = '';
+        }
+    },
+
+    clearHostFilters() {
+        this.hosts.filters = { search: '', owner: '', device_type: '', criticality: '', tag: '', type: 'all', newOnly: false };
+    },
+
+    ensureHostSparkline(ip) {
+        if (!ip) return;
+        if (this.hosts.sparklines[ip] || this.hosts.sparklinesLoading[ip]) return;
+        this.hosts.sparklinesLoading[ip] = true;
+        const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+        safeFetchFn(`/api/hosts/${ip}/timeline?range=24h`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (!data) return;
+                this.hosts.sparklines[ip] = {
+                    bytes: data.bytes || [],
+                    flows: data.flows || []
+                };
+            })
+            .catch((e) => {
+                console.warn('Host sparkline fetch failed:', e);
+            })
+            .finally(() => {
+                this.hosts.sparklinesLoading[ip] = false;
+            });
+    },
+
+    buildSparklinePoints(values, width = 80, height = 14) {
+        if (!values || values.length === 0) return '';
+        const max = Math.max(...values, 1);
+        const min = Math.min(...values, 0);
+        const range = Math.max(1, max - min);
+        const step = values.length > 1 ? (width / (values.length - 1)) : width;
+        return values.map((v, i) => {
+            const x = (i * step).toFixed(1);
+            const y = (height - ((v - min) / range) * height).toFixed(1);
+            return `${x},${y}`;
+        }).join(' ');
+    },
+
+    getHostSparklinePoints(ip) {
+        const data = this.hosts.sparklines[ip];
+        if (!data || !data.bytes || data.bytes.length === 0) return '';
+        return this.buildSparklinePoints(data.bytes);
+    },
+
+    formatHostDeltaRatio(item) {
+        if (!item) return '--';
+        if (item.isNew) return 'new';
+        if (!item.ratio || !isFinite(item.ratio)) return '--';
+        return `x${item.ratio.toFixed(1)}`;
     },
 
     renderHostTimelineChart() {
@@ -847,6 +1027,7 @@ export const Store = () => ({
             this.loadWidgetPreferences();
             this.loadCompactMode();
             this.loadSidebarState();
+            this.loadHostViews();
             this.startIntersectionObserver();
             // Defer data loading slightly to allow initial paint
             setTimeout(() => {
@@ -1346,6 +1527,80 @@ export const Store = () => ({
         const yellowColor = this.getCssVar('--signal-warn') || '#ffb400';
         const colors = [cyanColor, purpleColor, greenColor, redColor, yellowColor, '#ffffff'];
         return colors[index] || colors[0];
+    },
+
+    get filteredHosts() {
+        const hosts = this.hosts.list || [];
+        const filters = this.hosts.filters || {};
+        const search = (filters.search || '').toLowerCase();
+        return hosts.filter(host => {
+            const tags = this.normalizeHostTags(host.tags);
+            if (filters.owner && (host.owner || '').toLowerCase() !== filters.owner.toLowerCase()) {
+                return false;
+            }
+            if (filters.device_type && (host.device_type || '').toLowerCase() !== filters.device_type.toLowerCase()) {
+                return false;
+            }
+            if (filters.criticality && (host.criticality || '').toLowerCase() !== filters.criticality.toLowerCase()) {
+                return false;
+            }
+            if (filters.tag && !tags.map(t => t.toLowerCase()).includes(filters.tag.toLowerCase())) {
+                return false;
+            }
+            if (filters.type && filters.type !== 'all') {
+                const isInternal = this.isInternalIP(host.ip);
+                if (filters.type === 'internal' && !isInternal) return false;
+                if (filters.type === 'external' && isInternal) return false;
+            }
+            if (filters.newOnly && !host.is_new) {
+                return false;
+            }
+            if (search) {
+                const haystack = [
+                    host.ip,
+                    host.hostname,
+                    host.owner,
+                    host.device_type,
+                    host.criticality,
+                    host.notes,
+                    ...tags
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!haystack.includes(search)) return false;
+            }
+            return true;
+        });
+    },
+
+    get hostTagOptions() {
+        const tags = new Set();
+        (this.hosts.list || []).forEach(host => {
+            this.normalizeHostTags(host.tags).forEach(tag => tags.add(tag));
+        });
+        return Array.from(tags).sort();
+    },
+
+    get hostOwnerOptions() {
+        const owners = new Set();
+        (this.hosts.list || []).forEach(host => {
+            if (host.owner) owners.add(host.owner);
+        });
+        return Array.from(owners).sort();
+    },
+
+    get hostDeviceTypeOptions() {
+        const types = new Set();
+        (this.hosts.list || []).forEach(host => {
+            if (host.device_type) types.add(host.device_type);
+        });
+        return Array.from(types).sort();
+    },
+
+    get hostCriticalityOptions() {
+        const values = new Set();
+        (this.hosts.list || []).forEach(host => {
+            if (host.criticality) values.add(host.criticality);
+        });
+        return Array.from(values).sort();
     },
 
     get activeAlertsLegacy() {
@@ -2440,7 +2695,10 @@ export const Store = () => ({
 
             if (statsRes.ok && listRes.ok) {
                 const stats = await statsRes.json();
-                const list = await listRes.json();
+                const list = (await listRes.json()).map(host => ({
+                    ...host,
+                    tags: this.normalizeHostTags(host.tags)
+                }));
                 this.hosts = {
                     ...this.hosts,
                     stats,
@@ -2455,6 +2713,82 @@ export const Store = () => ({
         } catch (e) {
             console.error('Failed to fetch hosts:', e);
             this.hosts.loading = false;
+        }
+    },
+
+    async fetchHostChanges() {
+        this.hosts.changes.loading = true;
+        try {
+            const safeFetchFn = DashboardUtils?.safeFetch || fetch;
+            const [ports1hRes, ports24hRes, countries1hRes, countries24hRes, asns1hRes, asns24hRes] = await Promise.all([
+                safeFetchFn('/api/stats/ports?range=1h'),
+                safeFetchFn('/api/stats/ports?range=24h'),
+                safeFetchFn('/api/stats/countries?range=1h'),
+                safeFetchFn('/api/stats/countries?range=24h'),
+                safeFetchFn('/api/stats/asns?range=1h'),
+                safeFetchFn('/api/stats/asns?range=24h')
+            ]);
+
+            if (ports1hRes.ok && ports24hRes.ok && countries1hRes.ok && countries24hRes.ok && asns1hRes.ok && asns24hRes.ok) {
+                const [ports1h, ports24h, countries1h, countries24h, asns1h, asns24h] = await Promise.all([
+                    ports1hRes.json(),
+                    ports24hRes.json(),
+                    countries1hRes.json(),
+                    countries24hRes.json(),
+                    asns1hRes.json(),
+                    asns24hRes.json()
+                ]);
+
+                const buildDelta = (shortList, baseList, keyField, labelFn) => {
+                    const baseMap = new Map((baseList || []).map(item => [item[keyField], item.bytes || 0]));
+                    return (shortList || []).slice(0, 5).map(item => {
+                        const key = item[keyField];
+                        const baseBytes = baseMap.get(key) || 0;
+                        const baselinePerHour = baseBytes / 24;
+                        const ratio = baselinePerHour > 0 ? (item.bytes || 0) / baselinePerHour : null;
+                        return {
+                            label: labelFn(item),
+                            bytes: item.bytes || 0,
+                            bytes_fmt: item.bytes_fmt || this.fmtBytes(item.bytes || 0),
+                            ratio,
+                            isNew: baseBytes === 0
+                        };
+                    });
+                };
+
+                const portsDelta = buildDelta(
+                    ports1h.ports,
+                    ports24h.ports,
+                    'key',
+                    (item) => `${item.key}${item.service ? ' · ' + item.service : ''}`
+                );
+
+                const countriesDelta = buildDelta(
+                    countries1h.map_data,
+                    countries24h.map_data,
+                    'iso',
+                    (item) => `${item.name || 'Unknown'} (${item.iso || '??'})`
+                );
+
+                const asnsDelta = buildDelta(
+                    asns1h.asns,
+                    asns24h.asns,
+                    'asn',
+                    (item) => item.asn || 'Unknown'
+                );
+
+                this.hosts.changes = {
+                    loading: false,
+                    ports: portsDelta,
+                    countries: countriesDelta,
+                    asns: asnsDelta,
+                    updated_at: new Date().toISOString()
+                };
+            }
+        } catch (e) {
+            console.error('Failed to fetch host changes:', e);
+        } finally {
+            this.hosts.changes.loading = false;
         }
     },
 
@@ -3529,7 +3863,9 @@ export const Store = () => ({
             if (res.ok) {
                 const data = await res.json();
                 this.flags = { ...data };
-                this.updateFlagsChart(data.flags);
+                this.$nextTick(() => {
+                    setTimeout(() => this.updateFlagsChart(data.flags), 100);
+                });
             }
         } catch (e) { console.error(e); } finally { this.flags.loading = false; }
     },
@@ -5235,11 +5571,29 @@ export const Store = () => ({
     updateFlagsChart(flagsData) {
         try {
             const ctx = document.getElementById('flagsChart');
-            if (!ctx || !flagsData) return;
+            const normalizedFlags = Array.isArray(flagsData) ? flagsData : [];
+            if (!ctx) {
+                if (this.activeTab !== 'network') {
+                    this._flagsRetries = 0;
+                    return;
+                }
+                if (!this._flagsRetries) this._flagsRetries = 0;
+                if (this._flagsRetries < 50) {
+                    this._flagsRetries++;
+                    setTimeout(() => this.updateFlagsChart(flagsData), 200);
+                } else {
+                    this._flagsRetries = 0;
+                }
+                return;
+            }
 
             // Check if canvas parent container is visible
             const container = ctx.closest('.widget-body, .chart-wrapper-small');
             if (container && (!container.offsetParent || container.offsetWidth === 0 || container.offsetHeight === 0)) {
+                if (this.activeTab !== 'network') {
+                    this._flagsRetries = 0;
+                    return;
+                }
                 // Container not visible yet, defer initialization
                 if (!this._flagsRetries) this._flagsRetries = 0;
                 if (this._flagsRetries < 50) {
@@ -5263,8 +5617,8 @@ export const Store = () => ({
             if (this._flagsUpdating) return;
             this._flagsUpdating = true;
 
-            const labels = flagsData.map(f => f.flag);
-            const data = flagsData.map(f => f.count);
+            const labels = normalizedFlags.map(f => f.flag);
+            const data = normalizedFlags.map(f => f.count);
             // Cyberpunk palette - using theme colors
             const cyanColor = this.getCssVar('--accent-cyan') || this.getCssVar('--signal-primary') || '#00eaff';
             const purpleColor = this.getCssVar('--accent-magenta') || this.getCssVar('--signal-tertiary') || '#7b7bff';
@@ -5273,14 +5627,18 @@ export const Store = () => ({
             const yellowColor = this.getCssVar('--signal-warn') || '#ffb400';
             const colors = [cyanColor, purpleColor, greenColor, redColor, yellowColor, '#ffffff'];
 
-            // Destroy existing chart to force legend regeneration with correct labels
             if (_chartInstances['flagsChartInstance']) {
                 try {
-                    _chartInstances['flagsChartInstance'].destroy();
+                    _chartInstances['flagsChartInstance'].data.labels = labels;
+                    _chartInstances['flagsChartInstance'].data.datasets[0].data = data;
+                    _chartInstances['flagsChartInstance'].update('none');
                 } catch (e) {
-                    console.warn('Error destroying flags chart:', e);
+                    console.warn('Error updating flags chart, recreating:', e);
+                    try {
+                        _chartInstances['flagsChartInstance'].destroy();
+                    } catch { }
+                    _chartInstances['flagsChartInstance'] = null;
                 }
-                _chartInstances['flagsChartInstance'] = null;
             }
 
             // Create new chart if instance doesn't exist
@@ -6718,7 +7076,14 @@ export const Store = () => ({
             });
 
         } else if (tab === 'hosts') {
-            this.fetchHosts();
+            if (now - (this.lastFetch.hosts || 0) > this.mediumTTL) {
+                this.fetchHosts();
+                this.lastFetch.hosts = now;
+            }
+            if (now - (this.lastFetch.hostChanges || 0) > this.mediumTTL) {
+                this.fetchHostChanges();
+                this.lastFetch.hostChanges = now;
+            }
         } else if (tab === 'forensics') {
             if (now - this.lastFetch.flows > this.mediumTTL) {
                 this.fetchFlows();

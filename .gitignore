@@ -45,3 +45,4 @@ _scripts/
 .venv/
 docker-data/
 venv/
+.jules/

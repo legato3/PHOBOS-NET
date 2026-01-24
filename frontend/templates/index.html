@@ -1467,6 +1467,62 @@
                             </div>
                         </div>
 
+                        <div class="card">
+                            <h4
+                                style="margin-bottom: 10px; font-size: 0.95em; color: var(--text-secondary); font-weight: 500;">
+                                Host Metadata</h4>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Owner</span>
+                                </label>
+                                <input type="text" class="input input-bordered input-sm w-full"
+                                    x-model="ipDetails.metadata.owner" placeholder="e.g. IT Ops" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Device Type</span>
+                                </label>
+                                <input type="text" class="input input-bordered input-sm w-full"
+                                    x-model="ipDetails.metadata.device_type" placeholder="e.g. Printer, NAS" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Criticality</span>
+                                </label>
+                                <select class="select select-bordered select-sm w-full"
+                                    x-model="ipDetails.metadata.criticality">
+                                    <option value="">Unspecified</option>
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Tags</span>
+                                </label>
+                                <input type="text" class="input input-bordered input-sm w-full"
+                                    x-model="ipDetails.metadata.tags_text" placeholder="tag1, tag2" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Notes</span>
+                                </label>
+                                <textarea class="textarea textarea-bordered textarea-sm w-full" rows="3"
+                                    x-model="ipDetails.metadata.notes" placeholder="Add a short note..."></textarea>
+                            </div>
+                            <div class="flex items-center gap-2" style="margin-top: 10px;">
+                                <button class="btn btn-sm btn-primary" @click="saveHostMetadata()"
+                                    :disabled="hostMetaSaving">
+                                    <span x-show="hostMetaSaving" class="loading loading-spinner text-primary"></span>
+                                    <span x-show="!hostMetaSaving">Save</span>
+                                </button>
+                                <span class="text-xs text-muted" x-show="hostMetaSavedAt"
+                                    x-text="'Saved ' + new Date(hostMetaSavedAt).toLocaleTimeString()"></span>
+                            </div>
+                        </div>
+
                         <!-- Reputation Context -->
                         <div class="card">
                             <h4

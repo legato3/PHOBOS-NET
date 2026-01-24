@@ -284,12 +284,12 @@ def api_hosts_stats():
     hosts_24h = [h for h in hosts_48h if h.get('last_seen', '') > (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')]
     total_hosts = len(hosts_24h)
     
-    # Active hosts (1h window)
+    # Active hosts (current window: 1h)
     cutoff_1h = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
     active_hosts = sum(1 for h in hosts_48h if h.get('last_seen', '') > cutoff_1h)
     
-    # New Hosts (24h) Logic
-    # Check if we have sufficient history (data older than 24h)
+    # New Hosts (last hour) Logic
+    # Check if we have sufficient history (data older than ~1h)
     new_hosts = 0
     new_hosts_display = "—"
     
@@ -297,17 +297,17 @@ def api_hosts_stats():
     if all_first_seens:
         # Lexical sort works for nfdump ISO timestamps
         min_seen = min(all_first_seens)
-        cutoff_24h_str = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
+        cutoff_1h_str = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
         
-        # If the oldest data point is newer than ~24h ago, we are still warming up
-        # We give a 1-hour buffer (23h) to be safe against slight clock skews/intervals
-        baseline_check_str = (datetime.now() - timedelta(hours=23)).strftime('%Y-%m-%d %H:%M:%S')
+        # If the oldest data point is newer than ~1h ago, we are still warming up
+        # We give a 1-minute buffer to be safe against slight clock skews/intervals
+        baseline_check_str = (datetime.now() - timedelta(minutes=59)).strftime('%Y-%m-%d %H:%M:%S')
         
         if min_seen > baseline_check_str:
             new_hosts_display = "Baseline warming"
         else:
-            # We have history. Count hosts first seen AFTER the 24h cutoff
-            count = sum(1 for h in hosts_48h if h.get('first_seen', '') > cutoff_24h_str)
+            # We have history. Count hosts first seen AFTER the 1h cutoff
+            count = sum(1 for h in hosts_48h if h.get('first_seen', '') > cutoff_1h_str)
             new_hosts_display = count
 
     # Anomalies Logic
@@ -345,6 +345,20 @@ def api_hosts_list():
     from app.services.netflow.netflow import get_merged_host_stats
     
     data = get_merged_host_stats(range_key, limit=limit)
+    try:
+        from app.db.sqlite import get_hosts_metadata
+        meta = get_hosts_metadata([h.get("ip") for h in data if h.get("ip")])
+        for host in data:
+            host_meta = meta.get(host.get("ip"), {})
+            host.update({
+                "tags": host_meta.get("tags", []),
+                "owner": host_meta.get("owner", ""),
+                "device_type": host_meta.get("device_type", ""),
+                "criticality": host_meta.get("criticality", ""),
+                "notes": host_meta.get("notes", "")
+            })
+    except Exception as e:
+        add_app_log(f"Host metadata merge failed: {e}", "WARN")
     return jsonify(data)
 
 
@@ -419,6 +433,9 @@ def api_host_detail(ip):
         except (ValueError, AttributeError):
             pass
 
+    from app.db.sqlite import get_host_metadata
+    metadata = get_host_metadata(ip) or {}
+
     data = {
         "ip": ip,
         "hostname": hostname,
@@ -430,8 +447,43 @@ def api_host_detail(ip):
         "src_ports": src_ports,
         "dst_ports": dst_ports,
         "is_new": is_new,
-        "first_seen": first_seen_iso
+        "first_seen": first_seen_iso,
+        "metadata": metadata
     }
+    return jsonify(data)
+
+
+@bp.route("/api/hosts/<path:ip>/metadata", methods=["GET", "POST"])
+@throttle(5, 10)
+def api_host_metadata(ip):
+    """Get or update host metadata."""
+    from app.db.sqlite import get_host_metadata, upsert_host_metadata
+
+    if request.method == "GET":
+        data = get_host_metadata(ip) or {}
+        return jsonify({
+            "tags": data.get("tags", []),
+            "owner": data.get("owner", ""),
+            "device_type": data.get("device_type", ""),
+            "criticality": data.get("criticality", ""),
+            "notes": data.get("notes", "")
+        })
+
+    payload = request.get_json(silent=True) or {}
+    tags = payload.get("tags", [])
+    owner = payload.get("owner", "")
+    device_type = payload.get("device_type", "")
+    criticality = payload.get("criticality", "")
+    notes = payload.get("notes", "")
+
+    data = upsert_host_metadata(
+        ip,
+        tags=tags,
+        owner=owner,
+        device_type=device_type,
+        criticality=criticality,
+        notes=notes
+    ) or {}
     return jsonify(data)
 
 
@@ -691,7 +743,7 @@ def api_firewall_logs_recent():
             """
             
             try:
-                cur = conn.execute(query, params + [limit])
+                cur = conn.execute(query, params)
             except sqlite3.OperationalError as e:
                 # Self-healing: If column is missing (migration didn't run), add it now
                 if "no such column: rule_label" in str(e):
@@ -3675,5 +3727,3 @@ def api_stats_blocklist_rate():
         "threat_count": threat_count,
         "has_fw_data": total_blocked > 0
     })
-
-

@@ -8,18 +8,18 @@
             <div class="card stat-box">
                 <div class="value" x-text="hosts.loading ? '...' : (hosts.stats.total_hosts || 0).toLocaleString()">
                     ...</div>
-                <div class="label">Total Hosts (24h)</div>
+                <div class="label">TOTAL HOSTS 24H</div>
             </div>
             <!-- Active Hosts -->
             <div class="card stat-box">
                 <div class="value" x-text="hosts.loading ? '...' : (hosts.stats.active_hosts || 0).toLocaleString()">
                     ...</div>
-                <div class="label">Active Hosts (1h)</div>
+                <div class="label">ACTIVE HOSTS (currently)</div>
             </div>
             <!-- New Hosts -->
             <div class="card stat-box">
                 <div class="value" x-text="hosts.loading ? '...' : hosts.stats.new_hosts">...</div>
-                <div class="label">New Hosts (24h)</div>
+                <div class="label">NEW HOSTS (last hour)</div>
             </div>
             <!-- Anomalies -->
             <div class="card stat-box">
@@ -27,6 +27,77 @@
                     x-text="hosts.loading ? '...' : (hosts.stats.anomalies || 0).toLocaleString()">
                     ...</div>
                 <div class="label">Hosts with Anomalies</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- What Changed -->
+    <section id="section-hosts-changes" class="mb-6">
+        <div class="grid grid-auto-fit gap-4">
+            <div class="card">
+                <h2 style="margin-bottom: 8px;">What Changed (Last Hour vs 24h Baseline)</h2>
+                <div class="text-xs text-muted" style="margin-bottom: 12px;">
+                    Ratio is last hour vs average hour across the last 24h.
+                </div>
+                <div class="grid grid-auto-fit gap-4">
+                    <div class="card">
+                        <h3 style="margin-bottom: 8px;">Ports & Services</h3>
+                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                        <template x-if="!hosts.changes.loading && hosts.changes.ports && hosts.changes.ports.length > 0">
+                            <div class="flex flex-col gap-2">
+                                <template x-for="item in hosts.changes.ports" :key="item.label">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm" x-text="item.label"></span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <div x-show="!hosts.changes.loading && (!hosts.changes.ports || hosts.changes.ports.length === 0)"
+                            class="text-xs text-muted">No data</div>
+                    </div>
+                    <div class="card">
+                        <h3 style="margin-bottom: 8px;">Countries</h3>
+                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                        <template x-if="!hosts.changes.loading && hosts.changes.countries && hosts.changes.countries.length > 0">
+                            <div class="flex flex-col gap-2">
+                                <template x-for="item in hosts.changes.countries" :key="item.label">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm" x-text="item.label"></span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <div x-show="!hosts.changes.loading && (!hosts.changes.countries || hosts.changes.countries.length === 0)"
+                            class="text-xs text-muted">No data</div>
+                    </div>
+                    <div class="card">
+                        <h3 style="margin-bottom: 8px;">ASNs</h3>
+                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                        <template x-if="!hosts.changes.loading && hosts.changes.asns && hosts.changes.asns.length > 0">
+                            <div class="flex flex-col gap-2">
+                                <template x-for="item in hosts.changes.asns" :key="item.label">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm" x-text="item.label"></span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <div x-show="!hosts.changes.loading && (!hosts.changes.asns || hosts.changes.asns.length === 0)"
+                            class="text-xs text-muted">No data</div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -89,22 +160,84 @@
                 <p>No hosts observed in the selected time range.</p>
             </div>
 
-            <div class="table-container" x-show="hosts.list && hosts.list.length > 0">
+            <div x-show="!hosts.loading && hosts.list && hosts.list.length > 0 && filteredHosts.length === 0"
+                class="empty-state" style="margin-top: var(--space-4);">
+                <div style="font-size: 32px; margin-bottom: var(--space-2);">🧹</div>
+                <p>No hosts match the current filters.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4"
+                x-show="hosts.list && hosts.list.length > 0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <input class="input input-sm input-bordered" style="min-width: 200px;"
+                        placeholder="Search IP, tag, owner..." x-model="hosts.filters.search" />
+                    <select class="select select-bordered select-sm" x-model="hosts.filters.owner">
+                        <option value="">Owner</option>
+                        <template x-for="owner in hostOwnerOptions" :key="owner">
+                            <option :value="owner" x-text="owner"></option>
+                        </template>
+                    </select>
+                    <select class="select select-bordered select-sm" x-model="hosts.filters.device_type">
+                        <option value="">Device Type</option>
+                        <template x-for="device in hostDeviceTypeOptions" :key="device">
+                            <option :value="device" x-text="device"></option>
+                        </template>
+                    </select>
+                    <select class="select select-bordered select-sm" x-model="hosts.filters.criticality">
+                        <option value="">Criticality</option>
+                        <template x-for="level in hostCriticalityOptions" :key="level">
+                            <option :value="level" x-text="level"></option>
+                        </template>
+                    </select>
+                    <select class="select select-bordered select-sm" x-model="hosts.filters.tag">
+                        <option value="">Tag</option>
+                        <template x-for="tag in hostTagOptions" :key="tag">
+                            <option :value="tag" x-text="tag"></option>
+                        </template>
+                    </select>
+                    <select class="select select-bordered select-sm" x-model="hosts.filters.type">
+                        <option value="all">All</option>
+                        <option value="internal">Internal</option>
+                        <option value="external">External</option>
+                    </select>
+                    <label class="flex items-center gap-2 text-sm text-muted">
+                        <input type="checkbox" class="checkbox checkbox-xs" x-model="hosts.filters.newOnly" />
+                        New only
+                    </label>
+                    <button class="btn btn-sm btn-ghost" @click="clearHostFilters()">Clear</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select class="select select-bordered select-sm" x-model="hosts.selectedViewId"
+                        @change="applyHostView(hosts.selectedViewId)">
+                        <option value="">Saved views</option>
+                        <template x-for="view in hosts.savedViews" :key="view.id">
+                            <option :value="view.id" x-text="view.name"></option>
+                        </template>
+                    </select>
+                    <button class="btn btn-sm" @click="saveHostView()">Save view</button>
+                    <button class="btn btn-sm btn-ghost" @click="deleteHostView(hosts.selectedViewId)"
+                        :disabled="!hosts.selectedViewId">Delete</button>
+                </div>
+            </div>
+
+            <div class="table-container" x-show="hosts.list && hosts.list.length > 0 && filteredHosts.length > 0">
                 <table class="table-fixed table-compact thead-sticky">
                     <thead>
                         <tr>
-                            <th style="width: 25%">Host</th>
-                            <th style="width: 10%">Type</th>
-                            <th style="width: 15%">First Seen</th>
-                            <th style="width: 15%">Last Seen</th>
-                            <th style="width: 15%">Volume</th>
-                            <th style="width: 10%">Flows</th>
-                            <th style="width: 10%">Flags</th>
+                            <th style="width: 24%">Host</th>
+                            <th style="width: 8%">Type</th>
+                            <th style="width: 12%">First Seen</th>
+                            <th style="width: 12%">Last Seen</th>
+                            <th style="width: 14%">Volume</th>
+                            <th style="width: 8%">Flows</th>
+                            <th style="width: 12%">Activity</th>
+                            <th style="width: 10%">Meta</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="host in hosts.list" :key="host.ip">
-                            <tr @click="openHostDetail(host.ip)" style="cursor: pointer;">
+                        <template x-for="(host, idx) in filteredHosts" :key="host.ip">
+                            <tr @click="openHostDetail(host.ip)" style="cursor: pointer;"
+                                x-init="if (idx < 20) ensureHostSparkline(host.ip)">
                                 <td>
                                     <div class="flex items-center gap-2">
                                         <div class="font-mono text-cyan" x-text="host.ip"></div>
@@ -113,8 +246,18 @@
                                             <span class="host-new-indicator"
                                                 title="New host (first seen within 24h)">🆕</span>
                                         </template>
+                                        <template x-if="host.notes">
+                                            <span :title="host.notes" style="opacity: 0.7;">📝</span>
+                                        </template>
                                     </div>
-                                    <!-- Optional hostname if available in future -->
+                                    <div class="endpoint-badges" x-show="host.tags && host.tags.length > 0">
+                                        <template x-for="tag in host.tags.slice(0, 3)" :key="tag">
+                                            <span class="badge badge-outline" x-text="tag"></span>
+                                        </template>
+                                        <template x-if="host.tags.length > 3">
+                                            <span class="text-xs text-muted" x-text="'+' + (host.tags.length - 3)"></span>
+                                        </template>
+                                    </div>
                                 </td>
                                 <td>
                                     <span class="badge"
@@ -133,12 +276,22 @@
                                 </td>
                                 <td x-text="(host.rx_flows + host.tx_flows).toLocaleString()"></td>
                                 <td>
-                                    <!-- Flags -->
-                                    <div class="flex gap-1">
+                                    <div class="endpoint-meta-sparkline">
+                                        <svg class="spark-subtle" viewBox="0 0 80 14" preserveAspectRatio="none">
+                                            <polyline :points="getHostSparklinePoints(host.ip)" fill="none"
+                                                stroke="var(--accent-cyan)" stroke-width="1"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div class="flex gap-1" style="margin-top: 4px;">
                                         <template x-if="isInternalIP(host.ip) && host.tx_bytes > host.rx_bytes * 10">
                                             <span title="High Upload (Internal)">📤</span>
                                         </template>
                                     </div>
+                                </td>
+                                <td>
+                                    <div class="text-xs text-muted" x-text="host.owner || '—'"></div>
+                                    <div class="text-xs text-muted" x-text="host.device_type || '—'"></div>
+                                    <div class="text-xs" x-text="host.criticality || '—'"></div>
                                 </td>
                             </tr>
                         </template>
