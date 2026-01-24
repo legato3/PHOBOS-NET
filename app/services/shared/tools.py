@@ -18,6 +18,11 @@ def dns_lookup(query: str, record_type: str = 'A') -> Dict[str, Any]:
     
     # Sanitize input
     query = re.sub(r'[^a-zA-Z0-9.\-]', '', query)
+
+    # Prevent Argument Injection
+    if query.startswith('-'):
+        return {'error': 'Invalid query format'}
+
     record_type = record_type.upper()
     
     if record_type not in ['A', 'AAAA', 'MX', 'TXT', 'NS', 'PTR', 'CNAME', 'SOA']:
@@ -103,6 +108,10 @@ def ping_host(host: str, mode: str = 'ping') -> Dict[str, Any]:
     # Sanitize host
     host = re.sub(r'[^a-zA-Z0-9.\-]', '', host)
     
+    # Prevent Argument Injection
+    if host.startswith('-'):
+        return {'error': 'Invalid host format'}
+
     if not host:
         return {'error': 'Invalid host'}
     
@@ -185,6 +194,10 @@ def whois_lookup(query: str) -> Dict[str, Any]:
     # Sanitize input
     query = re.sub(r'[^a-zA-Z0-9.\-]', '', query)
     
+    # Prevent Argument Injection
+    if query.startswith('-'):
+        return {'error': 'Invalid query format'}
+
     # Check if it's an IP address
     ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
     is_ip = bool(re.match(ip_pattern, query))
