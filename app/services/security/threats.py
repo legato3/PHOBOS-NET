@@ -1579,6 +1579,7 @@ def generate_ip_anomaly_alerts(ip, anomalies, geo):
             return  # Already alerted recently
         
         # Generate alerts for high and medium severity anomalies
+        webhook_alerts = []
         for anomaly in anomalies:
             if anomaly.get('severity') in ('high', 'medium'):
                 alert = {
@@ -1598,4 +1599,8 @@ def generate_ip_anomaly_alerts(ip, anomalies, geo):
                     _upsert_alert_to_history(alert)
                     # Send notification if high severity
                     if anomaly.get('severity') == 'high':
-                        send_security_webhook(alert)
+                        webhook_alerts.append(alert)
+
+        # PERFORMANCE: Send webhooks in batch
+        if webhook_alerts:
+            send_security_webhook_batch(webhook_alerts)
