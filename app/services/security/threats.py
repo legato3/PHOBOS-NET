@@ -89,7 +89,9 @@ def _process_feed(url, category, name, last_ok):
     """Process a single feed in a separate thread."""
     feed_start = time.time()
     try:
-        r = requests.get(url, timeout=25)
+        # PERFORMANCE: Stream response to save memory on large feeds
+        headers = {'User-Agent': 'PHOBOS-NET/1.0'}
+        r = requests.get(url, headers=headers, timeout=25, stream=True)
         latency_ms = int((time.time() - feed_start) * 1000)
 
         if r.status_code != 200:
@@ -107,7 +109,10 @@ def _process_feed(url, category, name, last_ok):
         # Parse IPs from feed
         feed_ips = []
         feed_ip_map = {}
-        for line in r.text.split('\n'):
+        # Use iter_lines for memory efficiency
+        for line in r.iter_lines(decode_unicode=True):
+            if not line:
+                continue
             line = line.strip()
             if not line or line.startswith('#') or line.startswith(';'):
                 continue
