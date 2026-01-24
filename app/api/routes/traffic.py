@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
 # Import from service modules (already extracted)
-from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction
+from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction, stream_nfdump
 from app.services.security.threats import (
     fetch_threat_feed, get_threat_info, update_threat_timeline, get_threat_timeline,
     load_watchlist, add_to_watchlist, remove_from_watchlist,
@@ -35,11 +35,11 @@ from app.core.background import start_threat_thread, start_trends_thread, start_
 from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
 from app.core.app_state import (
     _shutdown_event,
-    _lock_summary, _lock_sources, _lock_dests, _lock_talkers, _lock_ports, _lock_protocols,
+    _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
-    _lock_flows, _lock_countries, _lock_worldmap, _lock_hourly, _lock_firewall_overview, _lock_network_overview,
+    _lock_flows, _lock_countries, _lock_worldmap,
     _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
-    _cache_lock, _mock_lock, _lock_pkts, _lock_flow_stats, _lock_proto_mix, _lock_network_intelligence,
+    _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
     _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
@@ -47,10 +47,9 @@ from app.core.app_state import (
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
-    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache, _stats_firewall_overview_cache, _stats_network_overview_cache, _stats_network_intelligence_cache,
-    _bandwidth_history_cache, _bandwidth_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
     _server_health_cache,
-    _mock_data_cache,
+    _mock_data_cache, _bandwidth_cache, _bandwidth_history_cache,
     _flows_cache, _common_data_cache, _service_cache,
     _request_times,
     _metric_nfdump_calls, _metric_stats_cache_hits, _metric_bw_cache_hits,
@@ -189,11 +188,16 @@ def api_stats_protocols():
 
 @bp.route("/api/stats/flags")
 @throttle(5, 10)
-@cached_endpoint(_stats_flags_cache, _lock_flags, key_params=['range'])
 def api_stats_flags():
     # New Feature: TCP Flags
     # Parse raw flows using nfdump
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _lock_flags:
+        if _stats_flags_cache["data"] and _stats_flags_cache["key"] == range_key and _stats_flags_cache.get("win") == win:
+            return jsonify(_stats_flags_cache["data"])
+
     tf = get_time_range(range_key)
 
     # Get raw flows (limit 1000)
@@ -204,7 +208,7 @@ def api_stats_flags():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return {"flags": []}
+            return jsonify({"flags": []})
             
         # Robust Header Detection
         header_idx = -1
@@ -253,9 +257,14 @@ def api_stats_flags():
 
         top = [{"flag": k, "count": v} for k,v in clean_counts.most_common(5)]
         data = {"flags": top}
-        return data
+        with _lock_flags:
+            _stats_flags_cache["data"] = data
+            _stats_flags_cache["ts"] = now
+            _stats_flags_cache["key"] = range_key
+            _stats_flags_cache["win"] = win
+        return jsonify(data)
     except Exception as e:
-        return {"flags": []}
+        return jsonify({"flags": []})
 
 
 @bp.route("/api/stats/asns")
@@ -279,10 +288,15 @@ def api_stats_asns():
 
 @bp.route("/api/stats/durations")
 @throttle(5, 10)
-@cached_endpoint(_stats_durations_cache, _lock_durations, key_params=['range'])
 def api_stats_durations():
     # New Feature: Longest Duration Flows
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _lock_durations:
+        if _stats_durations_cache["data"] and _stats_durations_cache["key"] == range_key and _stats_durations_cache.get("win") == win:
+            return jsonify(_stats_durations_cache["data"])
+
     tf = get_time_range(range_key)
 
     output = run_nfdump(["-O", "duration", "-n", "100"], tf) # Get top flows by duration
@@ -291,7 +305,7 @@ def api_stats_durations():
         rows = []
         lines = output.strip().split("\n")
         if not lines:
-             return {
+             return jsonify({
                  "durations": [],
                  "stats": {
                      "avg_duration": 0,
@@ -302,7 +316,7 @@ def api_stats_durations():
                      "max_duration": 0,
                      "max_duration_fmt": "0s"
                  }
-             }
+             })
 
         # Robust Header Detection
         header_idx = -1
@@ -432,17 +446,26 @@ def api_stats_durations():
                 "max_duration_fmt": f"{max_dur:.1f}s" if max_dur < 60 else f"{max_dur/60:.1f}m"
             }
         }
-        return data
+        with _lock_durations:
+            _stats_durations_cache["data"] = data
+            _stats_durations_cache["ts"] = now
+            _stats_durations_cache["key"] = range_key
+            _stats_durations_cache["win"] = win
+        return jsonify(data)
     except Exception as e:
-        return {"durations": []}
+        return jsonify({"durations": []})
 
 
 @bp.route("/api/stats/packet_sizes")
 @throttle(5, 10)
-@cached_endpoint(_stats_pkts_cache, _lock_pkts, key_params=['range'])
 def api_stats_packet_sizes():
     # New Feature: Packet Size Distribution
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    with _cache_lock:
+        if _stats_pkts_cache["data"] and _stats_pkts_cache["key"] == range_key and now - _stats_pkts_cache["ts"] < 60:
+            return jsonify(_stats_pkts_cache["data"])
+
     tf = get_time_range(range_key)
     # Get raw flows (limit 2000 for better stats)
     output = run_nfdump(["-n", "2000"], tf)
@@ -464,7 +487,7 @@ def api_stats_packet_sizes():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return {"labels":[], "data":[]}
+            return jsonify({"labels":[], "data":[]})
 
         # Robust Header Detection
         header_idx = -1
@@ -512,9 +535,13 @@ def api_stats_packet_sizes():
             "labels": list(dist.keys()),
             "data": list(dist.values())
         }
-        return data
+        with _cache_lock:
+            _stats_pkts_cache["data"] = data
+            _stats_pkts_cache["ts"] = now
+            _stats_pkts_cache["key"] = range_key
+        return jsonify(data)
     except (ValueError, IndexError, KeyError, TypeError, ZeroDivisionError):
-        return {"labels":[], "data":[]}
+        return jsonify({"labels":[], "data":[]})
 
 
 
@@ -572,7 +599,6 @@ def api_stats_countries():
 
 @bp.route("/api/stats/worldmap")
 @throttle(5, 10)
-@cached_endpoint(_stats_worldmap_cache, _lock_worldmap)
 def api_stats_worldmap():
     """World map data endpoint with geo-located sources, destinations, and threats."""
     range_key = request.args.get('range', '1h')
@@ -721,7 +747,7 @@ def api_stats_worldmap():
     threat_countries_list = sorted(threat_countries.values(), key=lambda x: x['count'], reverse=True)
     blocked_countries_list = sorted(blocked_countries.values(), key=lambda x: x['count'], reverse=True)
 
-    return {
+    return jsonify({
         "sources": sources,
         "destinations": destinations,
         "threats": threats,
@@ -738,12 +764,18 @@ def api_stats_worldmap():
             "source_country_count": len(source_countries),
             "dest_country_count": len(dest_countries)
         }
-    }
+    })
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
-@cached_endpoint(_stats_talkers_cache, _lock_talkers, key_params=['range'])
 def api_stats_talkers():
+    """Top talker pairs (src→dst) by bytes."""
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_talkers_cache["data"] and _stats_talkers_cache["key"] == range_key and _stats_talkers_cache.get("win") == win:
+            return jsonify(_stats_talkers_cache["data"])
+
     tf = get_time_range(range_key)
     # Sort by bytes (already sorted by nfdump, but we limit)
     # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
@@ -756,7 +788,7 @@ def api_stats_talkers():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return {"flows": []}
+            return jsonify({"flows": []})
 
         # Robust Header Detection
         header_idx = -1
@@ -861,18 +893,18 @@ def api_stats_talkers():
                         proto = 'tcp' if '6' in proto_val else 'udp'
                         service_key = (port_num, proto)
 
-                        with _lock_service_cache:
-                            svc = _service_cache.get(service_key)
-                            if svc is None:
-                                # Optimization: Check static PORTS first
-                                if port_num in PORTS:
-                                    svc = PORTS[port_num]
-                                else:
+                        # Optimization: Check static PORTS first (outside lock)
+                        if port_num in PORTS:
+                            svc = PORTS[port_num]
+                        else:
+                            with _lock_service_cache:
+                                svc = _service_cache.get(service_key)
+                                if svc is None:
                                     try:
                                         svc = socket.getservbyport(port_num, proto)
                                     except OSError:
                                         svc = str(port_num) # Fallback
-                                _service_cache[service_key] = svc
+                                    _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
 
@@ -902,16 +934,27 @@ def api_stats_talkers():
         add_app_log(f"Error parsing talkers: {e}", 'WARN')
         pass
 
-    return {"flows": flows}
+    with _cache_lock:
+        _stats_talkers_cache["data"] = {"flows": flows}
+        _stats_talkers_cache["ts"] = now
+        _stats_talkers_cache["key"] = range_key
+        _stats_talkers_cache["win"] = win
+    return jsonify({"flows": flows})
 
 
 
 @bp.route("/api/stats/protocol_hierarchy")
 @throttle(5, 10)
-@cached_endpoint(_stats_proto_hierarchy_cache, _lock_proto_hierarchy, key_params=['range'])
 def api_stats_protocol_hierarchy():
     """Hierarchy of protocols (L4 -> L7) for sunburst visualization."""
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+
+    with _lock_proto_hierarchy:
+        if _stats_proto_hierarchy_cache["data"] and _stats_proto_hierarchy_cache["key"] == range_key and _stats_proto_hierarchy_cache.get("win") == win:
+            return jsonify(_stats_proto_hierarchy_cache["data"])
+
     tf = get_time_range(range_key)
     # Aggregation: proto, dstport.
     # Use -A proto,dstport -O bytes
@@ -936,7 +979,7 @@ def api_stats_protocol_hierarchy():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return hierarchy
+            return jsonify(hierarchy)
 
         # Robust Header Detection
         header_idx = -1
@@ -1004,17 +1047,31 @@ def api_stats_protocol_hierarchy():
         # Sort L4 by total bytes
         hierarchy["children"].sort(key=lambda x: x["total_bytes"], reverse=True)
 
-        return hierarchy
     except Exception as e:
         print(f"Hierarchy parse error: {e}")
-        return hierarchy
+
+    with _lock_proto_hierarchy:
+        _stats_proto_hierarchy_cache["data"] = hierarchy
+        _stats_proto_hierarchy_cache["ts"] = now
+        _stats_proto_hierarchy_cache["key"] = range_key
+        _stats_proto_hierarchy_cache["win"] = win
+
+    return jsonify(hierarchy)
 
 
 @bp.route("/api/stats/noise")
 @throttle(5, 10)
-@cached_endpoint(_stats_noise_metrics_cache, _lock_noise, key_params=['range'])
 def api_noise_metrics():
+    """Calculate Network Noise Score (Unproductive vs Productive Traffic)."""
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+
+    with _lock_noise:
+        if _stats_noise_metrics_cache["data"] and _stats_noise_metrics_cache["key"] == range_key and _stats_noise_metrics_cache.get("win") == win:
+            return jsonify(_stats_noise_metrics_cache["data"])
+
+    # 1. Total Flows (Productive + Noise)
     tf = get_time_range(range_key)
     # We use a large limit to get a statistical sample for ratios
     output = run_nfdump(["-n", "2000"], tf)
@@ -1024,9 +1081,9 @@ def api_noise_metrics():
     small_flows = 0
 
     try:
-        lines = output.strip().split("\n") if output else []
+        lines = output.strip().split("\n")
         if not lines:
-             return {
+             return jsonify({
                  "score": 0,
                  "level": "Low",
                  "total_flows": 0,
@@ -1036,7 +1093,7 @@ def api_noise_metrics():
                      "blocked": 0,
                      "tiny": 0
                  }
-             }
+             })
 
         # Robust Header Detection
         header_idx = -1
@@ -1132,7 +1189,13 @@ def api_noise_metrics():
         }
     }
 
-    return data
+    with _lock_noise:
+        _stats_noise_metrics_cache["data"] = data
+        _stats_noise_metrics_cache["ts"] = now
+        _stats_noise_metrics_cache["key"] = range_key
+        _stats_noise_metrics_cache["win"] = win
+
+    return jsonify(data)
 
 
 @bp.route("/api/stats/services")
@@ -1173,14 +1236,19 @@ def api_stats_services():
 
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
-@cached_endpoint(_stats_hourly_cache, _lock_hourly, key_params=['range'])
 def api_stats_hourly():
     """Traffic distribution by hour for selected range."""
     range_key = request.args.get('range', '24h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_hourly_cache["data"] and _stats_hourly_cache.get("key") == range_key and _stats_hourly_cache.get("win") == win:
+            return jsonify(_stats_hourly_cache["data"])
 
     tf = get_time_range(range_key)
     # Sort by bytes to capture the top contributors
-    output = run_nfdump(["-O", "bytes", "-n", "10000"], tf)
+    # STREAMING OPTIMIZATION
+    stream = stream_nfdump(["-O", "bytes", "-n", "10000"], tf)
 
     # Initialize hourly buckets (0-23)
     hourly_bytes = {h: 0 for h in range(24)}
@@ -1189,38 +1257,45 @@ def api_stats_hourly():
     # NFDump CSV usually has no header
     # Indices: ts=0, td=1, pr=2, sa=3, sp=4, da=5, dp=6, ipkt=7, ibyt=8, fl=9
     ts_idx, ibyt_idx = 0, 8
+    header_parsed = False
 
     try:
-        lines = output.strip().split("\n")
-        if not lines:
-             return {}
+        for i, line in enumerate(stream):
+            line = line.strip()
+            if not line: continue
 
-        # Robust Header Detection
-        header_idx = -1
-        for i, line in enumerate(lines):
-            line_clean = line.strip().lower()
+            line_clean = line.lower()
+
+            # Explicit Header Detection
             if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
-                header_idx = i
-                break
-        
-        if header_idx != -1:
-            header = lines[header_idx].split(',')
-            start_idx = header_idx + 1
-        else:
-            # Fallback
-            header = lines[0].split(',')
-            start_idx = 1 if len(header) > 1 else 0
+                 header = line.split(',')
+                 header_norm = [h.lower().strip() for h in header]
+                 try:
+                    ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+                    ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+                 except (ValueError, IndexError):
+                    pass
+                 header_parsed = True
+                 continue
 
-        # Map headers to indices
-        header_norm = [h.lower().strip() for h in header]
-        try:
-            ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
-            ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
-        except (ValueError, IndexError):
-            pass
+            # If we haven't found an explicit header yet
+            if not header_parsed:
+                 # Check if this line looks like data (starts with digit)
+                 if line[0].isdigit():
+                     # It's data, use default indices and process it
+                     header_parsed = True
+                 else:
+                     # Treat as fallback header
+                     header = line.split(',')
+                     header_norm = [h.lower().strip() for h in header]
+                     try:
+                        ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+                        ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+                     except (ValueError, IndexError):
+                        pass
+                     header_parsed = True
+                     continue
 
-        for line in lines[start_idx:]:
-            if not line or line.startswith('ts,'): continue
             parts = line.split(',')
             if len(parts) > max(ts_idx, ibyt_idx):
                 try:
@@ -1269,16 +1344,26 @@ def api_stats_hourly():
     except (ValueError, TypeError, IndexError, KeyError):
         data = {"labels": [], "bytes": [], "flows": [], "bytes_fmt": [], "peak_hour": 0, "peak_bytes": 0, "peak_bytes_fmt": "0 B", "total_bytes": 0, "total_bytes_fmt": "0 B", "time_scope": range_key}
 
-    return data
+    with _cache_lock:
+        _stats_hourly_cache["data"] = data
+        _stats_hourly_cache["ts"] = now
+        _stats_hourly_cache["win"] = win
+        _stats_hourly_cache["key"] = range_key
+    return jsonify(data)
 
 
 
 @bp.route("/api/stats/flow_stats")
 @throttle(5, 10)
-@cached_endpoint(_stats_flow_stats_cache, _lock_flow_stats, key_params=['range'])
 def api_stats_flow_stats():
     """Flow statistics - averages, totals, distributions."""
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_flow_stats_cache["data"] and _stats_flow_stats_cache["key"] == range_key and _stats_flow_stats_cache.get("win") == win:
+            return jsonify(_stats_flow_stats_cache["data"])
+
     tf = get_time_range(range_key)
     output = run_nfdump(["-n", "2000"], tf)
 
@@ -1352,25 +1437,36 @@ def api_stats_flow_stats():
             },
             "bytes_per_packet": round(total_bytes / total_packets) if total_packets > 0 else 0
         }
-        return data
     except (ValueError, TypeError, IndexError, KeyError):
-        return {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
+        data = {"total_flows": 0, "total_bytes": 0, "total_bytes_fmt": "0 B", "avg_duration": 0, "avg_duration_fmt": "0s"}
+
+    with _cache_lock:
+        _stats_flow_stats_cache["data"] = data
+        _stats_flow_stats_cache["ts"] = now
+        _stats_flow_stats_cache["key"] = range_key
+        _stats_flow_stats_cache["win"] = win
+    return jsonify(data)
 
 
 
 @bp.route("/api/stats/proto_mix")
 @throttle(5, 10)
-@cached_endpoint(_stats_proto_mix_cache, _lock_proto_mix, key_params=['range'])
 def api_stats_proto_mix():
     """Protocol mix for pie chart visualization."""
     range_key = request.args.get('range', '1h')
+    now = time.time()
+    win = int(now // 60)
+    with _cache_lock:
+        if _stats_proto_mix_cache["data"] and _stats_proto_mix_cache["key"] == range_key and _stats_proto_mix_cache.get("win") == win:
+            return jsonify(_stats_proto_mix_cache["data"])
+
     try:
         # Reuse protocols data
         protos_data = get_common_nfdump_data("protos", range_key)
 
         if not protos_data:
             # Return empty but valid structure
-            return {
+            return jsonify({
                 "labels": [],
                 "bytes": [],
                 "bytes_fmt": [],
@@ -1379,7 +1475,7 @@ def api_stats_proto_mix():
                 "colors": [],
                 "total_bytes": 0,
                 "total_bytes_fmt": "0 B"
-            }
+            })
 
         labels = []
         bytes_data = []
@@ -1415,14 +1511,19 @@ def api_stats_proto_mix():
             "total_bytes_fmt": fmt_bytes(total_bytes)
         }
 
-        return data
+        with _cache_lock:
+            _stats_proto_mix_cache["data"] = data
+            _stats_proto_mix_cache["ts"] = now
+            _stats_proto_mix_cache["key"] = range_key
+            _stats_proto_mix_cache["win"] = win
+        return jsonify(data)
 
     except Exception as e:
         print(f"Error in proto_mix: {e}")
         import traceback
         traceback.print_exc()
         # Return empty but valid structure on error
-        return {
+        return jsonify({
             "labels": [],
             "bytes": [],
             "bytes_fmt": [],
@@ -1431,22 +1532,17 @@ def api_stats_proto_mix():
             "colors": [],
             "total_bytes": 0,
             "total_bytes_fmt": "0 B"
-        }
+        })
 
 
 
 @bp.route("/api/firewall/stats/overview")
 @throttle(30, 10)
-@cached_endpoint(_stats_firewall_overview_cache, _lock_firewall_overview, ttl_seconds=10)
 def api_firewall_stats_overview():
     """Get high-signal firewall stat box metrics for at-a-glance situational awareness."""
-    range_key = request.args.get('range', '24h')
     now = time.time()
-    
-    range_map = {'15m': 900, '30m': 1800, '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800}
-    range_seconds = range_map.get(range_key, 86400)
-    range_cutoff = now - range_seconds
-    cutoff_7d = now - 604800
+    cutoff_24h = now - 86400  # 24 hours
+    cutoff_7d = now - (7 * 86400)  # 7 days lookback for "new" IPs
     
     with _firewall_db_lock:
         conn = _firewall_db_connect()
@@ -1455,14 +1551,14 @@ def api_firewall_stats_overview():
             cur = conn.execute("""
                 SELECT COUNT(*) FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (range_cutoff,))
+            """, (cutoff_24h,))
             blocked_events_24h = cur.fetchone()[0] or 0
             
             # 2. Unique Blocked Sources (24h)
             cur = conn.execute("""
                 SELECT COUNT(DISTINCT src_ip) FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (range_cutoff,))
+            """, (cutoff_24h,))
             unique_blocked_sources = cur.fetchone()[0] or 0
             
             # 3. New Blocked IPs (blocked in 24h but not in previous 7 days)
@@ -1470,14 +1566,14 @@ def api_firewall_stats_overview():
             cur = conn.execute("""
                 SELECT DISTINCT src_ip FROM fw_logs
                 WHERE timestamp > ? AND action IN ('block', 'reject')
-            """, (range_cutoff,))
+            """, (cutoff_24h,))
             recent_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
             
             # Get IPs blocked in previous 7 days (before last 24h)
             cur = conn.execute("""
                 SELECT DISTINCT src_ip FROM fw_logs
                 WHERE timestamp > ? AND timestamp <= ? AND action IN ('block', 'reject')
-            """, (cutoff_7d, range_cutoff))
+            """, (cutoff_7d, cutoff_24h))
             previous_blocked_ips = set(row[0] for row in cur.fetchall() if row[0])
             
             # New IPs = recent - previous
@@ -1494,7 +1590,7 @@ def api_firewall_stats_overview():
                 GROUP BY rule_or_reason
                 ORDER BY cnt DESC
                 LIMIT 1
-            """, (range_cutoff,))
+            """, (cutoff_24h,))
             top_rule_row = cur.fetchone()
             raw_reason = top_rule_row[0] if top_rule_row and top_rule_row[0] else "N/A"
             top_block_count = top_rule_row[1] if top_rule_row else 0
@@ -1516,7 +1612,7 @@ def api_firewall_stats_overview():
                     GROUP BY interface, direction, dst_port, proto
                     ORDER BY cnt DESC
                     LIMIT 1
-                """, (range_cutoff, raw_reason))
+                """, (cutoff_24h, raw_reason))
                 context_row = cur.fetchone()
                 
                 if context_row:
@@ -1574,7 +1670,7 @@ def api_firewall_stats_overview():
     # Calculate trend for blocked events (using rate for comparison)
     blocked_trend = calculate_trend('firewall_blocks_rate', blocks_rate)
     
-    return {
+    return jsonify({
         "blocked_events_24h": blocked_events_24h,
         "unique_blocked_sources": unique_blocked_sources,
         "new_blocked_ips": new_blocked_ips,
@@ -1585,7 +1681,7 @@ def api_firewall_stats_overview():
         },
         # TIME SCOPE METADATA: Fixed 24h window
         "time_scope": "24h"
-    }
+    })
 
 
 def _safe_ensure_rollup(bucket):
@@ -1597,9 +1693,18 @@ def _safe_ensure_rollup(bucket):
 
 
 @bp.route("/api/bandwidth")
-@throttle(10, 20)
-@cached_endpoint(_bandwidth_cache, _lock_bandwidth)
+@throttle(10,20)
 def api_bandwidth():
+    """
+    Get bandwidth usage over the specified time range.
+
+    Performance Note:
+    Traffic rollups for missing buckets are computed asynchronously using a background
+    thread pool (`_rollup_executor`). This ensures the API response is non-blocking and fast,
+    even if historical data needs to be aggregated on-demand. Clients may initially see
+    incomplete data (zeros) for missing buckets, which will be populated in subsequent requests
+    once the background tasks complete.
+    """
     range_key = request.args.get('range', '1h')
     now_ts = time.time()
 
@@ -1620,7 +1725,13 @@ def api_bandwidth():
 
     cache_key = f"bw_{range_key}"
 
-    # Check cache with range key validation (Removed manual block, handled by decorator)
+    # Check cache with range key validation
+    with _lock_bandwidth:
+        if _bandwidth_cache.get("data") and _bandwidth_cache.get("key") == cache_key and now_ts - _bandwidth_cache.get("ts", 0) < 5:
+            global _metric_bw_cache_hits
+            _metric_bw_cache_hits += 1
+            return jsonify(_bandwidth_cache["data"])
+
     now = datetime.now()
     labels, bw, flows = [], [], []
 
@@ -1717,28 +1828,32 @@ def api_bandwidth():
                         conn.commit()
                     finally:
                         conn.close()
+
+                # Re-fetch data after computation (only for synchronous mock optimization)
+                with _trends_db_lock:
+                    conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
+                    try:
+                        cur = conn.execute(
+                            "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
+                            (start_ts, end_ts)
+                        )
+                        rows = cur.fetchall()
+                        by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
+                    finally:
+                        conn.close()
+
             else:
                 # Normal behavior (or single bucket)
                 # Offload to background executor (non-blocking) to prevent request timeout/latency
                 # Client will see gaps (zeros) initially, which is acceptable for performance.
+                # Optimization: Submit tasks to global executor without waiting for results.
                 try:
+                    if missing_buckets:
+                        add_app_log(f"Submitting {len(missing_buckets)} background rollup tasks", 'INFO')
                     for bucket in missing_buckets:
                         _rollup_executor.submit(_safe_ensure_rollup, bucket)
                 except Exception as e:
-                    add_app_log(f"Bandwidth computation submission partial failure: {e}", 'WARN')
-
-            # Re-fetch data after computation
-            with _trends_db_lock:
-                conn = sqlite3.connect(TRENDS_DB_PATH, check_same_thread=False)
-                try:
-                    cur = conn.execute(
-                        "SELECT bucket_end, bytes, flows FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=? ORDER BY bucket_end ASC",
-                        (start_ts, end_ts)
-                    )
-                    rows = cur.fetchall()
-                    by_end = {r[0]: {"bytes": r[1], "flows": r[2]} for r in rows}
-                finally:
-                    conn.close()
+                    add_app_log(f"Bandwidth computation background submission failed: {e}", 'WARN')
 
         for i in range(bucket_count, 0, -1):
             et = current_bucket_end - timedelta(minutes=i*5)
@@ -1758,15 +1873,18 @@ def api_bandwidth():
             flows.append(val_flows)
 
         data = {"labels":labels,"bandwidth":bw,"flows":flows, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z")}
-        return data
+        with _lock_bandwidth:
+            _bandwidth_cache["data"] = data
+            _bandwidth_cache["ts"] = now_ts
+            _bandwidth_cache["key"] = cache_key
+        return jsonify(data)
     except (ValueError, IndexError, KeyError, TypeError, sqlite3.Error) as e:
         add_app_log(f"Bandwidth API error: {e}", 'ERROR')
-        return {"labels":[],"bandwidth":[],"flows":[]}
+        return jsonify({"labels":[],"bandwidth":[],"flows":[]}), 500
 
 
 @bp.route("/api/network/stats/overview")
 @throttle(30, 10)
-@cached_endpoint(_stats_network_overview_cache, _lock_network_overview, ttl_seconds=10)
 def api_network_stats_overview():
     """Get high-signal network stat box metrics respecting global time range."""
     # Get range from request, default to 1h for backward compatibility if not provided
@@ -1787,18 +1905,18 @@ def api_network_stats_overview():
     # Get total count by running without -n limit, using -q for quiet output
     # Count all flow lines (excluding header)
     try:
-        full_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
-        if full_output:
-            lines = full_output.strip().split("\n")
-            # Count non-header lines (actual flow records)
-            for line in lines:
-                if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
-                    # Check if it's a valid flow line (has enough fields)
-                    parts = line.split(',')
-                    if len(parts) > 7:
-                        active_flows_count += 1
+        # STREAMING OPTIMIZATION: Use stream_nfdump to avoid loading all flows into memory
+        stream = stream_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
+        for line in stream:
+            line = line.strip()
+            if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
+                # Check if it's a valid flow line (has enough fields)
+                # Fast check: ensure enough commas (7 commas = 8 fields)
+                if line.count(',') >= 7:
+                    active_flows_count += 1
     except Exception as e:
         # Log error in production, but don't fail the endpoint
+        add_app_log(f"Error counting active flows: {e}", "WARN")
         active_flows_count = 0
     
     # Now get external connections count using a sample
@@ -1958,7 +2076,7 @@ def api_network_stats_overview():
     external_connections_trend = calculate_trend('external_connections', external_connections_count)
     anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
     
-    return {
+    return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
         "anomalies_24h": anomalies_24h,
@@ -1973,12 +2091,11 @@ def api_network_stats_overview():
             "external_connections": range_key,
             "anomalies_24h": range_key
         }
-    }
+    })
 
 
 @bp.route("/api/network/intelligence")
 @throttle(5, 10)
-@cached_endpoint(_stats_network_intelligence_cache, _lock_network_intelligence, key_params=['range'])
 def api_network_intelligence():
     """Get network performance and behavior insights."""
     range_key = request.args.get('range', '1h')
@@ -2172,7 +2289,7 @@ def api_network_intelligence():
     except Exception as e:
         add_app_log(f"Error generating network intelligence: {e}", 'ERROR')
     
-    return intelligence
+    return jsonify(intelligence)
 
 
 
@@ -2305,18 +2422,18 @@ def api_flows():
                         proto = 'tcp' if '6' in proto_val else 'udp'
                         service_key = (port_num, proto)
 
-                        with _lock_service_cache:
-                            svc = _service_cache.get(service_key)
-                            if svc is None:
-                                # Optimization: Check static PORTS first
-                                if port_num in PORTS:
-                                    svc = PORTS[port_num]
-                                else:
+                        # Optimization: Check static PORTS first (outside lock)
+                        if port_num in PORTS:
+                            svc = PORTS[port_num]
+                        else:
+                            with _lock_service_cache:
+                                svc = _service_cache.get(service_key)
+                                if svc is None:
                                     try:
                                         svc = socket.getservbyport(port_num, proto)
                                     except OSError:
                                         svc = str(port_num) # Fallback
-                                _service_cache[service_key] = svc
+                                    _service_cache[service_key] = svc
                     except (ValueError, TypeError):
                         svc = dst_port # If not a valid integer, use the original string
                     # Track for heuristics (lightweight, per-request only) - do this first
@@ -3325,39 +3442,37 @@ def api_stats_batch():
             'firewall': api_stats_firewall,
         }
 
-        # Process requests in parallel using ThreadPoolExecutor
+        # Process requests in parallel using shared ThreadPoolExecutor
         # Get the real app object to pass to threads (current_app is a proxy)
         app_obj = current_app._get_current_object()
 
         futures = []
-        # Ensure at least 1 worker (though check above ensures requests_list is not empty)
-        max_workers = max(min(len(requests_list), 10), 1)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for req in requests_list:
-                endpoint_name = req.get('endpoint')
-                if not endpoint_name or endpoint_name not in handlers:
-                    if endpoint_name:
-                        errors[endpoint_name] = 'Unknown endpoint'
-                    continue
+        # Use shared executor to avoid thread creation overhead per request
+        for req in requests_list:
+            endpoint_name = req.get('endpoint')
+            if not endpoint_name or endpoint_name not in handlers:
+                if endpoint_name:
+                    errors[endpoint_name] = 'Unknown endpoint'
+                continue
 
-                params = req.get('params', {})
-                if 'range' not in params:
-                    params['range'] = range_key
+            params = req.get('params', {})
+            if 'range' not in params:
+                params['range'] = range_key
 
-                # Build query string for test_request_context
-                from urllib.parse import urlencode
-                query_string = urlencode(params)
+            # Build query string for test_request_context
+            from urllib.parse import urlencode
+            query_string = urlencode(params)
 
-                handler = handlers[endpoint_name]
-                futures.append(executor.submit(process_batch_request, app_obj, endpoint_name, handler, query_string))
+            handler = handlers[endpoint_name]
+            futures.append(state._batch_executor.submit(process_batch_request, app_obj, endpoint_name, handler, query_string))
 
-            for future in futures:
-                endpoint_name, result, error = future.result()
-                if error:
-                    errors[endpoint_name] = error
-                elif result:
-                    results[endpoint_name] = result
+        for future in futures:
+            endpoint_name, result, error = future.result()
+            if error:
+                errors[endpoint_name] = error
+            elif result:
+                results[endpoint_name] = result
 
         response_data = {'results': results}
         if errors:
