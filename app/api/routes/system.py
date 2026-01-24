@@ -76,7 +76,7 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
-from app.services.shared.decorators import throttle, login_required, admin_required
+from app.services.shared.decorators import throttle, login_required, admin_required, cached_endpoint
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect, reset_firewall_database
 from app.config import (
     FIREWALL_DB_PATH, TRENDS_DB_PATH, PORTS, PROTOS, SUSPICIOUS_PORTS,
@@ -123,15 +123,9 @@ def debug_paths():
 
 @bp.route("/api/stats/summary")
 @throttle(5, 10)
+@cached_endpoint(_stats_summary_cache, _lock_summary, key_params=['range'])
 def api_stats_summary():
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    cache_ttl = 60 # 1 minute
-    with _lock_summary:
-        if (_stats_summary_cache["data"] and 
-            _stats_summary_cache.get("key") == range_key and 
-            (now - _stats_summary_cache.get("ts", 0)) < cache_ttl):
-            return jsonify(_stats_summary_cache["data"])
 
     # Reuse common data cache instead of running separate nfdump query
     # Note: These totals are derived from top 100 sources (not complete dataset)
@@ -152,12 +146,7 @@ def api_stats_summary():
         "notify": load_notify_cfg(),
         "threat_status": threats_module._threat_status
     }
-    with _lock_summary:
-        _stats_summary_cache["data"] = data
-        _stats_summary_cache["ts"] = now
-        _stats_summary_cache["key"] = range_key
-        _stats_summary_cache["win"] = win
-    return jsonify(data)
+    return data
 
 
 

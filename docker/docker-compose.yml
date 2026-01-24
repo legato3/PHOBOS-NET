@@ -34,7 +34,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
           memory: 2048M # Increased for high-traffic performance
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]

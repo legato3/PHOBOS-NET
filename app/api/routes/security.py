@@ -92,23 +92,11 @@ logger = logging.getLogger(__name__)
 
 @bp.route("/api/stats/net_health")
 @throttle(30, 10)
+@cached_endpoint(_stats_net_health_cache, _cache_lock, key_params=['range'])
 def api_stats_net_health():
-    """System Health Check (Operability Focus).
-    
-    Health reflects system operability, NOT traffic volume or network noise.
-    
-    Logic:
-    - Healthy: All systems (NetFlow, Syslog, Firewall) operational and data valid
-    - Degraded: Partial visibility (e.g. Syslog offline) or ingestion stall
-    - Unavailable: Core visibility lost (nfdump failure)
-    """
+    """System Health Check (Operability Focus)."""
     range_key = request.args.get('range', '1h')
     now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_net_health_cache["data"] and _stats_net_health_cache["key"] == range_key and _stats_net_health_cache.get("win") == win:
-            return jsonify(_stats_net_health_cache["data"])
-
     tf = get_time_range(range_key)
     
     # 1. System Availability Checks
@@ -122,9 +110,6 @@ def api_stats_net_health():
         status_issues.append("NetFlow engine unavailable")
     
     # Check Syslog status (Firewall visibility)
-    # Check both generic syslog (514) and firewall specific (515)
-    # Check Syslog status (Firewall visibility)
-    # Check both generic syslog (514) and firewall specific (515)
     deps = state.get_dependency_health()
     syslog_generic_info = deps.get('syslog_514', {})
     syslog_fw_info = deps.get('syslog_515', {})
@@ -160,45 +145,35 @@ def api_stats_net_health():
             health_score -= 20
             status_issues.append("Database connection failed")
 
-    # 2. Traffic Indicators (Informational Only - DOES NOT AFFECT HEALTH SCORE)
+    # 2. Traffic Indicators
     indicators = []
-    
-    # Run nfdump for traffic context
     try:
         output = run_nfdump(["-n", "1000"], tf)
         if output and isinstance(output, str) and output.strip():
             lines = output.strip().split("\n")
-            # Parse traffic stats for context only
             total_flows = 0
             rst_count = 0
             syn_only = 0
             icmp_count = 0
-            
-            # Simple parsing (robust fallback)
             for line in lines[1:]:
                 if not line or line.startswith('ts,'): continue
                 total_flows += 1
                 if 'R' in line: rst_count += 1
-                if 'S' in line and 'A' not in line: syn_only += 1  # Crude check
+                if 'S' in line and 'A' not in line: syn_only += 1
                 if 'ICMP' in line or ',1,' in line: icmp_count += 1
             
             if total_flows > 0:
                 rst_pct = rst_count / total_flows * 100
                 syn_pct = syn_only / total_flows * 100
                 icmp_pct = icmp_count / total_flows * 100
-                
-                # Add informational indicators
                 if rst_pct > 15:
                     indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "warn", "icon": "⚠️"})
-                    # Add signal, NOT alert
                     threats_module.add_health_signal("tcp_reset", f"Elevated TCP Resets: {rst_pct:.1f}%", level="elevated")
                 elif rst_pct < 5:
                     indicators.append({"name": "TCP Resets", "value": f"{rst_pct:.1f}%", "status": "good", "icon": "✅"})
-                
                 if syn_pct > 10:
                     indicators.append({"name": "SYN-Only Flows", "value": f"{syn_pct:.1f}%", "status": "warn", "icon": "⚠️"})
                     threats_module.add_health_signal("syn_scan", f"Elevated SYN-Only Flows: {syn_pct:.1f}%", level="elevated")
-                
                 if icmp_pct > 15:
                     indicators.append({"name": "ICMP Traffic", "value": f"{icmp_pct:.1f}%", "status": "warn", "icon": "⚠️"})
     except Exception as e:
@@ -207,43 +182,28 @@ def api_stats_net_health():
 
     # 3. Determine Overall Status
     health_score = max(0, min(100, health_score))
-    
     if health_score >= 80:
-        status = "healthy"
-        status_text = "Healthy"
-        status_icon = "💚"
+        status, status_text, status_icon = "healthy", "Healthy", "💚"
     elif health_score >= 40:
-        status = "fair" # Maps to Degraded in logical model
-        status_text = "Degraded"
-        status_icon = "💛"
+        status, status_text, status_icon = "fair", "Degraded", "💛"
     else:
-        status = "poor" # Maps to Unavailable
-        status_text = "Unavailable"
-        status_icon = "❤️"
+        status, status_text, status_icon = "poor", "Unavailable", "❤️"
 
     if status_issues:
         indicators.insert(0, {"name": "System Issues", "value": str(len(status_issues)), "status": "bad", "icon": "🔧"})
         for issue in status_issues:
-            # Add specific issue as indicator
             indicators.append({"name": "Status", "value": issue, "status": "bad", "icon": "⚠️"})
 
-    data = {
+    return {
         "indicators": indicators,
         "health_score": health_score,
         "status": status,
-        "status_text": status_text, # Explicit text for frontend
+        "status_text": status_text,
         "status_icon": status_icon,
-        "total_flows": 0, # Legacy field
+        "total_flows": 0,
         "firewall_active": syslog_fw_active or syslog_generic_active,
-        "blocks_1h": 0 # Legacy field
+        "blocks_1h": 0
     }
-
-    with _cache_lock:
-        _stats_net_health_cache["data"] = data
-        _stats_net_health_cache["ts"] = now
-        _stats_net_health_cache["key"] = range_key
-        _stats_net_health_cache["win"] = win
-    return jsonify(data)
 
 
 # ===== Trends (5-minute rollups stored in SQLite) =====

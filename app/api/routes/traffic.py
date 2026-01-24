@@ -741,15 +741,9 @@ def api_stats_worldmap():
     }
 @bp.route("/api/stats/talkers")
 @throttle(5, 10)
+@cached_endpoint(_stats_talkers_cache, _lock_talkers, key_params=['range'])
 def api_stats_talkers():
-    """Top talker pairs (src→dst) by bytes."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-    with _cache_lock:
-        if _stats_talkers_cache["data"] and _stats_talkers_cache["key"] == range_key and _stats_talkers_cache.get("win") == win:
-            return jsonify(_stats_talkers_cache["data"])
-
     tf = get_time_range(range_key)
     # Sort by bytes (already sorted by nfdump, but we limit)
     # nfdump -O bytes -n 50 returns top 50 flows sorted by bytes
@@ -762,7 +756,7 @@ def api_stats_talkers():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return jsonify({"flows": []})
+            return {"flows": []}
 
         # Robust Header Detection
         header_idx = -1
@@ -908,27 +902,16 @@ def api_stats_talkers():
         add_app_log(f"Error parsing talkers: {e}", 'WARN')
         pass
 
-    with _cache_lock:
-        _stats_talkers_cache["data"] = {"flows": flows}
-        _stats_talkers_cache["ts"] = now
-        _stats_talkers_cache["key"] = range_key
-        _stats_talkers_cache["win"] = win
-    return jsonify({"flows": flows})
+    return {"flows": flows}
 
 
 
 @bp.route("/api/stats/protocol_hierarchy")
 @throttle(5, 10)
+@cached_endpoint(_stats_proto_hierarchy_cache, _lock_proto_hierarchy, key_params=['range'])
 def api_stats_protocol_hierarchy():
     """Hierarchy of protocols (L4 -> L7) for sunburst visualization."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-
-    with _lock_proto_hierarchy:
-        if _stats_proto_hierarchy_cache["data"] and _stats_proto_hierarchy_cache["key"] == range_key and _stats_proto_hierarchy_cache.get("win") == win:
-            return jsonify(_stats_proto_hierarchy_cache["data"])
-
     tf = get_time_range(range_key)
     # Aggregation: proto, dstport.
     # Use -A proto,dstport -O bytes
@@ -953,7 +936,7 @@ def api_stats_protocol_hierarchy():
     try:
         lines = output.strip().split("\n")
         if not lines:
-            return jsonify(hierarchy)
+            return hierarchy
 
         # Robust Header Detection
         header_idx = -1
@@ -1021,31 +1004,17 @@ def api_stats_protocol_hierarchy():
         # Sort L4 by total bytes
         hierarchy["children"].sort(key=lambda x: x["total_bytes"], reverse=True)
 
+        return hierarchy
     except Exception as e:
         print(f"Hierarchy parse error: {e}")
-
-    with _lock_proto_hierarchy:
-        _stats_proto_hierarchy_cache["data"] = hierarchy
-        _stats_proto_hierarchy_cache["ts"] = now
-        _stats_proto_hierarchy_cache["key"] = range_key
-        _stats_proto_hierarchy_cache["win"] = win
-
-    return jsonify(hierarchy)
+        return hierarchy
 
 
 @bp.route("/api/stats/noise")
 @throttle(5, 10)
+@cached_endpoint(_stats_noise_metrics_cache, _lock_noise, key_params=['range'])
 def api_noise_metrics():
-    """Calculate Network Noise Score (Unproductive vs Productive Traffic)."""
     range_key = request.args.get('range', '1h')
-    now = time.time()
-    win = int(now // 60)
-
-    with _lock_noise:
-        if _stats_noise_metrics_cache["data"] and _stats_noise_metrics_cache["key"] == range_key and _stats_noise_metrics_cache.get("win") == win:
-            return jsonify(_stats_noise_metrics_cache["data"])
-
-    # 1. Total Flows (Productive + Noise)
     tf = get_time_range(range_key)
     # We use a large limit to get a statistical sample for ratios
     output = run_nfdump(["-n", "2000"], tf)
@@ -1055,9 +1024,9 @@ def api_noise_metrics():
     small_flows = 0
 
     try:
-        lines = output.strip().split("\n")
+        lines = output.strip().split("\n") if output else []
         if not lines:
-             return jsonify({
+             return {
                  "score": 0,
                  "level": "Low",
                  "total_flows": 0,
@@ -1067,7 +1036,7 @@ def api_noise_metrics():
                      "blocked": 0,
                      "tiny": 0
                  }
-             })
+             }
 
         # Robust Header Detection
         header_idx = -1
@@ -1163,13 +1132,7 @@ def api_noise_metrics():
         }
     }
 
-    with _lock_noise:
-        _stats_noise_metrics_cache["data"] = data
-        _stats_noise_metrics_cache["ts"] = now
-        _stats_noise_metrics_cache["key"] = range_key
-        _stats_noise_metrics_cache["win"] = win
-
-    return jsonify(data)
+    return data
 
 
 @bp.route("/api/stats/services")
