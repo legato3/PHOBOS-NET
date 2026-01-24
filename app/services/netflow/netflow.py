@@ -4,7 +4,6 @@ import subprocess
 import threading
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from app.config import DEFAULT_TIMEOUT, SAMPLE_DATA_PATH, COMMON_DATA_CACHE_MAX, NFCAPD_DIR
 from app.services.shared.helpers import get_time_range
 
@@ -320,12 +319,11 @@ def get_traffic_direction(ip, tf):
     # Fetch data (two nfdump calls)
     # Filter must be LAST arguments
     # PERFORMANCE: Run queries in parallel to reduce latency
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_out = executor.submit(run_nfdump, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
-        future_in = executor.submit(run_nfdump, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+    future_out = state._nfdump_executor.submit(run_nfdump, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
+    future_in = state._nfdump_executor.submit(run_nfdump, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
 
-        out = future_out.result()
-        in_data = future_in.result()
+    out = future_out.result()
+    in_data = future_in.result()
 
     out_parsed = parse_csv(out, expected_key='sa')
     in_parsed = parse_csv(in_data, expected_key='da')
@@ -410,12 +408,11 @@ def get_merged_host_stats(range_key="24h", limit=1000):
     src_cmd = ["-s", "srcip/bytes/flows", "-n", str(query_limit)]
     dst_cmd = ["-s", "dstip/bytes/flows", "-n", str(query_limit)]
     
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_src = executor.submit(run_nfdump, src_cmd, tf)
-        future_dst = executor.submit(run_nfdump, dst_cmd, tf)
-        
-        src_rows = parse_csv(future_src.result(), expected_key='sa')
-        dst_rows = parse_csv(future_dst.result(), expected_key='da')
+    future_src = state._nfdump_executor.submit(run_nfdump, src_cmd, tf)
+    future_dst = state._nfdump_executor.submit(run_nfdump, dst_cmd, tf)
+
+    src_rows = parse_csv(future_src.result(), expected_key='sa')
+    dst_rows = parse_csv(future_dst.result(), expected_key='da')
     
     hosts = {}
     
