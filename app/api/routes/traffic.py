@@ -3420,39 +3420,37 @@ def api_stats_batch():
             'firewall': api_stats_firewall,
         }
 
-        # Process requests in parallel using ThreadPoolExecutor
+        # Process requests in parallel using shared ThreadPoolExecutor
         # Get the real app object to pass to threads (current_app is a proxy)
         app_obj = current_app._get_current_object()
 
         futures = []
-        # Ensure at least 1 worker (though check above ensures requests_list is not empty)
-        max_workers = max(min(len(requests_list), 10), 1)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for req in requests_list:
-                endpoint_name = req.get('endpoint')
-                if not endpoint_name or endpoint_name not in handlers:
-                    if endpoint_name:
-                        errors[endpoint_name] = 'Unknown endpoint'
-                    continue
+        # Use shared executor to avoid thread creation overhead per request
+        for req in requests_list:
+            endpoint_name = req.get('endpoint')
+            if not endpoint_name or endpoint_name not in handlers:
+                if endpoint_name:
+                    errors[endpoint_name] = 'Unknown endpoint'
+                continue
 
-                params = req.get('params', {})
-                if 'range' not in params:
-                    params['range'] = range_key
+            params = req.get('params', {})
+            if 'range' not in params:
+                params['range'] = range_key
 
-                # Build query string for test_request_context
-                from urllib.parse import urlencode
-                query_string = urlencode(params)
+            # Build query string for test_request_context
+            from urllib.parse import urlencode
+            query_string = urlencode(params)
 
-                handler = handlers[endpoint_name]
-                futures.append(executor.submit(process_batch_request, app_obj, endpoint_name, handler, query_string))
+            handler = handlers[endpoint_name]
+            futures.append(state._batch_executor.submit(process_batch_request, app_obj, endpoint_name, handler, query_string))
 
-            for future in futures:
-                endpoint_name, result, error = future.result()
-                if error:
-                    errors[endpoint_name] = error
-                elif result:
-                    results[endpoint_name] = result
+        for future in futures:
+            endpoint_name, result, error = future.result()
+            if error:
+                errors[endpoint_name] = error
+            elif result:
+                results[endpoint_name] = result
 
         response_data = {'results': results}
         if errors:
