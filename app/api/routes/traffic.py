@@ -84,6 +84,38 @@ from app.config import (
 
 # Create Blueprint
 
+def _resolve_service(port_val, proto_val):
+    """Resolve service name with caching and double-checked locking optimization."""
+    try:
+        port_num = int(port_val)
+        proto = 'tcp' if '6' in str(proto_val) else 'udp'
+
+        # 1. Check static configuration (fastest, no lock)
+        if port_num in PORTS:
+            return PORTS[port_num]
+
+        service_key = (port_num, proto)
+
+        # 2. Check cache optimistically (fast, no lock)
+        svc = _service_cache.get(service_key)
+        if svc:
+            return svc
+
+        # 3. Cache miss: Acquire lock and double-check
+        with _lock_service_cache:
+            svc = _service_cache.get(service_key)
+            if svc is None:
+                try:
+                    svc = socket.getservbyport(port_num, proto)
+                except OSError:
+                    svc = str(port_num) # Fallback
+                _service_cache[service_key] = svc
+        return svc
+
+    except (ValueError, TypeError):
+        return str(port_val) # Return original if not a valid integer
+
+
 # Routes extracted from netflow-dashboard.py
 # Changed @app.route() to @bp.route()
 
@@ -888,25 +920,7 @@ def api_stats_talkers():
                     dst_geo = lookup_geo(dst) or {}
 
                     # Resolve Service Name
-                    try:
-                        port_num = int(dst_port)
-                        proto = 'tcp' if '6' in proto_val else 'udp'
-                        service_key = (port_num, proto)
-
-                        # Optimization: Check static PORTS first (outside lock)
-                        if port_num in PORTS:
-                            svc = PORTS[port_num]
-                        else:
-                            with _lock_service_cache:
-                                svc = _service_cache.get(service_key)
-                                if svc is None:
-                                    try:
-                                        svc = socket.getservbyport(port_num, proto)
-                                    except OSError:
-                                        svc = str(port_num) # Fallback
-                                    _service_cache[service_key] = svc
-                    except (ValueError, TypeError):
-                        svc = dst_port # If not a valid integer, use the original string
+                    svc = _resolve_service(dst_port, proto_val)
 
                     flows.append({
                         "ts": ts_str,
@@ -2418,25 +2432,7 @@ def api_flows():
                         direction = "external"
 
                     # Resolve Service Name
-                    try:
-                        port_num = int(dst_port)
-                        proto = 'tcp' if '6' in proto_val else 'udp'
-                        service_key = (port_num, proto)
-
-                        # Optimization: Check static PORTS first (outside lock)
-                        if port_num in PORTS:
-                            svc = PORTS[port_num]
-                        else:
-                            with _lock_service_cache:
-                                svc = _service_cache.get(service_key)
-                                if svc is None:
-                                    try:
-                                        svc = socket.getservbyport(port_num, proto)
-                                    except OSError:
-                                        svc = str(port_num) # Fallback
-                                    _service_cache[service_key] = svc
-                    except (ValueError, TypeError):
-                        svc = dst_port # If not a valid integer, use the original string
+                    svc = _resolve_service(dst_port, proto_val)
                     # Track for heuristics (lightweight, per-request only) - do this first
                     port_counts[dst_port] += 1
                     connection_key = f"{src}:{dst}"
