@@ -111,10 +111,13 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
         # No deltas placeholder handled by frontend, but we return empty list
         pass
 
-        "top_destinations": top_dests,
-        "top_ports": top_ports,
-        "changes": changes[:30]
-    }
+    
+        return {
+            "top_talkers": top_talkers,
+            "top_destinations": top_dests,
+            "top_ports": top_ports,
+            "changes": changes[:30]
+        }
     except Exception as e:
         print(f"Radar generation failed: {e}")
         return {
