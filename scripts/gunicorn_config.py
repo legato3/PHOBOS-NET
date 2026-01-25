@@ -67,6 +67,12 @@ def post_worker_init(worker):
                 from app.services.syslog.firewall_listener import start_firewall_syslog_thread
             except ImportError:
                 start_firewall_syslog_thread = None
+
+            # Import SNMP thread
+            try:
+                from app.services.shared.snmp import start_snmp_thread
+            except ImportError:
+                start_snmp_thread = None
             
             start_threat_thread()
             start_trends_thread()
@@ -82,6 +88,10 @@ def post_worker_init(worker):
             if start_firewall_syslog_thread:
                 start_firewall_syslog_thread()
                 worker.log.info("Firewall syslog listener started on port 515")
+            
+            if start_snmp_thread:
+                start_snmp_thread()
+                worker.log.info("SNMP polling thread started")
 
             # Add system startup event to timeline
             try:
