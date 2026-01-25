@@ -199,14 +199,18 @@ def fetch_threat_feed():
             session.mount('http://', adapter)
             session.mount('https://', adapter)
 
+            # Optimized parallel execution using ThreadPoolExecutor
             with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_FEED_WORKERS) as executor:
-                futures = []
+                # Submit all feed processing tasks
+                future_to_feed = {}
                 for url, category, name in feed_entries:
                     last_ok = _feed_status.get(name, {}).get('last_ok', 0)
-                    futures.append(executor.submit(_process_feed, url, category, name, last_ok, session))
+                    future = executor.submit(_process_feed, url, category, name, last_ok, session)
+                    future_to_feed[future] = name
 
-                # Process results in order to preserve priority (last feed wins for overlapping IPs)
-                for future in futures:
+                # Process results in order of submission to preserve priority (last feed wins for overlapping IPs)
+                futures_list = list(future_to_feed.keys())
+                for future in futures_list:
                     try:
                         result = future.result()
                         name = result['name']
@@ -244,12 +248,16 @@ def fetch_threat_feed():
         _threat_status['status'] = 'ok'
         _threat_status['error'] = '; '.join(errors) if errors else None
         
+        duration = time.time() - now
+        add_app_log(f"Threat feed update completed in {duration:.2f}s ({_threat_status['size']} IPs)", "INFO")
+
         # Report success
         update_dependency_health('threat_feeds', 
             records_count=len(all_ips),
             feeds_status=new_feed_status,
             fetch_success_count=_threat_status.get('success_count', 0) + 1,
-            last_ok=time.time()
+            last_ok=time.time(),
+            duration=duration
         )
     except Exception as e:
         _threat_status['status'] = 'error'
