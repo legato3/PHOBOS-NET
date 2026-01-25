@@ -122,7 +122,7 @@
                     <label class="label" for="discovery-target-subnet">
                         <span class="label-text">Target Subnet</span>
                     </label>
-                    <select id="discovery-target-subnet" class="select select-bordered select-sm w-full"
+                    <select id="discovery-target-subnet" class="cyber-input w-full"
                         x-model="hosts.discovery.target" aria-label="Target Subnet">
                         <option value="" disabled selected>Select subnet</option>
                         <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
@@ -137,7 +137,7 @@
                         <span class="label-text">Custom CIDR</span>
                     </label>
                     <input type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
-                        class="input input-bordered input-sm w-full" />
+                        class="cyber-input w-full" />
                 </div>
 
                 <button class="btn btn-sm btn-primary" @click="runDiscoveryScan()"
@@ -169,33 +169,33 @@
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4"
                 x-show="hosts.list && hosts.list.length > 0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <input class="input input-sm input-bordered" style="min-width: 200px;"
+                    <input class="cyber-input" style="min-width: 200px;"
                         placeholder="Search IP, tag, owner..." x-model="hosts.filters.search" />
-                    <select class="select select-bordered select-sm" x-model="hosts.filters.owner">
+                    <select class="cyber-input" x-model="hosts.filters.owner">
                         <option value="">Owner</option>
                         <template x-for="owner in hostOwnerOptions" :key="owner">
                             <option :value="owner" x-text="owner"></option>
                         </template>
                     </select>
-                    <select class="select select-bordered select-sm" x-model="hosts.filters.device_type">
+                    <select class="cyber-input" x-model="hosts.filters.device_type">
                         <option value="">Device Type</option>
                         <template x-for="device in hostDeviceTypeOptions" :key="device">
                             <option :value="device" x-text="device"></option>
                         </template>
                     </select>
-                    <select class="select select-bordered select-sm" x-model="hosts.filters.criticality">
+                    <select class="cyber-input" x-model="hosts.filters.criticality">
                         <option value="">Criticality</option>
                         <template x-for="level in hostCriticalityOptions" :key="level">
                             <option :value="level" x-text="level"></option>
                         </template>
                     </select>
-                    <select class="select select-bordered select-sm" x-model="hosts.filters.tag">
+                    <select class="cyber-input" x-model="hosts.filters.tag">
                         <option value="">Tag</option>
                         <template x-for="tag in hostTagOptions" :key="tag">
                             <option :value="tag" x-text="tag"></option>
                         </template>
                     </select>
-                    <select class="select select-bordered select-sm" x-model="hosts.filters.type">
+                    <select class="cyber-input" x-model="hosts.filters.type">
                         <option value="all">All</option>
                         <option value="internal">Internal</option>
                         <option value="external">External</option>
@@ -207,7 +207,7 @@
                     <button class="btn btn-sm btn-ghost" @click="clearHostFilters()">Clear</button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <select class="select select-bordered select-sm" x-model="hosts.selectedViewId"
+                    <select class="cyber-input" x-model="hosts.selectedViewId"
                         @change="applyHostView(hosts.selectedViewId)">
                         <option value="">Saved views</option>
                         <template x-for="view in hosts.savedViews" :key="view.id">

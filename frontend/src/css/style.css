@@ -602,6 +602,47 @@ body.sidebar-collapsed .layout-wrapper {
     align-items: center;
 }
 
+/* CYBERPUNK UI: Standard Inputs - Signal inputs */
+.cyber-input {
+    background: var(--bg-1) !important;
+    border: 1px solid var(--border-soft) !important;
+    color: var(--text-0) !important;
+    font-size: var(--fs-sm) !important;
+    font-family: var(--font-mono) !important;
+    padding: 6px 12px !important;
+    border-radius: var(--radius-sm) !important;
+    outline: none !important;
+    transition: all var(--transition-fast) !important;
+    height: 32px !important; /* Match input-sm */
+    line-height: normal !important;
+}
+
+select.cyber-input {
+    padding-right: 24px !important;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23787890' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 8px center !important;
+    background-size: 16px !important;
+    cursor: pointer;
+}
+
+.cyber-input:hover {
+    border-color: var(--border-medium) !important;
+    box-shadow: 0 0 4px rgba(0, 234, 255, 0.1) !important;
+}
+
+.cyber-input:focus {
+    border-color: var(--signal-primary) !important;
+    box-shadow: var(--glow-primary) !important;
+}
+
+.cyber-input::placeholder {
+  color: var(--text-2);
+  opacity: 1;
+}
+
 /* CYBERPUNK UI: Control labels - Signal metadata */
 .control-label {
     font-size: var(--fs-xs);
