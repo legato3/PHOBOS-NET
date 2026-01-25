@@ -76,8 +76,9 @@
 
             </div>
             <div class="card stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
-                @keydown.enter="navigateToExternalConnections()" @keydown.space.prevent="navigateToExternalConnections()"
-                role="button" tabindex="0" style="cursor: pointer;" title="Click to view external connections">
+                @keydown.enter="navigateToExternalConnections()"
+                @keydown.space.prevent="navigateToExternalConnections()" role="button" tabindex="0"
+                style="cursor: pointer;" title="Click to view external connections">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <template x-if="networkStatsOverview.loading">
                         <span class="skeleton-stat-value wide"></span>
@@ -100,8 +101,8 @@
 
             </div>
             <div class="card stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()"
-                @keydown.enter="navigateToFirewallLogs()" @keydown.space.prevent="navigateToFirewallLogs()" role="button"
-                tabindex="0" style="cursor: pointer;" title="Click to view firewall logs">
+                @keydown.enter="navigateToFirewallLogs()" @keydown.space.prevent="navigateToFirewallLogs()"
+                role="button" tabindex="0" style="cursor: pointer;" title="Click to view firewall logs">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <template x-if="firewallStatsOverview.loading">
                         <span class="skeleton-stat-value wide"></span>
@@ -149,6 +150,48 @@
             </div>
         </div>
 
+        <!-- Network Personality Profile (AI Insights) -->
+        <div class="card stat-box"
+            style="margin-bottom: var(--space-6); padding: var(--space-4); display:flex; flex-direction:column; gap:8px;"
+            x-show="personality && !personality.loading">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3
+                    style="margin:0; font-size:1em; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+                    <span>🧠 Network Personality</span>
+                    <span class="badge" style="font-size:0.75em; font-weight:normal; opacity:0.8"
+                        x-text="personality.window_sec === 604800 ? '7d' : '24h'"></span>
+                </h3>
+                <span style="font-size:0.8em; color:var(--text-tertiary)"
+                    x-text="(personality.confidence || 'low').toUpperCase() + ' CONFIDENCE'"></span>
+            </div>
+
+            <div style="font-size:1.4em; font-weight:500; color:var(--text-primary); letter-spacing:-0.5px;"
+                x-text="personality.tone"></div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                <template x-for="trait in personality.traits" :key="trait.id">
+                    <div class="trait-chip"
+                        style="background:var(--bg-2); border:1px solid var(--card-border); padding:6px 10px; border-radius:6px; font-size:0.9em; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;"
+                        :style="trait.expanded ? 'border-color:var(--accent-cyan); box-shadow:0 0 8px rgba(0,255,255,0.1)' : ''"
+                        @click="trait.expanded = !trait.expanded">
+                        <span x-text="trait.label"></span>
+                        <span style="opacity:0.5; font-size:0.8em;" x-text="trait.expanded ? '▲' : '▼'"></span>
+
+                        <!-- Inline Evidence Expansion popover -->
+                        <div x-show="trait.expanded"
+                            style="display:block; width:100%; flex-basis:100%; margin-top:6px; padding-top:6px; border-top:1px dashed var(--card-border); font-size:0.85em; color:var(--text-secondary);"
+                            @click.stop>
+                            <ul style="margin:0; padding-left:14px; list-style-type:disc;">
+                                <template x-for="(val, k) in trait.evidence">
+                                    <li><strong x-text="k.replace(/_/g,' ')"></strong>: <span x-text="val"></span></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
 
 
         <!-- System Pulse Timeline (Primary Awareness) -->
@@ -160,7 +203,8 @@
                         <span class="pulse-live" x-show="eventsLastLabel('activity') !== '—'">●</span>
                     </div>
                     <div class="pulse-chips">
-                        <select class="pulse-chip" x-model="events.timelineRange" @change="setTimelineRange(events.timelineRange)">
+                        <select class="pulse-chip" x-model="events.timelineRange"
+                            @change="setTimelineRange(events.timelineRange)">
                             <option value="1h">1h</option>
                             <option value="6h">6h</option>
                             <option value="24h">24h</option>
@@ -195,8 +239,7 @@
                             <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'activity' }"
                                 @click="setTimelineKind('activity')">ACTIVITY</button>
                         </div>
-                        <input class="pulse-search" type="text" placeholder="filter..."
-                            x-model="events.timelineSearch">
+                        <input class="pulse-search" type="text" placeholder="filter..." x-model="events.timelineSearch">
                     </div>
                     <div class="pulse-list" x-ref="pulseList">
                         <template x-if="(events.notable.loading || events.activity.loading)">
@@ -210,13 +253,36 @@
                                         <div class="pulse-source" x-text="formatEventSource(event.source)"></div>
                                         <span class="pulse-dot" :class="'pulse-dot--' + event.severity"></span>
                                         <div class="pulse-main">
-                                            <div class="pulse-title-line" x-text="event.title + (event.detail ? ' — ' + event.detail : '')"></div>
+                                            <div class="pulse-title-line"
+                                                x-text="event.title + (event.detail ? ' — ' + event.detail : '')"></div>
+                                            <!-- Correlation Hint Overlay -->
+                                            <template
+                                                x-if="overlays && overlays.bySourceId && overlays.bySourceId[event.id]">
+                                                <div class="pulse-overlay-hint"
+                                                    style="margin-top:6px; padding:6px 10px; background:rgba(255, 166, 0, 0.05); border-left:2px solid var(--signal-warn); font-size:0.9em; color:var(--text-secondary); display:flex; flex-wrap:wrap; gap:10px; align-items:center; border-radius:0 4px 4px 0;">
+                                                    <span style="font-weight:600; color:var(--signal-warn);">↔
+                                                        Related:</span>
+                                                    <span x-text="overlays.bySourceId[event.id].label"></span>
+                                                    <div style="flex:1"></div>
+                                                    <div style="display:flex; gap:12px;">
+                                                        <template x-for="link in overlays.bySourceId[event.id].links">
+                                                            <a :href="link.href"
+                                                                style="color:var(--accent-cyan); text-decoration:none; border-bottom:1px dotted var(--accent-cyan); font-size:0.85em;"
+                                                                x-text="link.title + ' →'"></a>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
                                         </div>
                                         <div class="pulse-meta">
-                                            <span class="pulse-badge" x-show="event.count && event.count > 1" x-text="'×' + event.count"></span>
-                                            <span class="pulse-badge" x-show="event.entity" x-text="event.entity"></span>
-                                            <span class="pulse-badge" x-show="event.tags && event.tags.length" x-text="event.tags[0]"></span>
-                                            <span class="pulse-badge" x-show="event.tags && event.tags.length > 1" x-text="'+' + (event.tags.length - 1)"></span>
+                                            <span class="pulse-badge" x-show="event.count && event.count > 1"
+                                                x-text="'×' + event.count"></span>
+                                            <span class="pulse-badge" x-show="event.entity"
+                                                x-text="event.entity"></span>
+                                            <span class="pulse-badge" x-show="event.tags && event.tags.length"
+                                                x-text="event.tags[0]"></span>
+                                            <span class="pulse-badge" x-show="event.tags && event.tags.length > 1"
+                                                x-text="'+' + (event.tags.length - 1)"></span>
                                         </div>
                                         <button class="pulse-expand" @click.prevent="toggleTimelineExpand(event.id)">
                                             <span x-text="isTimelineExpanded(event.id) ? '−' : '+'"></span>
@@ -239,7 +305,8 @@
                                         </div>
                                         <div class="pulse-expand-meta">
                                             <span x-text="event.dedupe_key ? 'dedupe: ' + event.dedupe_key : ''"></span>
-                                            <span x-text="event.evidence?.window_sec ? 'window: ' + event.evidence.window_sec + 's' : ''"></span>
+                                            <span
+                                                x-text="event.evidence?.window_sec ? 'window: ' + event.evidence.window_sec + 's' : ''"></span>
                                         </div>
                                         <div class="pulse-expand-actions" x-show="eventQuickLinks(event)">
                                             <button class="pulse-action" @click="loadTab(eventQuickLinks(event).tab)"

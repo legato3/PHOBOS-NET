@@ -380,6 +380,10 @@ export const Store = () => ({
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
     threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '1h', showDescription: false },
 
+    // Insights (Personality & Overlays)
+    personality: { tone: '', traits: [], evidence: {}, window_sec: 86400, loading: true },
+    overlays: { items: [], bySourceId: {}, loading: true },
+
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
     alertTypes: ['all', 'threat_ip', 'port_scan', 'brute_force', 'data_exfil', 'dns_tunneling', 'lateral_movement', 'suspicious_port', 'large_transfer', 'off_hours', 'new_country', 'protocol_anomaly', 'tcp_reset', 'syn_scan', 'icmp_anomaly', 'tiny_flows', 'traffic_anomaly'],
@@ -2320,7 +2324,9 @@ export const Store = () => ({
             this.fetchEvents('activity'),
             this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
-            this.fetchIngestionRates()
+            this.fetchIngestionRates(),
+            this.fetchPersonality(),
+            this.fetchOverlays()
         ]);
 
         // Then fetch key charts in parallel, resilient to failure
@@ -8211,5 +8217,35 @@ export const Store = () => ({
     updateTrendChart(data) {
         const ctx = document.getElementById('ipTrendChart');
         this.trendChartInstance = Charts.updateTrendChart(ctx, this.trendChartInstance, data);
+    },
+
+    async fetchPersonality() {
+        try {
+            const range = this.timeRange === '7d' ? '7d' : '24h';
+            const res = await DashboardUtils.safeFetch(`/api/insights/personality?window=${range}`);
+            if (res.ok) {
+                this.personality = await res.json();
+                this.personality.loading = false;
+            }
+        } catch (e) {
+            console.warn('Failed to fetch personality:', e);
+        }
+    },
+
+    async fetchOverlays() {
+        try {
+            const res = await DashboardUtils.safeFetch('/api/insights/overlays?window=1h');
+            if (res.ok) {
+                const items = await res.json();
+                this.overlays.items = items;
+                this.overlays.bySourceId = {};
+                items.forEach(o => {
+                    this.overlays.bySourceId[o.source_event_id] = o;
+                });
+                this.overlays.loading = false;
+            }
+        } catch (e) {
+            console.warn('Failed to fetch overlays:', e);
+        }
     }
 });

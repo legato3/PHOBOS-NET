@@ -15,35 +15,52 @@ from app.core.app_state import record_http_request_start, record_http_request_en
 
 def create_app():
     """Create and configure the Flask application."""
-    # Base directory relative to this file
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    # Determine base directory (project root) robustly
+    # This file is expected to be in [project_root]/app/__init__.py
+    current_file_dir = os.path.dirname(os.path.abspath(__file__)) # .../app/app
+    base_dir = os.path.dirname(current_file_dir) # .../app (project root)
     
+    # Define paths
+    template_dir = os.path.join(base_dir, 'frontend', 'templates')
+    static_dir = os.path.join(base_dir, 'frontend', 'src')
+    
+    # Validation/Fallback: Check if directories exist
+    if not os.path.exists(template_dir):
+        # Debugging: Print path that failed
+        print(f"WARNING: Template directory not found at {template_dir}")
+        # Try finding it relative to CWD if potential mismatch
+        cwd = os.getcwd()
+        potential_tpl = os.path.join(cwd, 'frontend', 'templates')
+        if os.path.exists(potential_tpl):
+            print(f"INFO: Found templates at {potential_tpl}, using that.")
+            template_dir = potential_tpl
+            static_dir = os.path.join(cwd, 'frontend', 'src')
+
     app = Flask(__name__, 
                 static_url_path='/static',
-                static_folder=os.path.join(base_dir, 'frontend', 'src'),
-                template_folder=os.path.join(base_dir, 'frontend', 'templates'))
+                static_folder=static_dir,
+                template_folder=template_dir)
     
     # CRITICAL FIX: Disable X-Sendfile to resolve ERR_CONTENT_LENGTH_MISMATCH
-    # This is common in Docker-on-Mac/Windows or proxy setups.
     app.config['USE_X_SENDFILE'] = False
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
-    
-    # Remove compression configuration for stability
-    # (Previously causing ERR_CONTENT_LENGTH_MISMATCH)
     
     # Register blueprints
     from app.api.routes import bp as routes_bp
     app.register_blueprint(routes_bp)
     
-    # Register Firewall Decisions Blueprint (Read-Only Observability)
+    # Register Firewall Decisions Blueprint
     from app.api.routes.firewall_decisions import bp as fw_decisions_bp
     app.register_blueprint(fw_decisions_bp)
+
+    # Register Insights Blueprint (Personality & Overlays)
+    from app.api.routes.insights import bp as insights_bp
+    app.register_blueprint(insights_bp)
     
     # Setup middleware
     @app.before_request
     def track_request_start():
         """OBSERVABILITY: Track request start time and concurrent requests."""
-        # Simple bypass for static files to reduce overhead
         if request.path.startswith('/static/') or request.path.endswith(('.ico', '.png', '.js', '.css', '.svg', '.woff', '.woff2')):
             return
 
@@ -55,17 +72,12 @@ def create_app():
     def apply_server_policies(response):
         """Unified after_request handler for performance tracking and security headers."""
         try:
-            # 1. Gevent Handling:
-            # We rely on standard WSGI buffer handling. 
-            # Manual buffering is removed to save memory and trust gevent loop.
-            
             path = request.path
             is_static = path == '/' or \
                         request.endpoint == 'static' or \
                         path.startswith(('/static/', '/img/')) or \
                         path.endswith(('.ico', '.png', '.jpg', '.jpeg', '.js', '.css', '.svg', '.woff', '.woff2', '.mmdb'))
 
-            # 2. Performance Tracking (Dynamic Routes Only)
             if not is_static:
                 endpoint = request.endpoint or 'unknown'
                 if hasattr(g, 'request_start_time'):
@@ -83,17 +95,14 @@ def create_app():
                         if duration_ms > OBS_ROUTE_SLOW_WARN_MS:
                             _logger.warning(f"Slow route: {endpoint} ({duration_ms:.1f}ms) - {path}")
 
-            # 3. Security Headers
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
             
-            # 4. API Cache Control
             if path.startswith('/api/'):
                 response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             
             return response
         except Exception as e:
-            # Basic logging of the failure
             _logger.error(f"Error in apply_server_policies: {e}")
             return response
     
