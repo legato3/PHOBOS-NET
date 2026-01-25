@@ -29,7 +29,7 @@ from app.services.security.threats import (
 )
 from app.services.netflow.stats import calculate_security_score
 from app.services.shared.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
-from app.services.shared.snmp import get_snmp_data, start_snmp_thread
+from app.services.shared.snmp import get_snmp_data, start_snmp_thread, validate_snmp_input
 from app.services.shared.cpu import calculate_cpu_percent_from_stat
 from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
 from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
@@ -2675,6 +2675,15 @@ def api_firewall_snmp_status():
     config = load_config()
     snmp_host = config.get('snmp_host', SNMP_HOST)
     snmp_community = config.get('snmp_community', SNMP_COMMUNITY)
+
+    try:
+        validate_snmp_input(snmp_host, snmp_community)
+    except ValueError as e:
+        return jsonify({
+            "error": str(e),
+            "backoff": False,
+            "data": None
+        }), 400
 
     snmp_data = get_snmp_data()
     
