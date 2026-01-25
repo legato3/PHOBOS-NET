@@ -478,13 +478,6 @@ def start_webhook_worker():
                 _webhook_thread.start()
 
 
-def send_security_webhook(threat_data):
-    """Enqueue threat data for security webhook (non-blocking)."""
-    start_webhook_worker()
-    _webhook_queue.put(threat_data)
-    return True
-
-
 def send_security_webhook_batch(threat_data_list):
     """Enqueue multiple threat data items for security webhook (non-blocking).
 
@@ -591,7 +584,7 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
 
     # Escalate anomalies to alerts and persist with deduplication
     for alert in alerts:
-        if _should_escalate_anomaly(alert):
+        if _should_escalate_anomaly(alert, watchlist=watchlist):
             _upsert_alert_to_history(alert)
 
     # PERFORMANCE: Send webhooks in batch
@@ -1079,7 +1072,7 @@ def _get_alert_fingerprint(alert):
     return (alert_type, source_ip, dest_ip, str(port))
 
 
-def _should_escalate_anomaly(alert):
+def _should_escalate_anomaly(alert, watchlist=None):
     """Determine if an anomaly should be escalated to an alert.
     
     Escalation criteria:
@@ -1090,6 +1083,7 @@ def _should_escalate_anomaly(alert):
     
     Args:
         alert: Anomaly/alert dictionary
+        watchlist: Optional pre-loaded watchlist set (optimization)
         
     Returns:
         Boolean indicating if anomaly should be escalated
@@ -1103,7 +1097,10 @@ def _should_escalate_anomaly(alert):
     
     # Escalate if involves watchlist IP
     ip = alert.get('ip') or alert.get('source') or alert.get('src_ip')
-    if ip and ip in load_watchlist():
+    if watchlist is None:
+        watchlist = load_watchlist()
+
+    if ip and ip in watchlist:
         return True
     
     # Check repetition and persistence
