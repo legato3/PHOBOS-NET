@@ -51,6 +51,10 @@ _cache_lock = threading.Lock()  # Generic small cache lock (e.g., packet sizes)
 _throttle_lock = threading.Lock()  # Lock for rate limiting
 _common_data_lock = threading.Lock()  # Lock for common data cache
 _cpu_stat_lock = threading.Lock()  # Lock for CPU stat caching
+_mock_lock = threading.Lock() # Lock for mock data
+
+# ==================== Mock Data Cache ====================
+_mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 
 # ==================== Stats Caches ====================
 # Caches for API endpoints (60-second TTL, aligned to windows)
