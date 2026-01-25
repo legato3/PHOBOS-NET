@@ -41,8 +41,10 @@ _scripts/
 .cursor/
 .gemini/
 .Jules/
+.Jules
 .vscode/
 .venv/
 docker-data/
 venv/
 .jules/
+.jules
