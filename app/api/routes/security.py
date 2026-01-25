@@ -19,6 +19,8 @@ from collections import defaultdict, deque, Counter
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
+from app.services.shared.service_resolution import resolve_service_name
+
 # Import from service modules (already extracted)
 from app.services.netflow.netflow import get_common_nfdump_data, run_nfdump, parse_csv, get_traffic_direction, get_raw_flows
 from app.services.security.threats import (
@@ -2355,24 +2357,19 @@ def api_malicious_ports():
         4444: 'Metasploit', 5555: 'Android ADB', 6666: 'IRC', 6667: 'IRC', 31337: 'Back Orifice'
     }
 
-    # Update service names for all ports using socket.getservbyport when possible
-    import socket
+    # Update service names for all ports using optimized resolver
     for port in port_data:
         if port_data[port]['service'] == 'Unknown':
-            service_name = None
-            # Try TCP first (most common)
-            try:
-                service_name = socket.getservbyport(port, 'tcp')
-            except (OSError, socket.error):
-                # Try UDP
-                try:
-                    service_name = socket.getservbyport(port, 'udp')
-                except (OSError, socket.error):
-                    pass
+            service_name = resolve_service_name(port, '6')
 
-            # Fallback to common ports dict or generic name
-            if not service_name:
-                service_name = COMMON_PORTS.get(port, f'Port {port}')
+            # If TCP resolution failed (returns port number), try UDP
+            if service_name == str(port):
+                udp_service = resolve_service_name(port, '17')
+                if udp_service != str(port):
+                    service_name = udp_service
+                else:
+                    # Both failed, use fallback
+                    service_name = COMMON_PORTS.get(port, f'Port {port}')
 
             port_data[port]['service'] = service_name
 

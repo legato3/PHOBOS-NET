@@ -74,6 +74,7 @@ from app.services.shared.geoip import lookup_geo, load_city_db
 import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
+from app.services.shared.service_resolution import resolve_service_name
 from app.services.shared.decorators import throttle, cached_endpoint
 from app.db.sqlite import _get_firewall_block_stats, _firewall_db_connect, _firewall_db_init, _trends_db_init, _get_bucket_end, _ensure_rollup_for_bucket, _trends_db_lock, _firewall_db_lock, _trends_db_connect
 from app.config import (
@@ -83,37 +84,6 @@ from app.config import (
 )
 
 # Create Blueprint
-
-def _resolve_service(port_val, proto_val):
-    """Resolve service name with caching and double-checked locking optimization."""
-    try:
-        port_num = int(port_val)
-        proto = 'tcp' if '6' in str(proto_val) else 'udp'
-
-        # 1. Check static configuration (fastest, no lock)
-        if port_num in PORTS:
-            return PORTS[port_num]
-
-        service_key = (port_num, proto)
-
-        # 2. Check cache optimistically (fast, no lock)
-        svc = _service_cache.get(service_key)
-        if svc:
-            return svc
-
-        # 3. Cache miss: Acquire lock and double-check
-        with _lock_service_cache:
-            svc = _service_cache.get(service_key)
-            if svc is None:
-                try:
-                    svc = socket.getservbyport(port_num, proto)
-                except OSError:
-                    svc = str(port_num) # Fallback
-                _service_cache[service_key] = svc
-        return svc
-
-    except (ValueError, TypeError):
-        return str(port_val) # Return original if not a valid integer
 
 
 # Routes extracted from netflow-dashboard.py
@@ -920,7 +890,7 @@ def api_stats_talkers():
                     dst_geo = lookup_geo(dst) or {}
 
                     # Resolve Service Name
-                    svc = _resolve_service(dst_port, proto_val)
+                    svc = resolve_service_name(dst_port, proto_val)
 
                     flows.append({
                         "ts": ts_str,
@@ -2432,7 +2402,7 @@ def api_flows():
                         direction = "external"
 
                     # Resolve Service Name
-                    svc = _resolve_service(dst_port, proto_val)
+                    svc = resolve_service_name(dst_port, proto_val)
                     # Track for heuristics (lightweight, per-request only) - do this first
                     port_counts[dst_port] += 1
                     connection_key = f"{src}:{dst}"
