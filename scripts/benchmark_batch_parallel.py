@@ -12,17 +12,17 @@ def benchmark():
     app = create_app()
     client = app.test_client()
 
-    # Payload: 5 requests to 'summary'
+    # Payload: 5 requests to 'summary' with different params to bypass cache
     # We will instrument 'summary' to sleep for 1 second.
-    # Parallel expected: ~1s
-    # Sequential expected: ~5s
+    # Parallel expected: ~1s (max of concurrent requests)
+    # Sequential expected: ~5s (sum of requests)
     payload = {
         'requests': [
-            {'endpoint': 'summary'},
-            {'endpoint': 'summary'},
-            {'endpoint': 'summary'},
-            {'endpoint': 'summary'},
-            {'endpoint': 'summary'}
+            {'endpoint': 'summary', 'params': {'range': '15m'}},
+            {'endpoint': 'summary', 'params': {'range': '30m'}},
+            {'endpoint': 'summary', 'params': {'range': '1h'}},
+            {'endpoint': 'summary', 'params': {'range': '6h'}},
+            {'endpoint': 'summary', 'params': {'range': '24h'}}
         ]
     }
 

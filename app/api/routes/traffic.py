@@ -3409,7 +3409,7 @@ def process_batch_request(app, endpoint_name, handler, query_string):
 def api_stats_batch():
     """Batch endpoint: accepts list of endpoint names, returns combined response.
 
-    Requests are processed in parallel using ThreadPoolExecutor to reduce total latency.
+    Requests are processed in parallel using ThreadPoolExecutor to significantly reduce total latency for batched requests.
     """
     # Import handlers locally to avoid circular dependencies
     from app.api.routes.system import api_stats_summary
