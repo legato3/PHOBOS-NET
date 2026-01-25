@@ -32,6 +32,14 @@ _snmp_prev_available_lock = threading.Lock()
 _startup_lock = threading.Lock()
 
 
+def validate_snmp_input(host, community):
+    """Validate SNMP input to prevent argument injection."""
+    if host and host.strip().startswith('-'):
+        raise ValueError("Invalid SNMP host: Argument injection detected")
+    if community and community.strip().startswith('-'):
+        raise ValueError("Invalid SNMP community: Argument injection detected")
+
+
 @instrument_service("get_snmp_data")
 def get_snmp_data():
     """Fetch SNMP data from OPNsense firewall with exponential backoff.
@@ -45,6 +53,12 @@ def get_snmp_data():
     config = load_config()
     snmp_host = config.get("snmp_host", SNMP_HOST)
     snmp_community = config.get("snmp_community", SNMP_COMMUNITY)
+
+    # Validate input
+    try:
+        validate_snmp_input(snmp_host, snmp_community)
+    except ValueError as e:
+        return {"error": str(e), "available": False}
 
     # If SNMP_HOST is not configured, return unavailable immediately
     if not snmp_host or not snmp_host.strip():
@@ -534,6 +548,12 @@ def discover_interfaces():
     config = load_config()
     snmp_host = config.get("snmp_host", SNMP_HOST)
     snmp_community = config.get("snmp_community", SNMP_COMMUNITY)
+
+    # Validate input
+    try:
+        validate_snmp_input(snmp_host, snmp_community)
+    except ValueError:
+        return None
 
     # If SNMP_HOST is not configured, return None immediately
     if not snmp_host or not snmp_host.strip():
