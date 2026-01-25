@@ -15,6 +15,7 @@ DOES NOT:
 - Write to SQLite
 - Trigger alerts
 """
+
 import threading
 import socket as socket_module
 import time
@@ -25,14 +26,10 @@ from app.config import FIREWALL_SYSLOG_PORT, FIREWALL_SYSLOG_BIND, FIREWALL_IP
 from app.core.app_state import _shutdown_event, add_app_log, update_dependency_health
 from app.services.syslog.syslog_store import syslog_store, SyslogEvent
 from app.services.shared.timeline import add_timeline_event
+from app.services.timeline.emitters import record_syslog_activity
 
 # Ingestion counter
-_syslog_515_stats = {
-    "received": 0,
-    "parsed": 0,
-    "errors": 0,
-    "last_log": None
-}
+_syslog_515_stats = {"received": 0, "parsed": 0, "errors": 0, "last_log": None}
 _syslog_515_stats_lock = threading.Lock()
 
 # Thread started flag
@@ -44,11 +41,13 @@ _restart_lock = threading.Lock()
 
 # Regex patterns for parsing syslog
 # RFC5424 timestamp: 2026-01-18T19:15:00+01:00
-RFC5424_TS = re.compile(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)')
+RFC5424_TS = re.compile(
+    r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)"
+)
 # Program name with optional PID: configd[1234]: or openvpn:
-PROGRAM_PATTERN = re.compile(r'\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$')
+PROGRAM_PATTERN = re.compile(r"\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$")
 # Hostname pattern (after timestamp)
-HOSTNAME_PATTERN = re.compile(r'^\s*\S+\s+\S+\s+(\S+)\s+')
+HOSTNAME_PATTERN = re.compile(r"^\s*\S+\s+\S+\s+(\S+)\s+")
 
 
 def start_firewall_syslog_thread():
@@ -59,7 +58,9 @@ def start_firewall_syslog_thread():
         return
     _firewall_syslog_thread_started = True
 
-    _firewall_syslog_thread = threading.Thread(target=_syslog_receiver_loop, daemon=True)
+    _firewall_syslog_thread = threading.Thread(
+        target=_syslog_receiver_loop, daemon=True
+    )
     _firewall_syslog_thread.start()
 
 
@@ -115,23 +116,27 @@ def _parse_syslog(raw: str) -> SyslogEvent:
 
     # RFC 5424 format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
     # Example: <38>1 2026-01-18T19:36:05+01:00 CHRIS-OPN.phobos-cc.be configd.py 31911 - [meta sequenceId="257"] message
-    rfc5424_match = re.match(r'<\d+>(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)', raw)
+    rfc5424_match = re.match(
+        r"<\d+>(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)", raw
+    )
     if rfc5424_match:
         # RFC 5424 format detected
-        version, ts_str, hostname, app_name, procid, msgid, rest = rfc5424_match.groups()
-        
+        version, ts_str, hostname, app_name, procid, msgid, rest = (
+            rfc5424_match.groups()
+        )
+
         # Parse timestamp
         try:
-            if ts_str.endswith('Z'):
-                ts_str = ts_str[:-1] + '+00:00'
+            if ts_str.endswith("Z"):
+                ts_str = ts_str[:-1] + "+00:00"
             timestamp = datetime.fromisoformat(ts_str)
         except (ValueError, IndexError):
             pass
-        
+
         # Extract program name
-        if app_name and app_name != '-':
+        if app_name and app_name != "-":
             program = app_name
-        
+
         # Extract message (everything after structured data or msgid)
         message = rest.strip()
     else:
@@ -141,8 +146,8 @@ def _parse_syslog(raw: str) -> SyslogEvent:
         if ts_match:
             try:
                 ts_str = ts_match.group(1)
-                if ts_str.endswith('Z'):
-                    ts_str = ts_str[:-1] + '+00:00'
+                if ts_str.endswith("Z"):
+                    ts_str = ts_str[:-1] + "+00:00"
                 timestamp = datetime.fromisoformat(ts_str)
             except (ValueError, IndexError):
                 pass
@@ -162,26 +167,26 @@ def _parse_syslog(raw: str) -> SyslogEvent:
         timestamp=timestamp,
         program=program,
         message=message[:1000],  # Limit message length
-        hostname=hostname
+        hostname=hostname,
     )
 
 
 # Keywords indicating state-changing events worth tracking in timeline
 _STATE_CHANGE_KEYWORDS = [
-    ('start', 'Service started'),
-    ('stop', 'Service stopped'),
-    ('restart', 'Service restarted'),
-    ('reload', 'Configuration reloaded'),
-    ('rule', 'Rule change'),
-    ('config', 'Configuration change'),
-    ('error', 'Error'),
-    ('fail', 'Failure'),
-    ('timeout', 'Timeout'),
-    ('connect', 'Connection event'),
-    ('disconnect', 'Disconnection event'),
-    ('up', 'Interface up'),
-    ('down', 'Interface down'),
-    ('sync', 'Sync event'),
+    ("start", "Service started"),
+    ("stop", "Service stopped"),
+    ("restart", "Service restarted"),
+    ("reload", "Configuration reloaded"),
+    ("rule", "Rule change"),
+    ("config", "Configuration change"),
+    ("error", "Error"),
+    ("fail", "Failure"),
+    ("timeout", "Timeout"),
+    ("connect", "Connection event"),
+    ("disconnect", "Disconnection event"),
+    ("up", "Interface up"),
+    ("down", "Interface down"),
+    ("sync", "Sync event"),
 ]
 
 
@@ -196,7 +201,7 @@ def _emit_timeline_event_if_significant(event: SyslogEvent) -> None:
     - Connection/disconnection events
     """
     message_lower = event.message.lower()
-    program = event.program or 'unknown'
+    program = event.program or "unknown"
 
     # Check for state-changing keywords
     for keyword, description in _STATE_CHANGE_KEYWORDS:
@@ -207,16 +212,16 @@ def _emit_timeline_event_if_significant(event: SyslogEvent) -> None:
                 summary += "..."
 
             add_timeline_event(
-                source='firewall',
+                source="firewall",
                 summary=summary,
                 raw={
-                    'program': program,
-                    'message': event.message,
-                    'hostname': event.hostname,
-                    'facility': event.facility,
-                    'severity': event.severity
+                    "program": program,
+                    "message": event.message,
+                    "hostname": event.hostname,
+                    "facility": event.facility,
+                    "severity": event.severity,
                 },
-                timestamp=event.timestamp.timestamp()
+                timestamp=event.timestamp.timestamp(),
             )
             break  # Only emit one event per message
 
@@ -232,23 +237,23 @@ def _syslog_receiver_loop():
         sock.bind((FIREWALL_SYSLOG_BIND, FIREWALL_SYSLOG_PORT))
         msg = f"[SYSLOG 515] Listener started on {FIREWALL_SYSLOG_BIND}:{FIREWALL_SYSLOG_PORT}"
         print(msg)
-        add_app_log(msg, 'INFO')
-        update_dependency_health('syslog_515', listening=True)
+        add_app_log(msg, "INFO")
+        update_dependency_health("syslog_515", listening=True)
     except PermissionError:
         msg = f"[SYSLOG 515] ERROR: Cannot bind to port {FIREWALL_SYSLOG_PORT}"
         print(msg)
-        add_app_log(msg, 'ERROR')
-        update_dependency_health('syslog_515', listening=False, last_error=msg)
+        add_app_log(msg, "ERROR")
+        update_dependency_health("syslog_515", listening=False, last_error=msg)
         return
     except Exception as e:
         msg = f"[SYSLOG 515] ERROR: Bind failed: {e}"
         print(msg)
-        add_app_log(msg, 'ERROR')
-        update_dependency_health('syslog_515', listening=False, last_error=msg)
+        add_app_log(msg, "ERROR")
+        update_dependency_health("syslog_515", listening=False, last_error=msg)
         return
 
     sock.settimeout(1.0)
-    
+
     last_health_update = 0
 
     while not _shutdown_event.is_set() and not _syslog_515_stop_event.is_set():
@@ -262,7 +267,8 @@ def _syslog_receiver_loop():
             with _syslog_515_stats_lock:
                 _syslog_515_stats["received"] += 1
 
-            raw = data.decode('utf-8', errors='ignore')
+            raw = data.decode("utf-8", errors="ignore")
+            record_syslog_activity(515)
 
             try:
                 event = _parse_syslog(raw)
@@ -274,22 +280,23 @@ def _syslog_receiver_loop():
 
                 # Track ingestion rate
                 from app.services.shared.ingestion_metrics import ingestion_tracker
+
                 ingestion_tracker.track_firewall(1)
 
                 # Check for state-changing events to add to unified timeline
                 _emit_timeline_event_if_significant(event)
-                
+
                 # Sync to shared health (throttled)
                 now = time.time()
                 if now - last_health_update > 1.0:
                     with _syslog_515_stats_lock:
                         update_dependency_health(
-                            'syslog_515',
+                            "syslog_515",
                             listening=True,
                             last_packet_time=now,
                             received=_syslog_515_stats["received"],
                             parsed=_syslog_515_stats["parsed"],
-                            errors=_syslog_515_stats["errors"]
+                            errors=_syslog_515_stats["errors"],
                         )
                     last_health_update = now
 
@@ -304,12 +311,12 @@ def _syslog_receiver_loop():
             if now - last_health_update > 1.0:
                 with _syslog_515_stats_lock:
                     update_dependency_health(
-                        'syslog_515',
+                        "syslog_515",
                         listening=True,
                         last_packet_time=_syslog_515_stats.get("last_log", 0),
                         received=_syslog_515_stats["received"],
                         parsed=_syslog_515_stats["parsed"],
-                        errors=_syslog_515_stats["errors"]
+                        errors=_syslog_515_stats["errors"],
                     )
                 last_health_update = now
             continue
@@ -326,5 +333,5 @@ def get_firewall_syslog_stats():
             "received": _syslog_515_stats["received"],
             "parsed": _syslog_515_stats["parsed"],
             "errors": _syslog_515_stats["errors"],
-            "last_log": _syslog_515_stats["last_log"]
+            "last_log": _syslog_515_stats["last_log"],
         }

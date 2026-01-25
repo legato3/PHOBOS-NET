@@ -2350,6 +2350,48 @@
                 </div>
             </div>
         </div>
+
+        <div class="modal" x-show="timelineModalOpen" :style="timelineModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeTimelineModal()" @keydown.escape.window="closeTimelineModal()">
+            <div class="modal-content" style="max-width: 900px; width: 90vw;">
+                <div class="modal__header">
+                    <div style="flex: 1;">
+                        <h2 style="margin: 0; font-size: 1.2em;">What changed?</h2>
+                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 4px;"
+                            x-text="global_time_range"></div>
+                    </div>
+                    <button @click="closeTimelineModal()"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                        aria-label="Close what changed modal">×</button>
+                </div>
+                <div class="modal__body" style="padding: var(--space-4) 0;">
+                    <div class="timeline-list timeline-list--modal">
+                        <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
+                            <div class="timeline-empty">No notable changes in this window.</div>
+                        </template>
+                        <template x-if="timeline.loading">
+                            <div class="timeline-empty">Loading timeline...</div>
+                        </template>
+                        <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
+                            <div>
+                                <template x-for="event in timeline.events.slice(0, 200)"
+                                    :key="event.ts + '-' + event.type">
+                                    <div class="timeline-row">
+                                        <div class="timeline-time" x-text="formatTimelineTime(event.ts)"></div>
+                                        <div class="timeline-title">
+                                            <div class="timeline-title-line" x-text="event.title || 'UNKNOWN'"></div>
+                                            <div class="timeline-detail" x-show="event.detail" x-text="event.detail">
+                                            </div>
+                                        </div>
+                                        <div class="timeline-tag" x-text="formatTimelineSource(event.source)"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div> <!-- End container -->
 </body>
 

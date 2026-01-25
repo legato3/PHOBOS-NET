@@ -1,3 +1,4 @@
+{% from "components/panel_card.html" import panel_card %}
 <div x-show="activeTab === 'overview'" :style="activeTab === 'overview' ? 'display:block' : 'display:none'"
     id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
@@ -151,6 +152,59 @@
 
 
 
+        <!-- What Changed (Primary Awareness) -->
+        <section id="section-what-changed" class="scroll-section" style="margin-bottom: var(--space-6);">
+            {% call panel_card(title='What changed?', meta_items=[], tier='signal') %}
+            <div class="change-timeline">
+                <div class="timeline-filter-row">
+                    <span class="timeline-range" x-text="global_time_range"></span>
+                    <div class="timeline-filter-group">
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'all' }"
+                            @click="setTimelineFilter('all')">All</button>
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'netflow' }"
+                            @click="setTimelineFilter('netflow')">NetFlow</button>
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'syslog' }"
+                            @click="setTimelineFilter('syslog')">Syslog</button>
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'firewall' }"
+                            @click="setTimelineFilter('firewall')">Firewall</button>
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'snmp' }"
+                            @click="setTimelineFilter('snmp')">SNMP</button>
+                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'system' }"
+                            @click="setTimelineFilter('system')">System</button>
+                    </div>
+                </div>
+
+                <div class="timeline-list">
+                    <template x-if="timeline.loading">
+                        <div class="timeline-empty">Loading timeline...</div>
+                    </template>
+                    <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
+                        <div class="timeline-empty">No notable changes in this window.</div>
+                    </template>
+                    <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
+                        <div>
+                            <template x-for="event in timeline.events.slice(0, timeline.displayLimit)"
+                                :key="event.ts + '-' + event.type">
+                                <div class="timeline-row">
+                                    <div class="timeline-time" x-text="formatTimelineTime(event.ts)"></div>
+                                    <div class="timeline-title">
+                                        <div class="timeline-title-line" x-text="event.title || 'UNKNOWN'"></div>
+                                        <div class="timeline-detail" x-show="event.detail" x-text="event.detail"></div>
+                                    </div>
+                                    <div class="timeline-tag" x-text="formatTimelineSource(event.source)"></div>
+                                </div>
+                            </template>
+
+                            <div class="timeline-footer" x-show="timeline.events.length > timeline.displayLimit">
+                                <button class="btn-secondary btn-sm" @click="openTimelineModal()">Show more</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            {% endcall %}
+        </section>
+
         <!-- Main Chart: Bandwidth -->
         <div class="primary-column w-full">
             <template x-if="isVisible('bandwidth')">
@@ -302,63 +356,6 @@
         </div>
     </section>
 
-    <!-- Recent Activity Timeline Section -->
-    <section id="section-timeline" class="scroll-section"
-        style="margin-top: var(--space-6); margin-bottom: var(--space-6);">
-        {% call widget_card('timeline', 'Recent Activity', '📋', min_height='auto',
-        period_x_text='global_time_range', show_spinner=True, card_class='') %}
-
-        <!-- Timeline Content -->
-        <div class="timeline-container">
-            <!-- Empty State -->
-            <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
-                <div class="timeline-empty-state">
-                    <span style="color: var(--text-secondary); font-size: 0.9em;">No recent events</span>
-                    <span style="color: var(--text-tertiary); font-size: 0.75em; margin-top: 4px;">Events will appear
-                        here as state changes occur</span>
-                </div>
-            </template>
-
-            <!-- Timeline Events List -->
-            <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
-                <div class="timeline-events">
-                    <template x-for="event in timeline.events.slice(0, timeline.viewLimit)" :key="event.timestamp_ts">
-                        <div class="timeline-event" @click="toggleTimelineEvent(event.timestamp_ts)"
-                            :class="{ 'expanded': isTimelineEventExpanded(event.timestamp_ts) }">
-                            <div class="timeline-event-header">
-                                <span class="timeline-event-icon" x-text="getTimelineSourceIcon(event.source)"></span>
-                                <span class="timeline-event-time"
-                                    x-text="new Date(event.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></span>
-                                <span class="timeline-event-source" x-text="event.source"></span>
-                                <span class="timeline-event-summary" x-text="event.summary"></span>
-                                <span class="timeline-event-expand"
-                                    x-text="isTimelineEventExpanded(event.timestamp_ts) ? '▼' : '▶'"></span>
-                            </div>
-                            <!-- Expanded Raw Details -->
-                            <template x-if="isTimelineEventExpanded(event.timestamp_ts) && event.raw">
-                                <div class="timeline-event-details">
-                                    <pre x-text="JSON.stringify(event.raw, null, 2)"></pre>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
-
-                    <!-- Show More Button -->
-                    <template x-if="timeline.events.length > timeline.viewLimit">
-                        <div class="timeline-show-more">
-                            <button
-                                @click.stop="timeline.viewLimit = Math.min(timeline.viewLimit + 20, timeline.events.length)"
-                                class="btn-secondary btn-sm">
-                                Show More (<span x-text="timeline.events.length - timeline.viewLimit"></span> remaining)
-                            </button>
-                        </div>
-                    </template>
-                </div>
-            </template>
-        </div>
-
-        {% endcall %}
-    </section>
 </div>
 
 <!-- ============================================

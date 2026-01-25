@@ -309,8 +309,8 @@ export const Store = () => ({
     },
     alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
 
-    // Unified Event Timeline (Recent Activity)
-    timeline: { events: [], count: 0, stats: {}, loading: true, viewLimit: 20, expandedEvents: new Set() },
+    // What Changed Timeline
+    timeline: { events: [], summary: { counts: {}, last_event_ts: null }, loading: true, displayLimit: 14, filter: 'all' },
 
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
 
@@ -343,6 +343,7 @@ export const Store = () => ({
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v2.0.0', version_display: 'v2.0.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
+    timelineModalOpen: false,
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: false, traffic_correlation: null, swap_percent: null, process_count: null, tcp_retrans_s: null, tcp_resets_s: null, ip_forwarding_s: null, udp_in_s: null, udp_out_s: null, gateway: null, loading: true, error: null },
@@ -3120,53 +3121,65 @@ export const Store = () => ({
             // Calculate time range based on global timeRange selector
             const rangeSeconds = {
                 '15m': 900,
+                '30m': 1800,
                 '1h': 3600,
                 '4h': 14400,
+                '6h': 21600,
                 '24h': 86400,
                 '7d': 604800
             };
             const seconds = rangeSeconds[this.timeRange] || 3600;
-            const since = Math.floor(Date.now() / 1000) - seconds;
+            const params = new URLSearchParams({
+                range: String(seconds),
+                limit: '200'
+            });
+            if (this.timeline.filter && this.timeline.filter !== 'all') {
+                params.append('types', this.timeline.filter);
+            }
 
-            const res = await fetch(`/api/timeline?limit=50&since=${since}`);
+            const res = await fetch(`/api/timeline/events?${params.toString()}`);
             if (res.ok) {
                 const d = await res.json();
-                // Preserve expandedEvents set across refreshes
-                const prevExpanded = this.timeline.expandedEvents || new Set();
                 this.timeline = {
-                    ...d,
+                    events: d.events || [],
+                    summary: d.summary || { counts: {}, last_event_ts: null },
                     loading: false,
-                    viewLimit: this.timeline.viewLimit || 20,
-                    expandedEvents: prevExpanded
+                    displayLimit: this.timeline.displayLimit || 14,
+                    filter: this.timeline.filter || 'all'
                 };
             }
         } catch (e) { console.error('Timeline fetch error:', e); }
         finally { this.timeline.loading = false; }
     },
 
-    // Helper to toggle event expansion in timeline
-    toggleTimelineEvent(timestamp_ts) {
-        if (this.timeline.expandedEvents.has(timestamp_ts)) {
-            this.timeline.expandedEvents.delete(timestamp_ts);
-        } else {
-            this.timeline.expandedEvents.add(timestamp_ts);
-        }
+    setTimelineFilter(filter) {
+        if (this.timeline.filter === filter) return;
+        this.timeline.filter = filter;
+        this.fetchTimeline();
     },
 
-    // Check if a timeline event is expanded
-    isTimelineEventExpanded(timestamp_ts) {
-        return this.timeline.expandedEvents.has(timestamp_ts);
+    formatTimelineTime(ts) {
+        if (!ts) return 'UNKNOWN';
+        return this.timeAgo(ts);
     },
 
-    // Get icon for timeline event source
-    getTimelineSourceIcon(source) {
-        const icons = {
-            'filterlog': '🛡️',
-            'firewall': '🔧',
-            'snmp': '📡',
-            'system': '⚙️'
+    formatTimelineSource(source) {
+        const labels = {
+            netflow: 'NetFlow',
+            syslog: 'Syslog',
+            firewall: 'Firewall',
+            snmp: 'SNMP',
+            system: 'System'
         };
-        return icons[source] || '📌';
+        return labels[source] || 'UNKNOWN';
+    },
+
+    openTimelineModal() {
+        this.timelineModalOpen = true;
+    },
+
+    closeTimelineModal() {
+        this.timelineModalOpen = false;
     },
 
     // TIME-AWARE: Uses global timeRange for attack timeline data
