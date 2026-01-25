@@ -380,9 +380,10 @@ export const Store = () => ({
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
     threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '1h', showDescription: false },
 
-    // Insights (Personality & Overlays)
+    // Insights (Personality & Overlays & Radar)
     personality: { tone: '', traits: [], evidence: {}, window_sec: 86400, loading: true },
     overlays: { items: [], bySourceId: {}, loading: true },
+    radar: { top_talkers: [], top_destinations: [], top_ports: [], changes: [], loading: true },
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
@@ -2325,9 +2326,13 @@ export const Store = () => ({
             this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
             this.fetchIngestionRates(),
+            this.fetchIngestionRates(),
             this.fetchPersonality(),
             this.fetchOverlays()
         ]);
+
+        // Load Radar in background (non-blocking)
+        this.fetchRadar();
 
         // Then fetch key charts in parallel, resilient to failure
         await Promise.allSettled([
@@ -8246,6 +8251,29 @@ export const Store = () => ({
             }
         } catch (e) {
             console.warn('Failed to fetch overlays:', e);
+        }
+    },
+
+    async fetchRadar() {
+        try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
+            const debugStr = window.location.search.includes('debug=1') ? '?debug=1' : '';
+
+            const res = await DashboardUtils.safeFetch(`/api/insights/radar${debugStr}`, {
+                signal: controller.signal
+            });
+            clearTimeout(id);
+
+            if (res.ok) {
+                const data = await res.json();
+                this.radar = { ...data, loading: false };
+            } else {
+                this.radar.loading = false;
+            }
+        } catch (e) {
+            console.warn('Radar fetch failed:', e);
+            this.radar.loading = false;
         }
     }
 });

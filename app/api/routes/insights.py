@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from app.services.insights.personality import generate_personality_profile
 from app.services.insights.overlays import generate_overlays
+from app.services.insights.radar import get_radar_snapshot
 
 bp = Blueprint('insights', __name__, url_prefix='/api/insights')
 
@@ -20,4 +21,11 @@ def get_overlays():
     if window not in ['1h', '6h', '24h']:
         window = '1h'
     overlays = generate_overlays(window)
+    overlays = generate_overlays(window)
     return jsonify(overlays)
+
+@bp.route('/radar', methods=['GET'])
+def get_radar():
+    debug = request.args.get('debug', '0') == '1'
+    snapshot = get_radar_snapshot(window_minutes=15, debug_mode=debug)
+    return jsonify(snapshot)

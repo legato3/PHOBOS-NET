@@ -150,176 +150,165 @@
             </div>
         </div>
 
-        <!-- Network Personality Profile (AI Insights) -->
-        <div class="card stat-box"
-            style="margin-bottom: var(--space-6); padding: var(--space-4); display:flex; flex-direction:column; gap:8px;"
-            x-show="personality && !personality.loading">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3
-                    style="margin:0; font-size:1em; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
-                    <span>🧠 Network Personality</span>
-                    <span class="badge" style="font-size:0.75em; font-weight:normal; opacity:0.8"
-                        x-text="personality.window_sec === 604800 ? '7d' : '24h'"></span>
-                </h3>
-                <span style="font-size:0.8em; color:var(--text-tertiary)"
-                    x-text="(personality.confidence || 'low').toUpperCase() + ' CONFIDENCE'"></span>
-            </div>
+        <!-- 1. LIVE NETWORK RADAR (PRIMARY) - REPLACES SYSTEM PULSE -->
+        <div class="overview-container"
+            style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6); align-items:start;">
 
-            <div style="font-size:1.4em; font-weight:500; color:var(--text-primary); letter-spacing:-0.5px;"
-                x-text="personality.tone"></div>
+            <!-- RADAR BLOCK -->
+            <div class="card status-card"
+                style="min-height: 400px; display:flex; flex-direction:column; background:rgba(10,10,12,0.6); backdrop-filter:blur(10px); border:1px solid var(--card-border);">
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
-                <template x-for="trait in personality.traits" :key="trait.id">
-                    <div class="trait-chip"
-                        style="background:var(--bg-2); border:1px solid var(--card-border); padding:6px 10px; border-radius:6px; font-size:0.9em; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;"
-                        :style="trait.expanded ? 'border-color:var(--accent-cyan); box-shadow:0 0 8px rgba(0,255,255,0.1)' : ''"
-                        @click="trait.expanded = !trait.expanded">
-                        <span x-text="trait.label"></span>
-                        <span style="opacity:0.5; font-size:0.8em;" x-text="trait.expanded ? '▲' : '▼'"></span>
-
-                        <!-- Inline Evidence Expansion popover -->
-                        <div x-show="trait.expanded"
-                            style="display:block; width:100%; flex-basis:100%; margin-top:6px; padding-top:6px; border-top:1px dashed var(--card-border); font-size:0.85em; color:var(--text-secondary);"
-                            @click.stop>
-                            <ul style="margin:0; padding-left:14px; list-style-type:disc;">
-                                <template x-for="(val, k) in trait.evidence">
-                                    <li><strong x-text="k.replace(/_/g,' ')"></strong>: <span x-text="val"></span></li>
-                                </template>
-                            </ul>
+                <div class="status-card__header"
+                    style="border-bottom:1px solid rgba(255,255,255,0.05); padding:var(--space-4);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="radar-pulse"></div> <!-- CSS Pulse Animation -->
+                        <h2
+                            style="margin:0; font-size:1em; letter-spacing:1px; color:var(--text-secondary); font-weight:600;">
+                            LIVE NETWORK RADAR</h2>
+                    </div>
+                    <!-- 3. SYSTEM ACTIVITY CONFIRMATION (TERTIARY) -->
+                    <div
+                        style="display:flex; gap:15px; font-size:0.75em; font-family:var(--font-mono); color:var(--text-tertiary);">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span
+                                :style="serverHealth.netflow?.available ? 'color:var(--signal-ok)' : 'color:var(--text-muted)'">●</span>
+                            NETFLOW
                         </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-
-
-        <!-- System Pulse Timeline (Primary Awareness) -->
-        <section id="section-what-changed" class="scroll-section" style="margin-bottom: var(--space-6);">
-            <div class="status-card panel-card status-card--signal pulse-card">
-                <div class="status-card__header pulse-header">
-                    <div class="pulse-title">
-                        <div class="status-card__title">SYSTEM PULSE</div>
-                        <span class="pulse-live" x-show="eventsLastLabel('activity') !== '—'">●</span>
-                    </div>
-                    <div class="pulse-chips">
-                        <select class="pulse-chip" x-model="events.timelineRange"
-                            @change="setTimelineRange(events.timelineRange)">
-                            <option value="1h">1h</option>
-                            <option value="6h">6h</option>
-                            <option value="24h">24h</option>
-                        </select>
-                        <button class="pulse-chip" @click="toggleTimelineFollow()"
-                            x-text="events.timelineFollow ? 'FOLLOW ON' : 'FOLLOW OFF'"></button>
-                        <button class="pulse-chip" @click="toggleTimelinePause()"
-                            x-text="events.timelinePaused ? 'PAUSED' : 'PAUSE'"></button>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span
+                                :style="firewall.syslog_active ? 'color:var(--signal-ok)' : 'color:var(--text-muted)'">●</span>
+                            SYSLOG
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span :style="radar.loading ? 'color:var(--text-muted)' : 'color:var(--signal-ok)'">●</span>
+                            ANALYSIS
+                        </div>
                     </div>
                 </div>
-                <div class="panel-card__body pulse-body">
-                    <div class="pulse-controls">
-                        <div class="pulse-filter">
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'all' }"
-                                @click="setTimelineSource('all')">ALL</button>
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'netflow' }"
-                                @click="setTimelineSource('netflow')">NETFLOW</button>
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'syslog' }"
-                                @click="setTimelineSource('syslog')">SYSLOG</button>
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'firewall' }"
-                                @click="setTimelineSource('firewall')">FIREWALL</button>
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'snmp' }"
-                                @click="setTimelineSource('snmp')">SNMP</button>
-                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'system' }"
-                                @click="setTimelineSource('system')">SYSTEM</button>
-                        </div>
-                        <div class="pulse-toggle">
-                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'all' }"
-                                @click="setTimelineKind('all')">ALL</button>
-                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'notable' }"
-                                @click="setTimelineKind('notable')">NOTABLE</button>
-                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'activity' }"
-                                @click="setTimelineKind('activity')">ACTIVITY</button>
-                        </div>
-                        <input class="pulse-search" type="text" placeholder="filter..." x-model="events.timelineSearch">
+
+                <div class="panel-card__body"
+                    style="padding:var(--space-5); flex:1; display:flex; flex-direction:column; justify-content:center;">
+
+                    <!-- Loading State -->
+                    <div x-show="radar.loading"
+                        style="display:flex; justify-content:center; align-items:center; height:100%;">
+                        <div class="spinner"></div>
                     </div>
-                    <div class="pulse-list" x-ref="pulseList">
-                        <template x-if="(events.notable.loading || events.activity.loading)">
-                            <div class="pulse-loading">Loading timeline...</div>
-                        </template>
-                        <template x-if="!events.notable.loading && !events.activity.loading">
-                            <div>
-                                <template x-for="event in timelineFiltered().slice(0, 60)" :key="event.id">
-                                    <div class="pulse-row">
-                                        <div class="pulse-time" x-text="formatEventClock(event.ts)"></div>
-                                        <div class="pulse-source" x-text="formatEventSource(event.source)"></div>
-                                        <span class="pulse-dot" :class="'pulse-dot--' + event.severity"></span>
-                                        <div class="pulse-main">
-                                            <div class="pulse-title-line"
-                                                x-text="event.title + (event.detail ? ' — ' + event.detail : '')"></div>
-                                            <!-- Correlation Hint Overlay -->
-                                            <template
-                                                x-if="overlays && overlays.bySourceId && overlays.bySourceId[event.id]">
-                                                <div class="pulse-overlay-hint"
-                                                    style="margin-top:6px; padding:6px 10px; background:rgba(255, 166, 0, 0.05); border-left:2px solid var(--signal-warn); font-size:0.9em; color:var(--text-secondary); display:flex; flex-wrap:wrap; gap:10px; align-items:center; border-radius:0 4px 4px 0;">
-                                                    <span style="font-weight:600; color:var(--signal-warn);">↔
-                                                        Related:</span>
-                                                    <span x-text="overlays.bySourceId[event.id].label"></span>
-                                                    <div style="flex:1"></div>
-                                                    <div style="display:flex; gap:12px;">
-                                                        <template x-for="link in overlays.bySourceId[event.id].links">
-                                                            <a :href="link.href"
-                                                                style="color:var(--accent-cyan); text-decoration:none; border-bottom:1px dotted var(--accent-cyan); font-size:0.85em;"
-                                                                x-text="link.title + ' →'"></a>
-                                                        </template>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
-                                        <div class="pulse-meta">
-                                            <span class="pulse-badge" x-show="event.count && event.count > 1"
-                                                x-text="'×' + event.count"></span>
-                                            <span class="pulse-badge" x-show="event.entity"
-                                                x-text="event.entity"></span>
-                                            <span class="pulse-badge" x-show="event.tags && event.tags.length"
-                                                x-text="event.tags[0]"></span>
-                                            <span class="pulse-badge" x-show="event.tags && event.tags.length > 1"
-                                                x-text="'+' + (event.tags.length - 1)"></span>
-                                        </div>
-                                        <button class="pulse-expand" @click.prevent="toggleTimelineExpand(event.id)">
-                                            <span x-text="isTimelineExpanded(event.id) ? '−' : '+'"></span>
-                                        </button>
-                                    </div>
-                                    <div class="pulse-expand-panel" x-show="isTimelineExpanded(event.id)">
-                                        <div class="pulse-expand-summary" x-text="event.detail || event.title"></div>
-                                        <div class="pulse-expand-grid">
-                                            <template x-for="row in eventEvidenceRows(event)" :key="row.key">
-                                                <div class="pulse-expand-row">
-                                                    <span class="pulse-expand-key" x-text="row.key"></span>
-                                                    <span class="pulse-expand-value" x-text="row.value"></span>
-                                                </div>
-                                            </template>
-                                        </div>
-                                        <div class="pulse-expand-tags" x-show="event.tags && event.tags.length">
-                                            <template x-for="tag in event.tags" :key="tag">
-                                                <span class="pulse-tag" x-text="tag"></span>
-                                            </template>
-                                        </div>
-                                        <div class="pulse-expand-meta">
-                                            <span x-text="event.dedupe_key ? 'dedupe: ' + event.dedupe_key : ''"></span>
-                                            <span
-                                                x-text="event.evidence?.window_sec ? 'window: ' + event.evidence.window_sec + 's' : ''"></span>
-                                        </div>
-                                        <div class="pulse-expand-actions" x-show="eventQuickLinks(event)">
-                                            <button class="pulse-action" @click="loadTab(eventQuickLinks(event).tab)"
-                                                x-text="eventQuickLinks(event).label"></button>
-                                        </div>
-                                    </div>
-                                </template>
+
+                    <!-- Active Content -->
+                    <div x-show="!radar.loading" style="text-align:center;">
+
+                        <!-- BEHAVIORAL SUMMARY -->
+                        <div style="margin-bottom:var(--space-6);">
+                            <div
+                                style="font-size:0.8em; color:var(--accent-cyan); letter-spacing:2px; margin-bottom:var(--space-2); text-transform:uppercase;">
+                                Network Tone</div>
+                            <div style="font-size:2.5em; font-weight:700; color:var(--text-primary); letter-spacing:-1px; line-height:1.1;"
+                                x-text="personality.tone || 'ESTABLISHING BASELINE...'">
                             </div>
-                        </template>
+                            <div
+                                style="margin-top:var(--space-3); font-size:1em; color:var(--text-secondary); max-width:600px; margin-left:auto; margin-right:auto;">
+                                <span
+                                    x-text="radar.changes.length > 0 ? (radar.changes.length + ' behavioral shifts detected in last 15m') : 'Traffic patterns are stable and consistent.'"></span>
+                            </div>
+                        </div>
+
+                        <!-- CURRENT DOMINANT VECTORS -->
+                        <div
+                            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:var(--space-4); margin-top:var(--space-6); text-align:left;">
+
+                            <!-- Dominant Talker -->
+                            <div
+                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--accent-cyan);">
+                                <div
+                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
+                                    Lead Source</div>
+                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis;"
+                                    x-text="radar.top_talkers[0]?.hostname || radar.top_talkers[0]?.ip || 'None'"></div>
+                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
+                                    x-text="radar.top_talkers[0]?.bytes_fmt || '0 B'"></div>
+                            </div>
+
+                            <!-- Dominant Destination -->
+                            <div
+                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--accent-purple);">
+                                <div
+                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
+                                    Lead Destination</div>
+                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis;"
+                                    x-text="radar.top_destinations[0]?.hostname || radar.top_destinations[0]?.ip || 'None'">
+                                </div>
+                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
+                                    x-text="radar.top_destinations[0]?.bytes_fmt || '0 B'"></div>
+                            </div>
+
+                            <!-- Dominant Service -->
+                            <div
+                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--signal-notice);">
+                                <div
+                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
+                                    Primary Service</div>
+                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary);"
+                                    x-text="'Port ' + (radar.top_ports[0]?.port || '--')"></div>
+                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
+                                    x-text="radar.top_ports[0]?.bytes_fmt || '0 B'"></div>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
+
+            <!-- 2. TOP MOVERS (SECONDARY) -->
+            <div class="card status-card"
+                style="height: 400px; display:flex; flex-direction:column; background:rgba(10,10,12,0.6);">
+                <div class="status-card__header"
+                    style="border-bottom:1px solid rgba(255,255,255,0.05); padding:var(--space-4);">
+                    <h2
+                        style="margin:0; font-size:1em; letter-spacing:1px; color:var(--text-secondary); font-weight:600;">
+                        TOP MOVERS (15m)</h2>
+                </div>
+
+                <div class="panel-card__body custom-scroll" style="padding:0; overflow-y:auto; flex:1;">
+
+                    <!-- Case: Changes Detected -->
+                    <template x-if="radar.changes && radar.changes.length > 0">
+                        <div>
+                            <template x-for="change in radar.changes">
+                                <div
+                                    style="padding:12px var(--space-4); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; gap:10px; align-items:start;">
+                                    <!-- Severity Indicator -->
+                                    <div style="margin-top:4px; width:6px; height:6px; border-radius:50%; flex-shrink:0;"
+                                        :style="change.severity === 'warn' ? 'background:var(--signal-warn); box-shadow:0 0 5px var(--signal-warn);' : (change.severity === 'notice' ? 'background:var(--signal-notice);' : 'background:var(--signal-info);')">
+                                    </div>
+
+                                    <div style="flex:1;">
+                                        <div style="font-size:0.85em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                                            x-text="(change.type || 'CHANGE').replace(/_/g, ' ')"></div>
+                                        <div style="font-size:0.85em; color:var(--text-secondary); line-height:1.4;"
+                                            x-text="change.message"></div>
+                                        <div style="font-size:0.75em; color:var(--text-tertiary); margin-top:4px; font-family:var(--font-mono);"
+                                            x-text="formatTimeAgo(change.ts)"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Case: No Changes (Stability) -->
+                    <template x-if="!radar.changes || radar.changes.length === 0">
+                        <div
+                            style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-secondary); opacity:0.6;">
+                            <div style="font-size:2em; margin-bottom:10px; color:var(--signal-ok);">✓</div>
+                            <div style="font-weight:500;">System Stable</div>
+                            <div style="font-size:0.85em; margin-top:5px;">No significant deviations</div>
+                        </div>
+                    </template>
+
+                </div>
+            </div>
+
+        </div>
 
         <!-- Main Chart: Bandwidth -->
         <div class="primary-column w-full">
@@ -472,8 +461,33 @@
         </div>
     </section>
 
-</div>
+    <!-- CSS for Radar Pulse -->
+    <style>
+        .radar-pulse {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(0, 234, 255, 0.7);
+            animation: pulse-ring 2s infinite;
+        }
 
-<!-- ============================================
-             SECURITY TAB
-             ============================================ -->
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(0, 234, 255, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(0, 234, 255, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(0, 234, 255, 0);
+            }
+        }
+    </style>
+
+</div>
