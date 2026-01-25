@@ -322,8 +322,11 @@ export const Store = () => ({
         savedViews: [],
         selectedViewId: '',
         defaultViewId: '',
-        suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } }
+        suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } },
+        expanded: new Set()
     },
+
+    eventsPage: false,
 
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
 
@@ -1031,6 +1034,11 @@ export const Store = () => ({
         // Polyfill requestIdleCallback for better browser support
         const idleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 
+        this.eventsPage = Boolean(window.PHOBOS_EVENTS_PAGE);
+        if (this.eventsPage) {
+            this.activeTab = 'events';
+        }
+
         // Mark as initialized immediately for rendering
         this.initDone = true;
 
@@ -1048,23 +1056,27 @@ export const Store = () => ({
             this.loadHostViews();
             this.loadEventViews();
             this.startIntersectionObserver();
-            // Defer data loading slightly to allow initial paint
-            setTimeout(() => {
-                this.loadAll();
-            }, 50);
-            this.loadNotifyStatus();
-            this.loadThresholds();
-            // Initialize drag-and-drop after DOM paints
-            this.$nextTick(() => this.setupDragAndDrop());
-            this.startTimer();
+            if (this.eventsPage) {
+                setTimeout(() => {
+                    this.loadEventsPage();
+                }, 50);
+            } else {
+                // Defer data loading slightly to allow initial paint
+                setTimeout(() => {
+                    this.loadAll();
+                }, 50);
+                this.loadNotifyStatus();
+                this.loadThresholds();
+                // Initialize drag-and-drop after DOM paints
+                this.$nextTick(() => this.setupDragAndDrop());
+                this.startTimer();
 
-            // Start real-time firewall stream (SSE) if supported
-            this.startFirewallStream();
+                // Start real-time firewall stream (SSE) if supported
+                this.startFirewallStream();
 
-
-
-            // Start countdown timer
-            this.startCountdown();
+                // Start countdown timer
+                this.startCountdown();
+            }
         }, { timeout: 100 });
 
         // Watchers
@@ -1077,7 +1089,12 @@ export const Store = () => ({
                 this.threatActivityTimeline.timeRange = val;
             }
 
-            this.loadAll();
+            if (this.eventsPage) {
+                this.fetchEvents('notable');
+                this.fetchEvents('activity');
+            } else {
+                this.loadAll();
+            }
         });
         this.$watch('activeTab', (val) => {
             this.$nextTick(() => {
@@ -2391,6 +2408,15 @@ export const Store = () => ({
         this.loadNotifyStatus();
     },
 
+    async loadEventsPage() {
+        this.lastUpdate = new Date().toLocaleTimeString('en-GB');
+        this.lastUpdateTs = Date.now();
+        await Promise.allSettled([
+            this.fetchEvents('notable'),
+            this.fetchEvents('activity')
+        ]);
+    },
+
     get filteredSources() {
         let list = this.sources.sources || [];
         if (this.searchQuery) {
@@ -3308,6 +3334,54 @@ export const Store = () => ({
         const lastTs = Math.max(dedupe.last_ts || 0, rate.last_ts || 0);
         const lastLabel = lastTs ? `${this.formatEventTime(lastTs)} ago` : '—';
         return `${total} similar events suppressed · last ${lastLabel}`;
+    },
+
+    eventExplain(ruleId) {
+        const explain = {
+            NEW_EXTERNAL_DESTINATION: 'New public destination not seen in the last 24h.',
+            TOP_TALKER_CHANGED: 'Top talker changed compared to the previous 5m window.',
+            PORT_SPIKE: 'Port activity spiked against the 60m baseline.',
+            BLOCK_SPIKE: 'Firewall blocks spiked against the 60m baseline.',
+            NEW_INBOUND_WAN_SOURCE: 'New inbound WAN source not seen in the last 24h.',
+            RULE_HIT_SPIKE: 'Firewall rule hits spiked against the 60m baseline.',
+            NXDOMAIN_BURST: 'NXDOMAIN responses spiked against the 60m baseline.',
+            NEW_DOMAIN_TO_MANY_HOSTS: 'A new domain was queried by many hosts in a short window.',
+            SOURCE_STALE: 'Data source has been quiet beyond the expected threshold.',
+            PARSER_ERROR_SPIKE: 'Parser errors spiked against the 60m baseline.'
+        };
+        return explain[ruleId] || 'Detected change based on current window activity.';
+    },
+
+    toggleEventExpanded(eventId) {
+        if (!eventId) return;
+        if (this.events.expanded.has(eventId)) {
+            this.events.expanded.delete(eventId);
+        } else {
+            this.events.expanded.add(eventId);
+        }
+    },
+
+    isEventExpanded(eventId) {
+        return this.events.expanded.has(eventId);
+    },
+
+    eventsDensitySummary() {
+        const items = this.events.activity.items || [];
+        const bySource = { netflow: 0, firewall: 0, syslog: 0 };
+        items.forEach(event => {
+            if (event.source === 'netflow') bySource.netflow += 1;
+            if (event.source === 'syslog') bySource.syslog += 1;
+            if (event.source === 'firewall' || event.source === 'filterlog') bySource.firewall += 1;
+        });
+        const parserActive = ['netflow', 'syslog', 'firewall'].filter(src => {
+            return this.eventsSourceState(src) !== 'stale' && this.eventsSourceState(src) !== 'quiet';
+        }).length;
+        return {
+            netflow: bySource.netflow,
+            firewall: bySource.firewall,
+            syslog: bySource.syslog,
+            parsers: parserActive
+        };
     },
 
     isDebugMode() {
@@ -7306,6 +7380,10 @@ export const Store = () => ({
     },
 
     loadTab(tab) {
+        if (this.eventsPage) {
+            window.location.href = '/';
+            return;
+        }
         this.activeTab = tab;
         const now = Date.now();
 

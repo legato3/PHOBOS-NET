@@ -151,151 +151,63 @@
 
 
 
-        <!-- Events (Primary Awareness) -->
+        <!-- Events Summary (Primary Awareness) -->
         <section id="section-what-changed" class="scroll-section" style="margin-bottom: var(--space-6);">
-            <div class="status-card panel-card status-card--signal ev-card">
-                <div class="status-card__header ev-header">
-                    <div class="ev-header-left">
+            <div class="status-card panel-card status-card--signal ev-summary-card" @click="window.location.href='/events'">
+                <div class="status-card__header ev-summary-header">
+                    <div class="ev-summary-title">
                         <div class="status-card__title ev-title">EVENTS</div>
-                        <div class="ev-range" x-text="global_time_range"></div>
-                        <div class="ev-mode-tabs" role="tablist">
-                            <button class="ev-tab" :class="{ 'active': events.mode === 'notable' }"
-                                @click="setEventsMode('notable')">NOTABLE</button>
-                            <button class="ev-tab" :class="{ 'active': events.mode === 'activity' }"
-                                @click="setEventsMode('activity')">ACTIVITY</button>
-                        </div>
-                        <div class="ev-health">
-                            <span x-text="'Last notable: ' + eventsLastLabel('notable')"></span>
-                            <span>•</span>
-                            <span x-text="'Last activity: ' + eventsLastLabel('activity')"></span>
-                            <span>•</span>
-                            <span x-text="'Ingest: ' + eventsIngestStatus()"></span>
-                        </div>
+                        <div class="ev-summary-range" x-text="'Last ' + (events.rangeFollowGlobal ? timeRange : events.rangeValue)"></div>
                     </div>
-                    <div class="ev-header-controls">
-                        <div class="ev-view-controls">
-                            <select class="filter-select" x-model="events.selectedViewId" @change="applyEventView(events.selectedViewId)">
-                                <option value="">View: Default</option>
-                                <template x-for="view in events.savedViews" :key="view.id">
-                                    <option :value="view.id" x-text="view.name"></option>
-                                </template>
-                            </select>
-                            <button class="btn btn-sm btn-ghost" @click="saveEventView()">Save View</button>
-                            <button class="btn btn-sm btn-ghost" @click="setDefaultEventView()">Set Default</button>
-                        </div>
-                        <div class="ev-range-controls">
-                            <label class="ev-toggle">
-                                <input type="checkbox" x-model="events.rangeFollowGlobal" @change="setEventsRangeFollowGlobal(events.rangeFollowGlobal)">
-                                <span>Follow Global</span>
-                            </label>
-                            <select class="filter-select" :disabled="events.rangeFollowGlobal"
-                                x-model="events.rangeValue" @change="setEventsRangeValue(events.rangeValue)">
-                                <option value="15m">15m</option>
-                                <option value="30m">30m</option>
-                                <option value="1h">1h</option>
-                                <option value="4h">4h</option>
-                                <option value="6h">6h</option>
-                                <option value="24h">24h</option>
-                                <option value="7d">7d</option>
-                            </select>
-                            <input class="cyber-input tool-input-sm" type="text" placeholder="Filter entity" x-model="events.entityFilter"
-                                @input="setEventsEntityFilter(events.entityFilter)">
-                        </div>
-                        <div class="ev-tabs" role="tablist">
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'all' }"
-                                @click="setEventsFilter('all')">ALL <span class="ev-tab-count"
-                                    x-text="eventsCount('all')"></span></button>
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'netflow' }"
-                                @click="setEventsFilter('netflow')">NETFLOW <span class="ev-tab-count"
-                                    x-text="eventsCount('netflow')"></span></button>
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'syslog' }"
-                                @click="setEventsFilter('syslog')">SYSLOG <span class="ev-tab-count"
-                                    x-text="eventsCount('syslog')"></span></button>
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'firewall' }"
-                                @click="setEventsFilter('firewall')">FIREWALL <span class="ev-tab-count"
-                                    x-text="eventsCount('firewall')"></span></button>
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'snmp' }"
-                                @click="setEventsFilter('snmp')">SNMP <span class="ev-tab-count"
-                                    x-text="eventsCount('snmp')"></span></button>
-                            <button class="ev-tab" :class="{ 'active': events.filter === 'system' }"
-                                @click="setEventsFilter('system')">SYSTEM <span class="ev-tab-count"
-                                    x-text="eventsCount('system')"></span></button>
-                        </div>
-                        <button class="ev-view-all" @click="openEventsModal()">VIEW ALL</button>
+                    <div class="ev-summary-health">
+                        <span x-text="'Last notable: ' + eventsLastLabel('notable')"></span>
+                        <span>•</span>
+                        <span x-text="'Ingest: ' + (eventsIngestStatus() === 'OK' ? 'OK' : 'Degraded')"></span>
                     </div>
                 </div>
-                <div class="panel-card__body ev-body">
-                    <div class="ev-list">
-                        <div class="ev-state" x-show="events.activity.items && events.activity.items.length">
-                            <div class="ev-state-title">Current State</div>
-                            <div class="ev-state-grid">
-                                <div class="ev-state-item">
-                                    <span class="ev-state-label">NetFlow</span>
-                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
-                                        x-text="eventsSourceState('netflow')"></span>
-                                </div>
-                                <div class="ev-state-item">
-                                    <span class="ev-state-label">Firewall</span>
-                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
-                                        x-text="eventsSourceState('firewall')"></span>
-                                </div>
-                                <div class="ev-state-item">
-                                    <span class="ev-state-label">Syslog</span>
-                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
-                                        x-text="eventsSourceState('syslog')"></span>
-                                </div>
-                                <div class="ev-state-item">
-                                    <span class="ev-state-label">System</span>
-                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('system')"
-                                        x-text="eventsSourceState('system')"></span>
-                                </div>
-                            </div>
+                <div class="panel-card__body ev-summary-body">
+                    <div class="ev-summary-metrics">
+                        <div class="ev-summary-metric">
+                            <div class="ev-summary-value" x-text="events.notable.items?.length || 0"></div>
+                            <div class="ev-summary-label">Notable</div>
                         </div>
-                        <div class="ev-suppressed" x-show="eventsSuppressedLabel()">
-                            <span class="ev-suppressed-text" x-text="eventsSuppressedLabel()"></span>
+                        <div class="ev-summary-metric">
+                            <div class="ev-summary-value" x-text="events.activity.items?.length || 0"></div>
+                            <div class="ev-summary-label">Activity</div>
                         </div>
-                        <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
-                            <div class="ev-skeleton">
-                                <template x-for="idx in 6" :key="'ev-skel-' + idx">
-                                    <div class="ev-skeleton-row"></div>
-                                </template>
-                            </div>
-                        </template>
-                        <template x-if="!events.notable.loading && events.mode === 'notable' && eventsFiltered().length === 0">
-                            <div class="ev-empty ev-empty--calm">
-                                <div>System stable — no anomalies detected in this window.</div>
-                                <div class="ev-empty-subtle">Try Activity or widen time range.</div>
-                                <button class="btn btn-sm btn-ghost" x-show="isDebugMode()" @click.prevent>
-                                    Inject sample events
-                                </button>
-                            </div>
-                        </template>
-                        <template x-if="!events.activity.loading && events.mode === 'activity' && eventsFiltered().length === 0">
-                            <div class="ev-empty">No activity in this window.</div>
-                        </template>
-                        <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
-                            <div>
-                                <template x-for="event in eventsFiltered().slice(0, events.displayLimit)"
-                                    :key="event.id">
-                                    <div class="ev-row" :class="{ 'has-detail': !!event.summary }" @click="openEventDetail(event)">
-                                        <div class="ev-time" x-text="formatEventTime(event.ts)"></div>
-                                        <div class="ev-main">
-                                            <div class="ev-title-line" x-text="event.title || 'UNKNOWN'"></div>
-                                            <div class="ev-summary" x-text="event.summary || ''"></div>
-                                            <div class="ev-chips" x-show="eventEvidenceChips(event).length > 0">
-                                                <template x-for="chip in eventEvidenceChips(event)" :key="chip">
-                                                    <span class="ev-chip" x-text="chip"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                        <div class="ev-tag" :class="eventTagClass(event)">
-                                            <span class="ev-tag-text" x-text="formatEventSource(event.source)"></span>
-                                            <span class="ev-tag-sev" x-text="event.severity"></span>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
+                        <div class="ev-summary-metric">
+                            <div class="ev-summary-value" x-text="eventsLastLabel('notable')"></div>
+                            <div class="ev-summary-label">Last notable</div>
+                        </div>
+                        <div class="ev-summary-metric">
+                            <div class="ev-summary-value" x-text="eventsIngestStatus() === 'OK' ? 'OK' : 'Degraded'"></div>
+                            <div class="ev-summary-label">Ingest</div>
+                        </div>
+                    </div>
+                    <div class="ev-summary-state">
+                        <div class="ev-summary-state-item">
+                            <span class="ev-summary-state-label">NetFlow</span>
+                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
+                                x-text="eventsSourceState('netflow')"></span>
+                        </div>
+                        <div class="ev-summary-state-item">
+                            <span class="ev-summary-state-label">Firewall</span>
+                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
+                                x-text="eventsSourceState('firewall')"></span>
+                        </div>
+                        <div class="ev-summary-state-item">
+                            <span class="ev-summary-state-label">Syslog</span>
+                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
+                                x-text="eventsSourceState('syslog')"></span>
+                        </div>
+                        <div class="ev-summary-state-item">
+                            <span class="ev-summary-state-label">System</span>
+                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('system')"
+                                x-text="eventsSourceState('system')"></span>
+                        </div>
+                    </div>
+                    <div class="ev-summary-stable" x-show="(events.notable.items || []).length === 0">
+                        System stable — no anomalies detected in this window.
                     </div>
                 </div>
             </div>

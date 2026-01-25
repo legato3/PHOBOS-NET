@@ -1,0 +1,241 @@
+<html lang="en">
+
+<head>
+    <title x-text="appMetadata.name || 'PHOBOS-NET'">PHOBOS-NET</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="description" content="PHOBOS-NET Events">
+
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0.10">
+    <link rel="stylesheet" href="/static/css/mobile.css">
+
+    <script>
+        window.PHOBOS_EVENTS_PAGE = true;
+    </script>
+
+    <script src="/static/js/modules/chart.min.js?v=4.4.1" defer></script>
+    <script src="/static/js/modules/alpine-collapse.min.js?v=3.13.3" defer></script>
+    <script src="/static/js/modules/lazy-load.js"></script>
+    <script type="module" src="/static/js/app.js?v=3.3.0"></script>
+    <script src="/static/js/modules/alpine.min.js?v=3.13.3" defer></script>
+</head>
+
+<body class="antialiased" x-data="dashboard">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <div class="container" x-show="initDone" x-transition.opacity.duration.500ms>
+        <div class="layout-wrapper">
+            {% include "layouts/sidebar.html" %}
+            {% include "layouts/header.html" %}
+            <main class="main-content" id="main-content" tabindex="-1">
+                <div class="content-scroll-area">
+                    <section class="scroll-section" style="margin-bottom: var(--space-6);">
+                        <div class="status-card panel-card status-card--signal ev-card">
+                            <div class="status-card__header ev-header">
+                                <div class="ev-header-left">
+                                    <div class="status-card__title ev-title">EVENTS</div>
+                                    <div class="ev-range" x-text="global_time_range"></div>
+                                    <div class="ev-mode-tabs" role="tablist">
+                                        <button class="ev-tab" :class="{ 'active': events.mode === 'notable' }"
+                                            @click="setEventsMode('notable')">NOTABLE</button>
+                                        <button class="ev-tab" :class="{ 'active': events.mode === 'activity' }"
+                                            @click="setEventsMode('activity')">ACTIVITY</button>
+                                    </div>
+                                    <div class="ev-health">
+                                        <span x-text="'Last notable: ' + eventsLastLabel('notable')"></span>
+                                        <span>•</span>
+                                        <span x-text="'Last activity: ' + eventsLastLabel('activity')"></span>
+                                        <span>•</span>
+                                        <span x-text="'Ingest: ' + eventsIngestStatus()"></span>
+                                    </div>
+                                </div>
+                                <div class="ev-header-controls">
+                                    <div class="ev-view-controls">
+                                        <select class="filter-select" x-model="events.selectedViewId"
+                                            @change="applyEventView(events.selectedViewId)">
+                                            <option value="">View: Default</option>
+                                            <template x-for="view in events.savedViews" :key="view.id">
+                                                <option :value="view.id" x-text="view.name"></option>
+                                            </template>
+                                        </select>
+                                        <button class="btn btn-sm btn-ghost" @click="saveEventView()">Save View</button>
+                                        <button class="btn btn-sm btn-ghost" @click="setDefaultEventView()">Set Default</button>
+                                    </div>
+                                    <div class="ev-range-controls">
+                                        <label class="ev-toggle">
+                                            <input type="checkbox" x-model="events.rangeFollowGlobal"
+                                                @change="setEventsRangeFollowGlobal(events.rangeFollowGlobal)">
+                                            <span>Follow Global</span>
+                                        </label>
+                                        <select class="filter-select" :disabled="events.rangeFollowGlobal"
+                                            x-model="events.rangeValue" @change="setEventsRangeValue(events.rangeValue)">
+                                            <option value="15m">15m</option>
+                                            <option value="30m">30m</option>
+                                            <option value="1h">1h</option>
+                                            <option value="4h">4h</option>
+                                            <option value="6h">6h</option>
+                                            <option value="24h">24h</option>
+                                            <option value="7d">7d</option>
+                                        </select>
+                                        <input class="cyber-input tool-input-sm" type="text" placeholder="Filter entity"
+                                            x-model="events.entityFilter" @input="setEventsEntityFilter(events.entityFilter)">
+                                    </div>
+                                    <div class="ev-tabs" role="tablist">
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'all' }"
+                                            @click="setEventsFilter('all')">ALL <span class="ev-tab-count"
+                                                x-text="eventsCount('all')"></span></button>
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'netflow' }"
+                                            @click="setEventsFilter('netflow')">NETFLOW <span class="ev-tab-count"
+                                                x-text="eventsCount('netflow')"></span></button>
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'syslog' }"
+                                            @click="setEventsFilter('syslog')">SYSLOG <span class="ev-tab-count"
+                                                x-text="eventsCount('syslog')"></span></button>
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'firewall' }"
+                                            @click="setEventsFilter('firewall')">FIREWALL <span class="ev-tab-count"
+                                                x-text="eventsCount('firewall')"></span></button>
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'snmp' }"
+                                            @click="setEventsFilter('snmp')">SNMP <span class="ev-tab-count"
+                                                x-text="eventsCount('snmp')"></span></button>
+                                        <button class="ev-tab" :class="{ 'active': events.filter === 'system' }"
+                                            @click="setEventsFilter('system')">SYSTEM <span class="ev-tab-count"
+                                                x-text="eventsCount('system')"></span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel-card__body ev-body">
+                                <div class="ev-list">
+                                    <div class="ev-page-state">
+                                        <div class="ev-page-state-item">
+                                            <span class="ev-page-state-label">NetFlow</span>
+                                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
+                                                x-text="eventsSourceState('netflow')"></span>
+                                        </div>
+                                        <div class="ev-page-state-item">
+                                            <span class="ev-page-state-label">Firewall</span>
+                                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
+                                                x-text="eventsSourceState('firewall')"></span>
+                                        </div>
+                                        <div class="ev-page-state-item">
+                                            <span class="ev-page-state-label">Syslog</span>
+                                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
+                                                x-text="eventsSourceState('syslog')"></span>
+                                        </div>
+                                        <div class="ev-page-state-item">
+                                            <span class="ev-page-state-label">System</span>
+                                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('system')"
+                                                x-text="eventsSourceState('system')"></span>
+                                        </div>
+                                    </div>
+                                    <div class="ev-density">
+                                        <div class="ev-density-title">Activity Density</div>
+                                        <div class="ev-density-grid">
+                                            <div class="ev-density-item">
+                                                <span class="ev-density-label">NetFlow checks</span>
+                                                <span class="ev-density-value" x-text="eventsDensitySummary().netflow"></span>
+                                            </div>
+                                            <div class="ev-density-item">
+                                                <span class="ev-density-label">Firewall rules</span>
+                                                <span class="ev-density-value" x-text="eventsDensitySummary().firewall"></span>
+                                            </div>
+                                            <div class="ev-density-item">
+                                                <span class="ev-density-label">Syslog parsed</span>
+                                                <span class="ev-density-value" x-text="eventsDensitySummary().syslog"></span>
+                                            </div>
+                                            <div class="ev-density-item">
+                                                <span class="ev-density-label">Parsers active</span>
+                                                <span class="ev-density-value" x-text="eventsDensitySummary().parsers"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ev-suppressed" x-show="eventsSuppressedLabel()">
+                                        <span class="ev-suppressed-text" x-text="eventsSuppressedLabel()"></span>
+                                    </div>
+                                    <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
+                                        <div class="ev-skeleton">
+                                            <template x-for="idx in 8" :key="'ev-page-skel-' + idx">
+                                                <div class="ev-skeleton-row"></div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="!events.notable.loading && events.mode === 'notable' && eventsFiltered().length === 0">
+                                        <div class="ev-empty ev-empty--calm">System stable — no anomalies detected in this window.</div>
+                                    </template>
+                                    <template x-if="!events.activity.loading && events.mode === 'activity' && eventsFiltered().length === 0">
+                                        <div class="ev-empty">No activity in this window.</div>
+                                    </template>
+                                    <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
+                                        <div>
+                                            <template x-for="event in eventsFiltered().slice(0, 200)" :key="event.id">
+                                                <div class="ev-row" :class="{ 'has-detail': !!event.summary }">
+                                                    <div class="ev-time" x-text="formatEventTime(event.ts)"></div>
+                                                    <div class="ev-main">
+                                                        <div class="ev-title-line" x-text="event.title || 'UNKNOWN'"></div>
+                                                        <div class="ev-summary" x-text="event.summary || ''"></div>
+                                                        <div class="ev-chips" x-show="eventEvidenceChips(event).length > 0">
+                                                            <template x-for="chip in eventEvidenceChips(event)" :key="chip">
+                                                                <span class="ev-chip" x-text="chip"></span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    <div class="ev-tag" :class="eventTagClass(event)">
+                                                        <span class="ev-tag-text" x-text="formatEventSource(event.source)"></span>
+                                                        <span class="ev-tag-sev" x-text="event.severity"></span>
+                                                    </div>
+                                                    <button class="ev-expand" @click.prevent="toggleEventExpanded(event.id)">
+                                                        <span x-text="isEventExpanded(event.id) ? '−' : '+'"></span>
+                                                    </button>
+                                                </div>
+                                                <div class="ev-expand-panel" x-show="isEventExpanded(event.id)">
+                                                    <div class="ev-expand-row">
+                                                        <span class="ev-detail-label">Why this was flagged</span>
+                                                        <span class="ev-detail-value" x-text="eventExplain(event.rule_id)"></span>
+                                                    </div>
+                                                    <div class="ev-expand-row">
+                                                        <span class="ev-detail-label">Count</span>
+                                                        <span class="ev-detail-value" x-text="event.count || 1"></span>
+                                                    </div>
+                                                    <div class="ev-detail-tags" x-show="event.tags && event.tags.length">
+                                                        <div class="ev-detail-label">Tags</div>
+                                                        <div class="ev-chip-row">
+                                                            <template x-for="tag in (event.tags || [])" :key="tag">
+                                                                <span class="ev-chip" x-text="tag"></span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    <div class="ev-detail-evidence">
+                                                        <div class="ev-detail-label">Evidence</div>
+                                                        <div class="ev-detail-evidence-body">
+                                                            <template x-for="(value, key) in (event.evidence || {})" :key="key">
+                                                                <div class="ev-evidence-row">
+                                                                    <span class="ev-evidence-key" x-text="key"></span>
+                                                                    <span class="ev-evidence-val" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -2364,6 +2364,49 @@
                         aria-label="Close events modal">×</button>
                 </div>
                 <div class="modal__body ev-modal-body">
+                    <div class="ev-page-state">
+                        <div class="ev-page-state-item">
+                            <span class="ev-page-state-label">NetFlow</span>
+                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
+                                x-text="eventsSourceState('netflow')"></span>
+                        </div>
+                        <div class="ev-page-state-item">
+                            <span class="ev-page-state-label">Firewall</span>
+                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
+                                x-text="eventsSourceState('firewall')"></span>
+                        </div>
+                        <div class="ev-page-state-item">
+                            <span class="ev-page-state-label">Syslog</span>
+                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
+                                x-text="eventsSourceState('syslog')"></span>
+                        </div>
+                        <div class="ev-page-state-item">
+                            <span class="ev-page-state-label">System</span>
+                            <span class="ev-page-state-value" :class="'ev-state--' + eventsSourceState('system')"
+                                x-text="eventsSourceState('system')"></span>
+                        </div>
+                    </div>
+                    <div class="ev-density">
+                        <div class="ev-density-title">Activity Density</div>
+                        <div class="ev-density-grid">
+                            <div class="ev-density-item">
+                                <span class="ev-density-label">NetFlow checks</span>
+                                <span class="ev-density-value" x-text="eventsDensitySummary().netflow"></span>
+                            </div>
+                            <div class="ev-density-item">
+                                <span class="ev-density-label">Firewall rules</span>
+                                <span class="ev-density-value" x-text="eventsDensitySummary().firewall"></span>
+                            </div>
+                            <div class="ev-density-item">
+                                <span class="ev-density-label">Syslog parsed</span>
+                                <span class="ev-density-value" x-text="eventsDensitySummary().syslog"></span>
+                            </div>
+                            <div class="ev-density-item">
+                                <span class="ev-density-label">Parsers active</span>
+                                <span class="ev-density-value" x-text="eventsDensitySummary().parsers"></span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="ev-mode-tabs" role="tablist">
                         <button class="ev-tab" :class="{ 'active': events.mode === 'notable' }"
                             @click="setEventsMode('notable')">NOTABLE</button>
@@ -2399,7 +2442,7 @@
                             </div>
                         </template>
                         <template x-if="events.mode === 'notable' && !events.notable.loading && eventsFiltered().length === 0">
-                            <div class="ev-empty">No notable changes in this window.</div>
+                            <div class="ev-empty ev-empty--calm">System stable — no anomalies detected.</div>
                         </template>
                         <template x-if="events.mode === 'activity' && !events.activity.loading && eventsFiltered().length === 0">
                             <div class="ev-empty">No activity in this window.</div>
@@ -2407,7 +2450,7 @@
                         <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
                             <div>
                                 <template x-for="event in eventsFiltered().slice(0, 200)" :key="event.id">
-                                    <div class="ev-row" :class="{ 'has-detail': !!event.summary }" @click="openEventDetail(event)">
+                                    <div class="ev-row" :class="{ 'has-detail': !!event.summary }">
                                         <div class="ev-time" x-text="formatEventTime(event.ts)"></div>
                                         <div class="ev-main">
                                             <div class="ev-title-line" x-text="event.title || 'UNKNOWN'"></div>
@@ -2421,6 +2464,38 @@
                                         <div class="ev-tag" :class="eventTagClass(event)">
                                             <span class="ev-tag-text" x-text="formatEventSource(event.source)"></span>
                                             <span class="ev-tag-sev" x-text="event.severity"></span>
+                                        </div>
+                                        <button class="ev-expand" @click.prevent="toggleEventExpanded(event.id)">
+                                            <span x-text="isEventExpanded(event.id) ? '−' : '+'"></span>
+                                        </button>
+                                    </div>
+                                    <div class="ev-expand-panel" x-show="isEventExpanded(event.id)">
+                                        <div class="ev-expand-row">
+                                            <span class="ev-detail-label">Why this was flagged</span>
+                                            <span class="ev-detail-value" x-text="eventExplain(event.rule_id)"></span>
+                                        </div>
+                                        <div class="ev-expand-row">
+                                            <span class="ev-detail-label">Count</span>
+                                            <span class="ev-detail-value" x-text="event.count || 1"></span>
+                                        </div>
+                                        <div class="ev-detail-tags" x-show="event.tags && event.tags.length">
+                                            <div class="ev-detail-label">Tags</div>
+                                            <div class="ev-chip-row">
+                                                <template x-for="tag in (event.tags || [])" :key="tag">
+                                                    <span class="ev-chip" x-text="tag"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div class="ev-detail-evidence">
+                                            <div class="ev-detail-label">Evidence</div>
+                                            <div class="ev-detail-evidence-body">
+                                                <template x-for="(value, key) in (event.evidence || {})" :key="key">
+                                                    <div class="ev-evidence-row">
+                                                        <span class="ev-evidence-key" x-text="key"></span>
+                                                        <span class="ev-evidence-val" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
                                 </template>
