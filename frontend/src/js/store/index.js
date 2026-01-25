@@ -309,8 +309,14 @@ export const Store = () => ({
     },
     alertHistory: { alerts: [], total: 0, by_severity: {}, loading: true },
 
-    // What Changed Timeline
-    timeline: { events: [], summary: { counts: {}, last_event_ts: null }, loading: true, displayLimit: 14, filter: 'all' },
+    // Events (Notable + Activity)
+    events: {
+        notable: { items: [], loading: true, lastUpdated: null },
+        activity: { items: [], loading: true, lastUpdated: null },
+        mode: 'notable',
+        filter: 'all',
+        displayLimit: 16
+    },
 
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
 
@@ -343,7 +349,10 @@ export const Store = () => ({
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v2.0.0', version_display: 'v2.0.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
-    timelineModalOpen: false,
+    eventsModalOpen: false,
+    eventDetailOpen: false,
+    eventDetail: null,
+    eventDetailLoading: false,
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: false, traffic_correlation: null, swap_percent: null, process_count: null, tcp_retrans_s: null, tcp_resets_s: null, ip_forwarding_s: null, udp_in_s: null, udp_out_s: null, gateway: null, loading: true, error: null },
@@ -2277,7 +2286,8 @@ export const Store = () => ({
             this.fetchNetworkIntelligence(),
             this.fetchFirewallStatsOverview(),
             this.fetchAlertHistory(),
-            this.fetchTimeline(),  // Unified Event Timeline (Recent Activity)
+            this.fetchEvents('notable'),
+            this.fetchEvents('activity'),
             this.fetchBaselineSignals(),
             this.fetchIngestionRates()
         ]);
@@ -3115,10 +3125,10 @@ export const Store = () => ({
 
     // TIME-AWARE: Unified Event Timeline (Recent Activity)
     // Returns state-changing events from all sources
-    async fetchTimeline() {
-        this.timeline.loading = true;
+    async fetchEvents(kind = 'notable') {
+        const target = kind === 'activity' ? this.events.activity : this.events.notable;
+        target.loading = true;
         try {
-            // Calculate time range based on global timeRange selector
             const rangeSeconds = {
                 '15m': 900,
                 '30m': 1800,
@@ -3129,57 +3139,128 @@ export const Store = () => ({
                 '7d': 604800
             };
             const seconds = rangeSeconds[this.timeRange] || 3600;
+            const rangeKey = seconds >= 86400 ? '24h' : '1h';
             const params = new URLSearchParams({
-                range: String(seconds),
+                range: rangeKey,
                 limit: '200'
             });
-            if (this.timeline.filter && this.timeline.filter !== 'all') {
-                params.append('types', this.timeline.filter);
-            }
-
-            const res = await fetch(`/api/timeline/events?${params.toString()}`);
+            const res = await fetch(`/api/events/${kind}?${params.toString()}`);
             if (res.ok) {
                 const d = await res.json();
-                this.timeline = {
-                    events: d.events || [],
-                    summary: d.summary || { counts: {}, last_event_ts: null },
-                    loading: false,
-                    displayLimit: this.timeline.displayLimit || 14,
-                    filter: this.timeline.filter || 'all'
-                };
+                target.items = d.events || [];
+                target.lastUpdated = Date.now();
             }
-        } catch (e) { console.error('Timeline fetch error:', e); }
-        finally { this.timeline.loading = false; }
+        } catch (e) { console.error('Events fetch error:', e); }
+        finally { target.loading = false; }
     },
 
-    setTimelineFilter(filter) {
-        if (this.timeline.filter === filter) return;
-        this.timeline.filter = filter;
-        this.fetchTimeline();
+    setEventsMode(mode) {
+        if (this.events.mode === mode) return;
+        this.events.mode = mode;
+        const target = mode === 'activity' ? this.events.activity : this.events.notable;
+        if (!target.items || target.items.length === 0) {
+            this.fetchEvents(mode);
+        }
     },
 
-    formatTimelineTime(ts) {
+    setEventsFilter(filter) {
+        if (this.events.filter === filter) return;
+        this.events.filter = filter;
+    },
+
+    formatEventTime(ts) {
         if (!ts) return 'UNKNOWN';
-        return this.timeAgo(ts);
+        const diff = Math.max(0, (Date.now() / 1000) - ts);
+        if (diff < 45) return 'now';
+        if (diff < 60) return `${Math.round(diff)}s`;
+        if (diff < 3600) return `${Math.round(diff / 60)}m`;
+        if (diff < 86400) return `${Math.round(diff / 3600)}h`;
+        return `${Math.round(diff / 86400)}d`;
     },
 
-    formatTimelineSource(source) {
+    formatEventSource(source) {
         const labels = {
             netflow: 'NetFlow',
             syslog: 'Syslog',
             firewall: 'Firewall',
+            filterlog: 'Firewall',
             snmp: 'SNMP',
             system: 'System'
         };
         return labels[source] || 'UNKNOWN';
     },
 
-    openTimelineModal() {
-        this.timelineModalOpen = true;
+    eventTagClass(event) {
+        const source = event?.source || 'system';
+        const severity = event?.severity || 'info';
+        return `ev-tag--${source} ev-tag--${severity}`;
     },
 
-    closeTimelineModal() {
-        this.timelineModalOpen = false;
+    eventsFiltered() {
+        const mode = this.events.mode;
+        const items = mode === 'activity' ? (this.events.activity.items || []) : (this.events.notable.items || []);
+        if (!this.events.filter || this.events.filter === 'all') return items;
+        if (this.events.filter === 'firewall') {
+            return items.filter(event => event.source === 'firewall' || event.source === 'filterlog');
+        }
+        return items.filter(event => event.source === this.events.filter);
+    },
+
+    eventsCount(filter) {
+        const items = this.events.mode === 'activity' ? (this.events.activity.items || []) : (this.events.notable.items || []);
+        if (!filter || filter === 'all') return items.length;
+        if (filter === 'firewall') {
+            return items.filter(event => event.source === 'firewall' || event.source === 'filterlog').length;
+        }
+        return items.filter(event => event.source === filter).length;
+    },
+
+    eventEvidenceChips(event) {
+        if (!event || !event.evidence) return [];
+        const evidence = event.evidence || {};
+        const chips = [];
+        const pushChip = (label, value) => {
+            if (value === undefined || value === null || value === '') return;
+            chips.push(`${label} ${value}`.trim());
+        };
+        pushChip('SRC', evidence.src_ip || evidence.top_src_ip);
+        pushChip('DST', evidence.dst_ip || evidence.top_dst_ip);
+        pushChip('PORT', evidence.dst_port || evidence.top_port || evidence.port);
+        pushChip('COUNTRY', evidence.country || evidence.dst_country);
+        pushChip('DELTA', evidence.delta_pct ? `${evidence.delta_pct}%` : null);
+        pushChip('COUNT', evidence.current || event.count);
+        if (chips.length < 4 && evidence.domain) pushChip('DOMAIN', evidence.domain);
+        if (chips.length < 4 && evidence.host_count) pushChip('HOSTS', evidence.host_count);
+        return chips.slice(0, 4);
+    },
+
+    openEventsModal() {
+        this.eventsModalOpen = true;
+        this.fetchEvents(this.events.mode);
+    },
+
+    closeEventsModal() {
+        this.eventsModalOpen = false;
+    },
+
+    async openEventDetail(event) {
+        if (!event) return;
+        this.eventDetailOpen = true;
+        this.eventDetail = event;
+        this.eventDetailLoading = true;
+        try {
+            const res = await fetch(`/api/events/detail?id=${encodeURIComponent(event.id)}`);
+            if (res.ok) {
+                const d = await res.json();
+                this.eventDetail = d.event || event;
+            }
+        } catch (e) { console.error('Event detail fetch error:', e); }
+        finally { this.eventDetailLoading = false; }
+    },
+
+    closeEventDetail() {
+        this.eventDetailOpen = false;
+        this.eventDetail = null;
     },
 
     // TIME-AWARE: Uses global timeRange for attack timeline data

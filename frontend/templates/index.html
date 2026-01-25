@@ -2351,44 +2351,134 @@
             </div>
         </div>
 
-        <div class="modal" x-show="timelineModalOpen" :style="timelineModalOpen ? 'display:flex' : 'display:none'"
-            @click.self="closeTimelineModal()" @keydown.escape.window="closeTimelineModal()">
-            <div class="modal-content" style="max-width: 900px; width: 90vw;">
-                <div class="modal__header">
-                    <div style="flex: 1;">
-                        <h2 style="margin: 0; font-size: 1.2em;">What changed?</h2>
-                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 4px;"
-                            x-text="global_time_range"></div>
+        <div class="modal" x-show="eventsModalOpen" :style="eventsModalOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeEventsModal()" @keydown.escape.window="closeEventsModal()">
+            <div class="modal-content ev-modal" style="max-width: 980px; width: 92vw;">
+                <div class="modal__header ev-modal-header">
+                    <div class="ev-modal-title">
+                        <h2 class="ev-modal-title-text">EVENTS</h2>
+                        <div class="ev-range" x-text="global_time_range"></div>
                     </div>
-                    <button @click="closeTimelineModal()"
+                    <button @click="closeEventsModal()"
                         style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
-                        aria-label="Close what changed modal">×</button>
+                        aria-label="Close events modal">×</button>
                 </div>
-                <div class="modal__body" style="padding: var(--space-4) 0;">
-                    <div class="timeline-list timeline-list--modal">
-                        <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
-                            <div class="timeline-empty">No notable changes in this window.</div>
+                <div class="modal__body ev-modal-body">
+                    <div class="ev-mode-tabs" role="tablist">
+                        <button class="ev-tab" :class="{ 'active': events.mode === 'notable' }"
+                            @click="setEventsMode('notable')">NOTABLE</button>
+                        <button class="ev-tab" :class="{ 'active': events.mode === 'activity' }"
+                            @click="setEventsMode('activity')">ACTIVITY</button>
+                    </div>
+                    <div class="ev-tabs ev-tabs--modal" role="tablist">
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'all' }"
+                            @click="setEventsFilter('all')">ALL <span class="ev-tab-count"
+                                x-text="eventsCount('all')"></span></button>
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'netflow' }"
+                            @click="setEventsFilter('netflow')">NETFLOW <span class="ev-tab-count"
+                                x-text="eventsCount('netflow')"></span></button>
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'syslog' }"
+                            @click="setEventsFilter('syslog')">SYSLOG <span class="ev-tab-count"
+                                x-text="eventsCount('syslog')"></span></button>
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'firewall' }"
+                            @click="setEventsFilter('firewall')">FIREWALL <span class="ev-tab-count"
+                                x-text="eventsCount('firewall')"></span></button>
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'snmp' }"
+                            @click="setEventsFilter('snmp')">SNMP <span class="ev-tab-count"
+                                x-text="eventsCount('snmp')"></span></button>
+                        <button class="ev-tab" :class="{ 'active': events.filter === 'system' }"
+                            @click="setEventsFilter('system')">SYSTEM <span class="ev-tab-count"
+                                x-text="eventsCount('system')"></span></button>
+                    </div>
+                    <div class="ev-list ev-list--modal">
+                        <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
+                            <div class="ev-skeleton">
+                                <template x-for="idx in 8" :key="'ev-modal-skel-' + idx">
+                                    <div class="ev-skeleton-row"></div>
+                                </template>
+                            </div>
                         </template>
-                        <template x-if="timeline.loading">
-                            <div class="timeline-empty">Loading timeline...</div>
+                        <template x-if="events.mode === 'notable' && !events.notable.loading && eventsFiltered().length === 0">
+                            <div class="ev-empty">No notable changes in this window.</div>
                         </template>
-                        <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
+                        <template x-if="events.mode === 'activity' && !events.activity.loading && eventsFiltered().length === 0">
+                            <div class="ev-empty">No activity in this window.</div>
+                        </template>
+                        <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
                             <div>
-                                <template x-for="event in timeline.events.slice(0, 200)"
-                                    :key="event.ts + '-' + event.type">
-                                    <div class="timeline-row">
-                                        <div class="timeline-time" x-text="formatTimelineTime(event.ts)"></div>
-                                        <div class="timeline-title">
-                                            <div class="timeline-title-line" x-text="event.title || 'UNKNOWN'"></div>
-                                            <div class="timeline-detail" x-show="event.detail" x-text="event.detail">
+                                <template x-for="event in eventsFiltered().slice(0, 200)" :key="event.id">
+                                    <div class="ev-row" :class="{ 'has-detail': !!event.summary }" @click="openEventDetail(event)">
+                                        <div class="ev-time" x-text="formatEventTime(event.ts)"></div>
+                                        <div class="ev-main">
+                                            <div class="ev-title-line" x-text="event.title || 'UNKNOWN'"></div>
+                                            <div class="ev-summary" x-text="event.summary || ''"></div>
+                                            <div class="ev-chips" x-show="eventEvidenceChips(event).length > 0">
+                                                <template x-for="chip in eventEvidenceChips(event)" :key="chip">
+                                                    <span class="ev-chip" x-text="chip"></span>
+                                                </template>
                                             </div>
                                         </div>
-                                        <div class="timeline-tag" x-text="formatTimelineSource(event.source)"></div>
+                                        <div class="ev-tag" :class="eventTagClass(event)">
+                                            <span class="ev-tag-text" x-text="formatEventSource(event.source)"></span>
+                                            <span class="ev-tag-sev" x-text="event.severity"></span>
+                                        </div>
                                     </div>
                                 </template>
                             </div>
                         </template>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" x-show="eventDetailOpen" :style="eventDetailOpen ? 'display:flex' : 'display:none'"
+            @click.self="closeEventDetail()" @keydown.escape.window="closeEventDetail()">
+            <div class="modal-content" style="max-width: 720px; width: 90vw;">
+                <div class="modal__header">
+                    <div style="flex: 1;">
+                        <h2 style="margin: 0; font-size: 1.2em;" x-text="eventDetail?.title || 'Event'"></h2>
+                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 4px;"
+                            x-text="formatEventSource(eventDetail?.source || '')"></div>
+                    </div>
+                    <button @click="closeEventDetail()"
+                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
+                        aria-label="Close event detail">×</button>
+                </div>
+                <div class="modal__body" style="padding: var(--space-4) 0;">
+                    <template x-if="eventDetailLoading">
+                        <div class="ev-empty">Loading details...</div>
+                    </template>
+                    <template x-if="!eventDetailLoading && eventDetail">
+                        <div class="ev-detail-block">
+                            <div class="ev-detail-row">
+                                <span class="ev-detail-label">Summary</span>
+                                <span class="ev-detail-value" x-text="eventDetail.summary || '—'"></span>
+                            </div>
+                            <div class="ev-detail-row">
+                                <span class="ev-detail-label">Rule</span>
+                                <span class="ev-detail-value" x-text="eventDetail.rule_id || '—'"></span>
+                            </div>
+                            <div class="ev-detail-row">
+                                <span class="ev-detail-label">Window</span>
+                                <span class="ev-detail-value" x-text="eventDetail.window_sec ? eventDetail.window_sec + 's' : '—'"></span>
+                            </div>
+                            <div class="ev-detail-row">
+                                <span class="ev-detail-label">Count</span>
+                                <span class="ev-detail-value" x-text="eventDetail.count || 1"></span>
+                            </div>
+                        </div>
+                        <div class="ev-detail-evidence">
+                            <div class="ev-detail-label">Evidence</div>
+                            <div class="ev-detail-evidence-body">
+                                <template x-for="(value, key) in (eventDetail.evidence || {})" :key="key">
+                                    <div class="ev-evidence-row">
+                                        <span class="ev-evidence-key" x-text="key"></span>
+                                        <span class="ev-evidence-val" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>

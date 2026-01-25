@@ -1,4 +1,3 @@
-{% from "components/panel_card.html" import panel_card %}
 <div x-show="activeTab === 'overview'" :style="activeTab === 'overview' ? 'display:block' : 'display:none'"
     id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
 
@@ -152,57 +151,85 @@
 
 
 
-        <!-- What Changed (Primary Awareness) -->
+        <!-- Events (Primary Awareness) -->
         <section id="section-what-changed" class="scroll-section" style="margin-bottom: var(--space-6);">
-            {% call panel_card(title='What changed?', meta_items=[], tier='signal') %}
-            <div class="change-timeline">
-                <div class="timeline-filter-row">
-                    <span class="timeline-range" x-text="global_time_range"></span>
-                    <div class="timeline-filter-group">
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'all' }"
-                            @click="setTimelineFilter('all')">All</button>
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'netflow' }"
-                            @click="setTimelineFilter('netflow')">NetFlow</button>
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'syslog' }"
-                            @click="setTimelineFilter('syslog')">Syslog</button>
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'firewall' }"
-                            @click="setTimelineFilter('firewall')">Firewall</button>
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'snmp' }"
-                            @click="setTimelineFilter('snmp')">SNMP</button>
-                        <button class="timeline-filter-btn" :class="{ 'active': timeline.filter === 'system' }"
-                            @click="setTimelineFilter('system')">System</button>
+            <div class="status-card panel-card status-card--signal ev-card">
+                <div class="status-card__header ev-header">
+                    <div class="ev-header-left">
+                        <div class="status-card__title ev-title">EVENTS</div>
+                        <div class="ev-range" x-text="global_time_range"></div>
+                        <div class="ev-mode-tabs" role="tablist">
+                            <button class="ev-tab" :class="{ 'active': events.mode === 'notable' }"
+                                @click="setEventsMode('notable')">NOTABLE</button>
+                            <button class="ev-tab" :class="{ 'active': events.mode === 'activity' }"
+                                @click="setEventsMode('activity')">ACTIVITY</button>
+                        </div>
+                    </div>
+                    <div class="ev-header-controls">
+                        <div class="ev-tabs" role="tablist">
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'all' }"
+                                @click="setEventsFilter('all')">ALL <span class="ev-tab-count"
+                                    x-text="eventsCount('all')"></span></button>
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'netflow' }"
+                                @click="setEventsFilter('netflow')">NETFLOW <span class="ev-tab-count"
+                                    x-text="eventsCount('netflow')"></span></button>
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'syslog' }"
+                                @click="setEventsFilter('syslog')">SYSLOG <span class="ev-tab-count"
+                                    x-text="eventsCount('syslog')"></span></button>
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'firewall' }"
+                                @click="setEventsFilter('firewall')">FIREWALL <span class="ev-tab-count"
+                                    x-text="eventsCount('firewall')"></span></button>
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'snmp' }"
+                                @click="setEventsFilter('snmp')">SNMP <span class="ev-tab-count"
+                                    x-text="eventsCount('snmp')"></span></button>
+                            <button class="ev-tab" :class="{ 'active': events.filter === 'system' }"
+                                @click="setEventsFilter('system')">SYSTEM <span class="ev-tab-count"
+                                    x-text="eventsCount('system')"></span></button>
+                        </div>
+                        <button class="ev-view-all" @click="openEventsModal()">VIEW ALL</button>
                     </div>
                 </div>
-
-                <div class="timeline-list">
-                    <template x-if="timeline.loading">
-                        <div class="timeline-empty">Loading timeline...</div>
-                    </template>
-                    <template x-if="!timeline.loading && (!timeline.events || timeline.events.length === 0)">
-                        <div class="timeline-empty">No notable changes in this window.</div>
-                    </template>
-                    <template x-if="!timeline.loading && timeline.events && timeline.events.length > 0">
-                        <div>
-                            <template x-for="event in timeline.events.slice(0, timeline.displayLimit)"
-                                :key="event.ts + '-' + event.type">
-                                <div class="timeline-row">
-                                    <div class="timeline-time" x-text="formatTimelineTime(event.ts)"></div>
-                                    <div class="timeline-title">
-                                        <div class="timeline-title-line" x-text="event.title || 'UNKNOWN'"></div>
-                                        <div class="timeline-detail" x-show="event.detail" x-text="event.detail"></div>
-                                    </div>
-                                    <div class="timeline-tag" x-text="formatTimelineSource(event.source)"></div>
-                                </div>
-                            </template>
-
-                            <div class="timeline-footer" x-show="timeline.events.length > timeline.displayLimit">
-                                <button class="btn-secondary btn-sm" @click="openTimelineModal()">Show more</button>
+                <div class="panel-card__body ev-body">
+                    <div class="ev-list">
+                        <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
+                            <div class="ev-skeleton">
+                                <template x-for="idx in 6" :key="'ev-skel-' + idx">
+                                    <div class="ev-skeleton-row"></div>
+                                </template>
                             </div>
-                        </div>
-                    </template>
+                        </template>
+                        <template x-if="!events.notable.loading && events.mode === 'notable' && eventsFiltered().length === 0">
+                            <div class="ev-empty">No notable changes in this window.</div>
+                        </template>
+                        <template x-if="!events.activity.loading && events.mode === 'activity' && eventsFiltered().length === 0">
+                            <div class="ev-empty">No activity in this window.</div>
+                        </template>
+                        <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
+                            <div>
+                                <template x-for="event in eventsFiltered().slice(0, events.displayLimit)"
+                                    :key="event.id">
+                                    <div class="ev-row" :class="{ 'has-detail': !!event.summary }" @click="openEventDetail(event)">
+                                        <div class="ev-time" x-text="formatEventTime(event.ts)"></div>
+                                        <div class="ev-main">
+                                            <div class="ev-title-line" x-text="event.title || 'UNKNOWN'"></div>
+                                            <div class="ev-summary" x-text="event.summary || ''"></div>
+                                            <div class="ev-chips" x-show="eventEvidenceChips(event).length > 0">
+                                                <template x-for="chip in eventEvidenceChips(event)" :key="chip">
+                                                    <span class="ev-chip" x-text="chip"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div class="ev-tag" :class="eventTagClass(event)">
+                                            <span class="ev-tag-text" x-text="formatEventSource(event.source)"></span>
+                                            <span class="ev-tag-sev" x-text="event.severity"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </div>
-            {% endcall %}
         </section>
 
         <!-- Main Chart: Bandwidth -->

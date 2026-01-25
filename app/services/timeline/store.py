@@ -78,6 +78,15 @@ class TimelineStore:
 
             self._rate_limit_ts.append(now_ts)
             self._add_event_internal(event)
+            try:
+                from app.services.events.normalize import normalize_timeline_event
+                from app.services.events.store import insert_activity_event
+
+                normalized = normalize_timeline_event(event.to_dict())
+                if normalized:
+                    insert_activity_event(normalized)
+            except Exception:
+                pass
             return True
 
     def list_events(

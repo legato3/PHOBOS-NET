@@ -29,6 +29,7 @@ from app.core.background import (
     start_network_io_sampler_thread,
     start_dependency_health_thread,
     start_container_metrics_thread,
+    start_events_thread,
 )
 
 # Import syslog functions from app.services.shared.syslog
@@ -133,6 +134,9 @@ if __name__ == "__main__":
     if start_container_metrics_thread:
         start_container_metrics_thread()
         add_app_log("Container metrics thread started", "INFO")
+    if start_events_thread:
+        start_events_thread()
+        add_app_log("Events rule engine thread started", "INFO")
 
     # Start firewall syslog listener (isolated, port 515)
     if start_firewall_syslog_thread:
