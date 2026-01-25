@@ -31,85 +31,85 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
         tf_prev = f"{prev_start.strftime('%Y/%m/%d.%H:%M:%S')}-{current_start.strftime('%Y/%m/%d.%H:%M:%S')}"
 
     
-    # 1. Fetch Data (Sequential for simplicity, could be parallel)
-    # Top Talkers (Src)
-    src_curr = _get_nfdump_summary("srcip", tf_current, 10)
-    src_prev = _get_nfdump_summary("srcip", tf_prev, 10)
-    
-    # Top Dests
-    dst_curr = _get_nfdump_summary("dstip", tf_current, 10)
-    
-    # Top Ports
-    port_curr = _get_nfdump_summary("dstport", tf_current, 10)
-    port_prev = _get_nfdump_summary("dstport", tf_prev, 10)
-    
-    # Firewall Counts
-    fw_curr_count = _get_fw_count(current_start, now)
-    fw_prev_count = _get_fw_count(prev_start, current_start)
+        # 1. Fetch Data (Sequential for simplicity, could be parallel)
+        # Top Talkers (Src)
+        src_curr = _get_nfdump_summary("srcip", tf_current, 10)
+        src_prev = _get_nfdump_summary("srcip", tf_prev, 10)
+        
+        # Top Dests
+        dst_curr = _get_nfdump_summary("dstip", tf_current, 10)
+        
+        # Top Ports
+        port_curr = _get_nfdump_summary("dstport", tf_current, 10)
+        port_prev = _get_nfdump_summary("dstport", tf_prev, 10)
+        
+        # Firewall Counts
+        fw_curr_count = _get_fw_count(current_start, now)
+        fw_prev_count = _get_fw_count(prev_start, current_start)
 
-    # 2. Build "Top Right Now" Lists
-    # Enrich with DNS/Geo where applicable
-    top_talkers = _enrich_ips(src_curr[:5], is_src=True)
-    top_dests = _enrich_ips(dst_curr[:5], is_src=False)
-    top_ports = _format_ports(port_curr[:8])
-    
-    # 3. Calculate Deltas (Change Stream)
-    changes = []
-    
-    # Rule: TOP_TALKER_CHANGED (New entry in Top 3 that wasn't in Top 3 prev)
-    prev_top_3_keys = set(x['key'] for x in src_prev[:3])
-    for i, item in enumerate(src_curr[:3]):
-        if item['key'] not in prev_top_3_keys and item['bytes'] > 0:
-            changes.append({
-                "type": "TOP_TALKER_CHANGED",
-                "severity": "notice",
-                "message": f"New top talker: {item['key']} ({_fmt_bytes(item['bytes'])})",
-                "ts": now.timestamp(), 
-                "link": f"/#network;ip={item['key']}"
-            })
+        # 2. Build "Top Right Now" Lists
+        # Enrich with DNS/Geo where applicable
+        top_talkers = _enrich_ips(src_curr[:5], is_src=True)
+        top_dests = _enrich_ips(dst_curr[:5], is_src=False)
+        top_ports = _format_ports(port_curr[:8])
+        
+        # 3. Calculate Deltas (Change Stream)
+        changes = []
+        
+        # Rule: TOP_TALKER_CHANGED (New entry in Top 3 that wasn't in Top 3 prev)
+        prev_top_3_keys = set(x['key'] for x in src_prev[:3])
+        for i, item in enumerate(src_curr[:3]):
+            if item['key'] not in prev_top_3_keys and item['bytes'] > 0:
+                changes.append({
+                    "type": "TOP_TALKER_CHANGED",
+                    "severity": "notice",
+                    "message": f"New top talker: {item['key']} ({_fmt_bytes(item['bytes'])})",
+                    "ts": now.timestamp(), 
+                    "link": f"/#network;ip={item['key']}"
+                })
 
-    # Rule: PORT_SPIKE (Volume > 3x prev)
-    # Map prev ports for lookup
-    prev_ports_map = {x['key']: x['bytes'] for x in port_prev}
-    for item in port_curr[:5]:
-        p_bytes = prev_ports_map.get(item['key'], 0)
-        if p_bytes > 0 and item['bytes'] > 3 * p_bytes and item['bytes'] > 1000000: # Min 1MB noise floor
-            changes.append({
-                "type": "PORT_SPIKE",
-                "severity": "warn",
-                "message": f"Port {item['key']} traffic surged 3x ({_fmt_bytes(item['bytes'])})",
-                "ts": now.timestamp(),
-                "link": f"/#network;port={item['key']}"
-            })
-    
-    # Rule: BLOCK_SPIKE
-    if fw_prev_count > 10 and fw_curr_count > 3 * fw_prev_count:
-         changes.append({
-                "type": "BLOCK_SPIKE",
-                "severity": "warn",
-                "message": f"Firewall blocks surged 3x ({fw_curr_count} events)",
-                "ts": now.timestamp(),
-                "link": "/#security"
-         })
-
-    # Rule: NEW_EXTERNAL_DESTINATION (Simple proxy: check if dst is NOT in prev list at all? 
-    # Real "novelty" requires long-term memory which we don't have easily here.
-    # We will use a simpler heuristic: If Dst is in Top 5 but wasn't in Prev Top 10)
-    prev_all_dst_keys = set(x['key'] for x in _get_nfdump_summary("dstip", tf_prev, 20))
-    for item in dst_curr[:5]:
-        if item['key'] not in prev_all_dst_keys:
+        # Rule: PORT_SPIKE (Volume > 3x prev)
+        # Map prev ports for lookup
+        prev_ports_map = {x['key']: x['bytes'] for x in port_prev}
+        for item in port_curr[:5]:
+            p_bytes = prev_ports_map.get(item['key'], 0)
+            if p_bytes > 0 and item['bytes'] > 3 * p_bytes and item['bytes'] > 1000000: # Min 1MB noise floor
+                changes.append({
+                    "type": "PORT_SPIKE",
+                    "severity": "warn",
+                    "message": f"Port {item['key']} traffic surged 3x ({_fmt_bytes(item['bytes'])})",
+                    "ts": now.timestamp(),
+                    "link": f"/#network;port={item['key']}"
+                })
+        
+        # Rule: BLOCK_SPIKE
+        if fw_prev_count > 10 and fw_curr_count > 3 * fw_prev_count:
              changes.append({
-                "type": "NEW_DESTINATION",
-                "severity": "info",
-                "message": f"New active destination: {item['key']}",
-                "ts": now.timestamp(),
-                "link": f"/#network;ip={item['key']}"
-            })
+                    "type": "BLOCK_SPIKE",
+                    "severity": "warn",
+                    "message": f"Firewall blocks surged 3x ({fw_curr_count} events)",
+                    "ts": now.timestamp(),
+                    "link": "/#security"
+             })
 
-    # Sort changes by severity/time? Simple append is fine, maybe limit total
-    if not changes:
-        # No deltas placeholder handled by frontend, but we return empty list
-        pass
+        # Rule: NEW_EXTERNAL_DESTINATION (Simple proxy: check if dst is NOT in prev list at all? 
+        # Real "novelty" requires long-term memory which we don't have easily here.
+        # We will use a simpler heuristic: If Dst is in Top 5 but wasn't in Prev Top 10)
+        prev_all_dst_keys = set(x['key'] for x in _get_nfdump_summary("dstip", tf_prev, 20))
+        for item in dst_curr[:5]:
+            if item['key'] not in prev_all_dst_keys:
+                 changes.append({
+                    "type": "NEW_DESTINATION",
+                    "severity": "info",
+                    "message": f"New active destination: {item['key']}",
+                    "ts": now.timestamp(),
+                    "link": f"/#network;ip={item['key']}"
+                })
+
+        # Sort changes by severity/time? Simple append is fine, maybe limit total
+        if not changes:
+            # No deltas placeholder handled by frontend, but we return empty list
+            pass
 
     
         return {
