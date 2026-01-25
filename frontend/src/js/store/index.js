@@ -5043,6 +5043,22 @@ export const Store = () => ({
         }
     },
 
+    hourlyTrafficHint() {
+        const series = Array.isArray(this.hourlyTraffic?.bytes) ? this.hourlyTraffic.bytes : [];
+        const values = series.filter(v => Number.isFinite(v));
+        if (values.length < 2) return '';
+        const current = values[values.length - 1];
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        if (!Number.isFinite(median) || median <= 0) return '';
+        const delta = ((current - median) / median) * 100;
+        const abs = Math.abs(delta);
+        if (abs < 5) return 'Current hour within typical range.';
+        const direction = delta > 0 ? 'above' : 'below';
+        return `Current hour ${direction} typical by ${abs.toFixed(0)}%.`;
+    },
+
     async fetchFlowStats() {
         this.flowStats.loading = true;
         try {

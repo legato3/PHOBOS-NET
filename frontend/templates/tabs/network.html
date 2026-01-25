@@ -373,6 +373,10 @@
                     title="Click to expand">
                     <canvas id="hourlyChart"></canvas>
                 </div>
+                <div x-show="hourlyTrafficHint()"
+                    style="margin-top:10px; font-size:0.78em; color:var(--text-tertiary); text-align:center;">
+                    <span x-text="hourlyTrafficHint()"></span>
+                </div>
                 {% endcall %}
             </template>
 
