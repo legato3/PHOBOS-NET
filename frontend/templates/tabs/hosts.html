@@ -1,3 +1,4 @@
+{% from "components/panel_card.html" import panel_card %}
 <div x-show="activeTab === 'hosts'" :style="activeTab === 'hosts' ? 'display:block' : 'display:none'" id="hosts-tab"
     class="fade-in" role="tabpanel" aria-labelledby="hosts-tab-btn" tabindex="0">
 
@@ -33,73 +34,71 @@
 
     <!-- What Changed -->
     <section id="section-hosts-changes" class="mb-6">
+        {% call panel_card(title='WHAT CHANGED (LAST HOUR VS 24H BASELINE)', tier='signal') %}
+        <div class="text-xs text-muted" style="margin-bottom: 20px; opacity: 0.8;">
+            Ratio is last hour vs average hour across the last 24h.
+        </div>
         <div class="grid grid-auto-fit gap-4">
-            <div class="card">
-                <h2 style="margin-bottom: 8px;">What Changed (Last Hour vs 24h Baseline)</h2>
-                <div class="text-xs text-muted" style="margin-bottom: 12px;">
-                    Ratio is last hour vs average hour across the last 24h.
-                </div>
-                <div class="grid grid-auto-fit gap-4">
-                    <div class="card">
-                        <h3 style="margin-bottom: 8px;">Ports & Services</h3>
-                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
-                        <template x-if="!hosts.changes.loading && hosts.changes.ports && hosts.changes.ports.length > 0">
-                            <div class="flex flex-col gap-2">
-                                <template x-for="item in hosts.changes.ports" :key="item.label">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm" x-text="item.label"></span>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
-                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
-                                        </div>
-                                    </div>
-                                </template>
+            <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-soft);">
+                <div class="column-header">Ports & Services</div>
+                <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                <template x-if="!hosts.changes.loading && hosts.changes.ports && hosts.changes.ports.length > 0">
+                    <div class="flex flex-col gap-2">
+                        <template x-for="item in hosts.changes.ports" :key="item.label">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-sm" x-text="item.label"></span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                    <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                </div>
                             </div>
                         </template>
-                        <div x-show="!hosts.changes.loading && (!hosts.changes.ports || hosts.changes.ports.length === 0)"
-                            class="text-xs text-muted">No data</div>
                     </div>
-                    <div class="card">
-                        <h3 style="margin-bottom: 8px;">Countries</h3>
-                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
-                        <template x-if="!hosts.changes.loading && hosts.changes.countries && hosts.changes.countries.length > 0">
-                            <div class="flex flex-col gap-2">
-                                <template x-for="item in hosts.changes.countries" :key="item.label">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm" x-text="item.label"></span>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
-                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
-                                        </div>
-                                    </div>
-                                </template>
+                </template>
+                <div x-show="!hosts.changes.loading && (!hosts.changes.ports || hosts.changes.ports.length === 0)"
+                    class="text-xs text-muted">No data</div>
+            </div>
+            <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-soft);">
+                <div class="column-header">Countries</div>
+                <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                <template
+                    x-if="!hosts.changes.loading && hosts.changes.countries && hosts.changes.countries.length > 0">
+                    <div class="flex flex-col gap-2">
+                        <template x-for="item in hosts.changes.countries" :key="item.label">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-sm" x-text="item.label"></span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                    <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                </div>
                             </div>
                         </template>
-                        <div x-show="!hosts.changes.loading && (!hosts.changes.countries || hosts.changes.countries.length === 0)"
-                            class="text-xs text-muted">No data</div>
                     </div>
-                    <div class="card">
-                        <h3 style="margin-bottom: 8px;">ASNs</h3>
-                        <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
-                        <template x-if="!hosts.changes.loading && hosts.changes.asns && hosts.changes.asns.length > 0">
-                            <div class="flex flex-col gap-2">
-                                <template x-for="item in hosts.changes.asns" :key="item.label">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm" x-text="item.label"></span>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
-                                            <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
-                                        </div>
-                                    </div>
-                                </template>
+                </template>
+                <div x-show="!hosts.changes.loading && (!hosts.changes.countries || hosts.changes.countries.length === 0)"
+                    class="text-xs text-muted">No data</div>
+            </div>
+            <div class="card" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-soft);">
+                <div class="column-header">ASNs</div>
+                <div x-show="hosts.changes.loading" class="spinner" style="margin: 16px auto;"></div>
+                <template x-if="!hosts.changes.loading && hosts.changes.asns && hosts.changes.asns.length > 0">
+                    <div class="flex flex-col gap-2">
+                        <template x-for="item in hosts.changes.asns" :key="item.label">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-sm" x-text="item.label"></span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-muted" x-text="item.bytes_fmt"></span>
+                                    <span class="badge badge-outline" x-text="formatHostDeltaRatio(item)"></span>
+                                </div>
                             </div>
                         </template>
-                        <div x-show="!hosts.changes.loading && (!hosts.changes.asns || hosts.changes.asns.length === 0)"
-                            class="text-xs text-muted">No data</div>
                     </div>
-                </div>
+                </template>
+                <div x-show="!hosts.changes.loading && (!hosts.changes.asns || hosts.changes.asns.length === 0)"
+                    class="text-xs text-muted">No data</div>
             </div>
         </div>
+        {% endcall %}
     </section>
 
     <!-- Hosts Table -->
@@ -122,8 +121,8 @@
                     <label class="label" for="discovery-target-subnet">
                         <span class="label-text">Target Subnet</span>
                     </label>
-                    <select id="discovery-target-subnet" class="cyber-input w-full"
-                        x-model="hosts.discovery.target" aria-label="Target Subnet">
+                    <select id="discovery-target-subnet" class="cyber-input w-full" x-model="hosts.discovery.target"
+                        aria-label="Target Subnet">
                         <option value="" disabled selected>Select subnet</option>
                         <template x-for="net in hosts.discovery.subnets" :key="net.cidr">
                             <option :value="net.cidr" x-text="net.interface + ' - ' + net.cidr">
@@ -169,8 +168,8 @@
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4"
                 x-show="hosts.list && hosts.list.length > 0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <input class="cyber-input" style="min-width: 200px;"
-                        placeholder="Search IP, tag, owner..." x-model="hosts.filters.search" />
+                    <input class="cyber-input" style="min-width: 200px;" placeholder="Search IP, tag, owner..."
+                        x-model="hosts.filters.search" />
                     <select class="cyber-input" x-model="hosts.filters.owner">
                         <option value="">Owner</option>
                         <template x-for="owner in hostOwnerOptions" :key="owner">
@@ -255,7 +254,8 @@
                                             <span class="badge badge-outline" x-text="tag"></span>
                                         </template>
                                         <template x-if="host.tags.length > 3">
-                                            <span class="text-xs text-muted" x-text="'+' + (host.tags.length - 3)"></span>
+                                            <span class="text-xs text-muted"
+                                                x-text="'+' + (host.tags.length - 3)"></span>
                                         </template>
                                     </div>
                                 </td>
