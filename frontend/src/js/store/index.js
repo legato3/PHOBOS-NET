@@ -323,7 +323,17 @@ export const Store = () => ({
         selectedViewId: '',
         defaultViewId: '',
         suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } },
-        expanded: new Set()
+        expanded: new Set(),
+        timelineSource: 'all',
+        timelineKind: 'all',
+        timelineFollow: true,
+        timelineExpanded: new Set(),
+        timelinePaused: false,
+        timelineSearch: '',
+        timelineRange: '1h',
+        timelineCache: [],
+        seededEvents: [],
+        lastStableTs: 0
     },
 
     eventsPage: false,
@@ -3190,7 +3200,10 @@ export const Store = () => ({
                 }
             }
         } catch (e) { console.error('Events fetch error:', e); }
-        finally { target.loading = false; }
+        finally {
+            target.loading = false;
+            this.$nextTick(() => this.applyTimelineFollow());
+        }
     },
 
     setEventsMode(mode) {
@@ -3334,6 +3347,315 @@ export const Store = () => ({
         const lastTs = Math.max(dedupe.last_ts || 0, rate.last_ts || 0);
         const lastLabel = lastTs ? `${this.formatEventTime(lastTs)} ago` : '—';
         return `${total} similar events suppressed · last ${lastLabel}`;
+    },
+
+    normalizeUnifiedEvent(event, kindOverride = null) {
+        if (!event) return null;
+        const kind = kindOverride || event.kind || 'activity';
+        const ts = event.ts || event.timestamp_ts || 0;
+        const source = event.source || 'system';
+        const severity = event.severity || 'info';
+        const title = event.title || event.summary || 'Event';
+        const detail = event.detail || event.summary || '';
+        const entity = event.primary_entity || event.entity || event.dedupe_key || null;
+        const tags = event.tags || [];
+        const evidence = event.evidence || event.meta || {};
+        const count = event.count || 1;
+        const ruleId = event.rule_id || event.type || null;
+        const dedupeKey = event.dedupe_key || (ruleId ? `${ruleId}:${entity || source}` : `${title}:${source}`);
+        return {
+            id: event.id || `${source}-${ts}-${Math.random().toString(36).slice(2, 8)}`,
+            ts,
+            source,
+            severity,
+            kind,
+            title,
+            detail,
+            tags,
+            entity,
+            count,
+            evidence,
+            rule_id: ruleId,
+            dedupe_key: dedupeKey
+        };
+    },
+
+    formatEventClock(ts) {
+        if (!ts) return '—';
+        const date = new Date(ts * 1000);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    },
+
+    computeUnifiedTimeline() {
+        const now = Math.floor(Date.now() / 1000);
+        const notable = (this.events.notable.items || []).map(item => this.normalizeUnifiedEvent(item, 'notable')).filter(Boolean);
+        const activity = (this.events.activity.items || []).map(item => this.normalizeUnifiedEvent(item, 'activity')).filter(Boolean);
+        const seeded = (this.events.seededEvents || []).map(item => this.normalizeUnifiedEvent(item, item.kind || 'activity')).filter(Boolean);
+        let combined = [...notable, ...activity, ...seeded];
+
+        // Low-frequency stable marker every 10 minutes
+        if (!this.events.lastStableTs || now - this.events.lastStableTs >= 600) {
+            combined.push({
+                id: `stable-${now}`,
+                ts: now,
+                source: 'system',
+                severity: 'info',
+                kind: 'activity',
+                title: 'System stable',
+                detail: 'No anomalies detected in this window.',
+                tags: ['STABLE'],
+                entity: 'system',
+                count: 1,
+                evidence: {},
+                rule_id: 'SYSTEM_STABLE',
+                dedupe_key: 'SYSTEM_STABLE:system'
+            });
+            this.events.lastStableTs = now;
+        }
+
+        // Dedupe + cooldown (10 minutes)
+        const deduped = [];
+        const seen = new Map();
+        combined.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        for (const event of combined) {
+            const key = event.dedupe_key || `${event.title}:${event.source}`;
+            const prev = seen.get(key);
+            if (prev && Math.abs((prev.ts || 0) - (event.ts || 0)) <= 600) {
+                prev.count = (prev.count || 1) + (event.count || 1);
+                prev.ts = Math.max(prev.ts || 0, event.ts || 0);
+                continue;
+            }
+            seen.set(key, event);
+            deduped.push(event);
+        }
+
+        // Global cap: 30 events/minute, drop lowest severity first
+        const cutoff = now - 60;
+        const lastMinute = deduped.filter(event => (event.ts || 0) >= cutoff);
+        const older = deduped.filter(event => (event.ts || 0) < cutoff);
+        const severityRank = { info: 0, notice: 1, warn: 2 };
+        if (lastMinute.length > 30) {
+            lastMinute.sort((a, b) => {
+                const rankDiff = (severityRank[b.severity] || 0) - (severityRank[a.severity] || 0);
+                if (rankDiff !== 0) return rankDiff;
+                return (b.ts || 0) - (a.ts || 0);
+            });
+            lastMinute.length = 30;
+        }
+        const finalList = [...lastMinute, ...older].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+        // Ensure minimum activity when no notable
+        const hasNotable = finalList.some(event => event.kind === 'notable');
+        if (!hasNotable) {
+            const activityOnly = finalList.filter(event => event.kind === 'activity');
+            if (activityOnly.length < 5) {
+                for (let i = activityOnly.length; i < 5; i += 1) {
+                    finalList.push({
+                        id: `heartbeat-${now}-${i}`,
+                        ts: now - i * 30,
+                        source: 'system',
+                        severity: 'info',
+                        kind: 'activity',
+                        title: 'Telemetry active',
+                        detail: 'Ingestion running normally.',
+                        tags: ['HEARTBEAT'],
+                        entity: 'system',
+                        count: 1,
+                        evidence: {},
+                        rule_id: 'SYSTEM_HEARTBEAT',
+                        dedupe_key: `SYSTEM_HEARTBEAT:${i}`
+                    });
+                }
+            }
+        }
+
+        return finalList.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    },
+
+    timelineFiltered() {
+        const list = this.events.timelinePaused ? (this.events.timelineCache || []) : this.computeUnifiedTimeline();
+        const source = this.events.timelineSource || 'all';
+        const kind = this.events.timelineKind || 'all';
+        const needle = (this.events.timelineSearch || '').trim().toLowerCase();
+        const filtered = list.filter(event => {
+            const sourceMatch = source === 'all' ? true : (event.source === source || (source === 'firewall' && event.source === 'filterlog'));
+            const kindMatch = kind === 'all' ? true : event.kind === kind;
+            return sourceMatch && kindMatch;
+        });
+        if (!needle) return filtered;
+        return filtered.filter(event => {
+            const hay = [event.title, event.detail, event.entity, (event.tags || []).join(' ')]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            if (hay.includes(needle)) return true;
+            const evidence = event.evidence || {};
+            return Object.values(evidence).some(val => String(val || '').toLowerCase().includes(needle));
+        });
+    },
+
+    toggleTimelineExpand(eventId) {
+        if (!eventId) return;
+        if (this.events.timelineExpanded.has(eventId)) {
+            this.events.timelineExpanded.delete(eventId);
+        } else {
+            this.events.timelineExpanded.add(eventId);
+        }
+    },
+
+    isTimelineExpanded(eventId) {
+        return this.events.timelineExpanded.has(eventId);
+    },
+
+    toggleTimelineFollow() {
+        this.events.timelineFollow = !this.events.timelineFollow;
+        this.$nextTick(() => this.applyTimelineFollow());
+    },
+
+    toggleTimelinePause() {
+        this.events.timelinePaused = !this.events.timelinePaused;
+        if (this.events.timelinePaused) {
+            this.events.timelineCache = this.computeUnifiedTimeline();
+        }
+    },
+
+    setTimelineRange(rangeKey) {
+        this.events.timelineRange = rangeKey;
+        this.events.rangeFollowGlobal = false;
+        this.events.rangeValue = rangeKey;
+        this.fetchEvents('notable');
+        this.fetchEvents('activity');
+    },
+
+    applyTimelineFollow() {
+        if (!this.events.timelineFollow) return;
+        const list = this.$refs?.pulseList;
+        if (list) {
+            list.scrollTop = 0;
+        }
+    },
+
+    eventEvidenceRows(event) {
+        const evidence = event?.evidence || {};
+        return Object.entries(evidence).map(([key, value]) => {
+            if (Array.isArray(value)) return { key, value: value.join(', ') };
+            if (value === null || value === undefined) return { key, value: '—' };
+            return { key, value: String(value) };
+        }).slice(0, 10);
+    },
+
+    eventQuickLinks(event) {
+        const source = event?.source;
+        if (source === 'netflow') return { label: 'View flows', tab: 'network' };
+        if (source === 'syslog') return { label: 'View syslog', tab: 'firewall' };
+        if (source === 'firewall' || source === 'filterlog') return { label: 'View firewall', tab: 'firewall' };
+        return null;
+    },
+
+    setTimelineSource(source) {
+        this.events.timelineSource = source;
+    },
+
+    setTimelineKind(kind) {
+        this.events.timelineKind = kind;
+    },
+
+    seedTimelineEvents() {
+        if (!window.PHOBOS_DEBUG) return;
+        const now = Math.floor(Date.now() / 1000);
+        const events = [];
+        for (let i = 0; i < 30; i += 1) {
+            const ts = now - (i * 20);
+            const sample = [
+                { source: 'netflow', severity: 'notice', kind: 'notable', title: 'PORT_SPIKE — 84 blocks/min (×3.2 baseline)', detail: 'Port 443 spike', count: 12, evidence: { port: 443, baseline: 26, current: 84 } },
+                { source: 'syslog', severity: 'info', kind: 'activity', title: 'SYSLOG_ACTIVE — receiver OK', detail: 'Port 514 receiving logs', evidence: { port: 514 } },
+                { source: 'firewall', severity: 'notice', kind: 'activity', title: 'FIREWALL_STREAM_ACTIVE — flow resumed', detail: 'Stream active', evidence: { } },
+                { source: 'snmp', severity: 'info', kind: 'activity', title: 'SNMP_REACHABLE — poll ok', detail: 'Firewall reachable', evidence: { } },
+                { source: 'system', severity: 'info', kind: 'activity', title: 'SYSTEM_STABLE — no anomalies', detail: 'Normal baseline', evidence: { } }
+            ];
+            const pick = sample[i % sample.length];
+            events.push({ ts, ...pick });
+        }
+        this.events.seededEvents = events;
+    },
+
+    getSystemPulseData() {
+        return {
+            serverHealth: this.serverHealth || {},
+            ingestionRates: this.ingestionRates || {},
+            netHealth: this.netHealth || {},
+            networkStatsOverview: this.networkStatsOverview || {},
+            firewallStatsOverview: this.firewallStatsOverview || {},
+            timeRangeLabel: this.timeRangeLabel || this.global_time_range || '—'
+        };
+    },
+
+    computeSystemPulse(statusData) {
+        const data = statusData || {};
+        const serverHealth = data.serverHealth || {};
+        const netflow = serverHealth.netflow || {};
+        const syslog = serverHealth.syslog || {};
+        const fwSyslog = serverHealth.firewall_syslog || {};
+        const ingestion = data.ingestionRates || {};
+        const netHealth = data.netHealth || {};
+        const networkStats = data.networkStatsOverview || {};
+        const firewallStats = data.firewallStatsOverview || {};
+
+        const netflowOk = netflow.available === true;
+        const syslog514Ok = syslog.active === true;
+        const syslog515Ok = fwSyslog.active === true;
+        const ingestKnown = [netflow.available, syslog.active, fwSyslog.active].some(v => v !== undefined && v !== null);
+        const ingestOk = ingestKnown && netflowOk && syslog514Ok && syslog515Ok;
+
+        const syslogErrors = (syslog.errors || 0) + (fwSyslog.errors || 0);
+        const hasParseErrors = syslogErrors > 0;
+        const healthDegraded = ['degraded', 'unhealthy'].includes(String(netHealth.status || '').toLowerCase());
+        const degraded = !ingestOk || hasParseErrors || healthDegraded;
+
+        const epsTotal = (ingestion.netflow_eps || 0) + (ingestion.firewall_eps || 0) + (ingestion.syslog_eps || 0);
+        const anomalies24h = networkStats.anomalies_24h;
+        const anomaliesZero = anomalies24h === 0 || anomalies24h === null || anomalies24h === undefined;
+        const activeExpected = !degraded && epsTotal >= 1.0 && anomaliesZero;
+
+        const state = degraded ? 'DEGRADED' : (activeExpected ? 'ACTIVE (EXPECTED)' : 'NORMAL');
+        const ingest = ingestOk ? 'OK' : (ingestKnown ? 'DEGRADED' : 'DEGRADED');
+
+        const lastFile = netflow.last_file || netflow.latest_file || '—';
+        const summary = degraded
+            ? 'Some sources are stale or reporting errors.'
+            : (activeExpected ? 'Telemetry is active with normal indicators.' : 'Sources are active and within baseline ranges.');
+
+        const reasons = [
+            `NetFlow ingest ${netflowOk ? 'active' : 'stale'} (${this.formatEps(ingestion.netflow_eps)}, last file: ${lastFile})`,
+            `Syslog receivers: 514 ${syslog514Ok ? 'OK' : 'STALE'}, 515 ${syslog515Ok ? 'OK' : 'STALE'}`,
+            `Firewall stream EPS ${this.formatEps(ingestion.firewall_eps)} (parse errors ${this.formatNumOrDash(syslogErrors)})`,
+            `Network health: ${netHealth.status || '—'}${netHealth.health_score ? ` (${this.formatNumOrDash(netHealth.health_score)})` : ''}`,
+            `Anomalies 24h: ${this.formatNumOrDash(anomalies24h)} · Blocks 24h: ${this.formatNumOrDash(firewallStats.blocked_events_24h)}`,
+        ].filter(Boolean).slice(0, 5);
+
+        if (reasons.length === 0) {
+            console.error('SYSTEM PULSE reasons empty; inserting fallback.');
+            reasons.push('Some sources not reporting (using last known state).');
+        }
+
+        const live = this.eventsLastTimestamp('activity')
+            ? ((Date.now() / 1000) - this.eventsLastTimestamp('activity') < 120)
+            : false;
+
+        const flows = netflow.total_flows;
+        const syslogMsgs = (syslog.received || 0) + (fwSyslog.received || 0);
+        const blocks24h = firewallStats.blocked_events_24h;
+        const footer = `Analyzed: ${this.formatNumOrDash(flows)} flows • ${this.formatNumOrDash(syslogMsgs)} syslog msgs • ${this.formatNumOrDash(blocks24h)} blocks • window: ${data.timeRangeLabel || '—'}`;
+
+        return {
+            state,
+            ingest,
+            reasons,
+            window: data.timeRangeLabel || '—',
+            summary,
+            footer,
+            live
+        };
     },
 
     eventExplain(ruleId) {

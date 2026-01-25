@@ -151,63 +151,105 @@
 
 
 
-        <!-- Events Summary (Primary Awareness) -->
+        <!-- System Pulse Timeline (Primary Awareness) -->
         <section id="section-what-changed" class="scroll-section" style="margin-bottom: var(--space-6);">
-            <div class="status-card panel-card status-card--signal ev-summary-card" @click="window.location.href='/events'">
-                <div class="status-card__header ev-summary-header">
-                    <div class="ev-summary-title">
-                        <div class="status-card__title ev-title">EVENTS</div>
-                        <div class="ev-summary-range" x-text="'Last ' + (events.rangeFollowGlobal ? timeRange : events.rangeValue)"></div>
+            <div class="status-card panel-card status-card--signal pulse-card">
+                <div class="status-card__header pulse-header">
+                    <div class="pulse-title">
+                        <div class="status-card__title">SYSTEM PULSE</div>
+                        <span class="pulse-live" x-show="eventsLastLabel('activity') !== '—'">●</span>
                     </div>
-                    <div class="ev-summary-health">
-                        <span x-text="'Last notable: ' + eventsLastLabel('notable')"></span>
-                        <span>•</span>
-                        <span x-text="'Ingest: ' + (eventsIngestStatus() === 'OK' ? 'OK' : 'Degraded')"></span>
+                    <div class="pulse-chips">
+                        <select class="pulse-chip" x-model="events.timelineRange" @change="setTimelineRange(events.timelineRange)">
+                            <option value="1h">1h</option>
+                            <option value="6h">6h</option>
+                            <option value="24h">24h</option>
+                        </select>
+                        <button class="pulse-chip" @click="toggleTimelineFollow()"
+                            x-text="events.timelineFollow ? 'FOLLOW ON' : 'FOLLOW OFF'"></button>
+                        <button class="pulse-chip" @click="toggleTimelinePause()"
+                            x-text="events.timelinePaused ? 'PAUSED' : 'PAUSE'"></button>
                     </div>
                 </div>
-                <div class="panel-card__body ev-summary-body">
-                    <div class="ev-summary-metrics">
-                        <div class="ev-summary-metric">
-                            <div class="ev-summary-value" x-text="events.notable.items?.length || 0"></div>
-                            <div class="ev-summary-label">Notable</div>
+                <div class="panel-card__body pulse-body">
+                    <div class="pulse-controls">
+                        <div class="pulse-filter">
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'all' }"
+                                @click="setTimelineSource('all')">ALL</button>
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'netflow' }"
+                                @click="setTimelineSource('netflow')">NETFLOW</button>
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'syslog' }"
+                                @click="setTimelineSource('syslog')">SYSLOG</button>
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'firewall' }"
+                                @click="setTimelineSource('firewall')">FIREWALL</button>
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'snmp' }"
+                                @click="setTimelineSource('snmp')">SNMP</button>
+                            <button class="pulse-filter-btn" :class="{ 'active': events.timelineSource === 'system' }"
+                                @click="setTimelineSource('system')">SYSTEM</button>
                         </div>
-                        <div class="ev-summary-metric">
-                            <div class="ev-summary-value" x-text="events.activity.items?.length || 0"></div>
-                            <div class="ev-summary-label">Activity</div>
+                        <div class="pulse-toggle">
+                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'all' }"
+                                @click="setTimelineKind('all')">ALL</button>
+                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'notable' }"
+                                @click="setTimelineKind('notable')">NOTABLE</button>
+                            <button class="pulse-toggle-btn" :class="{ 'active': events.timelineKind === 'activity' }"
+                                @click="setTimelineKind('activity')">ACTIVITY</button>
                         </div>
-                        <div class="ev-summary-metric">
-                            <div class="ev-summary-value" x-text="eventsLastLabel('notable')"></div>
-                            <div class="ev-summary-label">Last notable</div>
-                        </div>
-                        <div class="ev-summary-metric">
-                            <div class="ev-summary-value" x-text="eventsIngestStatus() === 'OK' ? 'OK' : 'Degraded'"></div>
-                            <div class="ev-summary-label">Ingest</div>
-                        </div>
+                        <input class="pulse-search" type="text" placeholder="filter..."
+                            x-model="events.timelineSearch">
+                        <button class="pulse-follow" x-show="isDebugMode()" @click="seedTimelineEvents()">Seed</button>
                     </div>
-                    <div class="ev-summary-state">
-                        <div class="ev-summary-state-item">
-                            <span class="ev-summary-state-label">NetFlow</span>
-                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
-                                x-text="eventsSourceState('netflow')"></span>
-                        </div>
-                        <div class="ev-summary-state-item">
-                            <span class="ev-summary-state-label">Firewall</span>
-                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
-                                x-text="eventsSourceState('firewall')"></span>
-                        </div>
-                        <div class="ev-summary-state-item">
-                            <span class="ev-summary-state-label">Syslog</span>
-                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
-                                x-text="eventsSourceState('syslog')"></span>
-                        </div>
-                        <div class="ev-summary-state-item">
-                            <span class="ev-summary-state-label">System</span>
-                            <span class="ev-summary-state-value" :class="'ev-state--' + eventsSourceState('system')"
-                                x-text="eventsSourceState('system')"></span>
-                        </div>
-                    </div>
-                    <div class="ev-summary-stable" x-show="(events.notable.items || []).length === 0">
-                        System stable — no anomalies detected in this window.
+                    <div class="pulse-list" x-ref="pulseList">
+                        <template x-if="(events.notable.loading || events.activity.loading)">
+                            <div class="pulse-loading">Loading timeline...</div>
+                        </template>
+                        <template x-if="!events.notable.loading && !events.activity.loading">
+                            <div>
+                                <template x-for="event in timelineFiltered().slice(0, 60)" :key="event.id">
+                                    <div class="pulse-row">
+                                        <div class="pulse-time" x-text="formatEventClock(event.ts)"></div>
+                                        <div class="pulse-source" x-text="formatEventSource(event.source)"></div>
+                                        <span class="pulse-dot" :class="'pulse-dot--' + event.severity"></span>
+                                        <div class="pulse-main">
+                                            <div class="pulse-title-line" x-text="event.title + (event.detail ? ' — ' + event.detail : '')"></div>
+                                        </div>
+                                        <div class="pulse-meta">
+                                            <span class="pulse-badge" x-show="event.count && event.count > 1" x-text="'×' + event.count"></span>
+                                            <span class="pulse-badge" x-show="event.entity" x-text="event.entity"></span>
+                                            <span class="pulse-badge" x-show="event.tags && event.tags.length" x-text="event.tags[0]"></span>
+                                            <span class="pulse-badge" x-show="event.tags && event.tags.length > 1" x-text="'+' + (event.tags.length - 1)"></span>
+                                        </div>
+                                        <button class="pulse-expand" @click.prevent="toggleTimelineExpand(event.id)">
+                                            <span x-text="isTimelineExpanded(event.id) ? '−' : '+'"></span>
+                                        </button>
+                                    </div>
+                                    <div class="pulse-expand-panel" x-show="isTimelineExpanded(event.id)">
+                                        <div class="pulse-expand-summary" x-text="event.detail || event.title"></div>
+                                        <div class="pulse-expand-grid">
+                                            <template x-for="row in eventEvidenceRows(event)" :key="row.key">
+                                                <div class="pulse-expand-row">
+                                                    <span class="pulse-expand-key" x-text="row.key"></span>
+                                                    <span class="pulse-expand-value" x-text="row.value"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="pulse-expand-tags" x-show="event.tags && event.tags.length">
+                                            <template x-for="tag in event.tags" :key="tag">
+                                                <span class="pulse-tag" x-text="tag"></span>
+                                            </template>
+                                        </div>
+                                        <div class="pulse-expand-meta">
+                                            <span x-text="event.dedupe_key ? 'dedupe: ' + event.dedupe_key : ''"></span>
+                                            <span x-text="event.evidence?.window_sec ? 'window: ' + event.evidence.window_sec + 's' : ''"></span>
+                                        </div>
+                                        <div class="pulse-expand-actions" x-show="eventQuickLinks(event)">
+                                            <button class="pulse-action" @click="loadTab(eventQuickLinks(event).tab)"
+                                                x-text="eventQuickLinks(event).label"></button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
