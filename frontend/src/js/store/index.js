@@ -315,7 +315,14 @@ export const Store = () => ({
         activity: { items: [], loading: true, lastUpdated: null },
         mode: 'notable',
         filter: 'all',
-        displayLimit: 16
+        displayLimit: 16,
+        entityFilter: '',
+        rangeFollowGlobal: true,
+        rangeValue: '1h',
+        savedViews: [],
+        selectedViewId: '',
+        defaultViewId: '',
+        suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } }
     },
 
     threatsByCountry: { countries: [], total_blocked: 0, has_fw_data: false, loading: true },
@@ -353,6 +360,7 @@ export const Store = () => ({
     eventDetailOpen: false,
     eventDetail: null,
     eventDetailLoading: false,
+    eventContext: null,
     mobileControlsModalOpen: false, // Modal for mobile controls (search, time range, refresh, etc.)
     mobileMoreModalOpen: false, // Modal for expanded mobile navigation
     firewallSNMP: { cpu_percent: null, memory_percent: null, active_sessions: null, total_throughput_mbps: null, uptime_formatted: null, interfaces: [], last_poll: null, poll_success: false, traffic_correlation: null, swap_percent: null, process_count: null, tcp_retrans_s: null, tcp_resets_s: null, ip_forwarding_s: null, udp_in_s: null, udp_out_s: null, gateway: null, loading: true, error: null },
@@ -1038,6 +1046,7 @@ export const Store = () => ({
             this.loadCompactMode();
             this.loadSidebarState();
             this.loadHostViews();
+            this.loadEventViews();
             this.startIntersectionObserver();
             // Defer data loading slightly to allow initial paint
             setTimeout(() => {
@@ -3138,10 +3147,11 @@ export const Store = () => ({
                 '24h': 86400,
                 '7d': 604800
             };
-            const seconds = rangeSeconds[this.timeRange] || 3600;
-            const rangeKey = seconds >= 86400 ? '24h' : '1h';
+            const rangeKey = this.events.rangeFollowGlobal ? this.timeRange : this.events.rangeValue;
+            const seconds = rangeSeconds[rangeKey] || 3600;
+            const rangeParam = seconds >= 86400 ? '24h' : '1h';
             const params = new URLSearchParams({
-                range: rangeKey,
+                range: rangeParam,
                 limit: '200'
             });
             const res = await fetch(`/api/events/${kind}?${params.toString()}`);
@@ -3149,6 +3159,9 @@ export const Store = () => ({
                 const d = await res.json();
                 target.items = d.events || [];
                 target.lastUpdated = Date.now();
+                if (kind === 'activity' && d.suppressed) {
+                    this.events.suppressed = d.suppressed;
+                }
             }
         } catch (e) { console.error('Events fetch error:', e); }
         finally { target.loading = false; }
@@ -3166,6 +3179,22 @@ export const Store = () => ({
     setEventsFilter(filter) {
         if (this.events.filter === filter) return;
         this.events.filter = filter;
+    },
+
+    setEventsEntityFilter(value) {
+        this.events.entityFilter = value || '';
+    },
+
+    setEventsRangeFollowGlobal(state) {
+        this.events.rangeFollowGlobal = state;
+        this.fetchEvents(this.events.mode);
+    },
+
+    setEventsRangeValue(value) {
+        this.events.rangeValue = value;
+        if (!this.events.rangeFollowGlobal) {
+            this.fetchEvents(this.events.mode);
+        }
     },
 
     formatEventTime(ts) {
@@ -3199,11 +3228,24 @@ export const Store = () => ({
     eventsFiltered() {
         const mode = this.events.mode;
         const items = mode === 'activity' ? (this.events.activity.items || []) : (this.events.notable.items || []);
-        if (!this.events.filter || this.events.filter === 'all') return items;
-        if (this.events.filter === 'firewall') {
-            return items.filter(event => event.source === 'firewall' || event.source === 'filterlog');
-        }
-        return items.filter(event => event.source === this.events.filter);
+        const sourceFiltered = (() => {
+            if (!this.events.filter || this.events.filter === 'all') return items;
+            if (this.events.filter === 'firewall') {
+                return items.filter(event => event.source === 'firewall' || event.source === 'filterlog');
+            }
+            return items.filter(event => event.source === this.events.filter);
+        })();
+        const needle = (this.events.entityFilter || '').trim().toLowerCase();
+        if (!needle) return sourceFiltered;
+        return sourceFiltered.filter(event => {
+            const text = [event.title, event.summary, event.primary_entity].join(' ').toLowerCase();
+            if (text.includes(needle)) return true;
+            const evidence = event.evidence || {};
+            return Object.values(evidence).some(val => {
+                if (val === null || val === undefined) return false;
+                return String(val).toLowerCase().includes(needle);
+            });
+        });
     },
 
     eventsCount(filter) {
@@ -3213,6 +3255,127 @@ export const Store = () => ({
             return items.filter(event => event.source === 'firewall' || event.source === 'filterlog').length;
         }
         return items.filter(event => event.source === filter).length;
+    },
+
+    eventsLastTimestamp(kind) {
+        const items = kind === 'activity' ? (this.events.activity.items || []) : (this.events.notable.items || []);
+        if (!items.length) return null;
+        return items.reduce((max, ev) => Math.max(max, ev.ts || 0), 0) || null;
+    },
+
+    eventsLastLabel(kind) {
+        const ts = this.eventsLastTimestamp(kind);
+        if (!ts) return '—';
+        const label = this.formatEventTime(ts);
+        if (label === 'now') return 'just now';
+        return `${label} ago`;
+    },
+
+    eventsIngestStatus() {
+        const notableTs = this.eventsLastTimestamp('notable') || 0;
+        const activityTs = this.eventsLastTimestamp('activity') || 0;
+        const latest = Math.max(notableTs, activityTs);
+        if (!latest) return '—';
+        const diff = Math.max(0, (Date.now() / 1000) - latest);
+        return diff > 600 ? 'STALE' : 'OK';
+    },
+
+    eventsSourceState(source) {
+        const items = this.events.activity.items || [];
+        const now = Date.now() / 1000;
+        const filtered = items.filter(event => {
+            if (source === 'firewall') {
+                return event.source === 'firewall' || event.source === 'filterlog';
+            }
+            return event.source === source;
+        });
+        if (!filtered.length) return 'quiet';
+        const lastTs = filtered.reduce((max, ev) => Math.max(max, ev.ts || 0), 0);
+        const age = now - lastTs;
+        if (age > 600) return 'stale';
+        const recentCount = filtered.filter(ev => now - (ev.ts || 0) <= 600).length;
+        if (recentCount >= 30) return 'elevated';
+        if (recentCount <= 2) return 'quiet';
+        return 'normal';
+    },
+
+    eventsSuppressedLabel() {
+        const suppressed = this.events.suppressed || {};
+        const dedupe = suppressed.dedupe || { count: 0, last_ts: null };
+        const rate = suppressed.rate_limited || { count: 0, last_ts: null };
+        const total = (dedupe.count || 0) + (rate.count || 0);
+        if (!total) return null;
+        const lastTs = Math.max(dedupe.last_ts || 0, rate.last_ts || 0);
+        const lastLabel = lastTs ? `${this.formatEventTime(lastTs)} ago` : '—';
+        return `${total} similar events suppressed · last ${lastLabel}`;
+    },
+
+    isDebugMode() {
+        return Boolean(window.PHOBOS_DEBUG);
+    },
+
+    loadEventViews() {
+        try {
+            const raw = localStorage.getItem('phobos.savedViews');
+            if (raw) {
+                const data = JSON.parse(raw);
+                this.events.savedViews = data.views || [];
+                this.events.defaultViewId = data.defaultViewId || '';
+                if (this.events.defaultViewId) {
+                    this.applyEventView(this.events.defaultViewId);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load saved views', e);
+        }
+    },
+
+    persistEventViews() {
+        const payload = {
+            views: this.events.savedViews || [],
+            defaultViewId: this.events.defaultViewId || ''
+        };
+        localStorage.setItem('phobos.savedViews', JSON.stringify(payload));
+    },
+
+    saveEventView() {
+        const name = window.prompt('Save view as:');
+        if (!name) return;
+        const view = {
+            id: `${Date.now()}`,
+            name: name.trim(),
+            mode: this.events.mode,
+            source: this.events.filter,
+            entityFilter: this.events.entityFilter || '',
+            follow_global: this.events.rangeFollowGlobal,
+            range: this.events.rangeValue
+        };
+        this.events.savedViews = [view, ...(this.events.savedViews || []).filter(v => v.name !== view.name)];
+        this.events.selectedViewId = view.id;
+        this.persistEventViews();
+    },
+
+    applyEventView(viewId) {
+        const view = (this.events.savedViews || []).find(v => v.id === viewId);
+        if (!view) return;
+        this.events.selectedViewId = viewId;
+        this.events.mode = view.mode || 'notable';
+        this.events.filter = view.source || 'all';
+        this.events.entityFilter = view.entityFilter || '';
+        this.events.rangeFollowGlobal = view.follow_global !== false;
+        this.events.rangeValue = view.range || '1h';
+        this.fetchEvents(this.events.mode);
+    },
+
+    setDefaultEventView() {
+        if (!this.events.selectedViewId) return;
+        this.events.defaultViewId = this.events.selectedViewId;
+        this.persistEventViews();
+    },
+
+    clearDefaultEventView() {
+        this.events.defaultViewId = '';
+        this.persistEventViews();
     },
 
     eventEvidenceChips(event) {
@@ -3247,12 +3410,14 @@ export const Store = () => ({
         if (!event) return;
         this.eventDetailOpen = true;
         this.eventDetail = event;
+        this.eventContext = null;
         this.eventDetailLoading = true;
         try {
-            const res = await fetch(`/api/events/detail?id=${encodeURIComponent(event.id)}`);
+            const res = await fetch(`/api/events/context?id=${encodeURIComponent(event.id)}`);
             if (res.ok) {
                 const d = await res.json();
                 this.eventDetail = d.event || event;
+                this.eventContext = d;
             }
         } catch (e) { console.error('Event detail fetch error:', e); }
         finally { this.eventDetailLoading = false; }
@@ -3261,6 +3426,62 @@ export const Store = () => ({
     closeEventDetail() {
         this.eventDetailOpen = false;
         this.eventDetail = null;
+        this.eventContext = null;
+    },
+
+    buildEventMarkdown() {
+        const ctx = this.eventContext || {};
+        const event = ctx.event || this.eventDetail || {};
+        const lines = [];
+        lines.push(`# ${event.title || 'Event'}`);
+        lines.push('');
+        lines.push(`Source: ${event.source || 'UNKNOWN'}`);
+        lines.push(`Severity: ${event.severity || 'info'}`);
+        if (ctx.explain) lines.push(`Explain: ${ctx.explain}`);
+        if (event.summary) lines.push(`Summary: ${event.summary}`);
+        if (event.window_sec) lines.push(`Window: ${event.window_sec}s`);
+        lines.push('');
+        if (ctx.top) {
+            lines.push('## Top Contributors');
+            Object.keys(ctx.top).forEach((key) => {
+                lines.push(`- ${key}:`);
+                (ctx.top[key] || []).forEach(item => {
+                    lines.push(`  - ${item.label}: ${item.count}`);
+                });
+            });
+            lines.push('');
+        }
+        if (ctx.related && ctx.related.length) {
+            lines.push('## Related Events');
+            ctx.related.forEach(rel => {
+                lines.push(`- ${rel.title} (${rel.source})`);
+            });
+            lines.push('');
+        }
+        return lines.join('\n');
+    },
+
+    async copyEventMarkdown() {
+        const text = this.buildEventMarkdown();
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (e) {
+            console.warn('Clipboard copy failed', e);
+        }
+    },
+
+    downloadEventJson() {
+        const ctx = this.eventContext || {};
+        const payload = ctx.event ? ctx : { event: this.eventDetail };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `event-${(payload.event?.id || 'detail')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
     },
 
     // TIME-AWARE: Uses global timeRange for attack timeline data

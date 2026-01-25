@@ -17,6 +17,7 @@ class EventRecord:
     window_sec: Optional[int] = None
     count: int = 1
     kind: str = "activity"  # activity | notable
+    primary_entity: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -33,4 +34,5 @@ class EventRecord:
             "window_sec": self.window_sec,
             "count": self.count,
             "kind": self.kind,
+            "primary_entity": self.primary_entity,
         }

@@ -256,6 +256,37 @@ def start_events_thread():
     t.start()
 
 
+def start_digest_thread():
+    """Start the digest notification thread (opt-in)."""
+    if getattr(state, "_digest_thread_started", False):
+        return
+    state._digest_thread_started = True
+
+    def loop():
+        from app.services.events.digest import run_digest_once
+
+        while not _shutdown_event.is_set():
+            start_time = time.time()
+            try:
+                run_digest_once()
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health(
+                    "DigestThread", success=True, execution_time_ms=exec_time_ms
+                )
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health(
+                    "DigestThread",
+                    success=False,
+                    execution_time_ms=exec_time_ms,
+                    error_msg=str(e),
+                )
+            _shutdown_event.wait(timeout=60)
+
+    t = threading.Thread(target=loop, daemon=True, name="DigestThread")
+    t.start()
+
+
 def start_db_size_sampler_thread():
     """Start the database file size sampling thread.
 

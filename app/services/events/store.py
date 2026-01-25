@@ -1,4 +1,5 @@
 import json
+import json
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -26,6 +27,15 @@ def _cleanup_old_events(conn, retention_sec: int = 86400) -> None:
     conn.execute("DELETE FROM event_log WHERE ts < ?", (cutoff,))
 
 
+def _primary_entity(event: EventRecord) -> Optional[str]:
+    if not event.evidence:
+        return None
+    val = event.evidence.get("primary_entity")
+    if val is None:
+        return None
+    return str(val)
+
+
 def insert_activity_event(event: EventRecord) -> None:
     _ensure_db()
     with _trends_db_lock:
@@ -35,8 +45,8 @@ def insert_activity_event(event: EventRecord) -> None:
             conn.execute(
                 """
                 INSERT INTO event_log (id, ts, source, severity, title, summary, tags, evidence, rule_id,
-                    dedupe_key, window_sec, count, kind, updated_ts)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    dedupe_key, window_sec, count, kind, updated_ts, primary_entity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event.id,
@@ -53,6 +63,7 @@ def insert_activity_event(event: EventRecord) -> None:
                     event.count,
                     "activity",
                     event.ts,
+                    _primary_entity(event),
                 ),
             )
             conn.commit()
@@ -90,7 +101,7 @@ def upsert_notable_event(
                     """
                     UPDATE event_log
                     SET ts = ?, title = ?, summary = ?, tags = ?, evidence = ?,
-                        count = ?, severity = ?, rule_id = ?, window_sec = ?, updated_ts = ?
+                        count = ?, severity = ?, rule_id = ?, window_sec = ?, updated_ts = ?, primary_entity = ?
                     WHERE id = ?
                     """,
                     (
@@ -104,6 +115,7 @@ def upsert_notable_event(
                         event.rule_id,
                         event.window_sec,
                         event.ts,
+                        _primary_entity(event),
                         existing[0],
                     ),
                 )
@@ -135,8 +147,8 @@ def upsert_notable_event(
             conn.execute(
                 """
                 INSERT INTO event_log (id, ts, source, severity, title, summary, tags, evidence, rule_id,
-                    dedupe_key, window_sec, count, kind, updated_ts)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    dedupe_key, window_sec, count, kind, updated_ts, primary_entity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -153,6 +165,7 @@ def upsert_notable_event(
                     max(1, event.count),
                     "notable",
                     event.ts,
+                    _primary_entity(event),
                 ),
             )
             conn.commit()
@@ -179,9 +192,107 @@ def fetch_events(
         try:
             cur = conn.execute(
                 f"""
-                SELECT id, ts, source, severity, title, summary, tags, evidence, rule_id, dedupe_key, window_sec, count, kind
+                SELECT id, ts, source, severity, title, summary, tags, evidence, rule_id, dedupe_key, window_sec, count, kind, primary_entity
                 FROM event_log
                 WHERE kind = ? AND ts >= ? {source_clause}
+                ORDER BY ts DESC
+                LIMIT ?
+                """,
+                params,
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+    results = []
+    for row in rows:
+        results.append(
+            {
+                "id": row[0],
+                "ts": int(row[1]),
+                "source": row[2],
+                "severity": row[3],
+                "title": row[4],
+                "summary": row[5],
+                "tags": json.loads(row[6] or "[]"),
+                "evidence": json.loads(row[7] or "{}"),
+                "rule_id": row[8],
+                "dedupe_key": row[9],
+                "window_sec": row[10],
+                "count": row[11],
+                "kind": row[12],
+                "primary_entity": row[13],
+            }
+        )
+    return results
+
+
+def fetch_event_detail(event_id: str) -> Optional[Dict[str, Any]]:
+    _ensure_db()
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT id, ts, source, severity, title, summary, tags, evidence, rule_id, dedupe_key, window_sec, count, kind, primary_entity
+                FROM event_log
+                WHERE id = ?
+                LIMIT 1
+                """,
+                (event_id,),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "ts": int(row[1]),
+        "source": row[2],
+        "severity": row[3],
+        "title": row[4],
+        "summary": row[5],
+        "tags": json.loads(row[6] or "[]"),
+        "evidence": json.loads(row[7] or "{}"),
+        "rule_id": row[8],
+        "dedupe_key": row[9],
+        "window_sec": row[10],
+        "count": row[11],
+        "kind": row[12],
+        "primary_entity": row[13],
+    }
+
+
+def fetch_related_events(
+    *,
+    event_id: str,
+    ts: int,
+    window_sec: int,
+    primary_entity: Optional[str],
+    source: str,
+    limit: int = 12,
+) -> List[Dict[str, Any]]:
+    _ensure_db()
+    start_ts = ts - window_sec
+    end_ts = ts + window_sec
+    params: List[Any] = [event_id, start_ts, end_ts]
+    clause = "source = ?"
+    params.append(source)
+    if primary_entity:
+        clause = "(primary_entity = ? OR source = ?)"
+        params = [event_id, start_ts, end_ts, primary_entity, source]
+    params.append(limit)
+
+    with _trends_db_lock:
+        conn = _trends_db_connect()
+        try:
+            cur = conn.execute(
+                f"""
+                SELECT id, ts, source, severity, title, summary, tags, evidence, rule_id, dedupe_key, window_sec, count, kind
+                FROM event_log
+                WHERE id != ? AND ts BETWEEN ? AND ? AND {clause}
                 ORDER BY ts DESC
                 LIMIT ?
                 """,
@@ -211,40 +322,3 @@ def fetch_events(
             }
         )
     return results
-
-
-def fetch_event_detail(event_id: str) -> Optional[Dict[str, Any]]:
-    _ensure_db()
-    with _trends_db_lock:
-        conn = _trends_db_connect()
-        try:
-            cur = conn.execute(
-                """
-                SELECT id, ts, source, severity, title, summary, tags, evidence, rule_id, dedupe_key, window_sec, count, kind
-                FROM event_log
-                WHERE id = ?
-                LIMIT 1
-                """,
-                (event_id,),
-            )
-            row = cur.fetchone()
-        finally:
-            conn.close()
-
-    if not row:
-        return None
-    return {
-        "id": row[0],
-        "ts": int(row[1]),
-        "source": row[2],
-        "severity": row[3],
-        "title": row[4],
-        "summary": row[5],
-        "tags": json.loads(row[6] or "[]"),
-        "evidence": json.loads(row[7] or "{}"),
-        "rule_id": row[8],
-        "dedupe_key": row[9],
-        "window_sec": row[10],
-        "count": row[11],
-        "kind": row[12],
-    }

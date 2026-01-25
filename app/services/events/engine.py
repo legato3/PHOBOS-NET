@@ -255,6 +255,8 @@ def run_notable_rules() -> None:
                 new_top=current_src[0],
                 delta_pct=delta_pct,
                 bytes_count=current_src[1],
+                baseline_value=prev_src[1],
+                min_abs_threshold=MIN_TOP_BYTES,
             )
         )
 
@@ -275,6 +277,8 @@ def run_notable_rules() -> None:
                 new_top=current_dst[0],
                 delta_pct=delta_pct,
                 bytes_count=current_dst[1],
+                baseline_value=prev_dst[1],
+                min_abs_threshold=MIN_TOP_BYTES,
             )
         )
 
@@ -297,6 +301,7 @@ def run_notable_rules() -> None:
                 top_src_ip=top_src,
                 bytes_count=bytes_count,
                 flows_count=flows_count,
+                min_abs_threshold=1,
             )
         )
 
@@ -322,6 +327,7 @@ def run_notable_rules() -> None:
                     baseline=baseline_avg,
                     top_src=top_src,
                     top_dst=top_dst,
+                    min_abs_threshold=MIN_PORT_COUNT,
                 )
             )
 
@@ -353,6 +359,7 @@ def run_notable_rules() -> None:
                 top_src=top_src[0][0] if top_src else None,
                 top_dst=top_dst[0][0] if top_dst else None,
                 top_port=top_port[0][0] if top_port else None,
+                min_abs_threshold=MIN_BLOCK_COUNT,
             )
         )
 
@@ -400,6 +407,7 @@ def run_notable_rules() -> None:
                 country=geo.get("country") or geo.get("country_iso") or "",
                 dst_port=dst_port,
                 rule_label=rule_label,
+                min_abs_threshold=1,
             )
         )
 
@@ -436,6 +444,7 @@ def run_notable_rules() -> None:
                     rule_label=rule_key,
                     current=current,
                     baseline=baseline_avg,
+                    min_abs_threshold=MIN_RULE_COUNT,
                 )
             )
 
@@ -459,6 +468,7 @@ def run_notable_rules() -> None:
                 baseline=baseline_avg,
                 top_domains=[d for d, _ in domains.most_common(3)],
                 top_clients=[c for c, _ in clients.most_common(3)],
+                min_abs_threshold=MIN_NXDOMAIN,
             )
         )
 
@@ -479,6 +489,7 @@ def run_notable_rules() -> None:
                         domain=domain,
                         host_count=len(hosts),
                         top_hosts=list(hosts)[:3],
+                        min_abs_threshold=MIN_DOMAIN_HOSTS,
                     )
                 )
 
@@ -498,6 +509,7 @@ def run_notable_rules() -> None:
                     source=source,
                     last_seen_age=float(last_age),
                     threshold=threshold,
+                    min_abs_threshold=threshold,
                 )
             )
 
@@ -523,7 +535,8 @@ def run_notable_rules() -> None:
                     parser=parser,
                     current=delta,
                     baseline=baseline_avg,
-                    sample_error=samples[0] if samples else None,
+                    sample_error=None,
+                    min_abs_threshold=MIN_PARSER_ERRORS,
                 )
             )
 

@@ -1,7 +1,9 @@
 from flask import jsonify, request
 
 from . import bp
+from app.services.events.context import build_event_context
 from app.services.events.store import fetch_event_detail, fetch_events
+from app.services.timeline.store import get_timeline_store
 
 
 _RANGE_MAP = {
@@ -43,9 +45,11 @@ def api_events_activity():
     source = request.args.get("source")
     range_sec = _parse_range(range_key)
     events = fetch_events("activity", range_sec=range_sec, limit=limit, source=source)
+    suppression = get_timeline_store().suppression_stats(range_sec)
     return jsonify(
         {
             "events": events,
+            "suppressed": suppression,
             "range": range_key,
             "limit": limit,
         }
@@ -61,3 +65,14 @@ def api_events_detail():
     if not event:
         return jsonify({"error": "Not found"}), 404
     return jsonify({"event": event})
+
+
+@bp.route("/api/events/context")
+def api_events_context():
+    event_id = request.args.get("id")
+    if not event_id:
+        return jsonify({"error": "Missing id"}), 400
+    context = build_event_context(event_id)
+    if not context:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(context)

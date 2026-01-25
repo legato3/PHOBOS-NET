@@ -164,8 +164,43 @@
                             <button class="ev-tab" :class="{ 'active': events.mode === 'activity' }"
                                 @click="setEventsMode('activity')">ACTIVITY</button>
                         </div>
+                        <div class="ev-health">
+                            <span x-text="'Last notable: ' + eventsLastLabel('notable')"></span>
+                            <span>•</span>
+                            <span x-text="'Last activity: ' + eventsLastLabel('activity')"></span>
+                            <span>•</span>
+                            <span x-text="'Ingest: ' + eventsIngestStatus()"></span>
+                        </div>
                     </div>
                     <div class="ev-header-controls">
+                        <div class="ev-view-controls">
+                            <select class="filter-select" x-model="events.selectedViewId" @change="applyEventView(events.selectedViewId)">
+                                <option value="">View: Default</option>
+                                <template x-for="view in events.savedViews" :key="view.id">
+                                    <option :value="view.id" x-text="view.name"></option>
+                                </template>
+                            </select>
+                            <button class="btn btn-sm btn-ghost" @click="saveEventView()">Save View</button>
+                            <button class="btn btn-sm btn-ghost" @click="setDefaultEventView()">Set Default</button>
+                        </div>
+                        <div class="ev-range-controls">
+                            <label class="ev-toggle">
+                                <input type="checkbox" x-model="events.rangeFollowGlobal" @change="setEventsRangeFollowGlobal(events.rangeFollowGlobal)">
+                                <span>Follow Global</span>
+                            </label>
+                            <select class="filter-select" :disabled="events.rangeFollowGlobal"
+                                x-model="events.rangeValue" @change="setEventsRangeValue(events.rangeValue)">
+                                <option value="15m">15m</option>
+                                <option value="30m">30m</option>
+                                <option value="1h">1h</option>
+                                <option value="4h">4h</option>
+                                <option value="6h">6h</option>
+                                <option value="24h">24h</option>
+                                <option value="7d">7d</option>
+                            </select>
+                            <input class="cyber-input tool-input-sm" type="text" placeholder="Filter entity" x-model="events.entityFilter"
+                                @input="setEventsEntityFilter(events.entityFilter)">
+                        </div>
                         <div class="ev-tabs" role="tablist">
                             <button class="ev-tab" :class="{ 'active': events.filter === 'all' }"
                                 @click="setEventsFilter('all')">ALL <span class="ev-tab-count"
@@ -191,6 +226,34 @@
                 </div>
                 <div class="panel-card__body ev-body">
                     <div class="ev-list">
+                        <div class="ev-state" x-show="events.activity.items && events.activity.items.length">
+                            <div class="ev-state-title">Current State</div>
+                            <div class="ev-state-grid">
+                                <div class="ev-state-item">
+                                    <span class="ev-state-label">NetFlow</span>
+                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('netflow')"
+                                        x-text="eventsSourceState('netflow')"></span>
+                                </div>
+                                <div class="ev-state-item">
+                                    <span class="ev-state-label">Firewall</span>
+                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('firewall')"
+                                        x-text="eventsSourceState('firewall')"></span>
+                                </div>
+                                <div class="ev-state-item">
+                                    <span class="ev-state-label">Syslog</span>
+                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('syslog')"
+                                        x-text="eventsSourceState('syslog')"></span>
+                                </div>
+                                <div class="ev-state-item">
+                                    <span class="ev-state-label">System</span>
+                                    <span class="ev-state-value" :class="'ev-state--' + eventsSourceState('system')"
+                                        x-text="eventsSourceState('system')"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ev-suppressed" x-show="eventsSuppressedLabel()">
+                            <span class="ev-suppressed-text" x-text="eventsSuppressedLabel()"></span>
+                        </div>
                         <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
                             <div class="ev-skeleton">
                                 <template x-for="idx in 6" :key="'ev-skel-' + idx">
@@ -199,7 +262,13 @@
                             </div>
                         </template>
                         <template x-if="!events.notable.loading && events.mode === 'notable' && eventsFiltered().length === 0">
-                            <div class="ev-empty">No notable changes in this window.</div>
+                            <div class="ev-empty ev-empty--calm">
+                                <div>System stable — no anomalies detected in this window.</div>
+                                <div class="ev-empty-subtle">Try Activity or widen time range.</div>
+                                <button class="btn btn-sm btn-ghost" x-show="isDebugMode()" @click.prevent>
+                                    Inject sample events
+                                </button>
+                            </div>
                         </template>
                         <template x-if="!events.activity.loading && events.mode === 'activity' && eventsFiltered().length === 0">
                             <div class="ev-empty">No activity in this window.</div>

@@ -146,6 +146,7 @@ def _trends_db_init():
                     severity TEXT NOT NULL,
                     title TEXT NOT NULL,
                     summary TEXT NOT NULL,
+                    primary_entity TEXT,
                     tags TEXT,
                     evidence TEXT,
                     rule_id TEXT,
@@ -169,6 +170,17 @@ def _trends_db_init():
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_event_log_dedupe ON event_log(dedupe_key);"
             )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_event_log_primary_entity ON event_log(primary_entity);"
+            )
+
+            try:
+                cursor = conn.execute("PRAGMA table_info(event_log)")
+                columns = [info[1] for info in cursor.fetchall()]
+                if "primary_entity" not in columns:
+                    conn.execute("ALTER TABLE event_log ADD COLUMN primary_entity TEXT")
+            except Exception:
+                pass
 
             conn.commit()
             _trends_db_initialized = True

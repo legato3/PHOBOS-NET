@@ -2433,12 +2433,17 @@
 
         <div class="modal" x-show="eventDetailOpen" :style="eventDetailOpen ? 'display:flex' : 'display:none'"
             @click.self="closeEventDetail()" @keydown.escape.window="closeEventDetail()">
-            <div class="modal-content" style="max-width: 720px; width: 90vw;">
+            <div class="modal-content" style="max-width: 760px; width: 90vw;">
                 <div class="modal__header">
                     <div style="flex: 1;">
                         <h2 style="margin: 0; font-size: 1.2em;" x-text="eventDetail?.title || 'Event'"></h2>
-                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 4px;"
-                            x-text="formatEventSource(eventDetail?.source || '')"></div>
+                        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 4px;">
+                            <span x-text="formatEventSource(eventDetail?.source || '')"></span>
+                            <span style="margin: 0 6px;">•</span>
+                            <span x-text="eventDetail?.severity || 'info'"></span>
+                            <span style="margin: 0 6px;">•</span>
+                            <span x-text="formatEventTime(eventDetail?.ts || 0)"></span>
+                        </div>
                     </div>
                     <button @click="closeEventDetail()"
                         style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
@@ -2449,10 +2454,22 @@
                         <div class="ev-empty">Loading details...</div>
                     </template>
                     <template x-if="!eventDetailLoading && eventDetail">
+                        <div class="ev-detail-actions">
+                            <button class="btn btn-sm btn-ghost" @click="copyEventMarkdown()">Copy Markdown</button>
+                            <button class="btn btn-sm btn-ghost" @click="downloadEventJson()">Download JSON</button>
+                        </div>
                         <div class="ev-detail-block">
                             <div class="ev-detail-row">
                                 <span class="ev-detail-label">Summary</span>
                                 <span class="ev-detail-value" x-text="eventDetail.summary || '—'"></span>
+                            </div>
+                            <div class="ev-detail-row">
+                                <span class="ev-detail-label">Kind</span>
+                                <span class="ev-detail-value" x-text="eventDetail.kind || '—'"></span>
+                            </div>
+                            <div class="ev-detail-row" x-show="eventContext?.explain">
+                                <span class="ev-detail-label">Explain</span>
+                                <span class="ev-detail-value" x-text="eventContext?.explain || '—'"></span>
                             </div>
                             <div class="ev-detail-row">
                                 <span class="ev-detail-label">Rule</span>
@@ -2467,6 +2484,79 @@
                                 <span class="ev-detail-value" x-text="eventDetail.count || 1"></span>
                             </div>
                         </div>
+                        <div class="ev-detail-tags" x-show="eventDetail.tags && eventDetail.tags.length">
+                            <div class="ev-detail-label">Tags</div>
+                            <div class="ev-chip-row">
+                                <template x-for="tag in (eventDetail.tags || [])" :key="tag">
+                                    <span class="ev-chip" x-text="tag"></span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="ev-detail-scope" x-show="eventDetail.evidence">
+                            <div class="ev-detail-label">Scope</div>
+                            <div class="ev-scope-grid">
+                                <div class="ev-scope-item">
+                                    <span class="ev-scope-key">Primary</span>
+                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.primary_entity || '—'"></span>
+                                </div>
+                                <div class="ev-scope-item">
+                                    <span class="ev-scope-key">Baseline</span>
+                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.baseline_value ?? '—'"></span>
+                                </div>
+                                <div class="ev-scope-item">
+                                    <span class="ev-scope-key">Current</span>
+                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.current_value ?? '—'"></span>
+                                </div>
+                                <div class="ev-scope-item">
+                                    <span class="ev-scope-key">Ratio</span>
+                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.ratio ?? '—'"></span>
+                                </div>
+                                <div class="ev-scope-item">
+                                    <span class="ev-scope-key">Min</span>
+                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.min_abs_threshold ?? '—'"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ev-detail-top" x-show="eventContext?.top">
+                            <div class="ev-detail-label">Top Contributors</div>
+                            <div class="ev-top-grid">
+                                <template x-for="(items, key) in (eventContext?.top || {})" :key="key">
+                                    <div class="ev-top-column">
+                                        <div class="ev-top-title" x-text="key.replace('top_', '').replace('_', ' ')"></div>
+                                        <template x-for="row in items" :key="row.label">
+                                            <div class="ev-top-row">
+                                                <span class="ev-top-label" x-text="row.label"></span>
+                                                <span class="ev-top-value" x-text="row.count"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="ev-detail-related" x-show="eventContext?.related?.length">
+                            <div class="ev-detail-label">Related Events</div>
+                            <div class="ev-related-list">
+                                <template x-for="rel in (eventContext?.related || [])" :key="rel.id">
+                                    <div class="ev-related-row">
+                                        <span class="ev-related-time" x-text="formatEventTime(rel.ts)"></span>
+                                        <span class="ev-related-title" x-text="rel.title"></span>
+                                        <span class="ev-related-tag" x-text="formatEventSource(rel.source)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="ev-detail-related" x-show="eventContext?.timeline?.length">
+                            <div class="ev-detail-label">Timeline Context</div>
+                            <div class="ev-related-list">
+                                <template x-for="line in (eventContext?.timeline || [])" :key="line.ts + '-' + line.type">
+                                    <div class="ev-related-row">
+                                        <span class="ev-related-time" x-text="formatEventTime(line.ts)"></span>
+                                        <span class="ev-related-title" x-text="line.title"></span>
+                                        <span class="ev-related-tag" x-text="formatEventSource(line.source)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                         <div class="ev-detail-evidence">
                             <div class="ev-detail-label">Evidence</div>
                             <div class="ev-detail-evidence-body">
@@ -2477,6 +2567,7 @@
                                     </div>
                                 </template>
                             </div>
+                            <pre class="ev-json" x-text="JSON.stringify(eventDetail.evidence || {}, null, 2)"></pre>
                         </div>
                     </template>
                 </div>

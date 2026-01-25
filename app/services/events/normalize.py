@@ -1,7 +1,14 @@
 import uuid
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from app.services.events.model import EventRecord
+
+
+def _coerce_int(value: Any) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
 
 
 def normalize_timeline_event(event: Dict[str, object]) -> Optional[EventRecord]:
@@ -14,7 +21,11 @@ def normalize_timeline_event(event: Dict[str, object]) -> Optional[EventRecord]:
         summary = str(detail) if detail else "State change observed"
         severity = str(event.get("severity") or "info")
         meta = event.get("meta") or {}
-        ts = int(event.get("ts") or 0)
+        if isinstance(meta, dict):
+            for key in ["message", "raw", "raw_log", "line"]:
+                if key in meta:
+                    meta.pop(key, None)
+        ts = _coerce_int(event.get("ts"))
         return EventRecord(
             id=str(uuid.uuid4()),
             ts=ts,
@@ -24,7 +35,7 @@ def normalize_timeline_event(event: Dict[str, object]) -> Optional[EventRecord]:
             summary=summary,
             tags=["ACTIVITY"],
             evidence=meta if isinstance(meta, dict) else {},
-            rule_id=str(event.get("type") or "timeline"),
+            rule_id=None,
             dedupe_key=None,
             window_sec=None,
             count=1,

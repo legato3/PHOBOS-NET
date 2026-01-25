@@ -19,6 +19,11 @@ def _event(
     evidence: Optional[Dict[str, object]] = None,
     count: int = 1,
 ) -> EventRecord:
+    primary_entity = None
+    if evidence and isinstance(evidence, dict):
+        val = evidence.get("primary_entity")
+        if val is not None:
+            primary_entity = str(val)
     return EventRecord(
         id=str(uuid.uuid4()),
         ts=ts,
@@ -33,7 +38,34 @@ def _event(
         window_sec=window_sec,
         count=count,
         kind="notable",
+        primary_entity=primary_entity,
     )
+
+
+def _with_context(
+    evidence: Dict[str, object],
+    *,
+    primary_entity: str,
+    window_sec: int,
+    baseline_value: float,
+    current_value: float,
+    min_abs_threshold: float,
+) -> Dict[str, object]:
+    ratio = None
+    if baseline_value > 0:
+        ratio = round(current_value / baseline_value, 2)
+    enriched = dict(evidence)
+    enriched.update(
+        {
+            "primary_entity": primary_entity,
+            "window_sec": window_sec,
+            "baseline_value": round(baseline_value, 2),
+            "current_value": round(current_value, 2),
+            "ratio": ratio,
+            "min_abs_threshold": min_abs_threshold,
+        }
+    )
+    return enriched
 
 
 def rule_new_external_destination(
@@ -45,10 +77,11 @@ def rule_new_external_destination(
     top_src_ip: Optional[str],
     bytes_count: int,
     flows_count: int,
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = f"New external destination {dst_ip}"
     summary = "First time seen in the last 24 hours"
-    evidence = {
+    base = {
         "dst_ip": dst_ip,
         "dst_country": country or "UNKNOWN",
         "dst_ports": dst_ports,
@@ -57,6 +90,14 @@ def rule_new_external_destination(
         "flows": flows_count,
         "bytes_fmt": fmt_bytes(bytes_count),
     }
+    evidence = _with_context(
+        base,
+        primary_entity=dst_ip,
+        window_sec=300,
+        baseline_value=0,
+        current_value=flows_count,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="netflow",
@@ -79,16 +120,26 @@ def rule_top_talker_changed(
     new_top: str,
     delta_pct: float,
     bytes_count: int,
+    baseline_value: float = 0,
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = f"Top {direction} talker changed"
     summary = f"{old_top} → {new_top}"
-    evidence = {
+    base = {
         "old_top": old_top,
         "new_top": new_top,
         "delta_pct": round(delta_pct, 1),
         "bytes": bytes_count,
         "bytes_fmt": fmt_bytes(bytes_count),
     }
+    evidence = _with_context(
+        base,
+        primary_entity=direction,
+        window_sec=300,
+        baseline_value=baseline_value,
+        current_value=bytes_count,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="netflow",
@@ -111,16 +162,25 @@ def rule_port_spike(
     baseline: float,
     top_src: Optional[str],
     top_dst: Optional[str],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = f"Port {port} spike"
     summary = f"{current} vs baseline {baseline:.1f}"
-    evidence = {
+    base = {
         "port": port,
         "current": current,
         "baseline": round(baseline, 1),
         "top_src_ip": top_src or "UNKNOWN",
         "top_dst_ip": top_dst or "UNKNOWN",
     }
+    evidence = _with_context(
+        base,
+        primary_entity=str(port),
+        window_sec=300,
+        baseline_value=baseline,
+        current_value=current,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="netflow",
@@ -146,10 +206,11 @@ def rule_block_spike(
     top_src: Optional[str],
     top_dst: Optional[str],
     top_port: Optional[int],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "Firewall block spike"
     summary = f"{current} blocks vs baseline {baseline:.1f}"
-    evidence = {
+    base = {
         "interface": interface,
         "action": action,
         "current": current,
@@ -158,6 +219,14 @@ def rule_block_spike(
         "top_dst_ip": top_dst or "UNKNOWN",
         "top_port": top_port or 0,
     }
+    evidence = _with_context(
+        base,
+        primary_entity=f"{interface}:{action}",
+        window_sec=300,
+        baseline_value=baseline,
+        current_value=current,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="filterlog",
@@ -180,15 +249,24 @@ def rule_new_inbound_wan_source(
     country: str,
     dst_port: int,
     rule_label: Optional[str],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "New inbound WAN source"
     summary = f"{src_ip} first seen on WAN"
-    evidence = {
+    base = {
         "src_ip": src_ip,
         "country": country or "UNKNOWN",
         "dst_port": dst_port,
         "rule_label": rule_label or "UNKNOWN",
     }
+    evidence = _with_context(
+        base,
+        primary_entity=src_ip,
+        window_sec=300,
+        baseline_value=0,
+        current_value=1,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="filterlog",
@@ -210,15 +288,24 @@ def rule_rule_hit_spike(
     rule_label: str,
     current: int,
     baseline: float,
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "Rule hit spike"
     summary = f"{current} hits vs baseline {baseline:.1f}"
-    evidence = {
+    base = {
         "rule_id": rule_id,
         "rule_label": rule_label,
         "current": current,
         "baseline": round(baseline, 1),
     }
+    evidence = _with_context(
+        base,
+        primary_entity=rule_id or rule_label,
+        window_sec=300,
+        baseline_value=baseline,
+        current_value=current,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="filterlog",
@@ -241,15 +328,24 @@ def rule_nxdomain_burst(
     baseline: float,
     top_domains: List[str],
     top_clients: List[str],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "NXDOMAIN burst"
     summary = f"{current} NXDOMAIN vs baseline {baseline:.1f}"
-    evidence = {
+    base = {
         "current": current,
         "baseline": round(baseline, 1),
         "top_domains": top_domains,
         "top_clients": top_clients,
     }
+    evidence = _with_context(
+        base,
+        primary_entity="nxdomain",
+        window_sec=300,
+        baseline_value=baseline,
+        current_value=current,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="syslog",
@@ -271,14 +367,23 @@ def rule_new_domain_to_many_hosts(
     domain: str,
     host_count: int,
     top_hosts: List[str],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "New domain queried by many hosts"
     summary = f"{domain} queried by {host_count} hosts"
-    evidence = {
+    base = {
         "domain": domain,
         "host_count": host_count,
         "top_hosts": top_hosts,
     }
+    evidence = _with_context(
+        base,
+        primary_entity=domain,
+        window_sec=300,
+        baseline_value=0,
+        current_value=host_count,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="syslog",
@@ -300,14 +405,23 @@ def rule_source_stale(
     source: str,
     last_seen_age: float,
     threshold: int,
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "Source stale"
     summary = f"No data for {int(last_seen_age)}s (threshold {threshold}s)"
-    evidence = {
+    base = {
         "source": source,
         "last_seen_age": round(last_seen_age, 1),
         "threshold": threshold,
     }
+    evidence = _with_context(
+        base,
+        primary_entity=source,
+        window_sec=threshold,
+        baseline_value=threshold,
+        current_value=last_seen_age,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="system",
@@ -329,15 +443,24 @@ def rule_parser_error_spike(
     current: int,
     baseline: float,
     sample_error: Optional[str],
+    min_abs_threshold: float = 1,
 ) -> EventRecord:
     title = "Parser error spike"
     summary = f"{current} errors vs baseline {baseline:.1f}"
-    evidence = {
+    base = {
         "parser": parser,
         "current": current,
         "baseline": round(baseline, 1),
         "sample_error": sample_error or "UNKNOWN",
     }
+    evidence = _with_context(
+        base,
+        primary_entity=parser,
+        window_sec=300,
+        baseline_value=baseline,
+        current_value=current,
+        min_abs_threshold=min_abs_threshold,
+    )
     return _event(
         ts=ts,
         source="system",

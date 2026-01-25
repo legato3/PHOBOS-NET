@@ -21,6 +21,8 @@ class TimelineStore:
         self._dedupe_cache: Dict[str, int] = {}
         self._rate_limit_ts: deque[int] = deque()
         self._rate_limit_notice_ts: int = 0
+        self._suppressed_dedupe_ts: deque[int] = deque()
+        self._suppressed_rate_ts: deque[int] = deque()
 
     def _event_key(self, event: TimelineEvent) -> str:
         meta_json = "{}"
@@ -55,6 +57,7 @@ class TimelineStore:
             event_key = self._event_key(event)
             last_ts = self._dedupe_cache.get(event_key)
             if last_ts is not None and now_ts - last_ts <= self._dedupe_window_s:
+                self._suppressed_dedupe_ts.append(now_ts)
                 return False
 
             self._dedupe_cache[event_key] = now_ts
@@ -62,6 +65,7 @@ class TimelineStore:
 
             self._prune_rate_limit(now_ts)
             if len(self._rate_limit_ts) >= self._rate_limit_per_min:
+                self._suppressed_rate_ts.append(now_ts)
                 if now_ts - self._rate_limit_notice_ts >= 60:
                     self._rate_limit_notice_ts = now_ts
                     notice = TimelineEvent(
@@ -100,6 +104,48 @@ class TimelineStore:
                 if event.ts < cutoff:
                     continue
                 if types and (event.source not in types and event.type not in types):
+                    continue
+                results.append(event.to_dict())
+                if len(results) >= limit:
+                    break
+        return results
+
+    def suppression_stats(self, range_s: int) -> Dict[str, object]:
+        now_ts = int(time.time())
+        cutoff = now_ts - max(0, int(range_s))
+        with self._lock:
+            self._suppressed_dedupe_ts = deque(
+                ts for ts in self._suppressed_dedupe_ts if ts >= cutoff
+            )
+            self._suppressed_rate_ts = deque(
+                ts for ts in self._suppressed_rate_ts if ts >= cutoff
+            )
+            dedupe_last = (
+                self._suppressed_dedupe_ts[-1] if self._suppressed_dedupe_ts else None
+            )
+            rate_last = (
+                self._suppressed_rate_ts[-1] if self._suppressed_rate_ts else None
+            )
+            return {
+                "dedupe": {
+                    "count": len(self._suppressed_dedupe_ts),
+                    "last_ts": dedupe_last,
+                },
+                "rate_limited": {
+                    "count": len(self._suppressed_rate_ts),
+                    "last_ts": rate_last,
+                },
+            }
+
+    def list_events_between(
+        self, start_ts: int, end_ts: int, source: Optional[str] = None, limit: int = 10
+    ) -> List[Dict[str, object]]:
+        results: List[Dict[str, object]] = []
+        with self._lock:
+            for event in reversed(self._buffer):
+                if event.ts < start_ts or event.ts > end_ts:
+                    continue
+                if source and event.source != source:
                     continue
                 results.append(event.to_dict())
                 if len(results) >= limit:
