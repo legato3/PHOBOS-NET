@@ -62,6 +62,24 @@ def mock_stream_nfdump(args, tf=None):
 
 netflow.stream_nfdump = mock_stream_nfdump
 
+# Patch run_nfdump for sequential test
+def mock_run_nfdump(args, tf=None):
+    time.sleep(0.01) # Simulate 10ms nfdump execution
+    return "ts,te,td,sa,da,sp,dp,pr,fl,fwd,stos,ipkt,ibyt,opkt,obyt,in,out,sas,das,smk,dmk,dtos,dir,nh,nhb,svln,dvln,ismc,odmc,idmc,osmc,mpls1,mpls2,mpls3,mpls4,mpls5,mpls6,mpls7,mpls8,mpls9,mpls10,cl,sl,al,ra,eng,exid,tr\n2023-01-01 10:00:00,2023-01-01 10:00:01,1.0,1.2.3.4,5.6.7.8,123,456,6,1,0,0,10,1000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+
+netflow.run_nfdump = mock_run_nfdump
+
+def get_traffic_direction_sequential(ip, tf):
+    # Sequential implementation
+    out = netflow.run_nfdump(["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], tf)
+    in_data = netflow.run_nfdump(["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], tf)
+    out_parsed = netflow.parse_csv(out, expected_key='sa')
+    in_parsed = netflow.parse_csv(in_data, expected_key='da')
+
+    upload = out_parsed[0]["bytes"] if out_parsed else 0
+    download = in_parsed[0]["bytes"] if in_parsed else 0
+    return {"upload": upload, "download": download}
+
 def run_benchmark():
     iterations = 100
     ip = "1.2.3.4"
@@ -80,8 +98,23 @@ def run_benchmark():
             print(f"Error caught: {e}")
             break
 
-    duration = time.time() - start_time
-    print(f"Refactored Implementation (Shared Executor): {duration:.4f}s for {iterations} iterations")
+    duration_parallel = time.time() - start_time
+    print(f"Refactored Implementation (Shared Executor): {duration_parallel:.4f}s for {iterations} iterations")
+
+    # Benchmark Sequential Implementation
+    start_time = time.time()
+    for _ in range(iterations):
+        try:
+            get_traffic_direction_sequential(ip, tf)
+        except Exception as e:
+            print(f"Error caught sequential: {e}")
+            break
+
+    duration_sequential = time.time() - start_time
+    print(f"Sequential Implementation:                 {duration_sequential:.4f}s for {iterations} iterations")
+
+    speedup = duration_sequential / duration_parallel if duration_parallel > 0 else 0
+    print(f"Speedup: {speedup:.2f}x")
 
 if __name__ == "__main__":
     run_benchmark()

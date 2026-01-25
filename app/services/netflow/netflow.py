@@ -314,6 +314,11 @@ _traffic_direction_lock = threading.Lock()
 _TRAFFIC_DIRECTION_TTL = 60  # 1 minute cache
 
 
+def _fetch_direction_data(args, key, tf):
+    """Helper for parallel execution of nfdump queries."""
+    return parse_csv(stream_nfdump(args, tf), expected_key=key)
+
+
 def get_traffic_direction(ip, tf):
     """Get upload/download traffic for an IP."""
     # PERFORMANCE: Cache result to avoid redundant nfdump subprocess calls
@@ -329,12 +334,9 @@ def get_traffic_direction(ip, tf):
     # Fetch data (two nfdump calls)
     # Filter must be LAST arguments
     # PERFORMANCE: Run queries in parallel to reduce latency
-    def _fetch_parse(args, key):
-        return parse_csv(stream_nfdump(args, tf), expected_key=key)
-
     # Use shared executor to avoid thread creation overhead
-    future_out = state._nfdump_executor.submit(_fetch_parse, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], 'sa')
-    future_in = state._nfdump_executor.submit(_fetch_parse, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], 'da')
+    future_out = state._nfdump_executor.submit(_fetch_direction_data, ["-s", "srcip/bytes", "-n", "1", "src", "ip", ip], 'sa', tf)
+    future_in = state._nfdump_executor.submit(_fetch_direction_data, ["-s", "dstip/bytes", "-n", "1", "dst", "ip", ip], 'da', tf)
 
     out_parsed = future_out.result()
     in_parsed = future_in.result()
