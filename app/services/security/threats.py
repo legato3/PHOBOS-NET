@@ -65,6 +65,7 @@ _signal_history_lock = threading.Lock()
 
 _alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
+_last_port_scan_cleanup = 0  # Last time port scan tracker was cleaned
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
 
@@ -129,7 +130,15 @@ def _process_feed(url, category, name, last_ok, session=None):
                     line = line.split()[0].strip()
                 if line:
                     feed_ips.append(line)
-                    feed_ip_map[line] = {'category': category, 'feed': name}
+                    # Pre-calculate MITRE info to avoid lookups in hot path
+                    mitre = MITRE_MAPPINGS.get(category, {})
+                    feed_ip_map[line] = {
+                        'category': category,
+                        'feed': name,
+                        'mitre_technique': mitre.get('technique', ''),
+                        'mitre_tactic': mitre.get('tactic', ''),
+                        'mitre_name': mitre.get('name', '')
+                    }
 
             return {
                 'name': name,
@@ -278,14 +287,18 @@ def fetch_threat_feed():
 
 
 def get_threat_info(ip):
-    """Get threat category and feed name for an IP"""
-    info = _threat_ip_to_feed.get(ip, {'category': 'UNKNOWN', 'feed': 'unknown'})
-    # Add MITRE ATT&CK mapping
-    mitre = MITRE_MAPPINGS.get(info.get('category', 'UNKNOWN'), {})
-    info['mitre_technique'] = mitre.get('technique', '')
-    info['mitre_tactic'] = mitre.get('tactic', '')
-    info['mitre_name'] = mitre.get('name', '')
-    return info
+    """Get threat category and feed name for an IP.
+
+    MITRE info is pre-calculated during feed processing to improve performance.
+    """
+    # Return cached info directly or default dict with empty fields
+    return _threat_ip_to_feed.get(ip, {
+        'category': 'UNKNOWN',
+        'feed': 'unknown',
+        'mitre_technique': '',
+        'mitre_tactic': '',
+        'mitre_name': ''
+    })
 
 
 def update_threat_timeline(ip):
@@ -635,13 +648,16 @@ def detect_anomalies(ports_data, sources_data, threat_set, whitelist, feed_label
 
 def detect_port_scan(flow_data):
     """Detect port scanning - single IP hitting many ports."""
-    global _port_scan_tracker
+    global _port_scan_tracker, _last_port_scan_cleanup
     alerts = []
     current_time = time.time()
     
-    # Clean old entries
-    _port_scan_tracker = {ip: data for ip, data in _port_scan_tracker.items() 
-                          if current_time - data.get('first_seen', 0) < PORT_SCAN_WINDOW}
+    # Clean old entries periodically (every 60s) to avoid O(N) filtering on every call
+    # This prevents high CPU usage during flow bursts
+    if current_time - _last_port_scan_cleanup > 60:
+        _port_scan_tracker = {ip: data for ip, data in _port_scan_tracker.items()
+                              if current_time - data.get('first_seen', 0) < PORT_SCAN_WINDOW}
+        _last_port_scan_cleanup = current_time
     
     for flow in flow_data:
         src_ip = flow.get('src_ip') or flow.get('key')
