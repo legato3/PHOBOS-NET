@@ -2,8 +2,10 @@ import re
 from typing import Optional, Dict, Any
 from datetime import datetime
 
+
 class FirewallEvent:
     """Normalized usage of firewall event."""
+
     def __init__(
         self,
         timestamp: datetime,
@@ -17,7 +19,7 @@ class FirewallEvent:
         dst_port: Optional[int],
         rule_id: Optional[str],
         rule_label: Optional[str],
-        reason: Optional[str]
+        reason: Optional[str],
     ):
         self.timestamp = timestamp
         self.action = action
@@ -33,7 +35,6 @@ class FirewallEvent:
         self.reason = reason
 
     def to_dict(self) -> Dict[str, Any]:
-        import time
         return {
             "timestamp": self.timestamp.isoformat(),
             "timestamp_ts": self.timestamp.timestamp(),
@@ -47,7 +48,7 @@ class FirewallEvent:
             "dst_port": self.dst_port,
             "rule_id": self.rule_id,
             "rule_label": self.rule_label,
-            "reason": self.reason
+            "reason": self.reason,
         }
 
     def __repr__(self):
@@ -64,17 +65,21 @@ class FirewallParser:
 
     # Pattern to extract program name from syslog (e.g., "configd[1234]:" or "openvpn:")
     # Matches program name that starts with a letter, followed by optional [pid], then colon
-    SYSLOG_PROGRAM_PATTERN = re.compile(r'\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$')
+    SYSLOG_PROGRAM_PATTERN = re.compile(
+        r"\s([a-zA-Z][a-zA-Z0-9_-]*)(?:\[\d+\])?:\s*(.*)$"
+    )
 
     # RFC5424 timestamp pattern
-    RFC5424_TS_PATTERN = re.compile(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)')
+    RFC5424_TS_PATTERN = re.compile(
+        r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)"
+    )
 
     def parse(self, raw_log: str) -> Optional[FirewallEvent]:
         """
         Parses a raw syslog line into a FirewallEvent.
         Handles both filterlog (packet filter) and generic syslog messages.
         """
-        if 'filterlog' in raw_log:
+        if "filterlog" in raw_log:
             return self._parse_filterlog(raw_log)
         else:
             return self._parse_generic(raw_log)
@@ -92,8 +97,8 @@ class FirewallParser:
                 try:
                     ts_str = ts_match.group(1)
                     # Handle timezone offset
-                    if ts_str.endswith('Z'):
-                        ts_str = ts_str[:-1] + '+00:00'
+                    if ts_str.endswith("Z"):
+                        ts_str = ts_str[:-1] + "+00:00"
                     timestamp = datetime.fromisoformat(ts_str)
                 except (ValueError, IndexError):
                     pass
@@ -121,7 +126,7 @@ class FirewallParser:
                 dst_port=None,
                 rule_id=None,
                 rule_label=None,
-                reason=message[:500] if message else None  # Truncate long messages
+                reason=message[:500] if message else None,  # Truncate long messages
             )
         except Exception:
             return None
@@ -135,38 +140,38 @@ class FirewallParser:
             # 1. basic syslog extraction (timestamp, message body)
             # Example: <134>1 2026-01-18T10:00:00.123456+00:00 OPNsense.localdomain filterlog 12345 - [meta sequenceId="1"] 56,0, ...
             # We assume the log part starts after 'filterlog' and brackets if present.
-            
+
             # Simple split to find the CSV part
             # OPNsense/BSD filterlog CSV data usually starts closely after 'filterlog' preamble
             # We look for the first comma-separated sequence that starts with a number (rule id)
-            
+
             # Use regex to strip syslog header
             # Matches: ... filterlog ... : <CSV>
             # Or: ... filterlog: <CSV>
-            
+
             # Looking at typical OPNsense format in syslogs:
             # ... filterlog[pid]: rule,subrule,...
-            
-            parts = raw_log.split('filterlog', 1)
+
+            parts = raw_log.split("filterlog", 1)
             if len(parts) < 2:
                 return None
-                
+
             csv_part = parts[1]
             # Strip PID if present: [12345]:
-            csv_part = re.sub(r'^\[\d+\]:\s*', '', csv_part)
+            csv_part = re.sub(r"^\[\d+\]:\s*", "", csv_part)
             # Strip preamble like ': '
-            csv_part = csv_part.lstrip(': ').strip()
-            
+            csv_part = csv_part.lstrip(": ").strip()
+
             # 2. Split CSV
-            fields = csv_part.split(',')
-            
+            fields = csv_part.split(",")
+
             if len(fields) < 10:
                 # Not enough fields for even a basic IPv4 packet
                 return None
 
             # 3. Parse Fields based on position
             # Ref: https://docs.opnsense.org/manual/logging.html
-            
+
             # 0: rule number
             # 1: sub rule number (not needed)
             # 2: anchor name (not needed)
@@ -176,11 +181,11 @@ class FirewallParser:
             # 6: action
             # 7: direction
             # 8: ip version
-            
+
             rule_id = fields[0] if fields[0] and fields[0].isdigit() else None
             # Tracker is roughly equivalent to a stable rule ID or label key
             tracker = fields[3] if len(fields) > 3 else None
-            
+
             interface = fields[4]
             reason = fields[5]
             action = fields[6]
@@ -193,23 +198,23 @@ class FirewallParser:
             src_port = None
             dst_port = None
             protocol = None
-            
+
             # IPv4 Processing
-            if ip_ver == '4':
+            if ip_ver == "4":
                 # 9: tos, 10: ecn, 11: ttl, 12: id, 13: offset, 14: flags, 15: proto_id, 16: proto_text
                 # IPv4 base fields length = 19 (up to dst_ip), then data length/payload
-                
-                if len(fields) < 20: 
+
+                if len(fields) < 20:
                     return None
-                    
+
                 protocol = fields[16].lower()
-                length = fields[17] # packet length
+                length = fields[17]  # packet length
                 src_ip = fields[18]
                 dst_ip = fields[19]
-                
+
                 # Port parsing (TCP/UDP)
                 # If proto is tcp(6) or udp(17), ports follow
-                if protocol in ['tcp', 'udp', 'sctp'] and len(fields) >= 22:
+                if protocol in ["tcp", "udp", "sctp"] and len(fields) >= 22:
                     src_port = int(fields[20])
                     dst_port = int(fields[21])
                     if len(fields) > 22:
@@ -217,18 +222,18 @@ class FirewallParser:
                         pass
 
             # IPv6 Processing
-            elif ip_ver == '6':
+            elif ip_ver == "6":
                 # 9: class, 10: flow label, 11: hop limit, 12: proto_text, 13: proto_id, 14: length, 15: src_ip, 16: dst_ip
                 if len(fields) < 17:
                     return None
-                    
+
                 protocol = fields[12].lower()
                 # fields[13] is numeric proto id
                 # fields[14] is length
                 src_ip = fields[15]
                 dst_ip = fields[16]
-                
-                if protocol in ['tcp', 'udp', 'sctp'] and len(fields) >= 19:
+
+                if protocol in ["tcp", "udp", "sctp"] and len(fields) >= 19:
                     src_port = int(fields[17])
                     dst_port = int(fields[18])
 
@@ -243,7 +248,7 @@ class FirewallParser:
             # but let's try to grab a timestamp if flexible.
             # OPNsense format often includes ISO8601 or BSD format.
             timestamp = datetime.now()
-            
+
             # Construct Event
             event = FirewallEvent(
                 timestamp=timestamp,
@@ -256,10 +261,10 @@ class FirewallParser:
                 dst_ip=dst_ip,
                 dst_port=dst_port,
                 rule_id=rule_id,
-                rule_label=tracker, # Using tracker as label/ID ref
-                reason=reason
+                rule_label=tracker,  # Using tracker as label/ID ref
+                reason=reason,
             )
-            
+
             return event
 
         except Exception as e:

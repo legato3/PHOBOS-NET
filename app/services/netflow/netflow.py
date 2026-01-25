@@ -1,38 +1,20 @@
 """NetFlow service for nfdump operations and CSV parsing."""
 
-import os
 import subprocess
 import threading
 import time
-from collections import defaultdict
 from app.config import (
     DEFAULT_TIMEOUT,
-    SAMPLE_DATA_PATH,
     COMMON_DATA_CACHE_MAX,
     NFCAPD_DIR,
 )
 from app.services.shared.helpers import get_time_range
 
-# Global state for nfdump service
-# NOTE: Mock data functionality disabled for production use
-# _mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
-# _mock_lock = threading.Lock()
 import app.core.app_state as state
 from app.core.app_state import add_app_log
 
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
-
-
-# Mock nfdump function DISABLED for production
-# The system should show real data only, not fake sample data
-# If you need to test without nfdump, re-enable this function
-"""
-def mock_nfdump(args):
-    # Mock nfdump function for development/testing when nfdump is not available.
-    # DISABLED: This function provided fake data which could mask real issues.
-    return ""
-"""
 
 
 def run_nfdump(args, tf=None):
@@ -43,7 +25,6 @@ def run_nfdump(args, tf=None):
     state._metric_nfdump_calls += 1
 
     # OBSERVABILITY: Track subprocess execution with timing
-    from app.services.shared.observability import instrument_subprocess
     from app.services.shared.metrics import track_subprocess
 
     start_time = time.time()
@@ -103,12 +84,6 @@ def run_nfdump(args, tf=None):
                 result = None
         else:
             result = None
-
-        # NOTE: Mock fallback DISABLED for production - return empty data instead
-        # if result is None:
-        #     result = mock_nfdump(args)
-        #     if result:
-        #         success = True
 
         # Ensure we always return a string, never None
         return result if result is not None else ""

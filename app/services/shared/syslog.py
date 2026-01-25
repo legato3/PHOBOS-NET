@@ -5,7 +5,6 @@ import time
 import socket as socket_module
 import re
 from datetime import datetime
-import sqlite3
 
 # Import configuration
 from app.config import (
@@ -13,7 +12,6 @@ from app.config import (
     SYSLOG_PORT,
     FIREWALL_IP,
     FIREWALL_RETENTION_DAYS,
-    FIREWALL_DB_PATH,
 )
 
 # Import state

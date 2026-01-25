@@ -2,8 +2,7 @@
 Dedicated in-memory store for port 515 syslog events.
 Separate from firewall_store to avoid mixing filterlog with generic syslog.
 """
-import threading
-from collections import deque
+
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
@@ -12,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class SyslogEvent:
     """A generic syslog event from port 515."""
+
     timestamp: datetime
     program: str
     message: str
@@ -27,14 +27,14 @@ class SyslogEvent:
             "message": self.message,
             "facility": self.facility,
             "severity": self.severity,
-            "hostname": self.hostname
+            "hostname": self.hostname,
         }
 
 
 class SyslogStore:
     """
     Persistent store for generic syslog events (port 515) using SQLite.
-    
+
     Now supports multi-worker access by using the shared firewall.db (syslog_events table).
     """
 
@@ -44,26 +44,33 @@ class SyslogStore:
 
     def add_event(self, event: SyslogEvent) -> None:
         """Add an event to the store (persistent DB)."""
-        from app.db.sqlite import _firewall_db_connect, _firewall_db_lock, _firewall_db_init
-        
+        from app.db.sqlite import (
+            _firewall_db_connect,
+            _firewall_db_lock,
+            _firewall_db_init,
+        )
+
         # Ensure DB is ready
         _firewall_db_init()
-        
+
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO syslog_events (timestamp, timestamp_iso, program, message, hostname, facility, severity)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    event.timestamp.timestamp(),
-                    event.timestamp.isoformat(),
-                    event.program,
-                    event.message,
-                    event.hostname,
-                    event.facility,
-                    event.severity
-                ))
+                """,
+                    (
+                        event.timestamp.timestamp(),
+                        event.timestamp.isoformat(),
+                        event.program,
+                        event.message,
+                        event.hostname,
+                        event.facility,
+                        event.severity,
+                    ),
+                )
                 conn.commit()
             except Exception as e:
                 print(f"Error inserting syslog event: {e}")
@@ -72,63 +79,81 @@ class SyslogStore:
 
     def get_events(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Get recent events, newest first."""
-        from app.db.sqlite import _firewall_db_connect, _firewall_db_lock, _firewall_db_init
-        
+        from app.db.sqlite import (
+            _firewall_db_connect,
+            _firewall_db_lock,
+            _firewall_db_init,
+        )
+
         # Ensure DB is ready
         _firewall_db_init()
         results = []
-        
+
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
-                cur = conn.execute("""
+                cur = conn.execute(
+                    """
                     SELECT timestamp, timestamp_iso, program, message, hostname, facility, severity
                     FROM syslog_events
                     ORDER BY timestamp DESC
                     LIMIT ?
-                """, (limit,))
-                
+                """,
+                    (limit,),
+                )
+
                 for row in cur.fetchall():
-                    results.append({
-                        "timestamp": row[1], # iso
-                        "timestamp_ts": row[0], # ts
-                        "program": row[2],
-                        "message": row[3],
-                        "hostname": row[4],
-                        "facility": row[5],
-                        "severity": row[6]
-                    })
+                    results.append(
+                        {
+                            "timestamp": row[1],  # iso
+                            "timestamp_ts": row[0],  # ts
+                            "program": row[2],
+                            "message": row[3],
+                            "hostname": row[4],
+                            "facility": row[5],
+                            "severity": row[6],
+                        }
+                    )
             except Exception as e:
                 print(f"Error fetching syslog events: {e}")
             finally:
                 conn.close()
-                
+
         return results
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored events (last 24h)."""
-        from app.db.sqlite import _firewall_db_connect, _firewall_db_lock, _firewall_db_init
-        
+        from app.db.sqlite import (
+            _firewall_db_connect,
+            _firewall_db_lock,
+            _firewall_db_init,
+        )
+
         # Ensure DB is ready
         _firewall_db_init()
-        
+
         program_counts: Dict[str, int] = {}
         total = 0
         cutoff = datetime.now().timestamp() - 86400  # Last 24 hours only
-        
+
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
-                cur = conn.execute("SELECT COUNT(*) FROM syslog_events WHERE timestamp > ?", (cutoff,))
+                cur = conn.execute(
+                    "SELECT COUNT(*) FROM syslog_events WHERE timestamp > ?", (cutoff,)
+                )
                 total = cur.fetchone()[0] or 0
-                
-                cur = conn.execute("""
+
+                cur = conn.execute(
+                    """
                     SELECT program, COUNT(*) 
                     FROM syslog_events 
                     WHERE timestamp > ?
                     GROUP BY program
-                """, (cutoff,))
-                
+                """,
+                    (cutoff,),
+                )
+
                 for row in cur.fetchall():
                     program_counts[row[0]] = row[1]
             except Exception as e:
@@ -136,14 +161,12 @@ class SyslogStore:
             finally:
                 conn.close()
 
-        return {
-            "total": total,
-            "programs": program_counts
-        }
+        return {"total": total, "programs": program_counts}
 
     def clear(self) -> None:
         """Clear all events."""
         from app.db.sqlite import _firewall_db_connect, _firewall_db_lock
+
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:

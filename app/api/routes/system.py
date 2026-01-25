@@ -1579,7 +1579,6 @@ def api_database_stats():
         get_db_size_history,
     )
     import os
-    import time as time_module
 
     def get_db_stats(db_path, db_name, connect_func):
         """Get statistics for a single database."""

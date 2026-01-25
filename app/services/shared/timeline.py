@@ -14,7 +14,7 @@ Event Sources:
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -22,20 +22,21 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class TimelineEvent:
     """A single event in the unified timeline."""
+
     timestamp: float  # Unix timestamp
-    source: str       # filterlog | firewall | snmp | system
-    summary: str      # One-line human readable description
+    source: str  # filterlog | firewall | snmp | system
+    summary: str  # One-line human readable description
     raw: Optional[Dict[str, Any]] = None  # Optional expandable details
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
         # Use UTC and append 'Z' to indicate UTC for frontend parsing
         return {
-            "timestamp": datetime.utcfromtimestamp(self.timestamp).isoformat() + 'Z',
+            "timestamp": datetime.utcfromtimestamp(self.timestamp).isoformat() + "Z",
             "timestamp_ts": self.timestamp,
             "source": self.source,
             "summary": self.summary,
-            "raw": self.raw
+            "raw": self.raw,
         }
 
 
@@ -56,7 +57,7 @@ class TimelineStore:
         source: str,
         summary: str,
         raw: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[float] = None
+        timestamp: Optional[float] = None,
     ) -> None:
         """
         Add an event to the timeline.
@@ -68,10 +69,7 @@ class TimelineStore:
             timestamp: Unix timestamp (defaults to now)
         """
         event = TimelineEvent(
-            timestamp=timestamp or time.time(),
-            source=source,
-            summary=summary,
-            raw=raw
+            timestamp=timestamp or time.time(), source=source, summary=summary, raw=raw
         )
         with self._lock:
             self._buffer.append(event)
@@ -81,7 +79,7 @@ class TimelineStore:
         limit: int = 50,
         since_ts: Optional[float] = None,
         until_ts: Optional[float] = None,
-        source_filter: Optional[str] = None
+        source_filter: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve events, newest first.
@@ -133,7 +131,7 @@ class TimelineStore:
             "total": total,
             "by_source": by_source,
             "oldest_ts": oldest_ts,
-            "newest_ts": newest_ts
+            "newest_ts": newest_ts,
         }
 
     def clear(self) -> None:
@@ -161,7 +159,7 @@ def add_timeline_event(
     source: str,
     summary: str,
     raw: Optional[Dict[str, Any]] = None,
-    timestamp: Optional[float] = None
+    timestamp: Optional[float] = None,
 ) -> None:
     """
     Convenience function to add an event to the global timeline.
