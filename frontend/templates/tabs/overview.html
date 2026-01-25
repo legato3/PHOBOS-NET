@@ -197,7 +197,6 @@
                         </div>
                         <input class="pulse-search" type="text" placeholder="filter..."
                             x-model="events.timelineSearch">
-                        <button class="pulse-follow" x-show="isDebugMode()" @click="seedTimelineEvents()">Seed</button>
                     </div>
                     <div class="pulse-list" x-ref="pulseList">
                         <template x-if="(events.notable.loading || events.activity.loading)">

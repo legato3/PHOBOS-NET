@@ -324,8 +324,10 @@ export const Store = () => ({
         defaultViewId: '',
         suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } },
         expanded: new Set(),
-        pulseSeededEvents: [],
-        lastHeartbeatTs: 0
+        lastHeartbeatTs: 0,
+        pulseFeed: [],
+        pulseLoading: false,
+        timelineCache: []
     },
 
     eventsPage: false,
@@ -2316,6 +2318,7 @@ export const Store = () => ({
             this.fetchAlertHistory(),
             this.fetchEvents('notable'),
             this.fetchEvents('activity'),
+            this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
             this.fetchIngestionRates()
         ]);
@@ -3198,6 +3201,34 @@ export const Store = () => ({
         }
     },
 
+    async fetchPulseFeed() {
+        if (this.events.timelinePaused) return;
+        this.events.pulseLoading = true;
+        try {
+            const rangeSeconds = {
+                '1h': 3600,
+                '6h': 21600,
+                '24h': 86400
+            };
+            const rangeKey = this.events.timelineRange || '1h';
+            const range_s = rangeSeconds[rangeKey] || 3600;
+            const params = new URLSearchParams({
+                limit: '200',
+                range_s: String(range_s)
+            });
+            const res = await fetch(`/api/pulse/feed?${params.toString()}`);
+            if (res.ok) {
+                const d = await res.json();
+                this.events.pulseFeed = d.events || [];
+            }
+        } catch (e) {
+            console.error('Pulse feed fetch error:', e);
+        } finally {
+            this.events.pulseLoading = false;
+            this.$nextTick(() => this.applyTimelineFollow());
+        }
+    },
+
     setEventsMode(mode) {
         if (this.events.mode === mode) return;
         this.events.mode = mode;
@@ -3379,70 +3410,9 @@ export const Store = () => ({
     },
 
     computeUnifiedTimeline() {
-        const now = Math.floor(Date.now() / 1000);
-        const notable = (this.events.notable.items || []).map(item => this.normalizeUnifiedEvent(item, 'notable')).filter(Boolean);
-        const activity = (this.events.activity.items || []).map(item => this.normalizeUnifiedEvent(item, 'activity')).filter(Boolean);
-        const seeded = (this.events.pulseSeededEvents || []).map(item => this.normalizeUnifiedEvent(item, item.kind || 'activity')).filter(Boolean);
-        let combined = [...notable, ...activity, ...seeded];
-
-        combined.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-        const newestTs = combined.length ? (combined[0].ts || 0) : 0;
-
-        // Heartbeat if no events in last 120s
-        if (!newestTs || now - newestTs >= 120) {
-            const netflowEps = this.ingestionRates?.netflow_eps;
-            const syslogEps = this.ingestionRates?.syslog_eps;
-            const firewallEps = this.ingestionRates?.firewall_eps;
-            const heartbeatDetail = `netflow eps=${this.formatEps(netflowEps)} syslog eps=${this.formatEps(syslogEps)} firewall eps=${this.formatEps(firewallEps)}`;
-            combined.unshift({
-                id: `heartbeat-${now}`,
-                ts: now,
-                source: 'system',
-                severity: 'info',
-                kind: 'activity',
-                title: 'SYSTEM healthy',
-                detail: heartbeatDetail,
-                tags: ['HEARTBEAT'],
-                entity: 'system',
-                count: 1,
-                evidence: {},
-                rule_id: 'SYSTEM_HEARTBEAT',
-                dedupe_key: 'SYSTEM_HEARTBEAT:system'
-            });
-            this.events.lastHeartbeatTs = now;
-        }
-
-        // Dedupe + cooldown (10 minutes)
-        const deduped = [];
-        const seen = new Map();
-        for (const event of combined) {
-            const key = event.dedupe_key || `${event.title}:${event.source}`;
-            const prev = seen.get(key);
-            if (prev && Math.abs((prev.ts || 0) - (event.ts || 0)) <= 600) {
-                prev.count = (prev.count || 1) + (event.count || 1);
-                prev.ts = Math.max(prev.ts || 0, event.ts || 0);
-                continue;
-            }
-            seen.set(key, event);
-            deduped.push(event);
-        }
-
-        // Global cap: 30 events/minute, drop lowest severity first
-        const cutoff = now - 60;
-        const lastMinute = deduped.filter(event => (event.ts || 0) >= cutoff);
-        const older = deduped.filter(event => (event.ts || 0) < cutoff);
-        const severityRank = { info: 0, notice: 1, warn: 2 };
-        if (lastMinute.length > 30) {
-            lastMinute.sort((a, b) => {
-                const rankDiff = (severityRank[b.severity] || 0) - (severityRank[a.severity] || 0);
-                if (rankDiff !== 0) return rankDiff;
-                return (b.ts || 0) - (a.ts || 0);
-            });
-            lastMinute.length = 30;
-        }
-        const finalList = [...lastMinute, ...older].sort((a, b) => (b.ts || 0) - (a.ts || 0));
-
-        return finalList.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        const base = this.events.timelinePaused ? (this.events.timelineCache || []) : (this.events.pulseFeed || []);
+        const feed = base.map(item => this.normalizeUnifiedEvent(item, item.kind || 'activity')).filter(Boolean);
+        return feed.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     },
     timelineFiltered() {
         const list = this.computeUnifiedTimeline();
@@ -3487,7 +3457,9 @@ export const Store = () => ({
     toggleTimelinePause() {
         this.events.timelinePaused = !this.events.timelinePaused;
         if (this.events.timelinePaused) {
-            this.events.timelineCache = this.computeUnifiedTimeline();
+            this.events.timelineCache = [...(this.events.pulseFeed || [])];
+        } else {
+            this.fetchPulseFeed();
         }
     },
 
@@ -3495,8 +3467,7 @@ export const Store = () => ({
         this.events.timelineRange = rangeKey;
         this.events.rangeFollowGlobal = false;
         this.events.rangeValue = rangeKey;
-        this.fetchEvents('notable');
-        this.fetchEvents('activity');
+        this.fetchPulseFeed();
     },
 
     applyTimelineFollow() {
@@ -3532,24 +3503,6 @@ export const Store = () => ({
         this.events.timelineKind = kind;
     },
 
-    seedTimelineEvents() {
-        if (!window.PHOBOS_DEBUG) return;
-        const now = Math.floor(Date.now() / 1000);
-        const events = [];
-        for (let i = 0; i < 30; i += 1) {
-            const ts = now - (i * 20);
-            const sample = [
-                { source: 'netflow', severity: 'notice', kind: 'notable', title: 'PORT_SPIKE — 84 blocks/min (×3.2 baseline)', detail: 'Port 443 spike', count: 12, evidence: { port: 443, baseline: 26, current: 84 } },
-                { source: 'syslog', severity: 'info', kind: 'activity', title: 'SYSLOG_ACTIVE — receiver OK', detail: 'Port 514 receiving logs', evidence: { port: 514 } },
-                { source: 'firewall', severity: 'notice', kind: 'activity', title: 'FIREWALL_STREAM_ACTIVE — flow resumed', detail: 'Stream active', evidence: { } },
-                { source: 'snmp', severity: 'info', kind: 'activity', title: 'SNMP_REACHABLE — poll ok', detail: 'Firewall reachable', evidence: { } },
-                { source: 'system', severity: 'info', kind: 'activity', title: 'SYSTEM_STABLE — no anomalies', detail: 'Normal baseline', evidence: { } }
-            ];
-            const pick = sample[i % sample.length];
-            events.push({ ts, ...pick });
-        }
-        this.events.pulseSeededEvents = events;
-    },
 
     eventExplain(ruleId) {
         const explain = {

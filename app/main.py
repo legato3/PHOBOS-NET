@@ -31,6 +31,7 @@ from app.core.background import (
     start_container_metrics_thread,
     start_events_thread,
     start_digest_thread,
+    start_pulse_thread,
 )
 
 # Import syslog functions from app.services.shared.syslog
@@ -138,6 +139,9 @@ if __name__ == "__main__":
     if start_events_thread:
         start_events_thread()
         add_app_log("Events rule engine thread started", "INFO")
+    if start_pulse_thread:
+        start_pulse_thread()
+        add_app_log("System pulse thread started", "INFO")
     if start_digest_thread:
         start_digest_thread()
         add_app_log("Digest notification thread started", "INFO")

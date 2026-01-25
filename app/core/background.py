@@ -256,6 +256,37 @@ def start_events_thread():
     t.start()
 
 
+def start_pulse_thread():
+    """Start the system pulse feed generator thread."""
+    if getattr(state, "_pulse_thread_started", False):
+        return
+    state._pulse_thread_started = True
+
+    def loop():
+        from app.services.pulse.feed import pulse_tick
+
+        while not _shutdown_event.is_set():
+            start_time = time.time()
+            try:
+                pulse_tick()
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health(
+                    "PulseThread", success=True, execution_time_ms=exec_time_ms
+                )
+            except Exception as e:
+                exec_time_ms = (time.time() - start_time) * 1000
+                update_thread_health(
+                    "PulseThread",
+                    success=False,
+                    execution_time_ms=exec_time_ms,
+                    error_msg=str(e),
+                )
+            _shutdown_event.wait(timeout=5)
+
+    t = threading.Thread(target=loop, daemon=True, name="PulseThread")
+    t.start()
+
+
 def start_digest_thread():
     """Start the digest notification thread (opt-in)."""
     if getattr(state, "_digest_thread_started", False):

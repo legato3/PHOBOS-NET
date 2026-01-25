@@ -146,6 +146,7 @@ _db_size_sampler_thread_started = False
 _resource_sampler_thread_started = False
 _events_thread_started = False
 _digest_thread_started = False
+_pulse_thread_started = False
 
 # ==================== Resource History ====================
 # Rolling history: 60 samples (1 per minute = 1 hour of history)
@@ -297,6 +298,16 @@ _thread_health = {
         "execution_count": 0,
         "execution_times_ms": deque(maxlen=20),
         "expected_interval_sec": 60,
+        "status": "unknown",
+    },
+    "PulseThread": {
+        "last_success": None,
+        "last_error": None,
+        "last_error_msg": None,
+        "error_count": 0,
+        "execution_count": 0,
+        "execution_times_ms": deque(maxlen=20),
+        "expected_interval_sec": 5,
         "status": "unknown",
     },
     "DbSizeSamplerThread": {

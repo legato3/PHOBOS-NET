@@ -49,6 +49,7 @@ DIGEST_ENABLED = os.getenv("DIGEST_ENABLED", "false").lower() == "true"
 DIGEST_WEBHOOK_URL = os.getenv("DIGEST_WEBHOOK_URL", "")
 DIGEST_EMAIL_TO = os.getenv("DIGEST_EMAIL_TO", "")
 DIGEST_INTERVAL = os.getenv("DIGEST_INTERVAL", "hourly")
+PULSE_SIMULATE = os.getenv("PULSE_SIMULATE", "0") == "1"
 NOTIFY_CFG_PATH = os.getenv("NOTIFY_CFG_PATH", "/app/data/netflow-notify.json")
 THRESHOLDS_CFG_PATH = os.getenv(
     "THRESHOLDS_CFG_PATH", "/app/data/netflow-thresholds.json"
