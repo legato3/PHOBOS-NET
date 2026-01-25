@@ -16,8 +16,8 @@
                 <p class="text-muted mb-3">Resolve and inspect DNS records</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.dns.query" placeholder="Domain or IP (e.g., google.com)"
-                        class="tool-input" @keydown.enter="runDnsLookup()">
-                    <select x-model="tools.dns.type" class="tool-select">
+                        class="tool-input" @keydown.enter="runDnsLookup()" aria-label="DNS query domain or IP">
+                    <select x-model="tools.dns.type" class="tool-select" aria-label="DNS record type">
                         <option value="A">A</option>
                         <option value="AAAA">AAAA</option>
                         <option value="MX">MX</option>
@@ -51,9 +51,9 @@
                 <p class="text-muted mb-3">Test service reachability on specific ports</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.port.host" placeholder="Host (e.g., 192.168.1.1)"
-                        class="tool-input" @keydown.enter="runPortCheck()">
+                        class="tool-input" @keydown.enter="runPortCheck()" aria-label="Target host">
                     <input type="text" x-model="tools.port.ports" placeholder="Ports (e.g., 22,80,443)"
-                        class="tool-input-sm" @keydown.enter="runPortCheck()">
+                        class="tool-input-sm" @keydown.enter="runPortCheck()" aria-label="Target ports">
                     <button class="btn btn--secondary" @click="runPortCheck()"
                         :disabled="!tools.port.host || !tools.port.ports || tools.port.loading">
                         Check
@@ -87,8 +87,8 @@
                 <p class="text-muted mb-3">Reachability and path testing</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.ping.host" placeholder="Host (e.g., 8.8.8.8)" class="tool-input"
-                        @keydown.enter="runPing()">
-                    <select x-model="tools.ping.mode" class="tool-select">
+                        @keydown.enter="runPing()" aria-label="Target host">
+                    <select x-model="tools.ping.mode" class="tool-select" aria-label="Tool mode">
                         <option value="ping">Ping</option>
                         <option value="traceroute">Traceroute</option>
                     </select>
@@ -118,7 +118,7 @@
                 <p class="text-muted mb-3">Network ownership and geographic origin</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.whois.query" placeholder="IP or domain" class="tool-input"
-                        @keydown.enter="runWhoisLookup()">
+                        @keydown.enter="runWhoisLookup()" aria-label="Whois query">
                     <button class="btn btn--secondary" @click="runWhoisLookup()"
                         :disabled="!tools.whois.query || tools.whois.loading">
                         Lookup
@@ -151,7 +151,7 @@
                 <p class="text-muted mb-3">Check status, latency, and response headers</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.httpProbe.url" placeholder="URL (e.g., https://example.com)"
-                        class="tool-input" @keydown.enter="runHttpProbe()">
+                        class="tool-input" @keydown.enter="runHttpProbe()" aria-label="Target URL">
                     <button class="btn btn--secondary" @click="runHttpProbe()"
                         :disabled="!tools.httpProbe.url || tools.httpProbe.loading">
                         Probe
@@ -207,9 +207,9 @@
                 <p class="text-muted mb-3">Inspect certificate issuer, expiry, and SANs</p>
                 <div class="tool-input-group">
                     <input type="text" x-model="tools.tlsInspect.host" placeholder="Host (e.g., example.com)"
-                        class="tool-input" @keydown.enter="runTlsInspect()">
+                        class="tool-input" @keydown.enter="runTlsInspect()" aria-label="Target host">
                     <input type="text" x-model="tools.tlsInspect.port" placeholder="443" class="tool-input-sm"
-                        @keydown.enter="runTlsInspect()">
+                        @keydown.enter="runTlsInspect()" aria-label="Target port">
                     <button class="btn btn--secondary" @click="runTlsInspect()"
                         :disabled="!tools.tlsInspect.host || tools.tlsInspect.loading">
                         Inspect
@@ -288,7 +288,7 @@
                 <span class="terminal-prompt">$</span>
                 <input type="text" x-model="tools.shell.command" placeholder="Enter command..."
                     class="tool-input terminal-input-custom" @keydown.enter="runShellCommand()"
-                    @keydown.up="shellHistoryUp()" @keydown.down="shellHistoryDown()">
+                    @keydown.up="shellHistoryUp()" @keydown.down="shellHistoryDown()" aria-label="Shell command">
                 <button class="btn btn--secondary" @click="runShellCommand()"
                     :disabled="!tools.shell?.command || tools.shell?.loading">
                     Run
