@@ -47,7 +47,6 @@ _lock_proto_mix = threading.Lock()
 _lock_network_intelligence = threading.Lock()
 _lock_service_cache = threading.Lock() # Lock for service name cache
 _cache_lock = threading.Lock()  # Generic small cache lock (e.g., packet sizes)
-_mock_lock = threading.Lock()  # Lock for mock data cache
 _throttle_lock = threading.Lock()  # Lock for rate limiting
 _common_data_lock = threading.Lock()  # Lock for common data cache
 _cpu_stat_lock = threading.Lock()  # Lock for CPU stat caching
@@ -81,7 +80,6 @@ _stats_worldmap_cache = {"data": None, "ts": 0, "key": None}
 _server_health_cache = {"data": None, "ts": 0}
 
 # ==================== Data Caches ====================
-_mock_data_cache = {"mtime": 0, "rows": [], "output_cache": {}}
 _bandwidth_cache = {"data": None, "ts": 0}
 _bandwidth_history_cache = {}
 _flows_cache = {"data": None, "ts": 0}
