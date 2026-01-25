@@ -184,3 +184,20 @@ export {
     getUserFriendlyError,
     safeFetch
 };
+
+// Statistical Utilities
+export function calculateAvg(history, key) {
+    if (!history || !history.length) return '—';
+    const valid = history.filter(h => h[key] !== null && h[key] !== undefined);
+    if (!valid.length) return '—';
+    const sum = valid.reduce((acc, curr) => acc + curr[key], 0);
+    return (sum / valid.length).toFixed(1);
+}
+
+export function calculateMin(history, key) {
+    if (!history || !history.length) return '—';
+    const valid = history.filter(h => h[key] !== null && h[key] !== undefined);
+    if (!valid.length) return '—';
+    return Math.min(...valid.map(h => h[key])).toFixed(1);
+}
+

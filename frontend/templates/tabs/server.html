@@ -1,144 +1,3 @@
-<script>
-    // Expose renderSparkline globally for use in x-init
-    window.renderSparkline = function (canvas, values, color) {
-        if (!canvas || !canvas.getContext) {
-            console.log('renderSparkline: Invalid canvas');
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-
-        // Update canvas resolution to match display size
-        if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-        }
-
-        const width = rect.width;
-        const height = rect.height;
-
-        ctx.resetTransform();
-        ctx.scale(dpr, dpr);
-        ctx.clearRect(0, 0, width, height);
-
-        const validValues = values.filter(v => v !== null && v !== undefined);
-
-        // Draw Grid
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; // Sharper grid
-
-        // Horizontal lines (0%, 25%, 50%, 75%, 100%)
-        ctx.beginPath();
-        // Top and Bottom
-        ctx.moveTo(0, 0.5);
-        ctx.lineTo(width, 0.5);
-        ctx.moveTo(0, height - 0.5);
-        ctx.lineTo(width, height - 0.5);
-
-        // Inner lines
-        for (let i = 1; i < 4; i++) {
-            const y = Math.floor(height * (i / 4)) + 0.5;
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-        }
-        ctx.stroke();
-
-        // Vertical lines (Time divisions - every 15m)
-        ctx.beginPath();
-        ctx.setLineDash([2, 3]); // Tight dash
-        for (let i = 1; i < 4; i++) {
-            const x = Math.floor(width * (i / 4)) + 0.5;
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Add Info Labels (Axis & Time)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = '9px "JetBrains Mono", monospace';
-
-        // Y-Axis Labels (Right side)
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText('100%', width - 4, 3);
-        ctx.textBaseline = 'middle';
-        ctx.fillText('50%', width - 4, height / 2);
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('0%', width - 4, height - 2);
-
-        // X-Axis Labels (Bottom left)
-        ctx.textAlign = 'left';
-        ctx.fillText('1h ago', 4, height - 2);
-
-        if (validValues.length < 2) return;
-
-        const max = 100; // Percentages are fixed 0-100
-        const range = max;
-
-        // Fill Area
-        ctx.beginPath();
-        ctx.moveTo(0, height);
-        let lastX = 0;
-
-        const totalPoints = values.length;
-
-        values.forEach((v, i) => {
-            const x = (i / Math.max(1, totalPoints - 1)) * width;
-            if (v !== null && v !== undefined) {
-                const y = height - (v / range) * (height);
-                if (i === 0) ctx.lineTo(x, height); // Anchor start
-                ctx.lineTo(x, y);
-                lastX = x;
-            }
-        });
-        ctx.lineTo(lastX, height);
-        ctx.closePath();
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, color + '50'); // More opaque/sharp at top
-        gradient.addColorStop(1, color + '05'); // Fade to transparent
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        // Stroke Line
-        ctx.beginPath();
-        let started = false;
-        values.forEach((v, i) => {
-            if (v !== null && v !== undefined) {
-                const x = (i / Math.max(1, totalPoints - 1)) * width;
-                const y = height - (v / range) * (height);
-                if (!started) {
-                    ctx.moveTo(x, y);
-                    started = true;
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-        });
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2; // Thicker, sharper line
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-
-        // Add subtle glow
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 6;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-    };
-
-    window.calculateAvg = function (history, key) {
-        if (!history || !history.length) return '—';
-        const valid = history.filter(h => h[key] !== null && h[key] !== undefined);
-        if (!valid.length) return '—';
-        const sum = valid.reduce((acc, curr) => acc + curr[key], 0);
-        return (sum / valid.length).toFixed(1);
-    };
-</script>
-
 <div x-show="activeTab === 'server'" :style="activeTab === 'server' ? 'display:block' : 'display:none'" id="server-tab"
     role="tabpanel" aria-labelledby="server-tab-btn" tabindex="0">
     <section id="section-server" class="scroll-section" style="margin-bottom: var(--space-6);">
@@ -589,20 +448,27 @@
                                     <div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                                             <span class="text-muted text-8">CPU</span>
-                                            <span class="text-2 text-8">
-                                                Cur: <span
+                                            <span class="text-2 text-8"
+                                                style="font-family: var(--font-mono); letter-spacing: -0.02em;">
+                                                <span class="text-muted">CUR:</span> <span
                                                     x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.cpu_percent ?? '—') + '%' : '—'"
-                                                    style="color: #fff;"></span>
-                                                · Avg: <span
-                                                    x-text="window.calculateAvg(resourceHistory.history, 'cpu_percent') + '%'"
-                                                    style="color: #ccc;"></span>
-                                                · Peak: <span
+                                                    style="color: var(--signal-ok); font-weight: 600;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">MIN:</span> <span
+                                                    x-text="DashboardUtils.calculateMin(resourceHistory.history, 'cpu_percent') + '%'"
+                                                    style="color: #888;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">AVG:</span> <span
+                                                    x-text="DashboardUtils.calculateAvg(resourceHistory.history, 'cpu_percent') + '%'"
+                                                    style="color: #bbb;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">MAX:</span> <span
                                                     x-text="resourceHistory.cpu_peak !== null ? resourceHistory.cpu_peak + '%' : '—'"
-                                                    style="color: #ccc;"></span>
+                                                    style="color: #ddd;"></span>
                                             </span>
                                         </div>
                                         <div class="panel-card__chart-container"
-                                            style="height: 45px; position: relative;">
+                                            style="height: 60px; position: relative;">
                                             <canvas id="cpuHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
@@ -621,20 +487,27 @@
                                     <div>
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                                             <span class="text-muted text-8">Memory</span>
-                                            <span class="text-2 text-8">
-                                                Cur: <span
+                                            <span class="text-2 text-8"
+                                                style="font-family: var(--font-mono); letter-spacing: -0.02em;">
+                                                <span class="text-muted">CUR:</span> <span
                                                     x-text="resourceHistory.history?.length ? (resourceHistory.history[resourceHistory.history.length-1]?.mem_percent ?? '—') + '%' : '—'"
-                                                    style="color: #fff;"></span>
-                                                · Avg: <span
-                                                    x-text="window.calculateAvg(resourceHistory.history, 'mem_percent') + '%'"
-                                                    style="color: #ccc;"></span>
-                                                · Peak: <span
+                                                    style="color: var(--signal-primary); font-weight: 600;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">MIN:</span> <span
+                                                    x-text="DashboardUtils.calculateMin(resourceHistory.history, 'mem_percent') + '%'"
+                                                    style="color: #888;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">AVG:</span> <span
+                                                    x-text="DashboardUtils.calculateAvg(resourceHistory.history, 'mem_percent') + '%'"
+                                                    style="color: #bbb;"></span>
+                                                <span style="opacity: 0.3; margin: 0 4px;">|</span>
+                                                <span class="text-muted">MAX:</span> <span
                                                     x-text="resourceHistory.mem_peak !== null ? resourceHistory.mem_peak + '%' : '—'"
-                                                    style="color: #ccc;"></span>
+                                                    style="color: #ddd;"></span>
                                             </span>
                                         </div>
                                         <div class="panel-card__chart-container"
-                                            style="height: 45px; position: relative;">
+                                            style="height: 60px; position: relative;">
                                             <canvas id="memHistoryChart" width="400" height="90"
                                                 style="width: 100%; height: 100%; display: block;" x-init="$nextTick(() => {
                                                     const render = () => {
