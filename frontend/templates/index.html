@@ -1475,22 +1475,21 @@
                                 <label class="label">
                                     <span class="label-text">Owner</span>
                                 </label>
-                                <input type="text" class="input input-bordered input-sm w-full"
-                                    x-model="ipDetails.metadata.owner" placeholder="e.g. IT Ops" />
+                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.owner"
+                                    placeholder="e.g. IT Ops" />
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Device Type</span>
                                 </label>
-                                <input type="text" class="input input-bordered input-sm w-full"
-                                    x-model="ipDetails.metadata.device_type" placeholder="e.g. Printer, NAS" />
+                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.device_type"
+                                    placeholder="e.g. Printer, NAS" />
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Criticality</span>
                                 </label>
-                                <select class="select select-bordered select-sm w-full"
-                                    x-model="ipDetails.metadata.criticality">
+                                <select class="cyber-input w-full" x-model="ipDetails.metadata.criticality">
                                     <option value="">Unspecified</option>
                                     <option value="low">Low</option>
                                     <option value="medium">Medium</option>
@@ -1502,15 +1501,15 @@
                                 <label class="label">
                                     <span class="label-text">Tags</span>
                                 </label>
-                                <input type="text" class="input input-bordered input-sm w-full"
-                                    x-model="ipDetails.metadata.tags_text" placeholder="tag1, tag2" />
+                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.tags_text"
+                                    placeholder="tag1, tag2" />
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Notes</span>
                                 </label>
-                                <textarea class="textarea textarea-bordered textarea-sm w-full" rows="3"
-                                    x-model="ipDetails.metadata.notes" placeholder="Add a short note..."></textarea>
+                                <textarea class="cyber-input w-full" rows="3" x-model="ipDetails.metadata.notes"
+                                    placeholder="Add a short note..."></textarea>
                             </div>
                             <div class="flex items-center gap-2" style="margin-top: 10px;">
                                 <button class="btn btn-sm btn-primary" @click="saveHostMetadata()"
