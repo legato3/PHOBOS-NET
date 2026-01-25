@@ -324,16 +324,8 @@ export const Store = () => ({
         defaultViewId: '',
         suppressed: { dedupe: { count: 0, last_ts: null }, rate_limited: { count: 0, last_ts: null } },
         expanded: new Set(),
-        timelineSource: 'all',
-        timelineKind: 'all',
-        timelineFollow: true,
-        timelineExpanded: new Set(),
-        timelinePaused: false,
-        timelineSearch: '',
-        timelineRange: '1h',
-        timelineCache: [],
-        seededEvents: [],
-        lastStableTs: 0
+        pulseSeededEvents: [],
+        lastHeartbeatTs: 0
     },
 
     eventsPage: false,
@@ -3390,33 +3382,39 @@ export const Store = () => ({
         const now = Math.floor(Date.now() / 1000);
         const notable = (this.events.notable.items || []).map(item => this.normalizeUnifiedEvent(item, 'notable')).filter(Boolean);
         const activity = (this.events.activity.items || []).map(item => this.normalizeUnifiedEvent(item, 'activity')).filter(Boolean);
-        const seeded = (this.events.seededEvents || []).map(item => this.normalizeUnifiedEvent(item, item.kind || 'activity')).filter(Boolean);
+        const seeded = (this.events.pulseSeededEvents || []).map(item => this.normalizeUnifiedEvent(item, item.kind || 'activity')).filter(Boolean);
         let combined = [...notable, ...activity, ...seeded];
 
-        // Low-frequency stable marker every 10 minutes
-        if (!this.events.lastStableTs || now - this.events.lastStableTs >= 600) {
-            combined.push({
-                id: `stable-${now}`,
+        combined.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        const newestTs = combined.length ? (combined[0].ts || 0) : 0;
+
+        // Heartbeat if no events in last 120s
+        if (!newestTs || now - newestTs >= 120) {
+            const netflowEps = this.ingestionRates?.netflow_eps;
+            const syslogEps = this.ingestionRates?.syslog_eps;
+            const firewallEps = this.ingestionRates?.firewall_eps;
+            const heartbeatDetail = `netflow eps=${this.formatEps(netflowEps)} syslog eps=${this.formatEps(syslogEps)} firewall eps=${this.formatEps(firewallEps)}`;
+            combined.unshift({
+                id: `heartbeat-${now}`,
                 ts: now,
                 source: 'system',
                 severity: 'info',
                 kind: 'activity',
-                title: 'System stable',
-                detail: 'No anomalies detected in this window.',
-                tags: ['STABLE'],
+                title: 'SYSTEM healthy',
+                detail: heartbeatDetail,
+                tags: ['HEARTBEAT'],
                 entity: 'system',
                 count: 1,
                 evidence: {},
-                rule_id: 'SYSTEM_STABLE',
-                dedupe_key: 'SYSTEM_STABLE:system'
+                rule_id: 'SYSTEM_HEARTBEAT',
+                dedupe_key: 'SYSTEM_HEARTBEAT:system'
             });
-            this.events.lastStableTs = now;
+            this.events.lastHeartbeatTs = now;
         }
 
         // Dedupe + cooldown (10 minutes)
         const deduped = [];
         const seen = new Map();
-        combined.sort((a, b) => (b.ts || 0) - (a.ts || 0));
         for (const event of combined) {
             const key = event.dedupe_key || `${event.title}:${event.source}`;
             const prev = seen.get(key);
@@ -3444,36 +3442,10 @@ export const Store = () => ({
         }
         const finalList = [...lastMinute, ...older].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
-        // Ensure minimum activity when no notable
-        const hasNotable = finalList.some(event => event.kind === 'notable');
-        if (!hasNotable) {
-            const activityOnly = finalList.filter(event => event.kind === 'activity');
-            if (activityOnly.length < 5) {
-                for (let i = activityOnly.length; i < 5; i += 1) {
-                    finalList.push({
-                        id: `heartbeat-${now}-${i}`,
-                        ts: now - i * 30,
-                        source: 'system',
-                        severity: 'info',
-                        kind: 'activity',
-                        title: 'Telemetry active',
-                        detail: 'Ingestion running normally.',
-                        tags: ['HEARTBEAT'],
-                        entity: 'system',
-                        count: 1,
-                        evidence: {},
-                        rule_id: 'SYSTEM_HEARTBEAT',
-                        dedupe_key: `SYSTEM_HEARTBEAT:${i}`
-                    });
-                }
-            }
-        }
-
         return finalList.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     },
-
     timelineFiltered() {
-        const list = this.events.timelinePaused ? (this.events.timelineCache || []) : this.computeUnifiedTimeline();
+        const list = this.computeUnifiedTimeline();
         const source = this.events.timelineSource || 'all';
         const kind = this.events.timelineKind || 'all';
         const needle = (this.events.timelineSearch || '').trim().toLowerCase();
@@ -3576,86 +3548,7 @@ export const Store = () => ({
             const pick = sample[i % sample.length];
             events.push({ ts, ...pick });
         }
-        this.events.seededEvents = events;
-    },
-
-    getSystemPulseData() {
-        return {
-            serverHealth: this.serverHealth || {},
-            ingestionRates: this.ingestionRates || {},
-            netHealth: this.netHealth || {},
-            networkStatsOverview: this.networkStatsOverview || {},
-            firewallStatsOverview: this.firewallStatsOverview || {},
-            timeRangeLabel: this.timeRangeLabel || this.global_time_range || '—'
-        };
-    },
-
-    computeSystemPulse(statusData) {
-        const data = statusData || {};
-        const serverHealth = data.serverHealth || {};
-        const netflow = serverHealth.netflow || {};
-        const syslog = serverHealth.syslog || {};
-        const fwSyslog = serverHealth.firewall_syslog || {};
-        const ingestion = data.ingestionRates || {};
-        const netHealth = data.netHealth || {};
-        const networkStats = data.networkStatsOverview || {};
-        const firewallStats = data.firewallStatsOverview || {};
-
-        const netflowOk = netflow.available === true;
-        const syslog514Ok = syslog.active === true;
-        const syslog515Ok = fwSyslog.active === true;
-        const ingestKnown = [netflow.available, syslog.active, fwSyslog.active].some(v => v !== undefined && v !== null);
-        const ingestOk = ingestKnown && netflowOk && syslog514Ok && syslog515Ok;
-
-        const syslogErrors = (syslog.errors || 0) + (fwSyslog.errors || 0);
-        const hasParseErrors = syslogErrors > 0;
-        const healthDegraded = ['degraded', 'unhealthy'].includes(String(netHealth.status || '').toLowerCase());
-        const degraded = !ingestOk || hasParseErrors || healthDegraded;
-
-        const epsTotal = (ingestion.netflow_eps || 0) + (ingestion.firewall_eps || 0) + (ingestion.syslog_eps || 0);
-        const anomalies24h = networkStats.anomalies_24h;
-        const anomaliesZero = anomalies24h === 0 || anomalies24h === null || anomalies24h === undefined;
-        const activeExpected = !degraded && epsTotal >= 1.0 && anomaliesZero;
-
-        const state = degraded ? 'DEGRADED' : (activeExpected ? 'ACTIVE (EXPECTED)' : 'NORMAL');
-        const ingest = ingestOk ? 'OK' : (ingestKnown ? 'DEGRADED' : 'DEGRADED');
-
-        const lastFile = netflow.last_file || netflow.latest_file || '—';
-        const summary = degraded
-            ? 'Some sources are stale or reporting errors.'
-            : (activeExpected ? 'Telemetry is active with normal indicators.' : 'Sources are active and within baseline ranges.');
-
-        const reasons = [
-            `NetFlow ingest ${netflowOk ? 'active' : 'stale'} (${this.formatEps(ingestion.netflow_eps)}, last file: ${lastFile})`,
-            `Syslog receivers: 514 ${syslog514Ok ? 'OK' : 'STALE'}, 515 ${syslog515Ok ? 'OK' : 'STALE'}`,
-            `Firewall stream EPS ${this.formatEps(ingestion.firewall_eps)} (parse errors ${this.formatNumOrDash(syslogErrors)})`,
-            `Network health: ${netHealth.status || '—'}${netHealth.health_score ? ` (${this.formatNumOrDash(netHealth.health_score)})` : ''}`,
-            `Anomalies 24h: ${this.formatNumOrDash(anomalies24h)} · Blocks 24h: ${this.formatNumOrDash(firewallStats.blocked_events_24h)}`,
-        ].filter(Boolean).slice(0, 5);
-
-        if (reasons.length === 0) {
-            console.error('SYSTEM PULSE reasons empty; inserting fallback.');
-            reasons.push('Some sources not reporting (using last known state).');
-        }
-
-        const live = this.eventsLastTimestamp('activity')
-            ? ((Date.now() / 1000) - this.eventsLastTimestamp('activity') < 120)
-            : false;
-
-        const flows = netflow.total_flows;
-        const syslogMsgs = (syslog.received || 0) + (fwSyslog.received || 0);
-        const blocks24h = firewallStats.blocked_events_24h;
-        const footer = `Analyzed: ${this.formatNumOrDash(flows)} flows • ${this.formatNumOrDash(syslogMsgs)} syslog msgs • ${this.formatNumOrDash(blocks24h)} blocks • window: ${data.timeRangeLabel || '—'}`;
-
-        return {
-            state,
-            ingest,
-            reasons,
-            window: data.timeRangeLabel || '—',
-            summary,
-            footer,
-            live
-        };
+        this.events.pulseSeededEvents = events;
     },
 
     eventExplain(ruleId) {
