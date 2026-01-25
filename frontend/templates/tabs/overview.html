@@ -1,419 +1,369 @@
-<div x-show="activeTab === 'overview'" :style="activeTab === 'overview' ? 'display:block' : 'display:none'"
-    id="overview-tab" role="tabpanel" aria-labelledby="overview-tab-btn" tabindex="0">
+<div x-show="activeTab === 'overview'" id="overview-tab" role="tabpanel" class="custom-scroll"
+    style="display:none; height:100%; padding-bottom:40px; max-width:1800px; margin:0 auto; overflow-y: auto;"
+    x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100">
 
-    <!-- Summary Stats & Bandwidth - Horizontal Layout -->
-    <section id="section-summary" class="scroll-section mb-6">
+    <!-- OVERVIEW GRID: Radar + Movers + Stream -->
+    <div class="overview-grid"
+        style="display: grid; grid-template-columns: 2.2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6);">
 
-        <!-- Top Row: Summary Stats (Compact Horizontal) -->
-        <div class="summary-stats-grid" style="margin-bottom: var(--space-6);">
-            <!-- Mobile: Priority Stats (Above Fold) -->
-            <div class="card stat-box mobile-priority-stat mobile-health-card" :class="{ 
-                                        'status-ok': overallHealth.state === 'healthy',
-                                        'status-warning': overallHealth.state === 'degraded',
-                                        'status-error': overallHealth.state === 'unhealthy'
-                                    }" :title="overallHealth.explanation" @click="overallHealthModalOpen = true"
-                @keydown.enter="overallHealthModalOpen = true" @keydown.space.prevent="overallHealthModalOpen = true"
-                role="button" tabindex="0" style="cursor: pointer;">
-                <div class="value" :class="{
-                                            'text-green': overallHealth.state === 'healthy',
-                                            'text-yellow': overallHealth.state === 'degraded',
-                                            'text-red': overallHealth.state === 'unhealthy'
-                                        }" style="font-size: 1.3em; font-weight: 500; text-transform: capitalize;"
-                    x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Unhealthy'">
-                    ...</div>
-                <div class="label mobile-secondary-label">Overall Health</div>
+        <!-- COLUMN 1: RADAR (Top Left) -->
+        <div class="card status-card"
+            style="background:rgba(10,10,12,0.6); backdrop-filter:blur(15px); border:1px solid var(--card-border); padding:0; display:flex; flex-direction:column; overflow:hidden; height: 100%; min-height: 420px;">
 
-                <!-- Mobile-only system metrics integrated into health card -->
-                <div class="mobile-health-metrics" style="display:none;">
-                    <span class="badge" :class="firewall.cpu_percent > 80 ? 'badge-danger' : ''">CPU: <span
-                            x-text="firewall.cpu_percent ? firewall.cpu_percent + '%' : '--'"></span></span>
-                    <span class="badge" :class="firewall.mem_percent > 80 ? 'badge-danger' : ''">MEM: <span
-                            x-text="firewall.mem_percent ? firewall.mem_percent + '%' : '--'"></span></span>
-                    <span class="badge">Flows: <span
-                            x-text="Number(summary.totals.flows || 0).toLocaleString()"></span></span>
-                </div>
-            </div>
-            <div class="card stat-box mobile-priority-stat"
-                :class="{ 'status-warning': activeAlertsCount > 0, 'mobile-zero-state': activeAlertsCount === 0 }"
-                @click="navigateToActiveAlerts()" @keydown.enter="navigateToActiveAlerts()"
-                @keydown.space.prevent="navigateToActiveAlerts()" role="button" tabindex="0" style="cursor: pointer;"
-                title="Click to view active alerts">
-                <div class="value" :class="{ 'mobile-zero-value': activeAlertsCount === 0 }">
-                    <template x-if="alertHistory.loading">
-                        <span class="skeleton-stat-value"></span>
-                    </template>
-                    <template x-if="!alertHistory.loading">
-                        <span x-text="formatNumOrDash(activeAlertsCount)"></span>
-                    </template>
-                </div>
-                <div class="label">Active Alerts</div>
-
-            </div>
-
-            <!-- Mobile: Priority Stats (Above Fold) -->
-            <div class="card stat-box mobile-priority-stat" @click="navigateToActiveFlows()"
-                @keydown.enter="navigateToActiveFlows()" @keydown.space.prevent="navigateToActiveFlows()" role="button"
-                tabindex="0" style="cursor: pointer;" title="Click to view active flows">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <template x-if="networkStatsOverview.loading">
-                        <span class="skeleton-stat-value wide"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading">
-                        <span x-text="formatNumOrDash(networkStatsOverview.active_flows)"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.active_flows">
-                        <span>
-                            <span
-                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.active_flows.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.active_flows.muted ? '0.6' : '0.8')"
-                                x-text="networkStatsOverview.trends.active_flows.indicator"></span>
-                            <span class="mobile-trend-text"
-                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                x-text="(networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
-                        </span>
-                    </template>
-                </div>
-                <div class="label">Active Flows</div>
-
-            </div>
-            <div class="card stat-box mobile-secondary-stat" @click="navigateToExternalConnections()"
-                @keydown.enter="navigateToExternalConnections()"
-                @keydown.space.prevent="navigateToExternalConnections()" role="button" tabindex="0"
-                style="cursor: pointer;" title="Click to view external connections">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <template x-if="networkStatsOverview.loading">
-                        <span class="skeleton-stat-value wide"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading">
-                        <span x-text="formatNumOrDash(networkStatsOverview.external_connections)"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.external_connections">
-                        <span>
-                            <span
-                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.external_connections.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.external_connections.muted ? '0.6' : '0.8')"
-                                x-text="networkStatsOverview.trends.external_connections.indicator"></span>
-                            <span class="mobile-trend-text"
-                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                x-text="(networkStatsOverview.trends.external_connections.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.external_connections.percent_change.toFixed(1) + '%'"></span>
-                        </span>
-                    </template>
-                </div>
-                <div class="label">External Connections (Est.)</div>
-
-            </div>
-            <div class="card stat-box mobile-secondary-stat" @click="navigateToFirewallLogs()"
-                @keydown.enter="navigateToFirewallLogs()" @keydown.space.prevent="navigateToFirewallLogs()"
-                role="button" tabindex="0" style="cursor: pointer;" title="Click to view firewall logs">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <template x-if="firewallStatsOverview.loading">
-                        <span class="skeleton-stat-value wide"></span>
-                    </template>
-                    <template x-if="!firewallStatsOverview.loading">
-                        <span x-text="formatNumOrDash(firewallStatsOverview.blocked_events_24h)"></span>
-                    </template>
-                    <template x-if="!firewallStatsOverview.loading && firewallStatsOverview.trends?.blocked_events">
-                        <span>
-                            <span
-                                :style="'font-size: 0.8em; color: ' + (firewallStatsOverview.trends.blocked_events.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (firewallStatsOverview.trends.blocked_events.muted ? '0.6' : '0.8')"
-                                x-text="firewallStatsOverview.trends.blocked_events.indicator"></span>
-                            <span class="mobile-trend-text"
-                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                x-text="(firewallStatsOverview.trends.blocked_events.percent_change > 0 ? '+' : '') + firewallStatsOverview.trends.blocked_events.percent_change.toFixed(1) + '%'"></span>
-                        </span>
-                    </template>
-                </div>
-                <div class="label">Blocked Events (24h)</div>
-            </div>
-            <div class="card stat-box mobile-secondary-stat"
-                :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }" @click="navigateToAnomalies()"
-                @keydown.enter="navigateToAnomalies()" @keydown.space.prevent="navigateToAnomalies()" role="button"
-                tabindex="0" style="cursor: pointer;" title="Click to view network anomalies">
-                <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
-                    <template x-if="networkStatsOverview.loading">
-                        <span class="skeleton-stat-value"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading">
-                        <span x-text="formatNumOrDash(networkStatsOverview.anomalies_24h)"></span>
-                    </template>
-                    <template x-if="!networkStatsOverview.loading && networkStatsOverview.trends?.anomalies">
-                        <span>
-                            <span
-                                :style="'font-size: 0.8em; color: ' + (networkStatsOverview.trends.anomalies.muted ? 'var(--text-tertiary)' : 'var(--text-secondary)') + '; opacity: ' + (networkStatsOverview.trends.anomalies.muted ? '0.6' : '0.8')"
-                                x-text="networkStatsOverview.trends.anomalies.indicator"></span>
-                            <span class="mobile-trend-text"
-                                style="font-size: 0.6em; color: var(--text-secondary); margin-left: 4px; display: none;"
-                                x-text="(networkStatsOverview.trends.anomalies.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.anomalies.percent_change.toFixed(1) + '%'"></span>
-                        </span>
-                    </template>
-                </div>
-                <div class="label">Anomalies (24h)</div>
-
-            </div>
-        </div>
-
-        <!-- 1. LIVE NETWORK RADAR (PRIMARY) - REPLACES SYSTEM PULSE -->
-        <div class="overview-container"
-            style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6); align-items:start;">
-
-            <!-- RADAR BLOCK -->
-            <div class="card status-card"
-                style="min-height: 400px; display:flex; flex-direction:column; background:rgba(10,10,12,0.6); backdrop-filter:blur(10px); border:1px solid var(--card-border);">
-
-                <div class="status-card__header"
-                    style="border-bottom:1px solid rgba(255,255,255,0.05); padding:var(--space-4);">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div class="radar-pulse"></div> <!-- CSS Pulse Animation -->
-                        <h2
-                            style="margin:0; font-size:1em; letter-spacing:1px; color:var(--text-secondary); font-weight:600;">
-                            LIVE NETWORK RADAR</h2>
-                    </div>
-                    <!-- 3. SYSTEM ACTIVITY CONFIRMATION (TERTIARY) -->
-                    <div
-                        style="display:flex; gap:15px; font-size:0.75em; font-family:var(--font-mono); color:var(--text-tertiary);">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span
-                                :style="serverHealth.netflow?.available ? 'color:var(--signal-ok)' : 'color:var(--text-muted)'">●</span>
-                            NETFLOW
-                        </div>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span
-                                :style="firewall.syslog_active ? 'color:var(--signal-ok)' : 'color:var(--text-muted)'">●</span>
-                            SYSLOG
-                        </div>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <span :style="radar.loading ? 'color:var(--text-muted)' : 'color:var(--signal-ok)'">●</span>
-                            ANALYSIS
-                        </div>
-                    </div>
-                </div>
-
-                <div class="panel-card__body"
-                    style="padding:var(--space-5); flex:1; display:flex; flex-direction:column; justify-content:center;">
-
-                    <!-- Loading State -->
-                    <div x-show="radar.loading"
-                        style="display:flex; justify-content:center; align-items:center; height:100%;">
-                        <div class="spinner"></div>
-                    </div>
-
-                    <!-- Active Content -->
-                    <div x-show="!radar.loading" style="text-align:center;">
-
-                        <!-- BEHAVIORAL SUMMARY -->
-                        <div style="margin-bottom:var(--space-6);">
-                            <div
-                                style="font-size:0.8em; color:var(--accent-cyan); letter-spacing:2px; margin-bottom:var(--space-2); text-transform:uppercase;">
-                                Network Tone</div>
-                            <div style="font-size:2.5em; font-weight:700; color:var(--text-primary); letter-spacing:-1px; line-height:1.1;"
-                                x-text="personality.tone || 'ESTABLISHING BASELINE...'">
-                            </div>
-                            <div
-                                style="margin-top:var(--space-3); font-size:1em; color:var(--text-secondary); max-width:600px; margin-left:auto; margin-right:auto;">
-                                <span
-                                    x-text="radar.changes.length > 0 ? (radar.changes.length + ' behavioral shifts detected in last 15m') : 'Traffic patterns are stable and consistent.'"></span>
-                            </div>
-                        </div>
-
-                        <!-- CURRENT DOMINANT VECTORS -->
-                        <div
-                            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:var(--space-4); margin-top:var(--space-6); text-align:left;">
-
-                            <!-- Dominant Talker -->
-                            <div
-                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--accent-cyan);">
-                                <div
-                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
-                                    Lead Source</div>
-                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis;"
-                                    x-text="radar.top_talkers[0]?.hostname || radar.top_talkers[0]?.ip || 'None'"></div>
-                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
-                                    x-text="radar.top_talkers[0]?.bytes_fmt || '0 B'"></div>
-                            </div>
-
-                            <!-- Dominant Destination -->
-                            <div
-                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--accent-purple);">
-                                <div
-                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
-                                    Lead Destination</div>
-                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis;"
-                                    x-text="radar.top_destinations[0]?.hostname || radar.top_destinations[0]?.ip || 'None'">
-                                </div>
-                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
-                                    x-text="radar.top_destinations[0]?.bytes_fmt || '0 B'"></div>
-                            </div>
-
-                            <!-- Dominant Service -->
-                            <div
-                                style="padding:var(--space-4); background:var(--bg-2); border-radius:4px; border-left:2px solid var(--signal-notice);">
-                                <div
-                                    style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:4px;">
-                                    Primary Service</div>
-                                <div style="font-size:1.2em; font-weight:600; color:var(--text-primary);"
-                                    x-text="'Port ' + (radar.top_ports[0]?.port || '--')"></div>
-                                <div style="font-size:0.9em; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px;"
-                                    x-text="radar.top_ports[0]?.bytes_fmt || '0 B'"></div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. TOP MOVERS (SECONDARY) -->
-            <div class="card status-card"
-                style="height: 400px; display:flex; flex-direction:column; background:rgba(10,10,12,0.6);">
-                <div class="status-card__header"
-                    style="border-bottom:1px solid rgba(255,255,255,0.05); padding:var(--space-4);">
+            <!-- Radar Header -->
+            <div
+                style="padding:var(--space-4); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center; flex-shrink: 0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="radar-scan"></div>
                     <h2
-                        style="margin:0; font-size:1em; letter-spacing:1px; color:var(--text-secondary); font-weight:600;">
-                        TOP MOVERS (15m)</h2>
+                        style="margin:0; font-size:0.9em; letter-spacing:1px; color:var(--text-secondary); text-transform:uppercase;">
+                        Live Network Radar</h2>
+                </div>
+                <div style="font-family:var(--font-mono); font-size:0.75em; color:var(--text-tertiary);">
+                    <span x-text="radar.loading ? 'SCANNING...' : 'LIVE 15M WINDOW'"></span>
+                </div>
+            </div>
+
+            <!-- Radar Content -->
+            <div
+                style="padding:var(--space-6); flex:1; display:flex; flex-direction:column; justify-content:flex-start;">
+
+                <div x-show="radar.loading" style="display:flex; justify-content:center; align-items:center; flex:1;">
+                    <div style="text-align:center;">
+                        <div class="spinner" style="margin-bottom:15px;"></div>
+                        <div style="font-size:0.8em; color:var(--text-tertiary);">Analyzing telemetry...</div>
+                    </div>
                 </div>
 
-                <div class="panel-card__body custom-scroll" style="padding:0; overflow-y:auto; flex:1;">
-
-                    <!-- Case: Changes Detected -->
-                    <template x-if="radar.changes && radar.changes.length > 0">
-                        <div>
-                            <template x-for="change in radar.changes">
-                                <div
-                                    style="padding:12px var(--space-4); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; gap:10px; align-items:start;">
-                                    <!-- Severity Indicator -->
-                                    <div style="margin-top:4px; width:6px; height:6px; border-radius:50%; flex-shrink:0;"
-                                        :style="change.severity === 'warn' ? 'background:var(--signal-warn); box-shadow:0 0 5px var(--signal-warn);' : (change.severity === 'notice' ? 'background:var(--signal-notice);' : 'background:var(--signal-info);')">
-                                    </div>
-
-                                    <div style="flex:1;">
-                                        <div style="font-size:0.85em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
-                                            x-text="(change.type || 'CHANGE').replace(/_/g, ' ')"></div>
-                                        <div style="font-size:0.85em; color:var(--text-secondary); line-height:1.4;"
-                                            x-text="change.message"></div>
-                                        <div style="font-size:0.75em; color:var(--text-tertiary); margin-top:4px; font-family:var(--font-mono);"
-                                            x-text="formatTimeAgo(change.ts)"></div>
-                                    </div>
-                                </div>
-                            </template>
+                <div x-show="!radar.loading" style="height:100%; display:flex; flex-direction:column;">
+                    <!-- A) NETWORK TONE -->
+                    <div class="radar-tone" style="margin-bottom:24px; margin-top:0;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:10px; height:10px; border-radius:50%; flex-shrink: 0;"
+                                :style="radar.status === 'warn' ? 'background:var(--signal-warn); box-shadow:0 0 10px var(--signal-warn);' : (radar.status === 'notice' ? 'background:var(--signal-notice);' : 'background:var(--signal-ok); box-shadow:0 0 10px rgba(0,255,100,0.2);')">
+                            </div>
+                            <h1 style="margin:0; font-size:1.8em; font-weight:600; letter-spacing:-0.02em; color:var(--text-primary); line-height:1.2;"
+                                x-text="radar.tone || 'Assessing state...'"></h1>
                         </div>
-                    </template>
+                    </div>
 
-                    <!-- Case: No Changes (Stability) -->
-                    <template x-if="!radar.changes || radar.changes.length === 0">
+                    <!-- METRICS / STAT BOXES (Always Visible) -->
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:24px;">
                         <div
-                            style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-secondary); opacity:0.6;">
-                            <div style="font-size:2em; margin-bottom:10px; color:var(--signal-ok);">✓</div>
-                            <div style="font-weight:500;">System Stable</div>
-                            <div style="font-size:0.85em; margin-top:5px;">No significant deviations</div>
+                            style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:4px; letter-spacing:0.5px;">
+                                TRAFFIC (15m)</div>
+                            <div style="font-family:var(--font-mono); font-size:1.1em; color:var(--text-primary);"
+                                x-text="radar.metrics?.traffic_vol || '0B'"></div>
                         </div>
-                    </template>
+                        <div
+                            style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:4px; letter-spacing:0.5px;">
+                                BLOCKED</div>
+                            <div style="font-family:var(--font-mono); font-size:1.1em; color:var(--signal-warn);"
+                                x-text="radar.metrics?.firewall_blocks || '0'"></div>
+                        </div>
+                        <div
+                            style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:4px; letter-spacing:0.5px;">
+                                EVENTS</div>
+                            <div style="font-family:var(--font-mono); font-size:1.1em; color:var(--text-secondary);"
+                                x-text="radar.metrics?.syslog_events || '0'"></div>
+                        </div>
+                        <div
+                            style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:4px; letter-spacing:0.5px;">
+                                ACTIVE FLOWS</div>
+                            <div style="font-family:var(--font-mono); font-size:1.1em; color:var(--text-secondary);"
+                                x-text="radar.metrics?.active_flows || '-'"></div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:var(--space-6); flex-wrap:wrap; flex:1; align-content: flex-start;">
+
+                        <!-- B1) ACTIVE SIGNALS (If any) -->
+                        <div style="flex:1; min-width:280px;" x-show="(radar.evidence && radar.evidence.length > 0)">
+                            <h4
+                                style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:var(--space-3); letter-spacing:0.05em;">
+                                Intelligence Signals</h4>
+                            <ul
+                                style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;">
+                                <template x-for="ev in (radar.evidence || [])">
+                                    <li
+                                        style="display:flex; align-items:start; gap:10px; font-size:0.95em; color:var(--text-secondary);">
+                                        <span style="opacity:0.4; margin-top: 5px; font-size: 0.8em;">►</span>
+                                        <span x-text="ev" style="line-height: 1.4;"></span>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <!-- B2) MONITORING STATUS (If NO signals - Fill the void) -->
+                        <div style="flex:1; min-width:280px;" x-show="(!radar.evidence || radar.evidence.length === 0)">
+                            <h4
+                                style="font-size:0.75em; color:var(--text-tertiary); text-transform:uppercase; margin-bottom:var(--space-3); letter-spacing:0.05em;">
+                                Active Sensors</h4>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <div
+                                    style="background:rgba(255,255,255,0.02); padding:10px; border-radius:4px; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">
+                                        FIREWALL</div>
+                                    <div style="color:var(--signal-ok); font-size:0.9em;">● Monitoring</div>
+                                </div>
+                                <div
+                                    style="background:rgba(255,255,255,0.02); padding:10px; border-radius:4px; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">NETFLOW
+                                    </div>
+                                    <div style="color:var(--signal-ok); font-size:0.9em;">● Analyzing</div>
+                                </div>
+                                <div
+                                    style="background:rgba(255,255,255,0.02); padding:10px; border-radius:4px; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">THREAT
+                                        FEEDS</div>
+                                    <div style="color:var(--signal-ok); font-size:0.9em;">● Syncing</div>
+                                </div>
+                                <div
+                                    style="background:rgba(255,255,255,0.02); padding:10px; border-radius:4px; border:1px solid rgba(255,255,255,0.05);">
+                                    <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">ANOMALY
+                                        ENG.</div>
+                                    <div style="color:var(--signal-ok); font-size:0.9em;">● Active</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- C) CONTEXT CARDS (Conditional) -->
+                        <div style="display:flex; flex-direction: column; gap:var(--space-3);"
+                            x-show="radar.top_talkers && radar.top_talkers.length > 0">
+
+                            <!-- Lead Source -->
+                            <div class="ctx-card">
+                                <div class="ctx-label">LEAD SOURCE</div>
+                                <div class="ctx-val" x-text="radar.top_talkers?.[0]?.ip"></div>
+                                <div class="ctx-sub">
+                                    <span x-text="radar.top_talkers?.[0]?.bytes_fmt"></span>
+                                    <span style="opacity:0.5; margin: 0 4px;">|</span>
+                                    <span x-text="radar.top_talkers?.[0]?.hostname || 'Unknown'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Lead Dest -->
+                            <div class="ctx-card">
+                                <div class="ctx-label">TOP DESTINATION</div>
+                                <div class="ctx-val" x-text="radar.top_destinations?.[0]?.ip"></div>
+                                <div class="ctx-sub">
+                                    <span x-text="radar.top_destinations?.[0]?.bytes_fmt"></span>
+                                    <span style="opacity:0.5; margin: 0 4px;">|</span>
+                                    <span x-text="radar.top_destinations?.[0]?.flag"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
             </div>
 
-        </div>
-
-        <!-- Main Chart: Bandwidth -->
-        <div class="primary-column w-full">
-            <template x-if="isVisible('bandwidth')">
-                {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
-                period_x_text='global_time_range') %}
-                <!-- Mobile Toggle for Bandwidth Chart -->
-                <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
-                    <button class="world-map-toggle" style="margin-bottom: 12px;" x-show="window.innerWidth <= 768"
-                        @click="collapsed = !collapsed">
-                        <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
-                    </button>
-                    <div class="chart-wrapper chart-expandable" x-show="!collapsed || window.innerWidth > 768"
-                        @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
-                        <canvas id="bwChart"></canvas>
-                    </div>
+            <!-- Continuous Stream (Now Integrated into Radar Bottom) -->
+            <div style="border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); flex-shrink: 0;">
+                <div
+                    style="padding:8px 16px; font-size:0.7em; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:1px; background:rgba(255,255,255,0.01);">
+                    Recent Activity Stream
                 </div>
-                {% endcall %}
-            </template>
+                <div class="scroller-container custom-scroll"
+                    style="height: 140px; overflow-y:auto; padding:var(--space-2) 0;">
+                    <template x-if="radar.loading">
+                        <div style="padding:20px; text-align:center; color:var(--text-muted); font-size: 0.9em;">Syncing
+                            stream...</div>
+                    </template>
+
+                    <template x-if="!radar.loading && (!radar.changes || radar.changes.length === 0)">
+                        <div
+                            style="padding:30px; display:flex; flex-direction:column; align-items:center; opacity:0.6;">
+                            <div style="font-family:var(--font-mono); font-size:0.85em; color: var(--text-secondary);">
+                                SYSTEM QUIET</div>
+                            <div style="font-size:0.75em; margin-top:4px; color: var(--text-tertiary);">Traffic patterns
+                                holding steady</div>
+                        </div>
+                    </template>
+
+                    <template x-for="item in radar.changes">
+                        <div class="stream-row">
+                            <div class="stream-time" x-text="formatTimeAgoShort(item.ts)"></div>
+                            <div class="stream-marker" :class="'marker-' + (item.severity || 'info')"></div>
+                            <div class="stream-content">
+                                <span class="stream-type" x-text="(item.type || '').replace(/_/g, ' ')"></span>
+                                <span class="stream-msg" x-text="item.message"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
         </div>
 
-    </section>
+        <!-- COLUMN 2: TOP MOVERS (Side Panel) -->
+        <div class="card status-card"
+            style="background:rgba(0,0,0,0.2); border:1px solid var(--card-border); height: 100%; display:flex; flex-direction:column;">
+            <div style="padding:var(--space-4); border-bottom:1px solid rgba(255,255,255,0.05);">
+                <h3 style="margin:0; font-size:0.9em; color:var(--text-secondary);">TOP MOVERS</h3>
+            </div>
 
+            <div style="padding:var(--space-4); flex:1; overflow-y:auto;" class="custom-scroll">
 
-    <!-- World Map Section -->
-    <section id="section-worldmap" class="scroll-section">
-        <!-- Mobile Toggle (hidden on desktop) -->
-        <button class="world-map-toggle" @click="worldMapMobileVisible = !worldMapMobileVisible"
-            :class="{ 'active': worldMapMobileVisible }" style="display: none;" x-show="window.innerWidth <= 768">
-            <span x-text="worldMapMobileVisible ? '🗺️ Hide World Map' : '🗺️ Show World Map'"></span>
-        </button>
+                <!-- MOVER: Talkers -->
+                <div class="mover-group">
+                    <div class="mover-head">Sources</div>
+                    <template x-if="!radar.top_talkers || radar.top_talkers.length === 0">
+                        <div class="mover-empty">No data</div>
+                    </template>
+                    <template x-for="(item, idx) in (radar.top_talkers || []).slice(0,5)">
+                        <div class="mover-row">
+                            <div class="mover-rank" x-text="idx + 1"></div>
+                            <div class="mover-info">
+                                <div class="mover-main" x-text="item.ip"></div>
+                                <div class="mover-sub" x-text="item.hostname || 'Unknown'"></div>
+                            </div>
+                            <div class="mover-val" x-text="item.bytes_fmt"></div>
+                        </div>
+                    </template>
+                </div>
 
-        {% set wm_actions %}
-        <div class="world-map-mode-toggle">
-            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'traffic' }"
-                @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
-                Traffic
+                <!-- MOVER: Dests -->
+                <div class="mover-group">
+                    <div class="mover-head">Destinations</div>
+                    <template x-if="!radar.top_destinations || radar.top_destinations.length === 0">
+                        <div class="mover-empty">No data</div>
+                    </template>
+                    <template x-for="(item, idx) in (radar.top_destinations || []).slice(0,5)">
+                        <div class="mover-row">
+                            <div class="mover-rank" x-text="idx + 1"></div>
+                            <div class="mover-info">
+                                <div class="mover-main">
+                                    <span x-text="item.flag" style="margin-right:4px;"></span>
+                                    <span x-text="item.ip"></span>
+                                </div>
+                                <div class="mover-sub" x-text="item.hostname || 'Unknown'"></div>
+                            </div>
+                            <div class="mover-val" x-text="item.bytes_fmt"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- MOVER: Ports -->
+                <div class="mover-group">
+                    <div class="mover-head">Services</div>
+                    <template x-if="!radar.top_ports || radar.top_ports.length === 0">
+                        <div class="mover-empty">No data</div>
+                    </template>
+                    <template x-for="(item, idx) in (radar.top_ports || []).slice(0,5)">
+                        <div class="mover-row">
+                            <div class="mover-rank" x-text="idx + 1"></div>
+                            <div class="mover-info">
+                                <div class="mover-main" x-text="'Port ' + item.port"></div>
+                            </div>
+                            <div class="mover-val" x-text="item.bytes_fmt"></div>
+                        </div>
+                    </template>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- LEGACY WIDGETS RESTORED (Context & Deep Dive) -->
+    <div style="margin-top: var(--space-6); border-top: 1px solid var(--border-soft); padding-top: var(--space-6);">
+        <!-- Bandwidth Chart (Conditional) -->
+        <template x-if="isVisible('bandwidth')">
+            {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
+            period_x_text='global_time_range') %}
+            <!-- Mobile Toggle for Bandwidth Chart -->
+            <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
+                <button class="world-map-toggle" style="margin-bottom: 12px;" x-show="window.innerWidth <= 768"
+                    @click="collapsed = !collapsed">
+                    <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
+                </button>
+                <div class="chart-wrapper chart-expandable" x-show="!collapsed || window.innerWidth > 768"
+                    @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                    <canvas id="bwChart"></canvas>
+                </div>
+            </div>
+            {% endcall %}
+        </template>
+    </div>
+
+    <div style="margin-top: var(--space-6);">
+        <!-- World Map Section -->
+        <section id="section-worldmap" class="scroll-section">
+            <!-- Logic for World Map (Same as Step 141) -->
+            {% set wm_actions %}
+            <div class="world-map-mode-toggle">
+                <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'traffic' }"
+                    @click="worldMapMode = 'traffic'" title="Traffic view - balanced emphasis">
+                    Traffic
+                </button>
+                <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'exposure' }"
+                    @click="worldMapMode = 'exposure'" title="Exposure view - emphasize destinations">
+                    Exposure
+                </button>
+                <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'attacks' }"
+                    @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
+                    Threats & Blocks
+                </button>
+            </div>
+            <div class="world-map-layer-toggles">
+                <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
+                    title="Toggle Sources layer">
+                    <input type="checkbox" x-model="worldMapLayers.sources">
+                    <span class="layer-dot layer-dot-cyan"></span>
+                    <span class="layer-label">Sources</span>
+                </label>
+                <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.destinations }"
+                    title="Toggle Destinations layer">
+                    <input type="checkbox" x-model="worldMapLayers.destinations">
+                    <span class="layer-dot layer-dot-purple"></span>
+                    <span class="layer-label">Destinations</span>
+                </label>
+                <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
+                    title="Toggle Threats layer">
+                    <input type="checkbox" x-model="worldMapLayers.threats">
+                    <span class="layer-dot layer-dot-red"></span>
+                    <span class="layer-label">Threats</span>
+                </label>
+            </div>
+            <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 6v6l4 2"></path>
+                </svg>
+                Reset
             </button>
-            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'exposure' }"
-                @click="worldMapMode = 'exposure'" title="Exposure view - emphasize destinations">
-                Exposure
-            </button>
-            <button class="world-map-mode-btn" :class="{ 'active': worldMapMode === 'attacks' }"
-                @click="worldMapMode = 'attacks'" title="View Threats & Blocked traffic">
-                Threats & Blocks
-            </button>
-        </div>
-        <div class="world-map-layer-toggles">
-            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.sources }"
-                title="Toggle Sources layer">
-                <input type="checkbox" x-model="worldMapLayers.sources">
-                <span class="layer-dot layer-dot-cyan"></span>
-                <span class="layer-label">Sources</span>
-            </label>
-            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.destinations }"
-                title="Toggle Destinations layer">
-                <input type="checkbox" x-model="worldMapLayers.destinations">
-                <span class="layer-dot layer-dot-purple"></span>
-                <span class="layer-label">Destinations</span>
-            </label>
-            <label class="world-map-layer-toggle" :class="{ 'active': worldMapLayers.threats }"
-                title="Toggle Threats layer">
-                <input type="checkbox" x-model="worldMapLayers.threats">
-                <span class="layer-dot layer-dot-red"></span>
-                <span class="layer-label">Threats</span>
-            </label>
-        </div>
-        <button class="world-map-reset-btn" @click="resetWorldMapView()" title="Reset map view">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 6v6l4 2"></path>
-            </svg>
-            Reset
-        </button>
-        {% endset %}
+            {% endset %}
 
-        {% set wm_title %}
-        <div>
-            <span>Traffic World Map</span>
-            <span x-show="mapStatus" x-text="'[' + mapStatus + ']'" class="text-75 text-yellow ml-2"></span>
-        </div>
-        {% endset %}
-        <div x-show="window.innerWidth > 768 || worldMapMobileVisible">
+            {% set wm_title %}
+            <div>
+                <span>Traffic World Map</span>
+                <span x-show="mapStatus" x-text="'[' + mapStatus + ']'" class="text-75 text-yellow ml-2"></span>
+            </div>
+            {% endset %}
+
             {% call widget_card('worldmap', wm_title, '🗺️', card_class='wide-card world-map-card',
             extra_actions=wm_actions) %}
-            <div class="world-map-container">
+            <div class="world-map-container" style="min-height: 400px;">
                 <div id="world-map-svg" class="world-map-svg"></div>
                 <div x-show="worldMap.loading" class="spinner-overlay">
                     <div class="spinner"></div>
                 </div>
-                <div x-show="worldMap.error" class="error-overlay"
-                    style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); color:red; display:flex; align-items:center; justify-content:center; z-index:10;"
-                    x-text="worldMap.error"></div>
 
-                <!-- Country Stats (Interactive) - Now inside map -->
                 <div class="world-map-countries compact-grid">
                     <div class="wm-country-col">
                         <h4>🔼 Sources</h4>
                         <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
                             <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)"
-                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-primary);' : ''"
-                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
@@ -425,10 +375,7 @@
                         <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
                             <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)"
-                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-tertiary);' : ''"
-                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
@@ -440,54 +387,203 @@
                         <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
                             <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)"
-                                style="cursor: pointer; transition: background-color var(--transition-base); padding: var(--space-2); border-radius: var(--radius-sm);"
-                                :style="worldMapSelectedCountry === (c.iso || c.name) ? 'background-color: var(--bg-2); border-left: 2px solid var(--signal-crit);' : ''"
-                                :title="worldMapSelectedCountry === (c.iso || c.name) ? 'Click to deselect' : 'Click to highlight on map'">
+                                @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-red" x-text="c.bytes_fmt || c.count || 'N/A'"></span>
-                            </div>
-                        </template>
-                        <template x-if="!worldMap.threat_countries || worldMap.threat_countries.length === 0">
-                            <div class="wm-country-row">
-                                <span class="wm-c-name" style="opacity: 0.6;">No threats</span>
                             </div>
                         </template>
                     </div>
                 </div>
             </div>
             {% endcall %}
-        </div>
-    </section>
-
-    <!-- CSS for Radar Pulse -->
+        </section>
+    </div>
     <style>
-        .radar-pulse {
+        /* Radar Animation */
+        .radar-scan {
             width: 8px;
             height: 8px;
-            background-color: var(--accent-cyan);
+            background: var(--signal-primary);
             border-radius: 50%;
-            box-shadow: 0 0 0 0 rgba(0, 234, 255, 0.7);
-            animation: pulse-ring 2s infinite;
+            box-shadow: 0 0 10px var(--signal-primary);
+            animation: radar-ping 3s infinite;
         }
 
-        @keyframes pulse-ring {
+        @keyframes radar-ping {
             0% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(0, 234, 255, 0.7);
+                transform: scale(0.8);
+                opacity: 0.5;
             }
 
-            70% {
-                transform: scale(1);
-                box-shadow: 0 0 0 10px rgba(0, 234, 255, 0);
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+                box-shadow: 0 0 20px var(--signal-primary);
             }
 
             100% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(0, 234, 255, 0);
+                transform: scale(0.8);
+                opacity: 0.5;
             }
+        }
+
+        /* Context Cards */
+        .ctx-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 6px;
+            min-width: 140px;
+        }
+
+        .ctx-label {
+            font-size: 0.7em;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .ctx-val {
+            font-family: var(--font-mono);
+            font-size: 1.1em;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .ctx-sub {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
+        }
+
+        /* Stream Rows */
+        .stream-row {
+            display: flex;
+            gap: 12px;
+            padding: 6px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            transition: background 0.2s;
+            align-items: baseline;
+        }
+
+        .stream-row:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stream-time {
+            font-family: var(--font-mono);
+            font-size: 0.75em;
+            color: var(--text-tertiary);
+            width: 40px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        .stream-marker {
+            width: 4px;
+            height: 4px;
+            background: var(--text-tertiary);
+            border-radius: 50%;
+            transform: translateY(-2px);
+        }
+
+        .stream-marker.marker-warn {
+            background: var(--signal-warn);
+            box-shadow: 0 0 5px var(--signal-warn);
+        }
+
+        .stream-marker.marker-notice {
+            background: var(--signal-notice);
+        }
+
+        .stream-content {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+
+        .stream-type {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            margin-right: 6px;
+        }
+
+        /* Movers */
+        .mover-group {
+            margin-bottom: var(--space-6);
+        }
+
+        .mover-empty {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            font-style: italic;
+            padding: 4px 0;
+        }
+
+        .mover-head {
+            font-size: 0.75em;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mover-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+        }
+
+        .mover-rank {
+            font-family: var(--font-mono);
+            color: var(--text-tertiary);
+            font-size: 0.8em;
+            width: 15px;
+        }
+
+        .mover-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mover-main {
+            font-size: 0.9em;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mover-sub {
+            font-size: 0.75em;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mover-val {
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            color: var(--text-secondary);
         }
     </style>
 
+    <script>
+        function formatTimeAgoShort(ts) {
+            if (!ts) return '';
+            const sec = Math.floor((Date.now() / 1000) - ts);
+            if (sec < 60) return sec + 's';
+            if (sec < 3600) return Math.floor(sec / 60) + 'm';
+            return Math.floor(sec / 3600) + 'h';
+        }
+    </script>
 </div>

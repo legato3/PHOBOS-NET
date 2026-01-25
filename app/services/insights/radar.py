@@ -3,8 +3,11 @@ import time
 from datetime import datetime, timedelta
 from app.services.netflow.netflow import run_nfdump, parse_csv
 from app.services.firewall.store import firewall_store
+from app.services.syslog.syslog_store import syslog_store
 from app.services.shared.dns import resolve_ip
 from app.services.shared.geoip import lookup_geo
+from app.services.shared import baselines
+from app.services.netflow import stats as security_stats
 
 # Mock data for dev mode
 import random
@@ -33,90 +36,125 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
     
         # 1. Fetch Data (Sequential for simplicity, could be parallel)
         # Top Talkers (Src)
+        # 1. Fetch Core Data
         src_curr = _get_nfdump_summary("srcip", tf_current, 10)
-        src_prev = _get_nfdump_summary("srcip", tf_prev, 10)
-        
-        # Top Dests
         dst_curr = _get_nfdump_summary("dstip", tf_current, 10)
-        
-        # Top Ports
         port_curr = _get_nfdump_summary("dstport", tf_current, 10)
-        port_prev = _get_nfdump_summary("dstport", tf_prev, 10)
         
-        # Firewall Counts
+        # Get counts for trends
         fw_curr_count = _get_fw_count(current_start, now)
-        fw_prev_count = _get_fw_count(prev_start, current_start)
-
-        # 2. Build "Top Right Now" Lists
-        # Enrich with DNS/Geo where applicable
-        top_talkers = _enrich_ips(src_curr[:5], is_src=True)
-        top_dests = _enrich_ips(dst_curr[:5], is_src=False)
-        top_ports = _format_ports(port_curr[:8])
+        sys_curr_count = _get_syslog_count(current_start, now)
         
-        # 3. Calculate Deltas (Change Stream)
+        # Update Baselines (Blind update for the sake of this view - ideally done by listeners)
+        # We read them mostly.
+        
+        # 2. Get High-Level Security State (Use the existing sophisticated logic)
+        # This returns 'STABLE', 'QUIET', 'ELEVATED' etc.
+        sec_state = security_stats.calculate_security_observability(range_key='1h') # 1h provides stable context
+        
+        # 3. Trends & Variances (Using baselines.py)
+        # Calculate trends for key metrics
+        fw_trend = baselines.calculate_trend('firewall_blocks_rate', fw_curr_count)
+        
+        # 4. Synthesize Tone
+        # Use the "official" security state as the primary driver
+        base_tone = sec_state.get('overall_state', 'UNKNOWN')
+        tone = "Assessing network state..."
+        status_indicator = "ok"
+        
+        if base_tone == "QUIET":
+            tone = "Network dormant and stable"
+            status_indicator = "ok"
+        elif base_tone == "STABLE":
+            tone = "Traffic nominal, no anomalies"
+            status_indicator = "ok"
+        elif base_tone == "ELEVATED":
+            tone = "Elevated activity detected"
+            status_indicator = "notice"
+        elif base_tone == "DEGRADED":
+            tone = "Defensive systems active"
+            status_indicator = "warn"
+        elif base_tone == "UNDER PRESSURE":
+            tone = "High threat volume detected"
+            status_indicator = "warn"
+        else:
+            # Fallback for UNKNOWN or initializing
+            tone = "Network monitoring active"
+            status_indicator = "ok"
+            if not evidence:
+                evidence.append("Accumulating baseline data")
+                evidence.append("Traffic analysis in progress")
+            
+        # 5. Build Evidence
+        # Start with the deep logic from stats.py
+        evidence = sec_state.get('contributing_factors', [])
+        
+        # Add "Novelty" Insight (Are these dests new?)
+        # We don't have long-term persistence in this view, using heuristic
+        # If we have baseline data, use that.
+        
+        # Add Baseline/Trend Insight
+        if fw_trend and fw_trend['significant']:
+             evidence.append(f"Firewall activity {fw_trend['direction']} ({int(fw_trend['percent_change'])}%)")
+        elif fw_trend and fw_trend['muted']:
+             evidence.append("Firewall variance within normal limits")
+
+        # Fallbacks if evidence is thin
+        if len(evidence) < 2:
+            if fw_curr_count == 0: evidence.append("Zero firewall blocks recorded")
+            if sys_curr_count == 0: evidence.append("System logs quiet")
+            if len(src_curr) > 0: evidence.append(f"Primary driver: {src_curr[0].get('key')}")
+
+        # 6. Build Change Stream (Simplified, reliant on Baselines)
+        # We generate a few "fake" stream items based on states if real events are missing
+        # This is a view-layer adaptation.
         changes = []
-        
-        # Rule: TOP_TALKER_CHANGED (New entry in Top 3 that wasn't in Top 3 prev)
-        prev_top_3_keys = set(x['key'] for x in src_prev[:3])
-        for i, item in enumerate(src_curr[:3]):
-            if item['key'] not in prev_top_3_keys and item['bytes'] > 0:
-                changes.append({
-                    "type": "TOP_TALKER_CHANGED",
-                    "severity": "notice",
-                    "message": f"New top talker: {item['key']} ({_fmt_bytes(item['bytes'])})",
-                    "ts": now.timestamp(), 
-                    "link": f"/#network;ip={item['key']}"
-                })
-
-        # Rule: PORT_SPIKE (Volume > 3x prev)
-        # Map prev ports for lookup
-        prev_ports_map = {x['key']: x['bytes'] for x in port_prev}
-        for item in port_curr[:5]:
-            p_bytes = prev_ports_map.get(item['key'], 0)
-            if p_bytes > 0 and item['bytes'] > 3 * p_bytes and item['bytes'] > 1000000: # Min 1MB noise floor
-                changes.append({
-                    "type": "PORT_SPIKE",
-                    "severity": "warn",
-                    "message": f"Port {item['key']} traffic surged 3x ({_fmt_bytes(item['bytes'])})",
-                    "ts": now.timestamp(),
-                    "link": f"/#network;port={item['key']}"
-                })
-        
-        # Rule: BLOCK_SPIKE
-        if fw_prev_count > 10 and fw_curr_count > 3 * fw_prev_count:
+        if fw_trend and fw_trend['significant'] and fw_trend['direction'] == 'up':
              changes.append({
-                    "type": "BLOCK_SPIKE",
-                    "severity": "warn",
-                    "message": f"Firewall blocks surged 3x ({fw_curr_count} events)",
-                    "ts": now.timestamp(),
-                    "link": "/#security"
+                "type": "FIREWALL_TREND", 
+                "severity": "warn", 
+                "message": f"Block rate rising: {fw_curr_count}/window", 
+                "ts": now.timestamp()
+             })
+        
+        # Add explicit "System Healthy" marker if quiet
+        if base_tone in ["QUIET", "STABLE"] and not changes:
+             changes.append({
+                "type": "SYSTEM_STATUS", 
+                "severity": "info", 
+                "message": f"Global state: {base_tone}", 
+                "ts": now.timestamp()
              })
 
-        # Rule: NEW_EXTERNAL_DESTINATION (Simple proxy: check if dst is NOT in prev list at all? 
-        # Real "novelty" requires long-term memory which we don't have easily here.
-        # We will use a simpler heuristic: If Dst is in Top 5 but wasn't in Prev Top 10)
-        prev_all_dst_keys = set(x['key'] for x in _get_nfdump_summary("dstip", tf_prev, 20))
-        for item in dst_curr[:5]:
-            if item['key'] not in prev_all_dst_keys:
-                 changes.append({
-                    "type": "NEW_DESTINATION",
-                    "severity": "info",
-                    "message": f"New active destination: {item['key']}",
-                    "ts": now.timestamp(),
-                    "link": f"/#network;ip={item['key']}"
-                })
+        # 6. Build Metrics Summary (for Stat Boxes)
+        # Calculate rates/totals for the user's hard-stat boxes
+        total_bytes = sum(x.get('bytes', 0) for x in src_curr)
+        # Approximate flow rate if we had it, but for now we use what we have
+        # baselines module has active_flows if tracked
+        active_flows = 0
+        flow_stats = baselines.get_baseline_stats('active_flows')
+        if flow_stats and flow_stats.get('mean'):
+             active_flows = int(flow_stats.get('mean')) # approximated from baseline tracking
+        
+        metrics = {
+            "traffic_vol": _fmt_bytes(total_bytes),
+            "firewall_blocks": fw_curr_count,
+            "syslog_events": sys_curr_count,
+            "active_flows": active_flows if active_flows > 0 else "N/A"
+        }
 
-        # Sort changes by severity/time? Simple append is fine, maybe limit total
-        if not changes:
-            # No deltas placeholder handled by frontend, but we return empty list
-            pass
-
-    
         return {
-            "top_talkers": top_talkers,
-            "top_destinations": top_dests,
-            "top_ports": top_ports,
-            "changes": changes[:30]
+            "tone": tone,
+            "evidence": evidence[:6], # Allow slightly more
+            "status": status_indicator,
+            "top_talkers": _enrich_ips(src_curr[:5], is_src=True),
+            "top_destinations": _enrich_ips(dst_curr[:5], is_src=False),
+            "top_ports": _format_ports(port_curr[:8]),
+            "changes": changes,
+            "metrics": metrics,
+            "meta": {
+               "sec_state": sec_state
+            }
         }
     except Exception as e:
         print(f"Radar generation failed: {e}")
@@ -124,7 +162,8 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
             "top_talkers": [],
             "top_destinations": [],
             "top_ports": [],
-            "changes": []
+            "changes": [],
+            "metrics": {"traffic_vol": "0", "firewall_blocks": 0, "syslog_events": 0, "active_flows": 0}
         }
 
 def _get_nfdump_summary(stat_field, tf, limit):
@@ -192,6 +231,30 @@ def _get_fw_count(start_dt, end_dt):
     except:
         pass
     return c
+
+def _get_syslog_count(start_dt, end_dt):
+    # Iterate persistent store via SQL
+    count = 0
+    import sqlite3
+    from app.db.sqlite import _firewall_db_connect, _firewall_db_lock
+    
+    start_ts = start_dt.timestamp()
+    end_ts = end_dt.timestamp()
+    
+    try:
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM syslog_events WHERE timestamp >= ? AND timestamp <= ?",
+                (start_ts, end_ts)
+            )
+            row = cursor.fetchone()
+            if row:
+                count = row[0]
+            conn.close()
+    except Exception:
+        pass
+    return count
 
 def _enrich_ips(items, is_src=True):
     res = []
