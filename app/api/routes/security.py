@@ -29,7 +29,8 @@ from app.services.security.threats import (
     detect_anomalies, run_all_detections,
     load_threatlist, get_feed_label, send_notifications,
     lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts,
-    add_health_alert_to_history
+    lookup_threat_intelligence, detect_ip_anomalies, generate_ip_anomaly_alerts,
+    add_health_alert_to_history, get_active_threats
 )
 from app.services.netflow.stats import calculate_security_score
 from app.services.shared.metrics import track_performance, track_error, get_performance_metrics, get_performance_lock
@@ -43,7 +44,8 @@ from app.core.app_state import (
     _lock_alerts, _lock_flags, _lock_asns, _lock_durations, _lock_bandwidth,
     _lock_flows, _lock_countries, _lock_worldmap,
     _lock_proto_hierarchy, _lock_noise, _lock_attack_timeline,
-    _cache_lock,
+    _lock_top_threats,
+    _cache_lock, _mock_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
     _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
@@ -52,6 +54,7 @@ from app.core.app_state import (
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
     _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_attack_timeline_cache,
+    _stats_top_threats_cache,
     _server_health_cache,
     _bandwidth_cache, _bandwidth_history_cache,
     _flows_cache, _common_data_cache,
@@ -3153,6 +3156,7 @@ def api_threat_velocity():
 
 @bp.route('/api/security/top_threat_ips')
 @throttle(5, 10)
+@cached_endpoint(_stats_top_threats_cache, _lock_top_threats, key_params=['range'])
 def api_top_threat_ips():
     """Get top threat IPs by hit count for selected time range."""
     range_key = request.args.get('range', '24h')
@@ -3164,31 +3168,41 @@ def api_top_threat_ips():
     now = time.time()
     cutoff = now - range_seconds
  
-    # Get IPs with timeline data from last period
+    # Get active threats safely
+    active_threats = get_active_threats(cutoff)
+    
+    # Sort simplified list first (avoid expensive lookups on entire list)
+    # Convert dict items to list of (ip, data) tuples
+    sorted_items = sorted(
+        active_threats.items(), 
+        key=lambda x: x[1].get('hit_count', 0), 
+        reverse=True
+    )
+    
+    # Process only top 50 for detailed info (Performance Optimization)
+    top_items = sorted_items[:50]
+    
     threat_ips = []
-    for ip, timeline in threats_module._threat_timeline.items():
-        if timeline['last_seen'] >= cutoff:
-            info = get_threat_info(ip)
-            geo = lookup_geo(ip) or {}
-            threat_ips.append({
-                'ip': ip,
-                'hits': timeline.get('hit_count', 1),
-                'first_seen': timeline.get('first_seen'),
-                'last_seen': timeline.get('last_seen'),
-                'category': info.get('category', 'UNKNOWN'),
-                'feed': info.get('feed', 'unknown'),
-                'country': geo.get('country_code', '--'),
-                'country_name': geo.get('country', 'Unknown'),
-                'flag': geo.get('flag', ''),
-                'mitre': info.get('mitre_technique', '')
-            })
-
-    # Sort by hits descending
-    threat_ips.sort(key=lambda x: x['hits'], reverse=True)
+    for ip, timeline in top_items:
+        # Now do the expensive lookups only for the top N items
+        info = get_threat_info(ip)
+        geo = lookup_geo(ip) or {}
+        threat_ips.append({
+            'ip': ip,
+            'hits': timeline.get('hit_count', 1),
+            'first_seen': timeline.get('first_seen'),
+            'last_seen': timeline.get('last_seen'),
+            'category': info.get('category', 'UNKNOWN'),
+            'feed': info.get('feed', 'unknown'),
+            'country': geo.get('country_code', '--'),
+            'country_name': geo.get('country', 'Unknown'),
+            'flag': geo.get('flag', ''),
+            'mitre': info.get('mitre_technique', '')
+        })
 
     return jsonify({
-        'ips': threat_ips[:10],
-        'total': len(threat_ips)
+        'ips': threat_ips[:20], # Return top 20
+        'total': len(active_threats)
     })
 
 
@@ -3201,7 +3215,8 @@ def api_risk_index():
     risk_score = 0
 
     # Factor 1: Active threats (0-30 points)
-    threat_count = len(threats_module._threat_timeline)
+    active_threats = get_active_threats(0) # Get all
+    threat_count = len(active_threats)
     if threat_count == 0:
         risk_factors.append({'factor': 'Active Threats', 'value': 'None', 'impact': 'low', 'points': 0})
     elif threat_count <= 5:
@@ -3216,9 +3231,12 @@ def api_risk_index():
 
     # Factor 2: Threat velocity (0-20 points)
     # Count threats seen in the last hour
+    # Count threats seen in the last hour
     one_hour_ago = time.time() - 3600
-    hourly_threats = len([ip for ip in threats_module._threat_timeline
-                          if threats_module._threat_timeline[ip]['last_seen'] >= one_hour_ago])
+    
+    # Use get_active_threats with cutoff for O(N) filtering in one pass
+    recent_active = get_active_threats(one_hour_ago)
+    hourly_threats = len(recent_active)
     if hourly_threats == 0:
         risk_factors.append({'factor': 'Threat Velocity', 'value': '0/hr', 'impact': 'low', 'points': 0})
     elif hourly_threats <= 5:

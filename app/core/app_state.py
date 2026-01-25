@@ -45,6 +45,7 @@ _lock_pkts = threading.Lock()
 _lock_flow_stats = threading.Lock()
 _lock_proto_mix = threading.Lock()
 _lock_network_intelligence = threading.Lock()
+_lock_top_threats = threading.Lock()
 _lock_service_cache = threading.Lock() # Lock for service name cache
 _cache_lock = threading.Lock()  # Generic small cache lock (e.g., packet sizes)
 _throttle_lock = threading.Lock()  # Lock for rate limiting
@@ -77,6 +78,7 @@ _stats_proto_hierarchy_cache = {"data": None, "ts": 0, "key": None}
 _stats_noise_metrics_cache = {"data": None, "ts": 0, "key": None}
 _stats_attack_timeline_cache = {"data": None, "ts": 0, "key": None}
 _stats_worldmap_cache = {"data": None, "ts": 0, "key": None}
+_stats_top_threats_cache = {"data": None, "ts": 0, "key": None}
 _server_health_cache = {"data": None, "ts": 0}
 
 # ==================== Data Caches ====================

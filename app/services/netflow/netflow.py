@@ -55,7 +55,11 @@ def run_nfdump(args, tf=None):
         # Try running actual nfdump first
         if state._has_nfdump:
             try:
-                cmd = ["nfdump", "-R", NFCAPD_DIR, "-o", "csv"]
+                cmd = ["nfdump", "-R", NFCAPD_DIR]
+                # Default to CSV if no output format specified
+                if "-o" not in args:
+                    cmd.extend(["-o", "csv"])
+                    
                 if tf:
                     cmd.extend(["-t", tf])
                 cmd.extend(args)
@@ -112,7 +116,11 @@ def stream_nfdump(args, tf=None):
     if not state._has_nfdump:
         return
 
-    cmd = ["nfdump", "-R", NFCAPD_DIR, "-o", "csv"]
+    cmd = ["nfdump", "-R", NFCAPD_DIR]
+    # Default to CSV if no output format specified
+    if "-o" not in args:
+        cmd.extend(["-o", "csv"])
+
     if tf:
         cmd.extend(["-t", tf])
     cmd.extend(args)

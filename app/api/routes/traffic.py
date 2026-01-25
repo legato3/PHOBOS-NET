@@ -47,7 +47,7 @@ from app.core.app_state import (
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
-    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache,
+    _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache,
     _server_health_cache,
     _bandwidth_cache, _bandwidth_history_cache,
     _flows_cache, _common_data_cache, _service_cache,
@@ -204,50 +204,31 @@ def api_stats_flags():
 
     # Get raw flows (limit 1000)
     # Note: run_nfdump automatically adds -o csv
-    output = run_nfdump(["-n", "1000"], tf)
+    # Force nfdump to output flags using custom format (Timestamp, Flags)
+    # This ensures we get flags even if default CSV output doesn't include them (e.g. nfdump 1.7+)
+    output = run_nfdump(["-o", "fmt:%ts,%flg", "-n", "5000"], tf)
 
     rows = []
     try:
-        lines = output.strip().split("\n")
-        if not lines:
+        if not output:
             return jsonify({"flags": []})
-            
-        # Robust Header Detection
-        header_idx = -1
-        for i, line in enumerate(lines):
-            line_clean = line.strip().lower()
-            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
-                header_idx = i
-                break
+
+        lines = output.strip().split("\n")
         
-        if header_idx != -1:
-            header = lines[header_idx].split(',')
-            start_idx = header_idx + 1
-        else:
-            # Fallback
-            header = lines[0].split(',')
-            start_idx = 1 if len(header) > 1 else 0
-
-        # Identify 'flg' column index
-        try:
-            header_norm = [h.lower().strip() for h in header]
-            if 'flg' in header_norm:
-                flg_idx = header_norm.index('flg')
-            elif 'flags' in header_norm:
-                flg_idx = header_norm.index('flags')
-            else:
-                # Version-based fallback
-                flg_idx = 8 if 'firstseen' not in header_norm else -1 # 1.7+ might not have flags in default CSV
-        except (ValueError, IndexError):
-             flg_idx = -1
-
-        if flg_idx != -1:
-            for line in lines[start_idx:]:
-                line = line.strip()
-                if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
-                parts = line.split(',')
-                if len(parts) > flg_idx:
-                    rows.append(parts[flg_idx])
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines and summary/header lines
+            if not line or line.startswith('Date') or line.startswith('Sys') or line.startswith('Summary') or line.startswith('Duration'):
+                continue
+                
+            parts = line.split(',')
+            # We expect at least 2 columns: timestamp, flags
+            if len(parts) >= 2:
+                # Flags is the second column
+                flg = parts[1].strip()
+                # Basic validation: flags should look like "......" or "A...S."
+                if len(flg) >= 2:
+                    rows.append(flg)
 
         # Simple aggregation
         counts = Counter(rows)
@@ -601,6 +582,7 @@ def api_stats_countries():
 
 @bp.route("/api/stats/worldmap")
 @throttle(5, 10)
+@cached_endpoint(_stats_worldmap_cache, _lock_worldmap, key_params=['range'])
 def api_stats_worldmap():
     """World map data endpoint with geo-located sources, destinations, and threats."""
     range_key = request.args.get('range', '1h')
@@ -679,9 +661,19 @@ def api_stats_worldmap():
     cutoff = now - range_seconds
 
     try:
-        for ip, timeline in threats_module._threat_timeline.items():
-            if timeline.get('last_seen', 0) < cutoff:
-                continue
+        # Use thread-safe accessor with limit
+        # Get active threats since cutoff
+        active_threats = threats_module.get_active_threats(cutoff)
+        
+        # Sort by most recently seen and limit to top 500 to prevent map overload/slowdown
+        # This significantly improves performance when there are thousands of threat IPs
+        sorted_threats = sorted(
+            active_threats.items(), 
+            key=lambda x: x[1].get('last_seen', 0), 
+            reverse=True
+        )[:500]
+
+        for ip, timeline in sorted_threats:
             geo = lookup_geo(ip) or {}
             lat = geo.get('lat')
             lng = geo.get('lng')

@@ -41,6 +41,13 @@ except ImportError as e:
     print(f"Warning: Could not import firewall syslog listener: {e}")
     start_firewall_syslog_thread = None
 
+# Import SNMP thread
+try:
+    from app.services.shared.snmp import start_snmp_thread
+except ImportError as e:
+    print(f"Warning: Could not import SNMP thread: {e}")
+    start_snmp_thread = None
+
 if __name__ == "__main__":
     from app import app
     from app.services.shared.timeline import add_timeline_event
@@ -129,6 +136,11 @@ if __name__ == "__main__":
     if start_firewall_syslog_thread:
         start_firewall_syslog_thread()
         add_app_log("Firewall syslog listener thread started (port 515)", 'INFO')
+
+    # Start SNMP thread
+    if start_snmp_thread:
+        start_snmp_thread()
+        add_app_log("SNMP polling thread started", 'INFO')
     
     def _find_open_port(h, start_port, max_tries=10):
         """Find an open port starting from start_port."""

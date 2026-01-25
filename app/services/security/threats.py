@@ -27,6 +27,7 @@ _threat_ip_to_feed = {}  # Maps IP -> {category, feed_name}
 _threat_timeline = {}  # Maps IP -> {first_seen, last_seen, hit_count}
 _feed_status = {}  # Per-feed health tracking
 _feed_data_lock = threading.Lock()  # Protects _threat_ip_to_feed and _feed_status
+_threat_timeline_lock = threading.Lock()  # Protects _threat_timeline
 _watchlist_cache = {"data": set(), "mtime": 0, "last_check": 0}
 _threat_cache = {"data": set(), "mtime": 0, "last_check": 0}  # Cache for threat list file
 
@@ -259,6 +260,12 @@ def fetch_threat_feed():
             last_ok=time.time(),
             duration=duration
         )
+        
+        # Prune old threats to keep memory usage stable
+        pruned = prune_threat_timeline()
+        if pruned > 0:
+            add_app_log(f"Pruned {pruned} old entries from threat timeline", "DEBUG")
+            
     except Exception as e:
         _threat_status['status'] = 'error'
         _threat_status['error'] = str(e)
@@ -284,20 +291,52 @@ def get_threat_info(ip):
 def update_threat_timeline(ip):
     """Track first/last seen timestamps for threat IPs"""
     now = time.time()
-    if ip in _threat_timeline:
-        _threat_timeline[ip]['last_seen'] = now
-        _threat_timeline[ip]['hit_count'] += 1
-    else:
-        _threat_timeline[ip] = {
-            'first_seen': now,
-            'last_seen': now,
-            'hit_count': 1
-        }
+    with _threat_timeline_lock:
+        if ip in _threat_timeline:
+            _threat_timeline[ip]['last_seen'] = now
+            _threat_timeline[ip]['hit_count'] += 1
+        else:
+            _threat_timeline[ip] = {
+                'first_seen': now,
+                'last_seen': now,
+                'hit_count': 1
+            }
 
 
 def get_threat_timeline(ip):
     """Get timeline info for a threat IP"""
-    return _threat_timeline.get(ip, {'first_seen': 0, 'last_seen': 0, 'hit_count': 0})
+    with _threat_timeline_lock:
+        return _threat_timeline.get(ip, {'first_seen': 0, 'last_seen': 0, 'hit_count': 0})
+
+
+def get_active_threats(cutoff_timestamp=0):
+    """Get threat timeline entries active since cutoff timestamp.
+    Returns a copy of the dict to allow safe iteration by caller.
+    """
+    with _threat_timeline_lock:
+        if cutoff_timestamp == 0:
+            return dict(_threat_timeline)
+        
+        # Filter and return copy
+        return {
+            ip: data.copy() 
+            for ip, data in _threat_timeline.items() 
+            if data.get('last_seen', 0) >= cutoff_timestamp
+        }
+
+
+def prune_threat_timeline(max_age_seconds=604800): # 7 days
+    """Prune old entries from threat timeline."""
+    cutoff = time.time() - max_age_seconds
+    with _threat_timeline_lock:
+        # Create list of keys to remove
+        to_remove = [
+            ip for ip, data in _threat_timeline.items() 
+            if data.get('last_seen', 0) < cutoff
+        ]
+        for ip in to_remove:
+            _threat_timeline.pop(ip, None)
+    return len(to_remove)
 
 
 def is_ip_threat(ip):
