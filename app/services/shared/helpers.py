@@ -134,3 +134,24 @@ def check_disk_space(path="/var/cache/nfdump"):
         }
     except Exception:
         return {"percent_used": 0, "status": "unknown"}
+
+
+def validate_ip_input(ip):
+    """Validate that input is a safe IP address or hostname and definitely not a flag.
+
+    Prevents argument injection (starting with -) and filter injection (special chars).
+    """
+    if not ip:
+        raise ValueError("IP address is required")
+
+    ip_str = str(ip).strip()
+
+    if ip_str.startswith("-"):
+        raise ValueError("Invalid IP format: cannot start with hyphen")
+
+    # Check for suspicious characters often used in shell injection or filter bypass
+    # nfdump filters are alphanumeric + dots + colons (for IPv6)
+    if any(c in ip_str for c in ";|&><`$()"):
+        raise ValueError("Invalid IP format: contains illegal characters")
+
+    return ip_str

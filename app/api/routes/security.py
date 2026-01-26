@@ -83,6 +83,7 @@ from app.services.shared.helpers import (
     load_list,
     check_disk_space,
     format_duration,
+    validate_ip_input,
 )
 from app.core.app_state import (
     _shutdown_event,
@@ -582,6 +583,11 @@ def api_hosts_list():
 @throttle(10, 20)
 def api_host_detail(ip):
     """Get details for a specific host."""
+    try:
+        ip = validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     # Overview: Geo, ASN, DNS
     from app.services.shared.geoip import lookup_geo
     from app.services.shared.dns import resolve_ip
@@ -729,6 +735,11 @@ def api_host_metadata(ip):
 @throttle(10, 20)
 def api_host_timeline(ip):
     """Get lightweight hourly activity timeline for a host."""
+    try:
+        ip = validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     from app.services.netflow.netflow import run_nfdump, parse_csv, get_time_range
     from datetime import datetime, timedelta
 
@@ -1531,6 +1542,11 @@ def api_health_baseline_signals():
 def api_ip_detail(ip):
     """Get detailed information about an IP address including traffic patterns, ports, protocols, and geo data."""
     start_threat_thread()
+
+    try:
+        ip = validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     # Support range parameter (default to 1h for backwards compatibility)
     range_key = request.args.get("range", "1h")
@@ -2469,6 +2485,12 @@ def api_forensics_evidence():
             },
             "evidence_items": [],
         }
+
+        # Validate all IPs first
+        try:
+            target_ips = [validate_ip_input(ip) for ip in target_ips]
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
         # Collect evidence for each target IP
         for target_ip in target_ips:

@@ -8,7 +8,7 @@ from app.config import (
     COMMON_DATA_CACHE_MAX,
     NFCAPD_DIR,
 )
-from app.services.shared.helpers import get_time_range
+from app.services.shared.helpers import get_time_range, validate_ip_input
 
 import app.core.app_state as state
 from app.core.app_state import add_app_log
@@ -398,6 +398,13 @@ def _fetch_direction_data(args, key, tf):
 
 def get_traffic_direction(ip, tf):
     """Get upload/download traffic for an IP."""
+    # Validate input first
+    try:
+        ip = validate_ip_input(ip)
+    except ValueError as e:
+        add_app_log(f"Invalid IP in get_traffic_direction: {e}", "WARN")
+        return {"upload": 0, "download": 0, "ratio": 0}
+
     # PERFORMANCE: Cache result to avoid redundant nfdump subprocess calls
     now = time.time()
     cache_key = f"{ip}:{tf}"
