@@ -2,6 +2,7 @@ import threading
 import time
 from typing import Dict, Optional
 
+from app.services.change_timeline import record_change
 from app.services.timeline.model import TimelineEvent
 from app.services.timeline.store import get_timeline_store
 
@@ -42,6 +43,14 @@ def record_netflow_activity(
             meta=meta,
         )
     )
+    record_change(
+        source="netflow",
+        title="NetFlow active",
+        detail="Ingestion resumed",
+        level="info",
+        ts=now_ts,
+        key="netflow_active",
+    )
 
 
 def record_syslog_activity(port: int, ts: Optional[float] = None) -> None:
@@ -63,6 +72,14 @@ def record_syslog_activity(port: int, ts: Optional[float] = None) -> None:
             source="syslog",
             meta={"port": int(port)},
         )
+    )
+    record_change(
+        source="syslog",
+        title="Syslog active",
+        detail=f"Port {int(port)} receiving",
+        level="info",
+        ts=now_ts,
+        key=f"syslog_active_{int(port)}",
     )
 
 
@@ -89,6 +106,14 @@ def record_firewall_stream_activity(ts: Optional[float] = None) -> None:
                 meta={},
             )
         )
+        record_change(
+            source="firewall",
+            title="Firewall log stream active",
+            detail="Recent firewall activity detected",
+            level="notice",
+            ts=now_ts,
+            key="firewall_stream_active",
+        )
 
 
 def emit_snmp_transition(
@@ -107,6 +132,14 @@ def emit_snmp_transition(
                 meta={"host": host, "state": "reachable"},
             )
         )
+        record_change(
+            source="snmp",
+            title="SNMP reachable",
+            detail="Polling resumed",
+            level="notice",
+            ts=now_ts,
+            key="snmp_reachable",
+        )
     else:
         _emit_event(
             TimelineEvent(
@@ -122,6 +155,14 @@ def emit_snmp_transition(
                     "error": error or "UNKNOWN",
                 },
             )
+        )
+        record_change(
+            source="snmp",
+            title="SNMP unreachable",
+            detail="Polling failed",
+            level="warn",
+            ts=now_ts,
+            key="snmp_unreachable",
         )
 
 
@@ -142,6 +183,14 @@ def emit_system_event(
             source="system",
             meta={},
         )
+    )
+    record_change(
+        source="system",
+        title=title,
+        detail=detail,
+        level="info",
+        ts=now_ts,
+        key=f"system_{event_type}",
     )
 
 
@@ -174,6 +223,14 @@ def check_stale_transitions(now_ts: Optional[float] = None) -> None:
                     meta={"last_seen_ts": last_seen},
                 )
             )
+            record_change(
+                source="netflow",
+                title="NetFlow inactive",
+                detail="No recent flow files",
+                level="notice",
+                ts=now_ts,
+                key="netflow_inactive",
+            )
         elif key == "syslog_514":
             _emit_event(
                 TimelineEvent(
@@ -186,6 +243,14 @@ def check_stale_transitions(now_ts: Optional[float] = None) -> None:
                     meta={"port": 514, "last_seen_ts": last_seen},
                 )
             )
+            record_change(
+                source="syslog",
+                title="Syslog inactive",
+                detail="Port 514 silent",
+                level="notice",
+                ts=now_ts,
+                key="syslog_inactive_514",
+            )
         elif key == "syslog_515":
             _emit_event(
                 TimelineEvent(
@@ -197,4 +262,12 @@ def check_stale_transitions(now_ts: Optional[float] = None) -> None:
                     source="syslog",
                     meta={"port": 515, "last_seen_ts": last_seen},
                 )
+            )
+            record_change(
+                source="syslog",
+                title="Syslog inactive",
+                detail="Port 515 silent",
+                level="notice",
+                ts=now_ts,
+                key="syslog_inactive_515",
             )

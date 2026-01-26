@@ -8798,6 +8798,57 @@ body.compact-mode {
     font-size: 0.8rem;
 }
 
+/* Change Timeline (Overview) */
+.change-timeline {
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.change-timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.change-timeline-item {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.change-timeline-item:last-child {
+    border-bottom: none;
+}
+
+.change-timeline-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7em;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.change-timeline-time,
+.change-timeline-source {
+    font-family: var(--font-mono);
+}
+
+.change-timeline-title {
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.change-timeline-detail {
+    margin-top: 2px;
+    font-size: 0.75em;
+    color: var(--text-secondary);
+}
+
 .wm-country-item:hover {
     background: rgba(255, 255, 255, 0.06);
 }
@@ -11630,6 +11681,8 @@ body.compact-mode {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    position: relative;
+    height: 100%;
 }
 
 .timeline-filter-row {

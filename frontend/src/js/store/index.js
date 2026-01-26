@@ -384,6 +384,7 @@ export const Store = () => ({
     personality: { tone: '', traits: [], evidence: {}, window_sec: 86400, loading: true },
     overlays: { items: [], bySourceId: {}, loading: true },
     radar: { top_talkers: [], top_destinations: [], top_ports: [], changes: [], loading: true },
+    changeTimeline: { items: [], loading: true },
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },
@@ -2326,7 +2327,7 @@ export const Store = () => ({
             this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
             this.fetchIngestionRates(),
-            this.fetchIngestionRates(),
+            this.fetchChangeTimeline(),
             this.fetchPersonality(),
             this.fetchOverlays()
         ]);
@@ -5288,6 +5289,22 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.netHealth.loading = false; }
     },
 
+    async fetchChangeTimeline() {
+        this.changeTimeline.loading = true;
+        try {
+            const res = await fetch('/api/change-timeline?limit=8');
+            if (res.ok) {
+                const data = await res.json();
+                this.changeTimeline = { items: data.items || [], loading: false };
+            } else {
+                this.changeTimeline.loading = false;
+            }
+        } catch (e) {
+            console.error('Change timeline fetch error:', e);
+            this.changeTimeline.loading = false;
+        }
+    },
+
     async fetchIngestionRates() {
         try {
             const response = await fetch('/api/server/ingestion');
@@ -7613,6 +7630,7 @@ export const Store = () => ({
                 this.fetchSecurityObservability();
                 this.fetchAlertHistory();
                 this.fetchBaselineSignals();
+                this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }
             // Map initialization is handled by IntersectionObserver when section becomes visible

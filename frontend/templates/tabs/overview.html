@@ -84,6 +84,33 @@
     </div>
 
     <div style="margin-top: var(--space-6);">
+        {% call widget_card('changeTimeline', 'Change Timeline', '⏱️', min_height='220px') %}
+        <div class="change-timeline">
+            <template x-if="changeTimeline.items && changeTimeline.items.length > 0">
+                <div class="change-timeline-list">
+                    <template x-for="(item, idx) in changeTimeline.items.slice(0, 8)"
+                        :key="item.time + '-' + item.source + '-' + idx">
+                        <div class="change-timeline-item">
+                            <div class="change-timeline-meta">
+                                <span class="change-timeline-time" x-text="item.time"></span>
+                                <span class="change-timeline-source" x-text="item.source"></span>
+                            </div>
+                            <div class="change-timeline-title" x-text="item.title"></div>
+                            <div class="change-timeline-detail" x-show="item.detail" x-text="item.detail"></div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            <template x-if="!changeTimeline.loading && (!changeTimeline.items || changeTimeline.items.length === 0)">
+                <div class="empty-state">
+                    <span>No significant changes recently</span>
+                </div>
+            </template>
+        </div>
+        {% endcall %}
+    </div>
+
+    <div style="margin-top: var(--space-6);">
         <!-- World Map Section -->
         <section id="section-worldmap" class="scroll-section">
             <!-- Logic for World Map (Same as Step 141) -->

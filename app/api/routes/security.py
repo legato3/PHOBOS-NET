@@ -183,6 +183,7 @@ import app.services.shared.geoip as geoip_module
 from app.services.shared.dns import resolve_ip
 import app.services.shared.dns as dns_module
 from app.services.shared.decorators import throttle, cached_endpoint
+from app.services.change_timeline import record_firewall_blocks_change
 from app.db.sqlite import (
     _get_firewall_block_stats,
     _firewall_db_connect,
@@ -1458,6 +1459,8 @@ def api_health_baseline_signals():
     # Firewall Blocks Rate
     blocks_rate = blocked_events_24h / 24.0 if blocked_events_24h > 0 else 0.0
     blocks_check = is_abnormal("firewall_blocks_rate", blocks_rate)
+    if blocks_check and "abnormal" in blocks_check:
+        record_firewall_blocks_change(blocks_check["abnormal"])
     if blocks_check and blocks_check["abnormal"]:
         signals.append("firewall_blocks_spike")
         signal_details.append(

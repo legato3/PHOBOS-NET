@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import jsonify, request
 
 from . import bp
+from app.services.change_timeline import list_changes
 from app.services.timeline.emitters import check_stale_transitions
 from app.services.timeline.store import get_timeline_store
 
@@ -59,3 +60,14 @@ def api_timeline_summary():
     now_ts = int(datetime.utcnow().timestamp())
 
     return jsonify({"summary": summary, "now_ts": now_ts, "range_s": range_s})
+
+
+@bp.route("/api/change-timeline")
+def api_change_timeline():
+    try:
+        limit = int(request.args.get("limit", 8))
+    except (TypeError, ValueError):
+        limit = 8
+
+    items = list_changes(limit=limit)
+    return jsonify({"items": items, "limit": min(max(limit, 0), 8)})
