@@ -5221,7 +5221,8 @@ export const Store = () => ({
                     // Preserve null vs 0 distinction for truthfulness
                     active_flows: d.active_flows ?? null,
                     external_connections: d.external_connections ?? null,
-                    anomalies_count: d.anomalies_count ?? null,
+                    anomalies_count: d.anomalies_count ?? 0,
+                    anomalies_24h: d.anomalies_count ?? 0, // Alias for compatibility
                     trends: d.trends || {},
                     loading: false
                 };
