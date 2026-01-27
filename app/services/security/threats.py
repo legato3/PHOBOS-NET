@@ -92,13 +92,16 @@ _signal_history_lock = threading.Lock()
 _alert_sent_ts = 0  # Timestamp of last notification sent (rate limiting)
 _port_scan_tracker = {}  # {ip: {ports: set(), first_seen: ts}}
 _last_port_scan_cleanup = 0  # Last time port scan tracker was cleaned
+_MAX_PORT_SCAN_TRACKER_SIZE = 10000  # Hard limit for active port scan tracking
 _seen_external = {"countries": set(), "asns": set()}  # First-seen tracking
 _protocol_baseline = {}  # {proto: {"avg_bytes": int, "count": int}}
 
 # Anomaly tracking for escalation (fingerprint -> occurrences)
 _anomaly_tracker = {}  # {(type, source_ip, dest_ip, port): [timestamps]}
 _anomaly_tracker_lock = threading.Lock()
+_last_anomaly_cleanup = 0
 _ANOMALY_TRACKER_TTL = 600  # 10 minutes
+_MAX_ANOMALY_TRACKER_SIZE = 5000  # Hard limit to prevent O(N) cleanup overhead
 
 # Threat intelligence cache
 _threat_intel_cache = {}  # Cache for threat intelligence results (IP -> {vt: {...}, abuse: {...}, ts: ...})
@@ -366,6 +369,15 @@ def update_threat_timeline(ip):
             _threat_timeline[ip]["last_seen"] = now
             _threat_timeline[ip]["hit_count"] += 1
         else:
+            # Memory safety: Prevent unbounded growth
+            if len(_threat_timeline) > 50000:
+                # Optimization: Evict oldest entry (FIFO) via pop(next(iter))
+                # This is O(1) and prevents O(N) scan overhead during high churn.
+                try:
+                    _threat_timeline.pop(next(iter(_threat_timeline)))
+                except StopIteration:
+                    pass
+
             _threat_timeline[ip] = {"first_seen": now, "last_seen": now, "hit_count": 1}
 
 
@@ -754,6 +766,16 @@ def detect_port_scan(flow_data):
         # Only track external IPs scanning internal
         if not is_internal(src_ip):
             if src_ip not in _port_scan_tracker:
+                # Memory safety: Prevent unbounded growth during distributed attacks
+                if len(_port_scan_tracker) >= _MAX_PORT_SCAN_TRACKER_SIZE:
+                    # Reset tracker under heavy load (fail-open for memory safety)
+                    # Alternatively could switch to probabilistic structure, but reset is safer OOM protection
+                    _port_scan_tracker.clear()
+                    add_app_log(
+                        "Port scan tracker reset due to overflow (possible distributed scan)",
+                        "WARN",
+                    )
+
                 _port_scan_tracker[src_ip] = {
                     "ports": set(),
                     "first_seen": current_time,
@@ -1278,18 +1300,31 @@ def _should_escalate_anomaly(alert, watchlist=None):
     now_ts = time.time()
 
     with _anomaly_tracker_lock:
-        # Clean old entries in-place (avoid replacing global reference)
-        stale_keys = [
-            k
-            for k, v in _anomaly_tracker.items()
-            if not any(now_ts - ts < _ANOMALY_TRACKER_TTL for ts in v)
-        ]
-        for k in stale_keys:
-            del _anomaly_tracker[k]
-        for k in _anomaly_tracker:
-            _anomaly_tracker[k] = [
-                ts for ts in _anomaly_tracker[k] if now_ts - ts < _ANOMALY_TRACKER_TTL
+        global _last_anomaly_cleanup
+
+        # Optimization: Only run expensive O(N) cleanup periodically (e.g. every 60s)
+        # instead of on every call. This prevents CPU exhaustion when N is large.
+        if now_ts - _last_anomaly_cleanup > 60:
+            stale_keys = [
+                k
+                for k, v in _anomaly_tracker.items()
+                if not any(now_ts - ts < _ANOMALY_TRACKER_TTL for ts in v)
             ]
+            for k in stale_keys:
+                del _anomaly_tracker[k]
+            for k in _anomaly_tracker:
+                _anomaly_tracker[k] = [
+                    ts
+                    for ts in _anomaly_tracker[k]
+                    if now_ts - ts < _ANOMALY_TRACKER_TTL
+                ]
+            _last_anomaly_cleanup = now_ts
+
+        # Memory safety: Prevent unbounded growth
+        if len(_anomaly_tracker) > _MAX_ANOMALY_TRACKER_SIZE:
+            # Emergency cleanup or clear
+            _anomaly_tracker.clear()
+            _last_anomaly_cleanup = now_ts
 
         # Track this anomaly
         if fingerprint not in _anomaly_tracker:
@@ -1654,8 +1689,11 @@ def lookup_threat_intelligence(ip):
         _threat_intel_cache[ip] = {"data": result, "ts": now}
         # Simple cache size limit (keep last 1000)
         if len(_threat_intel_cache) > 1000:
-            oldest = min(_threat_intel_cache.items(), key=lambda x: x[1].get("ts", 0))
-            _threat_intel_cache.pop(oldest[0], None)
+            # Optimization: Use O(1) FIFO eviction instead of O(N) min() search
+            try:
+                _threat_intel_cache.pop(next(iter(_threat_intel_cache)))
+            except StopIteration:
+                pass
 
     return result
 
