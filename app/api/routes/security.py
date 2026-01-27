@@ -83,6 +83,7 @@ from app.services.shared.helpers import (
     load_list,
     check_disk_space,
     format_duration,
+    validate_ip_input,
 )
 from app.core.app_state import (
     _shutdown_event,
@@ -582,6 +583,11 @@ def api_hosts_list():
 @throttle(10, 20)
 def api_host_detail(ip):
     """Get details for a specific host."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     # Overview: Geo, ASN, DNS
     from app.services.shared.geoip import lookup_geo
     from app.services.shared.dns import resolve_ip
@@ -690,6 +696,11 @@ def api_host_detail(ip):
 @throttle(5, 10)
 def api_host_metadata(ip):
     """Get or update host metadata."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     from app.db.sqlite import get_host_metadata, upsert_host_metadata
 
     if request.method == "GET":
@@ -729,6 +740,11 @@ def api_host_metadata(ip):
 @throttle(10, 20)
 def api_host_timeline(ip):
     """Get lightweight hourly activity timeline for a host."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     from app.services.netflow.netflow import run_nfdump, parse_csv, get_time_range
     from datetime import datetime, timedelta
 
@@ -1530,6 +1546,11 @@ def api_health_baseline_signals():
 @throttle(5, 10)
 def api_ip_detail(ip):
     """Get detailed information about an IP address including traffic patterns, ports, protocols, and geo data."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     start_threat_thread()
 
     # Support range parameter (default to 1h for backwards compatibility)
@@ -2215,6 +2236,12 @@ def api_forensics_session():
                 {"error": "Both source and destination IPs are required"}
             ), 400
 
+        try:
+            validate_ip_input(src_ip)
+            validate_ip_input(dst_ip)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
         # Validate IP formats
         import re
 
@@ -2451,6 +2478,12 @@ def api_forensics_evidence():
             return jsonify(
                 {"error": "Target IPs are required for evidence collection"}
             ), 400
+
+        try:
+            for ip in target_ips:
+                validate_ip_input(ip)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
         from app.services.netflow.netflow import run_nfdump, get_time_range
         from app.services.security.threats import get_threat_info, load_threatlist
@@ -4293,6 +4326,13 @@ def api_forensics_flow_search():
     range_val = request.args.get("range", "1h")
     src_ip = request.args.get("src_ip", "")
     dst_ip = request.args.get("dst_ip", "")
+
+    try:
+        validate_ip_input(src_ip)
+        validate_ip_input(dst_ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     port = request.args.get("port", "")
     protocol = request.args.get("protocol", "")
     country = request.args.get("country", "")
