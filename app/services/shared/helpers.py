@@ -1,6 +1,7 @@
 """Helper utility functions."""
 
 from datetime import datetime, timedelta
+from functools import lru_cache
 from app.config import INTERNAL_NETS, REGION_MAPPING
 
 
@@ -30,9 +31,15 @@ def is_internal(host_or_ip):
     if host_lower.startswith(INTERNAL_NETS):
         return True
 
+    return _check_ip_address(host_lower)
+
+
+@lru_cache(maxsize=10000)
+def _check_ip_address(ip_str):
+    """Check if an IP string is internal/private (cached)."""
     # Robust IP address validation (IPv4 and IPv6)
     try:
-        ip_obj = ipaddress.ip_address(host_lower)
+        ip_obj = ipaddress.ip_address(ip_str)
         return (
             ip_obj.is_private
             or ip_obj.is_loopback
@@ -134,3 +141,26 @@ def check_disk_space(path="/var/cache/nfdump"):
         }
     except Exception:
         return {"percent_used": 0, "status": "unknown"}
+
+
+def validate_ip_input(ip):
+    """Validate IP/Host input to prevent argument injection.
+
+    Rejects inputs starting with '-' to prevent flag injection.
+    Rejects inputs containing shell metacharacters to prevent command chaining.
+    """
+    if not ip:
+        return ip
+
+    ip_str = str(ip).strip()
+
+    # prevent flag injection
+    if ip_str.startswith("-"):
+        raise ValueError("Invalid IP/Host: Argument injection detected")
+
+    # prevent shell metacharacters (defense in depth)
+    forbidden_chars = [";", "&", "|", "`", "$", "(", ")", "<", ">", "!"]
+    if any(char in ip_str for char in forbidden_chars):
+        raise ValueError("Invalid IP/Host: Shell metacharacters detected")
+
+    return ip_str

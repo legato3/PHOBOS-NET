@@ -32,7 +32,7 @@ from app.services.shared.metrics import track_performance, track_error, get_perf
 from app.services.shared.snmp import get_snmp_data, start_snmp_thread, validate_snmp_input
 from app.services.shared.cpu import calculate_cpu_percent_from_stat
 from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
-from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
+from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration, validate_ip_input
 from app.core.app_state import (
     _shutdown_event,
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
@@ -1213,7 +1213,12 @@ def api_stats_services():
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
 def api_stats_hourly():
-    """Traffic distribution by hour for selected range."""
+    """Traffic distribution by hour for selected range.
+
+    NOTE: This endpoint aggregates traffic into hourly buckets (0-23) based on the hour of the day.
+    It provides a 24-hour daily profile regardless of the input range duration, making it a
+    Fixed Window (Daily Profile) visualization.
+    """
     range_key = request.args.get('range', '24h')
     now = time.time()
     win = int(now // 60)
@@ -1281,7 +1286,8 @@ def api_stats_hourly():
                         time_part = ts_str.split(' ')[1]
                         hour = int(time_part.split(':')[0])
                     else:
-                        hour = datetime.now().hour
+                        # Skip if timestamp is malformed instead of polluting current hour
+                        continue
                     b = int(float(parts[ibyt_idx]))
                     hourly_bytes[hour] += b
                     hourly_flows[hour] += 1
@@ -1968,7 +1974,7 @@ def api_network_stats_overview():
     # Fetch flows with detection criteria
     output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_range)
     
-    anomalies_24h = 0
+    anomalies_count = 0
     anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
     
     try:
@@ -2017,7 +2023,7 @@ def api_network_stats_overview():
                         is_external = not (src_internal and dst_internal)
                         
                         if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
-                            anomalies_24h += 1
+                            anomalies_count += 1
                             # Create alert for this anomaly (only once per hour per src-dst pair to avoid flooding)
                             anomaly_key = f"traffic_anomaly_{src}_{dst}"
                             if anomaly_key not in anomaly_alerts_sent:
@@ -2044,7 +2050,7 @@ def api_network_stats_overview():
     range_hours = {
         '15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168
     }.get(range_key, 1)
-    anomalies_rate = anomalies_24h / range_hours if anomalies_24h > 0 else 0.0
+    anomalies_rate = anomalies_count / range_hours if anomalies_count > 0 else 0.0
     update_baseline('anomalies_rate', anomalies_rate)
     
     # Calculate trends (since last hour)
@@ -2055,7 +2061,7 @@ def api_network_stats_overview():
     return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
-        "anomalies_24h": anomalies_24h,
+        "anomalies_count": anomalies_count,
         "trends": {
             "active_flows": active_flows_trend,
             "external_connections": external_connections_trend,
@@ -2065,7 +2071,7 @@ def api_network_stats_overview():
         "time_scope": {
             "active_flows": range_key,
             "external_connections": range_key,
-            "anomalies_24h": range_key
+            "anomalies_count": range_key
         }
     })
 
@@ -2546,6 +2552,11 @@ def api_flows():
 @bp.route("/api/trends/source/<ip>")
 def api_trends_source(ip):
     """Return 5-min rollup trend for a source IP over the requested range (default 24h)."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     range_key = request.args.get('range', '24h')
     compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()
@@ -2598,6 +2609,11 @@ def api_trends_source(ip):
 @bp.route("/api/trends/dest/<ip>")
 def api_trends_dest(ip):
     """Return 5-min rollup trend for a destination IP over the requested range (default 24h)."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     range_key = request.args.get('range', '24h')
     compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()
@@ -3067,11 +3083,13 @@ def api_firewall_snmp_status():
         # Use a short timeout/fail-fast approach for this correlation check if possible,
         # but since run_nfdump uses global timeout, we rely on the try/except here.
         netflow_sources = None
+        netflow_error = False
         try:
             # We wrap this specific call to ensure it doesn't kill the whole request
             netflow_sources = get_common_nfdump_data("sources", range_key)
         except Exception:
             netflow_sources = None
+            netflow_error = True
             
         netflow_total_bytes = sum(i.get("bytes", 0) for i in netflow_sources) if netflow_sources else 0
         
@@ -3081,7 +3099,10 @@ def api_firewall_snmp_status():
         
         # Calculate correlation status
         # Allow 20% variance for accounting differences (headers, sampling, etc.)
-        if netflow_total_bytes == 0 and snmp_total_bytes == 0:
+        if netflow_error:
+            correlation_status = "unknown"
+            correlation_hint = "NetFlow data unavailable"
+        elif netflow_total_bytes == 0 and snmp_total_bytes == 0:
             correlation_status = "aligned"
             correlation_hint = None
         elif netflow_total_bytes == 0:

@@ -180,7 +180,7 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
-    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
+    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_count: 0, trends: {}, loading: true },
     networkIntelligence: {
         bandwidth_utilization: { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
         protocol_diversity: { primary_protocol: 'TCP', primary_pct: 0, protocols_count: 0, balance: 'Diverse' },
@@ -594,7 +594,7 @@ export const Store = () => ({
         // Special handling for Network Anomalies fields
         if (field.startsWith('netAnom_')) {
             const key = field.replace('netAnom_', '');
-            if (key === 'count_24h') return (this.networkStatsOverview.anomalies_24h || 0).toLocaleString();
+            if (key === 'count_24h') return (this.networkStatsOverview.anomalies_count || 0).toLocaleString();
             if (key === 'trend') {
                 const trend = this.networkStatsOverview.trends?.anomalies?.percent_change;
                 if (trend === undefined || trend === null) return '--';
@@ -5221,7 +5221,7 @@ export const Store = () => ({
                     // Preserve null vs 0 distinction for truthfulness
                     active_flows: d.active_flows ?? null,
                     external_connections: d.external_connections ?? null,
-                    anomalies_24h: d.anomalies_24h ?? null,
+                    anomalies_count: d.anomalies_count ?? null,
                     trends: d.trends || {},
                     loading: false
                 };
@@ -6040,9 +6040,9 @@ export const Store = () => ({
                         },
                         onClick: (e, elements, chart) => {
                             if (elements && elements.length > 0) {
-                                // Just open the expanded table for now, regardless of which bar was clicked
-                                // A future enhancement could be to filter the expanded table by the specific country
-                                this.openExpandedTable('countries');
+                                const index = elements[0].index;
+                                const country = chart.data.labels[index];
+                                this.openExpandedTable('countries', country);
                             }
                         },
                         onHover: (e, elements) => {
@@ -8137,7 +8137,7 @@ export const Store = () => ({
 
     // ----- Expanded Views & Graph -----
 
-    async openExpandedTable(type) {
+    async openExpandedTable(type, filter = null) {
         this.expandedModalOpen = true;
         this.expandedLoading = true;
         this.expandedData = [];
@@ -8151,6 +8151,10 @@ export const Store = () => ({
             'countries': 'Top Countries by Traffic'
         };
         this.expandedTitle = titles[type] || 'Expanded Data';
+
+        if (filter && type === 'countries') {
+            this.expandedTitle = `Country: ${filter}`;
+        }
 
         try {
             let url = '';
@@ -8218,7 +8222,16 @@ export const Store = () => ({
             const res = await fetch(url);
             if (res.ok) {
                 const json = await res.json();
-                const list = json[type] || json.conversations || [];
+                let list = json[type] || json.conversations || [];
+
+                if (filter && type === 'countries') {
+                    const filterLower = String(filter).toLowerCase();
+                    list = list.filter(row =>
+                        (row.country_name && row.country_name.toLowerCase() === filterLower) ||
+                        (row.country_code && row.country_code.toLowerCase() === filterLower)
+                    );
+                }
+
                 this.expandedData = list.map(processRow);
             }
         } catch (e) {
