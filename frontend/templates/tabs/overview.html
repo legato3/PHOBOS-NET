@@ -53,13 +53,18 @@
         </div>
 
         <!-- 6. ANOMALIES -->
-        <div class="card"
-            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
+        <div class="card" @click="openFwDetail('networkAnomalies')"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
+            :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+            <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin-bottom:2px;">
                 <span style="font-size:1.4em; font-weight:600; color:var(--signal-warn);"
                     x-text="formatNumOrDash(networkStatsOverview?.anomalies_count)"></span>
             </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">NETWORK ANOMALIES</div>
+            <div
+                style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:4px;">
+                NETWORK ANOMALIES <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
+            </div>
         </div>
     </div>
 

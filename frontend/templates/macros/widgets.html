@@ -82,6 +82,9 @@ card_class_bind=None, footer_content=None, title_x_text=None, period_x_text=None
                             style="font-size: 1.1em; color: var(--text-primary); margin-bottom: 4px; font-weight: 500;">
                             <template x-if="insight.type === 'talker' || insight.type === 'ip'">
                                 <span class="clickable-ip" @click.stop="openIPModal(insight.key)"
+                                    role="button" tabindex="0" :aria-label="'View details for ' + insight.key"
+                                    @keydown.enter="openIPModal(insight.key)"
+                                    @keydown.space.prevent="openIPModal(insight.key)"
                                     style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'protocol'">
@@ -92,6 +95,9 @@ card_class_bind=None, footer_content=None, title_x_text=None, period_x_text=None
                             </template>
                             <template x-if="insight.type === 'destination'">
                                 <span class="clickable-ip" @click.stop="openIPModal(insight.key)"
+                                    role="button" tabindex="0" :aria-label="'View details for ' + insight.key"
+                                    @keydown.enter="openIPModal(insight.key)"
+                                    @keydown.space.prevent="openIPModal(insight.key)"
                                     style="color: var(--neon-cyan); cursor: pointer;" x-text="insight.key"></span>
                             </template>
                             <template x-if="insight.type === 'rule' || insight.type === 'category'">
