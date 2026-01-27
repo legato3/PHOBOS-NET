@@ -8,8 +8,14 @@
         <!-- 1. HEALTH -->
         <div class="card"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="font-size:1.1em; font-weight:600; color:var(--signal-ok); margin-bottom:4px;">Healthy</div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">OVERALL HEALTH</div>
+            <div style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
+                :class="{
+                    'text-green': overallHealth.state === 'healthy',
+                    'text-yellow': overallHealth.state === 'degraded',
+                    'text-red': overallHealth.state === 'unhealthy'
+                }"
+                x-text="overallHealth.state ? overallHealth.state.charAt(0).toUpperCase() + overallHealth.state.slice(1) : 'Unknown'"></div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">SYSTEM STATUS</div>
         </div>
 
         <!-- 2. ACTIVE ALERTS -->
@@ -20,44 +26,44 @@
             <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ACTIVE ALERTS</div>
         </div>
 
-        <!-- 3. ACTIVE FLOWS -->
-        <div class="card"
-            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
-                    x-text="formatNumOrDash(networkStatsOverview?.active_flows)"></span>
-            </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ACTIVE FLOWS</div>
-        </div>
-
-        <!-- 4. EXTERNAL CONNECTIONS -->
-        <div class="card"
-            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
-                    x-text="formatNumOrDash(networkStatsOverview?.external_connections)"></span>
-            </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">EXTERNAL CONNECTIONS</div>
-        </div>
-
-        <!-- 5. BLOCKED EVENTS -->
-        <div class="card"
-            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
-                    x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)"></span>
-            </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">BLOCKED EVENTS (24H)</div>
-        </div>
-
-        <!-- 6. ANOMALIES -->
+        <!-- 3. ANOMALIES -->
         <div class="card"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
                 <span style="font-size:1.4em; font-weight:600; color:var(--signal-warn);"
                     x-text="formatNumOrDash(networkStatsOverview?.anomalies_count)"></span>
             </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">NETWORK ANOMALIES</div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ANOMALIES (24H)</div>
+        </div>
+
+        <!-- 4. BLOCKED EVENTS -->
+        <div class="card"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
+                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+                    x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)"></span>
+            </div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">THREAT BLOCKS (24H)</div>
+        </div>
+
+        <!-- 5. ACTIVE FLOWS -->
+        <div class="card"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
+                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+                    x-text="formatNumOrDash(networkStatsOverview?.active_flows)"></span>
+            </div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">LIVE FLOWS</div>
+        </div>
+
+        <!-- 6. EXTERNAL CONNECTIONS -->
+        <div class="card"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
+                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+                    x-text="formatNumOrDash(networkStatsOverview?.external_connections)"></span>
+            </div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">EXTERNAL FLOWS</div>
         </div>
     </div>
 
@@ -66,7 +72,7 @@
     <div style="margin-top: 0; padding-top: 0;">
         <!-- Bandwidth Chart (Conditional) -->
         <template x-if="isVisible('bandwidth')">
-            {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
+            {% call widget_card('bandwidth', 'Network Traffic', '📊',
             period_x_text='global_time_range') %}
             <!-- Mobile Toggle for Bandwidth Chart -->
             <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
@@ -135,7 +141,7 @@
 
             {% set wm_title %}
             <div>
-                <span>Traffic World Map</span>
+                <span>Geographic Distribution</span>
                 <span x-show="mapStatus" x-text="'[' + mapStatus + ']'" class="text-75 text-yellow ml-2"></span>
             </div>
             {% endset %}
