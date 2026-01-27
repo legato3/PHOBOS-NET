@@ -32,7 +32,7 @@ from app.services.shared.metrics import track_performance, track_error, get_perf
 from app.services.shared.snmp import get_snmp_data, start_snmp_thread, validate_snmp_input
 from app.services.shared.cpu import calculate_cpu_percent_from_stat
 from app.core.background import start_threat_thread, start_trends_thread, start_agg_thread
-from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration
+from app.services.shared.helpers import is_internal, get_region, fmt_bytes, get_time_range, flag_from_iso, load_list, check_disk_space, format_duration, validate_ip_input
 from app.core.app_state import (
     _shutdown_event,
     _lock_summary, _lock_sources, _lock_dests, _lock_ports, _lock_protocols,
@@ -2552,6 +2552,11 @@ def api_flows():
 @bp.route("/api/trends/source/<ip>")
 def api_trends_source(ip):
     """Return 5-min rollup trend for a source IP over the requested range (default 24h)."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     range_key = request.args.get('range', '24h')
     compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()
@@ -2604,6 +2609,11 @@ def api_trends_source(ip):
 @bp.route("/api/trends/dest/<ip>")
 def api_trends_dest(ip):
     """Return 5-min rollup trend for a destination IP over the requested range (default 24h)."""
+    try:
+        validate_ip_input(ip)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     range_key = request.args.get('range', '24h')
     compare = request.args.get('compare', 'false').lower() == 'true'  # Historical comparison
     now = datetime.now()

@@ -134,3 +134,26 @@ def check_disk_space(path="/var/cache/nfdump"):
         }
     except Exception:
         return {"percent_used": 0, "status": "unknown"}
+
+
+def validate_ip_input(ip):
+    """Validate IP/Host input to prevent argument injection.
+
+    Rejects inputs starting with '-' to prevent flag injection.
+    Rejects inputs containing shell metacharacters to prevent command chaining.
+    """
+    if not ip:
+        return ip
+
+    ip_str = str(ip).strip()
+
+    # prevent flag injection
+    if ip_str.startswith("-"):
+        raise ValueError("Invalid IP/Host: Argument injection detected")
+
+    # prevent shell metacharacters (defense in depth)
+    forbidden_chars = [";", "&", "|", "`", "$", "(", ")", "<", ">", "!"]
+    if any(char in ip_str for char in forbidden_chars):
+        raise ValueError("Invalid IP/Host: Shell metacharacters detected")
+
+    return ip_str
