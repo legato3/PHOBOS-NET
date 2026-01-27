@@ -14,7 +14,11 @@
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
                 <div class="label">System Status <span style="opacity:0.6; cursor:pointer;"
-                        @click.stop="openFwDetail('networkHealth')" title="Click for details">ℹ️</span>
+            role="button" tabindex="0" aria-label="Network Health Details"
+            @click.stop="openFwDetail('networkHealth')"
+            @keydown.enter="openFwDetail('networkHealth')"
+            @keydown.space.prevent="openFwDetail('networkHealth')"
+            title="Click for details">ℹ️</span>
                     <span x-text="netHealth.status ? ' (' + netHealth.status.toUpperCase() + ')' : ''"
                         style="margin-left: 4px; font-weight: normal;"></span>
                 </div>
@@ -108,6 +112,9 @@
                     <div class="endpoint-grid-body">
                         <template x-for="(item, index) in filteredSources" :key="index">
                             <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row"
+                                role="button" tabindex="0" :aria-label="'View details for IP ' + item.key"
+                                @keydown.enter="openIPModal(item.key)"
+                                @keydown.space.prevent="openIPModal(item.key)"
                                 :data-row-rank="index"
                                 :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0"
                                 :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
@@ -163,6 +170,9 @@
                     <div class="endpoint-grid-body">
                         <template x-for="(item, index) in filteredDestinations" :key="index">
                             <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row"
+                                role="button" tabindex="0" :aria-label="'View details for IP ' + item.key"
+                                @keydown.enter="openIPModal(item.key)"
+                                @keydown.space.prevent="openIPModal(item.key)"
                                 :data-row-rank="index"
                                 :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
                                 :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
@@ -650,11 +660,17 @@
                                     <div
                                         style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); flex-wrap: nowrap;">
                                         <span class="text-cyan clickable-ip" @click="openIPModal(flow.src)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.src"
+                                            @keydown.enter="openIPModal(flow.src)"
+                                            @keydown.space.prevent="openIPModal(flow.src)"
                                             style="cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;"
                                             x-text="flow.src"
                                             :title="flow.src + ' (' + (flow.src_hostname || 'Unknown') + ')'"></span>
                                         <span class="text-muted">→</span>
                                         <span class="text-purple clickable-ip" @click="openIPModal(flow.dst)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.dst"
+                                            @keydown.enter="openIPModal(flow.dst)"
+                                            @keydown.space.prevent="openIPModal(flow.dst)"
                                             style="cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;"
                                             x-text="flow.dst"
                                             :title="flow.dst + ' (' + (flow.dst_hostname || 'Unknown') + ')'"></span>
