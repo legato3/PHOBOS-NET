@@ -449,8 +449,10 @@ def load_watchlist():
         mtime = os.path.getmtime(WATCHLIST_PATH)
         if mtime != _watchlist_cache["mtime"]:
             with open(WATCHLIST_PATH, "r") as f:
-                lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-                _watchlist_cache["data"] = set(lines)
+                # OPTIMIZATION: Use set comprehension and single strip to reduce memory usage
+                _watchlist_cache["data"] = {
+                    s for l in f for s in (l.strip(),) if s and not s.startswith("#")
+                }
                 _watchlist_cache["mtime"] = mtime
     except Exception as e:
         add_app_log(f"Error loading watchlist: {e}", "ERROR")
@@ -1182,8 +1184,10 @@ def load_threatlist():
     if mtime != _threat_cache["mtime"]:
         try:
             with open(THREATLIST_PATH, "r") as f:
-                lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-                _threat_cache["data"] = set(lines)
+                # OPTIMIZATION: Use set comprehension and single strip to reduce memory usage
+                _threat_cache["data"] = {
+                    s for l in f for s in (l.strip(),) if s and not s.startswith("#")
+                }
                 _threat_cache["mtime"] = mtime
         except Exception as e:
             add_app_log(f"Error loading threatlist: {e}", "ERROR")
