@@ -1,6 +1,7 @@
 """Helper utility functions."""
 
 from datetime import datetime, timedelta
+from functools import lru_cache
 from app.config import INTERNAL_NETS, REGION_MAPPING
 
 
@@ -30,9 +31,15 @@ def is_internal(host_or_ip):
     if host_lower.startswith(INTERNAL_NETS):
         return True
 
+    return _check_ip_address(host_lower)
+
+
+@lru_cache(maxsize=10000)
+def _check_ip_address(ip_str):
+    """Check if an IP string is internal/private (cached)."""
     # Robust IP address validation (IPv4 and IPv6)
     try:
-        ip_obj = ipaddress.ip_address(host_lower)
+        ip_obj = ipaddress.ip_address(ip_str)
         return (
             ip_obj.is_private
             or ip_obj.is_loopback
