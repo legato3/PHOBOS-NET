@@ -12,6 +12,7 @@ import socket
 import threading
 import subprocess
 import requests
+import re
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque, Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -85,6 +86,8 @@ from app.config import (
 
 # Create Blueprint
 
+_active_flows_cache = {}
+_active_flows_lock = threading.Lock()
 
 # Routes extracted from netflow-dashboard.py
 # Changed @app.route() to @bp.route()
@@ -1887,15 +1890,37 @@ def api_network_stats_overview():
     # Get total count by running without -n limit, using -q for quiet output
     # Count all flow lines (excluding header)
     try:
-        # STREAMING OPTIMIZATION: Use stream_nfdump to avoid loading all flows into memory
-        stream = stream_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-q"], tf_range)
-        for line in stream:
-            line = line.strip()
-            if line and not line.startswith('ts,') and not line.startswith('firstSeen,') and not line.startswith('Date,') and ',' in line:
-                # Check if it's a valid flow line (has enough fields)
-                # Fast check: ensure enough commas (7 commas = 8 fields)
-                if line.count(',') >= 7:
-                    active_flows_count += 1
+        # OPTIMIZATION: Use nfdump summary instead of streaming all flows
+        # This avoids high CPU usage from parsing millions of lines in Python
+        now = time.time()
+        cache_hit = False
+
+        with _active_flows_lock:
+            if _active_flows_cache.get("key") == range_key and now - _active_flows_cache.get("ts", 0) < 30:
+                active_flows_count = _active_flows_cache.get("count", 0)
+                cache_hit = True
+
+        if not cache_hit:
+            # Use -s record/bytes to get summary, -n 0 to avoid listing flows
+            # Maintain same aggregation -A to match original logic
+            summary_output = run_nfdump(["-s", "record/bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "0"], tf_range)
+
+            # Parse summary output for "total flows: N" or "Flows: N"
+            # Format examples: "Summary: total flows: 1337" or "Sys: ... Flows: 1337"
+            match = re.search(r'(?:total flows|Flows):\s*(\d+)', summary_output, re.IGNORECASE)
+            if match:
+                active_flows_count = int(match.group(1))
+
+                # Update cache
+                with _active_flows_lock:
+                    _active_flows_cache["count"] = active_flows_count
+                    _active_flows_cache["ts"] = now
+                    _active_flows_cache["key"] = range_key
+            else:
+                # Fallback to 0 if parsing fails
+                add_app_log("Could not parse nfdump summary for flow count", "WARN")
+                active_flows_count = 0
+
     except Exception as e:
         # Log error in production, but don't fail the endpoint
         add_app_log(f"Error counting active flows: {e}", "WARN")
@@ -2350,192 +2375,216 @@ def api_flows():
         except (ValueError, IndexError):
             pass
 
+        # Pass 1: Parse and collect IPs
+        raw_flows = []
+        unique_ips = set()
+
         for line in lines[start_idx:]:
             line = line.strip()
             if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
             parts = line.split(',')
             if len(parts) > max(ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx):
                 try:
-                    ts_str = parts[ts_idx].strip()
-                    duration = float(parts[td_idx])
-                    proto_val = parts[pr_idx].strip()
                     src = parts[sa_idx].strip()
-                    src_port = parts[sp_idx].strip()
                     dst = parts[da_idx].strip()
-                    dst_port = parts[dp_idx].strip()
-                    pkts = int(float(parts[ipkt_idx]))
-                    b = int(float(parts[ibyt_idx]))
+                    if src: unique_ips.add(src)
+                    if dst: unique_ips.add(dst)
 
-                    # Calculate Age
-                    try:
-                        if '.' in ts_str: ts_str = ts_str.split('.')[0]
-                        flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
-                        age_sec = now - flow_time
-                    except (ValueError, TypeError):
-                        age_sec = 0
-
-                    if age_sec < 0: age_sec = 0
-
-                    # Enrich with Geo
-                    src_geo = lookup_geo(src) or {}
-                    dst_geo = lookup_geo(dst) or {}
-
-                    # Resolve hostnames (cached only, non-blocking)
-                    src_hostname = resolve_ip(src) or None
-                    dst_hostname = resolve_ip(dst) or None
-
-                    # Determine internal/external classification
-                    src_internal = is_internal(src)
-                    dst_internal = is_internal(dst)
-                    
-                    # Determine flow direction
-                    if src_internal and not dst_internal:
-                        direction = "outbound"
-                    elif not src_internal and dst_internal:
-                        direction = "inbound"
-                    elif src_internal and dst_internal:
-                        direction = "internal"
-                    else:
-                        direction = "external"
-
-                    # Resolve Service Name
-                    svc = resolve_service_name(dst_port, proto_val)
-                    # Track for heuristics (lightweight, per-request only) - do this first
-                    port_counts[dst_port] += 1
-                    connection_key = f"{src}:{dst}"
-                    connection_patterns[connection_key] += 1
-                    
-                    # Detect interesting flow characteristics (heuristics only, not alerts)
-                    interesting_flags = []
-                    
-                    # 1. Long-lived low-volume flows
-                    if duration > 300 and b < 100000:
-                        interesting_flags.append("long_low")
-                    
-                    # 2. Short-lived high-volume flows
-                    if duration < 10 and b > 500000:
-                        interesting_flags.append("short_high")
-                    
-                    # 3. Rare destination ports (appears <= 2 times in this batch)
-                    # Note: This is approximate since we're checking during processing
-                    # A port appearing 1-2 times in a batch of 100+ flows is considered rare
-                    if port_counts[dst_port] <= 2:
-                        interesting_flags.append("rare_port")
-                    
-                    # 4. New external IPs (first time seeing this external IP in this batch)
-                    is_new_external_dst = not dst_internal and dst not in external_ips_seen
-                    is_new_external_src = not src_internal and src not in external_ips_seen
-                    if is_new_external_dst:
-                        external_ips_seen.add(dst)
-                        interesting_flags.append("new_external")
-                    elif is_new_external_src:
-                        external_ips_seen.add(src)
-                        interesting_flags.append("new_external")
-                    
-                    # 5. Repeated short connections (same src->dst with multiple short connections)
-                    if connection_patterns[connection_key] > 1 and duration < 30:
-                        interesting_flags.append("repeated_short")
-
-                    # Phase 1: Flow ↔ Threat correlation
-                    threat_ips = []
-                    if src in threat_set:
-                        threat_ips.append(src)
-                    if dst in threat_set:
-                        threat_ips.append(dst)
-                    
-                    has_threat = len(threat_ips) > 0
-                    threat_count = len(threat_ips)
-                    
-                    # Get threat info for threat IPs (lightweight, only if threats found)
-                    threat_info_list = []
-                    if has_threat:
-                        for threat_ip in threat_ips:
-                            info = get_threat_info(threat_ip)
-                            threat_info_list.append({
-                                "ip": threat_ip,
-                                "category": info.get('category', 'UNKNOWN'),
-                                "feed": info.get('feed', 'unknown')
-                            })
-
-                    # Phase 2: Promote long-lived low-volume external flows to detection
-                    # Detection criteria: duration > threshold AND bytes < threshold AND external (not internal)
-                    is_detected = False
-                    detection_reason = None
-                    if direction in ("outbound", "inbound", "external"):  # External flow (not internal)
-                        if duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
-                            is_detected = True
-                            detection_reason = f"Long-lived ({duration:.1f}s) low-volume ({fmt_bytes(b)}) external flow. May indicate persistent C2, data exfiltration, or beaconing activity."
-
-                    # Phase 3: Update rolling flow history (in-memory, 30-60 min)
-                    history_key = (src, dst, dst_port)  # Aggregate by src/dst/port
-                    flow_history = []
-                    with _flow_history_lock:
-                        if history_key not in _flow_history:
-                            # Prevent unbounded memory growth
-                            if len(_flow_history) > 10000:
-                                _flow_history.clear()
-                                add_app_log("Cleared flow history cache (size limit exceeded)", "WARN")
-                            _flow_history[history_key] = []
-                        _flow_history[history_key].append({
-                            "ts": flow_time,
-                            "bytes": b,
-                            "packets": pkts,
-                            "duration": duration
-                        })
-                        # Cleanup old entries (older than TTL)
-                        cutoff_ts = now - _flow_history_ttl
-                        _flow_history[history_key] = [
-                            entry for entry in _flow_history[history_key]
-                            if entry["ts"] >= cutoff_ts
-                        ]
-                        # Get history for this flow (for UI) - only if more than 1 entry (recurring pattern)
-                        history_entries = sorted(_flow_history.get(history_key, []), key=lambda x: x["ts"])
-                        if len(history_entries) > 1:
-                            flow_history = history_entries
-                        # Remove empty keys
-                        if not _flow_history[history_key]:
-                            del _flow_history[history_key]
-
-                    convs.append({
-                        "ts": ts_str,
-                        "age_seconds": age_sec,  # Explicit age in seconds for reliable frontend calculation
-                        "first_seen_ts": flow_time,  # Unix timestamp for age calculation fallback
-                        "age": format_duration(age_sec) + " ago" if age_sec < 86400 else ts_str,
-                        "duration": f"{duration:.2f}s",
-                        "duration_seconds": duration,  # Raw duration in seconds
-                        "proto": proto_val,
-                        "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
-                        "src": src,
-                        "src_port": src_port,
-                        "src_hostname": src_hostname,  # Cached hostname if available
-                        "src_internal": src_internal,  # Internal/external flag
-                        "src_flag": src_geo.get('flag', ''),
-                        "src_country": src_geo.get('country', ''),
-                        "dst": dst,
-                        "dst_port": dst_port,
-                        "dst_hostname": dst_hostname,  # Cached hostname if available
-                        "dst_internal": dst_internal,  # Internal/external flag
-                        "dst_flag": dst_geo.get('flag', ''),
-                        "dst_country": dst_geo.get('country', ''),
-                        "direction": direction,  # Flow direction: inbound, outbound, internal, external
-                        "service": svc,
-                        "bytes": b,
-                        "bytes_fmt": fmt_bytes(b),
-                        "packets": pkts,
-                        "interesting_flags": interesting_flags[:2],  # Max 2 flags
-                        # Phase 1: Threat correlation fields
-                        "has_threat": has_threat,
-                        "threat_count": threat_count,
-                        "threat_ips": threat_ips,
-                        "threat_info": threat_info_list,
-                        # Phase 2: Detection fields
-                        "is_detected": is_detected,
-                        "detection_reason": detection_reason,
-                        # Phase 3: Flow history (last 30-60 min, aggregated by src/dst/port)
-                        "history": flow_history  # Only included if there's recurring pattern (len > 1)
-                    })
-                except (ValueError, TypeError, IndexError, KeyError):
+                    raw_flows.append(parts)
+                except (ValueError, IndexError):
                     pass
+
+        # Batch Resolution: Resolve GeoIP and DNS for all unique IPs
+        # This reduces overhead by resolving each IP exactly once per batch
+        ip_context = {}
+        for ip in unique_ips:
+            geo = lookup_geo(ip) or {}
+            hostname = resolve_ip(ip) or None
+            internal = is_internal(ip)
+            ip_context[ip] = {"geo": geo, "hostname": hostname, "internal": internal}
+
+        # Pass 2: Process flows with pre-resolved context
+        for parts in raw_flows:
+            try:
+                ts_str = parts[ts_idx].strip()
+                duration = float(parts[td_idx])
+                proto_val = parts[pr_idx].strip()
+                src = parts[sa_idx].strip()
+                src_port = parts[sp_idx].strip()
+                dst = parts[da_idx].strip()
+                dst_port = parts[dp_idx].strip()
+                pkts = int(float(parts[ipkt_idx]))
+                b = int(float(parts[ibyt_idx]))
+
+                # Calculate Age
+                try:
+                    if '.' in ts_str: ts_str = ts_str.split('.')[0]
+                    flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
+                    age_sec = now - flow_time
+                except (ValueError, TypeError):
+                    age_sec = 0
+
+                if age_sec < 0: age_sec = 0
+
+                # Retrieve pre-resolved context
+                src_ctx = ip_context.get(src, {})
+                dst_ctx = ip_context.get(dst, {})
+
+                src_geo = src_ctx.get("geo", {})
+                dst_geo = dst_ctx.get("geo", {})
+                src_hostname = src_ctx.get("hostname")
+                dst_hostname = dst_ctx.get("hostname")
+                src_internal = src_ctx.get("internal", False)
+                dst_internal = dst_ctx.get("internal", False)
+                    
+                # Determine flow direction
+                if src_internal and not dst_internal:
+                    direction = "outbound"
+                elif not src_internal and dst_internal:
+                    direction = "inbound"
+                elif src_internal and dst_internal:
+                    direction = "internal"
+                else:
+                    direction = "external"
+
+                # Resolve Service Name
+                svc = resolve_service_name(dst_port, proto_val)
+                # Track for heuristics (lightweight, per-request only) - do this first
+                port_counts[dst_port] += 1
+                connection_key = f"{src}:{dst}"
+                connection_patterns[connection_key] += 1
+
+                # Detect interesting flow characteristics (heuristics only, not alerts)
+                interesting_flags = []
+
+                # 1. Long-lived low-volume flows
+                if duration > 300 and b < 100000:
+                    interesting_flags.append("long_low")
+
+                # 2. Short-lived high-volume flows
+                if duration < 10 and b > 500000:
+                    interesting_flags.append("short_high")
+
+                # 3. Rare destination ports (appears <= 2 times in this batch)
+                # Note: This is approximate since we're checking during processing
+                # A port appearing 1-2 times in a batch of 100+ flows is considered rare
+                if port_counts[dst_port] <= 2:
+                    interesting_flags.append("rare_port")
+
+                # 4. New external IPs (first time seeing this external IP in this batch)
+                is_new_external_dst = not dst_internal and dst not in external_ips_seen
+                is_new_external_src = not src_internal and src not in external_ips_seen
+                if is_new_external_dst:
+                    external_ips_seen.add(dst)
+                    interesting_flags.append("new_external")
+                elif is_new_external_src:
+                    external_ips_seen.add(src)
+                    interesting_flags.append("new_external")
+
+                # 5. Repeated short connections (same src->dst with multiple short connections)
+                if connection_patterns[connection_key] > 1 and duration < 30:
+                    interesting_flags.append("repeated_short")
+
+                # Phase 1: Flow ↔ Threat correlation
+                threat_ips = []
+                if src in threat_set:
+                    threat_ips.append(src)
+                if dst in threat_set:
+                    threat_ips.append(dst)
+
+                has_threat = len(threat_ips) > 0
+                threat_count = len(threat_ips)
+
+                # Get threat info for threat IPs (lightweight, only if threats found)
+                threat_info_list = []
+                if has_threat:
+                    for threat_ip in threat_ips:
+                        info = get_threat_info(threat_ip)
+                        threat_info_list.append({
+                            "ip": threat_ip,
+                            "category": info.get('category', 'UNKNOWN'),
+                            "feed": info.get('feed', 'unknown')
+                        })
+
+                # Phase 2: Promote long-lived low-volume external flows to detection
+                # Detection criteria: duration > threshold AND bytes < threshold AND external (not internal)
+                is_detected = False
+                detection_reason = None
+                if direction in ("outbound", "inbound", "external"):  # External flow (not internal)
+                    if duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
+                        is_detected = True
+                        detection_reason = f"Long-lived ({duration:.1f}s) low-volume ({fmt_bytes(b)}) external flow. May indicate persistent C2, data exfiltration, or beaconing activity."
+
+                # Phase 3: Update rolling flow history (in-memory, 30-60 min)
+                history_key = (src, dst, dst_port)  # Aggregate by src/dst/port
+                flow_history = []
+                with _flow_history_lock:
+                    if history_key not in _flow_history:
+                        # Prevent unbounded memory growth
+                        if len(_flow_history) > 10000:
+                            _flow_history.clear()
+                            add_app_log("Cleared flow history cache (size limit exceeded)", "WARN")
+                        _flow_history[history_key] = []
+                    _flow_history[history_key].append({
+                        "ts": flow_time,
+                        "bytes": b,
+                        "packets": pkts,
+                        "duration": duration
+                    })
+                    # Cleanup old entries (older than TTL)
+                    cutoff_ts = now - _flow_history_ttl
+                    _flow_history[history_key] = [
+                        entry for entry in _flow_history[history_key]
+                        if entry["ts"] >= cutoff_ts
+                    ]
+                    # Get history for this flow (for UI) - only if more than 1 entry (recurring pattern)
+                    history_entries = sorted(_flow_history.get(history_key, []), key=lambda x: x["ts"])
+                    if len(history_entries) > 1:
+                        flow_history = history_entries
+                    # Remove empty keys
+                    if not _flow_history[history_key]:
+                        del _flow_history[history_key]
+
+                convs.append({
+                    "ts": ts_str,
+                    "age_seconds": age_sec,  # Explicit age in seconds for reliable frontend calculation
+                    "first_seen_ts": flow_time,  # Unix timestamp for age calculation fallback
+                    "age": format_duration(age_sec) + " ago" if age_sec < 86400 else ts_str,
+                    "duration": f"{duration:.2f}s",
+                    "duration_seconds": duration,  # Raw duration in seconds
+                    "proto": proto_val,
+                    "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
+                    "src": src,
+                    "src_port": src_port,
+                    "src_hostname": src_hostname,  # Cached hostname if available
+                    "src_internal": src_internal,  # Internal/external flag
+                    "src_flag": src_geo.get('flag', ''),
+                    "src_country": src_geo.get('country', ''),
+                    "dst": dst,
+                    "dst_port": dst_port,
+                    "dst_hostname": dst_hostname,  # Cached hostname if available
+                    "dst_internal": dst_internal,  # Internal/external flag
+                    "dst_flag": dst_geo.get('flag', ''),
+                    "dst_country": dst_geo.get('country', ''),
+                    "direction": direction,  # Flow direction: inbound, outbound, internal, external
+                    "service": svc,
+                    "bytes": b,
+                    "bytes_fmt": fmt_bytes(b),
+                    "packets": pkts,
+                    "interesting_flags": interesting_flags[:2],  # Max 2 flags
+                    # Phase 1: Threat correlation fields
+                    "has_threat": has_threat,
+                    "threat_count": threat_count,
+                    "threat_ips": threat_ips,
+                    "threat_info": threat_info_list,
+                    # Phase 2: Detection fields
+                    "is_detected": is_detected,
+                    "detection_reason": detection_reason,
+                    # Phase 3: Flow history (last 30-60 min, aggregated by src/dst/port)
+                    "history": flow_history  # Only included if there's recurring pattern (len > 1)
+                })
+            except (ValueError, TypeError, IndexError, KeyError):
+                pass
 
 
     except (ValueError, TypeError, IndexError, KeyError):

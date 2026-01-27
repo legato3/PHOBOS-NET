@@ -3,6 +3,7 @@
 import subprocess
 import threading
 import time
+import copy
 from app.config import (
     DEFAULT_TIMEOUT,
     COMMON_DATA_CACHE_MAX,
@@ -15,6 +16,45 @@ from app.core.app_state import add_app_log
 
 _common_data_cache = {}
 _common_data_lock = threading.Lock()
+
+_parsed_nfdump_cache = {}
+_parsed_nfdump_lock = threading.Lock()
+_PARSED_CACHE_TTL = 30  # seconds
+_PARSED_CACHE_MAX = 50
+
+def get_cached_nfdump_data(args, tf, expected_key=None):
+    """Cached wrapper for run_nfdump + parse_csv.
+
+    Shared cache for parsed nfdump results to avoid redundant subprocess calls
+    and parsing overhead for the same data windows.
+    """
+    # Create a stable cache key
+    # args is list, convert to tuple. tf is string. expected_key is string/None.
+    cache_key = (tuple(args), tf, expected_key)
+    now = time.time()
+
+    with _parsed_nfdump_lock:
+        entry = _parsed_nfdump_cache.get(cache_key)
+        if entry and now - entry["ts"] < _PARSED_CACHE_TTL:
+            # Return deepcopy to prevent mutation by consumers
+            return copy.deepcopy(entry["data"])
+
+    # Cache miss
+    # Use run_nfdump to get full output for parsing
+    output = run_nfdump(args, tf)
+    data = parse_csv(output, expected_key=expected_key)
+
+    with _parsed_nfdump_lock:
+        _parsed_nfdump_cache[cache_key] = {"data": data, "ts": now}
+
+        # Simple pruning if too large
+        if len(_parsed_nfdump_cache) > _PARSED_CACHE_MAX:
+            # Drop oldest 20%
+            items = sorted(_parsed_nfdump_cache.items(), key=lambda x: x[1]["ts"])
+            for k, _ in items[:max(1, _PARSED_CACHE_MAX // 5)]:
+                _parsed_nfdump_cache.pop(k, None)
+
+    return copy.deepcopy(data)
 
 
 def run_nfdump(args, tf=None):
@@ -393,7 +433,8 @@ _TRAFFIC_DIRECTION_TTL = 60  # 1 minute cache
 
 def _fetch_direction_data(args, key, tf):
     """Helper for parallel execution of nfdump queries."""
-    return parse_csv(stream_nfdump(args, tf), expected_key=key)
+    # Use shared cache
+    return get_cached_nfdump_data(args, tf, expected_key=key)
 
 
 def get_traffic_direction(ip, tf):
@@ -452,57 +493,30 @@ def get_traffic_direction(ip, tf):
 
 def get_common_nfdump_data(query_type, range_key):
     """Shared data fetcher for common queries (sources, ports, dests, protos)."""
-    now = time.time()
-    cache_key = f"{query_type}:{range_key}"
-    cache_ttl = 60  # 1 minute sliding TTL
-
-    with _common_data_lock:
-        entry = _common_data_cache.get(cache_key)
-        if entry:
-            # Check if entry is still valid based on sliding TTL
-            if (now - entry["ts"]) < cache_ttl:
-                return entry["data"]
-
     tf = get_time_range(range_key)
-    data = []
+
+    args = []
+    expected_key = None
 
     if query_type == "sources":
-        data = parse_csv(
-            run_nfdump(["-s", "srcip/bytes/flows/packets", "-n", "100"], tf),
-            expected_key="sa",
-        )
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        args = ["-s", "srcip/bytes/flows/packets", "-n", "100"]
+        expected_key = "sa"
     elif query_type == "ports":
-        data = parse_csv(
-            run_nfdump(["-s", "dstport/bytes/flows", "-n", "100"], tf),
-            expected_key="dp",
-        )
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        args = ["-s", "dstport/bytes/flows", "-n", "100"]
+        expected_key = "dp"
     elif query_type == "dests":
-        data = parse_csv(
-            run_nfdump(["-s", "dstip/bytes/flows/packets", "-n", "100"], tf),
-            expected_key="da",
-        )
-        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
+        args = ["-s", "dstip/bytes/flows/packets", "-n", "100"]
+        expected_key = "da"
     elif query_type == "protos":
-        data = parse_csv(
-            run_nfdump(["-s", "proto/bytes/flows/packets", "-n", "20"], tf),
-            expected_key="proto",
-        )
+        args = ["-s", "proto/bytes/flows/packets", "-n", "20"]
+        expected_key = "proto"
 
-    with _common_data_lock:
-        _common_data_cache[cache_key] = {"data": data, "ts": now}
-        if len(_common_data_cache) > COMMON_DATA_CACHE_MAX:
-            drop_count = max(1, COMMON_DATA_CACHE_MAX // 5)
-            # Ensure ts is always a float for comparison
-            oldest = sorted(
-                _common_data_cache.items(),
-                key=lambda kv: float(kv[1]["ts"])
-                if isinstance(kv[1]["ts"], (int, float))
-                else kv[1]["ts"].timestamp(),
-            )[:drop_count]
-            for k, _ in oldest:
-                _common_data_cache.pop(k, None)
+    # Use unified shared cache
+    data = get_cached_nfdump_data(args, tf, expected_key)
+
+    # Apply sorting (fast on small cached dataset)
+    if query_type in ["sources", "ports", "dests"]:
+        data.sort(key=lambda x: x.get("bytes", 0), reverse=True)
 
     return data
 
