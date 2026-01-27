@@ -384,7 +384,7 @@ export const Store = () => ({
     personality: { tone: '', traits: [], evidence: {}, window_sec: 86400, loading: true },
     overlays: { items: [], bySourceId: {}, loading: true },
     radar: { top_talkers: [], top_destinations: [], top_ports: [], changes: [], loading: true, metrics: { active_alerts: 0, anomalies_24h: 0, active_flows: 0 } },
-    threatPulse: { loading: false },
+
 
     // Alert Filtering
     alertFilter: { severity: 'all', type: 'all' },

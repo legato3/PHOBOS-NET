@@ -48,3 +48,5 @@ docker-data/
 venv/
 .jules/
 .jules
+.ruff_cache/
+
