@@ -13,7 +13,7 @@
                     <span class="health-icon" x-text="netHealth.status_icon || '💚'" style="font-size: 1.2em;"></span>
                     <span x-text="netHealth.loading ? '...' : (netHealth.health_score || 100)">...</span>
                 </div>
-                <div class="label">System Status <span style="opacity:0.6; cursor:pointer;"
+                <div class="label">Network Health <span style="opacity:0.6; cursor:pointer;"
             role="button" tabindex="0" aria-label="Network Health Details"
             @click.stop="openFwDetail('networkHealth')"
             @keydown.enter="openFwDetail('networkHealth')"
@@ -41,7 +41,7 @@
                             :title="'Since last hour: ' + (networkStatsOverview.trends.active_flows.percent_change > 0 ? '+' : '') + networkStatsOverview.trends.active_flows.percent_change.toFixed(1) + '%'"></span>
                     </template>
                 </div>
-                <div class="label">Active Flows</div>
+                <div class="label">Total Flows</div>
 
             </div>
             <div class="card stat-box">
@@ -362,7 +362,7 @@
             </template>
 
             <template x-if="isVisible('hourlyTraffic')">
-                {% call widget_card('hourlyTraffic', 'Traffic Volume', '⏰', show_spinner=True,
+                {% call widget_card('hourlyTraffic', 'Hourly Traffic', '⏰', show_spinner=True,
                 period_x_text="timeRangeLabel") %}
                 <div class="hourly-summary">
                     <div class="hourly-stat">
@@ -703,7 +703,7 @@
                 <div class="status-pills">
                 </div>
                 {% endset %}
-                {% call widget_card('talkers', 'Top Talkers', '💬', extra_actions=talk_actions,
+                {% call widget_card('talkers', 'Top Conversations', '💬', extra_actions=talk_actions,
                 show_spinner=True, period_x_text="timeRangeLabel") %}
                 <div class="widget-body-inner">
                     <div class="talkers-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
