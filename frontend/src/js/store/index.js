@@ -434,7 +434,7 @@ export const Store = () => ({
             conversations: 'Active Flows',
             alertCorrelation: 'Alert Correlation & Attack Chains',
             threatActivityTimeline: 'Threat Activity Timeline',
-            talkers: 'Top Talkers',
+            talkers: 'Top Conversations',
             services: 'Top Services',
             hourlyTraffic: 'Traffic by Hour',
             flowStats: 'Flow Statistics',

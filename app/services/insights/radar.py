@@ -135,33 +135,25 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
             )
 
         # 6. Build Metrics Summary (for Stat Boxes)
-        # FORCE DATA VISIBILITY: If real sensors are 0, use "Live Simulation" values to keep dashboard alive
+        # TRUTH FIRST: No simulated data. If 0, show 0.
 
         # Traffic
         r_bytes = sum(x.get("bytes", 0) for x in src_curr)
         disp_traffic = _fmt_bytes(r_bytes)
-        if r_bytes == 0:
-            disp_traffic = f"{random.randint(400, 900)}M"  # Sim traffic
 
         # Blocked
         disp_blocked = fw_curr_count
-        if disp_blocked == 0:
-            disp_blocked = random.randint(12, 45)  # Sim blocks
 
         # Events
         disp_events = sys_curr_count
-        if disp_events == 0:
-            disp_events = random.randint(80, 250)  # Sim events
 
-        # Active Flows
+        # Active Flows (Baseline Mean or 0)
         active_flows = 0
         flow_stats = baselines.get_baseline_stats("active_flows")
         if flow_stats and flow_stats.get("mean"):
             active_flows = int(flow_stats.get("mean"))
 
         disp_flows = active_flows
-        if disp_flows == 0:
-            disp_flows = f"{random.randint(12000, 15000):,}"
 
         metrics = {
             "traffic_vol": disp_traffic,
@@ -170,10 +162,9 @@ def get_radar_snapshot(window_minutes=15, debug_mode=False):
             "active_flows": disp_flows,
             # Legacy Header Metrics Support
             "active_alerts": "0",
-            "external_conns": f"{random.randint(8000, 9500):,}",
-            "firewall_blocks_24h": _get_fw_count(now - timedelta(hours=24), now)
-            or random.randint(150, 400),
-            "anomalies_24h": "3",
+            "external_conns": "0",
+            "firewall_blocks_24h": _get_fw_count(now - timedelta(hours=24), now),
+            "anomalies_24h": "0",
         }
 
         # Force a Tone if one isn't set
