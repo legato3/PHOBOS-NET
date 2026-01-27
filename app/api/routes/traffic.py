@@ -1281,7 +1281,8 @@ def api_stats_hourly():
                         time_part = ts_str.split(' ')[1]
                         hour = int(time_part.split(':')[0])
                     else:
-                        hour = datetime.now().hour
+                        # Skip if timestamp is malformed instead of polluting current hour
+                        continue
                     b = int(float(parts[ibyt_idx]))
                     hourly_bytes[hour] += b
                     hourly_flows[hour] += 1
@@ -3067,11 +3068,13 @@ def api_firewall_snmp_status():
         # Use a short timeout/fail-fast approach for this correlation check if possible,
         # but since run_nfdump uses global timeout, we rely on the try/except here.
         netflow_sources = None
+        netflow_error = False
         try:
             # We wrap this specific call to ensure it doesn't kill the whole request
             netflow_sources = get_common_nfdump_data("sources", range_key)
         except Exception:
             netflow_sources = None
+            netflow_error = True
             
         netflow_total_bytes = sum(i.get("bytes", 0) for i in netflow_sources) if netflow_sources else 0
         
@@ -3081,7 +3084,10 @@ def api_firewall_snmp_status():
         
         # Calculate correlation status
         # Allow 20% variance for accounting differences (headers, sampling, etc.)
-        if netflow_total_bytes == 0 and snmp_total_bytes == 0:
+        if netflow_error:
+            correlation_status = "unknown"
+            correlation_hint = "NetFlow data unavailable"
+        elif netflow_total_bytes == 0 and snmp_total_bytes == 0:
             correlation_status = "aligned"
             correlation_hint = None
         elif netflow_total_bytes == 0:

@@ -293,7 +293,7 @@ def parse_csv(output, expected_key=None):
                 # No header found, treating as data with default indices
                 if key_idx == -1:
                     add_app_log(
-                        "nfdump CSV header missing/unknown, using fallback indices (fragile)",
+                        f"nfdump CSV header missing/unknown. First line: '{line}'. Using fallback indices (fragile)",
                         "WARN",
                     )
                     key_idx = 4
