@@ -39,7 +39,6 @@ from app.db.sqlite import _firewall_db_connect, _firewall_db_init, _firewall_db_
 from app.services.shared.geoip import lookup_geo
 from app.services.shared.helpers import check_disk_space, is_internal
 from app.services.security.threats import load_threatlist
-from app.services.shared.timeline import add_timeline_event
 from app.services.timeline.emitters import record_syslog_activity
 
 # Regex to parse OPNsense filterlog messages
@@ -194,23 +193,7 @@ def _syslog_receiver_loop():
             if "filterlog" not in line:
                 continue
 
-            # --- FIREWALL PARSER & STORAGE ---
-            try:
-                from app.services.firewall.parser import FirewallParser
-                from app.services.firewall.store import firewall_store
-
-                # Parse
-                fw_parser = FirewallParser()
-                fw_event = fw_parser.parse(line)
-
-                # Store (Safe Storage)
-                if fw_event:
-                    firewall_store.add_event(fw_event)
-                    # Note: Port 514 ingestion tracked via track_syslog() above
-                    # track_firewall() is reserved for port 515 syslog
-            except Exception as e:
-                # Log error but don't crash syslog thread
-                print(f"[FIREWALL STORE ERROR] {e}")
+            # --- FIREWALL PARSER & STORAGE (REMOVED) ---
             # ---------------------------------
 
             parsed = _parse_filterlog(line)
@@ -373,43 +356,8 @@ def _insert_fw_log(parsed: dict, raw_log: str):
             if is_threat:
                 update_threat_timeline(src_ip)
 
-            # Add to unified timeline (state-changing event)
-            timeline_summary = f"Blocked {src_ip}"
-            if dst_port:
-                timeline_summary += f":{dst_port}"
-            if is_threat:
-                timeline_summary = f"Threat IP blocked: {src_ip}"
-                if country_name:
-                    timeline_summary += f" ({country_name})"
-            elif dst_port in HIGH_VALUE_PORTS:
-                port_names = {
-                    22: "SSH",
-                    23: "Telnet",
-                    445: "SMB",
-                    3389: "RDP",
-                    5900: "VNC",
-                    1433: "MSSQL",
-                    3306: "MySQL",
-                    5432: "PostgreSQL",
-                    27017: "MongoDB",
-                }
-                service = port_names.get(dst_port, str(dst_port))
-                timeline_summary = f"{service} probe blocked from {src_ip}"
-
-            add_timeline_event(
-                source="filterlog",
-                summary=timeline_summary,
-                raw={
-                    "action": "block",
-                    "src_ip": src_ip,
-                    "dst_port": dst_port,
-                    "proto": parsed.get("proto"),
-                    "interface": parsed.get("interface"),
-                    "is_threat": bool(is_threat),
-                    "country": country_name,
-                },
-                timestamp=now,
-            )
+            # Unified timeline event (state-changing event)
+            # Legacy timeline removed - alerting is sufficient
 
     # Add to buffer for batch insert
     log_tuple = (

@@ -54,11 +54,6 @@ def create_app():
 
     app.register_blueprint(routes_bp)
 
-    # Register Firewall Decisions Blueprint
-    from app.api.routes.firewall_decisions import bp as fw_decisions_bp
-
-    app.register_blueprint(fw_decisions_bp)
-
     # Register Insights Blueprint (Personality & Overlays)
     from app.api.routes.insights import bp as insights_bp
 

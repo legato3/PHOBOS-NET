@@ -11,7 +11,7 @@ from app.core import app_state
 from app.core.app_state import get_dependency_health
 from app.db.sqlite import _trends_db_connect, _trends_db_init
 from app.services.events.store import fetch_events
-from app.services.firewall.store import firewall_store
+from app.db.sqlite import _firewall_db_connect, _firewall_db_lock
 from app.services.shared.ingestion_metrics import ingestion_tracker
 from app.services.shared.snmp import get_snmp_data
 from app.services.syslog.firewall_listener import get_firewall_syslog_stats
@@ -216,21 +216,92 @@ class PulseGenerator:
         with app_state._syslog_stats_lock:
             return dict(app_state._syslog_stats)
 
+    def _firewall_counts(self) -> Dict[str, Any]:
+        """Get firewall counts from SQLite for the last minute."""
+        cutoff = datetime.utcnow() - timedelta(seconds=60)
+        cutoff_ts = cutoff.timestamp()
+
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                # Count by action
+                cur = conn.execute(
+                    """
+                    SELECT action, COUNT(*)
+                    FROM fw_logs
+                    WHERE timestamp > ?
+                    GROUP BY action
+                    """,
+                    (cutoff_ts,),
+                )
+                actions = {row[0]: row[1] for row in cur.fetchall()}
+
+                return {
+                    "by_action": actions
+                }
+            except Exception:
+                return {"by_action": {}}
+            finally:
+                conn.close()
+
     def _firewall_top(self) -> Dict[str, Optional[str]]:
-        now = datetime.utcnow()
-        recent = firewall_store.get_events(limit=200, since=now - timedelta(seconds=60))
-        rule_counts: Counter = Counter()
-        iface_counts: Counter = Counter()
-        for event in recent:
-            rule = event.get("rule_label") or event.get("rule_id")
-            if rule:
-                rule_counts[str(rule)] += 1
-            iface = event.get("interface")
-            if iface:
-                iface_counts[str(iface)] += 1
-        top_rule = rule_counts.most_common(1)[0][0] if rule_counts else None
-        top_iface = iface_counts.most_common(1)[0][0] if iface_counts else None
-        return {"top_rule": top_rule, "top_iface": top_iface}
+        cutoff = datetime.utcnow() - timedelta(seconds=60)
+        cutoff_ts = cutoff.timestamp()
+
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                # Top rule
+                cur = conn.execute(
+                    """
+                    SELECT rule_label, COUNT(*) as cnt
+                    FROM fw_logs
+                    WHERE timestamp > ? AND rule_label IS NOT NULL
+                    GROUP BY rule_label
+                    ORDER BY cnt DESC
+                    LIMIT 1
+                    """,
+                    (cutoff_ts,),
+                )
+                row = cur.fetchone()
+                top_rule = row[0] if row else None
+
+                # If no rule_label, try rule_id
+                if not top_rule:
+                    cur = conn.execute(
+                        """
+                        SELECT rule_id, COUNT(*) as cnt
+                        FROM fw_logs
+                        WHERE timestamp > ? AND rule_id IS NOT NULL
+                        GROUP BY rule_id
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                        """,
+                        (cutoff_ts,),
+                    )
+                    row = cur.fetchone()
+                    top_rule = row[0] if row else None
+
+                # Top interface
+                cur = conn.execute(
+                    """
+                    SELECT interface, COUNT(*) as cnt
+                    FROM fw_logs
+                    WHERE timestamp > ? AND interface IS NOT NULL
+                    GROUP BY interface
+                    ORDER BY cnt DESC
+                    LIMIT 1
+                    """,
+                    (cutoff_ts,),
+                )
+                row = cur.fetchone()
+                top_iface = row[0] if row else None
+
+                return {"top_rule": top_rule, "top_iface": top_iface}
+            except Exception:
+                return {"top_rule": None, "top_iface": None}
+            finally:
+                conn.close()
 
     def _emit_heartbeat(
         self, source: str, detail: str, evidence: Dict[str, Any]
@@ -334,9 +405,7 @@ class PulseGenerator:
         top_port = self._top_port_from_flow_history()
         syslog514 = self._syslog_514_stats()
         syslog515 = get_firewall_syslog_stats()
-        fw_counts = firewall_store.get_counts(
-            since=datetime.utcnow() - timedelta(seconds=60)
-        )
+        fw_counts = self._firewall_counts()
         fw_top = self._firewall_top()
 
         # Heartbeats
