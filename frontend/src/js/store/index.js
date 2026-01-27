@@ -180,7 +180,7 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
-    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, trends: {}, loading: true },
+    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_count: 0, trends: {}, loading: true },
     networkIntelligence: {
         bandwidth_utilization: { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
         protocol_diversity: { primary_protocol: 'TCP', primary_pct: 0, protocols_count: 0, balance: 'Diverse' },
@@ -594,7 +594,7 @@ export const Store = () => ({
         // Special handling for Network Anomalies fields
         if (field.startsWith('netAnom_')) {
             const key = field.replace('netAnom_', '');
-            if (key === 'count_24h') return (this.networkStatsOverview.anomalies_24h || 0).toLocaleString();
+            if (key === 'count_24h') return (this.networkStatsOverview.anomalies_count || 0).toLocaleString();
             if (key === 'trend') {
                 const trend = this.networkStatsOverview.trends?.anomalies?.percent_change;
                 if (trend === undefined || trend === null) return '--';
@@ -5221,7 +5221,7 @@ export const Store = () => ({
                     // Preserve null vs 0 distinction for truthfulness
                     active_flows: d.active_flows ?? null,
                     external_connections: d.external_connections ?? null,
-                    anomalies_24h: d.anomalies_24h ?? null,
+                    anomalies_count: d.anomalies_count ?? null,
                     trends: d.trends || {},
                     loading: false
                 };

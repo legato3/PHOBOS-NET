@@ -1213,7 +1213,12 @@ def api_stats_services():
 @bp.route("/api/stats/hourly")
 @throttle(5, 10)
 def api_stats_hourly():
-    """Traffic distribution by hour for selected range."""
+    """Traffic distribution by hour for selected range.
+
+    NOTE: This endpoint aggregates traffic into hourly buckets (0-23) based on the hour of the day.
+    It provides a 24-hour daily profile regardless of the input range duration, making it a
+    Fixed Window (Daily Profile) visualization.
+    """
     range_key = request.args.get('range', '24h')
     now = time.time()
     win = int(now // 60)
@@ -1968,7 +1973,7 @@ def api_network_stats_overview():
     # Fetch flows with detection criteria
     output_24h = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto"], tf_range)
     
-    anomalies_24h = 0
+    anomalies_count = 0
     anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
     
     try:
@@ -2017,7 +2022,7 @@ def api_network_stats_overview():
                         is_external = not (src_internal and dst_internal)
                         
                         if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
-                            anomalies_24h += 1
+                            anomalies_count += 1
                             # Create alert for this anomaly (only once per hour per src-dst pair to avoid flooding)
                             anomaly_key = f"traffic_anomaly_{src}_{dst}"
                             if anomaly_key not in anomaly_alerts_sent:
@@ -2044,7 +2049,7 @@ def api_network_stats_overview():
     range_hours = {
         '15m': 0.25, '30m': 0.5, '1h': 1, '6h': 6, '24h': 24, '7d': 168
     }.get(range_key, 1)
-    anomalies_rate = anomalies_24h / range_hours if anomalies_24h > 0 else 0.0
+    anomalies_rate = anomalies_count / range_hours if anomalies_count > 0 else 0.0
     update_baseline('anomalies_rate', anomalies_rate)
     
     # Calculate trends (since last hour)
@@ -2055,7 +2060,7 @@ def api_network_stats_overview():
     return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
-        "anomalies_24h": anomalies_24h,
+        "anomalies_count": anomalies_count,
         "trends": {
             "active_flows": active_flows_trend,
             "external_connections": external_connections_trend,
@@ -2065,7 +2070,7 @@ def api_network_stats_overview():
         "time_scope": {
             "active_flows": range_key,
             "external_connections": range_key,
-            "anomalies_24h": range_key
+            "anomalies_count": range_key
         }
     })
 
