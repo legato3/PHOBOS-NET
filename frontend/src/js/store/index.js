@@ -5209,8 +5209,7 @@ export const Store = () => ({
         });
     },
 
-    // FIXED-SCOPE: Anomalies (24h) - fixed 24h window, does not use global_time_range
-    // Note: Returns anomalies_24h field, not time-range dependent
+    // Time-aware network stats
     async fetchNetworkStatsOverview() {
         this.networkStatsOverview.loading = true;
         try {
@@ -5221,7 +5220,8 @@ export const Store = () => ({
                     // Preserve null vs 0 distinction for truthfulness
                     active_flows: d.active_flows ?? null,
                     external_connections: d.external_connections ?? null,
-                    anomalies_count: d.anomalies_count ?? null,
+                    anomalies_count: d.anomalies_count ?? 0,
+                    anomalies_24h: d.anomalies_count ?? 0, // Alias for compatibility
                     trends: d.trends || {},
                     loading: false
                 };
@@ -6531,7 +6531,7 @@ export const Store = () => ({
         </div>
         <div class="stat-box">
             <div class="stat-label">Network Anomalies (24h)</div>
-            <div class="stat-value">${(stats.anomalies_24h || 0).toLocaleString()}</div>
+            <div class="stat-value">${(stats.anomalies_count || 0).toLocaleString()}</div>
         </div>
     </div>
 

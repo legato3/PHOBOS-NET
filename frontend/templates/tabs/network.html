@@ -23,10 +23,11 @@
                         style="margin-left: 4px; font-weight: normal;"></span>
                 </div>
             </div>
-            <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+            <div class="card stat-box" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
+                @click="openFwDetail('networkAnomalies')" style="cursor: pointer;" title="Click for details">
                 <div class="value" style="display: flex; align-items: center; gap: var(--space-2);">
                     <span
-                        x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">...</span>
+                        x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_count || 0).toLocaleString()">...</span>
                 </div>
                 <div class="label" x-text="'Anomalies (' + timeRangeLabel + ')'">Network Anomalies</div>
             </div>
@@ -111,10 +112,9 @@
                     </div>
                     <div class="endpoint-grid-body">
                         <template x-for="(item, index) in filteredSources" :key="index">
-                            <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row"
-                                role="button" tabindex="0" :aria-label="'View details for IP ' + item.key"
-                                @keydown.enter="openIPModal(item.key)"
-                                @keydown.space.prevent="openIPModal(item.key)"
+                            <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row" role="button"
+                                tabindex="0" :aria-label="'View details for IP ' + item.key"
+                                @keydown.enter="openIPModal(item.key)" @keydown.space.prevent="openIPModal(item.key)"
                                 :data-row-rank="index"
                                 :data-percentage="filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0"
                                 :style="'--row-percentage: ' + (filteredSources.length > 0 && filteredSources[0]?.bytes ? Math.round((item.bytes / filteredSources[0].bytes) * 100) : 0)">
@@ -169,10 +169,9 @@
                     </div>
                     <div class="endpoint-grid-body">
                         <template x-for="(item, index) in filteredDestinations" :key="index">
-                            <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row"
-                                role="button" tabindex="0" :aria-label="'View details for IP ' + item.key"
-                                @keydown.enter="openIPModal(item.key)"
-                                @keydown.space.prevent="openIPModal(item.key)"
+                            <div @click="openIPModal(item.key)" class="network-endpoint-row grid-row" role="button"
+                                tabindex="0" :aria-label="'View details for IP ' + item.key"
+                                @keydown.enter="openIPModal(item.key)" @keydown.space.prevent="openIPModal(item.key)"
                                 :data-row-rank="index"
                                 :data-percentage="filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0"
                                 :style="'--row-percentage: ' + (filteredDestinations.length > 0 && filteredDestinations[0]?.bytes ? Math.round((item.bytes / filteredDestinations[0].bytes) * 100) : 0)">
@@ -716,11 +715,17 @@
                                         style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); flex-wrap: wrap;">
                                         <!-- Source -->
                                         <span class="text-cyan clickable-ip" @click="openIPModal(flow.src)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.src"
+                                            @keydown.enter="openIPModal(flow.src)"
+                                            @keydown.space.prevent="openIPModal(flow.src)"
                                             style="cursor: pointer;" x-text="flow.src"
                                             :title="flow.src_country || ''"></span>
                                         <span class="text-muted">→</span>
                                         <!-- Destination -->
                                         <span class="text-purple clickable-ip" @click="openIPModal(flow.dst)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.dst"
+                                            @keydown.enter="openIPModal(flow.dst)"
+                                            @keydown.space.prevent="openIPModal(flow.dst)"
                                             style="cursor: pointer;" x-text="flow.dst"
                                             :title="flow.dst_country || ''"></span>
                                     </div>

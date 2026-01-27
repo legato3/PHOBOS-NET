@@ -1,13 +1,40 @@
 import time
 import threading
+from datetime import datetime, timedelta
 from app.services.netflow.netflow import get_common_nfdump_data
-from app.services.firewall.store import firewall_store
+from app.db.sqlite import _firewall_db_connect, _firewall_db_lock
 from app.services.shared.snmp import get_snmp_data
 
 # Use a simple cache with TTL
 _personality_cache = {"data": None, "ts": 0}
 _personality_lock = threading.Lock()
 _CACHE_TTL = 60
+
+
+def _get_firewall_counts():
+    """Get firewall stats for the last 24h (or window equivalent)."""
+    # Personality profile defaults to 24h analysis
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    cutoff_ts = cutoff.timestamp()
+
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT action, COUNT(*)
+                FROM fw_logs
+                WHERE timestamp > ?
+                GROUP BY action
+                """,
+                (cutoff_ts,),
+            )
+            actions = {row[0]: row[1] for row in cur.fetchall()}
+            return {"by_action": actions}
+        except Exception:
+            return {"by_action": {}}
+        finally:
+            conn.close()
 
 
 def generate_personality_profile(window="24h"):
@@ -44,9 +71,7 @@ def generate_personality_profile(window="24h"):
     snmp_data = get_snmp_data()
 
     # Firewall stats
-    # firewall_store is in-memory ring buffer, so window might be limited by buffer size
-    # We'll use what we have.
-    fw_stats = firewall_store.get_counts()
+    fw_stats = _get_firewall_counts()
 
     # 2. Analyze Traits
     traits = []

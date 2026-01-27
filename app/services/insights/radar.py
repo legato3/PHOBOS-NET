@@ -1,7 +1,6 @@
 import time
 from datetime import datetime, timedelta
 from app.services.netflow.netflow import run_nfdump, parse_csv
-from app.services.firewall.store import firewall_store
 from app.services.shared.dns import resolve_ip
 from app.services.shared.geoip import lookup_geo
 from app.services.shared import baselines
@@ -234,26 +233,27 @@ def _get_nfdump_summary(stat_field, tf, limit):
 
 
 def _get_fw_count(start_dt, end_dt):
-    # Iterate in-memory store
-    # This is "good enough" for a radar 15m window
-    # Real implementation of count with time filtering:
-    # Since store is LIFO (newest first).
-    c = 0
+    # Iterate persistent store via SQL
+    count = 0
+    from app.db.sqlite import _firewall_db_connect, _firewall_db_lock
+
     start_ts = start_dt.timestamp()
     end_ts = end_dt.timestamp()
+
     try:
-        # Access lock protected
-        with firewall_store._lock:
-            for event in firewall_store._buffer:
-                t = event.timestamp.timestamp()
-                if t < start_ts:
-                    break  # Reached older events
-                if t <= end_ts:
-                    if event.action == "block":
-                        c += 1
-    except:
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM fw_logs WHERE timestamp >= ? AND timestamp <= ? AND action IN ('block', 'reject')",
+                (start_ts, end_ts),
+            )
+            row = cursor.fetchone()
+            if row:
+                count = row[0]
+            conn.close()
+    except Exception:
         pass
-    return c
+    return count
 
 
 def _get_syslog_count(start_dt, end_dt):

@@ -95,11 +95,11 @@ def post_worker_init(worker):
 
             # Add system startup event to timeline
             try:
-                from app.services.shared.timeline import add_timeline_event
-                add_timeline_event(
-                    source='system',
-                    summary=f'PHOBOS-NET maintenance started (pid {os.getpid()})',
-                    raw={'event': 'startup', 'worker_pid': worker.pid}
+                from app.services.timeline.emitters import emit_system_event
+                emit_system_event(
+                    event_type="startup",
+                    title="PHOBOS-NET maintenance started",
+                    detail=f"pid {os.getpid()}"
                 )
             except Exception:
                 pass
