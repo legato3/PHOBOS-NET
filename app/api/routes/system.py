@@ -2014,7 +2014,6 @@ from app.services.shared.tools import (
     http_probe,
     tls_inspect,
 )
-from app.services.shared.timeline import get_timeline_store
 
 
 @bp.route("/api/tools/dns")
@@ -2180,62 +2179,3 @@ def api_tools_shell():
         return jsonify({"output": "", "exit_code": -1, "error": str(e)})
 
 
-# ============================================
-# TIMELINE API ENDPOINT
-# ============================================
-
-
-@bp.route("/api/timeline")
-@throttle(10, 5)
-def api_timeline():
-    """
-    Get unified event timeline.
-
-    Returns state-changing events from all sources (filterlog, firewall, snmp, system).
-    Events are returned newest-first.
-
-    Query params:
-        limit: Max events to return (default 50, max 200)
-        since: Only events after this Unix timestamp
-        until: Only events before this Unix timestamp
-        source: Filter by source type (filterlog|firewall|snmp|system)
-    """
-    # Parse query parameters
-    limit = min(int(request.args.get("limit", 50)), 200)
-    since_ts = request.args.get("since")
-    until_ts = request.args.get("until")
-    source_filter = request.args.get("source")
-
-    # Convert timestamps
-    since_float = None
-    until_float = None
-    if since_ts:
-        try:
-            since_float = float(since_ts)
-        except (ValueError, TypeError):
-            pass
-    if until_ts:
-        try:
-            until_float = float(until_ts)
-        except (ValueError, TypeError):
-            pass
-
-    # Get timeline events
-    timeline_store = get_timeline_store()
-    events = timeline_store.get_events(
-        limit=limit,
-        since_ts=since_float,
-        until_ts=until_float,
-        source_filter=source_filter,
-    )
-
-    stats = timeline_store.get_stats()
-
-    return jsonify(
-        {
-            "events": events,
-            "count": len(events),
-            "stats": stats,
-            "timestamp": datetime.now().isoformat(),
-        }
-    )
