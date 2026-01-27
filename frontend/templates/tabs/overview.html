@@ -84,28 +84,100 @@
     </div>
 
     <div style="margin-top: var(--space-6);">
-        {% call widget_card('changeTimeline', 'Change Timeline', '⏱️', min_height='220px') %}
-        <div class="change-timeline">
-            <template x-if="changeTimeline.items && changeTimeline.items.length > 0">
-                <div class="change-timeline-list">
-                    <template x-for="(item, idx) in changeTimeline.items.slice(0, 8)"
-                        :key="item.time + '-' + item.source + '-' + idx">
-                        <div class="change-timeline-item">
-                            <div class="change-timeline-meta">
-                                <span class="change-timeline-time" x-text="item.time"></span>
-                                <span class="change-timeline-source" x-text="item.source"></span>
-                            </div>
-                            <div class="change-timeline-title" x-text="item.title"></div>
-                            <div class="change-timeline-detail" x-show="item.detail" x-text="item.detail"></div>
-                        </div>
-                    </template>
+        {% call widget_card('threatPulse', 'Threat Pulse', '📡', min_height='220px') %}
+        <div class="pulse-container" x-data="{
+            pulseHistory: new Array(40).fill(50),
+            pulsePhase: 0,
+            pulseSpeed: 0.05,
+            healthStatus: 'STABLE',
+            initPulse() {
+                try {
+                    // Animation loop for EKG
+                    const update = () => {
+                        this.pulsePhase += this.pulseSpeed;
+                        
+                        // Base rhythm
+                        let val = 50;
+                        const p = this.pulsePhase % (Math.PI * 2);
+                        
+                        // Heartbeat spike
+                        if (p > 5.8 && p < 6.2) {
+                            val = 50 - Math.sin((p - 5.8) * 20) * 35;
+                        }
+                        
+                        // Add some noise based on threat level
+                        if (this.healthStatus !== 'STABLE') {
+                            val += (Math.random() - 0.5) * 10;
+                        }
+                        
+                        this.pulseHistory.push(val);
+                        if (this.pulseHistory.length > 40) this.pulseHistory.shift();
+                        
+                        requestAnimationFrame(update);
+                    };
+                    requestAnimationFrame(update);
+                    
+                    // Watch for metric changes to adjust heartbeat
+                    this.$watch('radar.metrics', (m) => {
+                        if (!m) return;
+                        const threats = (m.anomalies_24h || 0) + (m.active_alerts || 0);
+                        if (threats > 10) {
+                            this.healthStatus = 'CRITICAL';
+                            this.pulseSpeed = 0.15;
+                        } else if (threats > 0) {
+                            this.healthStatus = 'ELEVATED';
+                            this.pulseSpeed = 0.08;
+                        } else {
+                            this.healthStatus = 'STABLE';
+                            this.pulseSpeed = 0.05;
+                        }
+                    });
+                } catch (e) { console.error('Pulse Init Error', e); }
+            },
+            getPulsePath() {
+                // Generate SVG path from history
+                return 'M 0 50 ' + this.pulseHistory.map((v, i) => `L ${i * (100/40)} ${v}`).join(' ');
+            }
+        }" x-init="initPulse()">
+
+            <!-- Radar Section -->
+            <div class="radar-scope">
+                <div class="radar-grid-ring" style="width: 70%; height: 70%;"></div>
+                <div class="radar-grid-ring" style="width: 35%; height: 35%;"></div>
+                <div class="radar-sweep"></div>
+
+                <!-- Dynamic Blips from WorldMap Threats -->
+                <template x-for="(country, idx) in worldMap.threat_countries?.slice(0, 5) || []" :key="idx">
+                    <div class="radar-blip"
+                        :style="`top: ${50 + Math.sin(idx * 2) * (20 + idx * 8)}%; left: ${50 + Math.cos(idx * 2) * (20 + idx * 8)}%; animation-delay: ${idx * 0.5}s`">
+                    </div>
+                </template>
+            </div>
+
+            <!-- Pulse Readout Section -->
+            <div class="pulse-readout">
+                <div class="pulse-sig-container">
+                    <div class="pulse-grid"></div>
+                    <svg width="100%" height="100%" preserveAspectRatio="none">
+                        <path :d="getPulsePath()" class="pulse-line" :class="{ 
+                                  'elevated': healthStatus === 'ELEVATED', 
+                                  'critical': healthStatus === 'CRITICAL' 
+                              }"></path>
+                    </svg>
                 </div>
-            </template>
-            <template x-if="!changeTimeline.loading && (!changeTimeline.items || changeTimeline.items.length === 0)">
-                <div class="empty-state">
-                    <span>No significant changes recently</span>
+
+                <div class="pulse-status">
+                    <div class="pulse-label">SYSTEM STATUS</div>
+                    <div class="pulse-val" x-text="healthStatus" :class="{ 
+                             'elevated': healthStatus === 'ELEVATED', 
+                             'critical': healthStatus === 'CRITICAL' 
+                         }"></div>
                 </div>
-            </template>
+                <div class="pulse-status" style="margin-top: 4px;">
+                    <div class="pulse-label">THREAT LEVEL</div>
+                    <div class="pulse-label" x-text="(radar.metrics?.anomalies_24h || 0) + ' DETECTIONS'"></div>
+                </div>
+            </div>
         </div>
         {% endcall %}
     </div>

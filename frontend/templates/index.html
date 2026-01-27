@@ -35,7 +35,7 @@
 
     <!-- CSS - Critical render path, load first -->
     <!-- CYBERPUNK UI: Signal-first design system -->
-    <link rel="stylesheet" href="/static/css/style.css?v=5.0.10">
+    <link rel="stylesheet" href="/static/css/style.css?v=5.0.11">
     <link rel="stylesheet" href="/static/css/mobile.css">
     <!-- Widget-specific enhancements -->
 
@@ -2434,20 +2434,24 @@
                                 x-text="eventsCount('system')"></span></button>
                     </div>
                     <div class="ev-list ev-list--modal">
-                        <template x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
+                        <template
+                            x-if="(events.notable.loading && events.mode === 'notable') || (events.activity.loading && events.mode === 'activity')">
                             <div class="ev-skeleton">
                                 <template x-for="idx in 8" :key="'ev-modal-skel-' + idx">
                                     <div class="ev-skeleton-row"></div>
                                 </template>
                             </div>
                         </template>
-                        <template x-if="events.mode === 'notable' && !events.notable.loading && eventsFiltered().length === 0">
+                        <template
+                            x-if="events.mode === 'notable' && !events.notable.loading && eventsFiltered().length === 0">
                             <div class="ev-empty ev-empty--calm">System stable — no anomalies detected.</div>
                         </template>
-                        <template x-if="events.mode === 'activity' && !events.activity.loading && eventsFiltered().length === 0">
+                        <template
+                            x-if="events.mode === 'activity' && !events.activity.loading && eventsFiltered().length === 0">
                             <div class="ev-empty">No activity in this window.</div>
                         </template>
-                        <template x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
+                        <template
+                            x-if="(events.mode === 'notable' && !events.notable.loading && eventsFiltered().length > 0) || (events.mode === 'activity' && !events.activity.loading && eventsFiltered().length > 0)">
                             <div>
                                 <template x-for="event in eventsFiltered().slice(0, 200)" :key="event.id">
                                     <div class="ev-row" :class="{ 'has-detail': !!event.summary }">
@@ -2492,7 +2496,8 @@
                                                 <template x-for="(value, key) in (event.evidence || {})" :key="key">
                                                     <div class="ev-evidence-row">
                                                         <span class="ev-evidence-key" x-text="key"></span>
-                                                        <span class="ev-evidence-val" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                                        <span class="ev-evidence-val"
+                                                            x-text="Array.isArray(value) ? value.join(', ') : value"></span>
                                                     </div>
                                                 </template>
                                             </div>
@@ -2552,7 +2557,8 @@
                             </div>
                             <div class="ev-detail-row">
                                 <span class="ev-detail-label">Window</span>
-                                <span class="ev-detail-value" x-text="eventDetail.window_sec ? eventDetail.window_sec + 's' : '—'"></span>
+                                <span class="ev-detail-value"
+                                    x-text="eventDetail.window_sec ? eventDetail.window_sec + 's' : '—'"></span>
                             </div>
                             <div class="ev-detail-row">
                                 <span class="ev-detail-label">Count</span>
@@ -2572,15 +2578,18 @@
                             <div class="ev-scope-grid">
                                 <div class="ev-scope-item">
                                     <span class="ev-scope-key">Primary</span>
-                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.primary_entity || '—'"></span>
+                                    <span class="ev-scope-val"
+                                        x-text="eventDetail.evidence?.primary_entity || '—'"></span>
                                 </div>
                                 <div class="ev-scope-item">
                                     <span class="ev-scope-key">Baseline</span>
-                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.baseline_value ?? '—'"></span>
+                                    <span class="ev-scope-val"
+                                        x-text="eventDetail.evidence?.baseline_value ?? '—'"></span>
                                 </div>
                                 <div class="ev-scope-item">
                                     <span class="ev-scope-key">Current</span>
-                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.current_value ?? '—'"></span>
+                                    <span class="ev-scope-val"
+                                        x-text="eventDetail.evidence?.current_value ?? '—'"></span>
                                 </div>
                                 <div class="ev-scope-item">
                                     <span class="ev-scope-key">Ratio</span>
@@ -2588,7 +2597,8 @@
                                 </div>
                                 <div class="ev-scope-item">
                                     <span class="ev-scope-key">Min</span>
-                                    <span class="ev-scope-val" x-text="eventDetail.evidence?.min_abs_threshold ?? '—'"></span>
+                                    <span class="ev-scope-val"
+                                        x-text="eventDetail.evidence?.min_abs_threshold ?? '—'"></span>
                                 </div>
                             </div>
                         </div>
@@ -2597,7 +2607,8 @@
                             <div class="ev-top-grid">
                                 <template x-for="(items, key) in (eventContext?.top || {})" :key="key">
                                     <div class="ev-top-column">
-                                        <div class="ev-top-title" x-text="key.replace('top_', '').replace('_', ' ')"></div>
+                                        <div class="ev-top-title" x-text="key.replace('top_', '').replace('_', ' ')">
+                                        </div>
                                         <template x-for="row in items" :key="row.label">
                                             <div class="ev-top-row">
                                                 <span class="ev-top-label" x-text="row.label"></span>
@@ -2623,7 +2634,8 @@
                         <div class="ev-detail-related" x-show="eventContext?.timeline?.length">
                             <div class="ev-detail-label">Timeline Context</div>
                             <div class="ev-related-list">
-                                <template x-for="line in (eventContext?.timeline || [])" :key="line.ts + '-' + line.type">
+                                <template x-for="line in (eventContext?.timeline || [])"
+                                    :key="line.ts + '-' + line.type">
                                     <div class="ev-related-row">
                                         <span class="ev-related-time" x-text="formatEventTime(line.ts)"></span>
                                         <span class="ev-related-title" x-text="line.title"></span>
@@ -2638,7 +2650,8 @@
                                 <template x-for="(value, key) in (eventDetail.evidence || {})" :key="key">
                                     <div class="ev-evidence-row">
                                         <span class="ev-evidence-key" x-text="key"></span>
-                                        <span class="ev-evidence-val" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                        <span class="ev-evidence-val"
+                                            x-text="Array.isArray(value) ? value.join(', ') : value"></span>
                                     </div>
                                 </template>
                             </div>
