@@ -8,7 +8,9 @@
         <!-- 1. HEALTH -->
         <div class="card"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="font-size:1.1em; font-weight:600; color:var(--signal-ok); margin-bottom:4px;">Healthy</div>
+            <div style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
+                :style="'color: ' + (overallHealth.state === 'healthy' ? 'var(--signal-ok)' : overallHealth.state === 'degraded' ? 'var(--signal-warn)' : 'var(--signal-crit)')"
+                x-text="overallHealth.state === 'healthy' ? 'Healthy' : overallHealth.state === 'degraded' ? 'Degraded' : 'Down'">Healthy</div>
             <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">OVERALL HEALTH</div>
         </div>
 

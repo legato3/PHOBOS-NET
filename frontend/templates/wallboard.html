@@ -246,10 +246,10 @@
             </div>
 
             <!-- Network Anomalies (24h) -->
-            <div class="wallboard-stat" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }">
+            <div class="wallboard-stat" :class="{ 'status-warning': networkStatsOverview.anomalies_count > 0 }">
                 <div class="wallboard-stat-label">Network Anomalies (24h)</div>
-                <div class="wallboard-stat-value" :class="{ 'status-warning': networkStatsOverview.anomalies_24h > 0 }"
-                    x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_24h || 0).toLocaleString()">
+                <div class="wallboard-stat-value" :class="{ 'status-warning': networkStatsOverview.anomalies_count > 0 }"
+                    x-text="networkStatsOverview.loading ? '...' : (networkStatsOverview.anomalies_count || 0).toLocaleString()">
                     0
                 </div>
             </div>
@@ -260,7 +260,7 @@
         function wallboardStore() {
             return {
                 alertHistory: { total: 0, active_count: 0, loading: true },
-                networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_24h: 0, loading: true },
+                networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_count: 0, loading: true },
                 firewallStatsOverview: { blocked_events_24h: 0, loading: true },
                 overallHealth: { state: 'healthy', shortExplanation: '' },
                 refreshTimer: null,
@@ -290,7 +290,7 @@
                             this.networkStatsOverview = {
                                 active_flows: d.active_flows || 0,
                                 external_connections: d.external_connections || 0,
-                                anomalies_24h: d.anomalies_24h || 0,
+                                anomalies_count: d.anomalies_count || 0,
                                 loading: false
                             };
                         }
