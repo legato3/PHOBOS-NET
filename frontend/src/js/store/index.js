@@ -76,6 +76,45 @@ export const Store = () => ({
     // Compact mode
     compactMode: false,
 
+    // User Mode (Home vs Pro)
+    userMode: localStorage.getItem('userMode') || 'pro',
+
+    toggleUserMode() {
+        this.userMode = this.userMode === 'home' ? 'pro' : 'home';
+        localStorage.setItem('userMode', this.userMode);
+        // Dispatch event for components that need to react
+        window.dispatchEvent(new CustomEvent('mode-changed', { detail: { mode: this.userMode } }));
+    },
+
+    // Terminology Mapping
+    terminology: {
+        'Anomalies': 'Traffic Insights',
+        'Threats': 'Blocked Risks',
+        'Lateral Movement': 'Device-to-Device Traffic',
+        'Data Exfiltration': 'Large Upload',
+        'Forensics': 'Traffic Analysis',
+        'Beaconing / C2': 'Repetitive Connections',
+        'C2': 'Repetitive Connections',
+        'Command & Control': 'Repetitive Connections',
+        'Malware': 'Malicious Software',
+        'Brute Force': 'Repeated Login Attempts',
+        'Port Scan': 'Network Scan',
+        'Network Anomalies': 'Traffic Insights',
+        'Timeline Analysis': 'Activity Timeline',
+        'Session Reconstruction': 'Connection History',
+        'Evidence Collection': 'Data Collection',
+        'Threat Activity Timeline': 'Blocked Risks Timeline',
+        'Detections by Country': 'Blocked Risks by Country',
+        'Top Threat IPs': 'Top Blocked Sources',
+        'Protocol Anomalies': 'Traffic Insight Alerts',
+        'Detected Techniques': 'Risk Techniques'
+    },
+
+    t(key) {
+        if (this.userMode !== 'home') return key;
+        return this.terminology[key] || key;
+    },
+
     // Sidebar collapse state
     sidebarCollapsed: true,
 
@@ -407,7 +446,7 @@ export const Store = () => ({
 
     // UI Labels for Widgets - Using DashboardWidgets module
     get friendlyLabels() {
-        return (typeof DashboardWidgets !== 'undefined' && DashboardWidgets.friendlyLabels) || {
+        const source = (typeof DashboardWidgets !== 'undefined' && DashboardWidgets.friendlyLabels) || {
             summary: 'Summary Stats',
             bandwidth: 'Bandwidth & Flow Rate',
             firewall: 'Firewall Health',
@@ -446,6 +485,25 @@ export const Store = () => ({
             attackTimeline: 'Attack Timeline',
             recentBlocks: 'Firewall Logs'
         };
+
+        // Clone to avoid mutating global state
+        const labels = { ...source };
+
+        // Apply terminology mapping if in Home Mode
+        if (this.userMode === 'home') {
+            for (const key in labels) {
+                // Map known terms in values
+                const val = labels[key];
+                if (this.terminology[val]) {
+                    labels[key] = this.terminology[val];
+                } else if (val.includes('Threats')) {
+                    labels[key] = val.replace('Threats', 'Blocked Risks');
+                } else if (val.includes('Anomalies')) {
+                    labels[key] = val.replace('Anomalies', 'Insights');
+                }
+            }
+        }
+        return labels;
     },
 
     // Thresholds (editable)

@@ -3,6 +3,12 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
+    <!-- Reassurance Banner -->
+    <div class="reassurance-banner" x-show="userMode === 'home'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform -translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0">
+        <span class="icon">🛡️</span>
+        <span>Network Status: Secure — No action required.</span>
+    </div>
+
     <!-- LEGACY HEADER METRICS (Restored) -->
     <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
         <!-- 1. HEALTH -->
@@ -16,7 +22,7 @@
                 Healthy</div>
             <div
                 style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:4px;">
-                OVERALL HEALTH <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
+                <span x-text="t('Overall Health').toUpperCase()">OVERALL HEALTH</span> <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
             </div>
         </div>
 
@@ -25,7 +31,7 @@
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                 x-text="alertHistory.active_count || '0'"></div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ACTIVE ALERTS</div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;" x-text="t('Active Alerts').toUpperCase()">ACTIVE ALERTS</div>
         </div>
 
         <!-- 3. ACTIVE FLOWS -->
@@ -35,7 +41,7 @@
                 <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
                     x-text="formatNumOrDash(networkStatsOverview?.active_flows)"></span>
             </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ACTIVE FLOWS</div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;" x-text="t('Active Flows').toUpperCase()">ACTIVE FLOWS</div>
         </div>
 
         <!-- 4. EXTERNAL CONNECTIONS -->
@@ -45,17 +51,18 @@
                 <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
                     x-text="formatNumOrDash(networkStatsOverview?.external_connections)"></span>
             </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">EXTERNAL CONNECTIONS</div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;" x-text="t('External Connections').toUpperCase()">EXTERNAL CONNECTIONS</div>
         </div>
 
         <!-- 5. BLOCKED EVENTS -->
         <div class="card"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+                <span style="font-size:1.4em; font-weight:600;"
+                    :class="userMode === 'home' ? 'text-green' : 'text-primary'"
                     x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)"></span>
             </div>
-            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">BLOCKED EVENTS (24H)</div>
+            <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;" x-text="t('Blocked Events').toUpperCase() + ' (24H)'">BLOCKED EVENTS (24H)</div>
         </div>
 
         <!-- 6. ANOMALIES -->
@@ -64,12 +71,13 @@
             :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--signal-warn);"
+                <span style="font-size:1.4em; font-weight:600;"
+                    :class="userMode === 'home' ? 'text-cyan' : 'text-yellow'"
                     x-text="formatNumOrDash(networkStatsOverview?.anomalies_count)"></span>
             </div>
             <div
                 style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:4px;">
-                NETWORK ANOMALIES <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
+                <span x-text="t('Network Anomalies').toUpperCase()">NETWORK ANOMALIES</span> <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
             </div>
         </div>
     </div>

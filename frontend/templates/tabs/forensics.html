@@ -5,7 +5,7 @@
     <section id="section-forensics-timeline" class="scroll-section" style="margin-bottom: var(--space-6);">
         <div class="card">
             <h2>
-                <span>🔍 Timeline Analysis</span>
+                <span x-text="'🔍 ' + t('Timeline Analysis')">🔍 Timeline Analysis</span>
                 <div class="card-actions">
                     <input type="text" x-model="forensics.timeline.targetIp"
                         placeholder="Target IP (e.g., 192.168.1.100)"
@@ -111,7 +111,7 @@
     <section id="section-forensics-session" class="scroll-section" style="margin-bottom: var(--space-6);">
         <div class="card">
             <h2>
-                <span>🔗 Session Reconstruction</span>
+                <span x-text="'🔗 ' + t('Session Reconstruction')">🔗 Session Reconstruction</span>
                 <div class="card-actions">
                     <input type="text" x-model="forensics.session.srcIp" placeholder="Source IP"
                         style="padding: 8px; border: 1px solid var(--card-border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
@@ -204,7 +204,7 @@
     <section id="section-forensics-evidence" class="scroll-section" style="margin-bottom: var(--space-6);">
         <div class="card">
             <h2>
-                <span>📦 Evidence Collection</span>
+                <span x-text="'📦 ' + t('Evidence Collection')">📦 Evidence Collection</span>
                 <div class="card-actions">
                     <select x-model="forensics.evidence.incidentType" class="filter-select">
                         <option value="general">General</option>

@@ -7,12 +7,12 @@
         <!-- Security Summary Stats -->
         <div class="grid mb-6 grid-auto-fit" style="margin-bottom: var(--space-6) !important;">
             <div class="card stat-box">
-                <div class="value text-white" x-text="(threatActivityTimeline.total_threats || 0).toLocaleString()">
+                <div class="value" :class="userMode === 'home' ? 'text-info' : 'text-red'" x-text="(threatActivityTimeline.total_threats || 0).toLocaleString()">
                 </div>
-                <div class="label" x-text="'Threats (' + timeRangeLabel + ')'">Threats</div>
+                <div class="label" x-text="t('Threats') + ' (' + timeRangeLabel + ')'">Threats</div>
             </div>
             <div class="card stat-box">
-                <div class="value text-white" x-text="(threatActivityTimeline.period_total || 0).toLocaleString()">
+                <div class="value" :class="userMode === 'home' ? 'text-green' : 'text-green'" x-text="(threatActivityTimeline.period_total || 0).toLocaleString()">
                 </div>
                 <div class="label" x-text="'Blocks (' + timeRangeLabel + ')'">Blocks</div>
             </div>
@@ -24,14 +24,14 @@
             <div class="card stat-box">
                 <div class="value text-white"
                     x-text="(threatActivityTimeline.total_range_alerts || 0).toLocaleString()"></div>
-                <div class="label" x-text="'Alerts (' + timeRangeLabel + ')'">Alerts</div>
+                <div class="label" x-text="t('Alerts') + ' (' + timeRangeLabel + ')'">Alerts</div>
             </div>
         </div>
 
         <!-- Threat Activity Timeline - Full Width -->
         <section id="section-threat-activity-timeline" class="scroll-section" style="margin-bottom: var(--space-6);">
             {% call widget_card('threatActivityTimeline', 'Threat Activity Timeline', '📈',
-            card_class='wide-card', show_spinner=True, period_x_text="timeRangeLabel") %}
+            card_class='wide-card', show_spinner=True, title_x_text="t('Threat Activity Timeline')", period_x_text="timeRangeLabel") %}
             <!-- Control Bar Removed (Redundant range/export) -->
 
             <!-- Stats Summary -->
@@ -462,7 +462,7 @@
             <!-- Top Threat IPs Widget -->
             <template x-if="isVisible('topThreatIPs')">
                 {% call widget_card('topThreatIPs', 'Top Threat IPs', '🎯', show_spinner=True,
-                title_x_text="'TOP THREAT IPS'",
+                title_x_text="t('Top Threat IPs').toUpperCase()",
                 period_x_text="timeRangeLabel")
                 %}
                 <div class="threat-ips-list">
@@ -495,10 +495,10 @@
             </template>
 
             <!-- MITRE ATT&CK Coverage Widget -->
-            <template x-if="isVisible('mitreHeatmap')">
+            <template x-if="isVisible('mitreHeatmap') && userMode === 'pro'">
                 {% call widget_card('mitreHeatmap', 'Detected Techniques', '🎯',
                 show_spinner=True,
-                title_x_text="'DETECTED TECHNIQUES'",
+                title_x_text="t('Detected Techniques').toUpperCase()",
                 period_x_text="timeRangeLabel") %}
                 <div x-show="mitreHeatmap.techniques && mitreHeatmap.techniques.length > 0">
                     <div
@@ -553,7 +553,7 @@
             <template x-if="isVisible('protocolAnomalies')">
                 {% call widget_card('protocolAnomalies', 'Protocol Anomalies', '⚡',
                 show_spinner=True,
-                title_x_text="'PROTOCOL ANOMALIES'",
+                title_x_text="t('Protocol Anomalies').toUpperCase()",
                 period_x_text="timeRangeLabel") %}
                 <div class="anomaly-summary" :class="{ 'has-anomalies': protocolAnomalies.anomaly_count > 0 }">
                     <div x-show="protocolAnomalies.status === 'warming'" class="warming-banner">
@@ -561,8 +561,10 @@
                         <span class="warming-text">Baseline Warming (learning phase)</span>
                     </div>
                     <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count > 0"
-                        class="text-red">⚠️
-                        <span x-text="protocolAnomalies.anomaly_count"></span> anomalies
+                        :class="userMode === 'home' ? 'text-info' : 'text-red'">
+                        <span x-show="userMode === 'pro'">⚠️</span>
+                        <span x-show="userMode === 'home'">ℹ️</span>
+                        <span x-text="protocolAnomalies.anomaly_count"></span> <span x-text="t('Anomalies').toLowerCase()">anomalies</span>
                         detected</span>
                     <span x-show="protocolAnomalies.status !== 'warming' && protocolAnomalies.anomaly_count === 0"
                         class="text-green">✅ No
