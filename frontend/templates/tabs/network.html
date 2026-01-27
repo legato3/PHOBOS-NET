@@ -716,11 +716,17 @@
                                         style="display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); flex-wrap: wrap;">
                                         <!-- Source -->
                                         <span class="text-cyan clickable-ip" @click="openIPModal(flow.src)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.src"
+                                            @keydown.enter="openIPModal(flow.src)"
+                                            @keydown.space.prevent="openIPModal(flow.src)"
                                             style="cursor: pointer;" x-text="flow.src"
                                             :title="flow.src_country || ''"></span>
                                         <span class="text-muted">→</span>
                                         <!-- Destination -->
                                         <span class="text-purple clickable-ip" @click="openIPModal(flow.dst)"
+                                            role="button" tabindex="0" :aria-label="'View details for IP ' + flow.dst"
+                                            @keydown.enter="openIPModal(flow.dst)"
+                                            @keydown.space.prevent="openIPModal(flow.dst)"
                                             style="cursor: pointer;" x-text="flow.dst"
                                             :title="flow.dst_country || ''"></span>
                                     </div>
