@@ -28,10 +28,10 @@
         </button>
         <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'traffic-explorer' }"
             @click="loadTab('traffic-explorer')" role="tab" :aria-selected="activeTab === 'traffic-explorer'"
-            id="traffic-explorer-tab-btn" aria-controls="traffic-explorer-tab" aria-label="Traffic Explorer"
-            title="Traffic Explorer">
+            id="traffic-explorer-tab-btn" aria-controls="traffic-explorer-tab" aria-label="Flow Search"
+            title="Flow Search">
             <span class="sidebar-icon">🧭</span>
-            <span class="sidebar-item-text">Traffic Explorer</span>
+            <span class="sidebar-item-text">Flow Search</span>
         </button>
         <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'hosts' }"
             @click="loadTab('hosts')" role="tab" :aria-selected="activeTab === 'hosts'" id="hosts-tab-btn"
@@ -56,12 +56,6 @@
             aria-controls="server-tab" aria-label="Server" title="Server">
             <span class="sidebar-icon">🖥️</span>
             <span class="sidebar-item-text">Server</span>
-        </button>
-        <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'forensics' }"
-            @click="loadTab('forensics')" role="tab" :aria-selected="activeTab === 'forensics'" id="forensics-tab-btn"
-            aria-controls="forensics-tab" aria-label="Forensics" title="Forensics">
-            <span class="sidebar-icon">🔍</span>
-            <span class="sidebar-item-text">Forensics</span>
         </button>
         <button type="button" class="sidebar-item" :class="{ 'active': activeTab === 'tools' }"
             @click="loadTab('tools')" role="tab" :aria-selected="activeTab === 'tools'" id="tools-tab-btn"

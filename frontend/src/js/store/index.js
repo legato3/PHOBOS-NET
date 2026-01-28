@@ -185,6 +185,7 @@ export const Store = () => ({
         filtered: [],
         loading: false,
         initialized: false,
+        range: '15m',
         page: 1,
         pageSize: 50,
         generatedAt: null,
@@ -1138,9 +1139,7 @@ export const Store = () => ({
                 window.dispatchEvent(new Event('resize'));
 
                 // Manage firewall logs auto-refresh based on active tab
-                if (val === 'forensics') {
-                    this.startRecentBlocksAutoRefresh();
-                } else if (val === 'firewall') {
+                if (val === 'firewall') {
                     this.startRecentBlocksAutoRefresh();
                     this.startFirewallSyslogAutoRefresh();
                 } else {
@@ -4300,9 +4299,46 @@ export const Store = () => ({
         this.applyTrafficExplorerFilters();
     },
 
+    openTrafficExplorer(params = {}) {
+        const range = params.range || this.trafficExplorer.range || '15m';
+        this.trafficExplorer.range = range;
+        this.trafficExplorer.filters = {
+            direction: params.direction ? this.normalizeTrafficExplorerDirection(params.direction) : 'all',
+            protocol: params.protocol ? this.normalizeTrafficExplorerProtocol(params.protocol) : 'all',
+            port: 'all',
+            action: params.action ? this.normalizeTrafficExplorerActionFilter(params.action) : 'all',
+            search: params.search ? String(params.search) : ''
+        };
+        this.trafficExplorer.page = 1;
+        this.trafficExplorer.selectedFlow = null;
+        this.trafficExplorer.initialized = false;
+        this.loadTab('traffic-explorer');
+    },
+
+    normalizeTrafficExplorerDirection(value) {
+        const v = String(value || '').toLowerCase();
+        if (v === 'in' || v === 'inbound') return 'inbound';
+        if (v === 'out' || v === 'outbound') return 'outbound';
+        if (v === 'internal' || v === 'lan') return 'internal';
+        if (v === 'external' || v === 'wan') return 'external';
+        return 'all';
+    },
+
+    normalizeTrafficExplorerActionFilter(value) {
+        const v = String(value || '').toLowerCase();
+        if (v === 'pass' || v === 'allow' || v === 'passed') return 'passed';
+        if (v === 'block' || v === 'deny' || v === 'reject' || v === 'blocked') return 'blocked';
+        return 'all';
+    },
+
+    normalizeTrafficExplorerProtocol(value) {
+        const v = String(value || '').toUpperCase();
+        return v ? v : 'all';
+    },
+
     async fetchTrafficExplorerMeta() {
         try {
-            const range = this.timeRange;
+            const range = this.trafficExplorer.range || '15m';
             const [portsRes, protoRes, sourcesRes, destRes] = await Promise.all([
                 fetch(`/api/stats/ports?range=${range}&limit=50`),
                 fetch(`/api/stats/protocol_hierarchy?range=${range}`),
@@ -4365,8 +4401,9 @@ export const Store = () => ({
     async fetchTrafficExplorerFlows() {
         this.trafficExplorer.loading = true;
         try {
-            const limit = 500;
-            const res = await fetch(`/api/flows?range=${this.timeRange}&limit=${limit}`);
+            const limit = 100;
+            const range = this.trafficExplorer.range || '15m';
+            const res = await fetch(`/api/flows?range=${range}&limit=${limit}`);
             if (res.ok) {
                 const data = await res.json();
                 this.trafficExplorer.flows = data.flows || [];
@@ -4426,8 +4463,12 @@ export const Store = () => ({
 
         this.trafficExplorer.filtered = filtered;
         this.trafficExplorer.page = 1;
-        if (this.trafficExplorer.selectedFlow && !filtered.includes(this.trafficExplorer.selectedFlow)) {
+        if (filtered.length === 0) {
             this.trafficExplorer.selectedFlow = null;
+            return;
+        }
+        if (!this.trafficExplorer.selectedFlow || !filtered.includes(this.trafficExplorer.selectedFlow)) {
+            this.trafficExplorer.selectedFlow = filtered[0];
         }
     },
 
@@ -4476,7 +4517,7 @@ export const Store = () => ({
 
     getTrafficExplorerAction(flow) {
         const action = flow?.action || flow?.firewall_action || flow?.flow_action || '';
-        if (!action) return 'UNKNOWN';
+        if (!action) return 'Not observed';
         const normalized = String(action).toUpperCase();
         if (normalized === 'PASS' || normalized === 'ALLOW') return 'PASSED';
         if (normalized === 'BLOCK' || normalized === 'DENY') return 'BLOCKED';
@@ -4489,20 +4530,27 @@ export const Store = () => ({
 
     getTrafficExplorerPort(flow) {
         const port = flow?.dst_port ?? flow?.port ?? flow?.src_port;
-        return port !== undefined && port !== null && String(port).length > 0 ? String(port) : 'UNKNOWN';
+        return port !== undefined && port !== null && String(port).length > 0 ? String(port) : 'Not observed';
     },
 
     getTrafficExplorerBytes(flow) {
         if (flow?.bytes_fmt) return flow.bytes_fmt;
         if (flow?.bytes !== undefined && flow?.bytes !== null) return this.fmtBytes(flow.bytes);
-        return 'UNKNOWN';
+        return 'Not observed';
     },
 
     getTrafficExplorerGeneratedAt() {
-        if (!this.trafficExplorer.generatedAt) return 'UNKNOWN';
+        if (!this.trafficExplorer.generatedAt) return 'Not observed';
         const parsed = new Date(this.trafficExplorer.generatedAt);
-        if (isNaN(parsed.getTime())) return 'UNKNOWN';
+        if (isNaN(parsed.getTime())) return 'Not observed';
         return parsed.toLocaleTimeString('en-GB');
+    },
+
+    getTrafficExplorerUpdatedAgo() {
+        if (!this.trafficExplorer.generatedAt) return 'Not observed';
+        const parsed = new Date(this.trafficExplorer.generatedAt);
+        if (isNaN(parsed.getTime())) return 'Not observed';
+        return this.timeAgo(parsed.getTime() / 1000) || 'Not observed';
     },
 
     getTrafficExplorerMeta(ip) {
@@ -4512,28 +4560,41 @@ export const Store = () => ({
     getTrafficExplorerFirstSeen(flow) {
         if (flow?.first_seen_ts) {
             const formatted = this.formatFlowTimestamp(flow.first_seen_ts);
-            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+            return formatted && formatted !== 'Unknown' ? formatted : 'Not observed';
         }
         if (flow?.ts) {
             const formatted = this.formatFlowTimestamp(flow.ts);
-            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+            return formatted && formatted !== 'Unknown' ? formatted : 'Not observed';
         }
-        return 'UNKNOWN';
+        return 'Not observed';
     },
 
     getTrafficExplorerLastSeen(flow) {
         if (flow?.first_seen_ts && flow?.duration_seconds) {
             const formatted = this.formatFlowTimestamp(flow.first_seen_ts + flow.duration_seconds);
-            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+            return formatted && formatted !== 'Unknown' ? formatted : 'Not observed';
         }
         if (flow?.ts && flow?.duration_seconds) {
             const parsed = new Date(flow.ts);
             if (!isNaN(parsed.getTime())) {
                 const formatted = this.formatFlowTimestamp((parsed.getTime() / 1000) + flow.duration_seconds);
-                return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+                return formatted && formatted !== 'Unknown' ? formatted : 'Not observed';
             }
         }
-        return 'UNKNOWN';
+        return 'Not observed';
+    },
+
+    getTrafficExplorerSignal(flow) {
+        const flags = flow?.interesting_flags || [];
+        const hasUnusual = flags.includes('short_high') || flags.includes('long_low');
+        const hasNotable = flags.includes('new_external') || flags.includes('rare_port') || flags.includes('repeated_short');
+        if (hasUnusual) {
+            return { label: 'Unusual', color: 'rgba(255, 200, 0, 0.5)' };
+        }
+        if (hasNotable) {
+            return { label: 'Notable', color: 'rgba(0, 234, 255, 0.5)' };
+        }
+        return { label: 'Normal', color: 'rgba(255, 255, 255, 0.35)' };
     },
 
     getTrafficExplorerTags(flow) {
@@ -7861,8 +7922,7 @@ export const Store = () => ({
     },
 
     navigateToFirewallLogs() {
-        this.loadTab('forensics');
-        // Firewall logs are already loaded when forensics tab opens
+        this.loadTab('firewall');
     },
 
     navigateToAnomalies() {
@@ -7978,19 +8038,6 @@ export const Store = () => ({
                 this.fetchHostChanges();
                 this.lastFetch.hostChanges = now;
             }
-        } else if (tab === 'forensics') {
-            if (now - this.lastFetch.flows > this.mediumTTL) {
-                this.fetchFlows();
-                this.lastFetch.flows = now;
-            }
-            if (now - (this.lastFetch.overview || 0) > this.shortTTL) {
-                this.fetchFirewallStatsOverview();
-                this.lastFetch.overview = now;
-            }
-            this.fetchRecentBlocks();
-            this.fetchAlertCorrelation();
-            // Start auto-refresh for firewall logs
-            this.startRecentBlocksAutoRefresh();
         } else if (tab === 'firewall') {
             if (now - (this.lastFetch.overview || 0) > this.shortTTL) {
                 this.fetchFirewallStatsOverview();

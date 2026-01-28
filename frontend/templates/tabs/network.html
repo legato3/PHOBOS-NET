@@ -745,6 +745,11 @@
                                     <div class="text-muted" style="font-size: var(--text-xs);"
                                         x-text="(flow.packets || 0).toLocaleString() + ' pkts'">
                                     </div>
+                                    <button class="btn btn--ghost"
+                                        style="margin-top: 4px; padding: 2px 6px; font-size: 0.7em;"
+                                        @click.stop="openTrafficExplorer({ search: flow.src, protocol: flow.proto_name || flow.proto, direction: flow.direction, range: timeRange })">
+                                        View traffic
+                                    </button>
                                 </div>
                             </div>
                         </template>
