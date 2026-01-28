@@ -1123,6 +1123,168 @@ def detect_off_hours_activity(sources_data):
     return alerts
 
 
+def _detect_flow_anomalies_unified(flow_data):
+    """Unified single-pass detection for flow-based anomalies.
+
+    Combines logic from:
+    - detect_port_scan
+    - detect_brute_force
+    - detect_dns_anomaly
+    - detect_lateral_movement
+    """
+    global _port_scan_tracker, _last_port_scan_cleanup
+    alerts = []
+    current_time = time.time()
+
+    # --- Port Scan Maintenance ---
+    if current_time - _last_port_scan_cleanup > 60:
+        _port_scan_tracker = {
+            ip: data
+            for ip, data in _port_scan_tracker.items()
+            if current_time - data.get("first_seen", 0) < PORT_SCAN_WINDOW
+        }
+        _last_port_scan_cleanup = current_time
+
+    # --- Aggregation Structures ---
+    auth_attempts = defaultdict(lambda: {"count": 0, "port": 0})
+    dns_queries = defaultdict(int)
+    internal_pairs = defaultdict(
+        lambda: {"bytes": 0, "flows": 0, "src": "", "dst": ""}
+    )
+
+    # --- Single Pass Iteration ---
+    for flow in flow_data:
+        try:
+            # Extract fields once
+            src_ip = flow.get("src_ip") or flow.get("key")
+            dst_port_raw = flow.get("dst_port") or flow.get("port")
+            dst_ip = flow.get("dst_ip")
+
+            if not src_ip:
+                continue
+
+            # Parse port safely
+            dst_port = 0
+            if dst_port_raw:
+                try:
+                    dst_port = int(dst_port_raw)
+                except (ValueError, TypeError):
+                    pass
+
+            # Check internal status once per source IP
+            is_src_internal = is_internal(src_ip)
+
+            # 1. Port Scan Detection Logic (External -> Internal scan pattern)
+            if dst_port > 0 and not is_src_internal:
+                if src_ip not in _port_scan_tracker:
+                    if len(_port_scan_tracker) >= _MAX_PORT_SCAN_TRACKER_SIZE:
+                        _port_scan_tracker.clear()
+                        add_app_log(
+                            "Port scan tracker reset due to overflow (possible distributed scan)",
+                            "WARN",
+                        )
+                    _port_scan_tracker[src_ip] = {
+                        "ports": set(),
+                        "first_seen": current_time,
+                    }
+
+                _port_scan_tracker[src_ip]["ports"].add(dst_port)
+
+                if len(_port_scan_tracker[src_ip]["ports"]) >= PORT_SCAN_THRESHOLD:
+                    alerts.append(
+                        {
+                            "type": "port_scan",
+                            "msg": f"Port Scan Detected: {src_ip} probed {len(_port_scan_tracker[src_ip]['ports'])} ports",
+                            "severity": "high",
+                            "ip": src_ip,
+                            "source": src_ip,
+                            "ports_scanned": len(_port_scan_tracker[src_ip]["ports"]),
+                            "ts": current_time,
+                            "mitre": "T1046",
+                        }
+                    )
+                    # Reset
+                    _port_scan_tracker[src_ip]["ports"] = set()
+
+            # 2. Brute Force Detection Logic
+            if dst_port in BRUTE_FORCE_PORTS and src_ip:
+                auth_attempts[src_ip]["count"] += flow.get("flows", 1)
+                auth_attempts[src_ip]["port"] = dst_port
+
+            # 3. DNS Anomaly Detection Logic
+            if dst_port == 53:
+                dns_queries[src_ip] += flow.get("flows", 1)
+
+            # 4. Lateral Movement Detection Logic
+            if dst_ip:
+                # We already checked src_internal
+                if is_src_internal and src_ip != dst_ip:
+                    # Check dst only if src is internal
+                    if is_internal(dst_ip):
+                        pair_key = f"{src_ip}->{dst_ip}"
+                        internal_pairs[pair_key]["bytes"] += flow.get("bytes", 0)
+                        internal_pairs[pair_key]["flows"] += flow.get("flows", 1)
+                        internal_pairs[pair_key]["src"] = src_ip
+                        internal_pairs[pair_key]["dst"] = dst_ip
+        except Exception:
+            # Skip this flow on unexpected error to prevent crashing the whole loop
+            continue
+
+    # --- Post-Processing Aggregations ---
+
+    # Process Brute Force
+    for ip, data in auth_attempts.items():
+        if data["count"] >= 50:
+            service = PORTS.get(data["port"], f"Port {data['port']}")
+            alerts.append(
+                {
+                    "type": "brute_force",
+                    "msg": f"Possible Brute Force: {ip} → {service} ({data['count']} attempts)",
+                    "severity": "high",
+                    "ip": ip,
+                    "port": data["port"],
+                    "attempts": data["count"],
+                    "ts": current_time,
+                    "mitre": "T1110",
+                }
+            )
+
+    # Process DNS Anomalies
+    for ip, count in dns_queries.items():
+        if count >= DNS_QUERY_THRESHOLD:
+            alerts.append(
+                {
+                    "type": "dns_tunneling",
+                    "msg": f"Excessive DNS: {ip} made {count} queries",
+                    "severity": "medium",
+                    "ip": ip,
+                    "query_count": count,
+                    "ts": current_time,
+                    "mitre": "T1071.004",
+                }
+            )
+
+    # Process Lateral Movement
+    for pair, data in internal_pairs.items():
+        mb = data["bytes"] / (1024 * 1024)
+        if mb >= 100 or data["flows"] >= 1000:
+            alerts.append(
+                {
+                    "type": "lateral_movement",
+                    "msg": f"Internal Transfer: {data['src']} → {data['dst']} ({mb:.1f} MB)",
+                    "severity": "medium",
+                    "src_ip": data["src"],
+                    "dst_ip": data["dst"],
+                    "bytes": data["bytes"],
+                    "flows": data["flows"],
+                    "ts": current_time,
+                    "mitre": "T1021",
+                }
+            )
+
+    return alerts
+
+
 @instrument_service("run_all_detections")
 def run_all_detections(
     ports_data, sources_data, destinations_data, protocols_data, flow_data=None
@@ -1137,15 +1299,12 @@ def run_all_detections(
     if flow_data is None:
         flow_data = sources_data + (destinations_data or [])
 
+    # OPTIMIZATION: Run unified detection pass for flow-based anomalies
+    # This replaces 4 separate iterations over flow_data (O(N) vs O(4N))
     try:
-        all_alerts.extend(detect_port_scan(flow_data))
+        all_alerts.extend(_detect_flow_anomalies_unified(flow_data))
     except Exception as e:
-        print(f"Port scan detection error: {e}")
-
-    try:
-        all_alerts.extend(detect_brute_force(flow_data))
-    except Exception as e:
-        print(f"Brute force detection error: {e}")
+        print(f"Unified flow detection error: {e}")
 
     try:
         all_alerts.extend(detect_data_exfiltration(sources_data, destinations_data))
@@ -1153,19 +1312,9 @@ def run_all_detections(
         print(f"Data exfil detection error: {e}")
 
     try:
-        all_alerts.extend(detect_dns_anomaly(flow_data))
-    except Exception as e:
-        print(f"DNS anomaly detection error: {e}")
-
-    try:
         all_alerts.extend(detect_new_external(sources_data, destinations_data))
     except Exception as e:
         print(f"New external detection error: {e}")
-
-    try:
-        all_alerts.extend(detect_lateral_movement(flow_data))
-    except Exception as e:
-        print(f"Lateral movement detection error: {e}")
 
     try:
         all_alerts.extend(detect_protocol_anomaly(protocols_data))
