@@ -132,10 +132,10 @@
                     </select>
                 </div>
                 <div class="form-control w-full max-w-xs" x-show="hosts.discovery.target === 'custom'">
-                    <label class="label">
+                    <label class="label" for="discovery-custom-cidr">
                         <span class="label-text">Custom CIDR</span>
                     </label>
-                    <input type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
+                    <input id="discovery-custom-cidr" type="text" x-model="hosts.discovery.target" placeholder="192.168.1.0/24"
                         class="cyber-input w-full" />
                 </div>
 

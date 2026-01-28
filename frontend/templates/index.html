@@ -1472,24 +1472,24 @@
                                 style="margin-bottom: 10px; font-size: 0.95em; color: var(--text-secondary); font-weight: 500;">
                                 Host Metadata</h4>
                             <div class="form-control">
-                                <label class="label">
+                                <label class="label" for="ip-meta-owner">
                                     <span class="label-text">Owner</span>
                                 </label>
-                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.owner"
+                                <input id="ip-meta-owner" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.owner"
                                     placeholder="e.g. IT Ops" />
                             </div>
                             <div class="form-control">
-                                <label class="label">
+                                <label class="label" for="ip-meta-device">
                                     <span class="label-text">Device Type</span>
                                 </label>
-                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.device_type"
+                                <input id="ip-meta-device" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.device_type"
                                     placeholder="e.g. Printer, NAS" />
                             </div>
                             <div class="form-control">
-                                <label class="label">
+                                <label class="label" for="ip-meta-criticality">
                                     <span class="label-text">Criticality</span>
                                 </label>
-                                <select class="cyber-input w-full" x-model="ipDetails.metadata.criticality">
+                                <select id="ip-meta-criticality" class="cyber-input w-full" x-model="ipDetails.metadata.criticality">
                                     <option value="">Unspecified</option>
                                     <option value="low">Low</option>
                                     <option value="medium">Medium</option>
@@ -1498,17 +1498,17 @@
                                 </select>
                             </div>
                             <div class="form-control">
-                                <label class="label">
+                                <label class="label" for="ip-meta-tags">
                                     <span class="label-text">Tags</span>
                                 </label>
-                                <input type="text" class="cyber-input w-full" x-model="ipDetails.metadata.tags_text"
+                                <input id="ip-meta-tags" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.tags_text"
                                     placeholder="tag1, tag2" />
                             </div>
                             <div class="form-control">
-                                <label class="label">
+                                <label class="label" for="ip-meta-notes">
                                     <span class="label-text">Notes</span>
                                 </label>
-                                <textarea class="cyber-input w-full" rows="3" x-model="ipDetails.metadata.notes"
+                                <textarea id="ip-meta-notes" class="cyber-input w-full" rows="3" x-model="ipDetails.metadata.notes"
                                     placeholder="Add a short note..."></textarea>
                             </div>
                             <div class="flex items-center gap-2" style="margin-top: 10px;">
