@@ -189,6 +189,22 @@ export const Store = () => ({
         page: 1,
         pageSize: 50,
         generatedAt: null,
+        pinsLoaded: false,
+        pinnedFlowKeys: [],
+        contextMarkersEnabled: false,
+        medians: { bytes: null, duration: null },
+        scrub: {
+            active: false,
+            startTs: null,
+            endTs: null,
+            minTs: null,
+            maxTs: null,
+            dragging: false,
+            dragStart: null,
+            dragEnd: null,
+            bins: [],
+            element: null
+        },
         filters: {
             direction: 'all',
             protocol: 'all',
@@ -4290,6 +4306,10 @@ export const Store = () => ({
 
     // Traffic Explorer (read-only, no auto-refresh)
     initTrafficExplorer() {
+        if (!this.trafficExplorer.pinsLoaded) {
+            this.loadTrafficExplorerPins();
+            this.trafficExplorer.pinsLoaded = true;
+        }
         if (!this.trafficExplorer.initialized) {
             this.trafficExplorer.initialized = true;
             this.fetchTrafficExplorerMeta();
@@ -4409,6 +4429,7 @@ export const Store = () => ({
                 this.trafficExplorer.flows = data.flows || [];
                 this.trafficExplorer.generatedAt = data.generated_at || null;
                 this.updateTrafficExplorerProtocolOptions();
+                this.updateTrafficExplorerHistory(this.trafficExplorer.flows);
                 this.applyTrafficExplorerFilters();
             }
         } catch (e) {
@@ -4435,7 +4456,7 @@ export const Store = () => ({
         const directionFilter = filters.direction || 'all';
         const actionFilter = filters.action !== 'all' ? String(filters.action).toUpperCase() : 'all';
 
-        const filtered = (this.trafficExplorer.flows || []).filter((flow) => {
+        let filtered = (this.trafficExplorer.flows || []).filter((flow) => {
             const flowDirection = (flow.direction || this.getFlowDirection(flow) || '').toLowerCase();
             if (directionFilter !== 'all' && flowDirection !== directionFilter) return false;
 
@@ -4461,8 +4482,31 @@ export const Store = () => ({
             return true;
         });
 
+        if (this.trafficExplorer.scrub.active) {
+            const start = this.trafficExplorer.scrub.startTs;
+            const end = this.trafficExplorer.scrub.endTs;
+            filtered = filtered.filter((flow) => {
+                const ts = this.getTrafficExplorerFlowTimestamp(flow);
+                if (!ts || start === null || end === null) return true;
+                return ts >= start && ts <= end;
+            });
+        }
+
+        const pinned = new Set(this.trafficExplorer.pinnedFlowKeys || []);
+        filtered.sort((a, b) => {
+            const aPinned = pinned.has(this.getTrafficExplorerFlowKey(a)) ? 1 : 0;
+            const bPinned = pinned.has(this.getTrafficExplorerFlowKey(b)) ? 1 : 0;
+            if (aPinned !== bPinned) return bPinned - aPinned;
+            const aSignal = this.getTrafficExplorerSignalRank(a);
+            const bSignal = this.getTrafficExplorerSignalRank(b);
+            if (aSignal !== bSignal) return bSignal - aSignal;
+            return (this.getTrafficExplorerFlowTimestamp(b) || 0) - (this.getTrafficExplorerFlowTimestamp(a) || 0);
+        });
+
         this.trafficExplorer.filtered = filtered;
         this.trafficExplorer.page = 1;
+        this.trafficExplorer.medians = this.getTrafficExplorerMedians(filtered);
+        this.buildTrafficExplorerScrubBins(filtered);
         if (filtered.length === 0) {
             this.trafficExplorer.selectedFlow = null;
             return;
@@ -4480,6 +4524,7 @@ export const Store = () => ({
             action: 'all',
             search: ''
         };
+        this.clearTrafficExplorerScrub();
         this.applyTrafficExplorerFilters();
     },
 
@@ -4515,6 +4560,76 @@ export const Store = () => ({
         this.trafficExplorer.selectedFlow = flow;
     },
 
+    // Pinning keeps selected flows at top (persisted locally)
+    loadTrafficExplorerPins() {
+        try {
+            const raw = localStorage.getItem('trafficExplorerPins');
+            this.trafficExplorer.pinnedFlowKeys = raw ? JSON.parse(raw) : [];
+        } catch (e) {
+            this.trafficExplorer.pinnedFlowKeys = [];
+        }
+    },
+
+    saveTrafficExplorerPins() {
+        try {
+            localStorage.setItem('trafficExplorerPins', JSON.stringify(this.trafficExplorer.pinnedFlowKeys || []));
+        } catch (e) {
+            console.error(e);
+        }
+    },
+
+    getTrafficExplorerFlowKey(flow) {
+        const src = flow?.src || 'na';
+        const dst = flow?.dst || 'na';
+        const srcPort = flow?.src_port ?? 'na';
+        const dstPort = flow?.dst_port ?? 'na';
+        const proto = flow?.proto_name || flow?.proto || 'na';
+        const ts = flow?.first_seen_ts || flow?.ts || 'na';
+        return `${src}|${srcPort}|${dst}|${dstPort}|${proto}|${ts}`;
+    },
+
+    isTrafficExplorerPinned(flow) {
+        const key = this.getTrafficExplorerFlowKey(flow);
+        return (this.trafficExplorer.pinnedFlowKeys || []).includes(key);
+    },
+
+    toggleTrafficExplorerPin(flow) {
+        const key = this.getTrafficExplorerFlowKey(flow);
+        const pins = new Set(this.trafficExplorer.pinnedFlowKeys || []);
+        if (pins.has(key)) {
+            pins.delete(key);
+        } else {
+            pins.add(key);
+        }
+        this.trafficExplorer.pinnedFlowKeys = Array.from(pins);
+        this.saveTrafficExplorerPins();
+        this.applyTrafficExplorerFilters();
+    },
+
+    // Focus filter on a primary entity (src or dst depending on direction)
+    focusTrafficExplorerEntity(flow) {
+        const entity = this.getTrafficExplorerPrimaryEntity(flow);
+        if (!entity) return;
+        this.trafficExplorer.filters.search = entity;
+        this.fetchTrafficExplorerFlows();
+    },
+
+    getTrafficExplorerPrimaryEntity(flow) {
+        const dir = this.getFlowDirection(flow);
+        if (dir === 'inbound') return flow?.src || flow?.dst || '';
+        if (dir === 'outbound') return flow?.dst || flow?.src || '';
+        return flow?.src || flow?.dst || '';
+    },
+
+    getTrafficExplorerFlowTimestamp(flow) {
+        if (flow?.first_seen_ts) return flow.first_seen_ts;
+        if (flow?.ts) {
+            const parsed = new Date(flow.ts);
+            if (!isNaN(parsed.getTime())) return parsed.getTime() / 1000;
+        }
+        return null;
+    },
+
     getTrafficExplorerAction(flow) {
         const action = flow?.action || flow?.firewall_action || flow?.flow_action || '';
         if (!action) return 'Not observed';
@@ -4526,6 +4641,15 @@ export const Store = () => ({
 
     getTrafficExplorerDirection(flow) {
         return (flow?.direction || this.getFlowDirection(flow) || 'unknown').toLowerCase();
+    },
+
+    getTrafficExplorerDirectionCompact(flow) {
+        const dir = this.getTrafficExplorerDirection(flow);
+        if (dir === 'inbound') return { symbol: '⬅', label: 'I', title: 'Inbound (WAN → LAN)' };
+        if (dir === 'outbound') return { symbol: '➡', label: 'O', title: 'Outbound (LAN → WAN)' };
+        if (dir === 'internal') return { symbol: '↔', label: 'L', title: 'Internal (LAN ↔ LAN)' };
+        if (dir === 'external') return { symbol: '↔', label: 'W', title: 'External (WAN ↔ WAN)' };
+        return { symbol: '·', label: '?', title: 'Unknown direction' };
     },
 
     getTrafficExplorerPort(flow) {
@@ -4595,6 +4719,200 @@ export const Store = () => ({
             return { label: 'Notable', color: 'rgba(0, 234, 255, 0.5)' };
         }
         return { label: 'Normal', color: 'rgba(255, 255, 255, 0.35)' };
+    },
+
+    getTrafficExplorerSignalRank(flow) {
+        const label = this.getTrafficExplorerSignal(flow).label;
+        if (label === 'Unusual') return 3;
+        if (label === 'Notable') return 2;
+        return 1;
+    },
+
+    getTrafficExplorerSignalReasons(flow) {
+        return this.getTrafficExplorerTags(flow);
+    },
+
+    // Lightweight seen-before memory using local storage (no backend)
+    updateTrafficExplorerHistory(flows) {
+        try {
+            const raw = localStorage.getItem('trafficExplorerHistory');
+            const history = raw ? JSON.parse(raw) : {};
+            const now = Math.floor(Date.now() / 1000);
+            (flows || []).forEach((flow) => {
+                const key = this.getTrafficExplorerFlowKey(flow);
+                const ts = this.getTrafficExplorerFlowTimestamp(flow) || now;
+                if (!history[key]) {
+                    history[key] = { first_seen: ts, last_seen: ts };
+                    return;
+                }
+                if (!history[key].first_seen || ts < history[key].first_seen) history[key].first_seen = ts;
+                history[key].last_seen = Math.max(history[key].last_seen || ts, ts);
+            });
+            localStorage.setItem('trafficExplorerHistory', JSON.stringify(history));
+        } catch (e) {
+            console.error(e);
+        }
+    },
+
+    getTrafficExplorerHistory(flow) {
+        try {
+            const raw = localStorage.getItem('trafficExplorerHistory');
+            const history = raw ? JSON.parse(raw) : {};
+            return history[this.getTrafficExplorerFlowKey(flow)] || null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    // Seen-before: true if first_seen is older than current window start
+    getTrafficExplorerSeenBefore(flow) {
+        const history = this.getTrafficExplorerHistory(flow);
+        if (!history?.first_seen) return 'No';
+        const windowStart = this.getTrafficExplorerWindowStart();
+        return history.first_seen < windowStart ? 'Yes' : 'No';
+    },
+
+    getTrafficExplorerSeenLabel(flow) {
+        const history = this.getTrafficExplorerHistory(flow);
+        if (!history?.first_seen) return 'Not observed';
+        const firstSeen = history.first_seen;
+        const now = Math.floor(Date.now() / 1000);
+        const firstDate = new Date(firstSeen * 1000);
+        const nowDate = new Date(now * 1000);
+        if (firstDate.toDateString() === nowDate.toDateString()) {
+            return 'First seen today';
+        }
+        return `Seen ${this.timeAgo(firstSeen)}`;
+    },
+
+    getTrafficExplorerWindowStart() {
+        const range = this.trafficExplorer.range || '15m';
+        const mapping = {
+            '15m': 15 * 60,
+            '30m': 30 * 60,
+            '1h': 60 * 60,
+            '6h': 6 * 60 * 60,
+            '24h': 24 * 60 * 60,
+            '7d': 7 * 24 * 60 * 60
+        };
+        const seconds = mapping[range] || 15 * 60;
+        return Math.floor(Date.now() / 1000) - seconds;
+    },
+
+    getTrafficExplorerMedians(flows) {
+        // Context markers use medians from current loaded set only
+        const bytes = [];
+        const durations = [];
+        (flows || []).forEach((flow) => {
+            if (flow?.bytes !== undefined && flow?.bytes !== null) bytes.push(flow.bytes);
+            const dur = this.getTrafficExplorerDurationSeconds(flow);
+            if (dur !== null) durations.push(dur);
+        });
+        const median = (arr) => {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+            return sorted[mid];
+        };
+        return { bytes: median(bytes), duration: median(durations) };
+    },
+
+    getTrafficExplorerDurationSeconds(flow) {
+        if (flow?.duration_seconds !== undefined && flow?.duration_seconds !== null) return flow.duration_seconds;
+        if (flow?.duration) {
+            const parsed = parseFloat(flow.duration);
+            if (!isNaN(parsed)) return parsed;
+        }
+        return null;
+    },
+
+    getTrafficExplorerContextMarker(value, median) {
+        if (value === null || value === undefined || median === null) return { symbol: '·', title: 'No context' };
+        const ratio = median > 0 ? value / median : 1;
+        if (ratio >= 1.5) return { symbol: '▲', title: 'Above median' };
+        if (ratio <= 0.7) return { symbol: '▼', title: 'Below median' };
+        return { symbol: '●', title: 'Around median' };
+    },
+
+    // Scrub bins summarize density across the loaded window
+    buildTrafficExplorerScrubBins(flows) {
+        const bins = new Array(36).fill(0);
+        const timestamps = (flows || []).map((flow) => this.getTrafficExplorerFlowTimestamp(flow)).filter(Boolean);
+        if (!timestamps.length) {
+            this.trafficExplorer.scrub.bins = bins;
+            return;
+        }
+        const minTs = Math.min(...timestamps);
+        const maxTs = Math.max(...timestamps);
+        const span = Math.max(maxTs - minTs, 1);
+        timestamps.forEach((ts) => {
+            const idx = Math.min(bins.length - 1, Math.floor(((ts - minTs) / span) * bins.length));
+            bins[idx] += 1;
+        });
+        this.trafficExplorer.scrub.bins = bins;
+        this.trafficExplorer.scrub.minTs = minTs;
+        this.trafficExplorer.scrub.maxTs = maxTs;
+        if (this.trafficExplorer.scrub.active && (this.trafficExplorer.scrub.startTs === null || this.trafficExplorer.scrub.endTs === null)) {
+            this.trafficExplorer.scrub.active = false;
+        }
+    },
+
+    trafficExplorerScrubStart(event) {
+        const scrub = this.trafficExplorer.scrub;
+        if (!scrub.minTs || !scrub.maxTs) return;
+        scrub.element = event.currentTarget;
+        scrub.dragging = true;
+        scrub.dragStart = this.getTrafficExplorerScrubPosition(event);
+        scrub.dragEnd = scrub.dragStart;
+    },
+
+    trafficExplorerScrubMove(event) {
+        const scrub = this.trafficExplorer.scrub;
+        if (!scrub.dragging) return;
+        scrub.dragEnd = this.getTrafficExplorerScrubPosition(event);
+    },
+
+    trafficExplorerScrubEnd() {
+        const scrub = this.trafficExplorer.scrub;
+        if (!scrub.dragging) return;
+        scrub.dragging = false;
+        const start = Math.min(scrub.dragStart, scrub.dragEnd);
+        const end = Math.max(scrub.dragStart, scrub.dragEnd);
+        if (start === null || end === null || scrub.minTs === null || scrub.maxTs === null) return;
+        const span = scrub.maxTs - scrub.minTs;
+        scrub.startTs = scrub.minTs + span * start;
+        scrub.endTs = scrub.minTs + span * end;
+        scrub.active = Math.abs(end - start) > 0.01;
+        this.applyTrafficExplorerFilters();
+    },
+
+    getTrafficExplorerScrubSelectionStyle() {
+        const scrub = this.trafficExplorer.scrub;
+        if (!scrub.active || scrub.startTs === null || scrub.endTs === null || scrub.minTs === null || scrub.maxTs === null) {
+            return 'display:none;';
+        }
+        const span = scrub.maxTs - scrub.minTs;
+        const left = ((scrub.startTs - scrub.minTs) / span) * 100;
+        const width = ((scrub.endTs - scrub.startTs) / span) * 100;
+        return `left:${left}%; width:${width}%;`;
+    },
+
+    clearTrafficExplorerScrub() {
+        this.trafficExplorer.scrub.active = false;
+        this.trafficExplorer.scrub.startTs = null;
+        this.trafficExplorer.scrub.endTs = null;
+        this.trafficExplorer.scrub.dragStart = null;
+        this.trafficExplorer.scrub.dragEnd = null;
+        this.trafficExplorer.scrub.element = null;
+        this.applyTrafficExplorerFilters();
+    },
+
+    getTrafficExplorerScrubPosition(event) {
+        const target = this.trafficExplorer.scrub.element || event.currentTarget;
+        const rect = target.getBoundingClientRect();
+        const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+        return rect.width > 0 ? x / rect.width : 0;
     },
 
     getTrafficExplorerTags(flow) {

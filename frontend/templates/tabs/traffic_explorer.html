@@ -1,5 +1,5 @@
 <div x-show="activeTab === 'traffic-explorer'" :style="activeTab === 'traffic-explorer' ? 'display:block' : 'display:none'"
-    id="traffic-explorer-tab" role="tabpanel" aria-labelledby="traffic-explorer-tab-btn" tabindex="0">
+    id="traffic-explorer-tab" role="tabpanel" aria-labelledby="traffic-explorer-tab-btn" tabindex="0" class="flow-search">
     <section id="section-traffic-explorer" class="scroll-section mb-6">
         <div class="card" style="margin-bottom: var(--space-4);">
             <h2>
@@ -52,6 +52,10 @@
                         <button class="btn btn--primary btn--sm" @click="fetchTrafficExplorerFlows()">Load Traffic</button>
                         <button class="btn btn--ghost btn--sm" @click="resetTrafficExplorerFilters()">Reset</button>
                     </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary);">
+                        <input type="checkbox" x-model="trafficExplorer.contextMarkersEnabled" style="cursor: pointer;">
+                        <span>Context markers</span>
+                    </label>
                     <div style="margin-left: auto; font-size: var(--text-xs); color: var(--text-tertiary);">
                         Updated: <span x-text="getTrafficExplorerGeneratedAt()"></span>
                     </div>
@@ -61,6 +65,16 @@
 
         <div class="grid" style="grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: var(--space-4);">
             {% call widget_card('trafficExplorer', 'Flow Matches', '🧾', show_spinner=True) %}
+            <div class="flow-scrub" @mousedown="trafficExplorerScrubStart($event)" @mousemove.window="trafficExplorerScrubMove($event)"
+                @mouseup.window="trafficExplorerScrubEnd()">
+                <div class="flow-scrub__bins">
+                    <template x-for="(bin, idx) in trafficExplorer.scrub.bins" :key="idx">
+                        <span class="flow-scrub__bin" :style="'height:' + (4 + Math.min(bin, 12)) + 'px'"></span>
+                    </template>
+                </div>
+                <div class="flow-scrub__selection" :style="getTrafficExplorerScrubSelectionStyle()"></div>
+                <button class="flow-scrub__reset" x-show="trafficExplorer.scrub.active" @click.stop="clearTrafficExplorerScrub()">Reset</button>
+            </div>
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary);">
                 <div
@@ -78,15 +92,15 @@
                 <table class="table-fixed table-compact" style="font-size: 0.74em; line-height: 1.2;">
                     <thead>
                         <tr>
-                            <th style="width: 12%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Time</th>
+                            <th style="width: 12%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Time</th>
                             <th style="width: 10%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Signal</th>
-                            <th style="width: 26%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Src → Dst</th>
-                            <th style="width: 8%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Proto</th>
-                            <th style="width: 8%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Port</th>
-                            <th style="width: 10%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Bytes</th>
-                            <th style="width: 10%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Packets</th>
-                            <th style="width: 10%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Direction</th>
-                            <th style="width: 6%; padding: 4px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Action</th>
+                            <th style="width: 26%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Src → Dst</th>
+                            <th style="width: 8%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Proto</th>
+                            <th style="width: 8%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Port</th>
+                            <th style="width: 10%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Bytes</th>
+                            <th style="width: 10%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Packets</th>
+                            <th style="width: 10%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Direction</th>
+                            <th style="width: 6%; padding: 2px 6px; position: sticky; top: 0; background: var(--card-bg); z-index: 2;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -107,41 +121,75 @@
                             </template>
                         </template>
                         <template x-for="(flow, idx) in trafficExplorerPageFlows" :key="idx">
-                            <tr @click="selectTrafficExplorerFlow(flow)" style="cursor: pointer;"
+                            <tr @click="selectTrafficExplorerFlow(flow)" class="flow-row" tabindex="0"
+                                :class="{ 'is-pinned': isTrafficExplorerPinned(flow) }"
                                 :style="trafficExplorer.selectedFlow === flow ? 'background: rgba(0, 234, 255, 0.08);' : ''">
-                                <td class="text-xs text-muted" style="padding: 3px 6px;"
+                                <td class="text-xs text-muted flow-time" style="padding: 2px 6px;"
                                     x-text="getTrafficExplorerFirstSeen(flow)">
                                 </td>
-                                <td class="text-xs text-muted" style="padding: 3px 6px;">
+                                <td class="text-xs text-muted" style="padding: 2px 6px;">
                                     <div style="display: flex; align-items: center; gap: 6px;">
                                         <span :style="'width:6px; height:6px; border-radius:999px; background:' + getTrafficExplorerSignal(flow).color + '; display:inline-block;'"></span>
-                                        <span x-text="getTrafficExplorerSignal(flow).label"></span>
+                                        <span x-text="getTrafficExplorerSignal(flow).label"
+                                            :title="getTrafficExplorerSignal(flow).label === 'Normal' ? 'Normal flow' : 'Marked notable due to: ' + (getTrafficExplorerSignalReasons(flow).join(', ') || 'activity flags')"></span>
+                                        <span class="flow-pin-indicator" x-show="isTrafficExplorerPinned(flow)">📌</span>
                                     </div>
                                 </td>
-                                <td style="padding: 3px 6px;">
-                                    <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-                                        <span :class="flow.src ? 'text-cyan' : 'text-muted'"
-                                            x-text="flow.src || 'Not observed'"></span>
-                                        <span class="text-muted">→</span>
-                                        <span :class="flow.dst ? 'text-purple' : 'text-muted'"
-                                            x-text="flow.dst || 'Not observed'"></span>
+                                <td style="padding: 2px 6px;">
+                                    <div class="flow-entity">
+                                        <div class="flow-entity-main">
+                                            <span :class="flow.src ? 'text-cyan flow-ip' : 'text-muted flow-ip'"
+                                                x-text="flow.src || 'Not observed'"></span>
+                                            <span class="text-muted flow-arrow">→</span>
+                                            <span :class="flow.dst ? 'text-purple flow-ip' : 'text-muted flow-ip'"
+                                                x-text="flow.dst || 'Not observed'"></span>
+                                        </div>
+                                        <div class="flow-entity-sub" x-show="flow.src_hostname || flow.dst_hostname">
+                                            <span class="truncate" :title="(flow.src_hostname || 'Unresolved') + ' → ' + (flow.dst_hostname || 'Unresolved')"
+                                                x-text="(flow.src_hostname || 'Unresolved') + ' → ' + (flow.dst_hostname || 'Unresolved')"></span>
+                                        </div>
+                                        <div class="flow-entity-sub text-muted" x-text="getTrafficExplorerSeenLabel(flow)"></div>
+                                        <div class="flow-entity-tags" x-show="getTrafficExplorerTags(flow).length > 0">
+                                            <template x-for="tag in getTrafficExplorerTags(flow).slice(0, 2)" :key="tag">
+                                                <span class="flow-tag" x-text="tag"></span>
+                                            </template>
+                                            <span class="flow-tag-more"
+                                                x-show="getTrafficExplorerTags(flow).length > 2"
+                                                x-text="'+' + (getTrafficExplorerTags(flow).length - 2)"></span>
+                                        </div>
+                                        <div class="flow-row-actions">
+                                            <button class="flow-action-btn" title="Pin flow" aria-label="Pin flow"
+                                                @click.stop="toggleTrafficExplorerPin(flow)">📌</button>
+                                            <button class="flow-action-btn" title="Focus on entity" aria-label="Focus on entity"
+                                                @click.stop="focusTrafficExplorerEntity(flow)">🔍</button>
+                                        </div>
                                     </div>
                                 </td>
-                                <td class="text-xs text-muted" style="padding: 3px 6px;"
+                                <td class="text-xs text-muted" style="padding: 2px 6px;"
                                     x-text="(flow.proto_name || flow.proto || 'Not classified')">
                                 </td>
-                                <td class="text-xs text-muted" style="padding: 3px 6px;"
+                                <td class="text-xs text-muted" style="padding: 2px 6px;"
                                     x-text="getTrafficExplorerPort(flow)"></td>
-                                <td class="text-xs" style="padding: 3px 6px;"
+                                <td class="text-xs" style="padding: 2px 6px;"
                                     :class="getTrafficExplorerBytes(flow) === 'Not observed' ? 'text-muted' : ''"
-                                    x-text="getTrafficExplorerBytes(flow)"></td>
-                                <td class="text-xs" style="padding: 3px 6px;"
+                                    x-text="getTrafficExplorerBytes(flow)">
+                                    <span class="flow-marker" x-show="trafficExplorer.contextMarkersEnabled"
+                                        :title="getTrafficExplorerContextMarker(flow.bytes, trafficExplorer.medians.bytes).title"
+                                        x-text="getTrafficExplorerContextMarker(flow.bytes, trafficExplorer.medians.bytes).symbol"></span>
+                                </td>
+                                <td class="text-xs" style="padding: 2px 6px;"
                                     :class="flow.packets === undefined ? 'text-muted' : ''"
                                     x-text="flow.packets !== undefined ? flow.packets.toLocaleString() : 'Not observed'"></td>
-                                <td class="text-xs text-muted" style="padding: 3px 6px;"
-                                    x-text="getTrafficExplorerDirection(flow).toUpperCase()">
+                                <td class="text-xs text-muted" style="padding: 2px 6px;">
+                                    <span class="flow-dir" :title="getTrafficExplorerDirectionCompact(flow).title">
+                                        <span x-text="getTrafficExplorerDirectionCompact(flow).symbol"></span>
+                                        <span x-text="getTrafficExplorerDirectionCompact(flow).label"></span>
+                                    </span>
+                                    <span class="flow-marker" x-show="trafficExplorer.contextMarkersEnabled"
+                                        :title="getTrafficExplorerContextMarker(getTrafficExplorerDurationSeconds(flow), trafficExplorer.medians.duration).title"
+                                        x-text="getTrafficExplorerContextMarker(getTrafficExplorerDurationSeconds(flow), trafficExplorer.medians.duration).symbol"></span>
                                 </td>
-                                <td class="text-xs text-muted" style="padding: 3px 6px;"
+                                <td class="text-xs text-muted" style="padding: 2px 6px;"
                                     x-text="getTrafficExplorerAction(flow)"></td>
                             </tr>
                         </template>
@@ -196,6 +244,8 @@
                             x-text="trafficExplorer.selectedFlow.duration || (trafficExplorer.selectedFlow.duration_seconds !== undefined ? trafficExplorer.selectedFlow.duration_seconds + 's' : 'Not observed')"></div>
                         <div class="text-muted">First Seen</div>
                         <div x-text="getTrafficExplorerFirstSeen(trafficExplorer.selectedFlow)"></div>
+                        <div class="text-muted">Seen Before</div>
+                        <div x-text="getTrafficExplorerSeenBefore(trafficExplorer.selectedFlow)"></div>
                         <div class="text-muted">Last Seen</div>
                         <div x-text="getTrafficExplorerLastSeen(trafficExplorer.selectedFlow)"></div>
                         </div>

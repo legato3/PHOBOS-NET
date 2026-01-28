@@ -9126,6 +9126,159 @@ body.compact-mode {
     color: var(--text-secondary);
 }
 
+/* ====================================
+   Flow Search - density + context
+   ==================================== */
+
+.flow-search .flow-time {
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+}
+
+.flow-search .flow-arrow {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.flow-search .flow-ip {
+    font-weight: 600;
+}
+
+.flow-search .flow-entity {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 44px;
+}
+
+.flow-search .flow-entity-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.flow-search .flow-entity-sub {
+    font-size: 0.72em;
+    line-height: 1.2;
+}
+
+.flow-search .flow-entity-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.flow-search .flow-tag,
+.flow-search .flow-tag-more {
+    font-size: 0.68em;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-tertiary);
+}
+
+.flow-search .flow-row-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.flow-search .flow-row:hover .flow-row-actions,
+.flow-search .flow-row:focus-within .flow-row-actions {
+    opacity: 1;
+}
+
+.flow-search .flow-action-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 0.75em;
+    cursor: pointer;
+}
+
+.flow-search .flow-action-btn:focus {
+    outline: 1px solid rgba(255, 255, 255, 0.2);
+    outline-offset: 1px;
+}
+
+.flow-search .flow-pin-indicator {
+    font-size: 0.75em;
+    opacity: 0.6;
+}
+
+.flow-search .flow-row.is-pinned {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.flow-search .flow-dir {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.flow-search .flow-marker {
+    margin-left: 6px;
+    font-size: 0.8em;
+    color: var(--text-tertiary);
+}
+
+.flow-search .flow-scrub {
+    position: relative;
+    height: 14px;
+    margin-bottom: var(--space-2);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    cursor: crosshair;
+    overflow: hidden;
+}
+
+.flow-search .flow-scrub__bins {
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(36, 1fr);
+    align-items: end;
+    gap: 1px;
+    padding: 2px 4px;
+}
+
+.flow-search .flow-scrub__bin {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.flow-search .flow-scrub__selection {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 234, 255, 0.08);
+    border: 1px solid rgba(0, 234, 255, 0.2);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.flow-search .flow-scrub__reset {
+    position: absolute;
+    top: 1px;
+    right: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 0.7em;
+    cursor: pointer;
+}
+
 .text-success {
     color: var(--accent-success);
 }
@@ -11800,6 +11953,5 @@ body.compact-mode {
         margin-top: 4px;
     }
 }
-
 
 
