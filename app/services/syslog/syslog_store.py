@@ -134,15 +134,20 @@ class SyslogStore:
 
         program_counts: Dict[str, int] = {}
         total = 0
+        last_log_ts: Optional[float] = None
         cutoff = datetime.now().timestamp() - 86400  # Last 24 hours only
 
         with _firewall_db_lock:
             conn = _firewall_db_connect()
             try:
                 cur = conn.execute(
-                    "SELECT COUNT(*) FROM syslog_events WHERE timestamp > ?", (cutoff,)
+                    "SELECT COUNT(*), MAX(timestamp) FROM syslog_events WHERE timestamp > ?",
+                    (cutoff,),
                 )
-                total = cur.fetchone()[0] or 0
+                row = cur.fetchone()
+                if row:
+                    total = row[0] or 0
+                    last_log_ts = row[1]
 
                 cur = conn.execute(
                     """
@@ -161,7 +166,12 @@ class SyslogStore:
             finally:
                 conn.close()
 
-        return {"total": total, "programs": program_counts}
+        return {
+            "total": total,
+            "total_received": total,
+            "last_log_ts": last_log_ts,
+            "programs": program_counts,
+        }
 
     def clear(self) -> None:
         """Clear all events."""
