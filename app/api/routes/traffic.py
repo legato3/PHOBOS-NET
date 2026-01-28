@@ -1221,6 +1221,10 @@ def api_stats_hourly():
     NOTE: This endpoint aggregates traffic into hourly buckets (0-23) based on the hour of the day.
     It provides a 24-hour daily profile regardless of the input range duration, making it a
     Fixed Window (Daily Profile) visualization.
+
+    WARNING: The logic aligns buckets using `datetime.now().hour` (server local time).
+    If nfdump is configured to log in UTC (or another timezone), the profile may be shifted.
+    Future improvements should detect nfdump timezone or enforce UTC alignment.
     """
     range_key = request.args.get('range', '24h')
     now = time.time()
@@ -1917,19 +1921,19 @@ def api_network_stats_overview():
                     _active_flows_cache["ts"] = now
                     _active_flows_cache["key"] = range_key
             else:
-                # Fallback to 0 if parsing fails
+                # Fallback to None if parsing fails (UI will show "—")
                 add_app_log("Could not parse nfdump summary for flow count", "WARN")
-                active_flows_count = 0
+                active_flows_count = None
 
     except Exception as e:
         # Log error in production, but don't fail the endpoint
         add_app_log(f"Error counting active flows: {e}", "WARN")
-        active_flows_count = 0
+        active_flows_count = None
     
     # Now get external connections count using a sample
     # We use a sample (500 flows) to determine the ratio of external connections
     # This is more efficient than processing all flows
-    if active_flows_count > 0:
+    if active_flows_count and active_flows_count > 0:
         sample_output = run_nfdump(["-O", "bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "500"], tf_range)
         sample_count = 0
         sample_external = 0
@@ -1992,6 +1996,8 @@ def api_network_stats_overview():
                 external_connections_count = 0
         except (ValueError, TypeError, IndexError, KeyError):
             external_connections_count = 0
+    elif active_flows_count is None:
+        external_connections_count = None
     else:
         external_connections_count = 0
     
@@ -2068,8 +2074,10 @@ def api_network_stats_overview():
     
     # Update baselines (incremental, respects update interval)
     from app.services.shared.baselines import update_baseline, calculate_trend
-    update_baseline('active_flows', active_flows_count)
-    update_baseline('external_connections', external_connections_count)
+    if active_flows_count is not None:
+        update_baseline('active_flows', active_flows_count)
+    if external_connections_count is not None:
+        update_baseline('external_connections', external_connections_count)
     
     # Calculate anomalies rate (anomalies per hour)
     range_hours = {
@@ -2079,8 +2087,8 @@ def api_network_stats_overview():
     update_baseline('anomalies_rate', anomalies_rate)
     
     # Calculate trends (since last hour)
-    active_flows_trend = calculate_trend('active_flows', active_flows_count)
-    external_connections_trend = calculate_trend('external_connections', external_connections_count)
+    active_flows_trend = calculate_trend('active_flows', active_flows_count) if active_flows_count is not None else 0
+    external_connections_trend = calculate_trend('external_connections', external_connections_count) if external_connections_count is not None else 0
     anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
     
     return jsonify({

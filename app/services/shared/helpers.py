@@ -92,7 +92,8 @@ def fmt_bytes(b):
 
 def get_time_range(range_key):
     """Convert range key to nfdump time range string."""
-    now = datetime.now()
+    # Round to minute to improve cache hit rate for nfdump queries
+    now = datetime.now().replace(second=0, microsecond=0)
     hours = {
         "15m": 0.25,
         "30m": 0.5,
