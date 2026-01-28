@@ -88,6 +88,7 @@
                     {% include "tabs/overview.html" %}
                     {% include "tabs/security.html" %}
                     {% include "tabs/network.html" %}
+                    {% include "tabs/traffic_explorer.html" %}
                     {% include "tabs/hosts.html" %}
                     {% include "tabs/firewall.html" %}
                     {% include "tabs/server.html" %}
@@ -2146,6 +2147,12 @@
                 </div>
                 <div class="modal__body" style="color:var(--text-0);">
                     <div class="grid grid-2" style="gap: var(--space-3);">
+                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'traffic-explorer' }"
+                            @click="loadTab('traffic-explorer'); mobileMoreModalOpen = false"
+                            style="justify-content: flex-start; gap: 12px; height: 60px;">
+                            <span style="font-size: 1.5em;">🧭</span>
+                            <span>Traffic Explorer</span>
+                        </button>
                         <button class="btn btn--secondary" :class="{ 'active': activeTab === 'server' }"
                             @click="loadTab('server'); mobileMoreModalOpen = false"
                             style="justify-content: flex-start; gap: 12px; height: 60px;">

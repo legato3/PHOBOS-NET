@@ -180,6 +180,26 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
+    trafficExplorer: {
+        flows: [],
+        filtered: [],
+        loading: false,
+        initialized: false,
+        page: 1,
+        pageSize: 50,
+        generatedAt: null,
+        filters: {
+            direction: 'all',
+            protocol: 'all',
+            port: 'all',
+            action: 'all',
+            search: ''
+        },
+        protocolOptions: [],
+        portOptions: [],
+        ipMeta: {},
+        selectedFlow: null
+    },
     networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_count: 0, trends: {}, loading: true },
     networkIntelligence: {
         bandwidth_utilization: { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
@@ -1104,6 +1124,11 @@ export const Store = () => ({
                 this.fetchEvents('activity');
             } else {
                 this.loadAll();
+            }
+
+            if (this.activeTab === 'traffic-explorer') {
+                this.fetchTrafficExplorerMeta();
+                this.fetchTrafficExplorerFlows();
             }
         });
         this.$watch('activeTab', (val) => {
@@ -4262,6 +4287,266 @@ export const Store = () => ({
 
     setFlowsViewLimit(limit) {
         this.flows.viewLimit = limit;
+    },
+
+    // Traffic Explorer (read-only, no auto-refresh)
+    initTrafficExplorer() {
+        if (!this.trafficExplorer.initialized) {
+            this.trafficExplorer.initialized = true;
+            this.fetchTrafficExplorerMeta();
+            this.fetchTrafficExplorerFlows();
+            return;
+        }
+        this.applyTrafficExplorerFilters();
+    },
+
+    async fetchTrafficExplorerMeta() {
+        try {
+            const range = this.timeRange;
+            const [portsRes, protoRes, sourcesRes, destRes] = await Promise.all([
+                fetch(`/api/stats/ports?range=${range}&limit=50`),
+                fetch(`/api/stats/protocol_hierarchy?range=${range}`),
+                fetch(`/api/stats/sources?range=${range}&limit=200`),
+                fetch(`/api/stats/destinations?range=${range}&limit=200`)
+            ]);
+
+            if (portsRes.ok) {
+                const portsData = await portsRes.json();
+                this.trafficExplorer.portOptions = (portsData.ports || []).map((item) => {
+                    const label = item.service && item.service !== 'Unknown'
+                        ? `${item.key} (${item.service})`
+                        : `${item.key}`;
+                    return { value: String(item.key), label: label };
+                });
+            }
+
+            if (protoRes.ok) {
+                const protoData = await protoRes.json();
+                const protocolSet = new Set();
+                if (protoData && protoData.children) {
+                    protoData.children.forEach((child) => {
+                        if (child && child.name) protocolSet.add(child.name);
+                    });
+                }
+                this.trafficExplorer.protocolOptions = Array.from(protocolSet).sort();
+            }
+
+            const ipMeta = { ...this.trafficExplorer.ipMeta };
+            if (sourcesRes.ok) {
+                const sourcesData = await sourcesRes.json();
+                (sourcesData.sources || []).forEach((row) => {
+                    ipMeta[row.key] = {
+                        ...(ipMeta[row.key] || {}),
+                        hostname: row.hostname || ipMeta[row.key]?.hostname,
+                        country: row.country || ipMeta[row.key]?.country,
+                        asn: row.asn || ipMeta[row.key]?.asn,
+                        asn_org: row.asn_org || ipMeta[row.key]?.asn_org
+                    };
+                });
+            }
+            if (destRes.ok) {
+                const destData = await destRes.json();
+                (destData.destinations || []).forEach((row) => {
+                    ipMeta[row.key] = {
+                        ...(ipMeta[row.key] || {}),
+                        hostname: row.hostname || ipMeta[row.key]?.hostname,
+                        country: row.country || ipMeta[row.key]?.country,
+                        asn: row.asn || ipMeta[row.key]?.asn,
+                        asn_org: row.asn_org || ipMeta[row.key]?.asn_org
+                    };
+                });
+            }
+            this.trafficExplorer.ipMeta = ipMeta;
+        } catch (e) {
+            console.error(e);
+        }
+    },
+
+    async fetchTrafficExplorerFlows() {
+        this.trafficExplorer.loading = true;
+        try {
+            const limit = 500;
+            const res = await fetch(`/api/flows?range=${this.timeRange}&limit=${limit}`);
+            if (res.ok) {
+                const data = await res.json();
+                this.trafficExplorer.flows = data.flows || [];
+                this.trafficExplorer.generatedAt = data.generated_at || null;
+                this.updateTrafficExplorerProtocolOptions();
+                this.applyTrafficExplorerFilters();
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            this.trafficExplorer.loading = false;
+        }
+    },
+
+    updateTrafficExplorerProtocolOptions() {
+        const protocolSet = new Set(this.trafficExplorer.protocolOptions || []);
+        (this.trafficExplorer.flows || []).forEach((flow) => {
+            const name = flow.proto_name || flow.proto;
+            if (name) protocolSet.add(String(name));
+        });
+        this.trafficExplorer.protocolOptions = Array.from(protocolSet).sort();
+    },
+
+    applyTrafficExplorerFilters() {
+        const filters = this.trafficExplorer.filters;
+        const search = (filters.search || '').trim().toLowerCase();
+        const portFilter = filters.port !== 'all' ? String(filters.port) : 'all';
+        const protocolFilter = filters.protocol !== 'all' ? String(filters.protocol).toUpperCase() : 'all';
+        const directionFilter = filters.direction || 'all';
+        const actionFilter = filters.action !== 'all' ? String(filters.action).toUpperCase() : 'all';
+
+        const filtered = (this.trafficExplorer.flows || []).filter((flow) => {
+            const flowDirection = (flow.direction || this.getFlowDirection(flow) || '').toLowerCase();
+            if (directionFilter !== 'all' && flowDirection !== directionFilter) return false;
+
+            const flowProtocol = String(flow.proto_name || flow.proto || '').toUpperCase();
+            if (protocolFilter !== 'all' && flowProtocol !== protocolFilter) return false;
+
+            const flowPort = String(flow.dst_port ?? flow.port ?? flow.src_port ?? '');
+            if (portFilter !== 'all' && flowPort !== portFilter) return false;
+
+            const flowAction = this.getTrafficExplorerAction(flow);
+            if (actionFilter !== 'all' && flowAction !== actionFilter) return false;
+
+            if (search) {
+                const src = String(flow.src || '').toLowerCase();
+                const dst = String(flow.dst || '').toLowerCase();
+                const srcHost = String(flow.src_hostname || '').toLowerCase();
+                const dstHost = String(flow.dst_hostname || '').toLowerCase();
+                if (!src.includes(search) && !dst.includes(search) && !srcHost.includes(search) && !dstHost.includes(search)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.trafficExplorer.filtered = filtered;
+        this.trafficExplorer.page = 1;
+        if (this.trafficExplorer.selectedFlow && !filtered.includes(this.trafficExplorer.selectedFlow)) {
+            this.trafficExplorer.selectedFlow = null;
+        }
+    },
+
+    resetTrafficExplorerFilters() {
+        this.trafficExplorer.filters = {
+            direction: 'all',
+            protocol: 'all',
+            port: 'all',
+            action: 'all',
+            search: ''
+        };
+        this.applyTrafficExplorerFilters();
+    },
+
+    get trafficExplorerPageCount() {
+        const total = this.trafficExplorer.filtered.length || 0;
+        return Math.max(1, Math.ceil(total / this.trafficExplorer.pageSize));
+    },
+
+    get trafficExplorerPageStart() {
+        return (this.trafficExplorer.page - 1) * this.trafficExplorer.pageSize;
+    },
+
+    get trafficExplorerPageFlows() {
+        const start = this.trafficExplorerPageStart;
+        return (this.trafficExplorer.filtered || []).slice(start, start + this.trafficExplorer.pageSize);
+    },
+
+    trafficExplorerNextPage() {
+        const next = this.trafficExplorer.page + 1;
+        if (next <= this.trafficExplorerPageCount) {
+            this.trafficExplorer.page = next;
+        }
+    },
+
+    trafficExplorerPrevPage() {
+        const prev = this.trafficExplorer.page - 1;
+        if (prev >= 1) {
+            this.trafficExplorer.page = prev;
+        }
+    },
+
+    selectTrafficExplorerFlow(flow) {
+        this.trafficExplorer.selectedFlow = flow;
+    },
+
+    getTrafficExplorerAction(flow) {
+        const action = flow?.action || flow?.firewall_action || flow?.flow_action || '';
+        if (!action) return 'UNKNOWN';
+        const normalized = String(action).toUpperCase();
+        if (normalized === 'PASS' || normalized === 'ALLOW') return 'PASSED';
+        if (normalized === 'BLOCK' || normalized === 'DENY') return 'BLOCKED';
+        return normalized;
+    },
+
+    getTrafficExplorerDirection(flow) {
+        return (flow?.direction || this.getFlowDirection(flow) || 'unknown').toLowerCase();
+    },
+
+    getTrafficExplorerPort(flow) {
+        const port = flow?.dst_port ?? flow?.port ?? flow?.src_port;
+        return port !== undefined && port !== null && String(port).length > 0 ? String(port) : 'UNKNOWN';
+    },
+
+    getTrafficExplorerBytes(flow) {
+        if (flow?.bytes_fmt) return flow.bytes_fmt;
+        if (flow?.bytes !== undefined && flow?.bytes !== null) return this.fmtBytes(flow.bytes);
+        return 'UNKNOWN';
+    },
+
+    getTrafficExplorerGeneratedAt() {
+        if (!this.trafficExplorer.generatedAt) return 'UNKNOWN';
+        const parsed = new Date(this.trafficExplorer.generatedAt);
+        if (isNaN(parsed.getTime())) return 'UNKNOWN';
+        return parsed.toLocaleTimeString('en-GB');
+    },
+
+    getTrafficExplorerMeta(ip) {
+        return this.trafficExplorer.ipMeta?.[ip] || {};
+    },
+
+    getTrafficExplorerFirstSeen(flow) {
+        if (flow?.first_seen_ts) {
+            const formatted = this.formatFlowTimestamp(flow.first_seen_ts);
+            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+        }
+        if (flow?.ts) {
+            const formatted = this.formatFlowTimestamp(flow.ts);
+            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+        }
+        return 'UNKNOWN';
+    },
+
+    getTrafficExplorerLastSeen(flow) {
+        if (flow?.first_seen_ts && flow?.duration_seconds) {
+            const formatted = this.formatFlowTimestamp(flow.first_seen_ts + flow.duration_seconds);
+            return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+        }
+        if (flow?.ts && flow?.duration_seconds) {
+            const parsed = new Date(flow.ts);
+            if (!isNaN(parsed.getTime())) {
+                const formatted = this.formatFlowTimestamp((parsed.getTime() / 1000) + flow.duration_seconds);
+                return formatted && formatted !== 'Unknown' ? formatted : 'UNKNOWN';
+            }
+        }
+        return 'UNKNOWN';
+    },
+
+    getTrafficExplorerTags(flow) {
+        const tags = [];
+        const flags = flow?.interesting_flags || [];
+        flags.forEach((flag) => {
+            if (flag === 'new_external') tags.push('new external destination');
+            if (flag === 'short_high') tags.push('high volume burst');
+            if (flag === 'long_low') tags.push('long duration, low volume');
+            if (flag === 'rare_port') tags.push('uncommon port');
+            if (flag === 'repeated_short') tags.push('repeated short connections');
+        });
+        return tags;
     },
 
     // Helper to check if IP is internal
@@ -7600,6 +7885,9 @@ export const Store = () => ({
         const now = Date.now();
 
         // Load tab-specific data
+        if (tab === 'traffic-explorer') {
+            this.initTrafficExplorer();
+        }
         if (tab === 'firewall-snmp') {
             this.fetchFirewallSNMP();
             // Set up refresh interval (10-30s TTL as per requirements)

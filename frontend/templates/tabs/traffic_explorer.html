@@ -1,0 +1,244 @@
+<div x-show="activeTab === 'traffic-explorer'" :style="activeTab === 'traffic-explorer' ? 'display:block' : 'display:none'"
+    id="traffic-explorer-tab" role="tabpanel" aria-labelledby="traffic-explorer-tab-btn" tabindex="0">
+    <section id="section-traffic-explorer" class="scroll-section mb-6">
+        <div class="card" style="margin-bottom: var(--space-4);">
+            <h2>
+                <div class="card-title-content" style="display: flex; align-items: center; flex: 1; min-width: 0;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Traffic Explorer</span>
+                    <span class="period-badge" x-text="timeRangeLabel"
+                        style="margin-left: auto; font-size: 0.7em; color: var(--text-tertiary); font-weight: 500; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;"></span>
+                </div>
+            </h2>
+            <div class="widget-body">
+                <div
+                    style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; justify-content: flex-start;">
+                    <div style="min-width: 120px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Time Range</label>
+                        <select x-model="timeRange" class="header-select" style="width: 120px;">
+                            <option value="15m">15m</option>
+                            <option value="30m">30m</option>
+                            <option value="1h">1h</option>
+                            <option value="6h">6h</option>
+                            <option value="24h">24h</option>
+                            <option value="7d">7d</option>
+                        </select>
+                    </div>
+                    <div style="min-width: 170px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Direction</label>
+                        <select x-model="trafficExplorer.filters.direction" class="header-select" style="width: 170px;"
+                            @change="applyTrafficExplorerFilters()">
+                            <option value="all">All Directions</option>
+                            <option value="outbound">Internal → External</option>
+                            <option value="inbound">External → Internal</option>
+                            <option value="internal">Internal ↔ Internal</option>
+                            <option value="external">External ↔ External</option>
+                        </select>
+                    </div>
+                    <div style="min-width: 140px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Protocol</label>
+                        <select x-model="trafficExplorer.filters.protocol" class="header-select" style="width: 140px;"
+                            @change="applyTrafficExplorerFilters()">
+                            <option value="all">All Protocols</option>
+                            <template x-for="proto in trafficExplorer.protocolOptions" :key="proto">
+                                <option :value="proto" x-text="proto"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div style="min-width: 130px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Port</label>
+                        <select x-model="trafficExplorer.filters.port" class="header-select" style="width: 130px;"
+                            @change="applyTrafficExplorerFilters()">
+                            <option value="all">All Ports</option>
+                            <template x-for="port in trafficExplorer.portOptions" :key="port.value">
+                                <option :value="port.value" x-text="port.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div style="min-width: 120px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Blocked / Passed</label>
+                        <select x-model="trafficExplorer.filters.action" class="header-select" style="width: 120px;"
+                            @change="applyTrafficExplorerFilters()">
+                            <option value="all">All Actions</option>
+                            <option value="passed">Passed</option>
+                            <option value="blocked">Blocked</option>
+                        </select>
+                    </div>
+                    <div style="min-width: 200px; flex: 1;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Search (IP / hostname)</label>
+                        <input type="text" class="cyber-input" style="width: 100%;" placeholder="IP or hostname"
+                            x-model="trafficExplorer.filters.search" @input.debounce.300ms="applyTrafficExplorerFilters()">
+                    </div>
+                    <div style="display: flex; gap: var(--space-2); align-items: center;">
+                        <button class="btn btn--primary btn--sm" @click="fetchTrafficExplorerFlows()">Load Traffic</button>
+                        <button class="btn btn--ghost btn--sm" @click="resetTrafficExplorerFilters()">Reset</button>
+                    </div>
+                    <div style="margin-left: auto; font-size: var(--text-xs); color: var(--text-tertiary);">
+                        Updated: <span x-text="getTrafficExplorerGeneratedAt()"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: var(--space-4);">
+            {% call widget_card('trafficExplorer', 'Flows', '🧾', card_class='wide-card', show_spinner=True,
+            period_x_text="timeRangeLabel") %}
+            <div
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary);">
+                <div
+                    x-text="'Showing ' + Math.min(trafficExplorerPageStart + trafficExplorerPageFlows.length, trafficExplorer.filtered.length || 0) + ' of ' + (trafficExplorer.filtered.length || 0)">
+                </div>
+                <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <button class="btn btn--ghost btn--sm" @click="trafficExplorerPrevPage()"
+                        :disabled="trafficExplorer.page <= 1">Prev</button>
+                    <span x-text="'Page ' + trafficExplorer.page + ' / ' + trafficExplorerPageCount"></span>
+                    <button class="btn btn--ghost btn--sm" @click="trafficExplorerNextPage()"
+                        :disabled="trafficExplorer.page >= trafficExplorerPageCount">Next</button>
+                </div>
+            </div>
+            <div style="overflow: auto; max-height: 560px;">
+                <table class="table-fixed table-compact" style="font-size: 0.78em;">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Time</th>
+                            <th style="width: 28%;">Src → Dst</th>
+                            <th style="width: 8%;">Proto</th>
+                            <th style="width: 8%;">Port</th>
+                            <th style="width: 10%;">Bytes</th>
+                            <th style="width: 10%;">Packets</th>
+                            <th style="width: 12%;">Direction</th>
+                            <th style="width: 12%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(flow, idx) in trafficExplorerPageFlows" :key="idx">
+                            <tr @click="selectTrafficExplorerFlow(flow)" style="cursor: pointer;"
+                                :style="trafficExplorer.selectedFlow === flow ? 'background: rgba(0, 234, 255, 0.08);' : ''">
+                                <td class="text-xs text-muted font-mono" x-text="getTrafficExplorerFirstSeen(flow)">
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span class="text-cyan" x-text="flow.src || 'UNKNOWN'"></span>
+                                        <span class="text-muted">→</span>
+                                        <span class="text-purple" x-text="flow.dst || 'UNKNOWN'"></span>
+                                    </div>
+                                </td>
+                                <td class="text-xs text-muted" x-text="(flow.proto_name || flow.proto || 'UNKNOWN')">
+                                </td>
+                                <td class="text-xs text-muted" x-text="getTrafficExplorerPort(flow)"></td>
+                                <td class="text-xs" x-text="getTrafficExplorerBytes(flow)"></td>
+                                <td class="text-xs"
+                                    x-text="flow.packets !== undefined ? flow.packets.toLocaleString() : 'UNKNOWN'"></td>
+                                <td class="text-xs text-muted" x-text="getTrafficExplorerDirection(flow).toUpperCase()">
+                                </td>
+                                <td class="text-xs text-muted" x-text="getTrafficExplorerAction(flow)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div x-show="!trafficExplorer.loading && trafficExplorer.filtered.length === 0" class="empty-state"
+                    style="margin-top: var(--space-3);">No traffic matching current filters</div>
+            </div>
+            {% endcall %}
+
+            {% call widget_card('trafficExplorer', 'Flow Details', '📌', show_spinner=False) %}
+            <template x-if="trafficExplorer.selectedFlow">
+                <div>
+                    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
+                        <span class="text-cyan" x-text="trafficExplorer.selectedFlow.src || 'UNKNOWN'"></span>
+                        <span class="text-muted">→</span>
+                        <span class="text-purple" x-text="trafficExplorer.selectedFlow.dst || 'UNKNOWN'"></span>
+                        <span class="badge" style="margin-left: auto;"
+                            x-text="getTrafficExplorerDirection(trafficExplorer.selectedFlow).toUpperCase()"></span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-3);">
+                        <div class="card" style="padding: var(--space-3);">
+                            <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: 6px;">Source
+                                Identity</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+                                <div>
+                                    <div class="text-9 text-muted">DNS</div>
+                                    <div x-text="trafficExplorer.selectedFlow.src_hostname || getTrafficExplorerMeta(trafficExplorer.selectedFlow.src).hostname || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">Geo</div>
+                                    <div
+                                        x-text="trafficExplorer.selectedFlow.src_country || getTrafficExplorerMeta(trafficExplorer.selectedFlow.src).country || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">ASN</div>
+                                    <div
+                                        x-text="getTrafficExplorerMeta(trafficExplorer.selectedFlow.src).asn || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">ASN Org</div>
+                                    <div
+                                        x-text="getTrafficExplorerMeta(trafficExplorer.selectedFlow.src).asn_org || 'UNKNOWN'"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: var(--space-3);">
+                            <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: 6px;">Destination
+                                Identity</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+                                <div>
+                                    <div class="text-9 text-muted">DNS</div>
+                                    <div x-text="trafficExplorer.selectedFlow.dst_hostname || getTrafficExplorerMeta(trafficExplorer.selectedFlow.dst).hostname || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">Geo</div>
+                                    <div
+                                        x-text="trafficExplorer.selectedFlow.dst_country || getTrafficExplorerMeta(trafficExplorer.selectedFlow.dst).country || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">ASN</div>
+                                    <div
+                                        x-text="getTrafficExplorerMeta(trafficExplorer.selectedFlow.dst).asn || 'UNKNOWN'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">ASN Org</div>
+                                    <div
+                                        x-text="getTrafficExplorerMeta(trafficExplorer.selectedFlow.dst).asn_org || 'UNKNOWN'"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: var(--space-3);">
+                            <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: 6px;">Timing
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+                                <div>
+                                    <div class="text-9 text-muted">First Seen</div>
+                                    <div x-text="getTrafficExplorerFirstSeen(trafficExplorer.selectedFlow)"></div>
+                                </div>
+                                <div>
+                                    <div class="text-9 text-muted">Last Seen</div>
+                                    <div x-text="getTrafficExplorerLastSeen(trafficExplorer.selectedFlow)"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="padding: var(--space-3);">
+                            <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: 6px;">Why it is
+                                interesting</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);"
+                                x-show="getTrafficExplorerTags(trafficExplorer.selectedFlow).length > 0">
+                                <template x-for="tag in getTrafficExplorerTags(trafficExplorer.selectedFlow)" :key="tag">
+                                    <span class="badge" style="background: rgba(0, 234, 255, 0.08); color: var(--text-0);"
+                                        x-text="tag"></span>
+                                </template>
+                            </div>
+                            <div class="text-muted" style="font-size: var(--text-xs);"
+                                x-show="getTrafficExplorerTags(trafficExplorer.selectedFlow).length === 0">No notable tags</div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <template x-if="!trafficExplorer.selectedFlow">
+                <div class="empty-state" style="text-align: center;">Select a flow to view details</div>
+            </template>
+            {% endcall %}
+        </div>
+    </section>
+</div>
