@@ -126,6 +126,10 @@ def run_nfdump(args, tf=None):
             result = None
 
         # Ensure we always return a string, never None
+        # WARNING: Returning "" on failure masks errors as empty data (0 flows).
+        # Callers cannot easily distinguish "nfdump failed" from "no traffic found".
+        # Future refactoring should return None or raise exceptions, but requires
+        # updating all consumers (api_stats_flags, api_stats_durations, etc).
         return result if result is not None else ""
     finally:
         # OBSERVABILITY: Track subprocess metrics
