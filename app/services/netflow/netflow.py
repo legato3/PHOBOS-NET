@@ -178,6 +178,11 @@ def stream_nfdump(args, tf=None):
         ) as p:
             for line in p.stdout:
                 yield line
+
+            # Check exit code after stream finishes
+            if p.wait() != 0:
+                add_app_log(f"nfdump stream failed with exit code {p.returncode}", "WARN")
+
     except Exception as e:
         add_app_log(f"nfdump stream error: {e}", "ERROR")
 
