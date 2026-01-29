@@ -653,7 +653,7 @@ export const Store = () => ({
     // Modal
     modalOpen: false,
     selectedIP: null,
-    ipDetails: null,
+    ipDetails: { metadata: { tags: [], tags_text: '', owner: '', device_type: '', criticality: '', notes: '' }, timeline: { labels: [], bytes: [], flows: [], loading: false } },
     ipLoading: false,
 
     // Expanded Data Modal
@@ -5882,8 +5882,8 @@ export const Store = () => ({
                 const d = await res.json();
                 this.networkStatsOverview = {
                     // Preserve null vs 0 distinction for truthfulness
-                    active_flows: d.active_flows ?? null,
-                    external_connections: d.external_connections ?? null,
+                    active_flows: d.active_flows !== undefined ? d.active_flows : (this.networkStatsOverview.active_flows ?? null),
+                    external_connections: d.external_connections !== undefined ? d.external_connections : (this.networkStatsOverview.external_connections ?? null),
                     anomalies_count: d.anomalies_count ?? 0,
                     anomalies_24h: d.anomalies_count ?? 0, // Alias for compatibility
                     trends: d.trends || {},

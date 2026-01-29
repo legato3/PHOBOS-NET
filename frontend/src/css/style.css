@@ -9232,6 +9232,19 @@ body.compact-mode {
     color: var(--text-tertiary);
 }
 
+.flow-search .flow-header-cell {
+    position: sticky;
+    top: 0;
+    padding: 4px 6px;
+    background: rgba(10, 12, 16, 0.95);
+    z-index: 2;
+    font-size: 0.82em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .flow-search .flow-scrub {
     position: relative;
     height: 14px;
@@ -11953,5 +11966,3 @@ body.compact-mode {
         margin-top: 4px;
     }
 }
-
-
