@@ -853,61 +853,82 @@ def api_stats_talkers():
         except (ValueError, IndexError):
             pass
 
+        # Pass 1: Parse and collect unique IPs
+        raw_flows_parts = []
+        unique_ips = set()
+
         for line in lines[start_idx:]:
             line = line.strip()
             if not line or line.startswith('ts,') or line.startswith('firstseen,'): continue
             parts = line.split(',')
             if len(parts) > max(ts_idx, td_idx, pr_idx, sa_idx, sp_idx, da_idx, dp_idx, ipkt_idx, ibyt_idx):
                 try:
-                    ts_str = parts[ts_idx].strip()
-                    duration = float(parts[td_idx])
-                    proto_val = parts[pr_idx].strip()
                     src = parts[sa_idx].strip()
-                    src_port = parts[sp_idx].strip()
                     dst = parts[da_idx].strip()
-                    dst_port = parts[dp_idx].strip()
-                    pkts = int(float(parts[ipkt_idx]))
-                    b = int(float(parts[ibyt_idx]))
-
-                    # Calculate Age
-                    # ts format often: 2026-01-13 19:42:15.000
-                    try:
-                        # strip fractional seconds for parsing if needed, or simple str parse
-                        # fast simplified parsing
-                        if '.' in ts_str: ts_str = ts_str.split('.')[0]
-                        flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
-                        age_sec = now - flow_time
-                    except (ValueError, TypeError):
-                        age_sec = 0
-
-                    # Enrich with Geo
-                    src_geo = lookup_geo(src) or {}
-                    dst_geo = lookup_geo(dst) or {}
-
-                    # Resolve Service Name
-                    svc = resolve_service_name(dst_port, proto_val)
-
-                    flows.append({
-                        "ts": ts_str,
-                        "age": format_duration(age_sec) + " ago" if age_sec < 3600 else ts_str.split(' ')[1],
-                        "duration": f"{duration:.2f}s",
-                        "proto": proto_val,
-                        "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
-                        "src": src,
-                        "src_port": src_port,
-                        "src_flag": src_geo.get('flag', ''),
-                        "src_country": src_geo.get('country', ''),
-                        "dst": dst,
-                        "dst_port": dst_port,
-                        "dst_flag": dst_geo.get('flag', ''),
-                        "dst_country": dst_geo.get('country', ''),
-                        "service": svc,
-                        "bytes": b,
-                        "bytes_fmt": fmt_bytes(b),
-                        "packets": pkts
-                    })
-                except (ValueError, IndexError, KeyError, TypeError):
+                    unique_ips.add(src)
+                    unique_ips.add(dst)
+                    raw_flows_parts.append(parts)
+                except (ValueError, IndexError):
                     pass
+
+        # Batch Resolution: Resolve GeoIP for all unique IPs
+        # This reduces overhead by resolving each IP exactly once per batch
+        ip_context = {}
+        for ip in unique_ips:
+            ip_context[ip] = lookup_geo(ip) or {}
+
+        # Pass 2: Build flows using pre-resolved context
+        for parts in raw_flows_parts:
+            try:
+                ts_str = parts[ts_idx].strip()
+                duration = float(parts[td_idx])
+                proto_val = parts[pr_idx].strip()
+                src = parts[sa_idx].strip()
+                src_port = parts[sp_idx].strip()
+                dst = parts[da_idx].strip()
+                dst_port = parts[dp_idx].strip()
+                pkts = int(float(parts[ipkt_idx]))
+                b = int(float(parts[ibyt_idx]))
+
+                # Calculate Age
+                # ts format often: 2026-01-13 19:42:15.000
+                try:
+                    # strip fractional seconds for parsing if needed, or simple str parse
+                    # fast simplified parsing
+                    if '.' in ts_str: ts_str = ts_str.split('.')[0]
+                    flow_time = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').timestamp()
+                    age_sec = now - flow_time
+                except (ValueError, TypeError):
+                    age_sec = 0
+
+                # Enrich with Geo (from context)
+                src_geo = ip_context.get(src, {})
+                dst_geo = ip_context.get(dst, {})
+
+                # Resolve Service Name
+                svc = resolve_service_name(dst_port, proto_val)
+
+                flows.append({
+                    "ts": ts_str,
+                    "age": format_duration(age_sec) + " ago" if age_sec < 3600 else ts_str.split(' ')[1],
+                    "duration": f"{duration:.2f}s",
+                    "proto": proto_val,
+                    "proto_name": { "6": "TCP", "17": "UDP", "1": "ICMP" }.get(proto_val, proto_val),
+                    "src": src,
+                    "src_port": src_port,
+                    "src_flag": src_geo.get('flag', ''),
+                    "src_country": src_geo.get('country', ''),
+                    "dst": dst,
+                    "dst_port": dst_port,
+                    "dst_flag": dst_geo.get('flag', ''),
+                    "dst_country": dst_geo.get('country', ''),
+                    "service": svc,
+                    "bytes": b,
+                    "bytes_fmt": fmt_bytes(b),
+                    "packets": pkts
+                })
+            except (ValueError, IndexError, KeyError, TypeError):
+                pass
 
     except (ValueError, IndexError, KeyError, TypeError) as e:
         add_app_log(f"Error parsing talkers: {e}", 'WARN')
