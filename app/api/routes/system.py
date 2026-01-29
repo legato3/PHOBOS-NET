@@ -60,6 +60,8 @@ from app.services.shared.metrics import (
 )
 from app.services.shared.snmp import get_snmp_data, start_snmp_thread
 from app.services.shared.cpu import calculate_cpu_percent_from_stat
+from app.services.shared.baselines import get_baseline_stats
+from app.services.summary.network_summary import generate_network_summary
 from app.core.background import (
     start_threat_thread,
     start_trends_thread,
@@ -113,6 +115,8 @@ from app.core.app_state import (
     _stats_flow_stats_cache,
     _stats_proto_mix_cache,
     _stats_net_health_cache,
+    _stats_network_overview_cache,
+    _stats_firewall_overview_cache,
     _stats_proto_hierarchy_cache,
     _stats_noise_metrics_cache,
     _server_health_cache,
@@ -268,6 +272,74 @@ def api_stats_summary():
     tot_b = sum(i["bytes"] for i in sources)
     tot_f = sum(i["flows"] for i in sources)
     tot_p = sum(i["packets"] for i in sources)
+
+    # Build deterministic network summary from aggregated stats
+    range_hours = {
+        "15m": 0.25,
+        "30m": 0.5,
+        "1h": 1,
+        "4h": 4,
+        "6h": 6,
+        "12h": 12,
+        "24h": 24,
+        "48h": 48,
+        "3d": 72,
+        "7d": 168,
+        "30d": 720,
+    }.get(range_key, 1)
+    traffic_bytes_per_hour = (tot_b / range_hours) if range_hours > 0 else None
+
+    # Pull latest cached overview stats if available (no heavy queries)
+    net_overview = (
+        _stats_network_overview_cache.get("data")
+        if _stats_network_overview_cache.get("key") in (None, range_key)
+        else None
+    )
+    fw_overview = _stats_firewall_overview_cache.get("data")
+    net_health = _stats_net_health_cache.get("data")
+
+    # Alerts (in-memory, fast)
+    threats_module.auto_resolve_stale_alerts()
+    alerts_active = threats_module.get_active_alerts_count()
+    alerts_critical = 0
+    with threats_module._alert_history_lock:
+        for alert in threats_module._alert_history:
+            if alert.get("active", True) and alert.get("severity") == "critical":
+                alerts_critical += 1
+
+    # Traffic baseline ratio (if available)
+    traffic_ratio = None
+    if net_overview and net_overview.get("active_flows") is not None:
+        baseline = get_baseline_stats("active_flows")
+        if baseline and baseline.get("mean"):
+            traffic_ratio = net_overview["active_flows"] / max(1, baseline["mean"])
+
+    # Unusual activity signals
+    unusual_count = net_overview.get("anomalies_count") if net_overview else None
+    unusual_spike = False
+    if net_overview and isinstance(net_overview.get("trends"), dict):
+        anomalies_trend = net_overview["trends"].get("anomalies") or {}
+        if anomalies_trend.get("direction") == "up" and anomalies_trend.get("significant"):
+            unusual_spike = True
+
+    # Health degraded flag
+    health_status = (net_health or {}).get("status") or (net_health or {}).get("status_text")
+    health_degraded = str(health_status).lower() in ("fair", "poor", "degraded", "unavailable")
+
+    summary_stats = {
+        "data_ready": bool(sources) or bool(net_overview) or bool(fw_overview) or bool(net_health),
+        "alerts_active": alerts_active,
+        "alerts_critical": alerts_critical,
+        "health_degraded": health_degraded,
+        "traffic_ratio": traffic_ratio,
+        "traffic_bytes_per_hour": traffic_bytes_per_hour,
+        "unusual_count": unusual_count,
+        "unusual_spike": unusual_spike,
+        "firewall_blocks": fw_overview.get("blocked_events_24h") if fw_overview else None,
+    }
+
+    network_summary = generate_network_summary(summary_stats)
+
     data = {
         "totals": {
             "bytes": tot_b,
@@ -279,6 +351,7 @@ def api_stats_summary():
         },
         "notify": load_notify_cfg(),
         "threat_status": threats_module._threat_status,
+        "network_summary": network_summary,
     }
     return data
 
@@ -2177,5 +2250,3 @@ def api_tools_shell():
         )
     except Exception as e:
         return jsonify({"output": "", "exit_code": -1, "error": str(e)})
-
-

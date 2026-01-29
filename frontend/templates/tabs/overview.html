@@ -87,6 +87,14 @@
         </div>
     </div>
 
+    <!-- Network Summary -->
+    <div style="margin-top: var(--space-4);">
+        {% call widget_card('network-summary', 'Network Summary', '🧭') %}
+        <p style="font-size:var(--text-base); line-height:var(--line-height-normal); color:var(--text-1); margin:0;"
+            x-text="summary.network_summary || 'Network status is currently being assessed.'">
+        </p>
+        {% endcall %}
+    </div>
 
     <!-- LEGACY WIDGETS RESTORED (Context & Deep Dive) -->
     <div style="margin-top: 0; padding-top: 0;">

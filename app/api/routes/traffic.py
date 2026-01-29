@@ -42,12 +42,14 @@ from app.core.app_state import (
     _lock_proto_hierarchy, _lock_noise, _lock_service_cache,
     _cache_lock,
     _throttle_lock, _common_data_lock, _cpu_stat_lock,
+    _lock_firewall_overview, _lock_network_overview,
     _stats_summary_cache, _stats_sources_cache, _stats_dests_cache,
     _stats_ports_cache, _stats_protocols_cache, _stats_alerts_cache,
     _stats_flags_cache, _stats_asns_cache, _stats_durations_cache,
     _stats_pkts_cache, _stats_countries_cache, _stats_talkers_cache,
     _stats_services_cache, _stats_hourly_cache, _stats_flow_stats_cache,
     _stats_proto_mix_cache, _stats_net_health_cache,
+    _stats_firewall_overview_cache, _stats_network_overview_cache,
     _stats_proto_hierarchy_cache, _stats_noise_metrics_cache, _stats_worldmap_cache,
     _server_health_cache,
     _bandwidth_cache, _bandwidth_history_cache,
@@ -1659,7 +1661,7 @@ def api_firewall_stats_overview():
     # Calculate trend for blocked events (using rate for comparison)
     blocked_trend = calculate_trend('firewall_blocks_rate', blocks_rate)
     
-    return jsonify({
+    data = {
         "blocked_events_24h": blocked_events_24h,
         "unique_blocked_sources": unique_blocked_sources,
         "new_blocked_ips": new_blocked_ips,
@@ -1670,7 +1672,18 @@ def api_firewall_stats_overview():
         },
         # TIME SCOPE METADATA: Fixed 24h window
         "time_scope": "24h"
-    })
+    }
+
+    # Cache for lightweight consumers (summary/overview)
+    try:
+        with _lock_firewall_overview:
+            _stats_firewall_overview_cache["data"] = data
+            _stats_firewall_overview_cache["ts"] = time.time()
+            _stats_firewall_overview_cache["key"] = "24h"
+    except Exception:
+        pass
+
+    return jsonify(data)
 
 
 def _safe_ensure_rollup(bucket):
@@ -2194,7 +2207,7 @@ def api_network_stats_overview():
     external_connections_trend = calculate_trend('external_connections', external_connections_count) if external_connections_count is not None else 0
     anomalies_trend = calculate_trend('anomalies_rate', anomalies_rate)
     
-    return jsonify({
+    data = {
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
         "external_unique_ips": external_unique_ips,
@@ -2210,7 +2223,18 @@ def api_network_stats_overview():
             "external_connections": range_key,
             "anomalies_count": range_key
         }
-    })
+    }
+
+    # Cache for lightweight consumers (summary/overview)
+    try:
+        with _lock_network_overview:
+            _stats_network_overview_cache["data"] = data
+            _stats_network_overview_cache["ts"] = time.time()
+            _stats_network_overview_cache["key"] = range_key
+    except Exception:
+        pass
+
+    return jsonify(data)
 
 
 @bp.route("/api/network/intelligence")
