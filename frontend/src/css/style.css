@@ -2443,6 +2443,79 @@ tr:hover td {
     height: 100px;
 }
 
+/* Overview status summary (no inline styles) */
+.overview-status-summary {
+    margin-bottom: var(--space-4);
+    padding: var(--space-4);
+}
+
+.overview-status-primary {
+    font-size: var(--text-base);
+    line-height: var(--line-height-normal);
+    color: var(--text-1);
+    margin: 0;
+}
+
+.overview-status-secondary {
+    font-size: var(--text-sm);
+    line-height: var(--line-height-normal);
+    color: var(--text-2);
+    margin: 6px 0 0 0;
+}
+
+/* Overview stat detail modal */
+.stat-detail-modal {
+    max-width: 420px;
+}
+
+.stat-detail-modal .modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.stat-detail-title {
+    margin: 0;
+    color: var(--text-0);
+}
+
+.stat-detail-close {
+    background: transparent;
+    border: none;
+    font-size: 1.5em;
+    color: var(--neon-red);
+    cursor: pointer;
+}
+
+.stat-detail-body {
+    color: var(--text-0);
+}
+
+.stat-detail-value {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.stat-detail-description {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 8px 0 0 0;
+}
+
+.stat-detail-hint {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    margin: 8px 0 0 0;
+}
+
+.stat-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
 /* CYBERPUNK UI: Layer dots - Signal colors */
 .layer-dot-green {
     background: var(--signal-ok);

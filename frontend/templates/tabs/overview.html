@@ -4,13 +4,11 @@
     x-transition:enter-end="opacity-100">
 
     <!-- STATUS SUMMARY -->
-    <div style="margin-bottom: var(--space-4); padding: var(--space-4); border: 1px solid var(--card-border); border-radius: var(--radius-md); background: rgba(20,20,25,0.6);">
-        <p style="font-size:var(--text-base); line-height:var(--line-height-normal); color:var(--text-1); margin:0;"
-            x-text="summary.network_summary || 'Network status is currently being assessed.'">
-        </p>
-        <p style="font-size:var(--text-sm); line-height:var(--line-height-normal); color:var(--text-2); margin:6px 0 0 0;"
-            x-text="summary.what_changed_1h || 'Learning changes… check back in a few minutes.'">
-        </p>
+    <div class="card overview-status-summary">
+        <p class="overview-status-primary"
+            x-text="summary.network_summary || 'Network status is currently being assessed.'"></p>
+        <p class="overview-status-secondary"
+            x-text="summary.what_changed_1h || 'Learning changes… check back in a few minutes.'"></p>
     </div>
 
     <!-- LEGACY HEADER METRICS (Restored) -->
