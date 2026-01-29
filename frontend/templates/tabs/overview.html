@@ -3,10 +3,20 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
+    <!-- STATUS SUMMARY -->
+    <div style="margin-bottom: var(--space-4); padding: var(--space-4); border: 1px solid var(--card-border); border-radius: var(--radius-md); background: rgba(20,20,25,0.6);">
+        <p style="font-size:var(--text-base); line-height:var(--line-height-normal); color:var(--text-1); margin:0;"
+            x-text="summary.network_summary || 'Network status is currently being assessed.'">
+        </p>
+        <p style="font-size:var(--text-sm); line-height:var(--line-height-normal); color:var(--text-2); margin:6px 0 0 0;"
+            x-text="summary.what_changed_1h || 'Learning changes… check back in a few minutes.'">
+        </p>
+    </div>
+
     <!-- LEGACY HEADER METRICS (Restored) -->
     <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
         <!-- 1. NETWORK STATUS -->
-        <div class="card" @click="openFwDetail('networkHealth')"
+        <div class="card" @click="openStatDetail('networkStatus')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
@@ -22,7 +32,7 @@
         </div>
 
         <!-- 2. ACTIVE ALERTS -->
-        <div class="card"
+        <div class="card" @click="openStatDetail('activeAlerts')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                 x-text="formatNumOrDash(alertHistory?.active_count)"></div>
@@ -32,7 +42,7 @@
         </div>
 
         <!-- 3. TRAFFIC LEVEL -->
-        <div class="card"
+        <div class="card" @click="openStatDetail('trafficLevel')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
                 <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
@@ -44,7 +54,7 @@
         </div>
 
         <!-- 4. PROTECTED CONNECTIONS -->
-        <div class="card"
+        <div class="card" @click="openStatDetail('protectedConnections')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
                 <span style="font-size:1.4em; font-weight:600; color:var(--signal-ok);"
@@ -55,7 +65,7 @@
         </div>
 
         <!-- 5. INTERNET EXPOSURE -->
-        <div class="card"
+        <div class="card" @click="openStatDetail('internetExposure')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
                 <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
@@ -69,12 +79,12 @@
         </div>
 
         <!-- 6. UNUSUAL ACTIVITY -->
-        <div class="card" @click="openFwDetail('networkAnomalies')"
+        <div class="card" @click="openStatDetail('unusualActivity')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
-            <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600;"
+            <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin-bottom:2px; width:100%;">
+                <span style="font-size:1.4em; font-weight:600; text-align:center; width:100%;"
                     :style="'color: ' + getUnusualActivitySummary().color"
                     x-text="getUnusualActivitySummary().headline"></span>
             </div>
@@ -85,15 +95,6 @@
                 UNUSUAL ACTIVITY <span style="font-size:1.1em; opacity:0.7;">ℹ️</span>
             </div>
         </div>
-    </div>
-
-    <!-- Network Summary -->
-    <div style="margin-top: var(--space-4);">
-        {% call widget_card('network-summary', 'Network Summary', '🧭') %}
-        <p style="font-size:var(--text-base); line-height:var(--line-height-normal); color:var(--text-1); margin:0;"
-            x-text="summary.network_summary || 'Network status is currently being assessed.'">
-        </p>
-        {% endcall %}
     </div>
 
     <!-- LEGACY WIDGETS RESTORED (Context & Deep Dive) -->

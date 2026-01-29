@@ -62,6 +62,8 @@ from app.services.shared.snmp import get_snmp_data, start_snmp_thread
 from app.services.shared.cpu import calculate_cpu_percent_from_stat
 from app.services.shared.baselines import get_baseline_stats
 from app.services.summary.network_summary import generate_network_summary
+from app.services.summary.snapshot_store import record_snapshot, get_snapshot_near
+from app.services.summary.changes import compute_last_hour_changes, format_change_sentence
 from app.core.background import (
     start_threat_thread,
     start_trends_thread,
@@ -336,9 +338,33 @@ def api_stats_summary():
         "unusual_count": unusual_count,
         "unusual_spike": unusual_spike,
         "firewall_blocks": fw_overview.get("blocked_events_24h") if fw_overview else None,
+        "active_flows": net_overview.get("active_flows") if net_overview else None,
+        "external_connections": net_overview.get("external_connections") if net_overview else None,
     }
 
     network_summary = generate_network_summary(summary_stats)
+
+    now_ts = time.time()
+    # Record a lightweight snapshot (5-minute cadence)
+    record_snapshot(
+        {
+            "traffic_bytes_per_hour": traffic_bytes_per_hour,
+            "active_flows": summary_stats["active_flows"],
+            "external_connections": summary_stats["external_connections"],
+            "firewall_blocks": summary_stats["firewall_blocks"],
+            "unusual_count": unusual_count,
+            "alerts_active": alerts_active,
+            "alerts_critical": alerts_critical,
+        },
+        now_ts=now_ts,
+    )
+
+    prev_snapshot = get_snapshot_near(now_ts - 3600, max_drift_seconds=900)
+    if prev_snapshot:
+        changes = compute_last_hour_changes(summary_stats, prev_snapshot)
+        what_changed = format_change_sentence(changes)
+    else:
+        what_changed = "Learning changes… check back in a few minutes."
 
     data = {
         "totals": {
@@ -352,6 +378,7 @@ def api_stats_summary():
         "notify": load_notify_cfg(),
         "threat_status": threats_module._threat_status,
         "network_summary": network_summary,
+        "what_changed_1h": what_changed,
     }
     return data
 

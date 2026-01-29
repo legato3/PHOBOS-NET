@@ -163,6 +163,8 @@ export const Store = () => ({
     // Mobile UI state
     showMobileFilters: false,
     worldMapMobileVisible: false,
+    statDetailOpen: false,
+    statDetail: { title: '', value: '', description: '', hint: '' },
 
     // Sparkline cache
     sparkCache: {}, // { key: { ts, labels, bytes } }
@@ -170,6 +172,7 @@ export const Store = () => ({
 
     // Data Stores
     summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
+    networkSummary: { loading: false },
     sources: { sources: [], loading: true },
     destinations: { destinations: [], loading: true },
     ports: { ports: [], loading: true },
@@ -1472,6 +1475,66 @@ export const Store = () => ({
             color: 'var(--signal-warn)',
             lastDetected
         };
+    },
+
+    openStatDetail(kind) {
+        let detail = { title: '', value: '', description: '', hint: '' };
+
+        if (kind === 'networkStatus') {
+            const status = this.getNetworkStatusSummary();
+            detail = {
+                title: 'Network Status',
+                value: status.headline,
+                description: status.detail,
+                hint: 'Derived from alerts, unusual activity, and system health.'
+            };
+        } else if (kind === 'activeAlerts') {
+            const count = this.alertHistory?.active_count;
+            const value = count === null || count === undefined ? '—' : `${Number(count).toLocaleString()} active`;
+            const trend = this.getActiveAlertTrend();
+            detail = {
+                title: 'Active Alerts',
+                value,
+                description: trend.text,
+                hint: 'Active alerts reflect current items needing review.'
+            };
+        } else if (kind === 'trafficLevel') {
+            const traffic = this.getTrafficLevelSummary();
+            detail = {
+                title: 'Traffic Level',
+                value: `Traffic: ${traffic.level}`,
+                description: traffic.detail,
+                hint: 'Based on recent volume and baseline activity.'
+            };
+        } else if (kind === 'protectedConnections') {
+            const blocks = this.firewallStatsOverview?.blocked_events_24h;
+            const value = blocks === null || blocks === undefined ? '—' : Number(blocks).toLocaleString();
+            detail = {
+                title: 'Protected Connections',
+                value,
+                description: 'Firewall is filtering routine background noise.',
+                hint: 'Count reflects the last 24 hours of blocks.'
+            };
+        } else if (kind === 'internetExposure') {
+            const exposure = this.getExposureSummary();
+            detail = {
+                title: 'Internet Exposure',
+                value: `Exposure: ${exposure.level}`,
+                description: exposure.detail,
+                hint: exposure.note
+            };
+        } else if (kind === 'unusualActivity') {
+            const unusual = this.getUnusualActivitySummary();
+            detail = {
+                title: 'Unusual Activity',
+                value: unusual.headline,
+                description: unusual.detail,
+                hint: 'Detected patterns that differ from typical behavior.'
+            };
+        }
+
+        this.statDetail = detail;
+        this.statDetailOpen = true;
     },
 
     // UI state for details toggle
