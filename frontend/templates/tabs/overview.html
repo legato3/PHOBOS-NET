@@ -6,7 +6,9 @@
     <!-- LEGACY HEADER METRICS (Restored) -->
     <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
         <!-- 1. HEALTH -->
-        <div class="card" @click="openFwDetail('networkHealth')"
+        <div class="card" @click="openFwDetail('networkHealth')" role="button" tabindex="0"
+            aria-label="View Network Health Details" @keydown.enter="openFwDetail('networkHealth')"
+            @keydown.space.prevent="openFwDetail('networkHealth')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
@@ -59,7 +61,9 @@
         </div>
 
         <!-- 6. ANOMALIES -->
-        <div class="card" @click="openFwDetail('networkAnomalies')"
+        <div class="card" @click="openFwDetail('networkAnomalies')" role="button" tabindex="0"
+            aria-label="View Network Anomalies Details" @keydown.enter="openFwDetail('networkAnomalies')"
+            @keydown.space.prevent="openFwDetail('networkAnomalies')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
@@ -88,7 +92,11 @@
                     <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
                 </button>
                 <div class="chart-wrapper chart-expandable" x-show="!collapsed || window.innerWidth > 768"
-                    @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                    @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" role="button" tabindex="0"
+                    aria-label="Expand Bandwidth Chart"
+                    @keydown.enter="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                    @keydown.space.prevent="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                    title="Click to expand">
                     <canvas id="bwChart"></canvas>
                 </div>
             </div>
@@ -165,7 +173,10 @@
                     <div class="wm-country-col">
                         <h4>🔼 Sources</h4>
                         <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -177,7 +188,10 @@
                     <div class="wm-country-col">
                         <h4>🔽 Dests</h4>
                         <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -189,7 +203,10 @@
                     <div class="wm-country-col">
                         <h4>⚠️ Threats</h4>
                         <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
