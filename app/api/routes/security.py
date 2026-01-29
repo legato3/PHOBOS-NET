@@ -1984,10 +1984,9 @@ def api_forensics_timeline():
             return jsonify({"error": "Target IP is required"}), 400
 
         # Validate IP format
-        import re
-
-        ip_pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-        if not re.match(ip_pattern, target_ip):
+        try:
+            validate_ip_input(target_ip)
+        except ValueError:
             return jsonify({"error": "Invalid IP address format"}), 400
 
         from app.services.netflow.netflow import run_nfdump, get_time_range

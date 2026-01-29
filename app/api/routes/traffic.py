@@ -1225,6 +1225,10 @@ def api_stats_hourly():
     WARNING: The logic aligns buckets using `datetime.now().hour` (server local time).
     If nfdump is configured to log in UTC (or another timezone), the profile may be shifted.
     Future improvements should detect nfdump timezone or enforce UTC alignment.
+
+    FRAGILITY WARNING: This logic assumes nfdump timestamps match the server's local time zone.
+    If nfdump records in UTC but the server is in EST, the 'current hour' alignment
+    will be skewed, potentially causing the chart to show 'future' data or gaps.
     """
     range_key = request.args.get('range', '24h')
     now = time.time()
@@ -2836,8 +2840,8 @@ def api_firewall_snmp_status():
                 match = re.search(r'time[=<](\d+\.?\d*)', ping_output)
                 if match:
                     gateway_latency = float(match.group(1))
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                gateway_latency = None  # Gateway unreachable
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+                gateway_latency = None  # Gateway unreachable or ping missing
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError):
         # IP/gateway discovery failed - continue without
         pass
