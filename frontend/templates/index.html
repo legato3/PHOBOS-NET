@@ -2366,9 +2366,68 @@
                     <button class="stat-detail-close" @click="statDetailOpen = false" aria-label="Close">×</button>
                 </div>
                 <div class="modal__body stat-detail-body">
-                    <div class="stat-detail-value" x-text="statDetail.value || '—'"></div>
-                    <p class="stat-detail-description" x-text="statDetail.description || '—'"></p>
-                    <p class="stat-detail-hint" x-text="statDetail.hint || '—'"></p>
+                    <div class="stat-detail-value" x-text="statDetail.value ?? '—'"></div>
+                    <template x-if="statDetail.description">
+                        <p class="stat-detail-description" x-text="statDetail.description"></p>
+                    </template>
+                    <template x-if="statDetail.hint">
+                        <p class="stat-detail-hint" x-text="statDetail.hint"></p>
+                    </template>
+
+                    <template x-if="statDetail.window">
+                        <div class="stat-detail-window" x-text="'Window: ' + statDetail.window"></div>
+                    </template>
+
+                    <template x-if="statDetail.breakdowns && statDetail.breakdowns.length">
+                        <div class="stat-detail-section">
+                            <h4 class="stat-detail-section-title">Breakdown</h4>
+                            <div class="stat-detail-list">
+                                <template x-for="(item, idx) in statDetail.breakdowns" :key="'bd-' + idx">
+                                    <div class="stat-detail-item">
+                                        <div class="stat-detail-item-label" x-text="item.label"></div>
+                                        <div class="stat-detail-item-value" x-text="item.value ?? '—'"></div>
+                                        <div class="stat-detail-item-hint" x-text="item.hint || ''"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="statDetail.top && statDetail.top.length">
+                        <div class="stat-detail-section">
+                            <h4 class="stat-detail-section-title">Top Contributors</h4>
+                            <div class="stat-detail-list">
+                                <template x-for="(item, idx) in statDetail.top" :key="'top-' + idx">
+                                    <div class="stat-detail-item">
+                                        <div class="stat-detail-item-label" x-text="item.label"></div>
+                                        <div class="stat-detail-item-value" x-text="item.value ?? '—'"></div>
+                                        <div class="stat-detail-item-hint" x-text="item.hint || ''"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="statDetail.explanations && (statDetail.explanations.why || statDetail.explanations.what_changed || (statDetail.explanations.next_checks && statDetail.explanations.next_checks.length))">
+                        <div class="stat-detail-section">
+                            <h4 class="stat-detail-section-title">Why this matters</h4>
+                            <p class="stat-detail-paragraph" x-text="statDetail.explanations.why || '—'"></p>
+
+                            <h4 class="stat-detail-section-title">What changed</h4>
+                            <p class="stat-detail-paragraph" x-text="statDetail.explanations.what_changed || '—'"></p>
+
+                            <template x-if="statDetail.explanations.next_checks && statDetail.explanations.next_checks.length">
+                                <div>
+                                    <h4 class="stat-detail-section-title">What to check next</h4>
+                                    <ul class="stat-detail-checks">
+                                        <template x-for="(item, idx) in statDetail.explanations.next_checks" :key="'next-' + idx">
+                                            <li x-text="item"></li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
                 </div>
                 <div class="modal__footer stat-detail-footer">
                     <button class="btn btn--primary" @click="statDetailOpen = false">Close</button>

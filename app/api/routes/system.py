@@ -383,6 +383,563 @@ def api_stats_summary():
     return data
 
 
+@bp.route("/api/overview/insights")
+@throttle(10, 5)
+def api_overview_insights():
+    """Overview insights bundle (current values + 1h deltas + modal details)."""
+    tf_key = request.args.get("tf", "1h")
+    seconds_map = {
+        "15m": 900,
+        "30m": 1800,
+        "1h": 3600,
+        "4h": 14400,
+        "6h": 21600,
+        "12h": 43200,
+    }
+    window_seconds = seconds_map.get(tf_key, 3600)
+
+    now = datetime.now()
+    now_start = now - timedelta(seconds=window_seconds)
+    prev_end = now_start
+    prev_start = prev_end - timedelta(seconds=window_seconds)
+
+    def _tf(st, et):
+        return f"{st.strftime('%Y/%m/%d.%H:%M:%S')}-{et.strftime('%Y/%m/%d.%H:%M:%S')}"
+
+    tf_now = _tf(now_start, now)
+    tf_prev = _tf(prev_start, prev_end)
+
+    # -------- Alerts --------
+    threats_module.auto_resolve_stale_alerts()
+    with threats_module._alert_history_lock:
+        alerts = [a.copy() for a in threats_module._alert_history]
+
+    active_alerts = [a for a in alerts if a.get("active", True)]
+    active_count = len(active_alerts)
+    critical_active = sum(1 for a in active_alerts if a.get("severity") == "critical")
+
+    now_cutoff = time.time() - window_seconds
+    prev_cutoff = time.time() - (2 * window_seconds)
+    new_now = [a for a in alerts if a.get("ts", 0) >= now_cutoff]
+    new_prev = [a for a in alerts if prev_cutoff <= a.get("ts", 0) < now_cutoff]
+    new_now_count = len(new_now)
+    new_prev_count = len(new_prev)
+
+    # Alert breakdowns
+    by_severity = Counter(a.get("severity", "unknown") for a in active_alerts)
+    by_type = Counter(a.get("type", "unknown") for a in active_alerts)
+    by_entity = Counter(
+        a.get("ip") or a.get("source") or a.get("destination") or "unknown"
+        for a in active_alerts
+    )
+
+    newest_alerts = sorted(active_alerts, key=lambda x: x.get("ts", 0), reverse=True)[:5]
+
+    # -------- Traffic (approx. via top sources) --------
+    range_key = tf_key if tf_key in seconds_map else "1h"
+    sources_now = get_common_nfdump_data("sources", range_key)
+    protocols_now = get_common_nfdump_data("protos", range_key)
+    bytes_now = sum(i.get("bytes", 0) for i in sources_now)
+    flows_now = sum(i.get("flows", 0) for i in sources_now)
+
+    # -------- Firewall (blocks, pass) --------
+    _firewall_db_init()
+    def _fw_counts(start_ts, end_ts, where=""):
+        query = (
+            "SELECT action, COUNT(*) FROM fw_logs "
+            "WHERE timestamp >= ? AND timestamp < ? "
+        )
+        if where:
+            query += where
+        query += " GROUP BY action"
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                cur = conn.execute(query, (start_ts, end_ts))
+                return {row[0]: row[1] for row in cur.fetchall()}
+            finally:
+                conn.close()
+
+    now_ts = now.timestamp()
+    now_start_ts = now_start.timestamp()
+    prev_start_ts = prev_start.timestamp()
+    prev_end_ts = prev_end.timestamp()
+
+    fw_now = _fw_counts(now_start_ts, now_ts)
+    fw_prev = _fw_counts(prev_start_ts, prev_end_ts)
+    blocks_now = sum(v for k, v in fw_now.items() if k in ("block", "reject"))
+    blocks_prev = sum(v for k, v in fw_prev.items() if k in ("block", "reject"))
+    pass_now = sum(v for k, v in fw_now.items() if k in ("pass", "allow"))
+
+    # Top blocked ports + sources (last hour)
+    top_block_ports = []
+    top_block_sources = []
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT dst_port, COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND action IN ('block', 'reject') AND dst_port IS NOT NULL
+                GROUP BY dst_port
+                ORDER BY cnt DESC
+                LIMIT 5
+                """,
+                (now_start_ts, now_ts),
+            )
+            top_block_ports = [{"label": f"Port {row[0]}", "value": row[1]} for row in cur.fetchall()]
+            cur = conn.execute(
+                """
+                SELECT src_ip, COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND action IN ('block', 'reject') AND src_ip IS NOT NULL
+                GROUP BY src_ip
+                ORDER BY cnt DESC
+                LIMIT 5
+                """,
+                (now_start_ts, now_ts),
+            )
+            top_block_sources = [{"label": row[0], "value": row[1]} for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    # -------- Internet exposure (inbound WAN) --------
+    inbound_count = 0
+    inbound_unique = 0
+    inbound_sources = set()
+    inbound_prev_sources = set()
+    top_exposed = []
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            cur = conn.execute(
+                """
+                SELECT src_ip, dst_ip, dst_port
+                FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND lower(interface) LIKE '%wan%' AND lower(direction) LIKE 'in%'
+                """,
+                (now_start_ts, now_ts),
+            )
+            rows = cur.fetchall()
+            inbound_count = len(rows)
+            for src, _, _ in rows:
+                if src:
+                    inbound_sources.add(src)
+            inbound_unique = len(inbound_sources)
+
+            cur = conn.execute(
+                """
+                SELECT src_ip
+                FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND lower(interface) LIKE '%wan%' AND lower(direction) LIKE 'in%'
+                """,
+                (prev_start_ts, prev_end_ts),
+            )
+            inbound_prev_sources = set(r[0] for r in cur.fetchall() if r[0])
+
+            cur = conn.execute(
+                """
+                SELECT dst_ip, dst_port, COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND lower(interface) LIKE '%wan%' AND lower(direction) LIKE 'in%'
+                GROUP BY dst_ip, dst_port
+                ORDER BY cnt DESC
+                LIMIT 5
+                """,
+                (now_start_ts, now_ts),
+            )
+            top_exposed = [
+                {"label": f"{row[0]}:{row[1]}", "value": row[2]} for row in cur.fetchall()
+            ]
+        finally:
+            conn.close()
+
+    new_inbound_sources = len(inbound_sources - inbound_prev_sources)
+
+    # -------- Unusual activity (signals) --------
+    signals = threats_module.get_signal_history(max_age_seconds=window_seconds * 2)
+    unusual_now = [s for s in signals if s.get("ts", 0) >= now_cutoff and s.get("level") in ("elevated", "high")]
+    unusual_prev = [s for s in signals if prev_cutoff <= s.get("ts", 0) < now_cutoff and s.get("level") in ("elevated", "high")]
+    unusual_now_count = len(unusual_now)
+    unusual_prev_count = len(unusual_prev)
+
+    unusual_by_type = Counter(s.get("type", "unknown") for s in unusual_now)
+    unusual_top = [
+        {
+            "label": str(k).replace("_", " ").title(),
+            "value": v,
+            "hint": "Indicator",
+        }
+        for k, v in unusual_by_type.most_common(5)
+    ]
+
+    # -------- Dependency health --------
+    deps = get_dependency_health()
+    def _dep_status(name, ok_key, last_key):
+        data = deps.get(name, {})
+        ok = data.get(ok_key)
+        last_ts = data.get(last_key)
+        age = data.get(f"{last_key}_age_sec")
+        status = "OK" if ok else "Unhealthy" if ok is False else "Unknown"
+        last_seen = format_time_ago(last_ts) if last_ts else "—"
+        if age and age > 3600:
+            status = "Stalled"
+        return status, last_seen
+
+    nfcapd_status = "OK" if deps.get("nfcapd", {}).get("running") else "Unavailable"
+    syslog514_status, syslog514_seen = _dep_status("syslog_514", "listening", "last_packet_time")
+    syslog515_status, syslog515_seen = _dep_status("syslog_515", "listening", "last_packet_time")
+    snmp_status = "OK" if deps.get("snmp", {}).get("reachable") else "Unreachable" if deps.get("snmp", {}).get("reachable") is False else "Unknown"
+
+    # Record snapshot for 1h deltas (5-minute cadence)
+    record_snapshot(
+        {
+            "traffic_bytes_per_hour": bytes_now,
+            "active_flows": flows_now,
+            "external_connections": inbound_unique,
+            "firewall_blocks": blocks_now,
+            "unusual_count": unusual_now_count,
+            "alerts_active": active_count,
+            "alerts_critical": critical_active,
+            "dep_nfcapd_running": bool(deps.get("nfcapd", {}).get("running")),
+            "dep_syslog_514": syslog514_status,
+            "dep_syslog_515": syslog515_status,
+            "dep_snmp": snmp_status,
+        },
+        now_ts=now_ts,
+    )
+
+    prev_snapshot = get_snapshot_near(now_ts - window_seconds, max_drift_seconds=900)
+    transition_snapshot = get_snapshot_near(now_ts - 7200, max_drift_seconds=1800)
+
+    def _delta(now_val, prev_val):
+        if prev_val is None:
+            return None, None, "unknown"
+        delta_val = now_val - prev_val
+        pct = ((delta_val / prev_val) * 100) if prev_val else None
+        if delta_val > 0:
+            trend = "up"
+        elif delta_val < 0:
+            trend = "down"
+        else:
+            trend = "flat"
+        return delta_val, pct, trend
+
+    # ---- Build stats payloads ----
+    # Network Status
+    status_value = "Stable"
+    severity = "info"
+    if critical_active > 0:
+        status_value = "Requires attention"
+        severity = "warn"
+    elif unusual_now_count > 2:
+        status_value = "Showing unusual patterns"
+        severity = "notice"
+    elif nfcapd_status != "OK" or "Stalled" in (syslog514_status, syslog515_status) or snmp_status == "Unreachable":
+        status_value = "Degraded"
+        severity = "notice"
+
+    transitions = []
+    if transition_snapshot:
+        if transition_snapshot.get("dep_syslog_514") != syslog514_status:
+            transitions.append(f"Syslog 514 is now {syslog514_status.lower()}.")
+        if transition_snapshot.get("dep_syslog_515") != syslog515_status:
+            transitions.append(f"Syslog 515 is now {syslog515_status.lower()}.")
+        if transition_snapshot.get("dep_snmp") != snmp_status:
+            transitions.append(f"SNMP is now {snmp_status.lower()}.")
+        if transition_snapshot.get("dep_nfcapd_running") != bool(deps.get('nfcapd', {}).get('running')):
+            transitions.append("NetFlow collector state changed.")
+
+    status_detail = {
+        "headline": "Network Status",
+        "breakdowns": [
+            {"label": "NetFlow collector", "value": nfcapd_status, "hint": "nfcapd process state"},
+            {"label": "Syslog 514", "value": f"{syslog514_status} • last seen {syslog514_seen}", "hint": "Firewall syslog (514)"},
+            {"label": "Syslog 515", "value": f"{syslog515_status} • last seen {syslog515_seen}", "hint": "Firewall syslog (515)"},
+            {"label": "SNMP", "value": snmp_status, "hint": "Firewall SNMP reachability"},
+        ],
+        "top": [],
+        "explanations": {
+            "why": "Health signals indicate whether core telemetry is flowing.",
+            "what_changed": " ".join(transitions) if transitions else "No source state changes detected.",
+            "next_checks": [
+                "Verify OPNsense syslog target(s) for ports 514/515.",
+                "Check nfcapd directory freshness if NetFlow appears stalled.",
+                "Confirm SNMP credentials if reachability is intermittent.",
+            ],
+        },
+    }
+
+    # Active Alerts
+    alert_delta, alert_pct, alert_trend = _delta(new_now_count, new_prev_count)
+    if new_prev_count == 0 and new_now_count == 0:
+        alert_trend = "flat"
+    severity_breakdowns = [
+        {"label": "Critical", "value": by_severity.get("critical", 0), "hint": "Active"},
+        {"label": "High", "value": by_severity.get("high", 0), "hint": "Active"},
+        {"label": "Medium", "value": by_severity.get("medium", 0), "hint": "Active"},
+        {"label": "Low", "value": by_severity.get("low", 0), "hint": "Active"},
+    ]
+    top_alert_items = (
+        [{"label": k, "value": v, "hint": "Type"} for k, v in by_type.most_common(3)]
+        + [{"label": k, "value": v, "hint": "Entity"} for k, v in by_entity.most_common(3)]
+    )
+    newest_items = [
+        {
+            "label": a.get("type") or a.get("rule") or "Alert",
+            "value": format_time_ago(a.get("ts")) if a.get("ts") else "—",
+            "hint": "Newest",
+        }
+        for a in newest_alerts
+    ]
+    active_alerts_stat = {
+        "value": active_count,
+        "delta_1h": alert_delta,
+        "delta_pct_1h": alert_pct,
+        "trend": alert_trend,
+        "severity": "warn" if active_count >= 5 else "notice" if active_count > 0 else "info",
+        "detail": {
+            "headline": "Active Alerts",
+            "breakdowns": [
+                {"label": "Active alerts", "value": active_count, "hint": "Currently open"},
+                {"label": "New in last hour", "value": new_now_count, "hint": "Created in last 60m"},
+                {"label": "Critical active", "value": critical_active, "hint": "Requires attention"},
+            ]
+            + severity_breakdowns,
+            "top": top_alert_items + newest_items,
+            "explanations": {
+                "why": "Active alerts highlight detections that may need review.",
+                "what_changed": f"{new_now_count} new alerts in the last hour (prev {new_prev_count}).",
+                "next_checks": [
+                    "Open Security → Alert History to review newest alerts.",
+                    "Check Firewall logs for related blocks.",
+                    "Verify any repeating sources or destinations.",
+                ],
+            },
+        },
+    }
+
+    # Traffic Level
+    traffic_prev = prev_snapshot.get("traffic_bytes_per_hour") if prev_snapshot else None
+    traffic_delta, traffic_pct, traffic_trend = _delta(bytes_now, traffic_prev)
+    traffic_level = "Normal"
+    if bytes_now < 100 * 1024 * 1024:
+        traffic_level = "Low"
+    elif bytes_now < 1024 * 1024 * 1024:
+        traffic_level = "Normal"
+    elif bytes_now < 5 * 1024 * 1024 * 1024:
+        traffic_level = "Elevated"
+    else:
+        traffic_level = "High"
+
+    outbound_bytes = 0
+    inbound_bytes = 0
+    for item in sources_now:
+        ip = item.get("key") or ""
+        if is_internal(ip):
+            outbound_bytes += item.get("bytes", 0)
+        else:
+            inbound_bytes += item.get("bytes", 0)
+
+    peak_bytes = None
+    try:
+        _trends_db_init()
+        with _trends_db_lock:
+            conn = _trends_db_connect()
+            try:
+                cur = conn.execute(
+                    "SELECT MAX(bytes) FROM traffic_rollups WHERE bucket_end>=? AND bucket_end<=?",
+                    (int(now_start_ts), int(now_ts)),
+                )
+                row = cur.fetchone()
+                peak_bytes = row[0] if row else None
+            finally:
+                conn.close()
+    except Exception:
+        peak_bytes = None
+
+    top_talkers = [
+        {"label": item.get("key"), "value": fmt_bytes(item.get("bytes", 0)), "hint": "Talker"}
+        for item in sources_now[:5]
+    ]
+    top_protocols = [
+        {"label": item.get("key"), "value": fmt_bytes(item.get("bytes", 0)), "hint": "Protocol"}
+        for item in protocols_now[:5]
+    ]
+
+    traffic_change_note = (
+        "Traffic volume compared to the previous hour."
+        if prev_snapshot
+        else "Insufficient data for prior window."
+    )
+    traffic_stat = {
+        "value": traffic_level,
+        "delta_1h": traffic_delta,
+        "delta_pct_1h": traffic_pct,
+        "trend": traffic_trend,
+        "severity": "warn" if traffic_level == "High" else "notice" if traffic_level == "Elevated" else "info",
+        "detail": {
+            "headline": "Traffic Level",
+            "breakdowns": [
+                {"label": "Total traffic", "value": fmt_bytes(bytes_now), "hint": "Last 60m (top sources)"},
+                {"label": "Outbound", "value": fmt_bytes(outbound_bytes), "hint": "Internal sources"},
+                {"label": "Inbound", "value": fmt_bytes(inbound_bytes), "hint": "External sources"},
+                {"label": "Peak 5m", "value": fmt_bytes(peak_bytes) if peak_bytes is not None else "—", "hint": "Max bucket"},
+                {"label": "Protocols", "value": ", ".join(str(p["label"]) for p in top_protocols[:3]) or "—", "hint": "Top protocols"},
+            ],
+            "top": top_talkers + top_protocols,
+            "explanations": {
+                "why": "Traffic volume shows how busy the network is.",
+                "what_changed": traffic_change_note,
+                "next_checks": [
+                    "Review Top Talkers to confirm expected devices.",
+                    "Check Protocol Mix for unusual shifts.",
+                    "Inspect Bandwidth chart for spikes.",
+                ],
+            },
+        },
+    }
+
+    # Protected Connections
+    blocks_delta, blocks_pct, blocks_trend = _delta(blocks_now, blocks_prev)
+    total_fw = blocks_now + pass_now
+    block_ratio = (blocks_now / total_fw) * 100 if total_fw > 0 else None
+    protected_stat = {
+        "value": blocks_now,
+        "delta_1h": blocks_delta,
+        "delta_pct_1h": blocks_pct,
+        "trend": blocks_trend,
+        "severity": "notice" if blocks_delta and blocks_delta > 20 else "info",
+        "detail": {
+            "headline": "Protected Connections",
+            "breakdowns": [
+                {"label": "Blocks (1h)", "value": blocks_now, "hint": "Blocked or rejected"},
+                {"label": "Allowed (1h)", "value": pass_now, "hint": "Pass/allow events"},
+                {"label": "Block ratio", "value": f"{block_ratio:.0f}%" if block_ratio is not None else "—", "hint": "Blocks vs total"},
+            ],
+            "top": (
+                [{"label": item["label"], "value": item["value"], "hint": "Blocked port"} for item in top_block_ports]
+                + [{"label": item["label"], "value": item["value"], "hint": "Inbound source"} for item in top_block_sources]
+            ),
+            "explanations": {
+                "why": "Blocks indicate the firewall is filtering background noise.",
+                "what_changed": "Block volume compared to the previous hour.",
+                "next_checks": [
+                    "Review top blocked ports for expected patterns.",
+                    "Check inbound sources if blocks spike.",
+                    "Confirm firewall rules align with policy.",
+                ],
+            },
+        },
+    }
+
+    # Internet Exposure
+    exposure_delta, exposure_pct, exposure_trend = _delta(inbound_unique, len(inbound_prev_sources))
+    exposure_level = "Moderate"
+    if inbound_unique < 10:
+        exposure_level = "Low"
+    elif inbound_unique < 50:
+        exposure_level = "Moderate"
+    else:
+        exposure_level = "High"
+
+    exposure_stat = {
+        "value": exposure_level,
+        "delta_1h": exposure_delta,
+        "delta_pct_1h": exposure_pct,
+        "trend": exposure_trend,
+        "severity": "notice" if exposure_level == "High" else "info",
+        "detail": {
+            "headline": "Internet Exposure",
+            "breakdowns": [
+                {"label": "Inbound events", "value": inbound_count, "hint": "WAN inbound (1h)"},
+                {"label": "Unique inbound sources", "value": inbound_unique, "hint": "Distinct external IPs"},
+                {"label": "New inbound sources", "value": new_inbound_sources, "hint": "Not seen in previous hour"},
+            ],
+            "top": [{"label": item["label"], "value": item["value"], "hint": "Host/port"} for item in top_exposed],
+            "explanations": {
+                "why": "Exposure reflects inbound reachability, not compromise.",
+                "what_changed": "Inbound source spread compared to the previous hour.",
+                "next_checks": [
+                    "Review inbound rules for expected services.",
+                    "Confirm exposed hosts are intended.",
+                    "Check for sudden new inbound sources.",
+                ],
+            },
+        },
+    }
+
+    # Unusual Activity
+    unusual_delta, unusual_pct, unusual_trend = _delta(unusual_now_count, unusual_prev_count)
+    unusual_stat = {
+        "value": unusual_now_count,
+        "delta_1h": unusual_delta,
+        "delta_pct_1h": unusual_pct,
+        "trend": unusual_trend,
+        "severity": "warn" if unusual_now_count > 3 else "notice" if unusual_now_count > 0 else "info",
+        "detail": {
+            "headline": "Unusual Activity",
+            "breakdowns": [
+                {"label": "Indicators (1h)", "value": unusual_now_count, "hint": "Elevated signals"},
+                {
+                    "label": "Top indicator",
+                    "value": (unusual_top[0]["label"] if unusual_top else "—"),
+                    "hint": "Most frequent signal",
+                },
+            ],
+            "top": unusual_top,
+            "explanations": {
+                "why": "Unusual indicators highlight patterns outside the baseline.",
+                "what_changed": "Signal volume compared to the previous hour.",
+                "next_checks": [
+                    "Review active flows for long-lived external connections.",
+                    "Check for new external destinations.",
+                    "Correlate with firewall blocks if elevated.",
+                ],
+            },
+        },
+    }
+
+    if window_seconds % 3600 == 0:
+        hours = int(window_seconds / 3600)
+        window_label = f"last {hours}h vs previous {hours}h"
+    else:
+        minutes = int(window_seconds / 60)
+        window_label = f"last {minutes}m vs previous {minutes}m"
+
+    return jsonify(
+        {
+            "window": {
+                "now_range": tf_now,
+                "prev_range": tf_prev,
+                "seconds": window_seconds,
+                "label": window_label,
+            },
+            "stats": {
+                "networkStatus": {
+                    "value": status_value,
+                    "delta_1h": None,
+                    "delta_pct_1h": None,
+                    "trend": "unknown",
+                    "severity": severity,
+                    "detail": status_detail,
+                },
+                "activeAlerts": active_alerts_stat,
+                "trafficLevel": traffic_stat,
+                "protectedConnections": protected_stat,
+                "internetExposure": exposure_stat,
+                "unusualActivity": unusual_stat,
+            },
+        }
+    )
+
+
 @bp.route("/api/notify_status")
 def api_notify_status():
     return jsonify(load_notify_cfg())

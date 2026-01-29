@@ -164,7 +164,7 @@ export const Store = () => ({
     showMobileFilters: false,
     worldMapMobileVisible: false,
     statDetailOpen: false,
-    statDetail: { title: '', value: '', description: '', hint: '' },
+    statDetail: { title: '', value: '', description: '', hint: '', window: '', breakdowns: [], top: [], explanations: {} },
 
     // Sparkline cache
     sparkCache: {}, // { key: { ts, labels, bytes } }
@@ -173,6 +173,7 @@ export const Store = () => ({
     // Data Stores
     summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
     networkSummary: { loading: false },
+    overviewInsights: { stats: {}, window: {}, loading: true, error: null },
     sources: { sources: [], loading: true },
     destinations: { destinations: [], loading: true },
     ports: { ports: [], loading: true },
@@ -1477,7 +1478,57 @@ export const Store = () => ({
         };
     },
 
+    getOverviewStat(kind) {
+        return this.overviewInsights?.stats?.[kind] || null;
+    },
+
+    getDeltaDisplay(kind) {
+        const stat = this.getOverviewStat(kind);
+        if (!stat || stat.delta_1h === null || stat.delta_1h === undefined) {
+            return { text: 'Δ 1h: —', cls: 'stat-delta stat-delta-unknown' };
+        }
+
+        const trend = stat.trend || 'unknown';
+        const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
+        const sign = typeof stat.delta_1h === 'number' ? (stat.delta_1h > 0 ? '+' : '') : '';
+        let valueText = stat.delta_1h;
+
+        if (kind === 'trafficLevel' && typeof stat.delta_1h === 'number') {
+            valueText = this.fmtBytes(Math.abs(stat.delta_1h));
+        } else if (typeof stat.delta_1h === 'number') {
+            valueText = Math.abs(stat.delta_1h).toLocaleString();
+        }
+
+        let pctText = '';
+        if (typeof stat.delta_pct_1h === 'number' && isFinite(stat.delta_pct_1h)) {
+            pctText = ` (${Math.abs(stat.delta_pct_1h).toFixed(0)}%)`;
+        }
+
+        return {
+            text: `Δ 1h: ${arrow} ${sign}${valueText}${pctText}`,
+            cls: `stat-delta stat-delta-${trend}`
+        };
+    },
+
     openStatDetail(kind) {
+        const insight = this.getOverviewStat(kind);
+        if (insight && insight.detail) {
+            const formatValue = (val) => {
+                if (val === null || val === undefined) return '—';
+                return typeof val === 'number' ? val.toLocaleString() : val;
+            };
+            this.statDetail = {
+                title: insight.detail.headline || 'Overview Detail',
+                value: formatValue(insight.value),
+                window: this.overviewInsights?.window?.label || 'last 60m vs previous 60m',
+                breakdowns: insight.detail.breakdowns || [],
+                top: insight.detail.top || [],
+                explanations: insight.detail.explanations || {}
+            };
+            this.statDetailOpen = true;
+            return;
+        }
+
         let detail = { title: '', value: '', description: '', hint: '' };
 
         if (kind === 'networkStatus') {
@@ -2585,6 +2636,7 @@ export const Store = () => ({
             this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
             this.fetchHealthSignals(),
+            this.fetchOverviewInsights(),
             this.fetchIngestionRates(),
             this.fetchChangeTimeline(),
             this.fetchPersonality(),
@@ -6165,6 +6217,25 @@ export const Store = () => ({
         }
     },
 
+    async fetchOverviewInsights() {
+        this.overviewInsights.loading = true;
+        this.overviewInsights.error = null;
+        try {
+            const res = await fetch('/api/overview/insights');
+            if (res.ok) {
+                const d = await res.json();
+                this.overviewInsights = { ...d, loading: false, error: null };
+            } else {
+                this.overviewInsights.loading = false;
+                this.overviewInsights.error = `Overview insights error: ${res.status}`;
+            }
+        } catch (e) {
+            console.error('Overview insights fetch error:', e);
+            this.overviewInsights.loading = false;
+            this.overviewInsights.error = 'Overview insights unavailable';
+        }
+    },
+
     async fetchHealthSignals() {
         this.healthSignals.loading = true;
         try {
@@ -8537,6 +8608,7 @@ export const Store = () => ({
                 this.fetchAlertHistory();
                 this.fetchBaselineSignals();
                 this.fetchHealthSignals();
+                this.fetchOverviewInsights();
                 this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }

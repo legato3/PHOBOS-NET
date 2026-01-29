@@ -18,9 +18,10 @@
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
-            <div style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
+            <div class="stat-hero-value" style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
                 :style="'color: ' + getNetworkStatusSummary().color"
                 x-text="getNetworkStatusSummary().headline">Network Stable</div>
+            <div :class="getDeltaDisplay('networkStatus').cls" x-text="getDeltaDisplay('networkStatus').text"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                 x-text="getNetworkStatusSummary().detail">No major risks detected</div>
             <div
@@ -32,8 +33,9 @@
         <!-- 2. ACTIVE ALERTS -->
         <div class="card" @click="openStatDetail('activeAlerts')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+            <div class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                 x-text="formatNumOrDash(alertHistory?.active_count)"></div>
+            <div :class="getDeltaDisplay('activeAlerts').cls" x-text="getDeltaDisplay('activeAlerts').text"></div>
             <div style="font-size:0.7em; margin-bottom:2px;" :style="'color: ' + getActiveAlertTrend().color"
                 x-text="getActiveAlertTrend().text"></div>
             <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">ACTIVE ALERTS</div>
@@ -42,10 +44,11 @@
         <!-- 3. TRAFFIC LEVEL -->
         <div class="card" @click="openStatDetail('trafficLevel')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+            <div class="stat-hero" style="margin-bottom:2px;">
+                <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
                     x-text="'Traffic: ' + getTrafficLevelSummary().level"></span>
             </div>
+            <div :class="getDeltaDisplay('trafficLevel').cls" x-text="getDeltaDisplay('trafficLevel').text"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                 x-text="getTrafficLevelSummary().detail"></div>
             <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">TRAFFIC LEVEL</div>
@@ -54,10 +57,11 @@
         <!-- 4. PROTECTED CONNECTIONS -->
         <div class="card" @click="openStatDetail('protectedConnections')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--signal-ok);"
+            <div class="stat-hero" style="margin-bottom:2px;">
+                <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--signal-ok);"
                     x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)"></span>
             </div>
+            <div :class="getDeltaDisplay('protectedConnections').cls" x-text="getDeltaDisplay('protectedConnections').text"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">Firewall blocking background noise</div>
             <div style="font-size:0.65em; color:var(--text-tertiary); letter-spacing:1px;">PROTECTED CONNECTIONS</div>
         </div>
@@ -65,10 +69,11 @@
         <!-- 5. INTERNET EXPOSURE -->
         <div class="card" @click="openStatDetail('internetExposure')"
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
-            <div style="display:flex; align-items:baseline; gap:4px; margin-bottom:2px;">
-                <span style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
+            <div class="stat-hero" style="margin-bottom:2px;">
+                <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
                     x-text="'Exposure: ' + getExposureSummary().level"></span>
             </div>
+            <div :class="getDeltaDisplay('internetExposure').cls" x-text="getDeltaDisplay('internetExposure').text"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                 x-text="getExposureSummary().detail"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
@@ -81,11 +86,12 @@
             style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:15px; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
-            <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin-bottom:2px; width:100%;">
-                <span style="font-size:1.4em; font-weight:600; text-align:center; width:100%;"
+            <div class="stat-hero" style="margin-bottom:2px;">
+                <span class="stat-hero-value" style="font-size:1.4em; font-weight:600;"
                     :style="'color: ' + getUnusualActivitySummary().color"
                     x-text="getUnusualActivitySummary().headline"></span>
             </div>
+            <div :class="getDeltaDisplay('unusualActivity').cls" x-text="getDeltaDisplay('unusualActivity').text"></div>
             <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                 x-text="getUnusualActivitySummary().detail"></div>
             <div
