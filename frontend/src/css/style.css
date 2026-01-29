@@ -2593,6 +2593,16 @@ tr:hover td {
     text-align: center;
 }
 
+.stat-box-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 14px 14px;
+    text-align: center;
+    flex: 1;
+}
+
 .stat-delta {
     font-size: var(--text-xs);
     color: var(--text-tertiary);
