@@ -227,11 +227,7 @@ def events_page():
     return render_template("events.html")
 
 
-@bp.route("/wallboard")
-@bp.route("/noc")
-def wallboard():
-    """NOC/Wallboard view - read-only, large typography, optimized for distance viewing."""
-    return render_template("wallboard.html")
+
 
 
 @bp.route("/favicon.ico")
