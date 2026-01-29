@@ -1907,14 +1907,90 @@ def api_network_stats_overview():
         if not cache_hit:
             # Use -s record/bytes to get summary, -n 0 to avoid listing flows
             # Maintain same aggregation -A to match original logic
-            summary_output = run_nfdump(["-s", "record/bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "0"], tf_range)
+            # Force text output so summary lines include "Flows:" even though run_nfdump defaults to CSV.
+            summary_output = run_nfdump(
+                ["-o", "line", "-s", "record/bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "0"],
+                tf_range
+            )
 
-            # Parse summary output for "total flows: N" or "Flows: N"
-            # Format examples: "Summary: total flows: 1337" or "Sys: ... Flows: 1337"
-            match = re.search(r'(?:total flows|Flows):\s*(\d+)', summary_output, re.IGNORECASE)
-            if match:
-                active_flows_count = int(match.group(1))
+            def _parse_flow_total_from_summary(output):
+                if not output:
+                    return None
+                match = re.search(
+                    r"(?:total\s+flows|flows)\s*:\s*([0-9][0-9,.\-+eE]*)\s*([kmg])?",
+                    output,
+                    re.IGNORECASE,
+                )
+                if not match:
+                    return None
+                num_str = match.group(1).replace(",", "").strip()
+                # Strip any trailing non-numeric characters
+                num_str = re.sub(r"[^0-9eE+\-\.]", "", num_str)
+                try:
+                    val = float(num_str)
+                except (ValueError, TypeError):
+                    return None
+                suffix = (match.group(2) or "").lower()
+                if suffix == "k":
+                    val *= 1_000
+                elif suffix == "m":
+                    val *= 1_000_000
+                elif suffix == "g":
+                    val *= 1_000_000_000
+                return int(val)
 
+            # CSV fallback: sum "flows" column if present (handles output formats without summary line)
+            def _sum_csv_flows(output):
+                if not output:
+                    return None
+                lines = output.strip().split("\n")
+                header_idx = -1
+                for i, line in enumerate(lines):
+                    line_clean = line.strip().lower()
+                    if not line_clean:
+                        continue
+                    if line_clean.startswith("ts,") or line_clean.startswith("firstseen,") or (
+                        not line_clean[0].isdigit() and "," in line_clean
+                    ):
+                        header_idx = i
+                        break
+                if header_idx == -1:
+                    return None
+
+                header = [c.strip().lower() for c in lines[header_idx].split(",")]
+                flows_idx = header.index("flows") if "flows" in header else (header.index("fl") if "fl" in header else -1)
+                if flows_idx == -1:
+                    return None
+
+                total = 0
+                saw_row = False
+                for line in lines[header_idx + 1:]:
+                    line_clean = line.strip().lower()
+                    if not line_clean:
+                        continue
+                    if line_clean.startswith("ts,") or line_clean.startswith("firstseen,") or line_clean.startswith("date,"):
+                        continue
+                    if "summary" in line_clean or line_clean.startswith("sys:"):
+                        continue
+                    parts = line.split(",")
+                    if len(parts) > flows_idx:
+                        try:
+                            total += int(float(parts[flows_idx]))
+                            saw_row = True
+                        except (ValueError, TypeError):
+                            continue
+                return total if saw_row else None
+
+            active_flows_count = _parse_flow_total_from_summary(summary_output)
+            if active_flows_count is None:
+                # Fallback: re-run in CSV mode and sum flows column
+                csv_output = run_nfdump(
+                    ["-o", "csv", "-s", "record/bytes", "-A", "srcip,dstip,srcport,dstport,proto", "-n", "0"],
+                    tf_range
+                )
+                active_flows_count = _sum_csv_flows(csv_output)
+
+            if active_flows_count is not None:
                 # Update cache
                 with _active_flows_lock:
                     _active_flows_cache["count"] = active_flows_count
@@ -1923,7 +1999,6 @@ def api_network_stats_overview():
             else:
                 # Fallback to None if parsing fails (UI will show "—")
                 add_app_log("Could not parse nfdump summary for flow count", "WARN")
-                active_flows_count = None
 
     except Exception as e:
         # Log error in production, but don't fail the endpoint
@@ -2007,6 +2082,12 @@ def api_network_stats_overview():
     
     anomalies_count = 0
     anomaly_alerts_sent = set()  # Track sent alerts to avoid duplicates
+    # Fallback counters if summary-based active flow count is unavailable
+    fallback_active_flows_count = None
+    fallback_external_connections_count = None
+    fallback_saw_row = False
+    external_unique_ips_set = set()
+    external_unique_ips = None
     
     try:
         lines_24h = output_24h.strip().split("\n")
@@ -2048,10 +2129,24 @@ def api_network_stats_overview():
                     b = int(parts[ibyt_idx_24h]) if len(parts) > ibyt_idx_24h and ibyt_idx_24h < len(parts) else 0
                     
                     if src and dst:
+                        # Fallback counts: use full output if summary parsing failed
+                        fallback_saw_row = True
+                        if fallback_active_flows_count is None:
+                            fallback_active_flows_count = 0
+                        fallback_active_flows_count += 1
+
                         # Check if this flow matches detection criteria: long-lived, low-volume, external
                         src_internal = is_internal(src)
                         dst_internal = is_internal(dst)
                         is_external = not (src_internal and dst_internal)
+                        if is_external:
+                            if fallback_external_connections_count is None:
+                                fallback_external_connections_count = 0
+                            fallback_external_connections_count += 1
+                            if not src_internal:
+                                external_unique_ips_set.add(src)
+                            if not dst_internal:
+                                external_unique_ips_set.add(dst)
                         
                         if is_external and duration > LONG_LOW_DURATION_THRESHOLD and b < LONG_LOW_BYTES_THRESHOLD:
                             anomalies_count += 1
@@ -2071,6 +2166,14 @@ def api_network_stats_overview():
                     pass
     except (ValueError, TypeError, IndexError, KeyError):
         pass
+
+    # Apply fallback counts if summary/sample failed
+    if active_flows_count is None and fallback_saw_row:
+        active_flows_count = fallback_active_flows_count
+    if external_connections_count is None and fallback_saw_row:
+        external_connections_count = fallback_external_connections_count
+    if fallback_saw_row:
+        external_unique_ips = len(external_unique_ips_set)
     
     # Update baselines (incremental, respects update interval)
     from app.services.shared.baselines import update_baseline, calculate_trend
@@ -2094,6 +2197,7 @@ def api_network_stats_overview():
     return jsonify({
         "active_flows": active_flows_count,
         "external_connections": external_connections_count,
+        "external_unique_ips": external_unique_ips,
         "anomalies_count": anomalies_count,
         "trends": {
             "active_flows": active_flows_trend,
@@ -3532,4 +3636,3 @@ def api_stats_batch():
 
 
 # Performance metrics endpoint
-

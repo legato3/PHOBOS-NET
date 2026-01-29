@@ -217,7 +217,7 @@ export const Store = () => ({
         ipMeta: {},
         selectedFlow: null
     },
-    networkStatsOverview: { active_flows: 0, external_connections: 0, anomalies_count: 0, trends: {}, loading: true },
+    networkStatsOverview: { active_flows: 0, external_connections: 0, external_unique_ips: null, anomalies_count: 0, trends: {}, loading: true },
     networkIntelligence: {
         bandwidth_utilization: { top_talker_pct: 0, top_5_pct: 0, distribution: 'Balanced' },
         protocol_diversity: { primary_protocol: 'TCP', primary_pct: 0, protocols_count: 0, balance: 'Diverse' },
@@ -398,6 +398,7 @@ export const Store = () => ({
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
+    healthSignals: { signals: [], count: 0, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v2.0.0', version_display: 'v2.0.0' }, // Application metadata from backend
     overallHealthModalOpen: false, // Modal for detailed health information
     eventsModalOpen: false,
@@ -1317,6 +1318,160 @@ export const Store = () => ({
     formatNumOrDash(value) {
         if (value === null || value === undefined) return '—';
         return Number(value).toLocaleString();
+    },
+
+    // Time range helper (hours)
+    getRangeHours(rangeKey = null) {
+        const key = rangeKey || this.timeRange || '1h';
+        const map = { '15m': 0.25, '30m': 0.5, '1h': 1, '4h': 4, '6h': 6, '12h': 12, '24h': 24, '48h': 48, '3d': 72, '7d': 168, '30d': 720 };
+        return map[key] || 1;
+    },
+
+    // Overview: Active alerts trend vs previous hour (from alert history timestamps)
+    getActiveAlertTrend() {
+        const alerts = this.alertHistory?.alerts || [];
+        const now = Date.now() / 1000;
+        const hour = 3600;
+        let lastHour = 0;
+        let prevHour = 0;
+        for (const alert of alerts) {
+            const ts = alert?.ts || 0;
+            if (!ts) continue;
+            if (ts >= now - hour) lastHour += 1;
+            else if (ts >= now - (2 * hour)) prevHour += 1;
+        }
+        const delta = lastHour - prevHour;
+        const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+        const arrow = direction === 'up' ? '↑' : direction === 'down' ? '↓' : '→';
+        const text = direction === 'flat' ? 'No change vs last hour' : `${arrow} ${Math.abs(delta)} vs last hour`;
+        const color = direction === 'up' ? 'var(--signal-warn)' : direction === 'down' ? 'var(--signal-ok)' : 'var(--text-tertiary)';
+        return { delta, direction, lastHour, prevHour, text, color };
+    },
+
+    // Overview: Network status derived from alerts and baseline signals
+    getNetworkStatusSummary() {
+        const signals = new Set(this.baselineSignals?.signals || []);
+        const activeAlerts = this.alertHistory?.active_count ?? 0;
+        const trend = this.getActiveAlertTrend();
+
+        const spikes = signals.has('anomalies_spike') || signals.has('firewall_blocks_spike');
+        const elevatedSignals = signals.has('active_flows_spike') || signals.has('external_connections_spike') || signals.has('anomalies_present');
+
+        let state = 'Stable';
+        let headline = 'Network Stable';
+        let detail = 'No major risks detected';
+        let color = 'var(--signal-ok)';
+
+        if (spikes || activeAlerts >= 3 || trend.delta >= 3) {
+            state = 'Investigate';
+            headline = 'Investigate Activity';
+            detail = 'Multiple signals need review';
+            color = 'var(--signal-crit)';
+        } else if (activeAlerts > 0 || elevatedSignals) {
+            state = 'Elevated';
+            headline = 'Elevated Activity';
+            detail = 'Traffic patterns outside baseline';
+            color = 'var(--signal-warn)';
+        }
+
+        return { state, headline, detail, color };
+    },
+
+    // Overview: Traffic level with baseline comparison if available
+    getTrafficLevelSummary() {
+        const bytes = this.summary?.totals?.bytes || 0;
+        const hours = this.getRangeHours(this.timeRange);
+        const bytesPerHour = hours > 0 ? bytes / hours : bytes;
+        const activeFlows = this.baselineSignals?.metrics?.active_flows;
+        const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+        let ratio = null;
+        if (baseline && activeFlows !== null && activeFlows !== undefined) {
+            ratio = activeFlows / Math.max(1, baseline);
+        }
+
+        let level = 'Normal';
+        if (ratio !== null) {
+            if (ratio < 0.6) level = 'Low';
+            else if (ratio < 1.2) level = 'Normal';
+            else if (ratio < 1.8) level = 'High';
+            else level = 'Very High';
+        } else {
+            if (bytesPerHour < 100 * 1024 * 1024) level = 'Low';
+            else if (bytesPerHour < 1024 * 1024 * 1024) level = 'Normal';
+            else if (bytesPerHour < 5 * 1024 * 1024 * 1024) level = 'High';
+            else level = 'Very High';
+        }
+
+        let detail = `${this.fmtBytes(bytesPerHour)}/hr`;
+        if (ratio !== null) {
+            const pct = Math.round(Math.abs((ratio - 1) * 100));
+            if (pct === 0) {
+                detail = 'At baseline';
+            } else {
+                const arrow = ratio >= 1 ? '↑' : '↓';
+                detail = `${arrow} ${pct}% vs baseline`;
+            }
+        }
+
+        return { level, detail, bytesPerHour };
+    },
+
+    // Overview: Internet exposure summary
+    getExposureSummary() {
+        const uniqueExternal = this.networkStatsOverview?.external_unique_ips;
+        const fallbackExternal = this.networkStatsOverview?.external_connections;
+        const count = uniqueExternal !== null && uniqueExternal !== undefined ? uniqueExternal : fallbackExternal;
+
+        const baseline = this.baselineSignals?.baseline_stats?.external_connections?.mean;
+        let level = 'Moderate';
+        if (baseline && count !== null && count !== undefined) {
+            const ratio = count / Math.max(1, baseline);
+            if (ratio < 0.7) level = 'Low';
+            else if (ratio < 1.4) level = 'Moderate';
+            else level = 'High';
+        } else if (count !== null && count !== undefined) {
+            if (count < 20) level = 'Low';
+            else if (count < 100) level = 'Moderate';
+            else level = 'High';
+        }
+
+        const detailCount = count !== null && count !== undefined ? Number(count).toLocaleString() : '—';
+        const detail = `Unique external IPs: ${detailCount}`;
+        const note = level === 'Low' ? 'Mostly known destinations' : level === 'Moderate' ? 'Normal destination spread' : 'Wide destination spread';
+        return { level, detail, note };
+    },
+
+    // Overview: Unusual activity summary
+    getUnusualActivitySummary() {
+        const count = this.networkStatsOverview?.anomalies_count ?? this.baselineSignals?.metrics?.anomalies_24h ?? 0;
+        const signals = this.healthSignals?.signals || [];
+        let lastTs = null;
+        for (const s of signals) {
+            const type = (s?.type || '').toLowerCase();
+            const msg = (s?.msg || '').toLowerCase();
+            if (type.includes('anomaly') || msg.includes('anomaly')) {
+                const ts = s?.ts || null;
+                if (ts && (!lastTs || ts > lastTs)) lastTs = ts;
+            }
+        }
+
+        if (!count) {
+            return {
+                headline: 'All Clear',
+                detail: 'No unusual patterns detected',
+                color: 'var(--signal-ok)',
+                lastDetected: null
+            };
+        }
+
+        const spikesLabel = `${count} spike${count === 1 ? '' : 's'}`;
+        const lastDetected = lastTs ? `Last detected: ${this.timeAgo(lastTs)}` : 'Recently detected';
+        return {
+            headline: spikesLabel,
+            detail: lastDetected,
+            color: 'var(--signal-warn)',
+            lastDetected
+        };
     },
 
     // UI state for details toggle
@@ -2366,6 +2521,7 @@ export const Store = () => ({
             this.fetchEvents('activity'),
             this.fetchPulseFeed(),
             this.fetchBaselineSignals(),
+            this.fetchHealthSignals(),
             this.fetchIngestionRates(),
             this.fetchChangeTimeline(),
             this.fetchPersonality(),
@@ -5884,6 +6040,7 @@ export const Store = () => ({
                     // Preserve null vs 0 distinction for truthfulness
                     active_flows: d.active_flows !== undefined ? d.active_flows : (this.networkStatsOverview.active_flows ?? null),
                     external_connections: d.external_connections !== undefined ? d.external_connections : (this.networkStatsOverview.external_connections ?? null),
+                    external_unique_ips: d.external_unique_ips !== undefined ? d.external_unique_ips : (this.networkStatsOverview.external_unique_ips ?? null),
                     anomalies_count: d.anomalies_count ?? 0,
                     anomalies_24h: d.anomalies_count ?? 0, // Alias for compatibility
                     trends: d.trends || {},
@@ -5942,6 +6099,26 @@ export const Store = () => ({
         } catch (e) {
             console.error('Baseline signals fetch error:', e);
             this.baselineSignals.loading = false;
+        }
+    },
+
+    async fetchHealthSignals() {
+        this.healthSignals.loading = true;
+        try {
+            const res = await fetch('/api/security/signals');
+            if (res.ok) {
+                const d = await res.json();
+                this.healthSignals = {
+                    signals: d.signals || [],
+                    count: d.count || 0,
+                    loading: false
+                };
+            } else {
+                this.healthSignals.loading = false;
+            }
+        } catch (e) {
+            console.error('Health signals fetch error:', e);
+            this.healthSignals.loading = false;
         }
     },
 
@@ -8296,6 +8473,7 @@ export const Store = () => ({
                 this.fetchSecurityObservability();
                 this.fetchAlertHistory();
                 this.fetchBaselineSignals();
+                this.fetchHealthSignals();
                 this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }

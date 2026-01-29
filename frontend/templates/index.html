@@ -2221,36 +2221,41 @@
                             <div>
                                 <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Active Alerts</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="activeAlertsCount || 0">
+                                    x-text="formatNumOrDash(alertHistory?.active_count)">
                                 </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
+                                    x-text="getActiveAlertTrend().text"></div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Active Flows</div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Traffic Level</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="(networkStatsOverview.active_flows || 0).toLocaleString()">
+                                    x-text="getTrafficLevelSummary().level">
                                 </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
+                                    x-text="getTrafficLevelSummary().detail"></div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">External Connections
-                                </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Internet Exposure</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="(networkStatsOverview.external_connections || 0).toLocaleString()">
+                                    x-text="getExposureSummary().level">
                                 </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
+                                    x-text="getExposureSummary().detail"></div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Blocked Events (24h)
-                                </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Protected Connections</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="(firewallStatsOverview.blocked_events_24h || 0).toLocaleString()">
+                                    x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)">
                                 </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Firewall blocking background noise</div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Network Anomalies
-                                    (24h)
-                                </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Unusual Activity</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="(networkStatsOverview.anomalies_count || 0).toLocaleString()">
+                                    x-text="getUnusualActivitySummary().headline">
                                 </div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
+                                    x-text="getUnusualActivitySummary().detail"></div>
                             </div>
                         </div>
                     </div>
