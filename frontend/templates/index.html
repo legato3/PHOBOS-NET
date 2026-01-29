@@ -4,10 +4,6 @@
 <head>
     <title x-text="appMetadata.name || 'PHOBOS-NET'">PHOBOS-NET</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="description"
         content="Real-time NetFlow analytics dashboard with threat intelligence, bandwidth monitoring, and firewall health metrics. Monitor network traffic, detect threats, and analyze security events.">
 
@@ -36,7 +32,6 @@
     <!-- CSS - Critical render path, load first -->
     <!-- CYBERPUNK UI: Signal-first design system -->
     <link rel="stylesheet" href="/static/css/style.css?v=5.0.11">
-    <link rel="stylesheet" href="/static/css/mobile.css">
     <!-- Widget-specific enhancements -->
 
 
@@ -165,36 +160,6 @@
                             <span class="value" style="color: var(--accent-cyan);" x-text="lastUpdate"></span>
                         </div>
                     </div>
-
-                    <!-- Mobile Bottom Navigation -->
-                    <nav class="mobile-nav">
-                        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'overview' }"
-                            @click="loadTab('overview')" title="Overview">
-                            <span class="mobile-nav-icon">📊</span>
-                            <span class="mobile-nav-label">Overview</span>
-                        </button>
-                        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'security' }"
-                            @click="loadTab('security')" title="Security">
-                            <span class="mobile-nav-icon">🛡️</span>
-                            <span class="mobile-nav-label">Security</span>
-                        </button>
-                        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'network' }"
-                            @click="loadTab('network')" title="Network">
-                            <span class="mobile-nav-icon">🕸️</span>
-                            <span class="mobile-nav-label">Network</span>
-                        </button>
-                        <button class="mobile-nav-item" :class="{ 'active': activeTab === 'assistant' }"
-                            @click="loadTab('assistant')" title="Assistant">
-                            <span class="mobile-nav-icon">🤖</span>
-                            <span class="mobile-nav-label">Assistant</span>
-                        </button>
-                        <button class="mobile-nav-item"
-                            :class="{ 'active': ['server', 'hosts', 'firewall', 'firewall-snmp'].includes(activeTab) || mobileMoreModalOpen }"
-                            @click="mobileMoreModalOpen = true" title="More">
-                            <span class="mobile-nav-icon">⋯</span>
-                            <span class="mobile-nav-label">More</span>
-                        </button>
-                    </nav>
 
                 </div> <!-- End content-scroll-area -->
             </main>
@@ -2128,59 +2093,6 @@
 
         <!-- App Logic already loaded in <head> to ensure Alpine picks it up -->
 
-        <!-- Mobile More Menu Modal -->
-        <div class="modal" x-show="mobileMoreModalOpen" :style="mobileMoreModalOpen ? 'display:flex' : 'display:none'"
-            @click.self="mobileMoreModalOpen = false">
-            <div class="modal-content" style="max-width: 100%;">
-                <div class="modal__header"
-                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0; color:var(--text-0);">More Navigation</h3>
-                    <button @click="mobileMoreModalOpen = false"
-                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
-                        aria-label="Close">×</button>
-                </div>
-                <div class="modal__body" style="color:var(--text-0);">
-                    <div class="grid grid-2" style="gap: var(--space-3);">
-                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'traffic-explorer' }"
-                            @click="loadTab('traffic-explorer'); mobileMoreModalOpen = false"
-                            style="justify-content: flex-start; gap: 12px; height: 60px;">
-                            <span style="font-size: 1.5em;">🧭</span>
-                            <span>Flow Search</span>
-                        </button>
-                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'server' }"
-                            @click="loadTab('server'); mobileMoreModalOpen = false"
-                            style="justify-content: flex-start; gap: 12px; height: 60px;">
-                            <span style="font-size: 1.5em;">🖥️</span>
-                            <span>Server Health</span>
-                        </button>
-                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'hosts' }"
-                            @click="loadTab('hosts'); mobileMoreModalOpen = false"
-                            style="justify-content: flex-start; gap: 12px; height: 60px;">
-                            <span style="font-size: 1.5em;">🖥️</span>
-                            <span>Hosts</span>
-                        </button>
-                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall' }"
-                            @click="loadTab('firewall'); mobileMoreModalOpen = false"
-                            style="justify-content: flex-start; gap: 12px; height: 60px;">
-                            <span style="font-size: 1.5em;">🔥</span>
-                            <span>Firewall Logs</span>
-                        </button>
-                        <button class="btn btn--secondary" :class="{ 'active': activeTab === 'firewall-snmp' }"
-                            @click="loadTab('firewall-snmp'); mobileMoreModalOpen = false"
-                            style="justify-content: flex-start; gap: 12px; height: 60px;">
-                            <span style="font-size: 1.5em;">📡</span>
-                            <span>Gateway</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal__footer"
-                    style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
-                    <button class="btn btn--primary" @click="mobileMoreModalOpen = false"
-                        style="min-height:44px;">Close</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Overall Health Details Modal -->
         <div class="modal" x-show="overallHealthModalOpen"
             :style="overallHealthModalOpen ? 'display:flex' : 'display:none'"
@@ -2263,96 +2175,6 @@
                 <div class="modal__footer"
                     style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
                     <button class="btn btn--primary" @click="overallHealthModalOpen = false">Close</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mobile Controls Modal -->
-        <div class="modal" x-show="mobileControlsModalOpen"
-            :style="mobileControlsModalOpen ? 'display:flex' : 'display:none'"
-            @click.self="mobileControlsModalOpen = false">
-            <div class="modal-content" style="max-width: 100%;">
-                <div class="modal__header"
-                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="margin:0; color:var(--text-0);">Controls</h3>
-                    <button @click="mobileControlsModalOpen = false"
-                        style="background:transparent; border:none; font-size:1.5em; color:var(--neon-red); cursor:pointer;"
-                        aria-label="Close">×</button>
-                </div>
-                <div class="modal__body" style="color:var(--text-0);">
-                    <!-- Search -->
-                    <div style="margin-bottom:var(--space-4);">
-                        <label
-                            style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Search
-                            UI</label>
-                        <div class="search-wrapper" style="width:100%;">
-                            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                            <input type="text" x-model="searchQuery" placeholder="Search UI" class="global-search"
-                                aria-label="Search UI" style="width:100%;">
-                        </div>
-                    </div>
-
-                    <!-- Time Range -->
-                    <div style="margin-bottom:var(--space-4);">
-                        <label
-                            style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Time
-                            Range</label>
-                        <select x-model="timeRange" class="header-select" aria-label="Time Range"
-                            style="width:100%; min-height:44px;">
-                            <option value="15m">15m</option>
-                            <option value="30m">30m</option>
-                            <option value="1h">1h</option>
-                            <option value="6h">6h</option>
-                            <option value="24h">24h</option>
-                            <option value="7d">7d</option>
-                        </select>
-                    </div>
-
-                    <!-- Refresh Interval -->
-                    <div style="margin-bottom:var(--space-4);">
-                        <label
-                            style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Refresh
-                            Interval</label>
-                        <select x-model="refreshInterval" class="header-select" aria-label="Refresh Interval"
-                            style="width:100%; min-height:44px;">
-                            <option value="10000">10s</option>
-                            <option value="30000">30s</option>
-                            <option value="60000">1m</option>
-                            <option value="300000">5m</option>
-                        </select>
-                    </div>
-
-                    <!-- Live Controls -->
-                    <div style="margin-bottom:var(--space-4);">
-                        <label
-                            style="display:block; font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-2);">Auto-Refresh</label>
-                        <div style="display:flex; gap:var(--space-3); align-items:center;">
-                            <button class="btn" :class="{ 'paused': paused }" @click="togglePause()"
-                                style="flex:1; min-height:44px;" title="Toggle auto-refresh pause"
-                                :title="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'"
-                                :aria-label="paused ? 'Resume auto-refresh' : 'Pause auto-refresh'">
-                                <template x-if="!paused">
-                                    <span>⏸ Pause</span>
-                                </template>
-                                <template x-if="paused">
-                                    <span>▶ Resume</span>
-                                </template>
-                            </button>
-                            <button class="btn" @click="dataRefresh(); mobileControlsModalOpen = false"
-                                style="flex:1; min-height:44px;" title="Refresh" aria-label="Refresh">
-                                <span>🔄 Refresh Now</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal__footer"
-                    style="display:flex; justify-content:flex-end; gap:10px; margin-top:var(--space-4);">
-                    <button class="btn btn--primary" @click="mobileControlsModalOpen = false"
-                        style="min-height:44px;">Close</button>
                 </div>
             </div>
         </div>

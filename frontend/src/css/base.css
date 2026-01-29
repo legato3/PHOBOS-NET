@@ -36,11 +36,6 @@ body {
   border-bottom: 1px solid var(--border-soft);
 }
 
-/* Hide mobile controls button on desktop by default */
-.mobile-controls-btn {
-  display: none !important;
-}
-
 .header-left,
 .header-right {
   display: flex;
@@ -163,54 +158,6 @@ body {
 
 .grid-4 {
   grid-template-columns: repeat(4, 1fr);
-}
-
-/* CYBERPUNK UI: Responsive - Mobile signal view */
-@media (max-width: 768px) {
-
-  .grid-2,
-  .grid-3,
-  .grid-4 {
-    grid-template-columns: 1fr;
-  }
-
-  .table,
-  table {
-    font-size: var(--fs-xs);
-  }
-
-  .table th,
-  .table td,
-  table th,
-  table td {
-    padding: var(--space-1) var(--space-2);
-  }
-
-  .panel,
-  .card {
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-  }
-
-  .header {
-    padding: 0 var(--space-2);
-    height: 48px;
-  }
-}
-
-/* CYBERPUNK UI: Responsive - Small mobile */
-@media (max-width: 480px) {
-
-  .panel,
-  .card {
-    padding: var(--space-2);
-    border-radius: var(--radius-sm);
-  }
-
-  .table,
-  table {
-    font-size: 10px;
-  }
 }
 
 /* Wall mode - Signal display (larger text, minimal UI) */

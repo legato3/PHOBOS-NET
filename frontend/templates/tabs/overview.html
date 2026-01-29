@@ -214,10 +214,7 @@
                     <div class="wm-country-col">
                         <h4>🔼 Sources</h4>
                         <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row" role="button" tabindex="0"
-                                :aria-label="'Filter map by ' + (c.name || c.iso)"
-                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
-                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                            <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -229,10 +226,7 @@
                     <div class="wm-country-col">
                         <h4>🔽 Dests</h4>
                         <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row" role="button" tabindex="0"
-                                :aria-label="'Filter map by ' + (c.name || c.iso)"
-                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
-                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                            <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -244,10 +238,7 @@
                     <div class="wm-country-col">
                         <h4>⚠️ Threats</h4>
                         <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row" role="button" tabindex="0"
-                                :aria-label="'Filter map by ' + (c.name || c.iso)"
-                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
-                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                            <div class="wm-country-row"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
