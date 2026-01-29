@@ -137,16 +137,9 @@
         <template x-if="isVisible('bandwidth')">
             {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
             period_x_text='global_time_range') %}
-            <!-- Mobile Toggle for Bandwidth Chart -->
-            <div class="mobile-chart-toggle" x-data="{ collapsed: window.innerWidth <= 768 }">
-                <button class="world-map-toggle" style="margin-bottom: 12px;" x-show="window.innerWidth <= 768"
-                    @click="collapsed = !collapsed">
-                    <span x-text="collapsed ? '📊 Show Chart' : '📊 Hide Chart'"></span>
-                </button>
-                <div class="chart-wrapper chart-expandable" x-show="!collapsed || window.innerWidth > 768"
-                    @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
-                    <canvas id="bwChart"></canvas>
-                </div>
+            <div class="chart-wrapper chart-expandable"
+                @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+                <canvas id="bwChart"></canvas>
             </div>
             {% endcall %}
         </template>
@@ -221,7 +214,10 @@
                     <div class="wm-country-col">
                         <h4>🔼 Sources</h4>
                         <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -233,7 +229,10 @@
                     <div class="wm-country-col">
                         <h4>🔽 Dests</h4>
                         <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
@@ -245,7 +244,10 @@
                     <div class="wm-country-col">
                         <h4>⚠️ Threats</h4>
                         <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
+                                :aria-label="'Filter map by ' + (c.name || c.iso)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
                                 @click="selectCountryForMap(c.iso || c.name)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>

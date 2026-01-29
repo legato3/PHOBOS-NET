@@ -169,7 +169,9 @@ async function safeFetch(url, options = {}) {
     // Store in-flight request
     _inFlightRequests.set(requestKey, fetchPromise);
 
-    return fetchPromise;
+    // Return a clone to the primary caller so the original response remains unused/pristine
+    // for subsequent callers to clone.
+    return (await fetchPromise).clone();
 }
 
 // Export utilities

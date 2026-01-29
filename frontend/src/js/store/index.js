@@ -1599,8 +1599,7 @@ export const Store = () => ({
         reputation: { ip: '', loading: false, result: null, error: null },
         httpProbe: { url: '', loading: false, result: null, error: null },
         tlsInspect: { host: '', port: '443', loading: false, result: null, error: null },
-        whois: { query: '', loading: false, result: null, error: null },
-        shell: { command: '', history: [], historyIndex: -1, output: '', loading: false, error: null }
+        whois: { query: '', loading: false, result: null, error: null }
     },
 
     // DNS Lookup
@@ -1784,82 +1783,6 @@ export const Store = () => ({
             this.tools.whois.error = 'Failed to perform lookup: ' + e.message;
         }
         this.tools.whois.loading = false;
-    },
-
-    // Shell Terminal
-    async runShellCommand() {
-        const cmd = this.tools.shell.command.trim();
-        if (!cmd) return;
-
-        // Add to history
-        this.tools.shell.history.push(cmd);
-        if (this.tools.shell.history.length > 50) this.tools.shell.history.shift();
-        this.tools.shell.historyIndex = -1; // Reset history navigation
-
-        this.tools.shell.loading = true;
-        this.tools.shell.error = null;
-
-        // Append command to output immediately
-        const timestamp = new Date().toLocaleTimeString('en-GB');
-        this.tools.shell.output = (this.tools.shell.output || '') + `\n[${timestamp}] $ ${cmd}\n`;
-
-        try {
-            const response = await fetch('/api/tools/shell', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: cmd })
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-                this.tools.shell.output += data.output;
-                if (data.error) {
-                    this.tools.shell.output += `\nError: ${data.error}`;
-                }
-            } else {
-                this.tools.shell.error = data.error || 'Command failed';
-                this.tools.shell.output += `\nError: ${data.error || 'Command failed'}`;
-            }
-        } catch (e) {
-            this.tools.shell.error = 'Execution error: ' + e.message;
-            this.tools.shell.output += `\nExecution error: ${e.message}`;
-        }
-
-        this.tools.shell.output += '\n';
-        this.tools.shell.command = ''; // Clear input
-        this.tools.shell.loading = false;
-
-        // Auto-scroll to bottom using x-ref
-        this.$nextTick(() => {
-            const terminal = this.$refs.terminalOutput;
-            if (terminal) terminal.scrollTop = terminal.scrollHeight;
-        });
-    },
-
-    shellHistoryUp() {
-        const history = this.tools.shell.history;
-        if (history.length === 0) return;
-
-        if (this.tools.shell.historyIndex === -1) {
-            this.tools.shell.historyIndex = history.length - 1;
-        } else if (this.tools.shell.historyIndex > 0) {
-            this.tools.shell.historyIndex--;
-        }
-
-        this.tools.shell.command = history[this.tools.shell.historyIndex];
-    },
-
-    shellHistoryDown() {
-        const history = this.tools.shell.history;
-        if (history.length === 0 || this.tools.shell.historyIndex === -1) return;
-
-        if (this.tools.shell.historyIndex < history.length - 1) {
-            this.tools.shell.historyIndex++;
-            this.tools.shell.command = history[this.tools.shell.historyIndex];
-        } else {
-            this.tools.shell.historyIndex = -1;
-            this.tools.shell.command = '';
-        }
     },
 
     exportAlerts() {
