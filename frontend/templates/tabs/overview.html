@@ -14,7 +14,11 @@
     <!-- LEGACY HEADER METRICS (Restored) -->
     <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
         <!-- 1. NETWORK STATUS -->
-        <div class="card" @click="openStatDetail('networkStatus')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('networkStatus')"
+            @keydown.enter="openStatDetail('networkStatus')"
+            @keydown.space.prevent="openStatDetail('networkStatus')"
+            aria-label="View Network Status Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
@@ -34,7 +38,11 @@
         </div>
 
         <!-- 2. ACTIVE ALERTS -->
-        <div class="card" @click="openStatDetail('activeAlerts')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('activeAlerts')"
+            @keydown.enter="openStatDetail('activeAlerts')"
+            @keydown.space.prevent="openStatDetail('activeAlerts')"
+            aria-label="View Active Alerts Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <h2>
                 <div class="card-title-content">
@@ -51,7 +59,11 @@
         </div>
 
         <!-- 3. TRAFFIC LEVEL -->
-        <div class="card" @click="openStatDetail('trafficLevel')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('trafficLevel')"
+            @keydown.enter="openStatDetail('trafficLevel')"
+            @keydown.space.prevent="openStatDetail('trafficLevel')"
+            aria-label="View Traffic Level Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <h2>
                 <div class="card-title-content">
@@ -70,7 +82,11 @@
         </div>
 
         <!-- 4. PROTECTED CONNECTIONS -->
-        <div class="card" @click="openStatDetail('protectedConnections')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('protectedConnections')"
+            @keydown.enter="openStatDetail('protectedConnections')"
+            @keydown.space.prevent="openStatDetail('protectedConnections')"
+            aria-label="View Protected Connections Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <h2>
                 <div class="card-title-content">
@@ -88,7 +104,11 @@
         </div>
 
         <!-- 5. INTERNET EXPOSURE -->
-        <div class="card" @click="openStatDetail('internetExposure')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('internetExposure')"
+            @keydown.enter="openStatDetail('internetExposure')"
+            @keydown.space.prevent="openStatDetail('internetExposure')"
+            aria-label="View Internet Exposure Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
             <h2>
                 <div class="card-title-content">
@@ -109,7 +129,11 @@
         </div>
 
         <!-- 6. UNUSUAL ACTIVITY -->
-        <div class="card" @click="openStatDetail('unusualActivity')"
+        <div class="card" role="button" tabindex="0"
+            @click="openStatDetail('unusualActivity')"
+            @keydown.enter="openStatDetail('unusualActivity')"
+            @keydown.space.prevent="openStatDetail('unusualActivity')"
+            aria-label="View Unusual Activity Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
@@ -214,9 +238,12 @@
                     <div class="wm-country-col">
                         <h4>🔼 Sources</h4>
                         <template x-for="c in worldMap.source_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)">
+                                @click="selectCountryForMap(c.iso || c.name)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                                :aria-label="'Select country ' + (c.name || c.iso)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-cyan" x-text="c.bytes_fmt"></span>
@@ -226,9 +253,12 @@
                     <div class="wm-country-col">
                         <h4>🔽 Dests</h4>
                         <template x-for="c in worldMap.dest_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)">
+                                @click="selectCountryForMap(c.iso || c.name)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                                :aria-label="'Select country ' + (c.name || c.iso)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-purple" x-text="c.bytes_fmt"></span>
@@ -238,9 +268,12 @@
                     <div class="wm-country-col">
                         <h4>⚠️ Threats</h4>
                         <template x-for="c in worldMap.threat_countries?.slice(0, 5)" :key="c.iso || c.name">
-                            <div class="wm-country-row"
+                            <div class="wm-country-row" role="button" tabindex="0"
                                 :class="{ 'selected': worldMapSelectedCountry === (c.iso || c.name) }"
-                                @click="selectCountryForMap(c.iso || c.name)">
+                                @click="selectCountryForMap(c.iso || c.name)"
+                                @keydown.enter="selectCountryForMap(c.iso || c.name)"
+                                @keydown.space.prevent="selectCountryForMap(c.iso || c.name)"
+                                :aria-label="'Select country ' + (c.name || c.iso)">
                                 <span x-text="flagFromIso(c.iso || '??')"></span>
                                 <span class="wm-c-name" x-text="c.name"></span>
                                 <span class="wm-c-val text-red" x-text="c.bytes_fmt || c.count || 'N/A'"></span>
