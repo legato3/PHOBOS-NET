@@ -37,7 +37,73 @@ def is_internal(host_or_ip):
 @lru_cache(maxsize=10000)
 def _check_ip_address(ip_str):
     """Check if an IP string is internal/private (cached)."""
-    # Robust IP address validation (IPv4 and IPv6)
+    # Optimized Fast Path for standard IPv4 to avoid ipaddress overhead
+    if "." in ip_str and ":" not in ip_str:
+        parts = ip_str.split(".")
+        if len(parts) == 4:
+            # Check for leading zeros (octal ambiguity prevention)
+            # ipaddress module strictly forbids leading zeros, so we must too
+            if (
+                (len(parts[0]) > 1 and parts[0].startswith("0"))
+                or (len(parts[1]) > 1 and parts[1].startswith("0"))
+                or (len(parts[2]) > 1 and parts[2].startswith("0"))
+                or (len(parts[3]) > 1 and parts[3].startswith("0"))
+            ):
+                pass  # Fallback to ipaddress (which will raise ValueError)
+            else:
+                try:
+                    a = int(parts[0])
+                    b = int(parts[1])
+                    c = int(parts[2])
+                    d = int(parts[3])
+
+                    # Check valid range for all octets first
+                    if not (
+                        0 <= a <= 255
+                        and 0 <= b <= 255
+                        and 0 <= c <= 255
+                        and 0 <= d <= 255
+                    ):
+                        return False
+
+                    if a == 10:
+                        return True
+                    if a == 127:
+                        return True
+                    if a == 169 and b == 254:
+                        return True
+
+                    if a == 172 and 16 <= b <= 31:
+                        return True
+
+                    if a == 192:
+                        if b == 168:
+                            return True
+                        if b == 0 and c == 2:
+                            return True  # Test-Net-1
+
+                    if a == 198:
+                        if 18 <= b <= 19:
+                            return True  # Benchmarking
+                        if b == 51 and c == 100:
+                            return True  # Test-Net-2
+
+                    if a == 203:
+                        if b == 0 and c == 113:
+                            return True  # Test-Net-3
+
+                    if 224 <= a <= 239:
+                        return True  # Multicast
+                    if a >= 240:
+                        return True  # Class E / Reserved
+                    if a == 0:
+                        return True  # Unspecified/Current network
+
+                    return False  # Valid Public IPv4
+                except ValueError:
+                    pass  # Fallback to ipaddress
+
+    # Robust IP address validation (IPv6 and complex cases)
     try:
         ip_obj = ipaddress.ip_address(ip_str)
         return (
