@@ -12,6 +12,35 @@ from typing import Dict, Optional, Any
 import logging
 import requests
 
+from app.services.shared.helpers import is_internal
+
+
+def _get_safe_ip(host: str, family: int = 0) -> Optional[str]:
+    """Resolve host and check for internal IPs. Returns first safe IP or None."""
+    try:
+        # Resolve to all IPs to check (v4/v6)
+        addr_info = socket.getaddrinfo(host, None, family=family)
+
+        valid_ips = []
+        for info in addr_info:
+            ip = info[4][0]
+            if is_internal(ip):
+                # If ANY resolved IP is internal, it's risky (DNS Rebinding/Split DNS)
+                # But to be practical, if we are going to use the specific IP we return,
+                # we just need to make sure the one we return is safe.
+                # However, blocking if any is internal is a safer default if we were using the hostname.
+                # Since we return the IP to be used directly, we can just filter.
+                continue
+            valid_ips.append(ip)
+
+        if not valid_ips:
+            return None
+
+        # Return the first safe IP
+        return valid_ips[0]
+    except socket.gaierror:
+        return None
+
 
 def dns_lookup(query: str, record_type: str = "A") -> Dict[str, Any]:
     """Perform DNS lookup using dig command."""
@@ -55,6 +84,11 @@ def port_check(host: str, ports: str) -> Dict[str, Any]:
     # Sanitize host
     host = re.sub(r"[^a-zA-Z0-9.\-]", "", host)
 
+    # SSRF Protection: Resolve and check IP
+    safe_ip = _get_safe_ip(host, family=socket.AF_INET)
+    if not safe_ip:
+        return {"error": "Access to restricted address is forbidden or host invalid"}
+
     # Parse ports
     port_list = []
     for p in ports.split(","):
@@ -97,7 +131,8 @@ def port_check(host: str, ports: str) -> Dict[str, Any]:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(2)
-            result = sock.connect_ex((host, port))
+            # Use safe_ip instead of host
+            result = sock.connect_ex((safe_ip, port))
             is_open = result == 0
             sock.close()
             results.append(
@@ -131,12 +166,18 @@ def ping_host(host: str, mode: str = "ping") -> Dict[str, Any]:
     if not host:
         return {"error": "Invalid host"}
 
+    # SSRF Protection: Resolve and check IP
+    safe_ip = _get_safe_ip(host)
+    if not safe_ip:
+        return {"error": "Access to restricted address is forbidden or host invalid"}
+
     try:
         if mode == "traceroute":
             # Try traceroute first, fall back to tracepath
             try:
+                # Use safe_ip to prevent DNS rebinding
                 result = subprocess.run(
-                    ["traceroute", "-m", "15", "-w", "2", host],
+                    ["traceroute", "-m", "15", "-w", "2", safe_ip],
                     capture_output=True,
                     text=True,
                     timeout=30,
@@ -144,12 +185,13 @@ def ping_host(host: str, mode: str = "ping") -> Dict[str, Any]:
             except FileNotFoundError:
                 # Try tracepath as fallback
                 result = subprocess.run(
-                    ["tracepath", host], capture_output=True, text=True, timeout=30
+                    ["tracepath", safe_ip], capture_output=True, text=True, timeout=30
                 )
         else:
             # Ping with count and timeout
+            # Use safe_ip to prevent DNS rebinding
             result = subprocess.run(
-                ["ping", "-c", "4", "-w", "5", host],
+                ["ping", "-c", "4", "-w", "5", safe_ip],
                 capture_output=True,
                 text=True,
                 timeout=15,
