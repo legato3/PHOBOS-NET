@@ -3,53 +3,133 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
-    <!-- WHAT CHANGED RAIL (Dense syslog-style activity feed) -->
-    <div class="what-changed-rail">
-        <div class="what-changed-rail__header">
-            <div class="what-changed-rail__title">
+    <!-- CHANGE DIGEST (Calm, dense, actionable delta summary) -->
+    <div class="change-digest-rail">
+        <div class="change-digest-rail__header">
+            <div class="change-digest-rail__title">
                 WHAT CHANGED
-                <template x-if="dashboardWhatChanged.baselineState === 'building'">
-                    <span class="what-changed-rail__badge">Baseline building</span>
+                <template x-if="changeDigest.baselineStatus === 'building'">
+                    <span class="change-digest-rail__badge">BASELINE BUILDING</span>
                 </template>
             </div>
-            <button @click="navigateFromWhatChanged()" class="what-changed-rail__view-all" title="View all">
-                View all →
-            </button>
+            <div class="change-digest-rail__controls">
+                <!-- Time window selector -->
+                <select x-model="changeDigest.window" @change="fetchChangeDigest()"
+                    class="change-digest-rail__window-select">
+                    <option value="15m">15m</option>
+                    <option value="1h">1h</option>
+                    <option value="24h">24h</option>
+                </select>
+            </div>
         </div>
 
-        <!-- One-line summary -->
-        <div class="what-changed-rail__summary" x-text="getWhatChangedSummaryLine()"></div>
+        <!-- One-line deterministic summary -->
+        <div class="change-digest-rail__summary" x-text="changeDigest.summaryLine"></div>
 
-        <!-- Dense scrolling list (syslog-tail style) -->
-        <div class="what-changed-rail__scroll">
-            <template x-if="dashboardWhatChanged.items.length === 0">
-                <div class="what-changed-rail__empty">
-                    Quiet window — no notable changes detected.
+        <!-- Digest groups (collapsible) -->
+        <div class="change-digest-rail__groups">
+            <!-- NEEDS ATTENTION -->
+            <template x-if="changeDigest.groups.needsAttention.length > 0">
+                <div class="change-digest-group">
+                    <div class="change-digest-group__header"
+                         @click="toggleDigestGroup('needsAttention')"
+                         role="button"
+                         tabindex="0">
+                        <span class="change-digest-group__icon"
+                              x-text="changeDigest.expandedGroups.has('needsAttention') ? '▼' : '▶'"></span>
+                        <span class="change-digest-group__title">NEEDS ATTENTION</span>
+                        <span class="change-digest-group__count"
+                              x-text="'(' + changeDigest.groups.needsAttention.length + ')'"></span>
+                    </div>
+                    <template x-if="changeDigest.expandedGroups.has('needsAttention')">
+                        <div class="change-digest-group__rows">
+                            <template x-for="row in changeDigest.groups.needsAttention.slice(0, 3)" :key="row.title">
+                                <div class="change-digest-row">
+                                    <span class="change-digest-row__category" x-text="row.category"></span>
+                                    <span class="change-digest-row__title" x-text="row.title"></span>
+                                    <span class="change-digest-row__delta" x-text="row.delta"></span>
+                                    <button class="change-digest-row__action"
+                                            @click="navigateFromDigestRow(row.action)"
+                                            title="View details">
+                                        →
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
                 </div>
             </template>
 
-            <template x-for="(item, idx) in dashboardWhatChanged.items" :key="idx">
-                <div class="what-changed-rail__row" @click="openWhatChangedDetail(item)" role="button" tabindex="0"
-                    @keydown.enter="openWhatChangedDetail(item)" @keydown.space.prevent="openWhatChangedDetail(item)">
-                    <!-- Time ago -->
-                    <div class="what-changed-rail__time" x-text="timeAgo(item.ts)"></div>
-
-                    <!-- Source badge -->
-                    <div class="what-changed-rail__source"
-                        :class="'source-' + item.source.toLowerCase()"
-                        x-text="item.source"></div>
-
-                    <!-- Severity dot -->
-                    <div class="what-changed-rail__severity"
-                        :class="'severity-' + item.severity"></div>
-
-                    <!-- Message -->
-                    <div class="what-changed-rail__message" x-text="item.title"></div>
-
-                    <!-- Entity pill (optional) -->
-                    <template x-if="item.entity">
-                        <div class="what-changed-rail__entity" x-text="item.entity"></div>
+            <!-- NEW & UNUSUAL -->
+            <template x-if="changeDigest.groups.newUnusual.length > 0">
+                <div class="change-digest-group">
+                    <div class="change-digest-group__header"
+                         @click="toggleDigestGroup('newUnusual')"
+                         role="button"
+                         tabindex="0">
+                        <span class="change-digest-group__icon"
+                              x-text="changeDigest.expandedGroups.has('newUnusual') ? '▼' : '▶'"></span>
+                        <span class="change-digest-group__title">NEW & UNUSUAL</span>
+                        <span class="change-digest-group__count"
+                              x-text="'(' + changeDigest.groups.newUnusual.length + ')'"></span>
+                    </div>
+                    <template x-if="changeDigest.expandedGroups.has('newUnusual')">
+                        <div class="change-digest-group__rows">
+                            <template x-for="row in changeDigest.groups.newUnusual.slice(0, 3)" :key="row.title">
+                                <div class="change-digest-row">
+                                    <span class="change-digest-row__category" x-text="row.category"></span>
+                                    <span class="change-digest-row__title" x-text="row.title"></span>
+                                    <span class="change-digest-row__delta" x-text="row.delta"></span>
+                                    <button class="change-digest-row__action"
+                                            @click="navigateFromDigestRow(row.action)"
+                                            title="View details">
+                                        →
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </template>
+                </div>
+            </template>
+
+            <!-- BIGGEST MOVERS -->
+            <template x-if="changeDigest.groups.biggestMovers.length > 0">
+                <div class="change-digest-group">
+                    <div class="change-digest-group__header"
+                         @click="toggleDigestGroup('biggestMovers')"
+                         role="button"
+                         tabindex="0">
+                        <span class="change-digest-group__icon"
+                              x-text="changeDigest.expandedGroups.has('biggestMovers') ? '▼' : '▶'"></span>
+                        <span class="change-digest-group__title">BIGGEST MOVERS</span>
+                        <span class="change-digest-group__count"
+                              x-text="'(' + changeDigest.groups.biggestMovers.length + ')'"></span>
+                    </div>
+                    <template x-if="changeDigest.expandedGroups.has('biggestMovers')">
+                        <div class="change-digest-group__rows">
+                            <template x-for="row in changeDigest.groups.biggestMovers.slice(0, 3)" :key="row.title">
+                                <div class="change-digest-row">
+                                    <span class="change-digest-row__category" x-text="row.category"></span>
+                                    <span class="change-digest-row__title" x-text="row.title"></span>
+                                    <span class="change-digest-row__delta" x-text="row.delta"></span>
+                                    <button class="change-digest-row__action"
+                                            @click="navigateFromDigestRow(row.action)"
+                                            title="View details">
+                                        →
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Empty state -->
+            <template x-if="changeDigest.groups.needsAttention.length === 0 &&
+                             changeDigest.groups.newUnusual.length === 0 &&
+                             changeDigest.groups.biggestMovers.length === 0">
+                <div class="change-digest-rail__empty">
+                    No meaningful changes in the last <span x-text="changeDigest.window"></span>. System stable.
                 </div>
             </template>
         </div>
@@ -284,104 +364,110 @@
         </section>
     </div>
 
-    <!-- What Changed Detail Modal -->
-    <div class="modal" x-show="dashboardWhatChanged.selectedItem"
-        :style="dashboardWhatChanged.selectedItem ? 'display:flex' : 'display:none'"
-        @click.self="closeWhatChangedDetail()">
-        <div class="modal-content" style="max-width: 700px;">
-            <template x-if="dashboardWhatChanged.selectedItem">
+    <!-- Stat Drilldown Modal -->
+    <div class="modal stat-drilldown-modal" x-show="statDetailOpen"
+        :style="statDetailOpen ? 'display:flex' : 'display:none'"
+        @click.self="statDetailOpen = false">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <template x-if="statDetail">
                 <div>
                     <!-- Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                    <div class="stat-drilldown-header">
                         <div>
-                            <h2 style="margin: 0; margin-bottom: var(--space-1);">
-                                <span x-text="dashboardWhatChanged.selectedItem.title"></span>
-                            </h2>
-                            <div style="font-size: var(--text-xs); color: var(--text-muted);">
-                                <span x-text="timeAgo(dashboardWhatChanged.selectedItem.ts)"></span>
-                                • <span x-text="dashboardWhatChanged.selectedItem.source"></span>
+                            <h2 x-text="statDetail.title"></h2>
+                            <div class="stat-drilldown-meta">
+                                <span class="stat-drilldown-value" x-text="statDetail.value"></span>
+                                <span class="stat-drilldown-window" x-text="statDetail.window"></span>
                             </div>
                         </div>
-                        <button @click="closeWhatChangedDetail()" class="btn btn--secondary"
+                        <button @click="statDetailOpen = false" class="btn btn--secondary"
                             style="padding: var(--space-1) var(--space-2);">✕ Close</button>
                     </div>
 
-                    <!-- Why this surfaced -->
-                    <div style="background: rgba(0, 234, 255, 0.05); border-left: 3px solid var(--neon-cyan); padding: var(--space-2); margin-bottom: var(--space-4); font-size: var(--text-sm);">
-                        <strong>Why this surfaced:</strong>
-                        <span x-text="dashboardWhatChanged.selectedItem.severity === 'warn' ? 'Significant deviation or high-severity event detected.' :
-                                      dashboardWhatChanged.selectedItem.severity === 'notice' ? 'Moderate change or new activity detected.' :
-                                      'Informational update on system state.'"></span>
+                    <!-- Verdict -->
+                    <div class="stat-drilldown-verdict" :style="'border-left-color: ' + statDetail.verdict.color">
+                        <strong>Assessment:</strong>
+                        <span :style="'color: ' + statDetail.verdict.color" x-text="statDetail.verdict.label"></span>
                     </div>
 
-                    <!-- Evidence section -->
-                    <div style="background: var(--bg-secondary); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4);">
-                        <div style="font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-2); color: var(--neon-cyan);">
-                            EVIDENCE
+                    <!-- Why this number (computation) -->
+                    <template x-if="statDetail.computation">
+                        <div class="stat-drilldown-why">
+                            <strong>Why this number:</strong>
+                            <span x-text="statDetail.computation"></span>
                         </div>
-                        <div style="display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); font-size: var(--text-sm);">
-                            <template x-if="dashboardWhatChanged.selectedItem.entity">
-                                <template>
-                                    <span style="color: var(--text-muted);">Entity:</span>
-                                    <span style="font-family: var(--font-mono); color: var(--neon-cyan);"
-                                        x-text="dashboardWhatChanged.selectedItem.entity"></span>
-                                </template>
-                            </template>
+                    </template>
 
-                            <template x-if="dashboardWhatChanged.selectedItem.meta?.count">
-                                <template>
-                                    <span style="color: var(--text-muted);">Count:</span>
-                                    <span x-text="dashboardWhatChanged.selectedItem.meta.count"></span>
+                    <!-- Breakdowns (if present) -->
+                    <template x-if="statDetail.breakdowns && statDetail.breakdowns.length > 0">
+                        <div class="stat-drilldown-section">
+                            <div class="stat-drilldown-section-title">METRICS</div>
+                            <div class="stat-drilldown-grid">
+                                <template x-for="b in statDetail.breakdowns" :key="b.label">
+                                    <div class="stat-drilldown-grid-item">
+                                        <span class="stat-drilldown-grid-label" x-text="b.label"></span>
+                                        <span class="stat-drilldown-grid-value" x-text="b.value"></span>
+                                    </div>
                                 </template>
-                            </template>
-
-                            <template x-if="dashboardWhatChanged.selectedItem.meta?.escalated">
-                                <template>
-                                    <span style="color: var(--text-muted);">High-severity:</span>
-                                    <span style="color: var(--signal-warn);"
-                                        x-text="dashboardWhatChanged.selectedItem.meta.escalated"></span>
-                                </template>
-                            </template>
-
-                            <template x-if="dashboardWhatChanged.selectedItem.meta?.blockedEvents">
-                                <template>
-                                    <span style="color: var(--text-muted);">Blocked events:</span>
-                                    <span x-text="dashboardWhatChanged.selectedItem.meta.blockedEvents"></span>
-                                </template>
-                            </template>
-
-                            <template x-if="dashboardWhatChanged.selectedItem.meta?.deltaPct">
-                                <template>
-                                    <span style="color: var(--text-muted);">Change vs baseline:</span>
-                                    <span :style="Math.abs(dashboardWhatChanged.selectedItem.meta.deltaPct) > 40 ? 'color: var(--signal-warn);' : ''"
-                                        x-text="dashboardWhatChanged.selectedItem.meta.deltaPct > 0 ? '+' + dashboardWhatChanged.selectedItem.meta.deltaPct + '%' : dashboardWhatChanged.selectedItem.meta.deltaPct + '%'"></span>
-                                </template>
-                            </template>
-
-                            <template x-if="dashboardWhatChanged.selectedItem.meta?.topBlockReason">
-                                <template>
-                                    <span style="color: var(--text-muted);">Top rule:</span>
-                                    <span style="font-family: var(--font-mono); font-size: var(--text-xs);"
-                                        x-text="dashboardWhatChanged.selectedItem.meta.topBlockReason"></span>
-                                </template>
-                            </template>
+                            </div>
                         </div>
-                    </div>
+                    </template>
 
-                    <!-- Open in... actions -->
-                    <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                        <template x-if="dashboardWhatChanged.selectedItem.deepLink">
-                            <template>
-                                <button @click="loadTab(dashboardWhatChanged.selectedItem.deepLink.tab); closeWhatChangedDetail();"
-                                    class="btn btn--primary" style="font-size: var(--text-xs);">
-                                    📊 Open in <span x-text="dashboardWhatChanged.selectedItem.deepLink.tab === 'traffic-explorer' ? 'Flow Search' : dashboardWhatChanged.selectedItem.deepLink.tab === 'security' ? 'Security' : dashboardWhatChanged.selectedItem.deepLink.tab === 'firewall' ? 'Firewall' : 'Network'"></span>
+                    <!-- Components (for Network State) -->
+                    <template x-if="statDetail.components && statDetail.components.length > 0">
+                        <div class="stat-drilldown-section">
+                            <div class="stat-drilldown-section-title">COMPONENTS</div>
+                            <div class="stat-drilldown-grid">
+                                <template x-for="c in statDetail.components" :key="c.label">
+                                    <div class="stat-drilldown-grid-item">
+                                        <span class="stat-drilldown-grid-label" x-text="c.label"></span>
+                                        <span class="stat-drilldown-grid-value" :style="'color: ' + c.color" x-text="c.status"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Top Contributors -->
+                    <template x-if="statDetail.top && statDetail.top.length > 0">
+                        <div class="stat-drilldown-section">
+                            <div class="stat-drilldown-section-title">TOP CONTRIBUTORS</div>
+                            <div class="stat-drilldown-table">
+                                <template x-for="(item, idx) in statDetail.top" :key="idx">
+                                    <div class="stat-drilldown-row">
+                                        <div class="stat-drilldown-row-label" x-text="item.label"></div>
+                                        <div class="stat-drilldown-row-value" x-text="item.value"></div>
+                                        <template x-if="item.hint">
+                                            <div class="stat-drilldown-row-hint" x-text="item.hint"></div>
+                                        </template>
+                                        <template x-if="item.action">
+                                            <button @click="navigateToStatAction(item.action)" class="stat-drilldown-row-action">
+                                                →
+                                            </button>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Next Actions -->
+                    <template x-if="statDetail.actions && statDetail.actions.length > 0">
+                        <div class="stat-drilldown-actions">
+                            <template x-for="action in statDetail.actions" :key="action.label">
+                                <button @click="navigateToStatAction(action); statDetailOpen = false;" class="btn btn--primary">
+                                    📊 <span x-text="action.label"></span>
                                 </button>
                             </template>
-                        </template>
-                        <button @click="closeWhatChangedDetail()" class="btn btn--secondary" style="font-size: var(--text-xs);">
-                            Close
-                        </button>
-                    </div>
+                        </div>
+                    </template>
+
+                    <!-- Demo mode indicator -->
+                    <template x-if="isDemoMode()">
+                        <div style="margin-top: var(--space-3); padding: var(--space-2); background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); border-radius: var(--radius-sm); font-size: var(--text-xs); color: var(--signal-warn);">
+                            ⚠️ Demo mode: Sample data shown for testing
+                        </div>
+                    </template>
                 </div>
             </template>
         </div>

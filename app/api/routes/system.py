@@ -1286,6 +1286,464 @@ def api_overview_intelligence():
     })
 
 
+@bp.route("/api/overview/exposure_summary")
+@throttle(10, 10)
+def api_overview_exposure_summary():
+    """
+    Attack Surface Exposure Summary.
+
+    Aggregates: top inbound external sources, top targeted internal hosts, top exposed ports.
+    Reuses existing firewall and netflow data sources - no new pipelines.
+    """
+    range_key = request.args.get("range", "1h")
+
+    # Get firewall logs for inbound analysis
+    from app.services.syslog.syslog import get_recent_fw_logs
+
+    try:
+        # Get recent firewall logs (last 1000 events)
+        logs = get_recent_fw_logs(range_key, limit=1000)
+
+        # Filter for inbound traffic (WAN interface or external sources)
+        inbound_logs = []
+        for log in logs:
+            src_ip = log.get("src_ip") or log.get("src")
+            iface = (log.get("interface") or log.get("iface") or "").lower()
+
+            # Heuristic for inbound: WAN interface or external source
+            is_wan = "wan" in iface
+            is_external = src_ip and not _is_rfc1918(src_ip)
+
+            if is_wan or is_external:
+                inbound_logs.append(log)
+
+        # Top inbound external sources (by connection count)
+        from collections import Counter
+        src_counter = Counter()
+        src_details = {}
+
+        for log in inbound_logs:
+            src_ip = log.get("src_ip") or log.get("src")
+            if src_ip:
+                src_counter[src_ip] += 1
+                if src_ip not in src_details:
+                    src_details[src_ip] = {
+                        "country": log.get("country") or "—",
+                        "last_seen": log.get("timestamp") or log.get("ts"),
+                        "action": log.get("action", "—")
+                    }
+
+        top_sources = [
+            {
+                "ip": src,
+                "count": count,
+                "country": src_details[src]["country"],
+                "last_seen": src_details[src]["last_seen"],
+                "action": src_details[src]["action"]
+            }
+            for src, count in src_counter.most_common(10)
+        ]
+
+        # Top targeted internal hosts (destinations)
+        dst_counter = Counter()
+        dst_details = {}
+
+        for log in inbound_logs:
+            dst_ip = log.get("dst_ip") or log.get("dst")
+            if dst_ip and _is_rfc1918(dst_ip):  # Only internal targets
+                dst_counter[dst_ip] += 1
+                if dst_ip not in dst_details:
+                    dst_details[dst_ip] = {
+                        "last_seen": log.get("timestamp") or log.get("ts"),
+                        "action": log.get("action", "—")
+                    }
+
+        top_targets = [
+            {
+                "ip": dst,
+                "count": count,
+                "last_seen": dst_details[dst]["last_seen"],
+                "action": dst_details[dst]["action"]
+            }
+            for dst, count in dst_counter.most_common(10)
+        ]
+
+        # Top exposed ports (destination ports)
+        port_counter = Counter()
+        port_details = {}
+
+        for log in inbound_logs:
+            dst_port = log.get("dst_port") or log.get("dport")
+            if dst_port:
+                port_counter[dst_port] += 1
+                if dst_port not in port_details:
+                    port_details[dst_port] = {
+                        "proto": log.get("proto") or log.get("protocol") or "—",
+                        "action": log.get("action", "—")
+                    }
+
+        top_ports = [
+            {
+                "port": port,
+                "count": count,
+                "proto": port_details[port]["proto"],
+                "action": port_details[port]["action"]
+            }
+            for port, count in port_counter.most_common(10)
+        ]
+
+        return jsonify({
+            "top_sources": top_sources,
+            "top_targets": top_targets,
+            "top_ports": top_ports,
+            "total_inbound": len(inbound_logs),
+            "unique_sources": len(src_counter),
+            "unique_targets": len(dst_counter),
+            "window": range_key
+        })
+
+    except (ValueError, KeyError, TypeError) as e:
+        add_app_log(f"Exposure summary error: {e}", "ERROR")
+        return jsonify({
+            "error": str(e),
+            "top_sources": [],
+            "top_targets": [],
+            "top_ports": [],
+            "total_inbound": 0,
+            "unique_sources": 0,
+            "unique_targets": 0
+        }), 500
+
+
+@bp.route("/api/overview/change_digest")
+@throttle(15, 10)
+def api_overview_change_digest():
+    """
+    Change Digest endpoint for calm, delta-based change summary.
+
+    Compares current window vs previous window to surface meaningful changes:
+    - Alerts: new alerts, severity distribution
+    - Firewall: blocks delta, new inbound sources
+    - Traffic: level changes, anomalies
+
+    Returns digest rows grouped into: needs_attention, new_unusual, biggest_movers
+    """
+    import app.services.security.threats as threats_module
+    from app.services.syslog.syslog import _firewall_db_init, _firewall_db_connect, _firewall_db_lock
+    from app.services.netflow.netflow import get_common_nfdump_data
+
+    window = request.args.get("window", "1h")
+    seconds_map = {"15m": 900, "1h": 3600, "24h": 86400}
+    window_seconds = seconds_map.get(window, 3600)
+
+    now = datetime.now()
+    now_start = now - timedelta(seconds=window_seconds)
+    prev_end = now_start
+    prev_start = prev_end - timedelta(seconds=window_seconds)
+
+    def safe_delta(current, previous):
+        """Compute delta with safe percent calculation."""
+        delta = current - previous
+        pct = 0
+        if previous > 0:
+            pct = round((delta / previous) * 100)
+        elif current > 0:
+            pct = 100  # Went from 0 to something
+        return {"current": current, "previous": previous, "delta": delta, "pct": pct}
+
+    # ==================== ALERTS ====================
+    threats_module.auto_resolve_stale_alerts()
+    with threats_module._alert_history_lock:
+        all_alerts = [a.copy() for a in threats_module._alert_history]
+
+    active_alerts = [a for a in all_alerts if a.get("active", True)]
+
+    now_ts = time.time()
+    now_cutoff = now_ts - window_seconds
+    prev_cutoff = now_ts - (2 * window_seconds)
+
+    alerts_current = [a for a in all_alerts if a.get("ts", 0) >= now_cutoff]
+    alerts_previous = [a for a in all_alerts if prev_cutoff <= a.get("ts", 0) < now_cutoff]
+
+    alerts_delta = safe_delta(len(alerts_current), len(alerts_previous))
+
+    # Count high-severity alerts (critical + high)
+    high_current = sum(1 for a in alerts_current if a.get("severity") in ("critical", "high"))
+    high_previous = sum(1 for a in alerts_previous if a.get("severity") in ("critical", "high"))
+    high_severity_delta = safe_delta(high_current, high_previous)
+
+    # Top alert types (for current window)
+    from collections import Counter
+    alert_types = Counter(a.get("type", "unknown") for a in alerts_current)
+    top_alert_type = alert_types.most_common(1)
+    top_alert_type_label = top_alert_type[0][0] if top_alert_type else None
+    top_alert_type_count = top_alert_type[0][1] if top_alert_type else 0
+
+    # ==================== FIREWALL ====================
+    _firewall_db_init()
+    now_ts_dt = now.timestamp()
+    now_start_ts = now_start.timestamp()
+    prev_start_ts = prev_start.timestamp()
+    prev_end_ts = prev_end.timestamp()
+
+    def _fw_stats(start_ts, end_ts):
+        """Get firewall stats for a time window."""
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                # Blocks
+                cur = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs
+                    WHERE timestamp >= ? AND timestamp < ?
+                    AND action IN ('block', 'reject')
+                """, (start_ts, end_ts))
+                blocks = cur.fetchone()[0] or 0
+
+                # Unique blocked IPs
+                cur = conn.execute("""
+                    SELECT COUNT(DISTINCT src_ip) FROM fw_logs
+                    WHERE timestamp >= ? AND timestamp < ?
+                    AND action IN ('block', 'reject')
+                """, (start_ts, end_ts))
+                unique_ips = cur.fetchone()[0] or 0
+
+                # Top block reason
+                cur = conn.execute("""
+                    SELECT COALESCE(rule_id, 'default'), COUNT(*) as cnt
+                    FROM fw_logs
+                    WHERE timestamp >= ? AND timestamp < ?
+                    AND action IN ('block', 'reject')
+                    GROUP BY rule_id
+                    ORDER BY cnt DESC
+                    LIMIT 1
+                """, (start_ts, end_ts))
+                top_rule_row = cur.fetchone()
+                top_rule = top_rule_row[0] if top_rule_row else None
+                top_rule_count = top_rule_row[1] if top_rule_row else 0
+
+                return {
+                    "blocks": blocks,
+                    "unique_ips": unique_ips,
+                    "top_rule": top_rule,
+                    "top_rule_count": top_rule_count
+                }
+            finally:
+                conn.close()
+
+    fw_current = _fw_stats(now_start_ts, now_ts_dt)
+    fw_previous = _fw_stats(prev_start_ts, prev_end_ts)
+
+    blocks_delta = safe_delta(fw_current["blocks"], fw_previous["blocks"])
+    unique_ips_delta = safe_delta(fw_current["unique_ips"], fw_previous["unique_ips"])
+
+    # New inbound sources (IPs seen in current window but not in previous)
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            cur = conn.execute("""
+                SELECT DISTINCT src_ip FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND action IN ('block', 'reject')
+            """, (now_start_ts, now_ts_dt))
+            current_ips = set(row[0] for row in cur.fetchall() if row[0])
+
+            cur = conn.execute("""
+                SELECT DISTINCT src_ip FROM fw_logs
+                WHERE timestamp >= ? AND timestamp < ?
+                AND action IN ('block', 'reject')
+            """, (prev_start_ts, prev_end_ts))
+            previous_ips = set(row[0] for row in cur.fetchall() if row[0])
+
+            new_inbound_sources = len(current_ips - previous_ips)
+        finally:
+            conn.close()
+
+    # ==================== TRAFFIC ====================
+    # Get baseline state for traffic level comparison
+    baseline_stats = get_baseline_stats()
+    baseline_available = baseline_stats.get("available", False)
+    baseline_state = baseline_stats.get("state", "WARMING")
+
+    # Get current traffic stats
+    sources_current = get_common_nfdump_data("sources", window)
+    flows_current = sum(i.get("flows", 0) for i in sources_current)
+    bytes_current = sum(i.get("bytes", 0) for i in sources_current)
+
+    # For traffic level, we need to compare against baseline (not previous window)
+    # This is because traffic naturally varies, we care about baseline deviation
+    traffic_level = "Normal"
+    traffic_level_changed = False
+    flows_baseline_mean = None
+
+    if baseline_available and baseline_state == "STABLE":
+        flows_baseline_stats = baseline_stats.get("baseline_stats", {}).get("active_flows", {})
+        flows_baseline_mean = flows_baseline_stats.get("mean")
+
+        if flows_baseline_mean and flows_baseline_mean > 0:
+            flow_ratio = flows_current / flows_baseline_mean
+            if flow_ratio > 1.4:
+                traffic_level = "Elevated"
+                traffic_level_changed = True
+            elif flow_ratio > 1.7:
+                traffic_level = "High"
+                traffic_level_changed = True
+            elif flow_ratio < 0.5:
+                traffic_level = "Low"
+                traffic_level_changed = True
+
+    # Get top traffic mover (biggest source in current window)
+    top_source = sources_current[0] if sources_current else None
+    top_source_ip = top_source.get("ip") if top_source else None
+    top_source_bytes = top_source.get("bytes", 0) if top_source else 0
+
+    # Anomalies delta (from network stats)
+    # We'll fetch this from the existing network stats endpoint data
+    # For now, use placeholder (can be extended later)
+    anomalies_delta = safe_delta(0, 0)  # Placeholder
+
+    # ==================== BUILD DIGEST ====================
+    digest = {
+        "window": window,
+        "window_seconds": window_seconds,
+        "baseline_status": "building" if baseline_state != "STABLE" else "ready",
+        "summary_line": "",
+        "groups": {
+            "needs_attention": [],
+            "new_unusual": [],
+            "biggest_movers": []
+        },
+        "raw_deltas": {
+            "alerts": alerts_delta,
+            "high_severity": high_severity_delta,
+            "blocks": blocks_delta,
+            "new_inbound_sources": new_inbound_sources,
+            "unique_blocked_ips": unique_ips_delta,
+            "traffic_level": traffic_level,
+            "traffic_level_changed": traffic_level_changed
+        }
+    }
+
+    # Summary line components
+    summary_parts = []
+
+    # NEEDS ATTENTION group (critical items)
+    if high_current > 0 and (high_severity_delta["delta"] >= 2 or high_current >= 3):
+        digest["groups"]["needs_attention"].append({
+            "category": "SECURITY",
+            "title": f"{high_current} high-severity alert{'s' if high_current != 1 else ''}",
+            "delta": f"↑ +{high_severity_delta['delta']}" if high_severity_delta["delta"] > 0 else f"→ {high_current}",
+            "action": {"type": "security", "filter": "severity:high"},
+            "priority": 1
+        })
+
+    # Meaningful alert increase
+    if alerts_delta["delta"] >= 5 or (alerts_delta["pct"] >= 20 and alerts_delta["current"] >= 3):
+        digest["groups"]["needs_attention"].append({
+            "category": "SECURITY",
+            "title": f"Alerts increased to {alerts_delta['current']}",
+            "delta": f"↑ +{alerts_delta['delta']}" if alerts_delta["delta"] > 0 else f"+{alerts_delta['pct']}%",
+            "action": {"type": "security"},
+            "priority": 2
+        })
+        summary_parts.append(f"Alerts ↑ +{alerts_delta['delta']}")
+
+    # Meaningful block increase
+    if blocks_delta["delta"] >= 10 or (blocks_delta["pct"] >= 25 and blocks_delta["current"] >= 10):
+        digest["groups"]["needs_attention"].append({
+            "category": "FIREWALL",
+            "title": f"Blocks increased to {blocks_delta['current']}",
+            "delta": f"↑ +{blocks_delta['delta']}" if blocks_delta["delta"] > 0 else f"+{blocks_delta['pct']}%",
+            "action": {"type": "firewall", "filter": "action:block"},
+            "priority": 3
+        })
+        summary_parts.append(f"blocks ↑ +{blocks_delta['pct']}%")
+
+    # NEW & UNUSUAL group
+    if new_inbound_sources >= 20 or (new_inbound_sources >= 10 and unique_ips_delta["pct"] >= 25):
+        digest["groups"]["new_unusual"].append({
+            "category": "FIREWALL",
+            "title": f"{new_inbound_sources} new inbound source{'s' if new_inbound_sources != 1 else ''}",
+            "delta": f"↑ {new_inbound_sources}",
+            "action": {"type": "firewall", "filter": "new:true"},
+            "priority": 1
+        })
+        summary_parts.append(f"{new_inbound_sources} new inbound sources")
+
+    if top_alert_type_label and top_alert_type_count >= 3:
+        digest["groups"]["new_unusual"].append({
+            "category": "SECURITY",
+            "title": f"{top_alert_type_count} {top_alert_type_label.replace('_', ' ')} alert{'s' if top_alert_type_count != 1 else ''}",
+            "delta": f"→ {top_alert_type_count}",
+            "action": {"type": "security", "filter": f"type:{top_alert_type_label}"},
+            "priority": 2
+        })
+
+    if traffic_level_changed:
+        digest["groups"]["new_unusual"].append({
+            "category": "TRAFFIC",
+            "title": f"Traffic level changed to {traffic_level}",
+            "delta": f"→ {traffic_level}",
+            "action": {"type": "network"},
+            "priority": 3
+        })
+
+    # BIGGEST MOVERS group
+    if fw_current["top_rule"] and fw_current["top_rule_count"] >= 10:
+        digest["groups"]["biggest_movers"].append({
+            "category": "FIREWALL",
+            "title": f"Top block rule: {fw_current['top_rule']}",
+            "delta": f"→ {fw_current['top_rule_count']}",
+            "action": {"type": "firewall", "filter": f"rule:{fw_current['top_rule']}"},
+            "priority": 1
+        })
+
+    if top_source_ip and top_source_bytes > 0:
+        digest["groups"]["biggest_movers"].append({
+            "category": "TRAFFIC",
+            "title": f"Top talker: {top_source_ip}",
+            "delta": f"→ {fmt_bytes(top_source_bytes)}",
+            "action": {"type": "flow_search", "filter": f"ip:{top_source_ip}"},
+            "priority": 2
+        })
+
+    # Build summary line
+    if not summary_parts:
+        if alerts_delta["current"] == 0 and blocks_delta["current"] == 0:
+            digest["summary_line"] = f"Last {window}: No alerts, no blocks, traffic normal."
+        else:
+            digest["summary_line"] = f"Last {window}: {alerts_delta['current']} alert{'s' if alerts_delta['current'] != 1 else ''}, {blocks_delta['current']} block{'s' if blocks_delta['current'] != 1 else ''}, traffic {traffic_level.lower()}."
+    else:
+        digest["summary_line"] = f"Last {window}: {', '.join(summary_parts)}, traffic {traffic_level.lower()}."
+
+    return jsonify(digest)
+
+
+def _is_rfc1918(ip):
+    """Helper to check if IP is private (RFC1918)."""
+    if not ip:
+        return False
+    return (
+        ip.startswith("10.") or
+        ip.startswith("192.168.") or
+        ip.startswith("172.16.") or
+        ip.startswith("172.17.") or
+        ip.startswith("172.18.") or
+        ip.startswith("172.19.") or
+        ip.startswith("172.20.") or
+        ip.startswith("172.21.") or
+        ip.startswith("172.22.") or
+        ip.startswith("172.23.") or
+        ip.startswith("172.24.") or
+        ip.startswith("172.25.") or
+        ip.startswith("172.26.") or
+        ip.startswith("172.27.") or
+        ip.startswith("172.28.") or
+        ip.startswith("172.29.") or
+        ip.startswith("172.30.") or
+        ip.startswith("172.31.")
+    )
+
+
 @bp.route("/api/notify_status")
 def api_notify_status():
     return jsonify(load_notify_cfg())

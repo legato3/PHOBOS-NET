@@ -415,14 +415,20 @@ export const Store = () => ({
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
 
-    // Dashboard "What Changed" Rail - dense syslog-style activity feed
-    dashboardWhatChanged: {
-        items: [],              // Normalized change items: { ts, source, severity, title, entity, meta, deepLink }
-        summary: {},            // One-line summary: { alertGroups, highSeverity, newInbound, blocksStatus, trafficStatus }
+    // Change Digest - calm, delta-based change summary
+    changeDigest: {
+        window: '1h',           // '15m' | '1h' | '24h'
+        summaryLine: '',        // One-line deterministic summary
+        baselineStatus: 'ready', // 'building' | 'ready'
+        groups: {
+            needsAttention: [],
+            newUnusual: [],
+            biggestMovers: []
+        },
         loading: false,
-        lastUpdatedTs: null,
-        baselineState: 'ready', // 'ready' | 'building'
-        selectedItem: null      // For detail modal
+        error: null,
+        expandedGroups: new Set(['needsAttention']), // Which groups are expanded
+        lastUpdatedTs: null
     },
 
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
@@ -1457,9 +1463,87 @@ export const Store = () => ({
         };
     },
 
-    // NEW: Compute Dashboard "What Changed" rail (dense syslog-style feed)
+    // Fetch Change Digest from new backend endpoint
+    async fetchChangeDigest() {
+        this.changeDigest.loading = true;
+        this.changeDigest.error = null;
+
+        try {
+            const response = await fetch(`/api/overview/change_digest?window=${this.changeDigest.window}`);
+            if (!response.ok) throw new Error(`Failed to fetch change digest: ${response.statusText}`);
+
+            const data = await response.json();
+
+            // Update state with digest data
+            this.changeDigest.summaryLine = data.summary_line || '';
+            this.changeDigest.baselineStatus = data.baseline_status || 'ready';
+            this.changeDigest.groups.needsAttention = data.groups?.needs_attention || [];
+            this.changeDigest.groups.newUnusual = data.groups?.new_unusual || [];
+            this.changeDigest.groups.biggestMovers = data.groups?.biggest_movers || [];
+            this.changeDigest.lastUpdatedTs = Date.now();
+        } catch (error) {
+            console.error('Error fetching change digest:', error);
+            this.changeDigest.error = error.message;
+            this.changeDigest.summaryLine = 'Failed to load change digest.';
+        } finally {
+            this.changeDigest.loading = false;
+        }
+    },
+
+    // Toggle expanded state for digest groups
+    toggleDigestGroup(groupName) {
+        if (this.changeDigest.expandedGroups.has(groupName)) {
+            this.changeDigest.expandedGroups.delete(groupName);
+        } else {
+            this.changeDigest.expandedGroups.add(groupName);
+        }
+        // Trigger reactivity
+        this.changeDigest.expandedGroups = new Set(this.changeDigest.expandedGroups);
+    },
+
+    // Navigate from digest row with pre-filled filters
+    navigateFromDigestRow(action) {
+        if (!action) return;
+
+        const { type, filter } = action;
+
+        switch (type) {
+            case 'security':
+                this.loadTab('security');
+                // TODO: Apply filter if needed (e.g., scroll to high-severity alerts)
+                break;
+
+            case 'firewall':
+                this.loadTab('firewall');
+                // TODO: Apply filter to firewall logs
+                break;
+
+            case 'flow_search':
+                this.loadTab('traffic-explorer');
+                // Parse filter and set in flowSearch state
+                if (filter && filter.includes('ip:')) {
+                    const ip = filter.replace('ip:', '');
+                    // Set the filter in traffic explorer
+                    setTimeout(() => {
+                        this.trafficExplorer.filters.srcIP = ip;
+                        this.trafficExplorer.filters.dstIP = ip;
+                    }, 100);
+                }
+                break;
+
+            case 'network':
+                this.loadTab('network');
+                break;
+
+            default:
+                console.warn('Unknown navigation type:', type);
+        }
+    },
+
+    // Legacy function kept for compatibility (now deprecated)
     // Data sources: alertHistory, firewallStatsOverview, networkStatsOverview, recentBlocks, baselineSignals
     computeDashboardWhatChanged() {
+        console.warn('computeDashboardWhatChanged is deprecated, use fetchChangeDigest instead');
         const items = [];
         const now = Date.now();
 
@@ -2082,6 +2166,14 @@ export const Store = () => ({
                 { label: 'Database', status: health.database ? 'Connected' : 'Error', color: health.database ? 'var(--signal-ok)' : 'var(--signal-crit)' }
             ];
 
+            // Add actions
+            base.actions = [{
+                label: 'View System Health',
+                tab: 'network'
+            }];
+
+            base.computation = `Overall network health derived from alert severity, baseline status, and component availability.`;
+
         } else if (kind === 'alerts') {
             base.title = 'Actionable Alerts';
 
@@ -2104,21 +2196,26 @@ export const Store = () => ({
             ].filter(b => b.value > 0);
 
             // Top 5 alert groups with details
-            base.top = alertGroups.groups.slice(0, 5).map(g => {
-                const firstSeen = this.timeAgo(g.first_ts);
-                const lastSeen = g.last_ts === g.first_ts ? '' : `, last: ${this.timeAgo(g.last_ts)}`;
-                return {
-                    label: `${g.type || g.rule_id} (${g.entity})`,
-                    value: `${g.count} occurrence${g.count === 1 ? '' : 's'}`,
-                    hint: `${g.severity} • first: ${firstSeen}${lastSeen}`
-                };
-            });
+            if (alertGroups.groups.length > 0) {
+                base.top = alertGroups.groups.slice(0, 5).map(g => {
+                    const firstSeen = this.timeAgo(g.first_ts);
+                    const lastSeen = g.last_ts === g.first_ts ? '' : `, last: ${this.timeAgo(g.last_ts)}`;
+                    return {
+                        label: `${g.type || g.rule_id} (${g.entity})`,
+                        value: `${g.count} occurrence${g.count === 1 ? '' : 's'}`,
+                        hint: `${g.severity} • first: ${firstSeen}${lastSeen}`
+                    };
+                });
+            } else {
+                // Demo mode fallback
+                base.top = this.getDemoContributors('alerts');
+            }
 
             // Add deep-link to Security page
             base.actions = [{
                 label: 'View in Security',
                 tab: 'security',
-                filters: { severity: 'all', type: 'all' } // Could be enhanced to pre-filter
+                filters: { severity: 'all', type: 'all' }
             }];
 
             // Computation explanation
@@ -2161,7 +2258,7 @@ export const Store = () => ({
             const sources = this.sources?.sources || [];
             const dests = this.destinations?.destinations || [];
 
-            if (sources.length > 0 && dests.length > 0) {
+            if (sources.length > 0 || dests.length > 0) {
                 base.top = [];
                 // Top 3 sources
                 sources.slice(0, 3).forEach(s => {
@@ -2179,12 +2276,15 @@ export const Store = () => ({
                         hint: d.country || 'Destination'
                     });
                 });
+            } else {
+                // Demo mode fallback
+                base.top = this.getDemoContributors('trafficLevel');
             }
 
             // Add deep-link to Flow Search
             base.actions = [{
                 label: 'View in Flow Search',
-                tab: 'flows',
+                tab: 'traffic-explorer',
                 filters: { range: this.timeRange }
             }];
 
@@ -2209,13 +2309,26 @@ export const Store = () => ({
             if (!details?.top_contributors || details.top_contributors.length === 0) {
                 const blocked = this.firewallStatsOverview?.top_blocked_sources || [];
                 if (blocked.length > 0) {
-                    base.top = blocked.slice(0, 3).map(b => ({
+                    base.top = blocked.slice(0, 8).map(b => ({
                         label: b.ip,
                         value: b.count.toLocaleString() + ' blocks',
                         hint: b.country || 'Blocked'
                     }));
+                } else {
+                    // Demo mode fallback
+                    base.top = this.getDemoContributors('protectedConnections');
                 }
             }
+
+            // Add deep-link to Firewall page
+            base.actions = [{
+                label: 'View Firewall Logs',
+                tab: 'firewall',
+                filters: { action: 'block' },
+                anchor: 'section-recent-blocks'
+            }];
+
+            base.computation = `Connections blocked by firewall rules (this is good - it means protection is working).`;
 
         } else if (kind === 'internetExposure') {
             base.title = 'Attack Surface';
@@ -2246,13 +2359,24 @@ export const Store = () => ({
             if (!details?.top_contributors || details.top_contributors.length === 0) {
                 const dests = this.networkStatsOverview?.top_destinations || [];
                 if (dests.length > 0) {
-                    base.top = dests.slice(0, 3).map(d => ({
+                    base.top = dests.slice(0, 8).map(d => ({
                         label: d.ip,
                         value: this.fmtBytes(d.bytes),
                         hint: d.country || 'Destination'
                     }));
+                } else {
+                    // Demo mode fallback
+                    base.top = this.getDemoContributors('internetExposure');
                 }
             }
+
+            // Add deep-link to Network page
+            base.actions = [{
+                label: 'View Network Stats',
+                tab: 'network'
+            }];
+
+            base.computation = `Unique external IPs your network has contacted. Baseline comparison shows if exposure is growing.`;
 
         } else if (kind === 'unusualActivity') {
             base.title = 'Notable Changes';
@@ -2324,7 +2448,12 @@ export const Store = () => ({
                 });
             }
 
-            base.top = contributors.slice(0, 5);
+            if (contributors.length > 0) {
+                base.top = contributors.slice(0, 8);
+            } else {
+                // Demo mode fallback
+                base.top = this.getDemoContributors('unusualActivity');
+            }
 
             // Add action to view Security page
             base.actions = [{
@@ -2337,6 +2466,93 @@ export const Store = () => ({
 
         this.statDetail = base;
         this.statDetailOpen = true;
+    },
+
+    // Check if demo mode is enabled (for testing drilldowns with sample data)
+    isDemoMode() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('demo') === '1';
+    },
+
+    // Navigate to tab with action filters (for stat drilldown deep-linking)
+    navigateToStatAction(action) {
+        if (!action || !action.tab) return;
+
+        // Navigate to the tab
+        this.loadTab(action.tab);
+
+        // Apply filters if specified
+        this.$nextTick(() => {
+            if (action.filters) {
+                // Apply filters based on tab type
+                if (action.tab === 'security' && action.filters.severity) {
+                    // Apply security filters
+                    if (this.activeAlertsFilter) {
+                        this.activeAlertsFilter.severity = action.filters.severity;
+                    }
+                } else if (action.tab === 'firewall' && action.filters.action) {
+                    // Apply firewall log filters
+                    if (this.recentBlocksFilter) {
+                        this.recentBlocksFilter.action = action.filters.action;
+                        if (action.filters.port) {
+                            this.recentBlocksFilter.port = action.filters.port;
+                        }
+                        if (action.filters.ip) {
+                            this.recentBlocksFilter.searchIP = action.filters.ip;
+                        }
+                    }
+                } else if (action.tab === 'traffic-explorer' || action.tab === 'flows') {
+                    // Apply flow search filters
+                    if (action.filters.range && this.timeRange !== action.filters.range) {
+                        this.timeRange = action.filters.range;
+                    }
+                }
+            }
+
+            // Scroll to relevant section if anchor specified
+            if (action.anchor) {
+                const section = document.getElementById(action.anchor);
+                if (section) {
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    },
+
+    // Generate demo data for stat drilldowns (for testing when data is sparse)
+    getDemoContributors(kind) {
+        if (!this.isDemoMode()) return [];
+
+        const demos = {
+            alerts: [
+                { label: 'Port Scan Detected (192.168.1.100)', value: '12 occurrences', hint: 'high • first: 2h ago' },
+                { label: 'Suspicious DNS Query (10.0.0.50)', value: '8 occurrences', hint: 'medium • first: 1h ago' },
+                { label: 'Failed Auth Attempt (web-server)', value: '5 occurrences', hint: 'low • first: 30m ago' }
+            ],
+            trafficLevel: [
+                { label: '192.168.1.100 (src)', value: '2.4 GB', hint: 'workstation-1' },
+                { label: '192.168.1.1 (src)', value: '1.8 GB', hint: 'gateway' },
+                { label: '8.8.8.8 (dst)', value: '892 MB', hint: 'United States' },
+                { label: '1.1.1.1 (dst)', value: '654 MB', hint: 'United States' }
+            ],
+            protectedConnections: [
+                { label: '45.142.212.61', value: '847 blocks', hint: 'Russia' },
+                { label: '103.9.76.42', value: '492 blocks', hint: 'China' },
+                { label: '185.220.101.19', value: '234 blocks', hint: 'Germany' }
+            ],
+            internetExposure: [
+                { label: '192.168.1.100', value: '142 connections', hint: 'workstation-1' },
+                { label: '192.168.1.50', value: '87 connections', hint: 'server-1' },
+                { label: '192.168.1.1', value: '54 connections', hint: 'gateway' }
+            ],
+            unusualActivity: [
+                { label: 'External IPs', value: '+12', hint: '125% of baseline' },
+                { label: 'Flow volume', value: '+340', hint: '115% of baseline' },
+                { label: 'Top protocol: TCP', value: '3.2 GB', hint: '1,847 flows' }
+            ]
+        };
+
+        return demos[kind] || [];
     },
 
     // TASK B: Network Brief Helpers
@@ -9823,10 +10039,8 @@ Destination Geo: ${meta.country || 'Unknown'}
                 this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }
-            // Compute What Changed rail after data loads
-            this.$nextTick(() => {
-                this.computeDashboardWhatChanged();
-            });
+            // Fetch Change Digest
+            this.fetchChangeDigest();
             // Map initialization is handled by IntersectionObserver when section becomes visible
             // Just fetch data here if needed
         } else if (tab === 'server') {
