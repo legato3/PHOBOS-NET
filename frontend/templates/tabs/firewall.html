@@ -526,154 +526,211 @@
     </section>
 
 
-    <!-- Active Flows Widget -->
-    <section id="section-flows" class="scroll-section" style="margin-bottom: var(--space-6);">
-        {% set conv_actions %}
+    <!-- Firewall Decisions Feed Widget -->
+    <section id="section-firewall-decisions" class="scroll-section" style="margin-bottom: var(--space-6);">
+        {% set fd_actions %}
         <div class="flex gap-2" style="align-items: center;">
-            <div class="status-pills">
-            </div>
-            <button @click="setFlowsViewLimit(15)"
-                :class="{ 'btn--primary': flows.viewLimit === 15, 'btn--secondary': flows.viewLimit !== 15 }"
+            <button @click="setFirewallDecisionsTimeWindow('15m')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '15m', 'btn--secondary': firewallDecisions.timeWindow !== '15m' }"
                 class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                Top 15
+                LAST 15M
             </button>
-            <button @click="setFlowsViewLimit(50)"
-                :class="{ 'btn--primary': flows.viewLimit === 50, 'btn--secondary': flows.viewLimit !== 50 }"
+            <button @click="setFirewallDecisionsTimeWindow('1h')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '1h', 'btn--secondary': firewallDecisions.timeWindow !== '1h' }"
                 class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                Top 50
+                1H
             </button>
-            <button @click="setFlowsViewLimit(999999)"
-                :class="{ 'btn--primary': flows.viewLimit >= 999999, 'btn--secondary': flows.viewLimit < 999999 }"
-                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);"
-                title="Show all flows (may be slow)">
-                All
+            <button @click="setFirewallDecisionsTimeWindow('24h')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '24h', 'btn--secondary': firewallDecisions.timeWindow !== '24h' }"
+                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                24H
             </button>
         </div>
         {% endset %}
-        {% call widget_card('flows', 'Active Flows', '⚡', card_class='wide-card',
-        extra_actions=conv_actions, footer_content=conv_footer, show_spinner=True, period_x_text="timeRange") %}
-        <!-- List View -->
-        <table class="table-fixed table-compact">
-            <thead>
-                <tr>
-                    <th style="width: 15%; cursor: pointer;" @click="sortFlows('age')">
-                        Age <span x-show="flows.sortKey==='age'" x-text="flows.sortDesc ? '▼' : '▲'"></span>
-                    </th>
-                    <th style="width: 28%; cursor: pointer;" @click="sortFlows('src')">
-                        Source <span x-show="flows.sortKey==='src'" x-text="flows.sortDesc ? '▼' : '▲'"></span>
-                    </th>
-                    <th style="width: 6%;" title="Flow Direction">Dir</th>
-                    <th style="width: 28%; cursor: pointer;" @click="sortFlows('dst')">
-                        Destination <span x-show="flows.sortKey==='dst'" x-text="flows.sortDesc ? '▼' : '▲'"></span>
-                    </th>
-                    <th style="width: 8%; cursor: pointer;" @click="sortFlows('proto_name')">
-                        Proto <span x-show="flows.sortKey==='proto_name'" x-text="flows.sortDesc ? '▼' : '▲'"></span>
-                    </th>
-                    <th style="width: 10%; cursor: pointer;" @click="sortFlows('bytes')">
-                        Stats <span x-show="flows.sortKey==='bytes'" x-text="flows.sortDesc ? '▼' : '▲'"></span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <template x-for="(flow, idx) in flows.flows.slice(0, flows.viewLimit || 15)" :key="idx">
-                    <tr class="flow-item" @click="openFlowDetails(flow)" style="cursor: pointer;" :class="{ 
-                                                'flow-item-heavy': flow.bytes > 1000000,
-                                                'flow-item-long-duration': flow.duration_seconds > 300 && flow.bytes < 100000,
-                                                'flow-item-burst': flow.duration_seconds < 10 && flow.bytes > 500000,
-                                                'flow-item-detected': flow.is_detected
-                                            }">
-                        <td class="text-xs text-muted font-mono" style="position: relative;">
-                            <div style="display: flex; align-items: center; gap: 4px;">
-                                <span
-                                    x-text="flow.age_seconds !== undefined ? formatAge(flow.age_seconds) : (flow.first_seen_ts ? timeAgo(flow.first_seen_ts) : timeAgo(flow.ts))"></span>
-                                <!-- Detection indicator (Phase 2) -->
-                                <template x-if="flow.is_detected">
-                                    <span
-                                        :title="flow.detection_reason || 'Detected: Long-lived low-volume external flow'"
-                                        style="font-size: 0.85em; opacity: 0.9; color: var(--neon-yellow); cursor: help; line-height: 1; display: inline-block; font-weight: bold;"
-                                        x-text="'⚠️'"></span>
-                                </template>
-                                <!-- Threat correlation indicator (Phase 1) -->
-                                <template x-if="flow.has_threat">
-                                    <span
-                                        :title="'Threat correlation: ' + (flow.threat_count || 0) + ' threat IP(s) in this flow'"
-                                        style="font-size: 0.85em; opacity: 0.8; color: var(--neon-red); cursor: help; line-height: 1; display: inline-block;"
-                                        x-text="'🛡️'"></span>
-                                </template>
-                                <!-- Interesting flow indicators (max 2) -->
-                                <template x-if="flow.interesting_flags && flow.interesting_flags.length > 0">
-                                    <div style="display: flex; gap: 3px; margin-left: 4px;">
-                                        <template x-for="(flag, idx) in flow.interesting_flags.slice(0, 2)" :key="idx">
-                                            <span :title="getInterestingFlowTooltip(flag)" class="flow-interest-icon"
-                                                x-text="getInterestingFlowIcon(flag)"></span>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-                        </td>
-                        <td @click.stop="openIPModal(flow.src)" class="flow-cell-ip">
-                            <!-- Line 1: IP address (primary) + optional hostname inline -->
-                            <div class="flow-line-1">
-                                <span
-                                    :class="'flag-icon flag-icon-' + (flow.src_country_code || 'unknown').toLowerCase()"
-                                    class="flow-flag"></span>
-                                <strong class="text-cyan flow-ip" x-text="flow.src"></strong>
-                                <span x-show="flow.src_hostname" class="flow-hostname" :title="flow.src_hostname"
-                                    x-text="' ' + flow.src_hostname"></span>
-                            </div>
-                            <!-- Line 2: Port / protocol (secondary, muted) - always present -->
-                            <div class="flow-line-2">
-                                <span class="text-muted flow-port">
-                                    <span x-text="flow.src_port"></span>
-                                    <span x-show="flow.proto_name" x-text="'/' + flow.proto_name"></span>
-                                </span>
-                            </div>
-                        </td>
-                        <td class="flow-cell-dir" :title="getDirectionIndicator(flow).title"
-                            :style="'color: ' + getDirectionIndicator(flow).color + ';'">
-                            <span class="flow-dir-icon" x-text="getDirectionIndicator(flow).symbol"></span>
-                        </td>
-                        <td @click.stop="openIPModal(flow.dst)" class="flow-cell-ip">
-                            <!-- Line 1: IP address (primary) + optional hostname inline -->
-                            <div class="flow-line-1">
-                                <span
-                                    :class="'flag-icon flag-icon-' + (flow.dst_country_code || 'unknown').toLowerCase()"
-                                    class="flow-flag"></span>
-                                <strong class="text-cyan flow-ip" x-text="flow.dst"></strong>
-                                <span x-show="flow.dst_hostname" class="flow-hostname" :title="flow.dst_hostname"
-                                    x-text="' ' + flow.dst_hostname"></span>
-                            </div>
-                            <!-- Line 2: Port / protocol (secondary, muted) - always present -->
-                            <div class="flow-line-2">
-                                <span class="text-muted flow-port">
-                                    <span x-text="flow.dst_port"></span>
-                                    <span
-                                        x-show="flow.service && flow.service !== flow.dst_port && flow.service !== 'unknown'"
-                                        x-text="' (' + flow.service + ')'"></span>
-                                </span>
-                            </div>
-                        </td>
-                        <td class="flow-cell-proto">
-                            <span class="text-muted flow-proto" x-text="flow.proto_name"></span>
-                        </td>
-                        <td style="padding: 6px 8px;">
-                            <div style="font-size:0.85em; white-space: nowrap;">
-                                <strong class="text-green" x-text="flow.bytes_fmt"></strong>
-                                <span style="color:var(--text-muted); margin-left:4px; font-size: 0.8em;"
-                                    x-text="flow.duration"></span>
-                            </div>
-                        </td>
-                    </tr>
-                </template>
-            </tbody>
-        </table>
-        <div x-show="flows.flows.length > (flows.viewLimit || 15)"
-            style="margin-top: var(--space-2); padding: var(--space-2); background: rgba(255, 200, 0, 0.1); border: 1px solid rgba(255, 200, 0, 0.3); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--text-sm);">
-            Showing <strong x-text="flows.viewLimit || 15"></strong> of <strong x-text="flows.flows.length"></strong>
-            flows. Use controls above to show more.
+
+        {% set fd_footer %}
+        <div style="display: flex; gap: var(--space-3); align-items: center; font-size: var(--text-xs); color: var(--text-muted);">
+            <span>
+                <strong style="color: var(--signal-crit);" x-text="firewallDecisions.counters.blocks"></strong> blocks
+            </span>
+            <span>
+                <strong style="color: var(--signal-ok);" x-text="firewallDecisions.counters.passes"></strong> passes
+            </span>
+            <span x-show="firewallDecisions.counters.newInbound > 0">
+                <strong style="color: var(--signal-warn);" x-text="firewallDecisions.counters.newInbound"></strong> new inbound
+            </span>
         </div>
+        {% endset %}
+
+        {% call widget_card('firewallDecisions', 'Firewall Decisions (Live)', '🛡️', card_class='wide-card',
+        extra_actions=fd_actions, footer_content=fd_footer, show_spinner=True) %}
+
+        <!-- Optional: NEW INBOUND strip -->
+        <template x-if="firewallDecisions.newInboundIPs.length > 0">
+            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(255, 200, 0, 0.08); border: 1px solid rgba(255, 200, 0, 0.25); border-radius: var(--radius-sm);">
+                <div style="font-size: var(--text-xs); font-weight: var(--font-weight-semibold); color: var(--signal-warn); margin-bottom: var(--space-1);">
+                    NEW INBOUND (15M)
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: var(--space-1);">
+                    <template x-for="item in firewallDecisions.newInboundIPs" :key="item.ip">
+                        <button @click.stop="openIPModal(item.ip)" class="fw-decision-chip"
+                            style="background: rgba(255, 200, 0, 0.12); border: 1px solid rgba(255, 200, 0, 0.3); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; font-family: var(--font-mono);">
+                            <span x-text="item.ip"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Decision groups table (dense, max 80 rows) -->
+        <div style="max-height: 65vh; overflow-y: auto;">
+            <table class="table-fixed table-compact fw-decision-table">
+                <thead>
+                    <tr style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 5;">
+                        <th style="width: 8%;">Action</th>
+                        <th style="width: 10%;">IF</th>
+                        <th style="width: 18%;">Source</th>
+                        <th style="width: 18%;">Destination</th>
+                        <th style="width: 8%;">Proto</th>
+                        <th style="width: 8%;">Port</th>
+                        <th style="width: 18%;">Rule/Reason</th>
+                        <th style="width: 8%;">Count</th>
+                        <th style="width: 12%;">Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(decision, idx) in firewallDecisions.groups" :key="idx">
+                        <tr class="fw-decision-row" @click="openFirewallDecisionModal(decision)"
+                            style="cursor: pointer; height: 30px;">
+                            <td>
+                                <span class="fw-action-badge"
+                                    :style="decision.action === 'block' ? 'color: var(--signal-crit); font-weight: 600;' : 'color: var(--signal-ok);'"
+                                    x-text="decision.action === 'block' ? '🚫' : '✓'"></span>
+                                <span style="font-size: 10px; text-transform: uppercase;" x-text="decision.action"></span>
+                            </td>
+                            <td style="font-size: 10px; color: var(--text-muted);" x-text="decision.interface"></td>
+                            <td style="font-size: 11px; font-family: var(--font-mono);" x-text="decision.src_ip"></td>
+                            <td style="font-size: 11px; font-family: var(--font-mono);" x-text="decision.dst_ip"></td>
+                            <td style="font-size: 10px; color: var(--text-muted);" x-text="decision.proto"></td>
+                            <td style="font-size: 11px; font-weight: 500;" x-text="decision.dst_port"></td>
+                            <td style="font-size: 10px; color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                :title="decision.rule_id" x-text="decision.rule_id"></td>
+                            <td>
+                                <span class="fw-count-badge"
+                                    style="background: rgba(0, 234, 255, 0.1); border: 1px solid rgba(0, 234, 255, 0.3); padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;"
+                                    x-text="decision.count"></span>
+                            </td>
+                            <td style="font-size: 10px; color: var(--text-muted);" x-text="timeAgo(decision.last_seen)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <!-- Empty state -->
+            <div x-show="!firewallDecisions.loading && firewallDecisions.groups.length === 0"
+                class="empty-state" style="text-align: center; padding: var(--space-6);">
+                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                    No Firewall Decisions</p>
+                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                    No firewall logs recorded in the selected time window.
+                </p>
+            </div>
+        </div>
+
         {% endcall %}
     </section>
+</div>
+
+<!-- Decision Detail Modal -->
+<div class="modal" x-show="firewallDecisions.selectedDecision"
+    :style="firewallDecisions.selectedDecision ? 'display:flex' : 'display:none'"
+    @click.self="closeFirewallDecisionModal()">
+    <div class="modal-content" style="max-width: 800px;">
+        <template x-if="firewallDecisions.selectedDecision">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                    <h2 style="margin: 0;">Firewall Decision Details</h2>
+                    <button @click="closeFirewallDecisionModal()" class="btn btn--secondary"
+                        style="padding: var(--space-1) var(--space-2);">✕ Close</button>
+                </div>
+
+                <!-- Summary -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); margin-bottom: var(--space-4);">
+                    <div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Action</div>
+                        <div style="font-size: var(--text-lg); font-weight: 600;"
+                            :style="firewallDecisions.selectedDecision.action === 'block' ? 'color: var(--signal-crit);' : 'color: var(--signal-ok);'"
+                            x-text="firewallDecisions.selectedDecision.action.toUpperCase()"></div>
+                    </div>
+                    <div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Occurrences</div>
+                        <div style="font-size: var(--text-lg); font-weight: 600;" x-text="firewallDecisions.selectedDecision.count"></div>
+                    </div>
+                    <div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">First Seen</div>
+                        <div style="font-size: var(--text-sm);" x-text="timeAgo(firewallDecisions.selectedDecision.first_seen)"></div>
+                    </div>
+                    <div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Last Seen</div>
+                        <div style="font-size: var(--text-sm);" x-text="timeAgo(firewallDecisions.selectedDecision.last_seen)"></div>
+                    </div>
+                </div>
+
+                <!-- 5-tuple -->
+                <div style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.2); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4);">
+                    <div style="font-size: var(--text-xs); font-weight: 600; color: var(--neon-cyan); margin-bottom: var(--space-2);">5-TUPLE</div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); font-size: var(--text-sm);">
+                        <span style="color: var(--text-muted);">Interface:</span>
+                        <span style="font-family: var(--font-mono);" x-text="firewallDecisions.selectedDecision.interface"></span>
+
+                        <span style="color: var(--text-muted);">Source:</span>
+                        <span style="font-family: var(--font-mono); color: var(--neon-cyan); cursor: pointer;"
+                            @click="openIPModal(firewallDecisions.selectedDecision.src_ip)"
+                            x-text="firewallDecisions.selectedDecision.src_ip"></span>
+
+                        <span style="color: var(--text-muted);">Destination:</span>
+                        <span style="font-family: var(--font-mono); color: var(--neon-purple); cursor: pointer;"
+                            @click="openIPModal(firewallDecisions.selectedDecision.dst_ip)"
+                            x-text="firewallDecisions.selectedDecision.dst_ip"></span>
+
+                        <span style="color: var(--text-muted);">Protocol:</span>
+                        <span x-text="firewallDecisions.selectedDecision.proto"></span>
+
+                        <span style="color: var(--text-muted);">Dest Port:</span>
+                        <span style="font-weight: 600;" x-text="firewallDecisions.selectedDecision.dst_port"></span>
+
+                        <span style="color: var(--text-muted);">Rule/Reason:</span>
+                        <span style="font-size: var(--text-xs); color: var(--text-secondary);" x-text="firewallDecisions.selectedDecision.rule_id"></span>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                    <button @click="openIPModal(firewallDecisions.selectedDecision.src_ip)" class="btn btn--secondary"
+                        style="font-size: var(--text-xs);">🔍 Investigate Source</button>
+                    <button @click="openIPModal(firewallDecisions.selectedDecision.dst_ip)" class="btn btn--secondary"
+                        style="font-size: var(--text-xs);">🔍 Investigate Destination</button>
+                </div>
+
+                <!-- Recent log samples (max 5) -->
+                <div style="margin-top: var(--space-4);">
+                    <div style="font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-2);">Recent Samples (max 5)</div>
+                    <div style="max-height: 200px; overflow-y: auto; background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: var(--space-2);">
+                        <template x-for="(log, idx) in firewallDecisions.selectedDecision.logs.slice(0, 5)" :key="idx">
+                            <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); padding: var(--space-1); border-bottom: 1px solid var(--border-color);">
+                                <span style="color: var(--text-muted);" x-text="timeAgo(log.timestamp || log.ts)"></span>
+                                <span style="margin-left: var(--space-2);" x-text="log.interface || log.iface"></span>
+                                <span style="margin-left: var(--space-2); color: var(--neon-cyan);" x-text="log.src_ip || log.src"></span>
+                                <span style="margin-left: var(--space-1);">→</span>
+                                <span style="margin-left: var(--space-1); color: var(--neon-purple);" x-text="log.dst_ip || log.dst"></span>
+                                <span style="margin-left: var(--space-2);" x-text="log.dst_port || log.dport"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
 </div>
 
 <!-- ============================================

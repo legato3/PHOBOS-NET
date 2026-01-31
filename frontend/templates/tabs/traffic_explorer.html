@@ -19,23 +19,23 @@
                             x-model="trafficExplorer.filters.search" @input.debounce.300ms="applyTrafficExplorerFilters()">
                     </div>
                     <div style="min-width: 170px;">
-                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Scope (LAN / WAN)</label>
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Direction</label>
                         <select x-model="trafficExplorer.filters.direction" class="header-select" style="width: 170px;"
                             @change="applyTrafficExplorerFilters()">
-                            <option value="all">All Directions</option>
+                            <option value="all">Any</option>
                             <option value="outbound">LAN → WAN</option>
                             <option value="inbound">WAN → LAN</option>
                             <option value="internal">LAN ↔ LAN</option>
-                            <option value="external">WAN ↔ WAN</option>
                         </select>
                     </div>
                     <div style="min-width: 120px;">
-                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Action</label>
-                        <select x-model="trafficExplorer.filters.action" class="header-select" style="width: 120px;"
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Signal</label>
+                        <select x-model="trafficExplorer.filters.signal" class="header-select" style="width: 120px;"
                             @change="applyTrafficExplorerFilters()">
-                            <option value="all">All Actions</option>
-                            <option value="passed">Passed</option>
-                            <option value="blocked">Blocked</option>
+                            <option value="all">All</option>
+                            <option value="unusual">Unusual</option>
+                            <option value="notable">Notable</option>
+                            <option value="normal">Normal</option>
                         </select>
                     </div>
                     <div style="min-width: 140px;">
@@ -48,17 +48,45 @@
                             </template>
                         </select>
                     </div>
+                    <div style="min-width: 110px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Min Bytes</label>
+                        <input type="number" class="cyber-input" style="width: 100%;" placeholder="0"
+                            x-model="trafficExplorer.filters.minBytes" @input.debounce.300ms="applyTrafficExplorerFilters()">
+                    </div>
+                    <div style="min-width: 100px;">
+                        <label class="text-9 text-muted" style="display:block; margin-bottom: 6px;">Min Dur (s)</label>
+                        <input type="number" step="0.1" class="cyber-input" style="width: 100%;" placeholder="0"
+                            x-model="trafficExplorer.filters.minDuration" @input.debounce.300ms="applyTrafficExplorerFilters()">
+                    </div>
                     <div style="display: flex; gap: var(--space-2); align-items: center;">
                         <button class="btn btn--primary btn--sm" @click="fetchTrafficExplorerFlows()">Load Traffic</button>
                         <button class="btn btn--ghost btn--sm" @click="resetTrafficExplorerFilters()">Reset</button>
                     </div>
-                    <label style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary);">
-                        <input type="checkbox" x-model="trafficExplorer.contextMarkersEnabled" style="cursor: pointer;">
-                        <span>Context markers</span>
-                    </label>
                     <div style="margin-left: auto; font-size: var(--text-xs); color: var(--text-tertiary);">
                         Updated: <span x-text="getTrafficExplorerGeneratedAt()"></span>
                     </div>
+                </div>
+
+                <!-- NEW: Save View Controls -->
+                <div style="display: flex; gap: var(--space-2); align-items: center; margin-top: var(--space-2); flex-wrap: wrap; font-size: var(--text-xs);">
+                    <select @change="loadView($event.target.value); $event.target.value=''" class="header-select" style="width: 180px;">
+                        <option value="">Load View...</option>
+                        <optgroup label="Built-in">
+                            <template x-for="view in getBuiltInViews()" :key="view.id">
+                                <option :value="view.id" x-text="view.name"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="Saved" x-show="trafficExplorer.savedViews.length > 0">
+                            <template x-for="view in trafficExplorer.savedViews" :key="view.id">
+                                <option :value="view.id" x-text="view.name"></option>
+                            </template>
+                        </optgroup>
+                    </select>
+                    <button class="btn btn--ghost btn--sm" @click="saveView(prompt('Enter view name:'))">Save View</button>
+                    <label style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" x-model="trafficExplorer.contextMarkersEnabled" style="cursor: pointer;">
+                        <span>Context markers</span>
+                    </label>
                 </div>
             </div>
         </div>
@@ -75,12 +103,36 @@
                 <div class="flow-scrub__selection" :style="getTrafficExplorerScrubSelectionStyle()"></div>
                 <button class="flow-scrub__reset" x-show="trafficExplorer.scrub.active" @click.stop="clearTrafficExplorerScrub()">Reset</button>
             </div>
+
+            <!-- NEW: Context Strip -->
+            <template x-if="trafficExplorer.contextSummary">
+                <div class="flow-context-strip" style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.15); border-radius: 4px; padding: 8px 12px; margin-bottom: var(--space-2); font-size: var(--text-xs); line-height: 1.4;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--text-secondary);">
+                        <span><strong x-text="trafficExplorer.contextSummary.showing"></strong> of <span x-text="trafficExplorer.contextSummary.total"></span> • Window: <span x-text="trafficExplorer.range"></span></span>
+                        <span x-show="trafficExplorer.contextSummary.topTalker">Top talker: <strong class="text-cyan" x-text="trafficExplorer.contextSummary.topTalker"></strong></span>
+                        <span x-show="trafficExplorer.contextSummary.topService">Top port: <strong x-text="trafficExplorer.contextSummary.topService"></strong></span>
+                        <span x-show="trafficExplorer.contextSummary.topExternal">Top ext: <strong class="text-purple" x-text="trafficExplorer.contextSummary.topExternal"></strong></span>
+                        <span x-show="trafficExplorer.contextSummary.dominantReason">Dominant: <strong class="text-yellow" x-text="trafficExplorer.contextSummary.dominantReason"></strong></span>
+                        <span x-show="trafficExplorer.contextSummary.firstSeenToday">First seen today: <strong x-text="trafficExplorer.contextSummary.firstSeenToday"></strong></span>
+                    </div>
+                </div>
+            </template>
+
             <div
-                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); font-size: var(--text-xs); color: var(--text-tertiary);">
-                <div
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); font-size: var(--text-xs); flex-wrap: wrap; gap: var(--space-2);">
+                <div style="color: var(--text-tertiary);"
                     x-text="'Showing ' + (trafficExplorer.filtered.length || 0) + ' matches • Updated ' + getTrafficExplorerUpdatedAgo()">
                 </div>
                 <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <select class="header-select" style="width: 120px; font-size: var(--text-xs);"
+                        @change="trafficExplorer.sortBy.field = $event.target.value; applyTrafficExplorerFilters()">
+                        <option value="signal">Sort: Signal</option>
+                        <option value="bytes">Sort: Bytes</option>
+                        <option value="packets">Sort: Packets</option>
+                        <option value="duration">Sort: Duration</option>
+                        <option value="time">Sort: Time</option>
+                    </select>
+                    <button class="btn btn--ghost btn--sm" @click="exportFlowsCSV()" title="Export filtered flows to CSV">Export CSV</button>
                     <button class="btn btn--ghost btn--sm" @click="trafficExplorerPrevPage()"
                         :disabled="trafficExplorer.page <= 1">Prev</button>
                     <span x-text="'Page ' + trafficExplorer.page + ' / ' + trafficExplorerPageCount"></span>
@@ -128,11 +180,20 @@
                                     x-text="getTrafficExplorerFirstSeen(flow)">
                                 </td>
                                 <td class="text-xs text-muted" style="padding: 2px 6px;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span :style="'width:6px; height:6px; border-radius:999px; background:' + getTrafficExplorerSignal(flow).color + '; display:inline-block;'"></span>
-                                        <span x-text="getTrafficExplorerSignal(flow).label"
-                                            :title="getTrafficExplorerSignal(flow).label === 'Normal' ? 'Normal flow' : 'Marked notable due to: ' + (getTrafficExplorerSignalReasons(flow).join(', ') || 'activity flags')"></span>
-                                        <span class="flow-pin-indicator" x-show="isTrafficExplorerPinned(flow)">📌</span>
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span :style="'width:6px; height:6px; border-radius:999px; background:' + getTrafficExplorerSignal(flow).color + '; display:inline-block;'"></span>
+                                            <span x-text="getTrafficExplorerSignal(flow).label"
+                                                :title="getTrafficExplorerSignal(flow).label === 'Normal' ? 'Normal flow' : 'Marked notable due to: ' + (getTrafficExplorerSignalReasons(flow).join(', ') || 'activity flags')"></span>
+                                            <span class="flow-pin-indicator" x-show="isTrafficExplorerPinned(flow)">📌</span>
+                                        </div>
+                                        <!-- NEW: Reason chips (max 3, clickable) -->
+                                        <div style="display: flex; flex-wrap: wrap; gap: 3px;" x-show="getFlowReasonChips(flow).length > 0">
+                                            <template x-for="chip in getFlowReasonChips(flow)" :key="chip.value">
+                                                <button class="flow-reason-chip" @click.stop="pivotToFilter(chip.field, chip.value)"
+                                                    :title="'Click to filter by: ' + chip.label" x-text="chip.label"></button>
+                                            </template>
+                                        </div>
                                     </div>
                                 </td>
                                 <td style="padding: 2px 6px;">
@@ -203,6 +264,33 @@
             {% call widget_card('trafficExplorer', 'Flow Details', '📌', show_spinner=False) %}
             <template x-if="trafficExplorer.selectedFlow">
                 <div>
+                    <!-- NEW: Action Buttons -->
+                    <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                        <button class="btn btn--ghost btn--sm" @click="copyFlowEvidence(trafficExplorer.selectedFlow)">📋 Copy Evidence</button>
+                        <button class="btn btn--ghost btn--sm" @click="exportFlowsCSV()">💾 Export CSV</button>
+                    </div>
+
+                    <!-- NEW: Why This Flow Is Shown -->
+                    <div style="background: rgba(0, 234, 255, 0.05); border-left: 3px solid var(--neon-cyan); padding: 8px 10px; margin-bottom: var(--space-3); font-size: var(--text-xs);">
+                        <div class="text-muted" style="font-weight: 600; margin-bottom: 4px;">Why Shown</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            <template x-for="filter in getFlowMatchedFilters(trafficExplorer.selectedFlow)" :key="filter">
+                                <span class="badge" style="background: rgba(0, 234, 255, 0.1); font-size: 10px;" x-text="filter"></span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Why Unusual/Notable -->
+                    <div style="background: rgba(255, 200, 0, 0.05); border-left: 3px solid var(--signal-warn); padding: 8px 10px; margin-bottom: var(--space-3); font-size: var(--text-xs);"
+                        x-show="getTrafficExplorerSignal(trafficExplorer.selectedFlow).label !== 'Normal'">
+                        <div class="text-muted" style="font-weight: 600; margin-bottom: 4px;">Why Unusual/Notable</div>
+                        <ul style="margin: 0; padding-left: 16px;">
+                            <template x-for="reason in getFlowUnusualReasons(trafficExplorer.selectedFlow)" :key="reason">
+                                <li x-text="reason"></li>
+                            </template>
+                        </ul>
+                    </div>
+
                     <div class="font-mono" style="font-size: 0.78em; line-height: 1.35;">
                         <div style="display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; margin-bottom: var(--space-3);">
                         <div class="text-muted">5-tuple</div>

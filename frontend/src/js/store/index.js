@@ -182,6 +182,15 @@ export const Store = () => ({
     alerts: { alerts: [], loading: true },
     bandwidth: { labels: [], bandwidth: [], flows: [], loading: true },
     flows: { flows: [], loading: true, viewLimit: 15 },  // Default to 15 rows
+    firewallDecisions: {
+        loading: false,
+        timeWindow: '15m',
+        groups: [],
+        rawLogs: [],
+        counters: { blocks: 0, passes: 0, newInbound: 0 },
+        newInboundIPs: [],
+        selectedDecision: null
+    },
     trafficExplorer: {
         flows: [],
         filtered: [],
@@ -212,12 +221,20 @@ export const Store = () => ({
             protocol: 'all',
             port: 'all',
             action: 'all',
-            search: ''
+            search: '',
+            signal: 'all',       // NEW: All/Normal/Unusual/Notable
+            minBytes: '',        // NEW: Min bytes filter
+            minDuration: ''      // NEW: Min duration (seconds) filter
         },
         protocolOptions: [],
         portOptions: [],
         ipMeta: {},
-        selectedFlow: null
+        selectedFlow: null,
+        expandedRows: new Set(),  // NEW: Row expansion state
+        columnVisibility: null,   // NEW: Column visibility (loaded from localStorage)
+        savedViews: [],           // NEW: Saved filter presets (loaded from localStorage)
+        sortBy: { field: 'signal', direction: 'desc' }, // NEW: Sort state
+        contextSummary: null      // NEW: Cached context strip data
     },
     networkStatsOverview: { active_flows: 0, external_connections: 0, external_unique_ips: null, anomalies_count: 0, trends: {}, loading: true },
     networkIntelligence: {
@@ -1104,6 +1121,8 @@ export const Store = () => ({
             this.loadSidebarState();
             this.loadHostViews();
             this.loadEventViews();
+            this.trafficExplorer.savedViews = this.loadSavedViews(); // NEW: Load traffic explorer saved views
+            this.trafficExplorer.columnVisibility = this.loadColumnVisibility(); // NEW: Load column visibility
             this.startIntersectionObserver();
             if (this.eventsPage) {
                 setTimeout(() => {
@@ -3217,10 +3236,10 @@ export const Store = () => ({
                 this.lastFetch.threatActivityTimeline = now;
             }
         }
-        if (sectionId === 'section-flows' && this.isVisible('flows')) {
-            if (now - this.lastFetch.flows > this.mediumTTL) {
-                this.fetchFlows();
-                this.lastFetch.flows = now;
+        if (sectionId === 'section-firewall-decisions' && this.isVisible('firewallDecisions')) {
+            if (now - (this.lastFetch.firewallDecisions || 0) > this.mediumTTL) {
+                this.fetchFirewallDecisions();
+                this.lastFetch.firewallDecisions = now;
             }
         }
     },
@@ -3334,9 +3353,9 @@ export const Store = () => ({
             this.lastFetch.threatActivityTimeline = now;
         }
 
-        if ((this.isSectionVisible('section-flows') || this.activeTab === 'network') && (now - (this.lastFetch.flows || 0) > this.mediumTTL)) {
-            this.fetchFlows();
-            this.lastFetch.flows = now;
+        if ((this.isSectionVisible('section-firewall-decisions') || this.activeTab === 'firewall') && (now - (this.lastFetch.firewallDecisions || 0) > this.mediumTTL)) {
+            this.fetchFirewallDecisions();
+            this.lastFetch.firewallDecisions = now;
         }
 
         // Render sparklines for top IPs (throttled via sparkTTL)
@@ -5122,67 +5141,146 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
     },
 
-    // TIME-AWARE: Active Flows (uses global time range)
-    async fetchFlows() {
-        this.flows.loading = true;
+    // Firewall Decisions Feed (replaces Active Flows)
+    async fetchFirewallDecisions() {
+        this.firewallDecisions.loading = true;
         try {
-            // Fetch recent flows - get enough for sorting, but limit display
-            const limit = 100;  // Fetch more for proper sorting, but display limited rows
-            const res = await fetch(`/api/flows?range=${this.timeRange}&limit=${limit}`);
-            if (res.ok) {
-                const data = await res.json();
-                // Sort by bytes descending by default (heaviest flows first)
-                const sortedFlows = (data.flows || []).sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
-                this.flows = {
-                    ...data,
-                    flows: sortedFlows,
-                    sortKey: 'bytes',
-                    sortDesc: true,
-                    viewLimit: this.flows.viewLimit || 15  // Preserve view limit setting
-                };
+            const range = this.firewallDecisions.timeWindow;
+            const res = await fetch(`/api/firewall/logs/recent?range=${range}&limit=500`);
+            if (!res.ok) {
+                console.error('Failed to fetch firewall logs');
+                return;
             }
-        } catch (e) { console.error(e); } finally { this.flows.loading = false; }
+            const data = await res.json();
+            const logs = data.logs || [];
+
+            // Group logs by decision bucket
+            const groups = this.groupFirewallDecisions(logs);
+
+            // Calculate counters
+            const blocks = groups.filter(g => g.action === 'block').reduce((sum, g) => sum + g.count, 0);
+            const passes = groups.filter(g => g.action === 'pass').reduce((sum, g) => sum + g.count, 0);
+
+            // Detect new inbound IPs (simplified - IPs not seen in previous fetch)
+            const newInbound = this.detectNewInboundIPs(logs);
+
+            this.firewallDecisions.groups = groups;
+            this.firewallDecisions.rawLogs = logs;
+            this.firewallDecisions.counters = {
+                blocks,
+                passes,
+                newInbound: newInbound.length
+            };
+            this.firewallDecisions.newInboundIPs = newInbound.slice(0, 10);  // Max 10 for strip
+
+        } catch (e) {
+            console.error('fetchFirewallDecisions error:', e);
+        } finally {
+            this.firewallDecisions.loading = false;
+        }
     },
 
-    sortFlows(key) {
-        if (this.flows.sortKey === key) {
-            this.flows.sortDesc = !this.flows.sortDesc;
+    groupFirewallDecisions(logs) {
+        // Group by: action + interface + src_ip + dst_ip + proto + dst_port + (rule_id || reason)
+        const groupMap = new Map();
+
+        logs.forEach(log => {
+            const action = log.action || 'unknown';
+            const iface = log.interface || log.iface || '—';
+            const srcIP = log.src_ip || log.src || '—';
+            const dstIP = log.dst_ip || log.dst || '—';
+            const proto = log.proto || log.protocol || '—';
+            const dstPort = log.dst_port || log.dport || '—';
+            const ruleId = log.rule_id || log.rule || log.reason || 'default';
+
+            const key = `${action}|${iface}|${srcIP}|${dstIP}|${proto}|${dstPort}|${ruleId}`;
+
+            if (!groupMap.has(key)) {
+                groupMap.set(key, {
+                    action,
+                    interface: iface,
+                    src_ip: srcIP,
+                    dst_ip: dstIP,
+                    proto,
+                    dst_port: dstPort,
+                    rule_id: ruleId,
+                    count: 0,
+                    first_seen: log.timestamp || log.ts,
+                    last_seen: log.timestamp || log.ts,
+                    logs: []
+                });
+            }
+
+            const group = groupMap.get(key);
+            group.count++;
+            group.last_seen = log.timestamp || log.ts;
+            group.logs.push(log);
+        });
+
+        // Convert to array and sort by count descending, then most recent
+        return Array.from(groupMap.values())
+            .sort((a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                return new Date(b.last_seen) - new Date(a.last_seen);
+            })
+            .slice(0, 80);  // Max 80 rows
+    },
+
+    detectNewInboundIPs(logs) {
+        // Simple heuristic: WAN inbound sources not in cache
+        const cache = this._inboundIPCache || new Set();
+        const newIPs = [];
+        const seen = new Set();
+
+        logs.forEach(log => {
+            const srcIP = log.src_ip || log.src;
+            const iface = log.interface || log.iface || '';
+            const direction = log.direction || '';
+
+            // Heuristic for inbound: WAN interface or 'in' direction, external source
+            const isInbound = iface.toLowerCase().includes('wan') || direction === 'in';
+            const isExternal = srcIP && !this.isRFC1918(srcIP);
+
+            if (isInbound && isExternal && !cache.has(srcIP) && !seen.has(srcIP)) {
+                newIPs.push({ ip: srcIP, count: 1 });
+                seen.add(srcIP);
+            }
+
+            if (isExternal) {
+                cache.add(srcIP);
+            }
+        });
+
+        // Update cache (keep last 1000 IPs)
+        if (cache.size > 1000) {
+            const arr = Array.from(cache);
+            this._inboundIPCache = new Set(arr.slice(-1000));
         } else {
-            this.flows.sortKey = key;
-            this.flows.sortDesc = true; // Default desc for new columns
+            this._inboundIPCache = cache;
         }
 
-        const k = this.flows.sortKey;
-        const d = this.flows.sortDesc ? -1 : 1;
-
-        this.flows.flows.sort((a, b) => {
-            let va, vb;
-
-            if (k === 'age') {
-                // Use age_seconds if available (preferred), fallback to first_seen_ts or ts
-                va = a.age_seconds !== undefined ? a.age_seconds : (a.first_seen_ts || (new Date(a.ts).getTime() / 1000));
-                vb = b.age_seconds !== undefined ? b.age_seconds : (b.first_seen_ts || (new Date(b.ts).getTime() / 1000));
-            } else if (k === 'bytes') {
-                va = a.bytes || 0;
-                vb = b.bytes || 0;
-            } else if (k === 'duration') {
-                // Use duration_seconds if available, otherwise parse duration string
-                va = a.duration_seconds !== undefined ? a.duration_seconds : parseFloat(a.duration) || 0;
-                vb = b.duration_seconds !== undefined ? b.duration_seconds : parseFloat(b.duration) || 0;
-            } else {
-                // String sort (src, dst, proto_name)
-                va = (a[k] || '').toString().toLowerCase();
-                vb = (b[k] || '').toString().toLowerCase();
-            }
-
-            if (va < vb) return -1 * d;
-            if (va > vb) return 1 * d;
-            return 0;
-        });
+        return newIPs.sort((a, b) => b.count - a.count);
     },
 
-    setFlowsViewLimit(limit) {
-        this.flows.viewLimit = limit;
+    isRFC1918(ip) {
+        if (!ip) return false;
+        // Simplified RFC1918 check
+        return ip.startsWith('10.') ||
+               ip.startsWith('192.168.') ||
+               /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip);
+    },
+
+    setFirewallDecisionsTimeWindow(window) {
+        this.firewallDecisions.timeWindow = window;
+        this.fetchFirewallDecisions();
+    },
+
+    openFirewallDecisionModal(decision) {
+        this.firewallDecisions.selectedDecision = decision;
+    },
+
+    closeFirewallDecisionModal() {
+        this.firewallDecisions.selectedDecision = null;
     },
 
     // Traffic Explorer (read-only, no auto-refresh)
@@ -5336,6 +5434,9 @@ export const Store = () => ({
         const protocolFilter = filters.protocol !== 'all' ? String(filters.protocol).toUpperCase() : 'all';
         const directionFilter = filters.direction || 'all';
         const actionFilter = filters.action !== 'all' ? String(filters.action).toUpperCase() : 'all';
+        const signalFilter = filters.signal || 'all'; // NEW
+        const minBytes = filters.minBytes ? parseInt(filters.minBytes, 10) : null; // NEW
+        const minDuration = filters.minDuration ? parseFloat(filters.minDuration) : null; // NEW
 
         let filtered = (this.trafficExplorer.flows || []).filter((flow) => {
             const flowDirection = (flow.direction || this.getFlowDirection(flow) || '').toLowerCase();
@@ -5349,6 +5450,21 @@ export const Store = () => ({
 
             const flowAction = this.getTrafficExplorerAction(flow);
             if (actionFilter !== 'all' && flowAction !== actionFilter) return false;
+
+            // NEW: Signal filter
+            if (signalFilter !== 'all') {
+                const signal = this.getTrafficExplorerSignal(flow).label.toLowerCase();
+                if (signal !== signalFilter.toLowerCase()) return false;
+            }
+
+            // NEW: Min bytes filter
+            if (minBytes !== null && (flow.bytes || 0) < minBytes) return false;
+
+            // NEW: Min duration filter
+            if (minDuration !== null) {
+                const duration = flow.duration_seconds !== undefined ? flow.duration_seconds : 0;
+                if (duration < minDuration) return false;
+            }
 
             if (search) {
                 const src = String(flow.src || '').toLowerCase();
@@ -5374,13 +5490,42 @@ export const Store = () => ({
         }
 
         const pinned = new Set(this.trafficExplorer.pinnedFlowKeys || []);
+        const sortBy = this.trafficExplorer.sortBy || { field: 'signal', direction: 'desc' };
+
         filtered.sort((a, b) => {
+            // Pinned rows always come first
             const aPinned = pinned.has(this.getTrafficExplorerFlowKey(a)) ? 1 : 0;
             const bPinned = pinned.has(this.getTrafficExplorerFlowKey(b)) ? 1 : 0;
             if (aPinned !== bPinned) return bPinned - aPinned;
-            const aSignal = this.getTrafficExplorerSignalRank(a);
-            const bSignal = this.getTrafficExplorerSignalRank(b);
-            if (aSignal !== bSignal) return bSignal - aSignal;
+
+            // Dynamic sorting based on sortBy field
+            let aVal, bVal;
+            if (sortBy.field === 'signal') {
+                aVal = this.getTrafficExplorerSignalRank(a);
+                bVal = this.getTrafficExplorerSignalRank(b);
+            } else if (sortBy.field === 'bytes') {
+                aVal = a.bytes || 0;
+                bVal = b.bytes || 0;
+            } else if (sortBy.field === 'packets') {
+                aVal = a.packets || 0;
+                bVal = b.packets || 0;
+            } else if (sortBy.field === 'duration') {
+                aVal = a.duration_seconds !== undefined ? a.duration_seconds : 0;
+                bVal = b.duration_seconds !== undefined ? b.duration_seconds : 0;
+            } else if (sortBy.field === 'time') {
+                aVal = this.getTrafficExplorerFlowTimestamp(a) || 0;
+                bVal = this.getTrafficExplorerFlowTimestamp(b) || 0;
+            } else {
+                // Default: signal rank
+                aVal = this.getTrafficExplorerSignalRank(a);
+                bVal = this.getTrafficExplorerSignalRank(b);
+            }
+
+            // Apply direction
+            const diff = sortBy.direction === 'desc' ? bVal - aVal : aVal - bVal;
+            if (diff !== 0) return diff;
+
+            // Tie-breaker: timestamp (newest first)
             return (this.getTrafficExplorerFlowTimestamp(b) || 0) - (this.getTrafficExplorerFlowTimestamp(a) || 0);
         });
 
@@ -5388,6 +5533,7 @@ export const Store = () => ({
         this.trafficExplorer.page = 1;
         this.trafficExplorer.medians = this.getTrafficExplorerMedians(filtered);
         this.buildTrafficExplorerScrubBins(filtered);
+        this.trafficExplorer.contextSummary = this.computeContextSummary(); // NEW: Compute context strip data
         if (filtered.length === 0) {
             this.trafficExplorer.selectedFlow = null;
             return;
@@ -5807,6 +5953,411 @@ export const Store = () => ({
             if (flag === 'repeated_short') tags.push('repeated short connections');
         });
         return tags;
+    },
+
+    // NEW: Get reason chips for a flow (max 3)
+    getFlowReasonChips(flow) {
+        const chips = [];
+        const tags = this.getTrafficExplorerTags(flow);
+
+        // Convert tags to chips (max 3, prioritize most actionable)
+        if (tags.includes('new external destination')) chips.push({ label: 'new ext', field: 'tag', value: 'new_external' });
+        if (tags.includes('uncommon port')) chips.push({ label: 'rare port', field: 'tag', value: 'rare_port' });
+        if (tags.includes('high volume burst')) chips.push({ label: 'high vol', field: 'tag', value: 'short_high' });
+        if (tags.includes('long duration, low volume')) chips.push({ label: 'long low', field: 'tag', value: 'long_low' });
+        if (tags.includes('repeated short connections')) chips.push({ label: 'repeated', field: 'tag', value: 'repeated_short' });
+
+        return chips.slice(0, 3);
+    },
+
+    // NEW: Compute context summary for the strip above results
+    computeContextSummary() {
+        const filtered = this.trafficExplorer.filtered || [];
+        if (filtered.length === 0) return null;
+
+        // Top talker by bytes
+        let topTalker = null;
+        let maxBytes = 0;
+        const talkerMap = new Map();
+
+        filtered.forEach(flow => {
+            const key = `${flow.src || '?'}→${flow.dst || '?'}`;
+            const bytes = flow.bytes || 0;
+            talkerMap.set(key, (talkerMap.get(key) || 0) + bytes);
+            if (talkerMap.get(key) > maxBytes) {
+                maxBytes = talkerMap.get(key);
+                topTalker = key;
+            }
+        });
+
+        // Top service/port by bytes
+        let topService = null;
+        let maxServiceBytes = 0;
+        const serviceMap = new Map();
+
+        filtered.forEach(flow => {
+            const port = flow.dst_port || flow.port || flow.src_port || 'unknown';
+            const bytes = flow.bytes || 0;
+            serviceMap.set(port, (serviceMap.get(port) || 0) + bytes);
+            if (serviceMap.get(port) > maxServiceBytes) {
+                maxServiceBytes = serviceMap.get(port);
+                topService = port;
+            }
+        });
+
+        // Top external ASN/org by bytes (only for outbound/inbound flows)
+        let topExternal = null;
+        let maxExtBytes = 0;
+        const extMap = new Map();
+
+        filtered.forEach(flow => {
+            const dir = this.getFlowDirection(flow);
+            if (dir === 'outbound' || dir === 'inbound') {
+                const ip = dir === 'outbound' ? flow.dst : flow.src;
+                const meta = this.getTrafficExplorerMeta(ip);
+                const org = meta.asn_org || meta.country || 'Unknown';
+                const bytes = flow.bytes || 0;
+                extMap.set(org, (extMap.get(org) || 0) + bytes);
+                if (extMap.get(org) > maxExtBytes) {
+                    maxExtBytes = extMap.get(org);
+                    topExternal = org;
+                }
+            }
+        });
+
+        // Dominant reason/tag
+        const tagCounts = {};
+        filtered.forEach(flow => {
+            const tags = this.getTrafficExplorerTags(flow);
+            tags.forEach(tag => tagCounts[tag] = (tagCounts[tag] || 0) + 1);
+        });
+        const dominantReason = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+        // First seen today count (flows where history shows first_seen is today)
+        let firstSeenToday = 0;
+        const today = new Date().toDateString();
+        filtered.forEach(flow => {
+            const hist = this.getTrafficExplorerHistory(flow);
+            if (hist?.first_seen) {
+                const firstDate = new Date(hist.first_seen * 1000).toDateString();
+                if (firstDate === today) firstSeenToday++;
+            }
+        });
+
+        return {
+            showing: filtered.length,
+            total: this.trafficExplorer.flows.length,
+            topTalker,
+            topService,
+            topExternal,
+            dominantReason,
+            firstSeenToday: firstSeenToday > 0 ? firstSeenToday : null
+        };
+    },
+
+    // NEW: Quick pivot - set filter and reload
+    pivotToFilter(field, value) {
+        if (field === 'src') {
+            this.trafficExplorer.filters.search = value;
+        } else if (field === 'dst') {
+            this.trafficExplorer.filters.search = value;
+        } else if (field === 'port') {
+            this.trafficExplorer.filters.port = value;
+        } else if (field === 'proto') {
+            this.trafficExplorer.filters.protocol = value;
+        } else if (field === 'tag') {
+            // For tags, we'd need to add a tag filter - for now just show in search
+            // Could be enhanced later
+            return;
+        }
+        this.applyTrafficExplorerFilters();
+    },
+
+    // NEW: Toggle row expansion
+    toggleRowExpansion(flowKey) {
+        if (this.trafficExplorer.expandedRows.has(flowKey)) {
+            this.trafficExplorer.expandedRows.delete(flowKey);
+        } else {
+            this.trafficExplorer.expandedRows.add(flowKey);
+        }
+        // Force reactivity
+        this.trafficExplorer.expandedRows = new Set(this.trafficExplorer.expandedRows);
+    },
+
+    isRowExpanded(flowKey) {
+        return this.trafficExplorer.expandedRows.has(flowKey);
+    },
+
+    // NEW: Get matched filters for "Why shown" section
+    getFlowMatchedFilters(flow) {
+        const matched = [];
+        const filters = this.trafficExplorer.filters;
+
+        if (filters.search) matched.push(`search: "${filters.search}"`);
+        if (filters.direction !== 'all') matched.push(`direction: ${filters.direction}`);
+        if (filters.protocol !== 'all') matched.push(`protocol: ${filters.protocol}`);
+        if (filters.port !== 'all') matched.push(`port: ${filters.port}`);
+        if (filters.action !== 'all') matched.push(`action: ${filters.action}`);
+        if (filters.signal !== 'all') matched.push(`signal: ${filters.signal}`);
+        if (filters.minBytes) matched.push(`min bytes: ${filters.minBytes}`);
+        if (filters.minDuration) matched.push(`min duration: ${filters.minDuration}s`);
+
+        // Add sort info
+        if (this.trafficExplorer.sortBy) {
+            matched.push(`sorted by: ${this.trafficExplorer.sortBy.field} (${this.trafficExplorer.sortBy.direction})`);
+        }
+
+        return matched;
+    },
+
+    // NEW: Get unusual reasons for "Why unusual/notable" section
+    getFlowUnusualReasons(flow) {
+        const reasons = [];
+        const tags = this.getTrafficExplorerTags(flow);
+        const signal = this.getTrafficExplorerSignal(flow);
+
+        if (signal.label === 'Normal') {
+            return ['No notable signals for this flow.'];
+        }
+
+        // Convert tags to readable reasons
+        if (tags.includes('new external destination')) {
+            reasons.push('First time seeing this external destination in observed traffic.');
+        }
+        if (tags.includes('uncommon port')) {
+            reasons.push('Port is rarely seen in typical traffic patterns.');
+        }
+        if (tags.includes('high volume burst')) {
+            reasons.push('Short duration with high byte volume (potential data transfer burst).');
+        }
+        if (tags.includes('long duration, low volume')) {
+            reasons.push('Long-lived connection with minimal data transfer (potential C2 or keepalive).');
+        }
+        if (tags.includes('repeated short connections')) {
+            reasons.push('Multiple brief connections to same destination (scanning-like pattern).');
+        }
+
+        return reasons.slice(0, 3);
+    },
+
+    // NEW: Copy flow evidence to clipboard
+    copyFlowEvidence(flow) {
+        if (!flow) return;
+
+        const meta = this.getTrafficExplorerMeta(flow.dst);
+        const evidence = `Flow Evidence
+5-tuple: ${flow.src}:${flow.src_port || '?'} → ${flow.dst}:${flow.dst_port || '?'} (${flow.proto_name || flow.proto || '?'})
+Direction: ${this.getTrafficExplorerDirection(flow).toUpperCase()}
+Bytes: ${this.getTrafficExplorerBytes(flow)}
+Packets: ${flow.packets || 'Not observed'}
+Duration: ${flow.duration || (flow.duration_seconds !== undefined ? flow.duration_seconds + 's' : 'Not observed')}
+Signal: ${this.getTrafficExplorerSignal(flow).label}
+Action: ${this.getTrafficExplorerAction(flow)}
+First Seen: ${this.getTrafficExplorerFirstSeen(flow)}
+Tags: ${this.getTrafficExplorerTags(flow).join(', ') || 'None'}
+Destination ASN: ${meta.asn || 'Unknown'}
+Destination Org: ${meta.asn_org || 'Unknown'}
+Destination Geo: ${meta.country || 'Unknown'}
+`;
+
+        navigator.clipboard.writeText(evidence).then(() => {
+            console.log('Flow evidence copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy evidence:', err);
+        });
+    },
+
+    // NEW: Export current filtered flows to CSV
+    exportFlowsCSV() {
+        const flows = this.trafficExplorer.filtered || [];
+        if (flows.length === 0) return;
+
+        const headers = ['Time', 'Signal', 'Src', 'Src Port', 'Dst', 'Dst Port', 'Proto', 'Direction', 'Bytes', 'Packets', 'Duration', 'Action', 'Tags'];
+        const rows = flows.map(flow => [
+            this.getTrafficExplorerFirstSeen(flow),
+            this.getTrafficExplorerSignal(flow).label,
+            flow.src || '',
+            flow.src_port || '',
+            flow.dst || '',
+            flow.dst_port || '',
+            flow.proto_name || flow.proto || '',
+            this.getTrafficExplorerDirection(flow),
+            flow.bytes || '',
+            flow.packets || '',
+            flow.duration_seconds || '',
+            this.getTrafficExplorerAction(flow),
+            this.getTrafficExplorerTags(flow).join('; ')
+        ]);
+
+        const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `flows_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+
+    // NEW: Save current view (filters) to localStorage
+    saveView(name) {
+        if (!name || !name.trim()) return;
+
+        const view = {
+            id: Date.now().toString(),
+            name: name.trim(),
+            filters: { ...this.trafficExplorer.filters },
+            sortBy: { ...this.trafficExplorer.sortBy },
+            createdAt: Date.now()
+        };
+
+        const views = this.loadSavedViews();
+        views.push(view);
+        localStorage.setItem('trafficExplorerSavedViews', JSON.stringify(views));
+        this.trafficExplorer.savedViews = views;
+    },
+
+    // NEW: Load saved views from localStorage
+    loadSavedViews() {
+        try {
+            const raw = localStorage.getItem('trafficExplorerSavedViews');
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+            console.error('Failed to load saved views:', e);
+            return [];
+        }
+    },
+
+    // NEW: Load a specific view
+    loadView(viewId) {
+        const view = this.getViewById(viewId);
+        if (!view) return;
+
+        this.trafficExplorer.filters = { ...view.filters };
+        this.trafficExplorer.sortBy = { ...view.sortBy };
+        this.applyTrafficExplorerFilters();
+    },
+
+    // NEW: Delete a saved view
+    deleteView(viewId) {
+        const views = this.loadSavedViews().filter(v => v.id !== viewId);
+        localStorage.setItem('trafficExplorerSavedViews', JSON.stringify(views));
+        this.trafficExplorer.savedViews = views;
+    },
+
+    // NEW: Get built-in views
+    getBuiltInViews() {
+        return [
+            {
+                id: 'builtin_new_external',
+                name: 'New External Destinations',
+                builtin: true,
+                filters: {
+                    direction: 'outbound',
+                    signal: 'all',
+                    search: '',
+                    protocol: 'all',
+                    port: 'all',
+                    action: 'all',
+                    minBytes: '',
+                    minDuration: ''
+                },
+                sortBy: { field: 'signal', direction: 'desc' }
+            },
+            {
+                id: 'builtin_inbound_wan',
+                name: 'Inbound WAN',
+                builtin: true,
+                filters: {
+                    direction: 'inbound',
+                    signal: 'all',
+                    search: '',
+                    protocol: 'all',
+                    port: 'all',
+                    action: 'all',
+                    minBytes: '',
+                    minDuration: ''
+                },
+                sortBy: { field: 'bytes', direction: 'desc' }
+            },
+            {
+                id: 'builtin_high_volume',
+                name: 'High Volume Bursts',
+                builtin: true,
+                filters: {
+                    direction: 'all',
+                    signal: 'unusual',
+                    search: '',
+                    protocol: 'all',
+                    port: 'all',
+                    action: 'all',
+                    minBytes: '1000000',
+                    minDuration: ''
+                },
+                sortBy: { field: 'bytes', direction: 'desc' }
+            }
+        ];
+    },
+
+    // NEW: Get view by ID (built-in or saved)
+    getViewById(viewId) {
+        const builtIn = this.getBuiltInViews().find(v => v.id === viewId);
+        if (builtIn) return builtIn;
+
+        const saved = this.loadSavedViews().find(v => v.id === viewId);
+        return saved || null;
+    },
+
+    // NEW: Get all views (built-in + saved)
+    getAllViews() {
+        return [...this.getBuiltInViews(), ...this.loadSavedViews()];
+    },
+
+    // NEW: Load column visibility from localStorage
+    loadColumnVisibility() {
+        try {
+            const raw = localStorage.getItem('trafficExplorerColumns');
+            return raw ? JSON.parse(raw) : {
+                time: true,
+                signal: true,
+                endpoints: true,
+                proto: true,
+                port: true,
+                bytes: true,
+                packets: true,
+                direction: true,
+                action: true
+            };
+        } catch (e) {
+            return {
+                time: true,
+                signal: true,
+                endpoints: true,
+                proto: true,
+                port: true,
+                bytes: true,
+                packets: true,
+                direction: true,
+                action: true
+            };
+        }
+    },
+
+    // NEW: Save column visibility to localStorage
+    saveColumnVisibility(columns) {
+        try {
+            localStorage.setItem('trafficExplorerColumns', JSON.stringify(columns));
+            this.trafficExplorer.columnVisibility = columns;
+        } catch (e) {
+            console.error('Failed to save column visibility:', e);
+        }
+    },
+
+    // NEW: Toggle column visibility
+    toggleColumn(columnName) {
+        const visibility = this.trafficExplorer.columnVisibility || this.loadColumnVisibility();
+        visibility[columnName] = !visibility[columnName];
+        this.saveColumnVisibility(visibility);
     },
 
     // Helper to check if IP is internal
@@ -9145,42 +9696,11 @@ export const Store = () => ({
         this.fetchAlertHistory();
     },
 
-    navigateToActiveFlows() {
-        this.loadTab('network');
-        this.$nextTick(() => {
-            if (this.flows) {
-                this.flows.viewLimit = 15;
-            }
-            this.fetchFlows();
-        });
-    },
-
-    navigateToExternalConnections() {
-        this.loadTab('network');
-        this.$nextTick(() => {
-            if (this.flows) {
-                this.flows.viewLimit = 15;
-            }
-            this.fetchFlows();
-            // Note: External connections filtering would be done in the flows table UI
-            // The flows endpoint already includes direction information
-        });
-    },
 
     navigateToFirewallLogs() {
         this.loadTab('firewall');
     },
 
-    navigateToAnomalies() {
-        this.loadTab('network');
-        // Anomalies are shown in the Active Flows table with detection indicators
-        this.$nextTick(() => {
-            if (this.flows) {
-                this.flows.viewLimit = 15;
-            }
-            this.fetchFlows();
-        });
-    },
 
     loadTab(tab) {
         if (this.eventsPage) {
@@ -9295,6 +9815,7 @@ export const Store = () => ({
             this.fetchRecentBlocks();
             this.fetchFirewallSyslog();
             this.fetchAlertCorrelation();
+            this.fetchFirewallDecisions();
             // Start auto-refresh for firewall logs
             this.startRecentBlocksAutoRefresh();
             this.startFirewallSyslogAutoRefresh();

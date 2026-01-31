@@ -11189,3 +11189,208 @@ body.compact-mode {
         background-position: 0% 50%;
     }
 }
+
+/* ========================================
+   FLOW SEARCH ENHANCEMENTS
+   ======================================== */
+
+/* Reason chips - small clickable badges */
+.flow-reason-chip {
+    background: rgba(255, 200, 0, 0.15);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 200, 0, 0.3);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.flow-reason-chip:hover {
+    background: rgba(255, 200, 0, 0.25);
+    border-color: rgba(255, 200, 0, 0.5);
+    transform: translateY(-1px);
+}
+
+/* Context strip styles */
+.flow-context-strip strong {
+    color: var(--text-primary);
+}
+
+/* Sticky table header and first column */
+.flow-search .table-fixed thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-secondary);
+}
+
+.flow-search .table-fixed thead th {
+    background: var(--bg-secondary);
+}
+
+.flow-search .table-fixed tbody td:first-child,
+.flow-search .table-fixed thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 9;
+    background: var(--bg-primary);
+}
+
+.flow-search .table-fixed tbody tr:hover td:first-child {
+    background: rgba(0, 234, 255, 0.08);
+}
+
+/* Expanded row details */
+.flow-expanded-details {
+    background: rgba(0, 234, 255, 0.03);
+    border-left: 2px solid rgba(0, 234, 255, 0.3);
+    padding: 8px 12px;
+    font-size: 0.72em;
+    margin-top: 4px;
+}
+
+.flow-expanded-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 6px 12px;
+}
+
+/* Expand toggle button */
+.flow-expand-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 0.9em;
+    transition: color 0.15s ease;
+}
+
+.flow-expand-toggle:hover {
+    color: var(--text-primary);
+}
+
+.flow-expand-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+/* Quick pivot buttons */
+.flow-pivot-btn {
+    background: rgba(0, 234, 255, 0.08);
+    border: 1px solid rgba(0, 234, 255, 0.2);
+    color: var(--neon-cyan);
+    padding: 1px 4px;
+    font-size: 9px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-right: 2px;
+}
+
+.flow-pivot-btn:hover {
+    background: rgba(0, 234, 255, 0.15);
+    border-color: rgba(0, 234, 255, 0.4);
+}
+
+/* Improve table density and readability */
+.flow-search .table-compact {
+    border-collapse: separate;
+    border-spacing: 0 2px;
+}
+
+.flow-search .flow-row {
+    transition: background-color 0.15s ease;
+}
+
+.flow-search .flow-row:hover {
+    background: rgba(0, 234, 255, 0.08) !important;
+}
+
+/* Sort indicator */
+.flow-sort-active {
+    color: var(--neon-cyan);
+    font-weight: 600;
+}
+
+/* Column chooser */
+.flow-column-chooser {
+    position: absolute;
+    right: 10px;
+    top: 60px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: var(--text-xs);
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.flow-column-chooser label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    cursor: pointer;
+}
+
+.flow-column-chooser label:hover {
+    color: var(--neon-cyan);
+}
+
+/* ============================================
+   Firewall Decisions Feed - Dense table styles
+   ============================================ */
+
+.fw-decision-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.fw-decision-table thead th {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.fw-decision-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.1s ease;
+}
+
+.fw-decision-row:hover {
+    background: rgba(0, 234, 255, 0.05);
+}
+
+.fw-decision-row td {
+    padding: 6px 8px;
+    font-size: 11px;
+    vertical-align: middle;
+}
+
+.fw-action-badge {
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.fw-count-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+}
+
+.fw-decision-chip {
+    transition: all 0.15s ease;
+}
+
+.fw-decision-chip:hover {
+    background: rgba(255, 200, 0, 0.2) !important;
+    transform: translateY(-1px);
+}
