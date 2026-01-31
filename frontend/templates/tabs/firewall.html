@@ -548,191 +548,152 @@
         </div>
         {% endset %}
 
-        {% set fd_footer %}
-        <div style="display: flex; gap: var(--space-3); align-items: center; font-size: var(--text-xs); color: var(--text-muted);">
-            <span>
-                <strong style="color: var(--signal-crit);" x-text="firewallDecisions.counters.blocks"></strong> blocks
-            </span>
-            <span>
-                <strong style="color: var(--signal-ok);" x-text="firewallDecisions.counters.passes"></strong> passes
-            </span>
-            <span x-show="firewallDecisions.counters.newInbound > 0">
-                <strong style="color: var(--signal-warn);" x-text="firewallDecisions.counters.newInbound"></strong> new inbound
-            </span>
-        </div>
-        {% endset %}
-
         {% call widget_card('firewallDecisions', 'Firewall Decisions (Live)', '🛡️', card_class='wide-card',
-        extra_actions=fd_actions, footer_content=fd_footer, show_spinner=True) %}
+        extra_actions=fd_actions, show_spinner=True) %}
 
-        <!-- Optional: NEW INBOUND strip -->
-        <template x-if="firewallDecisions.newInboundIPs.length > 0">
-            <div style="margin-bottom: var(--space-3); padding: var(--space-2); background: rgba(255, 200, 0, 0.08); border: 1px solid rgba(255, 200, 0, 0.25); border-radius: var(--radius-sm);">
-                <div style="font-size: var(--text-xs); font-weight: var(--font-weight-semibold); color: var(--signal-warn); margin-bottom: var(--space-1);">
-                    NEW INBOUND (15M)
+        <template x-if="firewallDecisions.summary">
+            <div>
+                <!-- ROW A: Summary Tiles (5 compact stat tiles) -->
+                <div class="fw-summary-tiles">
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">BLOCKS</div>
+                        <div class="fw-summary-tile__value" style="color: var(--signal-crit);"
+                            x-text="firewallDecisions.summary.totals.block.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">PASSES</div>
+                        <div class="fw-summary-tile__value" style="color: var(--signal-ok);"
+                            x-text="firewallDecisions.summary.totals.pass.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">NATS</div>
+                        <div class="fw-summary-tile__value" style="color: var(--neon-cyan);"
+                            x-text="firewallDecisions.summary.totals.nat.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">UNIQUE SOURCES</div>
+                        <div class="fw-summary-tile__value"
+                            x-text="firewallDecisions.summary.unique.src.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">TOP REASON</div>
+                        <div class="fw-summary-tile__reason" x-text="firewallDecisions.summary.top_reason.label"></div>
+                        <div class="fw-summary-tile__count"
+                            x-text="firewallDecisions.summary.top_reason.count.toLocaleString() + ' hits'"></div>
+                    </div>
                 </div>
-                <div style="display: flex; flex-wrap: wrap; gap: var(--space-1);">
-                    <template x-for="item in firewallDecisions.newInboundIPs" :key="item.ip">
-                        <button @click.stop="openIPModal(item.ip)" class="fw-decision-chip"
-                            style="background: rgba(255, 200, 0, 0.12); border: 1px solid rgba(255, 200, 0, 0.3); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; font-family: var(--font-mono);">
-                            <span x-text="item.ip"></span>
-                        </button>
-                    </template>
+
+                <!-- ROW B: Visual + Ranked Lists (no table) -->
+                <div class="fw-intelligence-row">
+                    <!-- Left: Decision Mix Chart -->
+                    <div class="fw-intelligence-section fw-decision-mix">
+                        <div class="fw-intelligence-section__title">DECISION MIX</div>
+
+                        <!-- Stacked horizontal bar -->
+                        <div class="fw-mix-bar">
+                            <div class="fw-mix-segment fw-mix-pass"
+                                :style="'width: ' + firewallDecisions.summary.mix.pass_pct + '%'"
+                                :title="'Pass: ' + firewallDecisions.summary.mix.pass_pct + '%'">
+                            </div>
+                            <div class="fw-mix-segment fw-mix-nat"
+                                :style="'width: ' + firewallDecisions.summary.mix.nat_pct + '%'"
+                                :title="'NAT: ' + firewallDecisions.summary.mix.nat_pct + '%'">
+                            </div>
+                            <div class="fw-mix-segment fw-mix-block"
+                                :style="'width: ' + firewallDecisions.summary.mix.block_pct + '%'"
+                                :title="'Block: ' + firewallDecisions.summary.mix.block_pct + '%'">
+                            </div>
+                        </div>
+
+                        <!-- Mix legend with deltas -->
+                        <div class="fw-mix-legend">
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-pass"></span>
+                                <span x-text="'Pass ' + firewallDecisions.summary.mix.pass_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.pass_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.pass_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.pass_pct + 'pp'"></span>
+                            </div>
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-nat"></span>
+                                <span x-text="'NAT ' + firewallDecisions.summary.mix.nat_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.nat_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.nat_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.nat_pct + 'pp'"></span>
+                            </div>
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-block"></span>
+                                <span x-text="'Block ' + firewallDecisions.summary.mix.block_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.block_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.block_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.block_pct + 'pp'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Top Drivers List -->
+                    <div class="fw-intelligence-section fw-top-drivers">
+                        <div class="fw-intelligence-section__title">
+                            TOP DRIVERS
+                            <button @click="viewFirewallLogsFiltered('action', 'all')" class="fw-view-details">
+                                View details →
+                            </button>
+                        </div>
+                        <div class="fw-driver-list">
+                            <template x-for="(driver, idx) in firewallDecisions.summary.top_reasons.slice(0, 8)" :key="idx">
+                                <div class="fw-driver-item" @click="viewFirewallLogsFiltered('reason', driver.reason)"
+                                    role="button" tabindex="0">
+                                    <span class="fw-driver-badge" :class="'fw-badge-' + driver.action.toLowerCase()"
+                                        x-text="driver.action"></span>
+                                    <span class="fw-driver-reason" x-text="driver.reason"></span>
+                                    <span class="fw-driver-count" x-text="driver.count.toLocaleString()"></span>
+                                    <span class="fw-driver-delta"
+                                        :class="driver.delta > 0 ? 'fw-delta-up' : (driver.delta < 0 ? 'fw-delta-down' : '')"
+                                        x-text="driver.delta > 0 ? '↑' + driver.delta : (driver.delta < 0 ? '↓' + Math.abs(driver.delta) : '—')"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Right: Top Targets List -->
+                    <div class="fw-intelligence-section fw-top-targets">
+                        <div class="fw-intelligence-section__title">
+                            TOP TARGETS
+                            <button @click="loadTab('traffic-explorer')" class="fw-view-details">
+                                Flow Search →
+                            </button>
+                        </div>
+                        <div class="fw-target-list">
+                            <template x-for="(target, idx) in firewallDecisions.summary.top_targets.slice(0, 8)" :key="idx">
+                                <div class="fw-target-item" @click="openIPModal(target.dst)"
+                                    role="button" tabindex="0">
+                                    <span class="fw-target-dst" x-text="target.dst"></span>
+                                    <span class="fw-target-port" x-text="target.port !== '—' ? ':' + target.port : ''"></span>
+                                    <span class="fw-target-proto" x-text="target.proto"></span>
+                                    <span class="fw-target-count" x-text="target.count.toLocaleString()"></span>
+                                    <span class="fw-target-badge" :class="'fw-badge-' + target.action.toLowerCase()"
+                                        x-text="target.action"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </template>
 
-        <!-- Decision groups table (dense, max 80 rows) -->
-        <div style="max-height: 65vh; overflow-y: auto;">
-            <table class="table-fixed table-compact fw-decision-table">
-                <thead>
-                    <tr style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 5;">
-                        <th style="width: 8%;">Action</th>
-                        <th style="width: 10%;">IF</th>
-                        <th style="width: 18%;">Source</th>
-                        <th style="width: 18%;">Destination</th>
-                        <th style="width: 8%;">Proto</th>
-                        <th style="width: 8%;">Port</th>
-                        <th style="width: 18%;">Rule/Reason</th>
-                        <th style="width: 8%;">Count</th>
-                        <th style="width: 12%;">Last Seen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="(decision, idx) in firewallDecisions.groups" :key="idx">
-                        <tr class="fw-decision-row" @click="openFirewallDecisionModal(decision)"
-                            style="cursor: pointer; height: 30px;">
-                            <td>
-                                <span class="fw-action-badge"
-                                    :style="decision.action === 'block' ? 'color: var(--signal-crit); font-weight: 600;' : 'color: var(--signal-ok);'"
-                                    x-text="decision.action === 'block' ? '🚫' : '✓'"></span>
-                                <span style="font-size: 10px; text-transform: uppercase;" x-text="decision.action"></span>
-                            </td>
-                            <td style="font-size: 10px; color: var(--text-muted);" x-text="decision.interface"></td>
-                            <td style="font-size: 11px; font-family: var(--font-mono);" x-text="decision.src_ip"></td>
-                            <td style="font-size: 11px; font-family: var(--font-mono);" x-text="decision.dst_ip"></td>
-                            <td style="font-size: 10px; color: var(--text-muted);" x-text="decision.proto"></td>
-                            <td style="font-size: 11px; font-weight: 500;" x-text="decision.dst_port"></td>
-                            <td style="font-size: 10px; color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                                :title="decision.rule_id" x-text="decision.rule_id"></td>
-                            <td>
-                                <span class="fw-count-badge"
-                                    style="background: rgba(0, 234, 255, 0.1); border: 1px solid rgba(0, 234, 255, 0.3); padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;"
-                                    x-text="decision.count"></span>
-                            </td>
-                            <td style="font-size: 10px; color: var(--text-muted);" x-text="timeAgo(decision.last_seen)"></td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-
-            <!-- Empty state -->
-            <div x-show="!firewallDecisions.loading && firewallDecisions.groups.length === 0"
-                class="empty-state" style="text-align: center; padding: var(--space-6);">
+        <!-- Empty state -->
+        <template x-if="!firewallDecisions.loading && !firewallDecisions.summary">
+            <div class="empty-state" style="text-align: center; padding: var(--space-6);">
                 <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                    No Firewall Decisions</p>
+                    No Decision Data</p>
                 <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
-                    No firewall logs recorded in the selected time window.
+                    No firewall activity in the selected window.
                 </p>
             </div>
-        </div>
+        </template>
 
         {% endcall %}
     </section>
 </div>
 
-<!-- Decision Detail Modal -->
-<div class="modal" x-show="firewallDecisions.selectedDecision"
-    :style="firewallDecisions.selectedDecision ? 'display:flex' : 'display:none'"
-    @click.self="closeFirewallDecisionModal()">
-    <div class="modal-content" style="max-width: 800px;">
-        <template x-if="firewallDecisions.selectedDecision">
-            <div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-                    <h2 style="margin: 0;">Firewall Decision Details</h2>
-                    <button @click="closeFirewallDecisionModal()" class="btn btn--secondary"
-                        style="padding: var(--space-1) var(--space-2);">✕ Close</button>
-                </div>
-
-                <!-- Summary -->
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); margin-bottom: var(--space-4);">
-                    <div>
-                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Action</div>
-                        <div style="font-size: var(--text-lg); font-weight: 600;"
-                            :style="firewallDecisions.selectedDecision.action === 'block' ? 'color: var(--signal-crit);' : 'color: var(--signal-ok);'"
-                            x-text="firewallDecisions.selectedDecision.action.toUpperCase()"></div>
-                    </div>
-                    <div>
-                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Occurrences</div>
-                        <div style="font-size: var(--text-lg); font-weight: 600;" x-text="firewallDecisions.selectedDecision.count"></div>
-                    </div>
-                    <div>
-                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">First Seen</div>
-                        <div style="font-size: var(--text-sm);" x-text="timeAgo(firewallDecisions.selectedDecision.first_seen)"></div>
-                    </div>
-                    <div>
-                        <div style="font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1);">Last Seen</div>
-                        <div style="font-size: var(--text-sm);" x-text="timeAgo(firewallDecisions.selectedDecision.last_seen)"></div>
-                    </div>
-                </div>
-
-                <!-- 5-tuple -->
-                <div style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.2); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4);">
-                    <div style="font-size: var(--text-xs); font-weight: 600; color: var(--neon-cyan); margin-bottom: var(--space-2);">5-TUPLE</div>
-                    <div style="display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); font-size: var(--text-sm);">
-                        <span style="color: var(--text-muted);">Interface:</span>
-                        <span style="font-family: var(--font-mono);" x-text="firewallDecisions.selectedDecision.interface"></span>
-
-                        <span style="color: var(--text-muted);">Source:</span>
-                        <span style="font-family: var(--font-mono); color: var(--neon-cyan); cursor: pointer;"
-                            @click="openIPModal(firewallDecisions.selectedDecision.src_ip)"
-                            x-text="firewallDecisions.selectedDecision.src_ip"></span>
-
-                        <span style="color: var(--text-muted);">Destination:</span>
-                        <span style="font-family: var(--font-mono); color: var(--neon-purple); cursor: pointer;"
-                            @click="openIPModal(firewallDecisions.selectedDecision.dst_ip)"
-                            x-text="firewallDecisions.selectedDecision.dst_ip"></span>
-
-                        <span style="color: var(--text-muted);">Protocol:</span>
-                        <span x-text="firewallDecisions.selectedDecision.proto"></span>
-
-                        <span style="color: var(--text-muted);">Dest Port:</span>
-                        <span style="font-weight: 600;" x-text="firewallDecisions.selectedDecision.dst_port"></span>
-
-                        <span style="color: var(--text-muted);">Rule/Reason:</span>
-                        <span style="font-size: var(--text-xs); color: var(--text-secondary);" x-text="firewallDecisions.selectedDecision.rule_id"></span>
-                    </div>
-                </div>
-
-                <!-- Action buttons -->
-                <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
-                    <button @click="openIPModal(firewallDecisions.selectedDecision.src_ip)" class="btn btn--secondary"
-                        style="font-size: var(--text-xs);">🔍 Investigate Source</button>
-                    <button @click="openIPModal(firewallDecisions.selectedDecision.dst_ip)" class="btn btn--secondary"
-                        style="font-size: var(--text-xs);">🔍 Investigate Destination</button>
-                </div>
-
-                <!-- Recent log samples (max 5) -->
-                <div style="margin-top: var(--space-4);">
-                    <div style="font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-2);">Recent Samples (max 5)</div>
-                    <div style="max-height: 200px; overflow-y: auto; background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: var(--space-2);">
-                        <template x-for="(log, idx) in firewallDecisions.selectedDecision.logs.slice(0, 5)" :key="idx">
-                            <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); padding: var(--space-1); border-bottom: 1px solid var(--border-color);">
-                                <span style="color: var(--text-muted);" x-text="timeAgo(log.timestamp || log.ts)"></span>
-                                <span style="margin-left: var(--space-2);" x-text="log.interface || log.iface"></span>
-                                <span style="margin-left: var(--space-2); color: var(--neon-cyan);" x-text="log.src_ip || log.src"></span>
-                                <span style="margin-left: var(--space-1);">→</span>
-                                <span style="margin-left: var(--space-1); color: var(--neon-purple);" x-text="log.dst_ip || log.dst"></span>
-                                <span style="margin-left: var(--space-2);" x-text="log.dst_port || log.dport"></span>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </template>
-    </div>
-</div>
-
-<!-- ============================================
-             SERVER TAB - Server Health & Statistics
-             ============================================ -->
+<!-- Removed Decision Detail Modal - widget now uses aggregated intelligence view -->

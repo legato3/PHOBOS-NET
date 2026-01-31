@@ -11583,3 +11583,273 @@ body.compact-mode {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ============================================
+   Firewall Decisions (Live) - Intelligence View
+   2-row layout: summary tiles + visual/ranked lists
+   ============================================ */
+
+/* Row A: Summary Tiles */
+.fw-summary-tiles {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.fw-summary-tile {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    text-align: center;
+}
+
+.fw-summary-tile__label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: var(--space-1);
+}
+
+.fw-summary-tile__value {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.fw-summary-tile__reason {
+    font-size: 11px;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-summary-tile__count {
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+/* Row B: Intelligence Sections */
+.fw-intelligence-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: var(--space-4);
+}
+
+.fw-intelligence-section {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+}
+
+.fw-intelligence-section__title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--neon-cyan);
+    margin-bottom: var(--space-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fw-view-details {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 9px;
+    cursor: pointer;
+    padding: 2px 6px;
+    transition: all 0.15s ease;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.fw-view-details:hover {
+    color: var(--neon-cyan);
+    background: rgba(0, 234, 255, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+/* Decision Mix - Stacked Horizontal Bar */
+.fw-mix-bar {
+    display: flex;
+    width: 100%;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--border-color);
+}
+
+.fw-mix-segment {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.fw-mix-segment:hover {
+    opacity: 0.8;
+}
+
+.fw-mix-pass {
+    background: var(--signal-ok);
+}
+
+.fw-mix-nat {
+    background: var(--neon-cyan);
+}
+
+.fw-mix-block {
+    background: var(--signal-crit);
+}
+
+.fw-mix-legend {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.fw-mix-legend__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 11px;
+}
+
+.fw-mix-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.fw-mix-delta {
+    margin-left: auto;
+    font-size: 9px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.fw-mix-delta-up {
+    color: var(--signal-warn);
+}
+
+.fw-mix-delta-down {
+    color: var(--text-muted);
+}
+
+/* Top Drivers List */
+.fw-driver-list,
+.fw-target-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.fw-driver-item,
+.fw-target-item {
+    display: grid;
+    grid-template-columns: 50px 1fr auto auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    font-size: 11px;
+}
+
+.fw-driver-item:hover,
+.fw-target-item:hover {
+    background: rgba(0, 234, 255, 0.05);
+    border-color: rgba(0, 234, 255, 0.2);
+}
+
+.fw-driver-badge,
+.fw-target-badge {
+    font-size: 8px;
+    font-weight: 700;
+    text-align: center;
+    padding: 2px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.fw-badge-pass {
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--signal-ok);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.fw-badge-block {
+    background: rgba(255, 23, 68, 0.15);
+    color: var(--signal-crit);
+    border: 1px solid rgba(255, 23, 68, 0.3);
+}
+
+.fw-badge-nat {
+    background: rgba(0, 234, 255, 0.15);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0, 234, 255, 0.3);
+}
+
+.fw-driver-reason {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-driver-count,
+.fw-target-count {
+    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--neon-cyan);
+}
+
+.fw-driver-delta {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.fw-delta-up {
+    color: var(--signal-warn);
+}
+
+.fw-delta-down {
+    color: var(--text-muted);
+}
+
+/* Top Targets List */
+.fw-target-item {
+    grid-template-columns: 1fr auto auto auto;
+}
+
+.fw-target-dst {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-target-port,
+.fw-target-proto {
+    font-size: 9px;
+    color: var(--text-muted);
+}

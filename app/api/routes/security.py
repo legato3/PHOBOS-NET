@@ -1178,6 +1178,213 @@ def api_firewall_syslog_recent():
         ), 500
 
 
+@bp.route("/api/firewall/decisions/summary")
+@throttle(10, 10)
+def api_firewall_decisions_summary():
+    """
+    Get aggregated firewall decision intelligence (not raw logs).
+    Returns totals, mix percentages, top reasons, top targets with deltas vs previous window.
+    """
+    window = request.args.get("window", "15m")
+    window_seconds = {
+        "15m": 900,
+        "1h": 3600,
+        "24h": 86400,
+    }.get(window, 900)
+
+    now = time.time()
+    cutoff_current = now - window_seconds
+    cutoff_previous = cutoff_current - window_seconds  # Previous window for delta calculation
+
+    with _firewall_db_lock:
+        conn = _firewall_db_connect()
+        try:
+            # 1. Totals for current window (pass, block, nat counts)
+            cur = conn.execute("""
+                SELECT
+                    CASE
+                        WHEN action IN ('block', 'reject') THEN 'block'
+                        WHEN action = 'pass' THEN 'pass'
+                        WHEN action IN ('nat', 'rdr') THEN 'nat'
+                        ELSE 'other'
+                    END as action_group,
+                    COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ?
+                GROUP BY action_group
+            """, (cutoff_current,))
+
+            totals = {"pass": 0, "block": 0, "nat": 0}
+            for row in cur.fetchall():
+                action_group, count = row
+                if action_group in totals:
+                    totals[action_group] = count
+
+            total_events = sum(totals.values())
+
+            # 2. Previous window totals for delta calculation
+            cur = conn.execute("""
+                SELECT
+                    CASE
+                        WHEN action IN ('block', 'reject') THEN 'block'
+                        WHEN action = 'pass' THEN 'pass'
+                        WHEN action IN ('nat', 'rdr') THEN 'nat'
+                        ELSE 'other'
+                    END as action_group,
+                    COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ? AND timestamp <= ?
+                GROUP BY action_group
+            """, (cutoff_previous, cutoff_current))
+
+            prev_totals = {"pass": 0, "block": 0, "nat": 0}
+            for row in cur.fetchall():
+                action_group, count = row
+                if action_group in prev_totals:
+                    prev_totals[action_group] = count
+
+            prev_total_events = sum(prev_totals.values())
+
+            # 3. Unique sources and destinations
+            cur = conn.execute("""
+                SELECT COUNT(DISTINCT src_ip), COUNT(DISTINCT dst_ip)
+                FROM fw_logs
+                WHERE timestamp > ?
+            """, (cutoff_current,))
+            unique_src, unique_dst = cur.fetchone() or (0, 0)
+
+            # 4. Top reason/rule (single best)
+            cur = conn.execute("""
+                SELECT COALESCE(rule_id, reason, 'default'), COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ?
+                GROUP BY COALESCE(rule_id, reason, 'default')
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (cutoff_current,))
+            top_reason_row = cur.fetchone()
+            top_reason = {
+                "label": top_reason_row[0] if top_reason_row else "N/A",
+                "count": top_reason_row[1] if top_reason_row else 0
+            }
+
+            # 5. Decision mix percentages with deltas
+            mix = {"pass_pct": 0, "block_pct": 0, "nat_pct": 0, "delta": {}}
+            if total_events > 0:
+                mix["pass_pct"] = round((totals["pass"] / total_events) * 100, 1)
+                mix["block_pct"] = round((totals["block"] / total_events) * 100, 1)
+                mix["nat_pct"] = round((totals["nat"] / total_events) * 100, 1)
+
+            # Compute percentage point deltas
+            if prev_total_events > 0:
+                prev_pass_pct = (prev_totals["pass"] / prev_total_events) * 100
+                prev_block_pct = (prev_totals["block"] / prev_total_events) * 100
+                prev_nat_pct = (prev_totals["nat"] / prev_total_events) * 100
+
+                mix["delta"]["pass_pct"] = round(mix["pass_pct"] - prev_pass_pct, 1)
+                mix["delta"]["block_pct"] = round(mix["block_pct"] - prev_block_pct, 1)
+                mix["delta"]["nat_pct"] = round(mix["nat_pct"] - prev_nat_pct, 1)
+            else:
+                mix["delta"] = {"pass_pct": 0, "block_pct": 0, "nat_pct": 0}
+
+            # 6. Top reasons (aggregated drivers) - max 8
+            cur = conn.execute("""
+                SELECT
+                    CASE
+                        WHEN action IN ('block', 'reject') THEN 'BLOCK'
+                        WHEN action = 'pass' THEN 'PASS'
+                        WHEN action IN ('nat', 'rdr') THEN 'NAT'
+                        ELSE 'OTHER'
+                    END as action_badge,
+                    COALESCE(rule_id, reason, 'default') as reason_label,
+                    COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ?
+                GROUP BY action_badge, reason_label
+                ORDER BY cnt DESC
+                LIMIT 8
+            """, (cutoff_current,))
+
+            top_reasons = []
+            for row in cur.fetchall():
+                action_badge, reason_label, count = row
+
+                # Get previous window count for this reason
+                cur_prev = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs
+                    WHERE timestamp > ? AND timestamp <= ?
+                        AND COALESCE(rule_id, reason, 'default') = ?
+                """, (cutoff_previous, cutoff_current, reason_label))
+                prev_count = cur_prev.fetchone()[0] or 0
+
+                delta = count - prev_count
+                top_reasons.append({
+                    "action": action_badge,
+                    "reason": reason_label,
+                    "count": count,
+                    "delta": delta
+                })
+
+            # 7. Top targets (destinations:ports) - max 8
+            cur = conn.execute("""
+                SELECT
+                    dst_ip,
+                    dst_port,
+                    proto,
+                    CASE
+                        WHEN action IN ('block', 'reject') THEN 'BLOCK'
+                        WHEN action = 'pass' THEN 'PASS'
+                        WHEN action IN ('nat', 'rdr') THEN 'NAT'
+                        ELSE 'OTHER'
+                    END as action_badge,
+                    COUNT(*) as cnt
+                FROM fw_logs
+                WHERE timestamp > ? AND dst_ip IS NOT NULL
+                GROUP BY dst_ip, dst_port, proto, action_badge
+                ORDER BY cnt DESC
+                LIMIT 8
+            """, (cutoff_current,))
+
+            top_targets = []
+            for row in cur.fetchall():
+                dst_ip, dst_port, proto, action_badge, count = row
+
+                # Get previous window count for this target
+                cur_prev = conn.execute("""
+                    SELECT COUNT(*) FROM fw_logs
+                    WHERE timestamp > ? AND timestamp <= ?
+                        AND dst_ip = ? AND dst_port = ? AND proto = ?
+                """, (cutoff_previous, cutoff_current, dst_ip, dst_port, proto))
+                prev_count = cur_prev.fetchone()[0] or 0
+
+                delta = count - prev_count
+                top_targets.append({
+                    "dst": dst_ip,
+                    "port": dst_port if dst_port else "—",
+                    "proto": proto if proto else "—",
+                    "count": count,
+                    "action": action_badge,
+                    "delta": delta
+                })
+
+            # Build response
+            summary = {
+                "window": window,
+                "totals": totals,
+                "unique": {"src": unique_src, "dst": unique_dst},
+                "top_reason": top_reason,
+                "mix": mix,
+                "top_reasons": top_reasons,
+                "top_targets": top_targets
+            }
+
+            return jsonify(summary)
+
+        except (sqlite3.Error, ValueError, KeyError, TypeError) as e:
+            add_app_log(f"Firewall decisions summary error: {e}", "ERROR")
+            return jsonify({"error": str(e)}), 500
+
+
 @bp.route("/api/alerts")
 @throttle(5, 10)
 @cached_endpoint(_stats_alerts_cache, _lock_alerts, key_params=["range"])

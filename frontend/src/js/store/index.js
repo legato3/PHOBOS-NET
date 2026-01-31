@@ -185,11 +185,9 @@ export const Store = () => ({
     firewallDecisions: {
         loading: false,
         timeWindow: '15m',
-        groups: [],
-        rawLogs: [],
-        counters: { blocks: 0, passes: 0, newInbound: 0 },
-        newInboundIPs: [],
-        selectedDecision: null
+        summary: null,          // Aggregated summary from /api/firewall/decisions/summary
+        selectedDriver: null,   // For detail modal
+        selectedTarget: null    // For detail modal
     },
     trafficExplorer: {
         flows: [],
@@ -5312,37 +5310,19 @@ export const Store = () => ({
         } catch (e) { console.error(e); } finally { this.alerts.loading = false; }
     },
 
-    // Firewall Decisions Feed (replaces Active Flows)
+    // Firewall Decisions Intelligence (aggregated summary, not raw logs)
+    // Data source: /api/firewall/decisions/summary
     async fetchFirewallDecisions() {
         this.firewallDecisions.loading = true;
         try {
-            const range = this.firewallDecisions.timeWindow;
-            const res = await fetch(`/api/firewall/logs/recent?range=${range}&limit=500`);
+            const window = this.firewallDecisions.timeWindow;
+            const res = await fetch(`/api/firewall/decisions/summary?window=${window}`);
             if (!res.ok) {
-                console.error('Failed to fetch firewall logs');
+                console.error('Failed to fetch firewall decisions summary');
                 return;
             }
-            const data = await res.json();
-            const logs = data.logs || [];
-
-            // Group logs by decision bucket
-            const groups = this.groupFirewallDecisions(logs);
-
-            // Calculate counters
-            const blocks = groups.filter(g => g.action === 'block').reduce((sum, g) => sum + g.count, 0);
-            const passes = groups.filter(g => g.action === 'pass').reduce((sum, g) => sum + g.count, 0);
-
-            // Detect new inbound IPs (simplified - IPs not seen in previous fetch)
-            const newInbound = this.detectNewInboundIPs(logs);
-
-            this.firewallDecisions.groups = groups;
-            this.firewallDecisions.rawLogs = logs;
-            this.firewallDecisions.counters = {
-                blocks,
-                passes,
-                newInbound: newInbound.length
-            };
-            this.firewallDecisions.newInboundIPs = newInbound.slice(0, 10);  // Max 10 for strip
+            const summary = await res.json();
+            this.firewallDecisions.summary = summary;
 
         } catch (e) {
             console.error('fetchFirewallDecisions error:', e);
@@ -5351,107 +5331,29 @@ export const Store = () => ({
         }
     },
 
-    groupFirewallDecisions(logs) {
-        // Group by: action + interface + src_ip + dst_ip + proto + dst_port + (rule_id || reason)
-        const groupMap = new Map();
-
-        logs.forEach(log => {
-            const action = log.action || 'unknown';
-            const iface = log.interface || log.iface || '—';
-            const srcIP = log.src_ip || log.src || '—';
-            const dstIP = log.dst_ip || log.dst || '—';
-            const proto = log.proto || log.protocol || '—';
-            const dstPort = log.dst_port || log.dport || '—';
-            const ruleId = log.rule_id || log.rule || log.reason || 'default';
-
-            const key = `${action}|${iface}|${srcIP}|${dstIP}|${proto}|${dstPort}|${ruleId}`;
-
-            if (!groupMap.has(key)) {
-                groupMap.set(key, {
-                    action,
-                    interface: iface,
-                    src_ip: srcIP,
-                    dst_ip: dstIP,
-                    proto,
-                    dst_port: dstPort,
-                    rule_id: ruleId,
-                    count: 0,
-                    first_seen: log.timestamp || log.ts,
-                    last_seen: log.timestamp || log.ts,
-                    logs: []
-                });
-            }
-
-            const group = groupMap.get(key);
-            group.count++;
-            group.last_seen = log.timestamp || log.ts;
-            group.logs.push(log);
-        });
-
-        // Convert to array and sort by count descending, then most recent
-        return Array.from(groupMap.values())
-            .sort((a, b) => {
-                if (b.count !== a.count) return b.count - a.count;
-                return new Date(b.last_seen) - new Date(a.last_seen);
-            })
-            .slice(0, 80);  // Max 80 rows
-    },
-
-    detectNewInboundIPs(logs) {
-        // Simple heuristic: WAN inbound sources not in cache
-        const cache = this._inboundIPCache || new Set();
-        const newIPs = [];
-        const seen = new Set();
-
-        logs.forEach(log => {
-            const srcIP = log.src_ip || log.src;
-            const iface = log.interface || log.iface || '';
-            const direction = log.direction || '';
-
-            // Heuristic for inbound: WAN interface or 'in' direction, external source
-            const isInbound = iface.toLowerCase().includes('wan') || direction === 'in';
-            const isExternal = srcIP && !this.isRFC1918(srcIP);
-
-            if (isInbound && isExternal && !cache.has(srcIP) && !seen.has(srcIP)) {
-                newIPs.push({ ip: srcIP, count: 1 });
-                seen.add(srcIP);
-            }
-
-            if (isExternal) {
-                cache.add(srcIP);
-            }
-        });
-
-        // Update cache (keep last 1000 IPs)
-        if (cache.size > 1000) {
-            const arr = Array.from(cache);
-            this._inboundIPCache = new Set(arr.slice(-1000));
-        } else {
-            this._inboundIPCache = cache;
-        }
-
-        return newIPs.sort((a, b) => b.count - a.count);
-    },
-
-    isRFC1918(ip) {
-        if (!ip) return false;
-        // Simplified RFC1918 check
-        return ip.startsWith('10.') ||
-               ip.startsWith('192.168.') ||
-               /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip);
-    },
-
     setFirewallDecisionsTimeWindow(window) {
         this.firewallDecisions.timeWindow = window;
         this.fetchFirewallDecisions();
     },
 
-    openFirewallDecisionModal(decision) {
-        this.firewallDecisions.selectedDecision = decision;
-    },
+    // Navigate to Firewall Filter Logs with prefilled filter
+    viewFirewallLogsFiltered(filterType, filterValue) {
+        // Scroll to firewall logs section and apply filter
+        this.$nextTick(() => {
+            const section = document.getElementById('section-recent-blocks');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
 
-    closeFirewallDecisionModal() {
-        this.firewallDecisions.selectedDecision = null;
+            // Apply filter to recentBlocks
+            if (filterType === 'action') {
+                this.recentBlocksFilter.action = filterValue;
+            } else if (filterType === 'reason') {
+                this.recentBlocksFilter.searchIP = filterValue; // Use searchIP to filter by reason/rule
+            } else if (filterType === 'port') {
+                this.recentBlocksFilter.port = filterValue;
+            }
+        });
     },
 
     // Traffic Explorer (read-only, no auto-refresh)
