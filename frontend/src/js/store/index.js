@@ -416,6 +416,7 @@ export const Store = () => ({
     flowSearch: { filters: { srcIP: '', dstIP: '', port: '', protocol: '', country: '' }, results: [], loading: false },
     alertCorrelation: { chains: [], loading: false, showExplanation: false },
     threatActivityTimeline: { timeline: [], peak_hour: null, peak_count: 0, total_24h: 0, loading: true, timeRange: '1h', showDescription: false },
+    changeTimeline: { items: [], loading: true },
 
     // Insights (Personality & Overlays & Radar)
     personality: { tone: '', traits: [], evidence: {}, window_sec: 86400, loading: true },
