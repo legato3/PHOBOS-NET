@@ -1350,166 +1350,247 @@ export const Store = () => ({
 
     // --- OVERVIEW STATS & SUMMARY (EVIDENCE LAYER) ---
 
-    // TASK D: Deterministic Summary Contract
-    // Template: "Network is <state>. <primary driver/cause>."
-    getDeterministicSummary() {
-        const state = this.getNetworkState();
-        const activeAlerts = this.alertHistory?.active_count ?? 0;
-        const unusual = this.networkStatsOverview?.anomalies_count ?? 0;
+    // --- OVERVIEW STATS & SUMMARY (Unified Network State Logic) ---
 
-        let s1 = `Network is ${state.state.toLowerCase()}.`;
-        let s2 = "";
+    // INTERNAL: Single Source of Truth for Network State
+    // Evaluates all metrics to produce one coherent story.
+    _evaluateNetworkContext() {
+        // 1. Ingest Metrics Safely
+        const alerts = this.alertHistory?.active_count ?? 0;
+        const alertList = this.alertHistory?.active_alerts || [];
+        const anomalies = this.networkStatsOverview?.anomalies_count ?? 0;
 
-        if (state.state === 'Stable') {
-            s1 = "Network is stable.";
-            if (activeAlerts === 0 && unusual === 0) {
-                s1 = "Network is stable. All systems normal.";
+        const flows = this.baselineSignals?.metrics?.active_flows ?? 0;
+        const flowBaseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+
+        const extIPs = this.networkStatsOverview?.external_unique_ips ?? 0;
+        const extBaseline = this.baselineSignals?.baseline_stats?.external_connections?.mean;
+
+        const blocks = this.firewallStatsOverview?.blocked_events_24h ?? 0;
+        const sysHealth = this.serverHealth || {};
+
+        // 2. Compute Derived States
+        const isLearning = !flowBaseline || !extBaseline;
+
+        // Traffic vs Baseline
+        let trafficState = 'Normal';
+        let trafficRatio = 1;
+        if (flowBaseline) {
+            trafficRatio = flows / Math.max(1, flowBaseline);
+            if (trafficRatio > 1.4) trafficState = 'High';
+            else if (trafficRatio < 0.6) trafficState = 'Low';
+        }
+
+        // Exposure vs Baseline
+        let exposureState = 'Normal';
+        let exposureRatio = 1;
+        if (extBaseline) {
+            exposureRatio = extIPs / Math.max(1, extBaseline);
+            if (exposureRatio > 1.5) exposureState = 'High';
+            else if (exposureRatio < 0.5) exposureState = 'Low';
+        }
+
+        // 3. Determine Overall Network Status (Priority Order)
+        let status = 'Stable';
+        let reason = 'All systems nominal';
+        let primaryDriver = 'baseline'; // Which metric is driving the status?
+        let color = 'var(--signal-ok)';
+
+        // PRIORITY 1: Critical System Failures (Missing Data)
+        if (!sysHealth.netflow?.available && !sysHealth.loading) {
+            status = 'Degraded';
+            reason = 'NetFlow data source unavailable';
+            color = 'var(--signal-crit)';
+            primaryDriver = 'system';
+        }
+        // PRIORITY 2: Active Security Alerts (Actionable)
+        else if (alerts > 0) {
+            // Check severity if available in future, currently all active alerts count
+            status = 'Degraded';
+            reason = `${alerts} actionable alert${alerts === 1 ? '' : 's'} require review`;
+            color = 'var(--signal-crit)';
+            primaryDriver = 'alerts';
+        }
+        // PRIORITY 3: Anomalies (Behavioral)
+        else if (anomalies > 0) {
+            status = 'Degraded';
+            reason = 'Unusual behavioral patterns detected';
+            color = 'var(--signal-warn)';
+            primaryDriver = 'anomalies';
+        }
+        // PRIORITY 4: Learning Phase
+        else if (isLearning) {
+            status = 'Learning';
+            reason = 'Establishing traffic baselines';
+            color = 'var(--text-muted)';
+            primaryDriver = 'learning';
+        }
+        // PRIORITY 5: Elevated Activity (Volume/Exposure) - NOT Degraded
+        else if (trafficState === 'High' || exposureState === 'High') {
+            status = 'Elevated';
+            color = 'var(--signal-warn)';
+            primaryDriver = 'volume';
+
+            if (trafficState === 'High' && exposureState === 'High') {
+                reason = 'High traffic and external exposure';
+            } else if (trafficState === 'High') {
+                reason = 'Traffic volume above baseline';
             } else {
-                s1 = "Network is stable.";
-                s2 = "Routine background activity only.";
+                reason = 'High external fan-out detected';
             }
-        } else if (state.state === 'Elevated') {
-            s1 = "Network activity is elevated.";
-            if (activeAlerts > 0) s2 = `${activeAlerts} active alerts requiring review.`;
-            else s2 = "Traffic volume is above baseline.";
-        } else if (state.state === 'Degraded') {
-            s1 = "Network state is degraded.";
-            s2 = "Critical anomalies or blocks detected.";
-        } else if (state.state === 'Learning') {
-            s1 = "System is learning baseline.";
-            s2 = "Check back in a few minutes.";
+        }
+        // PRIORITY 6: Stable (Default)
+        else {
+            // Provide context even when stable
+            if (blocks > 100) reason = 'Firewall actively protecting network';
+            else reason = 'Traffic consistent with baseline';
         }
 
         return {
-            primary: s1,
-            secondary: s2
+            status,
+            reason,
+            color,
+            primaryDriver,
+            metrics: {
+                alerts, anomalies, blocks,
+                trafficState, trafficRatio,
+                exposureState, exposureRatio,
+                isLearning
+            }
         };
     },
 
-    // 1. Network State (Evidence Layer)
-    getNetworkState() {
-        const signals = new Set(this.baselineSignals?.signals || []);
-        const activeAlerts = this.alertHistory?.active_count ?? 0;
+    // TASK D: Deterministic Summary (Network Brief)
+    getDeterministicSummary() {
+        const ctx = this._evaluateNetworkContext();
+        let s1 = `Network is ${ctx.status.toLowerCase()}.`;
+        let s2 = ctx.reason;
 
-        // Default: Calm
-        let state = 'Stable';
-        let subtext = 'Traffic within baseline';
-        let color = 'var(--signal-ok)';
-
-        if (this.serverHealth.loading && !this.serverHealth.netflow) {
-            state = 'Learning';
-            subtext = 'Establishing baseline';
-            color = 'var(--text-muted)';
-        } else if (activeAlerts >= 3 || signals.has('anomalies_spike')) {
-            state = 'Degraded';
-            subtext = 'Multiple anomalies detected';
-            color = 'var(--signal-crit)';
-        } else if (activeAlerts > 0 || signals.size > 0) {
-            state = 'Elevated';
-            subtext = 'Activity above normal levels';
-            color = 'var(--signal-warn)';
+        // Refine top sentence for natural reading
+        if (ctx.status === 'Stable') {
+            s1 = "Network is stable.";
+            if (ctx.metrics.blocks > 100) {
+                s2 = "Firewall is actively filtering background scans.";
+            } else {
+                s2 = "Activity is within normal baseline parameters.";
+            }
+        } else if (ctx.status === 'Learning') {
+            s1 = "System is learning.";
+            s2 = "Building initial traffic baseline models.";
+        } else if (ctx.status === 'Elevated') {
+            s1 = "Activity is elevated.";
+            // s2 is already set to the specific reason (traffic/exposure)
         }
 
-        return { state, subtext, color };
+        return { primary: s1, secondary: s2 };
     },
 
-    // 2. Alerts (Last 1h)
-    getAlertsSummary() {
-        const count = this.alertHistory?.active_count ?? 0;
-        const alerts = this.alertHistory?.active_alerts || [];
+    // 1. Network State Widget
+    getNetworkState() {
+        const ctx = this._evaluateNetworkContext();
+        // The widget just reflects the central truth
+        return {
+            state: ctx.status,
+            subtext: ctx.reason,
+            color: ctx.color
+        };
+    },
 
-        let subtext = 'No active threats';
+    // 2. Alerts Widget (Role: Action Pressure)
+    getAlertsSummary() {
+        const ctx = this._evaluateNetworkContext();
+        const count = ctx.metrics.alerts;
+
+        let subtext = 'No actionable threats';
         if (count > 0) {
-            // Find most common type
-            const types = {};
-            alerts.forEach(a => { types[a.type] = (types[a.type] || 0) + 1; });
-            const topType = Object.entries(types).sort((a, b) => b[1] - a[1])[0];
-            subtext = topType ? `Mostly ${topType[0].toLowerCase()}` : 'Various alerts';
+            subtext = 'Action required'; // Simple, urgent
+        } else if (ctx.metrics.blocks > 0) {
+            subtext = 'Threats prevented'; // Reassuring
         }
 
         return { count: count.toLocaleString(), subtext };
     },
 
-    // 3. Traffic Level
+    // 3. Traffic Level Widget (Role: Volume vs Baseline)
     getTrafficLevel() {
-        const bytes = this.summary?.totals?.bytes || 0;
-        const hours = this.getRangeHours(this.timeRange);
-        const bytesPerHour = hours > 0 ? bytes / hours : bytes;
-        const activeFlows = this.baselineSignals?.metrics?.active_flows;
-        const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+        const ctx = this._evaluateNetworkContext();
+        const { trafficState, trafficRatio, isLearning } = ctx.metrics;
 
-        let level = 'Normal';
-        let subtext = 'Traffic at baseline';
-        let ratio = null;
+        let level = trafficState; // Normal, High, Low
+        let subtext = 'Consistent with baseline';
 
-        if (baseline && activeFlows !== undefined) {
-            ratio = activeFlows / Math.max(1, baseline);
-            const pct = Math.round((ratio - 1) * 100);
-            const sign = pct > 0 ? '+' : '';
-
-            if (ratio < 0.6) {
-                level = 'Low';
-                subtext = `${sign}${pct}% below baseline`;
-            } else if (ratio < 1.4) {
-                level = 'Normal';
-                subtext = 'Consistent with baseline';
-            } else {
-                level = 'High';
-                subtext = `${sign}${pct}% above baseline`;
-            }
-        } else {
-            subtext = 'Learning baseline';
+        if (isLearning) {
+            level = 'Learning';
+            subtext = 'Calculating...';
+        } else if (trafficState !== 'Normal') {
+            const pct = Math.round(Math.abs(trafficRatio - 1) * 100);
+            const dir = trafficRatio > 1 ? 'above' : 'below';
+            subtext = `${pct}% ${dir} baseline`;
         }
 
         return { level, subtext };
     },
 
-    // 4. Protected Connections (24h)
+    // 4. Protected Connections (Role: Success Metric)
     getProtectedSummary() {
-        const blocks = this.firewallStatsOverview?.blocked_events_24h ?? 0;
-        // Calm language: "Background scans blocked" instead of "Attacks blocked"
-        const subtext = blocks > 0 ? 'Background scans blocked' : 'No blocks recorded';
+        const ctx = this._evaluateNetworkContext();
+        const blocks = ctx.metrics.blocks;
+
+        let subtext = 'No blocks recorded';
+        if (blocks > 0) {
+            // Correlate with alerts for context
+            if (ctx.metrics.alerts > 0) subtext = 'Active defense engaged';
+            else subtext = 'Background noise filtered';
+        }
+
         return { count: blocks.toLocaleString(), subtext };
     },
 
-    // 5. Internet Exposure
+    // 5. Internet Exposure (Role: Attack Surface) -> Renamed "Attack Surface" in logic if possible, UI label is static HTML currently
     getExposureSummary() {
-        const uniqueExternal = this.networkStatsOverview?.external_unique_ips ?? 0;
-        const baseline = this.baselineSignals?.baseline_stats?.external_connections?.mean;
+        const ctx = this._evaluateNetworkContext();
+        const { exposureState, exposureRatio, isLearning } = ctx.metrics;
 
-        let level = 'Typical';
-        let subtext = 'Normal destination spread';
+        let value = 'Typical'; // Using text labels for "Value" to match UI style
+        let subtext = 'Normal spread';
 
-        // "Typical" is better than "Moderate" for calm UI
-        if (baseline) {
-            const ratio = uniqueExternal / Math.max(1, baseline);
-            if (ratio > 1.5) {
-                level = 'Above usual';
-                subtext = 'High external fan-out';
-            } else if (ratio < 0.5) {
-                level = 'Below typical';
-                subtext = 'Low external activity';
-            }
+        if (isLearning) {
+            value = 'Learning';
+            subtext = 'Mapping...';
         } else {
-            subtext = 'Learning baseline';
+            if (exposureState === 'High') {
+                const pct = Math.round((exposureRatio - 1) * 100);
+                value = 'High';
+                subtext = `+${pct}% wider than usual`;
+            } else if (exposureState === 'Low') {
+                value = 'Low';
+                subtext = 'Narrower than usual';
+            }
         }
 
-        return { value: Number(uniqueExternal).toLocaleString(), level, subtext };
+        return { value, subtext };
     },
 
-    // 6. Unusual Activity
+    // 6. Unusual Activity (Role: Change Detection)
     getUnusualActivitySummary() {
-        const count = this.networkStatsOverview?.anomalies_count ?? 0;
-        const signals = this.healthSignals?.signals || [];
-        let lastTs = null;
-        for (const s of signals) {
-            if (s.ts && (!lastTs || s.ts > lastTs)) lastTs = s.ts;
-        }
+        const ctx = this._evaluateNetworkContext();
+        const count = ctx.metrics.anomalies;
 
-        const value = count === 0 ? 'All clear' : `${count} Anomalies`;
-        // Calm language: Avoid "Detected!" exclamations
-        const subtext = count === 0 ? 'No unusual patterns' : (lastTs ? `Last: ${this.timeAgo(lastTs)}` : 'Recently detected');
-        const color = count === 0 ? 'var(--signal-ok)' : 'var(--signal-warn)';
+        let value = count === 0 ? 'None' : `${count}`;
+        let subtext = 'No unusual patterns';
+        let color = 'var(--text-primary)'; // Default stable color
+
+        if (count > 0) {
+            // Explain WHY it's unusual if possible, for now just timing
+            // Since we don't have the lastTs easily in the ctx without parsing, keep it simple
+            subtext = 'Requires investigation';
+            color = 'var(--signal-warn)';
+        } else if (ctx.metrics.isLearning) {
+            subtext = 'Learning patterns';
+            color = 'var(--text-muted)';
+        } else {
+            color = 'var(--signal-ok)';
+        }
 
         return { value, subtext, color };
     },
@@ -1565,13 +1646,13 @@ export const Store = () => ({
 
         } else if (kind === 'alerts') {
             const sum = this.getAlertsSummary();
-            base.title = 'Active Alerts';
+            base.title = 'Actionable Alerts';
             base.value = sum.count;
             base.computation = `Count of unresolved security alerts from IDS and Firewall analysis (` + (this.alertHistory?.active_alerts?.length || 0) + ` active).`;
             base.explanations.why = 'Alerts generated by analysis rules.';
             base.explanations.what_changed = sum.subtext;
 
-            if (sum.count > 0) {
+            if (this.alertHistory?.active_count > 0) {
                 base.verdict = { label: 'Review Alerts', color: 'var(--signal-warn)' };
                 base.actions = [{ label: 'View Security Events', tab: 'security' }];
 
@@ -1641,13 +1722,13 @@ export const Store = () => ({
 
         } else if (kind === 'internetExposure') {
             const exp = this.getExposureSummary();
-            base.title = 'Internet Exposure';
+            base.title = 'Attack Surface';
             base.value = exp.value;
             base.computation = `Count of unique public IP addresses contacted by internal hosts.`;
             base.explanations.why = 'Measures external footprint and potential data exfiltration paths.';
             base.explanations.what_changed = exp.subtext;
 
-            if (exp.level === 'Above usual') base.verdict = { label: 'Check Destinations', color: 'var(--signal-warn)' };
+            if (exp.value === 'High' || exp.value === 'Above usual') base.verdict = { label: 'Check Destinations', color: 'var(--signal-warn)' };
             else base.verdict = { label: 'Normal Spread', color: 'var(--signal-ok)' };
 
             // Top Destinations
