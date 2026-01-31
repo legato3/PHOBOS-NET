@@ -283,13 +283,6 @@
                                     x-text="a.msg.replace(/^[^:]+:\s+/, '').replace(/\s*\([^)]+\)$/, '')"></span>
                             </div>
                             <div class="alert-severity" :class="'sev-' + a.severity" x-text="a.severity"></div>
-                            <div class="alert-actions" x-show="a.ip" style="margin-left: auto;">
-                                <button class="btn btn--ghost"
-                                    style="padding: 2px 6px; font-size: 0.7em;"
-                                    @click.stop="openTrafficExplorer({ search: a.ip, range: timeRange })">
-                                    View traffic
-                                </button>
-                            </div>
                         </div>
                     </template>
                     <template x-if="filteredAlerts.length === 0">

@@ -1353,12 +1353,159 @@ export const Store = () => ({
 
     // --- OVERVIEW STATS & SUMMARY (Unified Network State Logic) ---
 
+    // NEW: Compute deduped alert groups (rule_id + primary_entity)
+    // This provides actionable group counts instead of raw occurrence counts
+    computeAlertGroups() {
+        const alerts = this.alertHistory?.alerts || [];
+        const now = Date.now() / 1000;
+        const rangeSeconds = {
+            '15m': 900,
+            '30m': 1800,
+            '1h': 3600,
+            '4h': 14400,
+            '6h': 21600,
+            '24h': 86400,
+            '7d': 604800
+        };
+        const windowSec = rangeSeconds[this.timeRange] || 3600;
+        const cutoff = now - windowSec;
+
+        // Filter to active alerts in current window
+        const activeInWindow = alerts.filter(a => a.active && (a.ts || 0) >= cutoff);
+
+        // Dedupe by (rule_id + primary_entity)
+        // Primary entity is typically 'ip' field, fallback to src_ip or dst_ip
+        const groupMap = new Map();
+        for (const alert of activeInWindow) {
+            const rule = alert.rule_id || alert.type || 'unknown';
+            const entity = alert.ip || alert.src_ip || alert.dst_ip || 'global';
+            const key = `${rule}:${entity}`;
+
+            if (!groupMap.has(key)) {
+                groupMap.set(key, {
+                    rule_id: rule,
+                    entity,
+                    severity: alert.severity,
+                    type: alert.type,
+                    count: 0,
+                    first_ts: alert.ts,
+                    last_ts: alert.ts,
+                    msg: alert.msg
+                });
+            }
+
+            const group = groupMap.get(key);
+            group.count += 1;
+            if (alert.ts < group.first_ts) group.first_ts = alert.ts;
+            if (alert.ts > group.last_ts) group.last_ts = alert.ts;
+
+            // Take highest severity
+            const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+            if ((severityOrder[alert.severity] || 0) > (severityOrder[group.severity] || 0)) {
+                group.severity = alert.severity;
+            }
+        }
+
+        const groups = Array.from(groupMap.values());
+
+        // Sort by severity then count
+        groups.sort((a, b) => {
+            const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+            const sevDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+            if (sevDiff !== 0) return sevDiff;
+            return b.count - a.count;
+        });
+
+        return {
+            groups,
+            total: groups.length,
+            by_severity: {
+                critical: groups.filter(g => g.severity === 'critical').length,
+                high: groups.filter(g => g.severity === 'high').length,
+                medium: groups.filter(g => g.severity === 'medium').length,
+                low: groups.filter(g => g.severity === 'low').length
+            },
+            raw_count: activeInWindow.length
+        };
+    },
+
+    // NEW: Generate "What Changed" summary (0-3 bullet lines)
+    computeWhatChangedSummary() {
+        const bullets = [];
+
+        // 1. Alerts Line
+        const alertGroups = this.computeAlertGroups();
+        if (alertGroups.total > 0) {
+            const topGroups = alertGroups.groups.slice(0, 2).map(g => g.type || g.rule_id).join(', ');
+            const newCount = alertGroups.total; // Simplified: all groups in window are "new" for now
+            const escalated = alertGroups.by_severity.critical + alertGroups.by_severity.high;
+
+            let line = `Alerts: ${newCount} group${newCount === 1 ? '' : 's'}`;
+            if (escalated > 0) line += `, ${escalated} high-severity`;
+            if (topGroups) line += `. Top: ${topGroups}`;
+            bullets.push(line);
+        }
+
+        // 2. Traffic Line (if baseline available)
+        const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+        const observed = this.baselineSignals?.metrics?.active_flows || 0;
+        if (baseline && baseline > 0) {
+            const deltaPct = Math.round(((observed - baseline) / baseline) * 100);
+            if (Math.abs(deltaPct) >= 10) { // Only show if meaningful change
+                const direction = deltaPct > 0 ? 'up' : 'down';
+
+                // Get top mover from sources
+                const sources = this.sources?.sources || [];
+                const topSrc = sources[0];
+                const dests = this.destinations?.destinations || [];
+                const topDst = dests[0];
+
+                let line = `Traffic: ${Math.abs(deltaPct)}% ${direction} vs baseline`;
+                if (topSrc && topDst) {
+                    const srcLabel = topSrc.ip_short || topSrc.ip || 'unknown';
+                    const dstLabel = topDst.ip_short || topDst.ip || topDst.port || 'unknown';
+                    line += `. Top: ${srcLabel} → ${dstLabel}`;
+                }
+                bullets.push(line);
+            }
+        }
+
+        // 3. Firewall Line
+        const blocks24h = this.firewallStatsOverview?.blocked_events_24h || 0;
+        const blocksBaseline = this.baselineSignals?.baseline_stats?.blocks_24h?.mean;
+
+        if (blocks24h > 0 || blocksBaseline) {
+            let trend = 'stable';
+            if (blocksBaseline && blocksBaseline > 0) {
+                const blockRatio = blocks24h / blocksBaseline;
+                if (blockRatio > 1.3) trend = 'up';
+                else if (blockRatio < 0.7) trend = 'down';
+            }
+
+            // Check for new inbound (simplified: if blocks > 100, assume some inbound)
+            const newInbound = blocks24h > 100 ? Math.min(blocks24h / 10, 50) : 0;
+
+            let line = `Firewall: blocks ${trend} vs baseline`;
+            if (newInbound > 0) line += `. New inbound: ${Math.round(newInbound)}`;
+            bullets.push(line);
+        }
+
+        // If no meaningful changes
+        if (bullets.length === 0) {
+            bullets.push('No meaningful changes in this window.');
+        }
+
+        return bullets.slice(0, 3); // Max 3 lines
+    },
+
     // INTERNAL: Single Source of Truth for Network State
     // Evaluates all metrics to produce one coherent story.
     _evaluateNetworkContext() {
         // 1. Ingest Metrics Safely
-        const alerts = this.alertHistory?.active_count ?? 0;
-        const alertList = this.alertHistory?.active_alerts || [];
+        // Use deduped alert groups instead of raw count
+        const alertGroups = this.computeAlertGroups();
+        const alerts = alertGroups.total;
+        const alertList = alertGroups.groups;
         const anomalies = this.networkStatsOverview?.anomalies_count ?? 0;
 
         const flows = this.baselineSignals?.metrics?.active_flows ?? 0;
@@ -1487,25 +1634,60 @@ export const Store = () => ({
     },
 
     // 1. Network State Widget
+    // Uses calm labels: OK / Needs review / Degraded
     getNetworkState() {
         const ctx = this._evaluateNetworkContext();
-        // The widget just reflects the central truth
-        return {
-            state: ctx.status,
-            subtext: ctx.reason,
-            color: ctx.color
-        };
+        const alertGroups = this.computeAlertGroups();
+
+        // Map internal states to calm user-facing labels
+        let state = 'OK';
+        let subtext = ctx.reason;
+        let color = ctx.color;
+
+        // Derive state from deduped alert groups + ingestion health
+        const sysHealth = this.serverHealth || {};
+        const netflowAvailable = sysHealth.netflow?.available !== false;
+
+        if (!netflowAvailable && !sysHealth.loading) {
+            state = 'Degraded';
+            subtext = 'NetFlow data unavailable';
+            color = 'var(--signal-crit)';
+        } else if (alertGroups.by_severity.critical > 0) {
+            state = 'Needs review';
+            subtext = `${alertGroups.by_severity.critical} critical alert group${alertGroups.by_severity.critical === 1 ? '' : 's'}`;
+            color = 'var(--signal-crit)';
+        } else if (alertGroups.total > 0) {
+            state = 'Needs review';
+            subtext = `${alertGroups.total} alert group${alertGroups.total === 1 ? '' : 's'} active`;
+            color = 'var(--signal-warn)';
+        } else if (ctx.status === 'Elevated') {
+            state = 'OK';
+            subtext = ctx.reason; // Keep the specific reason (traffic/exposure)
+            color = 'var(--signal-ok)';
+        } else {
+            // Stable or Learning
+            state = 'OK';
+            subtext = ctx.reason;
+            color = 'var(--signal-ok)';
+        }
+
+        return { state, subtext, color };
     },
 
     // 2. Alerts Widget (Role: Action Pressure)
     getAlertsSummary() {
-        const ctx = this._evaluateNetworkContext();
-        const count = ctx.metrics.alerts;
+        const alertGroups = this.computeAlertGroups();
+        const count = alertGroups.total;
 
         let subtext = 'No actionable threats';
         if (count > 0) {
-            subtext = 'Action required'; // Simple, urgent
-        } else if (ctx.metrics.blocks > 0) {
+            // Show "+N new groups" and highest severity
+            const highestSev = alertGroups.by_severity.critical > 0 ? 'critical' :
+                              alertGroups.by_severity.high > 0 ? 'high' :
+                              alertGroups.by_severity.medium > 0 ? 'medium' : 'low';
+
+            subtext = `${count} group${count === 1 ? '' : 's'}, highest: ${highestSev}`;
+        } else if (this.firewallStatsOverview?.blocked_events_24h > 0) {
             subtext = 'Threats prevented'; // Reassuring
         }
 
@@ -1517,12 +1699,14 @@ export const Store = () => ({
         const ctx = this._evaluateNetworkContext();
         const { trafficState, trafficRatio, isLearning } = ctx.metrics;
 
+        // ALWAYS show deterministic level (Normal/High/Low), never "Learning" as primary
         let level = trafficState; // Normal, High, Low
         let subtext = 'Consistent with baseline';
 
         if (isLearning) {
-            level = 'Learning';
-            subtext = 'Calculating...';
+            // Learning is only subtext, level defaults to 'Normal'
+            level = 'Normal';
+            subtext = 'Baseline building';
         } else if (trafficState !== 'Normal') {
             const pct = Math.round(Math.abs(trafficRatio - 1) * 100);
             const dir = trafficRatio > 1 ? 'above' : 'below';
@@ -1547,47 +1731,81 @@ export const Store = () => ({
         return { count: blocks.toLocaleString(), subtext };
     },
 
-    // 5. Internet Exposure (Role: Attack Surface) -> Renamed "Attack Surface" in logic if possible, UI label is static HTML currently
+    // 5. Internet Exposure (Role: Attack Surface) -> Deterministic metric
     getExposureSummary() {
         const ctx = this._evaluateNetworkContext();
         const { exposureState, exposureRatio, isLearning } = ctx.metrics;
 
-        let value = 'Typical'; // Using text labels for "Value" to match UI style
-        let subtext = 'Normal spread';
+        // Use deterministic count of unique external IPs or ASNs in last 24h
+        const externalIPs = this.networkStatsOverview?.external_unique_ips || 0;
 
-        if (isLearning) {
-            value = 'Learning';
-            subtext = 'Mapping...';
-        } else {
+        // Primary value is always a count, never "Learning"
+        let value = externalIPs.toLocaleString();
+        let subtext = 'unique external IPs';
+
+        // If baseline available, add context
+        if (!isLearning) {
             if (exposureState === 'High') {
                 const pct = Math.round((exposureRatio - 1) * 100);
-                value = 'High';
                 subtext = `+${pct}% wider than usual`;
             } else if (exposureState === 'Low') {
-                value = 'Low';
-                subtext = 'Narrower than usual';
+                subtext = 'narrower than usual';
+            } else {
+                subtext = 'typical spread';
             }
+        } else {
+            // Learning phase: still show count but note baseline building
+            subtext = 'external IPs (baseline building)';
         }
 
         return { value, subtext };
     },
 
-    // 6. Unusual Activity (Role: Change Detection)
+    // 6. Notable Changes (renamed from Unusual Activity)
+    // Shows count + top contributor inline
     getUnusualActivitySummary() {
         const ctx = this._evaluateNetworkContext();
         const count = ctx.metrics.anomalies;
 
         let value = count === 0 ? 'None' : `${count}`;
-        let subtext = 'No unusual patterns';
+        let subtext = 'No notable changes';
         let color = 'var(--text-primary)'; // Default stable color
 
         if (count > 0) {
-            // Explain WHY it's unusual if possible, for now just timing
-            // Since we don't have the lastTs easily in the ctx without parsing, keep it simple
-            subtext = 'Requires investigation';
+            // Show top contributor if available
+            // Try to determine what changed the most
+            const baseline = this.baselineSignals?.baseline_stats || {};
+            const metrics = this.baselineSignals?.metrics || {};
+
+            let contributor = '';
+
+            // Check if external connections spiked
+            if (baseline.external_connections?.mean && metrics.external_unique_ips) {
+                const extRatio = metrics.external_unique_ips / baseline.external_connections.mean;
+                if (extRatio > 1.5) contributor = 'mostly new external destinations';
+            }
+
+            // Check if traffic spiked
+            if (!contributor && baseline.active_flows?.mean && metrics.active_flows) {
+                const flowRatio = metrics.active_flows / baseline.active_flows.mean;
+                if (flowRatio > 1.5) contributor = 'mostly increased flow volume';
+            }
+
+            // Check if blocks spiked
+            if (!contributor) {
+                const blocks24h = this.firewallStatsOverview?.blocked_events_24h || 0;
+                if (baseline.blocks_24h?.mean && blocks24h > baseline.blocks_24h.mean * 1.5) {
+                    contributor = 'mostly increased blocks';
+                }
+            }
+
+            // Fallback if no specific contributor found
+            if (!contributor) contributor = 'pattern changes detected';
+
+            subtext = contributor;
             color = 'var(--signal-warn)';
         } else if (ctx.metrics.isLearning) {
-            subtext = 'Learning patterns';
+            subtext = 'Baseline building';
             color = 'var(--text-muted)';
         } else {
             color = 'var(--signal-ok)';
@@ -1678,72 +1896,111 @@ export const Store = () => ({
 
         } else if (kind === 'alerts') {
             base.title = 'Actionable Alerts';
-            base.value = card?.count !== undefined ? card.count.toLocaleString() : this.getAlertsSummary().count;
 
-            if (card && card.actionable) {
-                base.verdict = { label: 'Review alerts', color: 'var(--signal-warn)' };
+            // Use deduped alert groups
+            const alertGroups = this.computeAlertGroups();
+            base.value = alertGroups.total.toLocaleString();
+
+            if (alertGroups.total > 0) {
+                base.verdict = { label: 'Review alert groups', color: 'var(--signal-warn)' };
             } else {
                 base.verdict = { label: 'No active threats', color: 'var(--signal-ok)' };
             }
 
-            // Severity breakdown
-            if (card?.severity_breakdown) {
-                const breakdown = card.severity_breakdown;
-                base.breakdowns = Object.entries(breakdown)
-                    .filter(([_, count]) => count > 0)
-                    .map(([severity, count]) => ({
-                        label: severity.charAt(0).toUpperCase() + severity.slice(1),
-                        value: count
-                    }));
-            }
+            // Severity breakdown (deduped groups)
+            base.breakdowns = [
+                { label: 'Critical', value: alertGroups.by_severity.critical },
+                { label: 'High', value: alertGroups.by_severity.high },
+                { label: 'Medium', value: alertGroups.by_severity.medium },
+                { label: 'Low', value: alertGroups.by_severity.low }
+            ].filter(b => b.value > 0);
 
-            // Fallback to existing logic if no intelligence data
-            if (!details && this.alertHistory?.active_count > 0) {
-                const alerts = this.alertHistory.active_alerts || [];
-                const types = {};
-                alerts.forEach(a => types[a.type] = (types[a.type] || 0) + 1);
-                base.top = Object.entries(types)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 3)
-                    .map(([k, v]) => ({ label: k, value: `${v} active` }));
-            }
+            // Top 5 alert groups with details
+            base.top = alertGroups.groups.slice(0, 5).map(g => {
+                const firstSeen = this.timeAgo(g.first_ts);
+                const lastSeen = g.last_ts === g.first_ts ? '' : `, last: ${this.timeAgo(g.last_ts)}`;
+                return {
+                    label: `${g.type || g.rule_id} (${g.entity})`,
+                    value: `${g.count} occurrence${g.count === 1 ? '' : 's'}`,
+                    hint: `${g.severity} • first: ${firstSeen}${lastSeen}`
+                };
+            });
+
+            // Add deep-link to Security page
+            base.actions = [{
+                label: 'View in Security',
+                tab: 'security',
+                filters: { severity: 'all', type: 'all' } // Could be enhanced to pre-filter
+            }];
+
+            // Computation explanation
+            base.computation = `Shows ${alertGroups.total} deduped alert groups (by rule + entity). Raw occurrences: ${alertGroups.raw_count}.`;
 
         } else if (kind === 'trafficLevel') {
             base.title = 'Traffic Level';
-            base.value = card?.level || this.getTrafficLevel().level;
+            base.value = this.getTrafficLevel().level;
 
-            // Breakdowns from intelligence
-            if (card) {
-                if (card.learning) {
-                    base.verdict = { label: 'Baseline warming', color: 'var(--text-muted)' };
-                } else if (card.deviation_pct !== null && card.deviation_pct !== undefined) {
-                    base.breakdowns = [
-                        { label: 'Observed flows', value: card.observed?.toLocaleString() || '—' },
-                        { label: 'Baseline flows', value: card.baseline ? Math.round(card.baseline).toLocaleString() : '—' },
-                        { label: 'Deviation', value: (card.deviation_pct > 0 ? '+' : '') + card.deviation_pct + '%' }
-                    ];
+            // Compute delta vs baseline
+            const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+            const observed = this.baselineSignals?.metrics?.active_flows || 0;
+            const isLearning = !baseline || baseline === 0;
 
-                    if (Math.abs(card.deviation_pct) <= 25) {
-                        base.verdict = { label: 'Normal variation', color: 'var(--signal-ok)' };
-                    } else if (card.deviation_pct > 75) {
-                        base.verdict = { label: 'Traffic spike', color: 'var(--signal-warn)' };
-                    } else {
-                        base.verdict = { label: 'Elevated activity', color: 'var(--signal-warn)' };
-                    }
+            if (isLearning) {
+                base.verdict = { label: 'Baseline building', color: 'var(--text-muted)' };
+                base.breakdowns = [
+                    { label: 'Current flows', value: observed.toLocaleString() },
+                    { label: 'Baseline status', value: 'Building...' }
+                ];
+            } else {
+                const deltaPct = Math.round(((observed - baseline) / baseline) * 100);
+
+                base.breakdowns = [
+                    { label: 'Observed flows', value: observed.toLocaleString() },
+                    { label: 'Baseline flows', value: Math.round(baseline).toLocaleString() },
+                    { label: 'Deviation', value: (deltaPct > 0 ? '+' : '') + deltaPct + '%' }
+                ];
+
+                if (Math.abs(deltaPct) <= 25) {
+                    base.verdict = { label: 'Normal variation', color: 'var(--signal-ok)' };
+                } else if (deltaPct > 75) {
+                    base.verdict = { label: 'Traffic spike', color: 'var(--signal-warn)' };
+                } else {
+                    base.verdict = { label: 'Elevated activity', color: 'var(--signal-warn)' };
                 }
             }
 
-            // Fallback to top sources if no intelligence contributors
-            if (!details?.top_contributors || details.top_contributors.length === 0) {
-                const sources = this.networkStatsOverview?.top_sources || [];
-                if (sources.length > 0) {
-                    base.top = sources.slice(0, 3).map(s => ({
-                        label: s.ip,
+            // Top movers (sources and destinations)
+            const sources = this.sources?.sources || [];
+            const dests = this.destinations?.destinations || [];
+
+            if (sources.length > 0 && dests.length > 0) {
+                base.top = [];
+                // Top 3 sources
+                sources.slice(0, 3).forEach(s => {
+                    base.top.push({
+                        label: `${s.ip_short || s.ip} (src)`,
                         value: this.fmtBytes(s.bytes),
                         hint: s.hostname || 'Source'
-                    }));
-                }
+                    });
+                });
+                // Top 2 destinations
+                dests.slice(0, 2).forEach(d => {
+                    base.top.push({
+                        label: `${d.ip_short || d.ip} (dst)`,
+                        value: this.fmtBytes(d.bytes),
+                        hint: d.country || 'Destination'
+                    });
+                });
             }
+
+            // Add deep-link to Flow Search
+            base.actions = [{
+                label: 'View in Flow Search',
+                tab: 'flows',
+                filters: { range: this.timeRange }
+            }];
+
+            base.computation = `Traffic level computed from flow count vs ${isLearning ? 'forming' : 'established'} baseline.`;
 
         } else if (kind === 'protectedConnections') {
             base.title = 'Protected (24h)';
@@ -1810,39 +2067,84 @@ export const Store = () => ({
             }
 
         } else if (kind === 'unusualActivity') {
-            base.title = 'Unusual Activity';
-            base.value = card?.count !== undefined ? (card.count === 0 ? 'None' : card.count.toLocaleString()) : this.getUnusualActivitySummary().value;
+            base.title = 'Notable Changes';
+            base.value = this.getUnusualActivitySummary().value;
 
-            // Verdict based on intelligence
-            if (card) {
-                if (card.learning) {
-                    base.verdict = { label: 'Learning patterns', color: 'var(--text-muted)' };
-                } else if (card.actionable && card.count > 0) {
-                    base.verdict = { label: 'Review details', color: 'var(--signal-warn)' };
-                } else {
-                    base.verdict = { label: 'No anomalies', color: 'var(--signal-ok)' };
-                }
+            const count = this.networkStatsOverview?.anomalies_count || 0;
+            const isLearning = !this.baselineSignals?.baseline_stats?.active_flows?.mean;
 
-                // Breakdowns from drivers
-                if (card.drivers && card.drivers.length > 0) {
-                    base.breakdowns = card.drivers.map(d => ({
-                        label: (d.type || 'pattern').replace(/_/g, ' '),
-                        value: d.count
-                    }));
+            if (isLearning) {
+                base.verdict = { label: 'Baseline building', color: 'var(--text-muted)' };
+            } else if (count > 0) {
+                base.verdict = { label: 'Review changes', color: 'var(--signal-warn)' };
+            } else {
+                base.verdict = { label: 'No notable changes', color: 'var(--signal-ok)' };
+            }
+
+            // Show top contributors
+            const baseline = this.baselineSignals?.baseline_stats || {};
+            const metrics = this.baselineSignals?.metrics || {};
+            const contributors = [];
+
+            // External connections change
+            if (baseline.external_connections?.mean && metrics.external_unique_ips) {
+                const extRatio = metrics.external_unique_ips / baseline.external_connections.mean;
+                const extDelta = metrics.external_unique_ips - baseline.external_connections.mean;
+                if (Math.abs(extDelta) > 5) {
+                    contributors.push({
+                        label: 'External IPs',
+                        value: `${extDelta > 0 ? '+' : ''}${Math.round(extDelta)}`,
+                        hint: `${Math.round(extRatio * 100)}% of baseline`
+                    });
                 }
             }
 
-            // Fallback to signals if no intelligence contributors
-            if (!details?.top_contributors || details.top_contributors.length === 0) {
-                const signals = this.healthSignals?.signals || [];
-                if (signals.length > 0) {
-                    base.top = signals.slice(0, 5).map(s => ({
-                        label: s.type ? s.type.replace(/_/g, ' ') : 'Anomaly',
-                        value: this.timeAgo(s.ts),
-                        hint: s.details || ''
-                    }));
+            // Traffic volume change
+            if (baseline.active_flows?.mean && metrics.active_flows) {
+                const flowRatio = metrics.active_flows / baseline.active_flows.mean;
+                const flowDelta = metrics.active_flows - baseline.active_flows.mean;
+                if (Math.abs(flowDelta) > baseline.active_flows.mean * 0.2) {
+                    contributors.push({
+                        label: 'Flow volume',
+                        value: `${flowDelta > 0 ? '+' : ''}${Math.round(flowDelta)}`,
+                        hint: `${Math.round(flowRatio * 100)}% of baseline`
+                    });
                 }
             }
+
+            // Blocks change
+            const blocks24h = this.firewallStatsOverview?.blocked_events_24h || 0;
+            if (baseline.blocks_24h?.mean && blocks24h) {
+                const blockDelta = blocks24h - baseline.blocks_24h.mean;
+                if (Math.abs(blockDelta) > baseline.blocks_24h.mean * 0.3) {
+                    contributors.push({
+                        label: 'Firewall blocks',
+                        value: `${blockDelta > 0 ? '+' : ''}${Math.round(blockDelta)}`,
+                        hint: `${Math.round((blocks24h / baseline.blocks_24h.mean) * 100)}% of baseline`
+                    });
+                }
+            }
+
+            // Protocol changes (simplified - show top protocol if available)
+            const protocols = this.protocols?.protocols || [];
+            if (protocols.length > 0) {
+                const topProto = protocols[0];
+                contributors.push({
+                    label: `Top protocol: ${topProto.protocol}`,
+                    value: this.fmtBytes(topProto.bytes),
+                    hint: `${topProto.flows} flows`
+                });
+            }
+
+            base.top = contributors.slice(0, 5);
+
+            // Add action to view Security page
+            base.actions = [{
+                label: 'View Security Page',
+                tab: 'security'
+            }];
+
+            base.computation = `Notable changes detected by comparing current metrics vs established baseline.`;
         }
 
         this.statDetail = base;

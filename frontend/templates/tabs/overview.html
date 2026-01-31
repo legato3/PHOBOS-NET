@@ -3,30 +3,21 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
-    <!-- NETWORK BRIEF -->
+    <!-- WHAT CHANGED SUMMARY -->
     <div class="overview-brief">
         <div class="overview-brief__header">
-            <div class="overview-brief__title">NETWORK BRIEF</div>
-            <div class="overview-brief__chip"
-                :class="'is-' + (overviewIntelligence.brief?.state || 'stable').toLowerCase().replace(' ', '-')">
+            <div class="overview-brief__title">WHAT CHANGED</div>
+            <div class="overview-brief__chip is-stable">
                 <div class="overview-brief__dot"></div>
-                <span x-text="overviewIntelligence.brief?.state || 'Loading'"></span>
+                <span x-text="timeRangeLabel || 'Last 1h'"></span>
             </div>
         </div>
         <div class="overview-brief__body">
-            <div class="overview-brief__row">
-                <span class="overview-brief__value"
-                    x-text="overviewIntelligence.brief?.headline || 'Assessing network status…'"></span>
-            </div>
-            <div class="overview-brief__row">
-                <span class="overview-brief__value overview-brief__value--subline"
-                    x-text="overviewIntelligence.brief?.subline || 'Learning baseline…'"></span>
-            </div>
-            <div class="overview-brief__row">
-                <span class="overview-brief__label">SIGNALS</span>
-                <span class="overview-brief__value overview-brief__value--highlight"
-                    x-text="overviewIntelligence.brief?.reasons || 'gathering data'"></span>
-            </div>
+            <template x-for="(bullet, idx) in computeWhatChangedSummary()" :key="idx">
+                <div class="overview-brief__row">
+                    <span class="overview-brief__value" x-text="bullet"></span>
+                </div>
+            </template>
         </div>
     </div>
 
@@ -110,13 +101,13 @@
             </div>
         </div>
 
-        <!-- 6. UNUSUAL ACTIVITY -->
+        <!-- 6. NOTABLE CHANGES -->
         <div class="card overview-stat-card clickable" role="button" tabindex="0"
             @click="openStatDetail('unusualActivity')" @keydown.enter="openStatDetail('unusualActivity')"
-            @keydown.space.prevent="openStatDetail('unusualActivity')" aria-label="View Unusual Activity Details">
+            @keydown.space.prevent="openStatDetail('unusualActivity')" aria-label="View Notable Changes Details">
             <h2>
                 <div class="card-title-content">
-                    <span>UNUSUAL ACTIVITY</span>
+                    <span>NOTABLE CHANGES</span>
                 </div>
             </h2>
             <div class="stat-box-body">
