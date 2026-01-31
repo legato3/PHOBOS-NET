@@ -125,11 +125,11 @@
                         x-text="'Updated ' + timeAgo(new Date(recentBlocks.lastUpdate).getTime() / 1000)"></span>
                     <div class="log-range">
                         <button :class="{ 'active': recentBlocksView === 50 }"
-                            @click="setRecentBlocksView(50)">50</button>
+                            @click="setRecentBlocksView(50)" aria-label="Show 50 items">50</button>
                         <button :class="{ 'active': recentBlocksView === 200 }"
-                            @click="setRecentBlocksView(200)">200</button>
+                            @click="setRecentBlocksView(200)" aria-label="Show 200 items">200</button>
                         <button :class="{ 'active': recentBlocksView === 1000 }"
-                            @click="setRecentBlocksView(1000)">1000</button>
+                            @click="setRecentBlocksView(1000)" aria-label="Show 1000 items">1000</button>
                     </div>
                 </div>
             </div>
@@ -272,6 +272,7 @@
             <button class="icon-btn-small"
                 @click="firewallSyslogAutoRefresh = !firewallSyslogAutoRefresh; toggleFirewallSyslogAutoRefresh()"
                 :title="firewallSyslogAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
+                :aria-label="firewallSyslogAutoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'"
                 :style="firewallSyslogAutoRefresh ? 'color: var(--signal-ok);' : 'color: var(--text-muted);'">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -327,9 +328,9 @@
                     <span class="log-update-time" x-show="syslog515.lastUpdate" :title="syslog515.lastUpdate"
                         x-text="'Updated ' + timeAgo(new Date(syslog515.lastUpdate).getTime() / 1000)"></span>
                     <div class="log-range">
-                        <button :class="{ 'active': syslog515View === 50 }" @click="syslog515View = 50">50</button>
-                        <button :class="{ 'active': syslog515View === 100 }" @click="syslog515View = 100">100</button>
-                        <button :class="{ 'active': syslog515View === 500 }" @click="syslog515View = 500">500</button>
+                        <button :class="{ 'active': syslog515View === 50 }" @click="syslog515View = 50" aria-label="Show 50 items">50</button>
+                        <button :class="{ 'active': syslog515View === 100 }" @click="syslog515View = 100" aria-label="Show 100 items">100</button>
+                        <button :class="{ 'active': syslog515View === 500 }" @click="syslog515View = 500" aria-label="Show 500 items">500</button>
                     </div>
                 </div>
             </div>
