@@ -1689,6 +1689,52 @@ export const Store = () => ({
         this.statDetailOpen = true;
     },
 
+    // TASK B: Network Brief Helpers
+    getBriefStatus() {
+        // Simple heuristic for freshness
+        const lastUpdate = this.summary?.last_updated; // ISO string
+        if (!lastUpdate) return 'warming';
+
+        try {
+            const diff = (new Date() - new Date(lastUpdate)) / 1000;
+            if (diff < 300) return 'live'; // < 5 mins
+            if (diff < 3600) return 'warming'; // < 1 hour (maybe partial?)
+            return 'stale';
+        } catch (e) {
+            return 'warming';
+        }
+    },
+
+    getBriefSignals() {
+        const alerts = this.alertHistory?.active_count || 0;
+        const protected_conn = this.firewallStatsOverview?.blocked_events_24h || 0;
+        const anomalies = this.networkStatsOverview?.anomalies_count || 0;
+
+        const parts = [];
+        parts.push(`${alerts} alert${alerts === 1 ? '' : 's'}`);
+
+        if (protected_conn > 0) {
+            parts.push(`${this.fmtCondensed(protected_conn)} protected`);
+        } else {
+            parts.push('0 protected');
+        }
+
+        if (anomalies > 0) {
+            parts.push(`${anomalies} unusual`);
+        } else {
+            parts.push('0 unusual');
+        }
+
+        return parts.join(' • '); // "0 alerts • 1.2k protected • 0 unusual"
+    },
+
+    fmtCondensed(num) {
+        if (!num) return '0';
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+        return num.toString();
+    },
+
     // UI state for details toggle
     showObservabilityDetails: false,
 

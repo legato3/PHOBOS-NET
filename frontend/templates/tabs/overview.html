@@ -3,10 +3,30 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
-    <!-- STATUS SUMMARY -->
-    <div class="card overview-status-summary">
-        <p class="overview-status-primary" x-text="getDeterministicSummary().primary"></p>
-        <p class="overview-status-secondary" x-text="getDeterministicSummary().secondary"></p>
+    <!-- NETWORK BRIEF -->
+    <div class="overview-brief">
+        <div class="overview-brief__header">
+            <div class="overview-brief__title">NETWORK BRIEF</div>
+            <div class="overview-brief__chip" :class="'is-' + getBriefStatus()">
+                <div class="overview-brief__dot"></div>
+                <span x-text="getBriefStatus()"></span>
+            </div>
+        </div>
+        <div class="overview-brief__body">
+            <div class="overview-brief__row">
+                <span class="overview-brief__label">NOW</span>
+                <span class="overview-brief__value"
+                    x-text="summary.network_summary || 'Assessing network status…'"></span>
+            </div>
+            <div class="overview-brief__row">
+                <span class="overview-brief__label">1H</span>
+                <span class="overview-brief__value" x-text="summary.what_changed_1h || 'Learning changes…'"></span>
+            </div>
+            <div class="overview-brief__row">
+                <span class="overview-brief__label">SIGNALS</span>
+                <span class="overview-brief__value overview-brief__value--highlight" x-text="getBriefSignals()"></span>
+            </div>
+        </div>
     </div>
 
     <!-- EVIDENCE STAT BOXES -->

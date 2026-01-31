@@ -10987,3 +10987,143 @@ body.compact-mode {
     color: var(--text-muted);
     font-family: var(--font-mono);
 }
+
+/* ============================================
+   OVERVIEW BRIEF - Network Summary V3
+   ============================================ */
+.overview-brief {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    margin-bottom: var(--space-6);
+    overflow: hidden;
+    backdrop-filter: blur(var(--glass-blur, 12px));
+    box-shadow: var(--card-shadow);
+    transition: all 0.2s ease;
+}
+
+.overview-brief:hover {
+    border-color: var(--card-border-hover);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.overview-brief__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--card-header-bg);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.overview-brief__title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-0);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.overview-brief__title::before {
+     content: '';
+     display: inline-block;
+     width: 3px;
+     height: 12px;
+     background: var(--signal-primary);
+}
+
+.overview-brief__chip {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-2);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.overview-brief__chip.is-live {
+    border-color: var(--signal-ok);
+    color: var(--signal-ok);
+    background: rgba(0, 255, 170, 0.05);
+    text-shadow: 0 0 5px rgba(0, 255, 170, 0.3);
+}
+
+.overview-brief__chip.is-warming {
+    border-color: var(--signal-warn);
+    color: var(--signal-warn);
+    background: rgba(255, 180, 0, 0.05);
+}
+
+.overview-brief__chip.is-stale {
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+
+.overview-brief__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.overview-brief__chip.is-live .overview-brief__dot {
+    box-shadow: 0 0 4px currentColor;
+    animation: pulse-dot 2s infinite;
+}
+
+.overview-brief__body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.overview-brief__row {
+    display: flex;
+    align-items: baseline;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.overview-brief__label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    width: 60px;
+    flex-shrink: 0;
+    letter-spacing: 0.05em;
+}
+
+.overview-brief__value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.overview-brief__value--highlight {
+    color: var(--signal-ok);
+}
+
+@media (max-width: 600px) {
+    .overview-brief__body {
+        gap: 12px;
+    }
+    .overview-brief__row {
+        flex-direction: column;
+    }
+    .overview-brief__label {
+        width: auto;
+        margin-bottom: 2px;
+    }
+}
