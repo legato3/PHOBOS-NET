@@ -416,6 +416,17 @@ export const Store = () => ({
     firewallSyslogAutoRefresh: true,
     firewallSyslogRefreshTimer: null,
     firewallStatsOverview: { blocked_events_24h: 0, unique_blocked_sources: 0, new_blocked_ips: 0, top_block_reason: 'N/A', top_block_count: 0, trends: {}, loading: true },
+
+    // Dashboard "What Changed" Rail - dense syslog-style activity feed
+    dashboardWhatChanged: {
+        items: [],              // Normalized change items: { ts, source, severity, title, entity, meta, deepLink }
+        summary: {},            // One-line summary: { alertGroups, highSeverity, newInbound, blocksStatus, trafficStatus }
+        loading: false,
+        lastUpdatedTs: null,
+        baselineState: 'ready', // 'ready' | 'building'
+        selectedItem: null      // For detail modal
+    },
+
     baselineSignals: { signals: [], signal_details: [], metrics: {}, baselines_available: {}, baseline_stats: {}, loading: true },
     healthSignals: { signals: [], count: 0, loading: true },
     appMetadata: { name: 'PHOBOS-NET', version: 'v2.1.0', version_display: 'v2.1.0' }, // Application metadata from backend
@@ -1448,73 +1459,233 @@ export const Store = () => ({
         };
     },
 
-    // NEW: Generate "What Changed" summary (0-3 bullet lines)
-    computeWhatChangedSummary() {
-        const bullets = [];
+    // NEW: Compute Dashboard "What Changed" rail (dense syslog-style feed)
+    // Data sources: alertHistory, firewallStatsOverview, networkStatsOverview, recentBlocks, baselineSignals
+    computeDashboardWhatChanged() {
+        const items = [];
+        const now = Date.now();
 
-        // 1. Alerts Line
+        // Check baseline state
+        const baselineBuilding = this.baselineSignals?.baselines_available?.flows === false ||
+                                 this.baselineSignals?.baselines_available?.active_flows === false;
+
+        // 1. ALERT ITEMS - from alertHistory endpoint
         const alertGroups = this.computeAlertGroups();
         if (alertGroups.total > 0) {
-            const topGroups = alertGroups.groups.slice(0, 2).map(g => g.type || g.rule_id).join(', ');
-            const newCount = alertGroups.total; // Simplified: all groups in window are "new" for now
             const escalated = alertGroups.by_severity.critical + alertGroups.by_severity.high;
+            // Add summary item for all alerts
+            items.push({
+                ts: now - 60000, // Approximate recent time
+                source: 'ALERT',
+                severity: escalated > 0 ? 'warn' : 'notice',
+                title: `${alertGroups.total} alert group${alertGroups.total === 1 ? '' : 's'}${escalated > 0 ? ` (${escalated} high-severity)` : ''}`,
+                entity: alertGroups.groups.slice(0, 2).map(g => g.type || g.rule_id).join(', '),
+                meta: { count: alertGroups.total, escalated, groups: alertGroups.groups },
+                deepLink: { tab: 'security', section: 'alerts' }
+            });
 
-            let line = `Alerts: ${newCount} group${newCount === 1 ? '' : 's'}`;
-            if (escalated > 0) line += `, ${escalated} high-severity`;
-            if (topGroups) line += `. Top: ${topGroups}`;
-            bullets.push(line);
+            // Add individual high-severity alerts
+            alertGroups.groups.filter(g => g.severity === 'critical' || g.severity === 'high').slice(0, 3).forEach(g => {
+                items.push({
+                    ts: now - Math.random() * 300000, // Spread within 5min
+                    source: 'ALERT',
+                    severity: 'warn',
+                    title: `${g.type || g.rule_id} detected`,
+                    entity: g.primary_entity || g.ip || null,
+                    meta: { group: g, count: g.count },
+                    deepLink: { tab: 'security', section: 'alerts', filter: g.rule_id }
+                });
+            });
         }
 
-        // 2. Traffic Line (if baseline available)
-        const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
-        const observed = this.baselineSignals?.metrics?.active_flows || 0;
-        if (baseline && baseline > 0) {
-            const deltaPct = Math.round(((observed - baseline) / baseline) * 100);
-            if (Math.abs(deltaPct) >= 10) { // Only show if meaningful change
-                const direction = deltaPct > 0 ? 'up' : 'down';
+        // 2. FIREWALL ITEMS - from firewallStatsOverview + recentBlocks endpoints
+        const blockedEvents = this.firewallStatsOverview?.blocked_events_24h || 0;
+        const newBlockedIPs = this.firewallStatsOverview?.new_blocked_ips || 0;
+        const topBlockReason = this.firewallStatsOverview?.top_block_reason;
+        const topBlockCount = this.firewallStatsOverview?.top_block_count || 0;
 
-                // Get top mover from sources
-                const sources = this.sources?.sources || [];
-                const topSrc = sources[0];
-                const dests = this.destinations?.destinations || [];
-                const topDst = dests[0];
+        if (blockedEvents > 0) {
+            // Check for spike
+            const blocksBaseline = this.baselineSignals?.baseline_stats?.blocks_24h?.mean;
+            let severity = 'info';
+            let title = `${blockedEvents.toLocaleString()} blocked events`;
 
-                let line = `Traffic: ${Math.abs(deltaPct)}% ${direction} vs baseline`;
-                if (topSrc && topDst) {
-                    const srcLabel = topSrc.ip_short || topSrc.ip || 'unknown';
-                    const dstLabel = topDst.ip_short || topDst.ip || topDst.port || 'unknown';
-                    line += `. Top: ${srcLabel} → ${dstLabel}`;
-                }
-                bullets.push(line);
-            }
-        }
-
-        // 3. Firewall Line
-        const blocks24h = this.firewallStatsOverview?.blocked_events_24h || 0;
-        const blocksBaseline = this.baselineSignals?.baseline_stats?.blocks_24h?.mean;
-
-        if (blocks24h > 0 || blocksBaseline) {
-            let trend = 'stable';
             if (blocksBaseline && blocksBaseline > 0) {
-                const blockRatio = blocks24h / blocksBaseline;
-                if (blockRatio > 1.3) trend = 'up';
-                else if (blockRatio < 0.7) trend = 'down';
+                const ratio = blockedEvents / blocksBaseline;
+                if (ratio > 2) {
+                    severity = 'warn';
+                    title = `Blocks spiked ${ratio.toFixed(1)}× vs baseline`;
+                } else if (ratio > 1.3) {
+                    severity = 'notice';
+                    title = `Blocks elevated +${Math.round((ratio - 1) * 100)}%`;
+                }
             }
 
-            // Check for new inbound (simplified: if blocks > 100, assume some inbound)
-            const newInbound = blocks24h > 100 ? Math.min(blocks24h / 10, 50) : 0;
-
-            let line = `Firewall: blocks ${trend} vs baseline`;
-            if (newInbound > 0) line += `. New inbound: ${Math.round(newInbound)}`;
-            bullets.push(line);
+            items.push({
+                ts: now - 120000,
+                source: 'FIREWALL',
+                severity,
+                title,
+                entity: topBlockReason && topBlockReason !== 'N/A' ? topBlockReason : null,
+                meta: { blockedEvents, topBlockReason, topBlockCount },
+                deepLink: { tab: 'firewall', section: 'decisions' }
+            });
         }
 
-        // If no meaningful changes
-        if (bullets.length === 0) {
-            bullets.push('No meaningful changes in this window.');
+        if (newBlockedIPs > 0) {
+            items.push({
+                ts: now - 180000,
+                source: 'FIREWALL',
+                severity: 'notice',
+                title: `${newBlockedIPs} new inbound source${newBlockedIPs === 1 ? '' : 's'}`,
+                entity: null,
+                meta: { newBlockedIPs },
+                deepLink: { tab: 'firewall', section: 'logs' }
+            });
         }
 
-        return bullets.slice(0, 3); // Max 3 lines
+        // Top block rule if count is significant
+        if (topBlockCount > 10 && topBlockReason && topBlockReason !== 'N/A') {
+            items.push({
+                ts: now - 240000,
+                source: 'FIREWALL',
+                severity: 'info',
+                title: `Top rule: ${topBlockReason}`,
+                entity: `${topBlockCount} hits`,
+                meta: { topBlockReason, topBlockCount },
+                deepLink: { tab: 'firewall', section: 'logs', filter: topBlockReason }
+            });
+        }
+
+        // 3. TRAFFIC ITEMS - from networkStatsOverview endpoint
+        const activeFlows = this.networkStatsOverview?.active_flows;
+        const externalConns = this.networkStatsOverview?.external_connections;
+        const externalIPs = this.networkStatsOverview?.external_unique_ips;
+        const anomalies = this.networkStatsOverview?.anomalies_count || 0;
+        const flowsBaseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
+
+        if (activeFlows !== null && activeFlows !== undefined) {
+            if (flowsBaseline && flowsBaseline > 0) {
+                const deltaPct = Math.round(((activeFlows - flowsBaseline) / flowsBaseline) * 100);
+                if (Math.abs(deltaPct) >= 15) {
+                    const direction = deltaPct > 0 ? 'up' : 'down';
+                    items.push({
+                        ts: now - 300000,
+                        source: 'TRAFFIC',
+                        severity: Math.abs(deltaPct) > 40 ? 'notice' : 'info',
+                        title: `Traffic ${direction} ${Math.abs(deltaPct)}% vs baseline`,
+                        entity: `${activeFlows} flows`,
+                        meta: { activeFlows, baseline: flowsBaseline, deltaPct },
+                        deepLink: { tab: 'network', section: 'overview' }
+                    });
+                }
+            }
+        }
+
+        if (externalConns > 0) {
+            items.push({
+                ts: now - 360000,
+                source: 'TRAFFIC',
+                severity: 'info',
+                title: `${externalConns} external connection${externalConns === 1 ? '' : 's'}`,
+                entity: externalIPs ? `${externalIPs} unique IPs` : null,
+                meta: { externalConns, externalIPs },
+                deepLink: { tab: 'traffic-explorer', filter: { direction: 'external' } }
+            });
+        }
+
+        if (anomalies > 0) {
+            items.push({
+                ts: now - 420000,
+                source: 'TRAFFIC',
+                severity: 'notice',
+                title: `${anomalies} anomal${anomalies === 1 ? 'y' : 'ies'} detected`,
+                entity: 'ports/services',
+                meta: { anomalies },
+                deepLink: { tab: 'network', section: 'anomalies' }
+            });
+        }
+
+        // 4. SYSTEM ITEMS - from baselineSignals/healthSignals
+        if (baselineBuilding) {
+            items.push({
+                ts: now - 600000,
+                source: 'SYSTEM',
+                severity: 'info',
+                title: 'Baseline building',
+                entity: 'traffic patterns',
+                meta: { baselineState: 'building' },
+                deepLink: null
+            });
+        }
+
+        // Sort by timestamp descending (newest first), dedupe by title within 60s, limit to 20
+        const sorted = items.sort((a, b) => b.ts - a.ts);
+        const deduped = [];
+        const seen = new Map();
+
+        sorted.forEach(item => {
+            const key = item.title;
+            const lastSeen = seen.get(key);
+            if (!lastSeen || (item.ts - lastSeen) > 60000) {
+                deduped.push(item);
+                seen.set(key, item.ts);
+            }
+        });
+
+        // Generate one-line summary
+        const summary = {
+            alertGroups: alertGroups.total,
+            highSeverity: alertGroups.by_severity.critical + alertGroups.by_severity.high,
+            newInbound: newBlockedIPs,
+            blocksStatus: blockedEvents > 0 ? (blockedEvents > (this.baselineSignals?.baseline_stats?.blocks_24h?.mean || 0) * 1.5 ? 'spiking' : 'stable') : 'quiet',
+            trafficStatus: activeFlows && flowsBaseline ? (activeFlows > flowsBaseline * 1.2 ? 'elevated' : 'normal') : 'normal'
+        };
+
+        this.dashboardWhatChanged.items = deduped.slice(0, 20);
+        this.dashboardWhatChanged.summary = summary;
+        this.dashboardWhatChanged.baselineState = baselineBuilding ? 'building' : 'ready';
+        this.dashboardWhatChanged.lastUpdatedTs = now;
+
+        return this.dashboardWhatChanged;
+    },
+
+    // Generate one-line summary header for What Changed rail
+    getWhatChangedSummaryLine() {
+        const s = this.dashboardWhatChanged.summary;
+        if (!s || Object.keys(s).length === 0) return 'No recent activity.';
+
+        const parts = [];
+        if (s.alertGroups > 0) parts.push(`${s.alertGroups} alert group${s.alertGroups === 1 ? '' : 's'}${s.highSeverity > 0 ? ` (${s.highSeverity} high)` : ''}`);
+        if (s.newInbound > 0) parts.push(`${s.newInbound} new inbound`);
+        parts.push(`blocks ${s.blocksStatus}`);
+        parts.push(`traffic ${s.trafficStatus}`);
+
+        return `In the last ${this.timeRangeLabel || '1h'}: ${parts.join(', ')}.`;
+    },
+
+    openWhatChangedDetail(item) {
+        this.dashboardWhatChanged.selectedItem = item;
+    },
+
+    closeWhatChangedDetail() {
+        this.dashboardWhatChanged.selectedItem = null;
+    },
+
+    navigateFromWhatChanged() {
+        // Navigate to most relevant page based on item distribution
+        const items = this.dashboardWhatChanged.items;
+        const alertCount = items.filter(i => i.source === 'ALERT').length;
+        const firewallCount = items.filter(i => i.source === 'FIREWALL').length;
+        const trafficCount = items.filter(i => i.source === 'TRAFFIC').length;
+
+        if (alertCount >= firewallCount && alertCount >= trafficCount) {
+            this.loadTab('security');
+        } else if (firewallCount >= trafficCount) {
+            this.loadTab('firewall');
+        } else {
+            this.loadTab('network');
+        }
     },
 
     // INTERNAL: Single Source of Truth for Network State
@@ -9750,6 +9921,10 @@ Destination Geo: ${meta.country || 'Unknown'}
                 this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }
+            // Compute What Changed rail after data loads
+            this.$nextTick(() => {
+                this.computeDashboardWhatChanged();
+            });
             // Map initialization is handled by IntersectionObserver when section becomes visible
             // Just fetch data here if needed
         } else if (tab === 'server') {

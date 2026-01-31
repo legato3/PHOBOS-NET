@@ -11394,3 +11394,192 @@ body.compact-mode {
     background: rgba(255, 200, 0, 0.2) !important;
     transform: translateY(-1px);
 }
+
+/* ============================================
+   Dashboard "What Changed" Rail - Dense syslog-style activity feed
+   Data sources: /api/security/alerts/history, /api/firewall/stats/overview,
+                 /api/network/stats/overview, /api/firewall/logs/recent
+   ============================================ */
+
+.what-changed-rail {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-6);
+    border: 1px solid var(--border-color);
+}
+
+.what-changed-rail__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+}
+
+.what-changed-rail__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.what-changed-rail__badge {
+    display: inline-block;
+    background: rgba(0, 234, 255, 0.1);
+    border: 1px solid rgba(0, 234, 255, 0.3);
+    color: var(--neon-cyan);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.what-changed-rail__view-all {
+    background: transparent;
+    border: none;
+    color: var(--neon-cyan);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    transition: all 0.15s ease;
+    font-weight: 500;
+}
+
+.what-changed-rail__view-all:hover {
+    color: var(--text-primary);
+    background: rgba(0, 234, 255, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.what-changed-rail__summary {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.5;
+}
+
+.what-changed-rail__scroll {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.what-changed-rail__empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    padding: var(--space-6) var(--space-4);
+    font-style: italic;
+}
+
+.what-changed-rail__row {
+    display: grid;
+    grid-template-columns: 40px 70px 8px 1fr auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-2) var(--space-2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    transition: background 0.1s ease;
+    min-height: 32px;
+}
+
+.what-changed-rail__row:hover {
+    background: rgba(0, 234, 255, 0.05);
+    border-radius: var(--radius-sm);
+}
+
+.what-changed-rail__row:last-child {
+    border-bottom: none;
+}
+
+.what-changed-rail__time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    text-align: right;
+}
+
+.what-changed-rail__source {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 3px;
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+
+.what-changed-rail__source.source-alert {
+    background: rgba(255, 200, 0, 0.15);
+    color: var(--signal-warn);
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+.what-changed-rail__source.source-firewall {
+    background: rgba(255, 23, 68, 0.15);
+    color: var(--signal-crit);
+    border: 1px solid rgba(255, 23, 68, 0.3);
+}
+
+.what-changed-rail__source.source-traffic {
+    background: rgba(0, 234, 255, 0.15);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0, 234, 255, 0.3);
+}
+
+.what-changed-rail__source.source-system {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.what-changed-rail__severity {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.what-changed-rail__severity.severity-warn {
+    background: var(--signal-warn);
+    box-shadow: 0 0 4px var(--signal-warn);
+}
+
+.what-changed-rail__severity.severity-notice {
+    background: var(--signal-info);
+    box-shadow: 0 0 4px var(--signal-info);
+}
+
+.what-changed-rail__severity.severity-info {
+    background: var(--text-muted);
+}
+
+.what-changed-rail__message {
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.what-changed-rail__entity {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+    background: rgba(0, 234, 255, 0.1);
+    border: 1px solid rgba(0, 234, 255, 0.25);
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

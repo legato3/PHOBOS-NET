@@ -3,19 +3,53 @@
     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100">
 
-    <!-- WHAT CHANGED SUMMARY -->
-    <div class="overview-brief">
-        <div class="overview-brief__header">
-            <div class="overview-brief__title">WHAT CHANGED</div>
-            <div class="overview-brief__chip is-stable">
-                <div class="overview-brief__dot"></div>
-                <span x-text="timeRangeLabel || 'Last 1h'"></span>
+    <!-- WHAT CHANGED RAIL (Dense syslog-style activity feed) -->
+    <div class="what-changed-rail">
+        <div class="what-changed-rail__header">
+            <div class="what-changed-rail__title">
+                WHAT CHANGED
+                <template x-if="dashboardWhatChanged.baselineState === 'building'">
+                    <span class="what-changed-rail__badge">Baseline building</span>
+                </template>
             </div>
+            <button @click="navigateFromWhatChanged()" class="what-changed-rail__view-all" title="View all">
+                View all →
+            </button>
         </div>
-        <div class="overview-brief__body">
-            <template x-for="(bullet, idx) in computeWhatChangedSummary()" :key="idx">
-                <div class="overview-brief__row">
-                    <span class="overview-brief__value" x-text="bullet"></span>
+
+        <!-- One-line summary -->
+        <div class="what-changed-rail__summary" x-text="getWhatChangedSummaryLine()"></div>
+
+        <!-- Dense scrolling list (syslog-tail style) -->
+        <div class="what-changed-rail__scroll">
+            <template x-if="dashboardWhatChanged.items.length === 0">
+                <div class="what-changed-rail__empty">
+                    Quiet window — no notable changes detected.
+                </div>
+            </template>
+
+            <template x-for="(item, idx) in dashboardWhatChanged.items" :key="idx">
+                <div class="what-changed-rail__row" @click="openWhatChangedDetail(item)" role="button" tabindex="0"
+                    @keydown.enter="openWhatChangedDetail(item)" @keydown.space.prevent="openWhatChangedDetail(item)">
+                    <!-- Time ago -->
+                    <div class="what-changed-rail__time" x-text="timeAgo(item.ts)"></div>
+
+                    <!-- Source badge -->
+                    <div class="what-changed-rail__source"
+                        :class="'source-' + item.source.toLowerCase()"
+                        x-text="item.source"></div>
+
+                    <!-- Severity dot -->
+                    <div class="what-changed-rail__severity"
+                        :class="'severity-' + item.severity"></div>
+
+                    <!-- Message -->
+                    <div class="what-changed-rail__message" x-text="item.title"></div>
+
+                    <!-- Entity pill (optional) -->
+                    <template x-if="item.entity">
+                        <div class="what-changed-rail__entity" x-text="item.entity"></div>
+                    </template>
                 </div>
             </template>
         </div>
@@ -248,5 +282,108 @@
             </div>
             {% endcall %}
         </section>
+    </div>
+
+    <!-- What Changed Detail Modal -->
+    <div class="modal" x-show="dashboardWhatChanged.selectedItem"
+        :style="dashboardWhatChanged.selectedItem ? 'display:flex' : 'display:none'"
+        @click.self="closeWhatChangedDetail()">
+        <div class="modal-content" style="max-width: 700px;">
+            <template x-if="dashboardWhatChanged.selectedItem">
+                <div>
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                        <div>
+                            <h2 style="margin: 0; margin-bottom: var(--space-1);">
+                                <span x-text="dashboardWhatChanged.selectedItem.title"></span>
+                            </h2>
+                            <div style="font-size: var(--text-xs); color: var(--text-muted);">
+                                <span x-text="timeAgo(dashboardWhatChanged.selectedItem.ts)"></span>
+                                • <span x-text="dashboardWhatChanged.selectedItem.source"></span>
+                            </div>
+                        </div>
+                        <button @click="closeWhatChangedDetail()" class="btn btn--secondary"
+                            style="padding: var(--space-1) var(--space-2);">✕ Close</button>
+                    </div>
+
+                    <!-- Why this surfaced -->
+                    <div style="background: rgba(0, 234, 255, 0.05); border-left: 3px solid var(--neon-cyan); padding: var(--space-2); margin-bottom: var(--space-4); font-size: var(--text-sm);">
+                        <strong>Why this surfaced:</strong>
+                        <span x-text="dashboardWhatChanged.selectedItem.severity === 'warn' ? 'Significant deviation or high-severity event detected.' :
+                                      dashboardWhatChanged.selectedItem.severity === 'notice' ? 'Moderate change or new activity detected.' :
+                                      'Informational update on system state.'"></span>
+                    </div>
+
+                    <!-- Evidence section -->
+                    <div style="background: var(--bg-secondary); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4);">
+                        <div style="font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-2); color: var(--neon-cyan);">
+                            EVIDENCE
+                        </div>
+                        <div style="display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); font-size: var(--text-sm);">
+                            <template x-if="dashboardWhatChanged.selectedItem.entity">
+                                <template>
+                                    <span style="color: var(--text-muted);">Entity:</span>
+                                    <span style="font-family: var(--font-mono); color: var(--neon-cyan);"
+                                        x-text="dashboardWhatChanged.selectedItem.entity"></span>
+                                </template>
+                            </template>
+
+                            <template x-if="dashboardWhatChanged.selectedItem.meta?.count">
+                                <template>
+                                    <span style="color: var(--text-muted);">Count:</span>
+                                    <span x-text="dashboardWhatChanged.selectedItem.meta.count"></span>
+                                </template>
+                            </template>
+
+                            <template x-if="dashboardWhatChanged.selectedItem.meta?.escalated">
+                                <template>
+                                    <span style="color: var(--text-muted);">High-severity:</span>
+                                    <span style="color: var(--signal-warn);"
+                                        x-text="dashboardWhatChanged.selectedItem.meta.escalated"></span>
+                                </template>
+                            </template>
+
+                            <template x-if="dashboardWhatChanged.selectedItem.meta?.blockedEvents">
+                                <template>
+                                    <span style="color: var(--text-muted);">Blocked events:</span>
+                                    <span x-text="dashboardWhatChanged.selectedItem.meta.blockedEvents"></span>
+                                </template>
+                            </template>
+
+                            <template x-if="dashboardWhatChanged.selectedItem.meta?.deltaPct">
+                                <template>
+                                    <span style="color: var(--text-muted);">Change vs baseline:</span>
+                                    <span :style="Math.abs(dashboardWhatChanged.selectedItem.meta.deltaPct) > 40 ? 'color: var(--signal-warn);' : ''"
+                                        x-text="dashboardWhatChanged.selectedItem.meta.deltaPct > 0 ? '+' + dashboardWhatChanged.selectedItem.meta.deltaPct + '%' : dashboardWhatChanged.selectedItem.meta.deltaPct + '%'"></span>
+                                </template>
+                            </template>
+
+                            <template x-if="dashboardWhatChanged.selectedItem.meta?.topBlockReason">
+                                <template>
+                                    <span style="color: var(--text-muted);">Top rule:</span>
+                                    <span style="font-family: var(--font-mono); font-size: var(--text-xs);"
+                                        x-text="dashboardWhatChanged.selectedItem.meta.topBlockReason"></span>
+                                </template>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Open in... actions -->
+                    <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                        <template x-if="dashboardWhatChanged.selectedItem.deepLink">
+                            <template>
+                                <button @click="loadTab(dashboardWhatChanged.selectedItem.deepLink.tab); closeWhatChangedDetail();"
+                                    class="btn btn--primary" style="font-size: var(--text-xs);">
+                                    📊 Open in <span x-text="dashboardWhatChanged.selectedItem.deepLink.tab === 'traffic-explorer' ? 'Flow Search' : dashboardWhatChanged.selectedItem.deepLink.tab === 'security' ? 'Security' : dashboardWhatChanged.selectedItem.deepLink.tab === 'firewall' ? 'Firewall' : 'Network'"></span>
+                                </button>
+                            </template>
+                        </template>
+                        <button @click="closeWhatChangedDetail()" class="btn btn--secondary" style="font-size: var(--text-xs);">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
 </div>
