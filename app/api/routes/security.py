@@ -1255,16 +1255,28 @@ def api_firewall_decisions_summary():
 
             # 4. Top reason/rule (single best)
             cur = conn.execute("""
-                SELECT COALESCE(rule_id, reason, 'default'), COUNT(*) as cnt
+                SELECT COALESCE(rule_label, rule_id, 'default'), COUNT(*) as cnt
                 FROM fw_logs
                 WHERE timestamp > ?
-                GROUP BY COALESCE(rule_id, reason, 'default')
+                GROUP BY COALESCE(rule_label, rule_id, 'default')
                 ORDER BY cnt DESC
                 LIMIT 1
             """, (cutoff_current,))
             top_reason_row = cur.fetchone()
+
+            # Format rule label (truncate MD5 hashes)
+            def format_rule_label(label):
+                if not label or label == "default":
+                    return "Default Rule"
+                if label == "0":
+                    return "Automatic NAT"
+                # Check if it's an MD5 hash (32 hex chars)
+                if len(label) == 32 and all(c in '0123456789abcdef' for c in label.lower()):
+                    return f"Rule {label[:8]}..."
+                return label
+
             top_reason = {
-                "label": top_reason_row[0] if top_reason_row else "N/A",
+                "label": format_rule_label(top_reason_row[0]) if top_reason_row else "N/A",
                 "count": top_reason_row[1] if top_reason_row else 0
             }
 
@@ -1296,7 +1308,7 @@ def api_firewall_decisions_summary():
                         WHEN action IN ('nat', 'rdr') THEN 'NAT'
                         ELSE 'OTHER'
                     END as action_badge,
-                    COALESCE(rule_id, reason, 'default') as reason_label,
+                    COALESCE(rule_label, rule_id, 'default') as reason_label,
                     COUNT(*) as cnt
                 FROM fw_logs
                 WHERE timestamp > ?
@@ -1313,14 +1325,14 @@ def api_firewall_decisions_summary():
                 cur_prev = conn.execute("""
                     SELECT COUNT(*) FROM fw_logs
                     WHERE timestamp > ? AND timestamp <= ?
-                        AND COALESCE(rule_id, reason, 'default') = ?
+                        AND COALESCE(rule_label, rule_id, 'default') = ?
                 """, (cutoff_previous, cutoff_current, reason_label))
                 prev_count = cur_prev.fetchone()[0] or 0
 
                 delta = count - prev_count
                 top_reasons.append({
                     "action": action_badge,
-                    "reason": reason_label,
+                    "reason": format_rule_label(reason_label),
                     "count": count,
                     "delta": delta
                 })

@@ -58,6 +58,177 @@
     </div>
 
     <!-- ========================================
+     FIREWALL DECISIONS (Intelligence View)
+     ======================================== -->
+    <section id="section-firewall-decisions" class="scroll-section" style="margin-bottom: var(--space-6);">
+        {% set fd_actions %}
+        <div class="flex gap-2" style="align-items: center;">
+            <button @click="setFirewallDecisionsTimeWindow('15m')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '15m', 'btn--secondary': firewallDecisions.timeWindow !== '15m' }"
+                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                LAST 15M
+            </button>
+            <button @click="setFirewallDecisionsTimeWindow('1h')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '1h', 'btn--secondary': firewallDecisions.timeWindow !== '1h' }"
+                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                1H
+            </button>
+            <button @click="setFirewallDecisionsTimeWindow('24h')"
+                :class="{ 'btn--primary': firewallDecisions.timeWindow === '24h', 'btn--secondary': firewallDecisions.timeWindow !== '24h' }"
+                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
+                24H
+            </button>
+        </div>
+        {% endset %}
+
+        {% call widget_card('firewallDecisions', 'Firewall Decisions (Live)', '🛡️', card_class='wide-card',
+        extra_actions=fd_actions, show_spinner=True) %}
+
+        <template x-if="firewallDecisions.summary">
+            <div>
+                <!-- ROW A: Summary Tiles (5 compact stat tiles) -->
+                <div class="fw-summary-tiles">
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">BLOCKS</div>
+                        <div class="fw-summary-tile__value" style="color: var(--signal-crit);"
+                            x-text="firewallDecisions.summary.totals.block.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">PASSES</div>
+                        <div class="fw-summary-tile__value" style="color: var(--signal-ok);"
+                            x-text="firewallDecisions.summary.totals.pass.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">NATS</div>
+                        <div class="fw-summary-tile__value" style="color: var(--neon-cyan);"
+                            x-text="firewallDecisions.summary.totals.nat.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">UNIQUE SOURCES</div>
+                        <div class="fw-summary-tile__value"
+                            x-text="firewallDecisions.summary.unique.src.toLocaleString()"></div>
+                    </div>
+                    <div class="fw-summary-tile">
+                        <div class="fw-summary-tile__label">TOP REASON</div>
+                        <div class="fw-summary-tile__reason" x-text="firewallDecisions.summary.top_reason.label"></div>
+                        <div class="fw-summary-tile__count"
+                            x-text="firewallDecisions.summary.top_reason.count.toLocaleString() + ' hits'"></div>
+                    </div>
+                </div>
+
+                <!-- ROW B: Visual + Ranked Lists (no table) -->
+                <div class="fw-intelligence-row">
+                    <!-- Left: Decision Mix Chart -->
+                    <div class="fw-intelligence-section fw-decision-mix">
+                        <div class="fw-intelligence-section__title">DECISION MIX</div>
+
+                        <!-- Stacked horizontal bar -->
+                        <div class="fw-mix-bar">
+                            <div class="fw-mix-segment fw-mix-pass"
+                                :style="'width: ' + firewallDecisions.summary.mix.pass_pct + '%'"
+                                :title="'Pass: ' + firewallDecisions.summary.mix.pass_pct + '%'">
+                            </div>
+                            <div class="fw-mix-segment fw-mix-nat"
+                                :style="'width: ' + firewallDecisions.summary.mix.nat_pct + '%'"
+                                :title="'NAT: ' + firewallDecisions.summary.mix.nat_pct + '%'">
+                            </div>
+                            <div class="fw-mix-segment fw-mix-block"
+                                :style="'width: ' + firewallDecisions.summary.mix.block_pct + '%'"
+                                :title="'Block: ' + firewallDecisions.summary.mix.block_pct + '%'">
+                            </div>
+                        </div>
+
+                        <!-- Mix legend with deltas -->
+                        <div class="fw-mix-legend">
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-pass"></span>
+                                <span x-text="'Pass ' + firewallDecisions.summary.mix.pass_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.pass_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.pass_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.pass_pct + 'pp'"></span>
+                            </div>
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-nat"></span>
+                                <span x-text="'NAT ' + firewallDecisions.summary.mix.nat_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.nat_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.nat_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.nat_pct + 'pp'"></span>
+                            </div>
+                            <div class="fw-mix-legend__item">
+                                <span class="fw-mix-dot fw-mix-block"></span>
+                                <span x-text="'Block ' + firewallDecisions.summary.mix.block_pct + '%'"></span>
+                                <span class="fw-mix-delta"
+                                    :class="firewallDecisions.summary.mix.delta.block_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
+                                    x-text="(firewallDecisions.summary.mix.delta.block_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.block_pct + 'pp'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Top Drivers List -->
+                    <div class="fw-intelligence-section fw-top-drivers">
+                        <div class="fw-intelligence-section__title">
+                            TOP DRIVERS
+                            <button @click="viewFirewallLogsFiltered('action', 'all')" class="fw-view-details">
+                                View details →
+                            </button>
+                        </div>
+                        <div class="fw-driver-list">
+                            <template x-for="(driver, idx) in firewallDecisions.summary.top_reasons.slice(0, 8)" :key="idx">
+                                <div class="fw-driver-item" @click="viewFirewallLogsFiltered('reason', driver.reason)"
+                                    role="button" tabindex="0">
+                                    <span class="fw-driver-badge" :class="'fw-badge-' + driver.action.toLowerCase()"
+                                        x-text="driver.action"></span>
+                                    <span class="fw-driver-reason" x-text="driver.reason"></span>
+                                    <span class="fw-driver-count" x-text="driver.count.toLocaleString()"></span>
+                                    <span class="fw-driver-delta"
+                                        :class="driver.delta > 0 ? 'fw-delta-up' : (driver.delta < 0 ? 'fw-delta-down' : '')"
+                                        x-text="driver.delta > 0 ? '↑' + driver.delta : (driver.delta < 0 ? '↓' + Math.abs(driver.delta) : '—')"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Right: Top Targets List -->
+                    <div class="fw-intelligence-section fw-top-targets">
+                        <div class="fw-intelligence-section__title">
+                            TOP TARGETS
+                            <button @click="loadTab('traffic-explorer')" class="fw-view-details">
+                                Flow Search →
+                            </button>
+                        </div>
+                        <div class="fw-target-list">
+                            <template x-for="(target, idx) in firewallDecisions.summary.top_targets.slice(0, 8)" :key="idx">
+                                <div class="fw-target-item" @click="openIPModal(target.dst)"
+                                    role="button" tabindex="0">
+                                    <span class="fw-target-dst" x-text="target.dst"></span>
+                                    <span class="fw-target-port" x-text="target.port !== '—' ? ':' + target.port : ''"></span>
+                                    <span class="fw-target-proto" x-text="target.proto"></span>
+                                    <span class="fw-target-count" x-text="target.count.toLocaleString()"></span>
+                                    <span class="fw-target-badge" :class="'fw-badge-' + target.action.toLowerCase()"
+                                        x-text="target.action"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Empty state -->
+        <template x-if="!firewallDecisions.loading && !firewallDecisions.summary">
+            <div class="empty-state" style="text-align: center; padding: var(--space-6);">
+                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
+                    No Decision Data</p>
+                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
+                    No firewall activity in the selected window.
+                </p>
+            </div>
+        </template>
+
+        {% endcall %}
+    </section>
+
+    <!-- ========================================
      FIREWALL LOGS (Moved from Security)
      ======================================== -->
     <section id="section-firewall-logs" class="scroll-section" style="margin-bottom: var(--space-6);">
@@ -526,174 +697,6 @@
     </section>
 
 
-    <!-- Firewall Decisions Feed Widget -->
-    <section id="section-firewall-decisions" class="scroll-section" style="margin-bottom: var(--space-6);">
-        {% set fd_actions %}
-        <div class="flex gap-2" style="align-items: center;">
-            <button @click="setFirewallDecisionsTimeWindow('15m')"
-                :class="{ 'btn--primary': firewallDecisions.timeWindow === '15m', 'btn--secondary': firewallDecisions.timeWindow !== '15m' }"
-                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                LAST 15M
-            </button>
-            <button @click="setFirewallDecisionsTimeWindow('1h')"
-                :class="{ 'btn--primary': firewallDecisions.timeWindow === '1h', 'btn--secondary': firewallDecisions.timeWindow !== '1h' }"
-                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                1H
-            </button>
-            <button @click="setFirewallDecisionsTimeWindow('24h')"
-                :class="{ 'btn--primary': firewallDecisions.timeWindow === '24h', 'btn--secondary': firewallDecisions.timeWindow !== '24h' }"
-                class="btn" style="font-size: var(--text-xs); padding: var(--space-1) var(--space-2);">
-                24H
-            </button>
-        </div>
-        {% endset %}
-
-        {% call widget_card('firewallDecisions', 'Firewall Decisions (Live)', '🛡️', card_class='wide-card',
-        extra_actions=fd_actions, show_spinner=True) %}
-
-        <template x-if="firewallDecisions.summary">
-            <div>
-                <!-- ROW A: Summary Tiles (5 compact stat tiles) -->
-                <div class="fw-summary-tiles">
-                    <div class="fw-summary-tile">
-                        <div class="fw-summary-tile__label">BLOCKS</div>
-                        <div class="fw-summary-tile__value" style="color: var(--signal-crit);"
-                            x-text="firewallDecisions.summary.totals.block.toLocaleString()"></div>
-                    </div>
-                    <div class="fw-summary-tile">
-                        <div class="fw-summary-tile__label">PASSES</div>
-                        <div class="fw-summary-tile__value" style="color: var(--signal-ok);"
-                            x-text="firewallDecisions.summary.totals.pass.toLocaleString()"></div>
-                    </div>
-                    <div class="fw-summary-tile">
-                        <div class="fw-summary-tile__label">NATS</div>
-                        <div class="fw-summary-tile__value" style="color: var(--neon-cyan);"
-                            x-text="firewallDecisions.summary.totals.nat.toLocaleString()"></div>
-                    </div>
-                    <div class="fw-summary-tile">
-                        <div class="fw-summary-tile__label">UNIQUE SOURCES</div>
-                        <div class="fw-summary-tile__value"
-                            x-text="firewallDecisions.summary.unique.src.toLocaleString()"></div>
-                    </div>
-                    <div class="fw-summary-tile">
-                        <div class="fw-summary-tile__label">TOP REASON</div>
-                        <div class="fw-summary-tile__reason" x-text="firewallDecisions.summary.top_reason.label"></div>
-                        <div class="fw-summary-tile__count"
-                            x-text="firewallDecisions.summary.top_reason.count.toLocaleString() + ' hits'"></div>
-                    </div>
-                </div>
-
-                <!-- ROW B: Visual + Ranked Lists (no table) -->
-                <div class="fw-intelligence-row">
-                    <!-- Left: Decision Mix Chart -->
-                    <div class="fw-intelligence-section fw-decision-mix">
-                        <div class="fw-intelligence-section__title">DECISION MIX</div>
-
-                        <!-- Stacked horizontal bar -->
-                        <div class="fw-mix-bar">
-                            <div class="fw-mix-segment fw-mix-pass"
-                                :style="'width: ' + firewallDecisions.summary.mix.pass_pct + '%'"
-                                :title="'Pass: ' + firewallDecisions.summary.mix.pass_pct + '%'">
-                            </div>
-                            <div class="fw-mix-segment fw-mix-nat"
-                                :style="'width: ' + firewallDecisions.summary.mix.nat_pct + '%'"
-                                :title="'NAT: ' + firewallDecisions.summary.mix.nat_pct + '%'">
-                            </div>
-                            <div class="fw-mix-segment fw-mix-block"
-                                :style="'width: ' + firewallDecisions.summary.mix.block_pct + '%'"
-                                :title="'Block: ' + firewallDecisions.summary.mix.block_pct + '%'">
-                            </div>
-                        </div>
-
-                        <!-- Mix legend with deltas -->
-                        <div class="fw-mix-legend">
-                            <div class="fw-mix-legend__item">
-                                <span class="fw-mix-dot fw-mix-pass"></span>
-                                <span x-text="'Pass ' + firewallDecisions.summary.mix.pass_pct + '%'"></span>
-                                <span class="fw-mix-delta"
-                                    :class="firewallDecisions.summary.mix.delta.pass_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
-                                    x-text="(firewallDecisions.summary.mix.delta.pass_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.pass_pct + 'pp'"></span>
-                            </div>
-                            <div class="fw-mix-legend__item">
-                                <span class="fw-mix-dot fw-mix-nat"></span>
-                                <span x-text="'NAT ' + firewallDecisions.summary.mix.nat_pct + '%'"></span>
-                                <span class="fw-mix-delta"
-                                    :class="firewallDecisions.summary.mix.delta.nat_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
-                                    x-text="(firewallDecisions.summary.mix.delta.nat_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.nat_pct + 'pp'"></span>
-                            </div>
-                            <div class="fw-mix-legend__item">
-                                <span class="fw-mix-dot fw-mix-block"></span>
-                                <span x-text="'Block ' + firewallDecisions.summary.mix.block_pct + '%'"></span>
-                                <span class="fw-mix-delta"
-                                    :class="firewallDecisions.summary.mix.delta.block_pct > 0 ? 'fw-mix-delta-up' : 'fw-mix-delta-down'"
-                                    x-text="(firewallDecisions.summary.mix.delta.block_pct > 0 ? '+' : '') + firewallDecisions.summary.mix.delta.block_pct + 'pp'"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Middle: Top Drivers List -->
-                    <div class="fw-intelligence-section fw-top-drivers">
-                        <div class="fw-intelligence-section__title">
-                            TOP DRIVERS
-                            <button @click="viewFirewallLogsFiltered('action', 'all')" class="fw-view-details">
-                                View details →
-                            </button>
-                        </div>
-                        <div class="fw-driver-list">
-                            <template x-for="(driver, idx) in firewallDecisions.summary.top_reasons.slice(0, 8)" :key="idx">
-                                <div class="fw-driver-item" @click="viewFirewallLogsFiltered('reason', driver.reason)"
-                                    role="button" tabindex="0">
-                                    <span class="fw-driver-badge" :class="'fw-badge-' + driver.action.toLowerCase()"
-                                        x-text="driver.action"></span>
-                                    <span class="fw-driver-reason" x-text="driver.reason"></span>
-                                    <span class="fw-driver-count" x-text="driver.count.toLocaleString()"></span>
-                                    <span class="fw-driver-delta"
-                                        :class="driver.delta > 0 ? 'fw-delta-up' : (driver.delta < 0 ? 'fw-delta-down' : '')"
-                                        x-text="driver.delta > 0 ? '↑' + driver.delta : (driver.delta < 0 ? '↓' + Math.abs(driver.delta) : '—')"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <!-- Right: Top Targets List -->
-                    <div class="fw-intelligence-section fw-top-targets">
-                        <div class="fw-intelligence-section__title">
-                            TOP TARGETS
-                            <button @click="loadTab('traffic-explorer')" class="fw-view-details">
-                                Flow Search →
-                            </button>
-                        </div>
-                        <div class="fw-target-list">
-                            <template x-for="(target, idx) in firewallDecisions.summary.top_targets.slice(0, 8)" :key="idx">
-                                <div class="fw-target-item" @click="openIPModal(target.dst)"
-                                    role="button" tabindex="0">
-                                    <span class="fw-target-dst" x-text="target.dst"></span>
-                                    <span class="fw-target-port" x-text="target.port !== '—' ? ':' + target.port : ''"></span>
-                                    <span class="fw-target-proto" x-text="target.proto"></span>
-                                    <span class="fw-target-count" x-text="target.count.toLocaleString()"></span>
-                                    <span class="fw-target-badge" :class="'fw-badge-' + target.action.toLowerCase()"
-                                        x-text="target.action"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </template>
-
-        <!-- Empty state -->
-        <template x-if="!firewallDecisions.loading && !firewallDecisions.summary">
-            <div class="empty-state" style="text-align: center; padding: var(--space-6);">
-                <p style="font-size: var(--text-base); margin-bottom: var(--space-1); font-weight: var(--font-weight-semibold);">
-                    No Decision Data</p>
-                <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
-                    No firewall activity in the selected window.
-                </p>
-            </div>
-        </template>
-
-        {% endcall %}
-    </section>
 </div>
 
 <!-- Removed Decision Detail Modal - widget now uses aggregated intelligence view -->
