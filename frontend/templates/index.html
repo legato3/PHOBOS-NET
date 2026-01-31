@@ -2194,6 +2194,15 @@
                 </div>
                 <div class="modal__body stat-detail-body">
                     <div class="stat-detail-value" x-text="statDetail.value ?? '—'"></div>
+
+                    <!-- Verdict Badge -->
+                    <template x-if="statDetail.verdict">
+                        <div style="margin-bottom:12px; display:inline-block; padding:4px 8px; border-radius:4px; font-weight:600; font-size:0.9em; background:rgba(0,0,0,0.3);"
+                            :style="'color:' + statDetail.verdict.color + '; border:1px solid ' + statDetail.verdict.color">
+                            <span x-text="statDetail.verdict.label"></span>
+                        </div>
+                    </template>
+
                     <template x-if="statDetail.description">
                         <p class="stat-detail-description" x-text="statDetail.description"></p>
                     </template>
@@ -2203,6 +2212,18 @@
 
                     <template x-if="statDetail.window">
                         <div class="stat-detail-window" x-text="'Window: ' + statDetail.window"></div>
+                    </template>
+
+                    <!-- Next Actions -->
+                    <template x-if="statDetail.actions && statDetail.actions.length">
+                        <div class="stat-detail-actions" style="margin-top:10px; margin-bottom:15px;">
+                            <template x-for="act in statDetail.actions">
+                                <button class="btn btn--sm btn--outline"
+                                    @click="activeTab = act.tab; if(act.scroll) document.getElementById(act.scroll)?.scrollIntoView(); statDetailOpen=false;"
+                                    x-text="act.label" style="margin-right:8px;">
+                                </button>
+                            </template>
+                        </div>
                     </template>
 
                     <template x-if="statDetail.breakdowns && statDetail.breakdowns.length">

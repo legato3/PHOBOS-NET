@@ -1348,12 +1348,50 @@ export const Store = () => ({
         return { delta, direction, lastHour, prevHour, text, color };
     },
 
-    // Overview: Network State (Evidence Layer)
+    // --- OVERVIEW STATS & SUMMARY (EVIDENCE LAYER) ---
+
+    // TASK D: Deterministic Summary Contract
+    // Template: "Network is <state>. <primary driver/cause>."
+    getDeterministicSummary() {
+        const state = this.getNetworkState();
+        const activeAlerts = this.alertHistory?.active_count ?? 0;
+        const unusual = this.networkStatsOverview?.anomalies_count ?? 0;
+
+        let s1 = `Network is ${state.state.toLowerCase()}.`;
+        let s2 = "";
+
+        if (state.state === 'Stable') {
+            s1 = "Network is stable.";
+            if (activeAlerts === 0 && unusual === 0) {
+                s1 = "Network is stable. All systems normal.";
+            } else {
+                s1 = "Network is stable.";
+                s2 = "Routine background activity only.";
+            }
+        } else if (state.state === 'Elevated') {
+            s1 = "Network activity is elevated.";
+            if (activeAlerts > 0) s2 = `${activeAlerts} active alerts requiring review.`;
+            else s2 = "Traffic volume is above baseline.";
+        } else if (state.state === 'Degraded') {
+            s1 = "Network state is degraded.";
+            s2 = "Critical anomalies or blocks detected.";
+        } else if (state.state === 'Learning') {
+            s1 = "System is learning baseline.";
+            s2 = "Check back in a few minutes.";
+        }
+
+        return {
+            primary: s1,
+            secondary: s2
+        };
+    },
+
+    // 1. Network State (Evidence Layer)
     getNetworkState() {
         const signals = new Set(this.baselineSignals?.signals || []);
         const activeAlerts = this.alertHistory?.active_count ?? 0;
-        const trend = this.getActiveAlertTrend();
 
+        // Default: Calm
         let state = 'Stable';
         let subtext = 'Traffic within baseline';
         let color = 'var(--signal-ok)';
@@ -1375,7 +1413,7 @@ export const Store = () => ({
         return { state, subtext, color };
     },
 
-    // Overview: Alerts (Last 1h)
+    // 2. Alerts (Last 1h)
     getAlertsSummary() {
         const count = this.alertHistory?.active_count ?? 0;
         const alerts = this.alertHistory?.active_alerts || [];
@@ -1392,7 +1430,7 @@ export const Store = () => ({
         return { count: count.toLocaleString(), subtext };
     },
 
-    // Overview: Traffic Level
+    // 3. Traffic Level
     getTrafficLevel() {
         const bytes = this.summary?.totals?.bytes || 0;
         const hours = this.getRangeHours(this.timeRange);
@@ -1408,11 +1446,17 @@ export const Store = () => ({
             ratio = activeFlows / Math.max(1, baseline);
             const pct = Math.round((ratio - 1) * 100);
             const sign = pct > 0 ? '+' : '';
-            subtext = `${sign}${pct}% vs baseline`;
 
-            if (ratio < 0.6) level = 'Low';
-            else if (ratio < 1.4) level = 'Normal';
-            else level = 'High';
+            if (ratio < 0.6) {
+                level = 'Low';
+                subtext = `${sign}${pct}% below baseline`;
+            } else if (ratio < 1.4) {
+                level = 'Normal';
+                subtext = 'Consistent with baseline';
+            } else {
+                level = 'High';
+                subtext = `${sign}${pct}% above baseline`;
+            }
         } else {
             subtext = 'Learning baseline';
         }
@@ -1420,21 +1464,23 @@ export const Store = () => ({
         return { level, subtext };
     },
 
-    // Overview: Protected Connections (24h)
+    // 4. Protected Connections (24h)
     getProtectedSummary() {
         const blocks = this.firewallStatsOverview?.blocked_events_24h ?? 0;
+        // Calm language: "Background scans blocked" instead of "Attacks blocked"
         const subtext = blocks > 0 ? 'Background scans blocked' : 'No blocks recorded';
         return { count: blocks.toLocaleString(), subtext };
     },
 
-    // Overview: Internet Exposure
+    // 5. Internet Exposure
     getExposureSummary() {
         const uniqueExternal = this.networkStatsOverview?.external_unique_ips ?? 0;
         const baseline = this.baselineSignals?.baseline_stats?.external_connections?.mean;
 
         let level = 'Typical';
-        let subtext = 'Normal desination spread';
+        let subtext = 'Normal destination spread';
 
+        // "Typical" is better than "Moderate" for calm UI
         if (baseline) {
             const ratio = uniqueExternal / Math.max(1, baseline);
             if (ratio > 1.5) {
@@ -1451,7 +1497,7 @@ export const Store = () => ({
         return { value: Number(uniqueExternal).toLocaleString(), level, subtext };
     },
 
-    // Overview: Unusual Activity
+    // 6. Unusual Activity
     getUnusualActivitySummary() {
         const count = this.networkStatsOverview?.anomalies_count ?? 0;
         const signals = this.healthSignals?.signals || [];
@@ -1461,6 +1507,7 @@ export const Store = () => ({
         }
 
         const value = count === 0 ? 'All clear' : `${count} Anomalies`;
+        // Calm language: Avoid "Detected!" exclamations
         const subtext = count === 0 ? 'No unusual patterns' : (lastTs ? `Last: ${this.timeAgo(lastTs)}` : 'Recently detected');
         const color = count === 0 ? 'var(--signal-ok)' : 'var(--signal-warn)';
 
@@ -1476,11 +1523,14 @@ export const Store = () => ({
         return { text: '', cls: '' };
     },
 
+    // TASK A: Open Stat Detail with Structured Sections
     openStatDetail(kind) {
         const base = {
             title: 'Detail',
             value: '—',
             window: 'Last 1h',
+            verdict: { label: 'No action needed', color: 'var(--signal-ok)' }, // New: Should I Care?
+            actions: [], // New: Next Click
             breakdowns: [],
             top: [],
             explanations: { why: '', what_changed: '', next_checks: [] }
@@ -1491,7 +1541,16 @@ export const Store = () => ({
             base.title = 'Network State';
             base.value = state.state;
             base.explanations.why = `System state is ${state.state.toLowerCase()} based on current signal aggregation.`;
-            base.explanations.what_changed = `Current alert count: ${this.alertHistory?.active_count ?? 0}.`;
+            base.explanations.what_changed = state.subtext;
+
+            // Verdict logic
+            if (state.state === 'Stable') {
+                base.verdict = { label: 'No action needed', color: 'var(--signal-ok)' };
+            } else if (state.state === 'Elevated') {
+                base.verdict = { label: 'Keep an eye', color: 'var(--signal-warn)' };
+            } else {
+                base.verdict = { label: 'Action Recommended', color: 'var(--signal-crit)' };
+            }
 
             // Contributors: Signals
             const signals = this.baselineSignals?.signals || [];
@@ -1504,7 +1563,15 @@ export const Store = () => ({
             const sum = this.getAlertsSummary();
             base.title = 'Active Alerts';
             base.value = sum.count;
-            base.explanations.why = 'Alerts generated by IDS and Firewall analysis rules.';
+            base.explanations.why = 'Alerts generated by analysis rules.';
+            base.explanations.what_changed = sum.subtext;
+
+            if (sum.count > 0) {
+                base.verdict = { label: 'Review Alerts', color: 'var(--signal-warn)' };
+                base.actions = [{ label: 'View Security Events', tab: 'security' }];
+            } else {
+                base.verdict = { label: 'No active threats', color: 'var(--signal-ok)' };
+            }
 
             // Top contributors
             const alerts = this.alertHistory?.active_alerts || [];
@@ -1518,7 +1585,9 @@ export const Store = () => ({
             const traffic = this.getTrafficLevel();
             base.title = 'Traffic Level';
             base.value = traffic.level;
+            base.explanations.why = 'Comparison of current volume vs historical baseline.';
             base.explanations.what_changed = traffic.subtext;
+            base.verdict = { label: 'Normal Variation', color: 'var(--signal-ok)' };
 
             // Top contributors
             const sources = this.networkStatsOverview?.top_sources || [];
@@ -1527,11 +1596,15 @@ export const Store = () => ({
                 value: this.fmtBytes(s.bytes),
                 hint: s.hostname
             }));
+            if (sources.length > 0) base.actions = [{ label: 'Explore Traffic', tab: 'traffic' }];
+
         } else if (kind === 'protectedConnections') {
             const prot = this.getProtectedSummary();
             base.title = 'Protected Connections';
             base.value = prot.count;
-            base.explanations.why = 'These connections were blocked by firewall rules.';
+            base.explanations.why = 'Connections blocked by firewall rules (scanners, blocklists).';
+            base.explanations.what_changed = prot.subtext;
+            base.verdict = { label: 'Protection Active', color: 'var(--signal-ok)' }; // Green = Good
 
             // Top blocked
             const blocked = this.firewallStatsOverview?.top_blocked_sources || [];
@@ -1540,11 +1613,17 @@ export const Store = () => ({
                 value: b.count,
                 hint: b.country
             }));
+            base.actions = [{ label: 'View Firewall Logs', tab: 'firewall' }];
+
         } else if (kind === 'internetExposure') {
             const exp = this.getExposureSummary();
             base.title = 'Internet Exposure';
-            base.value = exp.value;
+            base.value = exp.value; // Value is nice count
             base.explanations.why = 'Number of unique external IP addresses contacted.';
+            base.explanations.what_changed = exp.subtext;
+
+            if (exp.level === 'Above usual') base.verdict = { label: 'Check Destinations', color: 'var(--signal-warn)' };
+            else base.verdict = { label: 'Normal Spread', color: 'var(--signal-ok)' };
 
             // Top dests
             const dests = this.networkStatsOverview?.top_destinations || [];
@@ -1553,14 +1632,20 @@ export const Store = () => ({
                 value: this.fmtBytes(d.bytes),
                 hint: d.country
             }));
+            base.actions = [{ label: 'View Map', tab: 'overview', scroll: 'section-worldmap' }];
+
         } else if (kind === 'unusualActivity') {
             const unusual = this.getUnusualActivitySummary();
             base.title = 'Unusual Activity';
             base.value = unusual.value;
-            base.explanations.why = 'Statistical anomalies in traffic patterns.';
-
-            // Breakdown of anomalies implied (though specific list might need better backend support)
+            base.explanations.why = 'Statistical anomalies in traffic patterns (e.g. spikes, new ports).';
             base.explanations.what_changed = unusual.subtext;
+
+            if (unusual.value !== 'All clear') {
+                base.verdict = { label: 'Investigate', color: 'var(--signal-warn)' };
+            } else {
+                base.verdict = { label: 'No Anomalies', color: 'var(--signal-ok)' };
+            }
         }
 
         this.statDetail = base;

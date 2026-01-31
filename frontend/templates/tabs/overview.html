@@ -5,10 +5,8 @@
 
     <!-- STATUS SUMMARY -->
     <div class="card overview-status-summary">
-        <p class="overview-status-primary"
-            x-text="summary.network_summary || 'Network status is currently being assessed.'"></p>
-        <p class="overview-status-secondary"
-            x-text="summary.what_changed_1h || 'Learning changes… check back in a few minutes.'"></p>
+        <p class="overview-status-primary" x-text="getDeterministicSummary().primary"></p>
+        <p class="overview-status-secondary" x-text="getDeterministicSummary().secondary"></p>
     </div>
 
     <!-- EVIDENCE STAT BOXES -->
@@ -26,7 +24,7 @@
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value" style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
+                <div class="stat-hero-value" style="font-size:1.8em; font-weight:600; margin-bottom:4px;"
                     :style="'color: ' + getNetworkState().color" x-text="getNetworkState().state"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                     x-text="getNetworkState().subtext"></div>
@@ -47,7 +45,7 @@
             </h2>
             <div class="stat-box-body">
                 <div class="stat-hero-value"
-                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                     x-text="getAlertsSummary().count"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                     x-text="getAlertsSummary().subtext"></div>
@@ -68,7 +66,7 @@
             </h2>
             <div class="stat-box-body">
                 <div class="stat-hero-value"
-                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                     x-text="getTrafficLevel().level"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                     x-text="getTrafficLevel().subtext"></div>
@@ -90,7 +88,7 @@
             </h2>
             <div class="stat-box-body">
                 <div class="stat-hero-value"
-                    style="font-size:1.4em; font-weight:600; color:var(--signal-ok); margin-bottom:2px;"
+                    style="font-size:1.8em; font-weight:600; color:var(--signal-ok); margin-bottom:2px;"
                     x-text="getProtectedSummary().count"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                     x-text="getProtectedSummary().subtext"></div>
@@ -111,7 +109,7 @@
             </h2>
             <div class="stat-box-body">
                 <div class="stat-hero-value"
-                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
                     x-text="getExposureSummary().value"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
                     x-text="getExposureSummary().subtext"></div>
@@ -131,7 +129,7 @@
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value" style="font-size:1.4em; font-weight:600; margin-bottom:2px;"
+                <div class="stat-hero-value" style="font-size:1.8em; font-weight:600; margin-bottom:2px;"
                     :style="'color: ' + getUnusualActivitySummary().color" x-text="getUnusualActivitySummary().value">
                 </div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
