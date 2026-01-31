@@ -1279,37 +1279,41 @@ def api_stats_hourly():
             line = line.strip()
             if not line: continue
 
-            line_clean = line.lower()
+            # Optimization: Skip string allocation for standard data rows
+            is_data_row = len(line) > 0 and line[0].isdigit()
 
-            # Explicit Header Detection
-            if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
-                 header = line.split(',')
-                 header_norm = [h.lower().strip() for h in header]
-                 try:
-                    ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
-                    ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
-                 except (ValueError, IndexError):
-                    pass
-                 header_parsed = True
-                 continue
+            if not is_data_row:
+                line_clean = line.lower()
+
+                # Explicit Header Detection
+                if line_clean.startswith('ts,') or line_clean.startswith('firstseen,'):
+                    header = line.split(',')
+                    header_norm = [h.lower().strip() for h in header]
+                    try:
+                        ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
+                        ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
+                    except (ValueError, IndexError):
+                        pass
+                    header_parsed = True
+                    continue
 
             # If we haven't found an explicit header yet
             if not header_parsed:
-                 # Check if this line looks like data (starts with digit)
-                 if line[0].isdigit():
-                     # It's data, use default indices and process it
-                     header_parsed = True
-                 else:
-                     # Treat as fallback header
-                     header = line.split(',')
-                     header_norm = [h.lower().strip() for h in header]
-                     try:
+                # Check if this line looks like data (starts with digit)
+                if is_data_row:
+                    # It's data, use default indices and process it
+                    header_parsed = True
+                else:
+                    # Treat as fallback header
+                    header = line.split(',')
+                    header_norm = [h.lower().strip() for h in header]
+                    try:
                         ts_idx = header_norm.index('ts') if 'ts' in header_norm else (header_norm.index('firstseen') if 'firstseen' in header_norm else 0)
                         ibyt_idx = header_norm.index('ibyt') if 'ibyt' in header_norm else (header_norm.index('bytes') if 'bytes' in header_norm else 8)
-                     except (ValueError, IndexError):
+                    except (ValueError, IndexError):
                         pass
-                     header_parsed = True
-                     continue
+                    header_parsed = True
+                    continue
 
             parts = line.split(',')
             if len(parts) > max(ts_idx, ibyt_idx):
