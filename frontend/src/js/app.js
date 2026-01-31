@@ -1,4 +1,4 @@
-import { Store } from './store/index.js?v=3.0.23';
+import { Store } from './store/index.js?v=2.1.0';
 import * as DashboardUtils from './modules/utils.js?v=3.0.4';
 import { DashboardWidgets } from './modules/widgets.js?v=3.0.4';
 import { Charts } from './modules/charts.js?v=3.0.4';
