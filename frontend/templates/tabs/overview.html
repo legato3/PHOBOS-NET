@@ -10,130 +10,99 @@
     </div>
 
     <!-- EVIDENCE STAT BOXES -->
-    <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
+    <div class="overview-grid-spacing">
         <!-- 1. NETWORK STATE -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('networkState')"
-            @keydown.enter="openStatDetail('networkState')" @keydown.space.prevent="openStatDetail('networkState')"
-            aria-label="View Network State Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+        <div class="card overview-stat-card clickable" role="button" tabindex="0"
+            @click="openStatDetail('networkState')" @keydown.enter="openStatDetail('networkState')"
+            @keydown.space.prevent="openStatDetail('networkState')" aria-label="View Network State Details">
             <h2>
                 <div class="card-title-content">
                     <span>NETWORK STATE</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value" style="font-size:1.8em; font-weight:600; margin-bottom:4px;"
-                    :style="'color: ' + getNetworkState().color" x-text="getNetworkState().state"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getNetworkState().subtext"></div>
+                <div class="stat-hero-value" :style="'color: ' + getNetworkState().color"
+                    x-text="getNetworkState().state"></div>
+                <div class="stat-subtext" x-text="getNetworkState().subtext"></div>
             </div>
         </div>
 
         <!-- 2. ALERTS (1H) -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('alerts')"
+        <div class="card overview-stat-card clickable" role="button" tabindex="0" @click="openStatDetail('alerts')"
             @keydown.enter="openStatDetail('alerts')" @keydown.space.prevent="openStatDetail('alerts')"
-            aria-label="View Alerts Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+            aria-label="View Alerts Details">
             <h2>
                 <div class="card-title-content">
                     <span>ALERTS (1H)</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value"
-                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
-                    x-text="getAlertsSummary().count"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getAlertsSummary().subtext"></div>
+                <div class="stat-hero-value" style="color:var(--text-primary);" x-text="getAlertsSummary().count"></div>
+                <div class="stat-subtext" x-text="getAlertsSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 3. TRAFFIC LEVEL -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('trafficLevel')"
-            @keydown.enter="openStatDetail('trafficLevel')" @keydown.space.prevent="openStatDetail('trafficLevel')"
-            aria-label="View Traffic Level Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+        <div class="card overview-stat-card clickable" role="button" tabindex="0"
+            @click="openStatDetail('trafficLevel')" @keydown.enter="openStatDetail('trafficLevel')"
+            @keydown.space.prevent="openStatDetail('trafficLevel')" aria-label="View Traffic Level Details">
             <h2>
                 <div class="card-title-content">
                     <span>TRAFFIC LEVEL</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value"
-                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
-                    x-text="getTrafficLevel().level"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getTrafficLevel().subtext"></div>
+                <div class="stat-hero-value" style="color:var(--text-primary);" x-text="getTrafficLevel().level"></div>
+                <div class="stat-subtext" x-text="getTrafficLevel().subtext"></div>
             </div>
         </div>
 
         <!-- 4. PROTECTED (24H) -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('protectedConnections')"
-            @keydown.enter="openStatDetail('protectedConnections')"
+        <div class="card overview-stat-card clickable" role="button" tabindex="0"
+            @click="openStatDetail('protectedConnections')" @keydown.enter="openStatDetail('protectedConnections')"
             @keydown.space.prevent="openStatDetail('protectedConnections')"
-            aria-label="View Protected Connections Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+            aria-label="View Protected Connections Details">
             <h2>
                 <div class="card-title-content">
                     <span>PROTECTED (24H)</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value"
-                    style="font-size:1.8em; font-weight:600; color:var(--signal-ok); margin-bottom:2px;"
-                    x-text="getProtectedSummary().count"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getProtectedSummary().subtext"></div>
+                <div class="stat-hero-value" style="color:var(--signal-ok);" x-text="getProtectedSummary().count"></div>
+                <div class="stat-subtext" x-text="getProtectedSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 5. INTERNET EXPOSURE -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('internetExposure')"
-            @keydown.enter="openStatDetail('internetExposure')"
-            @keydown.space.prevent="openStatDetail('internetExposure')" aria-label="View Internet Exposure Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+        <div class="card overview-stat-card clickable" role="button" tabindex="0"
+            @click="openStatDetail('internetExposure')" @keydown.enter="openStatDetail('internetExposure')"
+            @keydown.space.prevent="openStatDetail('internetExposure')" aria-label="View Internet Exposure Details">
             <h2>
                 <div class="card-title-content">
                     <span>INTERNET EXPOSURE</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value"
-                    style="font-size:1.8em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
-                    x-text="getExposureSummary().value"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getExposureSummary().subtext"></div>
+                <div class="stat-hero-value" style="color:var(--text-primary);" x-text="getExposureSummary().value">
+                </div>
+                <div class="stat-subtext" x-text="getExposureSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 6. UNUSUAL ACTIVITY -->
-        <div class="card" role="button" tabindex="0" @click="openStatDetail('unusualActivity')"
-            @keydown.enter="openStatDetail('unusualActivity')"
-            @keydown.space.prevent="openStatDetail('unusualActivity')" aria-label="View Unusual Activity Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
-            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
+        <div class="card overview-stat-card clickable" role="button" tabindex="0"
+            @click="openStatDetail('unusualActivity')" @keydown.enter="openStatDetail('unusualActivity')"
+            @keydown.space.prevent="openStatDetail('unusualActivity')" aria-label="View Unusual Activity Details">
             <h2>
                 <div class="card-title-content">
                     <span>UNUSUAL ACTIVITY</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value" style="font-size:1.8em; font-weight:600; margin-bottom:2px;"
-                    :style="'color: ' + getUnusualActivitySummary().color" x-text="getUnusualActivitySummary().value">
+                <div class="stat-hero-value" :style="'color: ' + getUnusualActivitySummary().color"
+                    x-text="getUnusualActivitySummary().value">
                 </div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getUnusualActivitySummary().subtext"></div>
+                <div class="stat-subtext" x-text="getUnusualActivitySummary().subtext"></div>
             </div>
         </div>
     </div>
