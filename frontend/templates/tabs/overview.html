@@ -7,24 +7,25 @@
     <div class="overview-brief">
         <div class="overview-brief__header">
             <div class="overview-brief__title">NETWORK BRIEF</div>
-            <div class="overview-brief__chip" :class="'is-' + getBriefStatus()">
+            <div class="overview-brief__chip"
+                :class="'is-' + (overviewIntelligence.brief?.state || 'stable').toLowerCase().replace(' ', '-')">
                 <div class="overview-brief__dot"></div>
-                <span x-text="getBriefStatus()"></span>
+                <span x-text="overviewIntelligence.brief?.state || 'Loading'"></span>
             </div>
         </div>
         <div class="overview-brief__body">
             <div class="overview-brief__row">
-                <span class="overview-brief__label">NOW</span>
                 <span class="overview-brief__value"
-                    x-text="summary.network_summary || 'Assessing network status…'"></span>
+                    x-text="overviewIntelligence.brief?.headline || 'Assessing network status…'"></span>
             </div>
             <div class="overview-brief__row">
-                <span class="overview-brief__label">1H</span>
-                <span class="overview-brief__value" x-text="summary.what_changed_1h || 'Learning changes…'"></span>
+                <span class="overview-brief__value overview-brief__value--subline"
+                    x-text="overviewIntelligence.brief?.subline || 'Learning baseline…'"></span>
             </div>
             <div class="overview-brief__row">
                 <span class="overview-brief__label">SIGNALS</span>
-                <span class="overview-brief__value overview-brief__value--highlight" x-text="getBriefSignals()"></span>
+                <span class="overview-brief__value overview-brief__value--highlight"
+                    x-text="overviewIntelligence.brief?.reasons || 'gathering data'"></span>
             </div>
         </div>
     </div>

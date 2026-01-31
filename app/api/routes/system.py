@@ -936,6 +936,356 @@ def api_overview_insights():
     )
 
 
+@bp.route("/api/overview/intelligence")
+@throttle(10, 5)
+def api_overview_intelligence():
+    """
+    Unified Overview Intelligence Aggregator.
+
+    Provides structured intelligence for Overview page:
+    - Brief: calm status headline/subline with confidence
+    - Cards: per-stat-box summary data
+    - Modal_details: deep-dive info for each card modal
+
+    Uses existing cached data sources - no new expensive queries.
+    """
+    range_key = request.args.get("range", "1h")
+    seconds_map = {
+        "15m": 900,
+        "30m": 1800,
+        "1h": 3600,
+        "4h": 14400,
+        "6h": 21600,
+        "12h": 43200,
+    }
+    window_seconds = seconds_map.get(range_key, 3600)
+
+    # Reuse existing data sources (cached)
+    sources = get_common_nfdump_data("sources", range_key)
+    protocols = get_common_nfdump_data("protos", range_key)
+
+    # Get baseline stats
+    baseline_flows = get_baseline_stats("active_flows")
+    baseline_ext_conn = get_baseline_stats("external_connections")
+    baseline_status = baseline_flows.get("status") if baseline_flows else "warming"
+    baseline_ready = baseline_status == "stable"
+
+    # Pull latest cached overview stats
+    net_overview = _stats_network_overview_cache.get("data")
+    fw_overview = _stats_firewall_overview_cache.get("data")
+
+    # Alerts
+    threats_module.auto_resolve_stale_alerts()
+    with threats_module._alert_history_lock:
+        alerts = [a.copy() for a in threats_module._alert_history]
+    active_alerts = [a for a in alerts if a.get("active", True)]
+    active_count = len(active_alerts)
+
+    # Get severity breakdown
+    by_severity = Counter(a.get("severity", "unknown") for a in active_alerts)
+    critical_count = by_severity.get("critical", 0)
+    high_count = by_severity.get("high", 0)
+    warn_count = critical_count + high_count
+
+    # Traffic metrics
+    bytes_now = sum(i.get("bytes", 0) for i in sources)
+    flows_now = sum(i.get("flows", 0) for i in sources)
+
+    # Firewall blocks (24h)
+    blocks_24h = fw_overview.get("blocked_events_24h") if fw_overview else 0
+
+    # External connections
+    external_ips = net_overview.get("external_unique_ips") if net_overview else 0
+
+    # Anomalies/unusual activity
+    anomalies_count = net_overview.get("anomalies_count") if net_overview else 0
+
+    # === CORRELATION LOGIC (CONSISTENT) ===
+
+    # 1. NETWORK STATE
+    network_state = "Stable"
+    network_reasons = []
+
+    if warn_count >= 1:
+        network_state = "Needs review"
+        network_reasons.append(f"{warn_count} actionable alert{'s' if warn_count != 1 else ''}")
+    elif not baseline_ready:
+        network_state = "Learning"
+        network_reasons.append("Baseline warming up")
+    elif anomalies_count > 0 and baseline_ready:
+        network_state = "Elevated"
+        network_reasons.append(f"{anomalies_count} unusual pattern{'s' if anomalies_count != 1 else ''}")
+    else:
+        network_reasons.append("All systems nominal")
+
+    # 2. TRAFFIC LEVEL
+    traffic_state = "Learning"
+    traffic_observed = None
+    traffic_baseline_val = None
+    traffic_deviation_pct = None
+
+    if baseline_ready and baseline_flows and baseline_flows.get("mean"):
+        traffic_baseline_val = baseline_flows["mean"]
+        traffic_observed = flows_now
+        if traffic_baseline_val > 0:
+            traffic_deviation_pct = ((traffic_observed - traffic_baseline_val) / traffic_baseline_val) * 100
+
+            if traffic_deviation_pct > 75:
+                traffic_state = "Spike"
+            elif traffic_deviation_pct > 25:
+                traffic_state = "Elevated"
+            elif traffic_deviation_pct < -25:
+                traffic_state = "Low"
+            else:
+                traffic_state = "Normal"
+
+    # 3. INTERNET EXPOSURE
+    exposure_state = "Learning"
+    exposure_observed = external_ips
+    exposure_baseline_val = None
+    exposure_deviation_pct = None
+
+    if baseline_ready and baseline_ext_conn and baseline_ext_conn.get("mean"):
+        exposure_baseline_val = baseline_ext_conn["mean"]
+        if exposure_baseline_val > 0:
+            exposure_deviation_pct = ((exposure_observed - exposure_baseline_val) / exposure_baseline_val) * 100
+
+            if exposure_deviation_pct > 100:
+                exposure_state = "High"
+            elif exposure_deviation_pct > 50:
+                exposure_state = "Medium"
+            else:
+                exposure_state = "Low"
+
+    # 4. UNUSUAL ACTIVITY DRIVERS
+    unusual_drivers = []
+    if anomalies_count > 0 and baseline_ready:
+        # Break down drivers (simplified - in real scenario, pull from threats module)
+        if anomalies_count > 5:
+            unusual_drivers.append({"type": "port_spike", "count": min(anomalies_count, 15)})
+        if external_ips > (exposure_baseline_val or 0) * 2:
+            unusual_drivers.append({"type": "new_external_destinations", "count": int(external_ips - (exposure_baseline_val or 0))})
+        if blocks_24h > 1000:
+            unusual_drivers.append({"type": "block_spike", "count": blocks_24h})
+
+        # Limit to top 3
+        unusual_drivers = unusual_drivers[:3]
+
+    # === BRIEF CONSTRUCTION ===
+    brief_state = network_state
+    brief_headline = "Network stable"
+    brief_subline = "Activity within baseline"
+    brief_confidence = "high"
+    brief_reasons_tokens = []
+
+    if network_state == "Needs review":
+        brief_headline = "Alerts require review"
+        brief_subline = f"{active_count} active alert{'s' if active_count != 1 else ''}"
+        brief_confidence = "high"
+        brief_reasons_tokens = [f"alerts: {active_count}"]
+    elif network_state == "Learning":
+        brief_headline = "Learning baseline"
+        brief_subline = "Establishing traffic patterns"
+        brief_confidence = "low"
+        brief_reasons_tokens = ["status: warming"]
+    elif network_state == "Elevated":
+        brief_headline = "Activity elevated"
+        brief_subline = "Unusual patterns detected"
+        brief_confidence = "medium"
+        brief_reasons_tokens = [f"anomalies: {anomalies_count}"]
+    else:
+        # Stable
+        if blocks_24h > 100:
+            brief_subline = f"Firewall blocked {blocks_24h} background scans"
+        brief_reasons_tokens = ["state: stable"]
+
+    # Add traffic and exposure tokens
+    if traffic_state != "Learning":
+        brief_reasons_tokens.append(f"traffic: {traffic_state.lower()}")
+    if exposure_state != "Learning":
+        brief_reasons_tokens.append(f"exposure: {exposure_state.lower()}")
+
+    brief_reasons = " • ".join(brief_reasons_tokens)
+
+    # === CARDS DATA ===
+    cards = {
+        "network_state": {
+            "value": network_state,
+            "state": network_state.lower().replace(" ", "_"),
+            "reasons": network_reasons,
+        },
+        "actionable_alerts": {
+            "count": active_count,
+            "severity_breakdown": dict(by_severity),
+            "actionable": warn_count >= 1,
+        },
+        "traffic_level": {
+            "level": traffic_state,
+            "observed": traffic_observed,
+            "baseline": traffic_baseline_val,
+            "deviation_pct": round(traffic_deviation_pct, 1) if traffic_deviation_pct is not None else None,
+            "learning": not baseline_ready,
+        },
+        "protected_24h": {
+            "count": blocks_24h,
+            "is_good": True,  # This is a positive metric
+        },
+        "internet_exposure": {
+            "state": exposure_state,
+            "observed": exposure_observed,
+            "baseline": exposure_baseline_val,
+            "deviation_pct": round(exposure_deviation_pct, 1) if exposure_deviation_pct is not None else None,
+            "learning": not baseline_ready,
+        },
+        "unusual_activity": {
+            "count": anomalies_count,
+            "drivers": unusual_drivers,
+            "learning": not baseline_ready,
+            "actionable": anomalies_count > 0 and baseline_ready,
+        },
+    }
+
+    # === MODAL DETAILS ===
+
+    # Get top contributors
+    top_protocols = [{"label": p.get("key"), "value": fmt_bytes(p.get("bytes", 0))} for p in protocols[:3]]
+    top_sources = [{"label": s.get("key"), "value": fmt_bytes(s.get("bytes", 0))} for s in sources[:3]]
+
+    # Get top blocked ports (from firewall DB)
+    top_block_ports = []
+    try:
+        _firewall_db_init()
+        now_ts = time.time()
+        start_ts = now_ts - 86400  # 24h
+        with _firewall_db_lock:
+            conn = _firewall_db_connect()
+            try:
+                cur = conn.execute(
+                    """
+                    SELECT dst_port, COUNT(*) as cnt
+                    FROM fw_logs
+                    WHERE timestamp >= ? AND action IN ('block', 'reject') AND dst_port IS NOT NULL
+                    GROUP BY dst_port
+                    ORDER BY cnt DESC
+                    LIMIT 3
+                    """,
+                    (start_ts,),
+                )
+                top_block_ports = [{"label": f"Port {row[0]}", "value": row[1]} for row in cur.fetchall()]
+            finally:
+                conn.close()
+    except Exception:
+        pass
+
+    # Get top ASNs/countries for exposure
+    top_external_asns = []
+    top_external_countries = []
+    if net_overview and net_overview.get("top_external_asns"):
+        top_external_asns = net_overview["top_external_asns"][:3]
+    if net_overview and net_overview.get("top_external_countries"):
+        top_external_countries = net_overview["top_external_countries"][:3]
+
+    modal_details = {
+        "network_state": {
+            "meaning": "Overall health based on alerts, baselines, and anomalies",
+            "why": network_reasons,
+            "top_contributors": [],  # Health status doesn't have contributors
+            "next_step": {
+                "label": "View Network Health" if network_state != "Stable" else "View Server Status",
+                "href": "#server" if network_state == "Stable" else "#security",
+            },
+            "sources": ["/api/stats/summary", "/api/security/alerts/history", "/api/baseline/stats"],
+        },
+        "actionable_alerts": {
+            "meaning": "Security events requiring human review",
+            "why": [
+                f"{critical_count} critical severity" if critical_count > 0 else None,
+                f"{high_count} high severity" if high_count > 0 else None,
+                "No critical alerts" if warn_count == 0 else None,
+            ],
+            "top_contributors": [
+                {"label": k, "value": v} for k, v in Counter(a.get("type", "unknown") for a in active_alerts).most_common(3)
+            ] if active_count > 0 else [],
+            "next_step": {
+                "label": "View Security Alerts",
+                "href": "#security",
+            },
+            "sources": ["/api/security/alerts/history"],
+        },
+        "traffic_level": {
+            "meaning": "Current flow rate compared to historical baseline",
+            "why": [
+                f"Observed: {traffic_observed} flows" if traffic_observed is not None else "Baseline warming",
+                f"Baseline: {int(traffic_baseline_val)} flows" if traffic_baseline_val else None,
+                f"Deviation: {traffic_deviation_pct:+.1f}%" if traffic_deviation_pct is not None else None,
+            ],
+            "top_contributors": top_protocols,
+            "next_step": {
+                "label": "View Network Traffic",
+                "href": "#network",
+            },
+            "sources": ["/api/stats/sources", "/api/stats/protocols", "/api/baseline/stats"],
+        },
+        "protected_24h": {
+            "meaning": "Connections blocked by firewall (this is good)",
+            "why": [
+                f"{blocks_24h} blocked events in 24h",
+                "Background scans and probes filtered" if blocks_24h > 100 else "Light blocking activity",
+            ],
+            "top_contributors": top_block_ports,
+            "next_step": {
+                "label": "View Firewall Logs",
+                "href": "#firewall",
+            },
+            "sources": ["/api/stats/firewall", "firewall.db"],
+        },
+        "internet_exposure": {
+            "meaning": "Unique external IPs contacting your network",
+            "why": [
+                f"Observed: {exposure_observed} unique IPs" if exposure_observed is not None else "Baseline warming",
+                f"Baseline: {int(exposure_baseline_val)} IPs" if exposure_baseline_val else None,
+                f"Deviation: {exposure_deviation_pct:+.1f}%" if exposure_deviation_pct is not None else None,
+            ],
+            "top_contributors": top_external_asns or top_external_countries or [{"label": "Insufficient data", "value": ""}],
+            "next_step": {
+                "label": "View Traffic Map",
+                "href": "#overview",  # Scroll to world map
+            },
+            "sources": ["/api/stats/summary", "/api/stats/worldmap", "/api/baseline/stats"],
+        },
+        "unusual_activity": {
+            "meaning": "Behavioral patterns outside normal baseline",
+            "why": [
+                f"{d['count']} {d['type'].replace('_', ' ')}" for d in unusual_drivers
+            ] if unusual_drivers else ["No unusual patterns detected" if baseline_ready else "Baseline warming"],
+            "top_contributors": unusual_drivers,
+            "next_step": {
+                "label": "Review details" if anomalies_count > 0 and baseline_ready else "Continue monitoring",
+                "href": "#security" if anomalies_count > 0 else "#network",
+            },
+            "sources": ["/api/stats/summary", "/api/security/signals", "/api/baseline/stats"],
+        },
+    }
+
+    # Remove None values from why arrays
+    for key in modal_details:
+        modal_details[key]["why"] = [w for w in modal_details[key]["why"] if w is not None]
+
+    return jsonify({
+        "brief": {
+            "state": brief_state,
+            "headline": brief_headline,
+            "subline": brief_subline,
+            "confidence": brief_confidence,
+            "reasons": brief_reasons,
+        },
+        "cards": cards,
+        "modal_details": modal_details,
+        "baseline_status": baseline_status,
+        "window": range_key,
+    })
+
+
 @bp.route("/api/notify_status")
 def api_notify_status():
     return jsonify(load_notify_cfg())

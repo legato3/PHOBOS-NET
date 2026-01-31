@@ -11070,6 +11070,24 @@ body.compact-mode {
     color: var(--text-muted);
 }
 
+.overview-brief__chip.is-stable {
+    border-color: var(--signal-ok);
+    color: var(--signal-ok);
+    background: rgba(0, 255, 136, 0.05);
+}
+
+.overview-brief__chip.is-elevated {
+    border-color: var(--signal-warn);
+    color: var(--signal-warn);
+    background: rgba(255, 180, 0, 0.05);
+}
+
+.overview-brief__chip.is-needs-review {
+    border-color: var(--signal-warn);
+    color: var(--signal-warn);
+    background: rgba(255, 180, 0, 0.1);
+}
+
 .overview-brief__dot {
     width: 6px;
     height: 6px;
@@ -11113,6 +11131,11 @@ body.compact-mode {
 
 .overview-brief__value--highlight {
     color: var(--signal-ok);
+}
+
+.overview-brief__value--subline {
+    color: var(--text-secondary);
+    font-size: 0.9em;
 }
 
 @media (max-width: 600px) {

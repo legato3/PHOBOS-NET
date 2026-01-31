@@ -171,6 +171,7 @@ export const Store = () => ({
     summary: { totals: { bytes_fmt: '...', flows: 0, avg_packet_size: 0 }, loading: true },
     networkSummary: { loading: false },
     overviewInsights: { stats: {}, window: {}, loading: true, error: null },
+    overviewIntelligence: { brief: {}, cards: {}, modal_details: {}, loading: true, error: null },
     sources: { sources: [], loading: true },
     destinations: { destinations: [], loading: true },
     ports: { ports: [], loading: true },
@@ -1606,32 +1607,65 @@ export const Store = () => ({
 
     // TASK A: Open Stat Detail with Structured Sections (Enhanced)
     openStatDetail(kind) {
+        // Use intelligence data if available, otherwise fallback to old logic
+        const intel = this.overviewIntelligence;
+        const card = intel.cards?.[kind];
+        const details = intel.modal_details?.[kind];
+
         // Base modal structure
         const base = {
             title: 'Detail',
             value: '—',
-            window: `Last ${this.timeRange}`, // Detailed window
+            window: `Last ${this.timeRange}`,
             verdict: { label: 'No action needed', color: 'var(--signal-ok)' },
             actions: [],
-            breakdowns: [], // Key:Value list
-            top: [], // Detailed list with label/value/hint
-            components: [], // For health status
-            computation: '', // How it's computed
+            breakdowns: [],
+            top: [],
+            components: [],
+            computation: '',
             explanations: { why: '', what_changed: '', next_checks: [] }
         };
 
-        if (kind === 'networkState') {
-            const state = this.getNetworkState();
-            base.title = 'Network State';
-            base.value = state.state;
-            base.computation = `Aggregated from system health checks (SNMP, Netflow, Syslog) over the ${this.timeRange} window.`;
-            base.explanations.why = `System state is ${state.state.toLowerCase()} based on signal aggregation.`;
-            base.explanations.what_changed = state.subtext;
+        // If we have intelligence data, use it
+        if (details) {
+            base.computation = details.meaning || '';
+            base.explanations.why = Array.isArray(details.why) ? details.why.join('. ') : (details.why || '');
 
-            // Verdict
-            if (state.state === 'Stable') base.verdict = { label: 'Systems Normal', color: 'var(--signal-ok)' };
-            else if (state.state === 'Elevated') base.verdict = { label: 'Keep an eye', color: 'var(--signal-warn)' };
-            else base.verdict = { label: 'Action Recommended', color: 'var(--signal-crit)' };
+            // Top contributors
+            if (details.top_contributors && details.top_contributors.length > 0) {
+                base.top = details.top_contributors.map(c => ({
+                    label: c.label || c.type || 'Item',
+                    value: typeof c.value === 'number' ? c.value.toLocaleString() : (c.value || ''),
+                    hint: c.hint || ''
+                }));
+            }
+
+            // Actions
+            if (details.next_step) {
+                base.actions = [{
+                    label: details.next_step.label,
+                    tab: details.next_step.href?.replace('#', '') || 'overview'
+                }];
+            }
+
+            // Sources info
+            if (details.sources && details.sources.length > 0) {
+                base.explanations.next_checks = details.sources;
+            }
+        }
+
+        if (kind === 'networkState') {
+            base.title = 'Network State';
+            base.value = card?.value || this.getNetworkState().state;
+
+            // Verdict based on state
+            if (base.value === 'Stable' || base.value === 'Learning') {
+                base.verdict = { label: 'Systems Normal', color: 'var(--signal-ok)' };
+            } else if (base.value === 'Elevated') {
+                base.verdict = { label: 'Keep monitoring', color: 'var(--signal-warn)' };
+            } else if (base.value === 'Needs review') {
+                base.verdict = { label: 'Action recommended', color: 'var(--signal-warn)' };
+            }
 
             // Components Health List
             const health = this.serverHealth || {};
@@ -1642,128 +1676,173 @@ export const Store = () => ({
                 { label: 'Database', status: health.database ? 'Connected' : 'Error', color: health.database ? 'var(--signal-ok)' : 'var(--signal-crit)' }
             ];
 
-            base.actions = [{ label: 'Go to Network Page', tab: 'server' }];
-
         } else if (kind === 'alerts') {
-            const sum = this.getAlertsSummary();
             base.title = 'Actionable Alerts';
-            base.value = sum.count;
-            base.computation = `Count of unresolved security alerts from IDS and Firewall analysis (` + (this.alertHistory?.active_alerts?.length || 0) + ` active).`;
-            base.explanations.why = 'Alerts generated by analysis rules.';
-            base.explanations.what_changed = sum.subtext;
+            base.value = card?.count !== undefined ? card.count.toLocaleString() : this.getAlertsSummary().count;
 
-            if (this.alertHistory?.active_count > 0) {
-                base.verdict = { label: 'Review Alerts', color: 'var(--signal-warn)' };
-                base.actions = [{ label: 'View Security Events', tab: 'security' }];
+            if (card && card.actionable) {
+                base.verdict = { label: 'Review alerts', color: 'var(--signal-warn)' };
+            } else {
+                base.verdict = { label: 'No active threats', color: 'var(--signal-ok)' };
+            }
 
-                // Top Contributors (Alert Types)
-                const alerts = this.alertHistory?.active_alerts || [];
+            // Severity breakdown
+            if (card?.severity_breakdown) {
+                const breakdown = card.severity_breakdown;
+                base.breakdowns = Object.entries(breakdown)
+                    .filter(([_, count]) => count > 0)
+                    .map(([severity, count]) => ({
+                        label: severity.charAt(0).toUpperCase() + severity.slice(1),
+                        value: count
+                    }));
+            }
+
+            // Fallback to existing logic if no intelligence data
+            if (!details && this.alertHistory?.active_count > 0) {
+                const alerts = this.alertHistory.active_alerts || [];
                 const types = {};
                 alerts.forEach(a => types[a.type] = (types[a.type] || 0) + 1);
                 base.top = Object.entries(types)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 3)
                     .map(([k, v]) => ({ label: k, value: `${v} active` }));
-
-            } else {
-                base.verdict = { label: 'No active threats', color: 'var(--signal-ok)' };
-                // Show history if clear
-                base.breakdowns.push({ label: 'Resolved (24h)', value: this.alertHistory?.total || 0 });
             }
 
         } else if (kind === 'trafficLevel') {
-            const traffic = this.getTrafficLevel();
             base.title = 'Traffic Level';
-            base.value = traffic.level;
-            base.computation = `Total bytes observed (${this.fmtBytes(this.summary?.totals?.bytes || 0)}) compared against ${this.timeRange} moving baseline.`;
-            base.explanations.why = 'Volume comparison vs historical baseline.';
-            base.explanations.what_changed = traffic.subtext;
-            base.verdict = { label: 'Normal Variation', color: 'var(--signal-ok)' };
+            base.value = card?.level || this.getTrafficLevel().level;
 
-            // Stats
-            const stats = this.networkStatsOverview?.trends || {};
-            if (stats.bytes_diff_pct) {
-                base.breakdowns.push({ label: 'Change vs Prev', value: (stats.bytes_diff_pct > 0 ? '+' : '') + stats.bytes_diff_pct + '%' });
+            // Breakdowns from intelligence
+            if (card) {
+                if (card.learning) {
+                    base.verdict = { label: 'Baseline warming', color: 'var(--text-muted)' };
+                } else if (card.deviation_pct !== null && card.deviation_pct !== undefined) {
+                    base.breakdowns = [
+                        { label: 'Observed flows', value: card.observed?.toLocaleString() || '—' },
+                        { label: 'Baseline flows', value: card.baseline ? Math.round(card.baseline).toLocaleString() : '—' },
+                        { label: 'Deviation', value: (card.deviation_pct > 0 ? '+' : '') + card.deviation_pct + '%' }
+                    ];
+
+                    if (Math.abs(card.deviation_pct) <= 25) {
+                        base.verdict = { label: 'Normal variation', color: 'var(--signal-ok)' };
+                    } else if (card.deviation_pct > 75) {
+                        base.verdict = { label: 'Traffic spike', color: 'var(--signal-warn)' };
+                    } else {
+                        base.verdict = { label: 'Elevated activity', color: 'var(--signal-warn)' };
+                    }
+                }
             }
 
-            // Top Sources
-            const sources = this.networkStatsOverview?.top_sources || [];
-            if (sources.length > 0) {
-                base.top = sources.slice(0, 3).map(s => ({
-                    label: s.ip,
-                    value: this.fmtBytes(s.bytes),
-                    hint: s.hostname || 'Unknown Host'
-                }));
+            // Fallback to top sources if no intelligence contributors
+            if (!details?.top_contributors || details.top_contributors.length === 0) {
+                const sources = this.networkStatsOverview?.top_sources || [];
+                if (sources.length > 0) {
+                    base.top = sources.slice(0, 3).map(s => ({
+                        label: s.ip,
+                        value: this.fmtBytes(s.bytes),
+                        hint: s.hostname || 'Source'
+                    }));
+                }
             }
-            base.actions = [{ label: 'Explore Traffic Flows', tab: 'traffic' }];
 
         } else if (kind === 'protectedConnections') {
-            const prot = this.getProtectedSummary();
-            base.title = 'Protected Connections';
-            base.value = prot.count;
-            base.computation = `Total firewall block events recorded in the last 24h.`;
-            base.explanations.why = 'Connections blocked by firewall rules (scanners, blocklists).';
-            base.verdict = { label: 'Protection Active', color: 'var(--signal-ok)' };
+            base.title = 'Protected (24h)';
+            base.value = card?.count !== undefined ? card.count.toLocaleString() : this.getProtectedSummary().count;
+
+            // This is always good!
+            base.verdict = { label: 'Protection active', color: 'var(--signal-ok)' };
 
             // Breakdown
             const blocks = this.firewallStatsOverview?.blocked_events_24h || 0;
             const unique = this.firewallStatsOverview?.unique_blocked_sources || 0;
-            base.breakdowns.push({ label: 'Total Blocks', value: blocks.toLocaleString() });
-            base.breakdowns.push({ label: 'Unique Sources', value: unique.toLocaleString() });
+            if (blocks > 0) {
+                base.breakdowns.push({ label: 'Total blocks', value: blocks.toLocaleString() });
+                base.breakdowns.push({ label: 'Unique sources', value: unique.toLocaleString() });
+            }
 
-            // Top Blocked
-            const blocked = this.firewallStatsOverview?.top_blocked_sources || [];
-            base.top = blocked.slice(0, 3).map(b => ({
-                label: b.ip,
-                value: b.count.toLocaleString() + ' blocks',
-                hint: b.country
-            }));
-            base.actions = [{ label: 'View Firewall Logs', tab: 'firewall' }];
+            // Fallback to top blocked if no intelligence contributors
+            if (!details?.top_contributors || details.top_contributors.length === 0) {
+                const blocked = this.firewallStatsOverview?.top_blocked_sources || [];
+                if (blocked.length > 0) {
+                    base.top = blocked.slice(0, 3).map(b => ({
+                        label: b.ip,
+                        value: b.count.toLocaleString() + ' blocks',
+                        hint: b.country || 'Blocked'
+                    }));
+                }
+            }
 
         } else if (kind === 'internetExposure') {
-            const exp = this.getExposureSummary();
             base.title = 'Attack Surface';
-            base.value = exp.value;
-            base.computation = `Count of unique public IP addresses contacted by internal hosts.`;
-            base.explanations.why = 'Measures external footprint and potential data exfiltration paths.';
-            base.explanations.what_changed = exp.subtext;
+            base.value = card?.state || this.getExposureSummary().value;
 
-            if (exp.value === 'High' || exp.value === 'Above usual') base.verdict = { label: 'Check Destinations', color: 'var(--signal-warn)' };
-            else base.verdict = { label: 'Normal Spread', color: 'var(--signal-ok)' };
+            // Breakdowns from intelligence
+            if (card) {
+                if (card.learning) {
+                    base.verdict = { label: 'Baseline warming', color: 'var(--text-muted)' };
+                } else if (card.deviation_pct !== null && card.deviation_pct !== undefined) {
+                    base.breakdowns = [
+                        { label: 'Observed IPs', value: card.observed?.toLocaleString() || '—' },
+                        { label: 'Baseline IPs', value: card.baseline ? Math.round(card.baseline).toLocaleString() : '—' },
+                        { label: 'Deviation', value: (card.deviation_pct > 0 ? '+' : '') + card.deviation_pct + '%' }
+                    ];
 
-            // Top Destinations
-            const dests = this.networkStatsOverview?.top_destinations || [];
-            base.top = dests.slice(0, 3).map(d => ({
-                label: d.ip,
-                value: this.fmtBytes(d.bytes),
-                hint: d.country || 'Unknown'
-            }));
-            base.actions = [{ label: 'View Destinations', tab: 'overview', scroll: 'section-worldmap' }];
+                    if (card.state === 'High') {
+                        base.verdict = { label: 'Check destinations', color: 'var(--signal-warn)' };
+                    } else if (card.state === 'Medium') {
+                        base.verdict = { label: 'Moderate spread', color: 'var(--text-primary)' };
+                    } else {
+                        base.verdict = { label: 'Normal spread', color: 'var(--signal-ok)' };
+                    }
+                }
+            }
+
+            // Fallback to top destinations if no intelligence contributors
+            if (!details?.top_contributors || details.top_contributors.length === 0) {
+                const dests = this.networkStatsOverview?.top_destinations || [];
+                if (dests.length > 0) {
+                    base.top = dests.slice(0, 3).map(d => ({
+                        label: d.ip,
+                        value: this.fmtBytes(d.bytes),
+                        hint: d.country || 'Destination'
+                    }));
+                }
+            }
 
         } else if (kind === 'unusualActivity') {
-            const unusual = this.getUnusualActivitySummary();
             base.title = 'Unusual Activity';
-            base.value = unusual.value;
-            base.computation = `Statistical anomalies detected in flow patterns (spikes, new ports, new services).`;
-            base.explanations.why = 'Deviations from standard behavior models.';
-            base.explanations.what_changed = unusual.subtext;
+            base.value = card?.count !== undefined ? (card.count === 0 ? 'None' : card.count.toLocaleString()) : this.getUnusualActivitySummary().value;
 
-            if (unusual.value !== 'All clear') {
-                base.verdict = { label: 'Investigate', color: 'var(--signal-warn)' };
-            } else {
-                base.verdict = { label: 'No Anomalies', color: 'var(--signal-ok)' };
+            // Verdict based on intelligence
+            if (card) {
+                if (card.learning) {
+                    base.verdict = { label: 'Learning patterns', color: 'var(--text-muted)' };
+                } else if (card.actionable && card.count > 0) {
+                    base.verdict = { label: 'Review details', color: 'var(--signal-warn)' };
+                } else {
+                    base.verdict = { label: 'No anomalies', color: 'var(--signal-ok)' };
+                }
+
+                // Breakdowns from drivers
+                if (card.drivers && card.drivers.length > 0) {
+                    base.breakdowns = card.drivers.map(d => ({
+                        label: (d.type || 'pattern').replace(/_/g, ' '),
+                        value: d.count
+                    }));
+                }
             }
 
-            // Show signals if any
-            const signals = this.healthSignals?.signals || [];
-            if (signals.length > 0) {
-                base.top = signals.slice(0, 5).map(s => ({
-                    label: s.type ? s.type.replace(/_/g, ' ') : 'Anomaly',
-                    value: this.timeAgo(s.ts),
-                    hint: s.details || ''
-                }));
+            // Fallback to signals if no intelligence contributors
+            if (!details?.top_contributors || details.top_contributors.length === 0) {
+                const signals = this.healthSignals?.signals || [];
+                if (signals.length > 0) {
+                    base.top = signals.slice(0, 5).map(s => ({
+                        label: s.type ? s.type.replace(/_/g, ' ') : 'Anomaly',
+                        value: this.timeAgo(s.ts),
+                        hint: s.details || ''
+                    }));
+                }
             }
-            base.actions = [{ label: 'Go to Network Page', tab: 'network' }];
         }
 
         this.statDetail = base;
@@ -2865,6 +2944,7 @@ export const Store = () => ({
             this.fetchBaselineSignals(),
             this.fetchHealthSignals(),
             this.fetchOverviewInsights(),
+            this.fetchOverviewIntelligence(),
             this.fetchIngestionRates(),
             this.fetchChangeTimeline(),
             this.fetchPersonality(),
@@ -6464,6 +6544,25 @@ export const Store = () => ({
         }
     },
 
+    async fetchOverviewIntelligence() {
+        this.overviewIntelligence.loading = true;
+        this.overviewIntelligence.error = null;
+        try {
+            const res = await fetch(`/api/overview/intelligence?range=${this.timeRange}`);
+            if (res.ok) {
+                const d = await res.json();
+                this.overviewIntelligence = { ...d, loading: false, error: null };
+            } else {
+                this.overviewIntelligence.loading = false;
+                this.overviewIntelligence.error = `Intelligence error: ${res.status}`;
+            }
+        } catch (e) {
+            console.error('Intelligence fetch error:', e);
+            this.overviewIntelligence.loading = false;
+            this.overviewIntelligence.error = 'Intelligence unavailable';
+        }
+    },
+
     async fetchHealthSignals() {
         this.healthSignals.loading = true;
         try {
@@ -8825,6 +8924,7 @@ export const Store = () => ({
                 this.fetchBaselineSignals();
                 this.fetchHealthSignals();
                 this.fetchOverviewInsights();
+                this.fetchOverviewIntelligence();
                 this.fetchChangeTimeline();
                 this.lastFetch.overview = now;
             }
