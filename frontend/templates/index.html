@@ -1435,21 +1435,22 @@
                                 <label class="label" for="ip-meta-owner">
                                     <span class="label-text">Owner</span>
                                 </label>
-                                <input id="ip-meta-owner" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.owner"
-                                    placeholder="e.g. IT Ops" />
+                                <input id="ip-meta-owner" type="text" class="cyber-input w-full"
+                                    x-model="ipDetails.metadata.owner" placeholder="e.g. IT Ops" />
                             </div>
                             <div class="form-control">
                                 <label class="label" for="ip-meta-device">
                                     <span class="label-text">Device Type</span>
                                 </label>
-                                <input id="ip-meta-device" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.device_type"
-                                    placeholder="e.g. Printer, NAS" />
+                                <input id="ip-meta-device" type="text" class="cyber-input w-full"
+                                    x-model="ipDetails.metadata.device_type" placeholder="e.g. Printer, NAS" />
                             </div>
                             <div class="form-control">
                                 <label class="label" for="ip-meta-criticality">
                                     <span class="label-text">Criticality</span>
                                 </label>
-                                <select id="ip-meta-criticality" class="cyber-input w-full" x-model="ipDetails.metadata.criticality">
+                                <select id="ip-meta-criticality" class="cyber-input w-full"
+                                    x-model="ipDetails.metadata.criticality">
                                     <option value="">Unspecified</option>
                                     <option value="low">Low</option>
                                     <option value="medium">Medium</option>
@@ -1461,15 +1462,15 @@
                                 <label class="label" for="ip-meta-tags">
                                     <span class="label-text">Tags</span>
                                 </label>
-                                <input id="ip-meta-tags" type="text" class="cyber-input w-full" x-model="ipDetails.metadata.tags_text"
-                                    placeholder="tag1, tag2" />
+                                <input id="ip-meta-tags" type="text" class="cyber-input w-full"
+                                    x-model="ipDetails.metadata.tags_text" placeholder="tag1, tag2" />
                             </div>
                             <div class="form-control">
                                 <label class="label" for="ip-meta-notes">
                                     <span class="label-text">Notes</span>
                                 </label>
-                                <textarea id="ip-meta-notes" class="cyber-input w-full" rows="3" x-model="ipDetails.metadata.notes"
-                                    placeholder="Add a short note..."></textarea>
+                                <textarea id="ip-meta-notes" class="cyber-input w-full" rows="3"
+                                    x-model="ipDetails.metadata.notes" placeholder="Add a short note..."></textarea>
                             </div>
                             <div class="flex items-center gap-2" style="margin-top: 10px;">
                                 <button class="btn btn-sm btn-primary" @click="saveHostMetadata()"
@@ -2141,33 +2142,37 @@
                             <div>
                                 <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Traffic Level</div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="getTrafficLevelSummary().level">
+                                    x-text="getTrafficLevel().level">
                                 </div>
                                 <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
-                                    x-text="getTrafficLevelSummary().detail"></div>
+                                    x-text="getTrafficLevel().subtext"></div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Internet Exposure</div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Internet Exposure
+                                </div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
                                     x-text="getExposureSummary().level">
                                 </div>
                                 <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
-                                    x-text="getExposureSummary().detail"></div>
+                                    x-text="'Unique IPs: ' + getExposureSummary().value"></div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Protected Connections</div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Protected Connections
+                                </div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
                                     x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)">
                                 </div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Firewall blocking background noise</div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Firewall blocking
+                                    background noise</div>
                             </div>
                             <div>
-                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Unusual Activity</div>
+                                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">Unusual Activity
+                                </div>
                                 <div style="font-size:var(--text-lg); font-weight:var(--font-weight-semibold); color:var(--text-0);"
-                                    x-text="getUnusualActivitySummary().headline">
+                                    x-text="getUnusualActivitySummary().value">
                                 </div>
                                 <div style="font-size:var(--text-xs); color:var(--text-tertiary);"
-                                    x-text="getUnusualActivitySummary().detail"></div>
+                                    x-text="getUnusualActivitySummary().subtext"></div>
                             </div>
                         </div>
                     </div>
@@ -2230,7 +2235,8 @@
                         </div>
                     </template>
 
-                    <template x-if="statDetail.explanations && (statDetail.explanations.why || statDetail.explanations.what_changed || (statDetail.explanations.next_checks && statDetail.explanations.next_checks.length))">
+                    <template
+                        x-if="statDetail.explanations && (statDetail.explanations.why || statDetail.explanations.what_changed || (statDetail.explanations.next_checks && statDetail.explanations.next_checks.length))">
                         <div class="stat-detail-section">
                             <h4 class="stat-detail-section-title">Why this matters</h4>
                             <p class="stat-detail-paragraph" x-text="statDetail.explanations.why || '—'"></p>
@@ -2238,11 +2244,13 @@
                             <h4 class="stat-detail-section-title">What changed</h4>
                             <p class="stat-detail-paragraph" x-text="statDetail.explanations.what_changed || '—'"></p>
 
-                            <template x-if="statDetail.explanations.next_checks && statDetail.explanations.next_checks.length">
+                            <template
+                                x-if="statDetail.explanations.next_checks && statDetail.explanations.next_checks.length">
                                 <div>
                                     <h4 class="stat-detail-section-title">What to check next</h4>
                                     <ul class="stat-detail-checks">
-                                        <template x-for="(item, idx) in statDetail.explanations.next_checks" :key="'next-' + idx">
+                                        <template x-for="(item, idx) in statDetail.explanations.next_checks"
+                                            :key="'next-' + idx">
                                             <li x-text="item"></li>
                                         </template>
                                     </ul>

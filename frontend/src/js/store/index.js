@@ -1348,130 +1348,123 @@ export const Store = () => ({
         return { delta, direction, lastHour, prevHour, text, color };
     },
 
-    // Overview: Network status derived from alerts and baseline signals
-    getNetworkStatusSummary() {
+    // Overview: Network State (Evidence Layer)
+    getNetworkState() {
         const signals = new Set(this.baselineSignals?.signals || []);
         const activeAlerts = this.alertHistory?.active_count ?? 0;
         const trend = this.getActiveAlertTrend();
 
-        const spikes = signals.has('anomalies_spike') || signals.has('firewall_blocks_spike');
-        const elevatedSignals = signals.has('active_flows_spike') || signals.has('external_connections_spike') || signals.has('anomalies_present');
-
         let state = 'Stable';
-        let headline = 'Network Stable';
-        let detail = 'No major risks detected';
+        let subtext = 'Traffic within baseline';
         let color = 'var(--signal-ok)';
 
-        if (spikes || activeAlerts >= 3 || trend.delta >= 3) {
-            state = 'Investigate';
-            headline = 'Investigate Activity';
-            detail = 'Multiple signals need review';
+        if (this.serverHealth.loading && !this.serverHealth.netflow) {
+            state = 'Learning';
+            subtext = 'Establishing baseline';
+            color = 'var(--text-muted)';
+        } else if (activeAlerts >= 3 || signals.has('anomalies_spike')) {
+            state = 'Degraded';
+            subtext = 'Multiple anomalies detected';
             color = 'var(--signal-crit)';
-        } else if (activeAlerts > 0 || elevatedSignals) {
+        } else if (activeAlerts > 0 || signals.size > 0) {
             state = 'Elevated';
-            headline = 'Elevated Activity';
-            detail = 'Traffic patterns outside baseline';
+            subtext = 'Activity above normal levels';
             color = 'var(--signal-warn)';
         }
 
-        return { state, headline, detail, color };
+        return { state, subtext, color };
     },
 
-    // Overview: Traffic level with baseline comparison if available
-    getTrafficLevelSummary() {
+    // Overview: Alerts (Last 1h)
+    getAlertsSummary() {
+        const count = this.alertHistory?.active_count ?? 0;
+        const alerts = this.alertHistory?.active_alerts || [];
+
+        let subtext = 'No active threats';
+        if (count > 0) {
+            // Find most common type
+            const types = {};
+            alerts.forEach(a => { types[a.type] = (types[a.type] || 0) + 1; });
+            const topType = Object.entries(types).sort((a, b) => b[1] - a[1])[0];
+            subtext = topType ? `Mostly ${topType[0].toLowerCase()}` : 'Various alerts';
+        }
+
+        return { count: count.toLocaleString(), subtext };
+    },
+
+    // Overview: Traffic Level
+    getTrafficLevel() {
         const bytes = this.summary?.totals?.bytes || 0;
         const hours = this.getRangeHours(this.timeRange);
         const bytesPerHour = hours > 0 ? bytes / hours : bytes;
         const activeFlows = this.baselineSignals?.metrics?.active_flows;
         const baseline = this.baselineSignals?.baseline_stats?.active_flows?.mean;
-        let ratio = null;
-        if (baseline && activeFlows !== null && activeFlows !== undefined) {
-            ratio = activeFlows / Math.max(1, baseline);
-        }
 
         let level = 'Normal';
-        if (ratio !== null) {
+        let subtext = 'Traffic at baseline';
+        let ratio = null;
+
+        if (baseline && activeFlows !== undefined) {
+            ratio = activeFlows / Math.max(1, baseline);
+            const pct = Math.round((ratio - 1) * 100);
+            const sign = pct > 0 ? '+' : '';
+            subtext = `${sign}${pct}% vs baseline`;
+
             if (ratio < 0.6) level = 'Low';
-            else if (ratio < 1.2) level = 'Normal';
-            else if (ratio < 1.8) level = 'High';
-            else level = 'Very High';
+            else if (ratio < 1.4) level = 'Normal';
+            else level = 'High';
         } else {
-            if (bytesPerHour < 100 * 1024 * 1024) level = 'Low';
-            else if (bytesPerHour < 1024 * 1024 * 1024) level = 'Normal';
-            else if (bytesPerHour < 5 * 1024 * 1024 * 1024) level = 'High';
-            else level = 'Very High';
+            subtext = 'Learning baseline';
         }
 
-        let detail = `${this.fmtBytes(bytesPerHour)}/hr`;
-        if (ratio !== null) {
-            const pct = Math.round(Math.abs((ratio - 1) * 100));
-            if (pct === 0) {
-                detail = 'At baseline';
-            } else {
-                const arrow = ratio >= 1 ? '↑' : '↓';
-                detail = `${arrow} ${pct}% vs baseline`;
-            }
-        }
-
-        return { level, detail, bytesPerHour };
+        return { level, subtext };
     },
 
-    // Overview: Internet exposure summary
+    // Overview: Protected Connections (24h)
+    getProtectedSummary() {
+        const blocks = this.firewallStatsOverview?.blocked_events_24h ?? 0;
+        const subtext = blocks > 0 ? 'Background scans blocked' : 'No blocks recorded';
+        return { count: blocks.toLocaleString(), subtext };
+    },
+
+    // Overview: Internet Exposure
     getExposureSummary() {
-        const uniqueExternal = this.networkStatsOverview?.external_unique_ips;
-        const fallbackExternal = this.networkStatsOverview?.external_connections;
-        const count = uniqueExternal !== null && uniqueExternal !== undefined ? uniqueExternal : fallbackExternal;
-
+        const uniqueExternal = this.networkStatsOverview?.external_unique_ips ?? 0;
         const baseline = this.baselineSignals?.baseline_stats?.external_connections?.mean;
-        let level = 'Moderate';
-        if (baseline && count !== null && count !== undefined) {
-            const ratio = count / Math.max(1, baseline);
-            if (ratio < 0.7) level = 'Low';
-            else if (ratio < 1.4) level = 'Moderate';
-            else level = 'High';
-        } else if (count !== null && count !== undefined) {
-            if (count < 20) level = 'Low';
-            else if (count < 100) level = 'Moderate';
-            else level = 'High';
+
+        let level = 'Typical';
+        let subtext = 'Normal desination spread';
+
+        if (baseline) {
+            const ratio = uniqueExternal / Math.max(1, baseline);
+            if (ratio > 1.5) {
+                level = 'Above usual';
+                subtext = 'High external fan-out';
+            } else if (ratio < 0.5) {
+                level = 'Below typical';
+                subtext = 'Low external activity';
+            }
+        } else {
+            subtext = 'Learning baseline';
         }
 
-        const detailCount = count !== null && count !== undefined ? Number(count).toLocaleString() : '—';
-        const detail = `Unique external IPs: ${detailCount}`;
-        const note = level === 'Low' ? 'Mostly known destinations' : level === 'Moderate' ? 'Normal destination spread' : 'Wide destination spread';
-        return { level, detail, note };
+        return { value: Number(uniqueExternal).toLocaleString(), level, subtext };
     },
 
-    // Overview: Unusual activity summary
+    // Overview: Unusual Activity
     getUnusualActivitySummary() {
-        const count = this.networkStatsOverview?.anomalies_count ?? this.baselineSignals?.metrics?.anomalies_24h ?? 0;
+        const count = this.networkStatsOverview?.anomalies_count ?? 0;
         const signals = this.healthSignals?.signals || [];
         let lastTs = null;
         for (const s of signals) {
-            const type = (s?.type || '').toLowerCase();
-            const msg = (s?.msg || '').toLowerCase();
-            if (type.includes('anomaly') || msg.includes('anomaly')) {
-                const ts = s?.ts || null;
-                if (ts && (!lastTs || ts > lastTs)) lastTs = ts;
-            }
+            if (s.ts && (!lastTs || s.ts > lastTs)) lastTs = s.ts;
         }
 
-        if (!count) {
-            return {
-                headline: 'All Clear',
-                detail: 'No unusual patterns detected',
-                color: 'var(--signal-ok)',
-                lastDetected: null
-            };
-        }
+        const value = count === 0 ? 'All clear' : `${count} Anomalies`;
+        const subtext = count === 0 ? 'No unusual patterns' : (lastTs ? `Last: ${this.timeAgo(lastTs)}` : 'Recently detected');
+        const color = count === 0 ? 'var(--signal-ok)' : 'var(--signal-warn)';
 
-        const spikesLabel = `${count} spike${count === 1 ? '' : 's'}`;
-        const lastDetected = lastTs ? `Last detected: ${this.timeAgo(lastTs)}` : 'Recently detected';
-        return {
-            headline: spikesLabel,
-            detail: lastDetected,
-            color: 'var(--signal-warn)',
-            lastDetected
-        };
+        return { value, subtext, color };
     },
 
     getOverviewStat(kind) {
@@ -1479,108 +1472,98 @@ export const Store = () => ({
     },
 
     getDeltaDisplay(kind) {
-        const stat = this.getOverviewStat(kind);
-        if (!stat || stat.delta_1h === null || stat.delta_1h === undefined) {
-            return { text: 'Δ 1h: —', cls: 'stat-delta stat-delta-unknown' };
-        }
-
-        const trend = stat.trend || 'unknown';
-        const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
-        const sign = typeof stat.delta_1h === 'number' ? (stat.delta_1h > 0 ? '+' : '') : '';
-        let valueText = stat.delta_1h;
-
-        if (kind === 'trafficLevel' && typeof stat.delta_1h === 'number') {
-            valueText = this.fmtBytes(Math.abs(stat.delta_1h));
-        } else if (typeof stat.delta_1h === 'number') {
-            valueText = Math.abs(stat.delta_1h).toLocaleString();
-        }
-
-        let pctText = '';
-        if (typeof stat.delta_pct_1h === 'number' && isFinite(stat.delta_pct_1h)) {
-            pctText = ` (${Math.abs(stat.delta_pct_1h).toFixed(0)}%)`;
-        }
-
-        return {
-            text: `Δ 1h: ${arrow} ${sign}${valueText}${pctText}`,
-            cls: `stat-delta stat-delta-${trend}`
-        };
+        // Kept for backward compatibility if needed, but new stats handle their own subtext
+        return { text: '', cls: '' };
     },
 
     openStatDetail(kind) {
-        const insight = this.getOverviewStat(kind);
-        if (insight && insight.detail) {
-            const formatValue = (val) => {
-                if (val === null || val === undefined) return '—';
-                return typeof val === 'number' ? val.toLocaleString() : val;
-            };
-            this.statDetail = {
-                title: insight.detail.headline || 'Overview Detail',
-                value: formatValue(insight.value),
-                window: this.overviewInsights?.window?.label || 'last 60m vs previous 60m',
-                breakdowns: insight.detail.breakdowns || [],
-                top: insight.detail.top || [],
-                explanations: insight.detail.explanations || {}
-            };
-            this.statDetailOpen = true;
-            return;
-        }
+        const base = {
+            title: 'Detail',
+            value: '—',
+            window: 'Last 1h',
+            breakdowns: [],
+            top: [],
+            explanations: { why: '', what_changed: '', next_checks: [] }
+        };
 
-        let detail = { title: '', value: '', description: '', hint: '' };
+        if (kind === 'networkState') {
+            const state = this.getNetworkState();
+            base.title = 'Network State';
+            base.value = state.state;
+            base.explanations.why = `System state is ${state.state.toLowerCase()} based on current signal aggregation.`;
+            base.explanations.what_changed = `Current alert count: ${this.alertHistory?.active_count ?? 0}.`;
 
-        if (kind === 'networkStatus') {
-            const status = this.getNetworkStatusSummary();
-            detail = {
-                title: 'Network Status',
-                value: status.headline,
-                description: status.detail,
-                hint: 'Derived from alerts, unusual activity, and system health.'
-            };
-        } else if (kind === 'activeAlerts') {
-            const count = this.alertHistory?.active_count;
-            const value = count === null || count === undefined ? '—' : `${Number(count).toLocaleString()} active`;
-            const trend = this.getActiveAlertTrend();
-            detail = {
-                title: 'Active Alerts',
-                value,
-                description: trend.text,
-                hint: 'Active alerts reflect current items needing review.'
-            };
+            // Contributors: Signals
+            const signals = this.baselineSignals?.signals || [];
+            if (signals.length > 0) {
+                base.top = signals.map(s => ({ label: s.replace(/_/g, ' '), value: 'Active' }));
+            } else {
+                base.top = [{ label: 'Signals', value: 'None active' }];
+            }
+        } else if (kind === 'alerts') {
+            const sum = this.getAlertsSummary();
+            base.title = 'Active Alerts';
+            base.value = sum.count;
+            base.explanations.why = 'Alerts generated by IDS and Firewall analysis rules.';
+
+            // Top contributors
+            const alerts = this.alertHistory?.active_alerts || [];
+            const types = {};
+            alerts.forEach(a => types[a.type] = (types[a.type] || 0) + 1);
+            base.top = Object.entries(types)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([k, v]) => ({ label: k, value: v }));
         } else if (kind === 'trafficLevel') {
-            const traffic = this.getTrafficLevelSummary();
-            detail = {
-                title: 'Traffic Level',
-                value: `Traffic: ${traffic.level}`,
-                description: traffic.detail,
-                hint: 'Based on recent volume and baseline activity.'
-            };
+            const traffic = this.getTrafficLevel();
+            base.title = 'Traffic Level';
+            base.value = traffic.level;
+            base.explanations.what_changed = traffic.subtext;
+
+            // Top contributors
+            const sources = this.networkStatsOverview?.top_sources || [];
+            base.top = sources.slice(0, 3).map(s => ({
+                label: s.ip,
+                value: this.fmtBytes(s.bytes),
+                hint: s.hostname
+            }));
         } else if (kind === 'protectedConnections') {
-            const blocks = this.firewallStatsOverview?.blocked_events_24h;
-            const value = blocks === null || blocks === undefined ? '—' : Number(blocks).toLocaleString();
-            detail = {
-                title: 'Protected Connections',
-                value,
-                description: 'Firewall is filtering routine background noise.',
-                hint: 'Count reflects the last 24 hours of blocks.'
-            };
+            const prot = this.getProtectedSummary();
+            base.title = 'Protected Connections';
+            base.value = prot.count;
+            base.explanations.why = 'These connections were blocked by firewall rules.';
+
+            // Top blocked
+            const blocked = this.firewallStatsOverview?.top_blocked_sources || [];
+            base.top = blocked.slice(0, 3).map(b => ({
+                label: b.ip,
+                value: b.count,
+                hint: b.country
+            }));
         } else if (kind === 'internetExposure') {
-            const exposure = this.getExposureSummary();
-            detail = {
-                title: 'Internet Exposure',
-                value: `Exposure: ${exposure.level}`,
-                description: exposure.detail,
-                hint: exposure.note
-            };
+            const exp = this.getExposureSummary();
+            base.title = 'Internet Exposure';
+            base.value = exp.value;
+            base.explanations.why = 'Number of unique external IP addresses contacted.';
+
+            // Top dests
+            const dests = this.networkStatsOverview?.top_destinations || [];
+            base.top = dests.slice(0, 3).map(d => ({
+                label: d.ip,
+                value: this.fmtBytes(d.bytes),
+                hint: d.country
+            }));
         } else if (kind === 'unusualActivity') {
             const unusual = this.getUnusualActivitySummary();
-            detail = {
-                title: 'Unusual Activity',
-                value: unusual.headline,
-                description: unusual.detail,
-                hint: 'Detected patterns that differ from typical behavior.'
-            };
+            base.title = 'Unusual Activity';
+            base.value = unusual.value;
+            base.explanations.why = 'Statistical anomalies in traffic patterns.';
+
+            // Breakdown of anomalies implied (though specific list might need better backend support)
+            base.explanations.what_changed = unusual.subtext;
         }
 
-        this.statDetail = detail;
+        this.statDetail = base;
         this.statDetailOpen = true;
     },
 

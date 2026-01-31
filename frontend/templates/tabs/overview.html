@@ -11,131 +11,119 @@
             x-text="summary.what_changed_1h || 'Learning changes… check back in a few minutes.'"></p>
     </div>
 
-    <!-- LEGACY HEADER METRICS (Restored) -->
+    <!-- EVIDENCE STAT BOXES -->
     <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:var(--space-4); margin-bottom:var(--space-6);">
-        <!-- 1. NETWORK STATUS -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('networkStatus')"
-            @keydown.enter="openStatDetail('networkStatus')"
-            @keydown.space.prevent="openStatDetail('networkStatus')"
-            aria-label="View Network Status Details"
+        <!-- 1. NETWORK STATE -->
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('networkState')"
+            @keydown.enter="openStatDetail('networkState')" @keydown.space.prevent="openStatDetail('networkState')"
+            aria-label="View Network State Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
             @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
-                    <span>NETWORK STATUS</span>
+                    <span>NETWORK STATE</span>
                 </div>
             </h2>
             <div class="stat-box-body">
                 <div class="stat-hero-value" style="font-size:1.1em; font-weight:600; margin-bottom:4px;"
-                    :style="'color: ' + getNetworkStatusSummary().color"
-                    x-text="getNetworkStatusSummary().headline">Network Stable</div>
-                <div :class="getDeltaDisplay('networkStatus').cls" x-text="getDeltaDisplay('networkStatus').text"></div>
+                    :style="'color: ' + getNetworkState().color" x-text="getNetworkState().state"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getNetworkStatusSummary().detail">No major risks detected</div>
+                    x-text="getNetworkState().subtext"></div>
             </div>
         </div>
 
-        <!-- 2. ACTIVE ALERTS -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('activeAlerts')"
-            @keydown.enter="openStatDetail('activeAlerts')"
-            @keydown.space.prevent="openStatDetail('activeAlerts')"
-            aria-label="View Active Alerts Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+        <!-- 2. ALERTS (1H) -->
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('alerts')"
+            @keydown.enter="openStatDetail('alerts')" @keydown.space.prevent="openStatDetail('alerts')"
+            aria-label="View Alerts Details"
+            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
+            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
-                    <span>ACTIVE ALERTS</span>
+                    <span>ALERTS (1H)</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
-                    x-text="formatNumOrDash(alertHistory?.active_count)"></div>
-                <div :class="getDeltaDisplay('activeAlerts').cls" x-text="getDeltaDisplay('activeAlerts').text"></div>
-                <div style="font-size:0.7em; margin-bottom:2px;" :style="'color: ' + getActiveAlertTrend().color"
-                    x-text="getActiveAlertTrend().text"></div>
+                <div class="stat-hero-value"
+                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    x-text="getAlertsSummary().count"></div>
+                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
+                    x-text="getAlertsSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 3. TRAFFIC LEVEL -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('trafficLevel')"
-            @keydown.enter="openStatDetail('trafficLevel')"
-            @keydown.space.prevent="openStatDetail('trafficLevel')"
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('trafficLevel')"
+            @keydown.enter="openStatDetail('trafficLevel')" @keydown.space.prevent="openStatDetail('trafficLevel')"
             aria-label="View Traffic Level Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
+            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
                     <span>TRAFFIC LEVEL</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero" style="margin-bottom:2px;">
-                    <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
-                        x-text="getTrafficLevelSummary().level"></span>
-                </div>
-                <div :class="getDeltaDisplay('trafficLevel').cls" x-text="getDeltaDisplay('trafficLevel').text"></div>
+                <div class="stat-hero-value"
+                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    x-text="getTrafficLevel().level"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getTrafficLevelSummary().detail"></div>
+                    x-text="getTrafficLevel().subtext"></div>
             </div>
         </div>
 
-        <!-- 4. PROTECTED CONNECTIONS -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('protectedConnections')"
+        <!-- 4. PROTECTED (24H) -->
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('protectedConnections')"
             @keydown.enter="openStatDetail('protectedConnections')"
             @keydown.space.prevent="openStatDetail('protectedConnections')"
             aria-label="View Protected Connections Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
+            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
-                    <span>PROTECTED CONNECTIONS</span>
+                    <span>PROTECTED (24H)</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero" style="margin-bottom:2px;">
-                    <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--signal-ok);"
-                        x-text="formatNumOrDash(firewallStatsOverview?.blocked_events_24h)"></span>
-                </div>
-                <div :class="getDeltaDisplay('protectedConnections').cls" x-text="getDeltaDisplay('protectedConnections').text"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;">Firewall blocking background noise</div>
+                <div class="stat-hero-value"
+                    style="font-size:1.4em; font-weight:600; color:var(--signal-ok); margin-bottom:2px;"
+                    x-text="getProtectedSummary().count"></div>
+                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
+                    x-text="getProtectedSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 5. INTERNET EXPOSURE -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('internetExposure')"
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('internetExposure')"
             @keydown.enter="openStatDetail('internetExposure')"
-            @keydown.space.prevent="openStatDetail('internetExposure')"
-            aria-label="View Internet Exposure Details"
-            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border);">
+            @keydown.space.prevent="openStatDetail('internetExposure')" aria-label="View Internet Exposure Details"
+            style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
+            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
                     <span>INTERNET EXPOSURE</span>
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero" style="margin-bottom:2px;">
-                    <span class="stat-hero-value" style="font-size:1.4em; font-weight:600; color:var(--text-primary);"
-                        x-text="getExposureSummary().level"></span>
-                </div>
-                <div :class="getDeltaDisplay('internetExposure').cls" x-text="getDeltaDisplay('internetExposure').text"></div>
+                <div class="stat-hero-value"
+                    style="font-size:1.4em; font-weight:600; color:var(--text-primary); margin-bottom:2px;"
+                    x-text="getExposureSummary().value"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getExposureSummary().detail"></div>
-                <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getExposureSummary().note"></div>
+                    x-text="getExposureSummary().subtext"></div>
             </div>
         </div>
 
         <!-- 6. UNUSUAL ACTIVITY -->
-        <div class="card" role="button" tabindex="0"
-            @click="openStatDetail('unusualActivity')"
+        <div class="card" role="button" tabindex="0" @click="openStatDetail('unusualActivity')"
             @keydown.enter="openStatDetail('unusualActivity')"
-            @keydown.space.prevent="openStatDetail('unusualActivity')"
-            aria-label="View Unusual Activity Details"
+            @keydown.space.prevent="openStatDetail('unusualActivity')" aria-label="View Unusual Activity Details"
             style="display:flex; flex-direction:column; background:rgba(20,20,25,0.6); border:1px solid var(--card-border); cursor: pointer; transition: transform 0.1s;"
-            :style="activeTab === 'overview' ? '' : ''" @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
+            @mouseenter="$el.style.background = 'rgba(30,30,35,0.7)'"
             @mouseleave="$el.style.background = 'rgba(20,20,25,0.6)'">
             <h2>
                 <div class="card-title-content">
@@ -143,14 +131,11 @@
                 </div>
             </h2>
             <div class="stat-box-body">
-                <div class="stat-hero" style="margin-bottom:2px;">
-                    <span class="stat-hero-value" style="font-size:1.4em; font-weight:600;"
-                        :style="'color: ' + getUnusualActivitySummary().color"
-                        x-text="getUnusualActivitySummary().headline"></span>
+                <div class="stat-hero-value" style="font-size:1.4em; font-weight:600; margin-bottom:2px;"
+                    :style="'color: ' + getUnusualActivitySummary().color" x-text="getUnusualActivitySummary().value">
                 </div>
-                <div :class="getDeltaDisplay('unusualActivity').cls" x-text="getDeltaDisplay('unusualActivity').text"></div>
                 <div style="font-size:0.7em; color:var(--text-tertiary); margin-bottom:2px;"
-                    x-text="getUnusualActivitySummary().detail"></div>
+                    x-text="getUnusualActivitySummary().subtext"></div>
             </div>
         </div>
     </div>
@@ -161,8 +146,8 @@
         <template x-if="isVisible('bandwidth')">
             {% call widget_card('bandwidth', 'Bandwidth & Flow Rate', '📊',
             period_x_text='global_time_range') %}
-            <div class="chart-wrapper chart-expandable"
-                @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')" title="Click to expand">
+            <div class="chart-wrapper chart-expandable" @click="openFullscreenChart('bwChart', 'Bandwidth & Flow Rate')"
+                title="Click to expand">
                 <canvas id="bwChart"></canvas>
             </div>
             {% endcall %}
